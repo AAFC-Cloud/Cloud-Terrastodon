@@ -23,3 +23,8 @@ See also: https://github.com/Azure/aztfexport
 - [policy](./policy/)
 - [policy-compliance](./policy-compliance/)
 - [rbac](./rbac/)
+
+
+## Copyright
+
+Copyright belongs to © His Majesty the King in Right of Canada, as represented by the Minister of Agriculture and Agri-Food, 2024.
