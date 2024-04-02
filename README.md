@@ -12,3 +12,6 @@
 ## Description
 
 UPDATE WITH ENGLISH DESCRIPTION
+
+Note: Code of conduct and Security tabs are populated from https://github.com/AAFC-Cloud/.github  
+Note: Remove these notes when using the template
