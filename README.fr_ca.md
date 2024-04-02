@@ -1,5 +1,5 @@
 <div align="center">
-    <h1>🎪FRENCH PROJECT NAME HERE🎪</h1>
+    <h1>☁🐘 Terrastodon Nuage</h1>
     <img src="logo.png" width="230">
     <br/>
 
