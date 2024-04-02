@@ -1,5 +1,5 @@
 <div align="center">
-    <h1>☁🐘 Terrastodon Nuage</h1>
+    <h1>☁🐘 Nuage Terrastodon</h1>
     <img src="logo.png" width="230">
     <br/>
 
