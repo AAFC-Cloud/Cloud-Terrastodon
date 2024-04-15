@@ -12,11 +12,13 @@ if (Test-Path .\ignore\public_ips.json) {
 # }
 $public_ips = @()
 do {
-    $resp = az graph query `
-    --graph-query "resources | where type =~ 'microsoft.network/publicipaddresses'" `
-    | ConvertFrom-Json
+    $params = "--graph-query", "resources | where type =~ 'microsoft.network/publicipaddresses'"
+    if (${resp}?.skip_token) {
+        $params += "--skip-token", $resp.skip_token
+    }
+    $resp = az graph query @params | ConvertFrom-Json
     $public_ips += $resp.data
-} until ($null -eq $resp.skip_token)
+} while ($null -ne $resp.skip_token)
 
 $public_ips `
     | ConvertTo-Json -Depth 100 `
