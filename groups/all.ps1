@@ -9,13 +9,14 @@ if (-not (Test-Path -Path $inputFolderPath)) {
 
 # Check if the input file exists and is not empty
 if (-not (Test-Path -Path $inputFilePath) -or [string]::IsNullOrWhiteSpace((Get-Content -Path $inputFilePath -ErrorAction SilentlyContinue))) {
-    # Create the file
-    New-Item -Path $inputFilePath -ItemType "file" -Force
-
-    # Warn the user and exit
-    Write-Warning "Please fill in $inputFilePath (newline separated names) and rerun the script."
-    exit
+    # Inputs not present, prompt the user
+    az ad group list --query [].displayName -o tsv `
+    | Sort-Object `
+    | fzf --multi --header "Select groups to import" --bind "ctrl-a:select-all,ctrl-d:deselect-all,ctrl-t:toggle-all" `
+    | Set-Content -Path $inputFilePath
 }
+
+New-Item -ItemType Directory -Path outputs\intermediate -Force
 
 . ".\01 - get groups.ps1"
 . ".\02 - build lookup.ps1"
