@@ -13,11 +13,12 @@ anyhow = "1.0.82"
 itertools = "0.12.1"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.116"
-azure = { version = "0.1.0", path = "./crates/azure" }
-fzf = { version = "0.1.0", path = "./crates/fzf" }
 tokio = { version = "1.37.0", features = ["full"] }
 tempfile = "3.10.1"
 indicatif = "0.17.8"
+azure = { version = "0.1.0", path = "./crates/azure" }
+fzf = { version = "0.1.0", path = "./crates/fzf" }
+command = { version = "0.1.0", path = "./crates/command" }
 
 
 [dependencies]
