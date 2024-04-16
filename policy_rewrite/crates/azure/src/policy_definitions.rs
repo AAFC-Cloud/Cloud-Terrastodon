@@ -5,8 +5,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use tokio::process::Command;
 use std::process::Stdio;
+use tokio::process::Command;
 
 use crate::errors::dump_to_ignore_file;
 use crate::prelude::ManagementGroupId;
@@ -59,12 +59,12 @@ pub async fn fetch_policy_definitions(
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         match serde_json::from_str(&stdout) {
-            Ok(results) => {
-                Ok(results)
-            },
+            Ok(results) => Ok(results),
             Err(e) => {
                 let context = dump_to_ignore_file(&stdout)?;
-                Err(e).context("deserializing").context(format!("dumped to {:?}", context))
+                Err(e)
+                    .context("deserializing")
+                    .context(format!("dumped to {:?}", context))
             }
         }
         // Ok(results)

@@ -3,8 +3,6 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
-use std::thread::sleep;
-use std::time::Duration;
 use tempfile::Builder;
 pub fn dump_to_ignore_file(content: &str) -> Result<PathBuf> {
     let dir_path = "ignore/";

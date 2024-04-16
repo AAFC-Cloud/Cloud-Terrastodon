@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
     let mut js = JoinSet::new();
 
     println!("Fetching policy definitions...");
-    
+
     let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
         .unwrap()
         .tick_chars("💤🎂");
@@ -42,7 +42,11 @@ async fn main() -> Result<()> {
     while let Some(res) = js.join_next().await {
         let (mg, pb, policy_definitions) = res?;
         let policy_definitions = policy_definitions?;
-        pb.finish_with_message(format!("Found {} policy definitions for {}", policy_definitions.len(), mg.display_name));
+        pb.finish_with_message(format!(
+            "Found {} policy definitions for {}",
+            policy_definitions.len(),
+            mg.display_name
+        ));
     }
 
     Ok(())

@@ -2,8 +2,8 @@ use anyhow::Error;
 use anyhow::Result;
 use serde::Deserialize;
 use serde::Serialize;
-use tokio::process::Command;
 use std::process::Stdio;
+use tokio::process::Command;
 
 pub type ManagementGroupId = String;
 
