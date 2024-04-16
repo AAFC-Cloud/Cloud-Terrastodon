@@ -42,7 +42,14 @@ $scriptFiles = Get-ChildItem -Path . -Filter *.ps1 | Where-Object { $_.Name -mat
 $scriptNames = $scriptFiles | ForEach-Object { $_.Name }
 
 # Use fzf to allow the user to pick scripts. Adjust the path to fzf if necessary.
-$selectedScripts = $scriptNames | fzf --multi --cycle --layout=reverse --header="Select scripts to shift by ${Shift}:" | Out-String -Stream
+$selectedScripts = $scriptNames `
+| fzf `
+    --multi `
+    --cycle `
+    --layout=reverse `
+    --header="Select scripts to shift by ${Shift}:" `
+    --bind "ctrl-a:select-all,ctrl-d:deselect-all,ctrl-t:toggle-all" `
+| Out-String -Stream
 
 # Filter $scriptFiles to match only those that were selected and perform the shift
 $scriptFiles | Where-Object { $selectedScripts -contains $_.Name } | ForEach-Object {

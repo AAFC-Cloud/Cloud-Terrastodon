@@ -6,6 +6,7 @@ try {
     Set-Content boilerplate.tf @"
 provider "azurerm" {
     features {}
+    skip_provider_registration = true
 }
 "@
     terraform init

@@ -1,0 +1,31 @@
+[package]
+name = "policy_rewrite"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = ["crates/*"]
+
+
+[workspace.dependencies]
+anyhow = "1.0.82"
+itertools = "0.12.1"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.116"
+azure = { version = "0.1.0", path = "./crates/azure" }
+fzf = { version = "0.1.0", path = "./crates/fzf" }
+tokio = { version = "1.37.0", features = ["full"] }
+tempfile = "3.10.1"
+indicatif = "0.17.8"
+
+
+[dependencies]
+anyhow = { workspace = true }
+itertools = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+azure = { workspace = true }
+tokio = { workspace = true }
+fzf = { workspace = true }
+indicatif = { workspace = true }

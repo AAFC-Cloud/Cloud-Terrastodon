@@ -4,14 +4,20 @@ if (Test-Path -Path $outfile) {
     exit
 }
 
-$mgmt = Get-Content -Raw .\inputs\management-group-name.txt
-$assignments = az policy assignment list `
+$assignments = @()
+$groups = Get-Content .\inputs\management-group-names.txt
+foreach ($group in $groups) {
+    $assignments += az policy assignment list `
     --scope "/providers/Microsoft.Management/managementGroups/$mgmt" `
-    --disable-scope-strict-match
+    --disable-scope-strict-match `
+    | ConvertFrom-Json
+}
 
 New-Item -Path outputs -ItemType Directory -ErrorAction SilentlyContinue
 New-Item -Path outputs\intermediate -ItemType Directory -ErrorAction SilentlyContinue
-$assignments > $outfile
+$assignments `
+| ConvertTo-Json -Depth 100 `
+| Set-Content -Path $outfile
 
 $total = $($assignments | ConvertFrom-Json).Count
 Write-Host "Found $total policy assignments"
