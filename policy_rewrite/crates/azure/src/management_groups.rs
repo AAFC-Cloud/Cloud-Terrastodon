@@ -1,9 +1,9 @@
-use anyhow::Error;
 use anyhow::Result;
+use command::prelude::CommandBuilder;
+use command::prelude::CommandKind;
 use serde::Deserialize;
 use serde::Serialize;
-use std::process::Stdio;
-use tokio::process::Command;
+use std::path::PathBuf;
 
 pub type ManagementGroupId = String;
 
@@ -39,20 +39,17 @@ impl std::fmt::Display for ManagementGroup {
 }
 
 pub async fn fetch_management_groups() -> Result<Vec<ManagementGroup>> {
-    let mut cmd = Command::new("az.cmd");
-    cmd.stdin(Stdio::piped());
-    cmd.stdout(Stdio::piped());
-    cmd.args("account management-group list --no-register --output json".split_whitespace());
-    let cmd = cmd.spawn()?;
-    let output = cmd.wait_with_output().await?;
-    if output.status.success() {
-        let response_string = String::from_utf8_lossy(&output.stdout);
-        let management_groups: Vec<ManagementGroup> = serde_json::from_str(&response_string)?;
-        Ok(management_groups)
-    } else {
-        let error_message = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(Error::msg(error_message))
-    }
+    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+    cmd.with_cache(Some(PathBuf::from("ignore/management_groups.json")));
+    cmd.args([
+        "account",
+        "management-group",
+        "list",
+        "--no-register",
+        "--output",
+        "json",
+    ]);
+    cmd.run().await
 }
 
 #[cfg(test)]

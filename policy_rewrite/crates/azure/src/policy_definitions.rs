@@ -1,3 +1,4 @@
+use crate::prelude::ManagementGroupId;
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
@@ -5,7 +6,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use crate::prelude::ManagementGroupId;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicyDefinition {
@@ -42,12 +43,18 @@ pub async fn fetch_policy_definitions(
 ) -> Result<Vec<PolicyDefinition>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["policy", "definition", "list", "--output", "json"]);
+    let mut cache = PathBuf::new();
+    cache.push("ignore");
     if let Some(management_group) = management_group {
         cmd.args(["--management-group", &management_group]);
+        cache.push(management_group)
     }
     if let Some(subscription) = subscription {
         cmd.args(["--subscription", &subscription]);
+        cache.push(subscription)
     }
+    cache.push("policy_assignments.json");
+    cmd.with_cache(Some(cache));
     cmd.run().await
 }
 

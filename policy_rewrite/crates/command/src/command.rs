@@ -1,11 +1,21 @@
+use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
 use async_recursion::async_recursion;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde::Serialize;
 use std::ffi::OsStr;
+use std::os::windows::process::ExitStatusExt;
+use std::path::PathBuf;
+use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
+use tokio::fs::create_dir_all;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use crate::errors::dump_to_ignore_file;
@@ -22,11 +32,16 @@ impl CommandKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandOutput {
     stdout: String,
     stderr: String,
-    status: std::process::ExitStatus,
+    status: u32,
+}
+impl CommandOutput {
+    fn success(&self) -> bool {
+        ExitStatus::from_raw(self.status).success()
+    }
 }
 impl std::error::Error for CommandOutput {}
 impl std::fmt::Display for CommandOutput {
@@ -43,7 +58,10 @@ impl TryFrom<Output> for CommandOutput {
         Ok(CommandOutput {
             stdout: String::from_utf8(value.stdout)?,
             stderr: String::from_utf8(value.stderr)?,
-            status: value.status,
+            status: match value.status.code().unwrap_or(1) {
+                x if x < 0 => 1,
+                x => x as u32,
+            },
         })
     }
 }
@@ -58,6 +76,7 @@ pub struct CommandBuilder {
     command: Command,
     args: Vec<String>,
     retry_behaviour: RetryBehaviour,
+    cache_dir: Option<PathBuf>,
 }
 impl Clone for CommandBuilder {
     fn clone(&self) -> Self {
@@ -70,6 +89,7 @@ impl Clone for CommandBuilder {
             kind: self.kind.clone(),
             command,
             args: self.args.clone(),
+            cache_dir: self.cache_dir.clone(),
             retry_behaviour: self.retry_behaviour,
         }
     }
@@ -86,7 +106,15 @@ impl CommandBuilder {
             command,
             args,
             retry_behaviour: RetryBehaviour::Reauth,
+            cache_dir: None,
         }
+    }
+    pub fn context(&self) -> String {
+        format!("{} {}", self.kind.program(), self.args.join(" "))
+    }
+    pub fn with_cache(&mut self, cache: Option<PathBuf>) -> &mut CommandBuilder {
+        self.cache_dir = cache;
+        self
     }
     pub fn with_retry_behaviour(&mut self, behaviour: RetryBehaviour) -> &mut CommandBuilder {
         self.retry_behaviour = behaviour;
@@ -109,8 +137,123 @@ impl CommandBuilder {
         self
     }
 
+    pub async fn get_cached_output(&self) -> Result<Option<CommandOutput>> {
+        // Short circuit if no cache
+        let Some(ref cache_dir) = self.cache_dir else {
+            return Ok(None);
+        };
+        if !cache_dir.exists() {
+            return Ok(None);
+        }
+
+        // Prepare destination object
+        let mut output = CommandOutput {
+            status: 0,
+            stdout: String::new(),
+            stderr: String::new(),
+        };
+        let mut status = String::new();
+
+        // Prepare for file reading, with an expectation that context content matches
+        let mut files = [
+            ("context.txt", &mut String::new(), Some(self.context())),
+            ("stdout.json", &mut output.stdout, None),
+            ("stderr.json", &mut output.stderr, None),
+            ("status.txt", &mut status, None),
+        ];
+
+        // For each file
+        for (ref file_name, ref mut file_contents, ref expected_contents) in files.iter_mut() {
+            // Open the file
+            let path = cache_dir.join(file_name);
+            let mut file = OpenOptions::new()
+                .read(true)
+                .open(&path)
+                .await
+                .context("opening file")
+                .context(path.to_string_lossy().into_owned())?;
+
+            // Read the file
+            file.read_to_string(file_contents)
+                .await
+                .context("reading file")
+                .context(path.to_string_lossy().into_owned())?;
+
+            // If an expectation is present, validate it
+            if let Some(ref expected_contents) = expected_contents
+                && file_contents != &expected_contents
+            {
+                return Err(anyhow!("Cache context mismatch")
+                    .context(format!("found: {}", file_contents))
+                    .context(format!("expected: {}", expected_contents)));
+            }
+        }
+
+        // Finish moving info into destination
+        output.status = status.parse().context("parsing status").context(status)?;
+
+        // Return!
+        Ok(Some(output))
+    }
+
+    pub async fn put_cached_output(&self, output: &CommandOutput) -> Result<()> {
+        // Ensure cache dir is known
+        let Some(ref cache_dir) = self.cache_dir else {
+            return Err(anyhow!("Cache destination unknown"));
+        };
+
+        // Validate directory presence
+        if !cache_dir.exists() {
+            create_dir_all(cache_dir)
+                .await
+                .context("creating directories")?;
+        } else if !cache_dir.is_dir() {
+            return Err(anyhow!("Cache destination isn't a directory")
+                .context(cache_dir.clone().to_string_lossy().into_owned()));
+        }
+
+        // Prepare write contents
+        let files = [
+            ("context.txt", &self.context()),
+            ("stdout.json", &output.stdout),
+            ("stderr.json", &output.stderr),
+            ("status.txt", &output.status.to_string()),
+        ];
+
+        // Write to files
+        for (file_name, file_contents) in files {
+            // Open file
+            let path = cache_dir.join(file_name);
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&path)
+                .await
+                .context("opening file")
+                .context(path.to_string_lossy().into_owned())?;
+
+            // Write content
+            file.write_all(file_contents.as_bytes())
+                .await
+                .context("writing file")
+                .context(path.to_string_lossy().into_owned())?;
+        }
+
+        Ok(())
+    }
+
     #[async_recursion]
     pub async fn run_raw(&mut self) -> Result<CommandOutput> {
+        // Check cache
+        match self.get_cached_output().await {
+            Ok(None) => {}
+            Ok(Some(output)) => return Ok(output),
+            Err(e) => {
+                eprintln!("Failed to load from cache: {:?}", e);
+            }
+        }
+
         // Launch command
         let child = self.command.spawn()?;
 
@@ -121,7 +264,7 @@ impl CommandBuilder {
         let output: CommandOutput = output.try_into()?;
 
         // Return if errored
-        if !output.status.success() {
+        if !output.success() {
             match (self.retry_behaviour, output) {
                 (RetryBehaviour::Reauth, output)
                     if [
@@ -144,15 +287,22 @@ impl CommandBuilder {
                     println!("Retrying command with refreshed credential...");
                     let mut retry = self.clone();
                     retry.with_retry_behaviour(RetryBehaviour::Fail);
-                    return retry.run_raw().await;
+                    let output = retry.run_raw().await;
+
+                    // Return the result
+                    return output;
                 }
                 (_, o) => {
-                    return Err(Error::from(o).context(format!(
-                        "{} {}",
-                        self.kind.program(),
-                        self.args.join(" ")
-                    )));
+                    return Err(Error::from(o).context(self.context()));
                 }
+            }
+        }
+
+        // Write happy results to the cache
+        if output.success() && self.cache_dir.is_some() {
+            println!("Writing command results to cache file...");
+            if let Err(e) = self.put_cached_output(&output).await {
+                eprintln!("Encountered problem saving cache: {:?}", e);
             }
         }
 
@@ -179,16 +329,29 @@ impl CommandBuilder {
 }
 
 /// These tests require user interaction and change the state of the system!
-/// 
+///
 /// You have been warned.
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["--version"])
+            .run_raw()
+            .await?;
+        println!("{}", result);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn it_works_cached() -> Result<()> {
+        let result = CommandBuilder::new(CommandKind::AzureCLI)
+            .args(["--version"])
+            .with_cache(Some(PathBuf::from_str(r"ignore\version")?))
             .run_raw()
             .await?;
         println!("{}", result);
