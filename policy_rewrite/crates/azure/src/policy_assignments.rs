@@ -60,7 +60,7 @@ pub async fn fetch_policy_assignments(
         cache.push(subscription)
     }
     cache.push("policy_assignments");
-    cmd.with_cache(Some(cache));
+    cmd.use_cache_dir(Some(cache));
     cmd.run().await
 }
 

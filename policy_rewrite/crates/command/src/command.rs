@@ -112,11 +112,11 @@ impl CommandBuilder {
     pub fn context(&self) -> String {
         format!("{} {}", self.kind.program(), self.args.join(" "))
     }
-    pub fn with_cache(&mut self, cache: Option<PathBuf>) -> &mut CommandBuilder {
+    pub fn use_cache_dir(&mut self, cache: Option<PathBuf>) -> &mut CommandBuilder {
         self.cache_dir = cache;
         self
     }
-    pub fn with_retry_behaviour(&mut self, behaviour: RetryBehaviour) -> &mut CommandBuilder {
+    pub fn use_retry_behaviour(&mut self, behaviour: RetryBehaviour) -> &mut CommandBuilder {
         self.retry_behaviour = behaviour;
         self
     }
@@ -286,7 +286,7 @@ impl CommandBuilder {
                     // Retry the failed command, no further retries
                     println!("Retrying command with refreshed credential...");
                     let mut retry = self.clone();
-                    retry.with_retry_behaviour(RetryBehaviour::Fail);
+                    retry.use_retry_behaviour(RetryBehaviour::Fail);
                     let output = retry.run_raw().await;
 
                     // Return the result
@@ -351,7 +351,7 @@ mod tests {
     async fn it_works_cached() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["--version"])
-            .with_cache(Some(PathBuf::from_str(r"ignore\version")?))
+            .use_cache_dir(Some(PathBuf::from_str(r"ignore\version")?))
             .run_raw()
             .await?;
         println!("{}", result);

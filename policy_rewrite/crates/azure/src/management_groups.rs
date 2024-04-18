@@ -40,7 +40,7 @@ impl std::fmt::Display for ManagementGroup {
 
 pub async fn fetch_management_groups() -> Result<Vec<ManagementGroup>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.with_cache(Some(PathBuf::from("ignore/management_groups")));
+    cmd.use_cache_dir(Some(PathBuf::from("ignore/management_groups")));
     cmd.args([
         "account",
         "management-group",

@@ -76,7 +76,7 @@ pub async fn fetch_policy_initiatives(
         cache.push(subscription)
     }
     cache.push("policy_initiatives");
-    cmd.with_cache(Some(cache));
+    cmd.use_cache_dir(Some(cache));
     cmd.run().await
 }
 
