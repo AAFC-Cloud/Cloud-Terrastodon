@@ -53,7 +53,7 @@ pub async fn fetch_policy_definitions(
         cmd.args(["--subscription", &subscription]);
         cache.push(subscription)
     }
-    cache.push("policy_assignments.json");
+    cache.push("policy_definitions");
     cmd.with_cache(Some(cache));
     cmd.run().await
 }
