@@ -19,6 +19,7 @@ indicatif = "0.17.8"
 azure = { version = "0.1.0", path = "./crates/azure" }
 fzf = { version = "0.1.0", path = "./crates/fzf" }
 command = { version = "0.1.0", path = "./crates/command" }
+async-recursion = "1.1.0"
 
 
 [dependencies]

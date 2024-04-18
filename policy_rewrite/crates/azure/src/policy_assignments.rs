@@ -1,5 +1,4 @@
-use anyhow::Context;
-use anyhow::Error;
+
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
@@ -7,10 +6,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::process::Stdio;
-use tokio::process::Command;
-
-use crate::errors::dump_to_ignore_file;
 use crate::prelude::ManagementGroupId;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -60,7 +55,7 @@ pub async fn fetch_policy_assignments(
     if let Some(subscription) = subscription {
         cmd.args(["--subscription", &subscription]);
     }
-    Ok(cmd.run().await?)
+    cmd.run().await
 }
 
 #[cfg(test)]

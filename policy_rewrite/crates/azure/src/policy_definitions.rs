@@ -1,14 +1,10 @@
-use anyhow::Context;
-use anyhow::Error;
 use anyhow::Result;
+use command::prelude::CommandBuilder;
+use command::prelude::CommandKind;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::process::Stdio;
-use tokio::process::Command;
-
-use crate::errors::dump_to_ignore_file;
 use crate::prelude::ManagementGroupId;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -44,9 +40,7 @@ pub async fn fetch_policy_definitions(
     management_group: Option<ManagementGroupId>,
     subscription: Option<String>,
 ) -> Result<Vec<PolicyDefinition>> {
-    let mut cmd = Command::new("az.cmd");
-    cmd.stdin(Stdio::piped());
-    cmd.stdout(Stdio::piped());
+    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["policy", "definition", "list", "--output", "json"]);
     if let Some(management_group) = management_group {
         cmd.args(["--management-group", &management_group]);
@@ -54,24 +48,7 @@ pub async fn fetch_policy_definitions(
     if let Some(subscription) = subscription {
         cmd.args(["--subscription", &subscription]);
     }
-    let cmd = cmd.spawn()?;
-    let output = cmd.wait_with_output().await?;
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        match serde_json::from_str(&stdout) {
-            Ok(results) => Ok(results),
-            Err(e) => {
-                let context = dump_to_ignore_file(&stdout)?;
-                Err(e)
-                    .context("deserializing")
-                    .context(format!("dumped to {:?}", context))
-            }
-        }
-        // Ok(results)
-    } else {
-        let error_message = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(Error::msg(error_message))
-    }
+    cmd.run().await
 }
 
 #[cfg(test)]
