@@ -177,6 +177,9 @@ impl TFImporter {
         plan_cmd.use_output_behaviour(OutputBehaviour::Display);
         plan_cmd.args(["plan", "-generate-config-out", "generated.tf"]);
         plan_cmd.run_raw().await?;
+        
+        // Success!
+        println!("🚀 Successfully generated TF files from imports!");
         Ok(())
     }
 }

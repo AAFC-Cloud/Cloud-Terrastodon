@@ -1,10 +1,14 @@
-use crate::prelude::ManagementGroupId;
+use crate::scope::AsScope;
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use tf::prelude::ImportBlock;
+use tf::prelude::ResourceIdentifier;
+use tf::prelude::ResourceType;
+use tf::prelude::Sanitizable;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -42,25 +46,40 @@ impl std::fmt::Display for PolicyAssignment {
         Ok(())
     }
 }
+impl From<PolicyAssignment> for ImportBlock {
+    fn from(policy_assignment: PolicyAssignment) -> Self {
+        ImportBlock {
+            id: policy_assignment.id.clone(),
+            to: ResourceIdentifier {
+                kind: ResourceType {
+                    provider: "azurerm".to_string(),
+                    kind: "management_group_policy_assignment".to_string(),
+                },
+                name: policy_assignment.display_name.sanitize(),
+            },
+        }
+    }
+}
 
 pub async fn fetch_policy_assignments(
-    management_group: Option<ManagementGroupId>,
+    scope: Option<&impl AsScope>,
     subscription: Option<String>,
 ) -> Result<Vec<PolicyAssignment>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["policy", "assignment", "list", "--output", "json"]);
-    let mut cache = PathBuf::new();
-    cache.push("ignore");
-    cache.push("policy_assignments");
-    if let Some(management_group) = management_group {
-        cmd.args(["--management-group", &management_group]);
-        cache.push(management_group)
+    cmd.args(["policy", "assignment", "list", "--disable-scope-strict-match", "--output", "json"]);
+    let mut cache_key = PathBuf::new();
+    cache_key.push("ignore");
+    cache_key.push("policy_assignments");
+    if let Some(scope) = scope {
+        let scope = scope.as_scope();
+        cmd.args(["--scope", &scope.expanded_form()]);
+        cache_key.push(scope.short_name());
     }
     if let Some(subscription) = subscription {
         cmd.args(["--subscription", &subscription]);
-        cache.push(subscription)
+        cache_key.push(subscription)
     }
-    cmd.use_cache_dir(Some(cache));
+    cmd.use_cache_dir(Some(cache_key));
     cmd.run().await
 }
 

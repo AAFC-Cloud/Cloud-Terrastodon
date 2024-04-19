@@ -5,13 +5,17 @@ use command::prelude::CommandKind;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use tf::prelude::ImportBlock;
+use tf::prelude::ResourceIdentifier;
+use tf::prelude::ResourceType;
+use tf::prelude::Sanitizable;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicyInitiativePolicyDefinitionGroup {
     #[serde(rename = "additionalMetadataId")]
-    pub additional_metadata_id: String,
+    pub additional_metadata_id: Option<String>,
     pub category: Option<String>,
     pub description: Option<String>,
     #[serde(rename = "displayName")]
@@ -21,7 +25,7 @@ pub struct PolicyInitiativePolicyDefinitionGroup {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicyInitiativePolicyDefinition {
     #[serde(rename = "groupNames")]
-    pub group_names: Vec<String>,
+    pub group_names: Option<Vec<String>>,
     pub parameters: Value,
     #[serde(rename = "policyDefinitionId")]
     pub policy_definition_id: String,
@@ -58,13 +62,27 @@ impl std::fmt::Display for PolicyInitiative {
         Ok(())
     }
 }
+impl From<PolicyInitiative> for ImportBlock {
+    fn from(policy_definition: PolicyInitiative) -> Self {
+        ImportBlock {
+            id: policy_definition.id.clone(),//.replace("policyDefinitions", "policySetDefinitions"),
+            to: ResourceIdentifier {
+                kind: ResourceType {
+                    provider: "azurerm".to_string(),
+                    kind: "policy_set_definition".to_string(),
+                },
+                name: policy_definition.display_name.sanitize(),
+            },
+        }
+    }
+}
 
 pub async fn fetch_policy_initiatives(
     management_group: Option<ManagementGroupId>,
     subscription: Option<String>,
 ) -> Result<Vec<PolicyInitiative>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["policy", "definition", "list", "--output", "json"]);
+    cmd.args(["policy", "set-definition", "list", "--output", "json"]);
     let mut cache = PathBuf::new();
     cache.push("ignore");
     cache.push("policy_initiatives");

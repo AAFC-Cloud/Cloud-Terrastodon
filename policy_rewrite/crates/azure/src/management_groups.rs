@@ -5,6 +5,9 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
 
+use crate::scope::AsScope;
+use crate::scope::Scope;
+
 pub type ManagementGroupId = String;
 
 /// `az account management-group list --no-register --output json`
@@ -35,6 +38,11 @@ impl std::fmt::Display for ManagementGroup {
         f.write_str(&self.name)?;
         f.write_str(")")?;
         Ok(())
+    }
+}
+impl AsScope for ManagementGroup {
+    fn as_scope(&self) -> Scope {
+        Scope::ManagementGroup { name: self.name.clone() }
     }
 }
 
