@@ -67,6 +67,7 @@ pub async fn fetch_policy_initiatives(
     cmd.args(["policy", "definition", "list", "--output", "json"]);
     let mut cache = PathBuf::new();
     cache.push("ignore");
+    cache.push("policy_initiatives");
     if let Some(management_group) = management_group {
         cmd.args(["--management-group", &management_group]);
         cache.push(management_group)
@@ -75,7 +76,6 @@ pub async fn fetch_policy_initiatives(
         cmd.args(["--subscription", &subscription]);
         cache.push(subscription)
     }
-    cache.push("policy_initiatives");
     cmd.use_cache_dir(Some(cache));
     cmd.run().await
 }

@@ -1,3 +1,6 @@
+#![feature(let_chains)]
+use anyhow::anyhow;
+use anyhow::Context;
 use anyhow::Result;
 use azure::prelude::fetch_management_groups;
 use azure::prelude::fetch_policy_definitions;
@@ -6,6 +9,11 @@ use fzf::PickOptions;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
+use std::path::PathBuf;
+use tf::prelude::*;
+use tokio::fs::create_dir_all;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 use tokio::task::JoinSet;
 
 #[tokio::main]
@@ -55,6 +63,7 @@ async fn main() -> Result<()> {
     }
 
     // Collect worker results
+    let mut imports = Vec::<ImportBlock>::new();
     while let Some(res) = work_pool.join_next().await {
         // Get result if worker success
         let (mg, pb, policy_definitions) = res?;
@@ -68,7 +77,42 @@ async fn main() -> Result<()> {
             policy_definitions.len(),
             mg.display_name
         ));
+
+        // Add to list
+        policy_definitions
+            .into_iter()
+            .filter(|def| def.policy_type == "Custom")
+            .for_each(|x| imports.push(x.into()));
     }
+
+    if imports.is_empty() {
+        return Err(anyhow!("Imports should not be empty"));
+    }
+
+    // Prepare imports dir
+    let imports_dir = PathBuf::from("ignore/imports");
+    if !imports_dir.exists() {
+        println!("Creating {:?}", imports_dir);
+        create_dir_all(&imports_dir).await?;
+    } else if !imports_dir.is_dir() {
+        return Err(anyhow!("Path exists but isn't a dir!"))
+            .context(imports_dir.to_string_lossy().into_owned());
+    }
+
+    // Write imports.tf
+    let imports_path = imports_dir.join("imports.tf");
+    let mut imports_file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&imports_path)
+        .await?;
+    println!("Writing {:?}", imports_path);
+    imports_file.write_all(imports.as_tf().as_bytes()).await?;
+
+    // Run tf import
+    println!("Beginning tf import...");
+    TFImporter::new().using_dir(imports_dir).run().await?;
 
     Ok(())
 }

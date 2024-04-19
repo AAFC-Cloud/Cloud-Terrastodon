@@ -6,6 +6,7 @@ use async_recursion::async_recursion;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::os::windows::process::ExitStatusExt;
 use std::path::PathBuf;
@@ -20,14 +21,31 @@ use tokio::process::Command;
 
 use crate::errors::dump_to_ignore_file;
 
-#[derive(Clone)]
+#[derive(Clone, Default, Debug)]
 pub enum CommandKind {
+    #[default]
+    Echo,
     AzureCLI,
+    TF,
 }
 impl CommandKind {
     fn program(&self) -> &'static str {
         match self {
+            CommandKind::Echo => "pwsh",
             CommandKind::AzureCLI => "az.cmd",
+            CommandKind::TF => "tofu.exe",
+        }
+    }
+    fn apply_args_and_envs(&self, this: &CommandBuilder, cmd: &mut Command) {
+        match self {
+            CommandKind::Echo => {
+                cmd.args(["-NoProfile", "-Command", "Write-Host -ForegroundColor Green $env:value"]);
+                cmd.env("value", this.args.join(" "));
+            }
+            _ => {
+                cmd.args(&this.args);
+                cmd.envs(&this.env);
+            }
         }
     }
 }
@@ -66,61 +84,57 @@ impl TryFrom<Output> for CommandOutput {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default, Debug)]
 pub enum RetryBehaviour {
     Fail,
+    #[default]
     Reauth,
 }
+#[derive(Clone, Copy, Default, Debug)]
+pub enum OutputBehaviour {
+    Display,
+    #[default]
+    Capture,
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct CommandBuilder {
     kind: CommandKind,
-    command: Command,
     args: Vec<String>,
+    env: HashMap<String,String>,
+    run_dir: Option<PathBuf>,
     retry_behaviour: RetryBehaviour,
+    output_behaviour: OutputBehaviour,
     cache_dir: Option<PathBuf>,
-}
-impl Clone for CommandBuilder {
-    fn clone(&self) -> Self {
-        let mut command = Command::new(self.kind.program());
-        command.stdin(Stdio::piped());
-        command.stdout(Stdio::piped());
-        command.stderr(Stdio::piped());
-        command.args(&self.args);
-        Self {
-            kind: self.kind.clone(),
-            command,
-            args: self.args.clone(),
-            cache_dir: self.cache_dir.clone(),
-            retry_behaviour: self.retry_behaviour,
-        }
-    }
+    should_announce: bool,
 }
 impl CommandBuilder {
     pub fn new(kind: CommandKind) -> CommandBuilder {
-        let mut command = Command::new(kind.program());
-        command.stdin(Stdio::piped());
-        command.stdout(Stdio::piped());
-        command.stderr(Stdio::piped());
-        let args = vec![];
-        CommandBuilder {
-            kind,
-            command,
-            args,
-            retry_behaviour: RetryBehaviour::Reauth,
-            cache_dir: None,
-        }
+        let mut cmd = CommandBuilder::default();
+        cmd.use_command(kind);
+        cmd
     }
-    pub fn context(&self) -> String {
-        format!("{} {}", self.kind.program(), self.args.join(" "))
+    pub fn use_command(&mut self, kind: CommandKind) -> &mut Self {
+        self.kind = kind;
+        self
     }
-    pub fn use_cache_dir(&mut self, cache: Option<PathBuf>) -> &mut CommandBuilder {
+    pub fn use_cache_dir(&mut self, cache: Option<PathBuf>) -> &mut Self {
         self.cache_dir = cache;
         self
     }
-    pub fn use_retry_behaviour(&mut self, behaviour: RetryBehaviour) -> &mut CommandBuilder {
+    pub fn use_run_dir(&mut self, dir: PathBuf) -> &mut Self {
+        self.run_dir = Some(dir);
+        self
+    }
+    pub fn use_retry_behaviour(&mut self, behaviour: RetryBehaviour) -> &mut Self {
         self.retry_behaviour = behaviour;
         self
     }
-    pub fn args<I, S>(&mut self, args: I) -> &mut CommandBuilder
+    pub fn use_output_behaviour(&mut self, behaviour: OutputBehaviour) -> &mut Self {
+        self.output_behaviour = behaviour;
+        self
+    }
+    pub fn args<I, S>(&mut self, args: I) -> &mut Self
     where
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
@@ -131,10 +145,23 @@ impl CommandBuilder {
         self
     }
 
-    pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut CommandBuilder {
+    pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
         self.args.push(arg.as_ref().to_string_lossy().to_string());
-        self.command.arg(arg);
         self
+    }
+
+    pub fn env(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) -> &mut Self {
+        self.env.insert(key.as_ref().to_string(), value.as_ref().to_string());
+        self
+    }
+
+    pub fn should_announce(&mut self, value: bool) -> &mut Self {
+        self.should_announce = value;
+        self
+    }
+
+    pub fn summarize(&self) -> String {
+        format!("{} {}", self.kind.program(), self.args.join(" "))
     }
 
     pub async fn get_cached_output(&self) -> Result<Option<CommandOutput>> {
@@ -156,7 +183,7 @@ impl CommandBuilder {
 
         // Prepare for file reading, with an expectation that context content matches
         let mut files = [
-            ("context.txt", &mut String::new(), Some(self.context())),
+            ("context.txt", &mut String::new(), Some(self.summarize())),
             ("stdout.json", &mut output.stdout, None),
             ("stderr.json", &mut output.stderr, None),
             ("status.txt", &mut status, None),
@@ -214,7 +241,7 @@ impl CommandBuilder {
 
         // Prepare write contents
         let files = [
-            ("context.txt", &self.context()),
+            ("context.txt", &self.summarize()),
             ("stdout.json", &output.stdout),
             ("stderr.json", &output.stderr),
             ("status.txt", &output.status.to_string()),
@@ -254,8 +281,29 @@ impl CommandBuilder {
             }
         }
 
+        let mut command = Command::new(self.kind.program());
+        match self.output_behaviour {
+            OutputBehaviour::Capture => {
+                command.stdin(Stdio::piped());
+                command.stdout(Stdio::piped());
+                command.stderr(Stdio::piped());
+            }
+            OutputBehaviour::Display => {}
+        }
+
+        self.kind.clone().apply_args_and_envs(self, &mut command);
+
+        if let Some(ref dir) = self.run_dir {
+            command.current_dir(dir);
+        }
+
+        // Announce launch
+        if self.should_announce {
+            println!("Running {}", self.summarize());
+        }
+
         // Launch command
-        let child = self.command.spawn()?;
+        let child = command.spawn()?;
 
         // Wait for it to finish
         let output = child.wait_with_output().await?;
@@ -293,7 +341,7 @@ impl CommandBuilder {
                     return output;
                 }
                 (_, o) => {
-                    return Err(Error::from(o).context(self.context()));
+                    return Err(Error::from(o).context(self.summarize()));
                 }
             }
         }
@@ -337,6 +385,27 @@ mod tests {
 
     use super::*;
 
+    #[tokio::test]
+    async fn echo() -> Result<()> {
+        let result = CommandBuilder::new(CommandKind::Echo)
+            .use_output_behaviour(OutputBehaviour::Display)
+            .args(["Ahoy,", "world!"])
+            .run_raw()
+            .await?;
+        println!("{}", result);
+        Ok(())
+    }
+    #[tokio::test]
+    async fn pwsh() -> Result<()> {
+        let result = Command::new("pwsh.exe")
+            .args(["-NoProfile", "-Command", "echo \"got $($env:a)\""])
+            .env("a", "b$(2+2)")
+            .spawn()?
+            .wait_with_output()
+            .await?;
+        println!("{:?}", result);
+        Ok(())
+    }
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)

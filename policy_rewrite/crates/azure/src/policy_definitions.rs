@@ -7,6 +7,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tf::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicyDefinition {
@@ -36,6 +37,20 @@ impl std::fmt::Display for PolicyDefinition {
         Ok(())
     }
 }
+impl From<PolicyDefinition> for ImportBlock {
+    fn from(policy_definition: PolicyDefinition) -> Self {
+        ImportBlock {
+            id: policy_definition.id.clone(),
+            to: ResourceIdentifier {
+                kind: ResourceType {
+                    provider: "azurerm".to_string(),
+                    kind: "policy_definition".to_string(),
+                },
+                name: policy_definition.display_name.sanitize(),
+            },
+        }
+    }
+}
 
 pub async fn fetch_policy_definitions(
     management_group: Option<ManagementGroupId>,
@@ -45,6 +60,7 @@ pub async fn fetch_policy_definitions(
     cmd.args(["policy", "definition", "list", "--output", "json"]);
     let mut cache = PathBuf::new();
     cache.push("ignore");
+    cache.push("policy_definitions");
     if let Some(management_group) = management_group {
         cmd.args(["--management-group", &management_group]);
         cache.push(management_group)
@@ -53,7 +69,6 @@ pub async fn fetch_policy_definitions(
         cmd.args(["--subscription", &subscription]);
         cache.push(subscription)
     }
-    cache.push("policy_definitions");
     cmd.use_cache_dir(Some(cache));
     cmd.run().await
 }
