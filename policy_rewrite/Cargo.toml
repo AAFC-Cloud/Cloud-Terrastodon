@@ -9,6 +9,11 @@ members = ["crates/*"]
 
 
 [workspace.dependencies]
+azure = { version = "0.1.0", path = "./crates/azure" }
+fzf = { version = "0.1.0", path = "./crates/fzf" }
+command = { version = "0.1.0", path = "./crates/command" }
+tf = { version = "0.1.0", path = "./crates/tf" }
+entrypoint = { version = "0.1.0", path = "./crates/entrypoint" }
 anyhow = "1.0.82"
 itertools = "0.12.1"
 serde = { version = "1.0.197", features = ["derive"] }
@@ -16,20 +21,12 @@ serde_json = "1.0.116"
 tokio = { version = "1.37.0", features = ["full"] }
 tempfile = "3.10.1"
 indicatif = "0.17.8"
-azure = { version = "0.1.0", path = "./crates/azure" }
-fzf = { version = "0.1.0", path = "./crates/fzf" }
-command = { version = "0.1.0", path = "./crates/command" }
-tf = { version = "0.1.0", path = "./crates/tf" }
 async-recursion = "1.1.0"
+indoc = "2.0.5"
+hcl-rs = "0.16.9"
 
 
 [dependencies]
-anyhow = { workspace = true }
-itertools = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-azure = { workspace = true }
 tokio = { workspace = true }
-fzf = { workspace = true }
-indicatif = { workspace = true }
-tf = { workspace = true } 
+anyhow = { workspace = true }
+entrypoint = { workspace = true }

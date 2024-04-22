@@ -5,12 +5,12 @@ use command::prelude::CommandKind;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use tf::prelude::ImportBlock;
 use tf::prelude::ResourceIdentifier;
 use tf::prelude::ResourceType;
 use tf::prelude::Sanitizable;
-use std::collections::HashMap;
-use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicyAssignment {
@@ -55,7 +55,11 @@ impl From<PolicyAssignment> for ImportBlock {
                     provider: "azurerm".to_string(),
                     kind: "management_group_policy_assignment".to_string(),
                 },
-                name: policy_assignment.display_name.sanitize(),
+                name: format!(
+                    "{}_{}",
+                    policy_assignment.display_name, policy_assignment.id
+                )
+                .sanitize(),
             },
         }
     }
@@ -66,7 +70,14 @@ pub async fn fetch_policy_assignments(
     subscription: Option<String>,
 ) -> Result<Vec<PolicyAssignment>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["policy", "assignment", "list", "--disable-scope-strict-match", "--output", "json"]);
+    cmd.args([
+        "policy",
+        "assignment",
+        "list",
+        "--disable-scope-strict-match",
+        "--output",
+        "json",
+    ]);
     let mut cache_key = PathBuf::new();
     cache_key.push("ignore");
     cache_key.push("policy_assignments");

@@ -2,8 +2,8 @@ use anyhow::anyhow;
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
-use command::prelude::OutputBehaviour;
-use itertools::Itertools;
+use indoc::formatdoc;
+use indoc::indoc;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
@@ -77,47 +77,31 @@ impl AsTF for Vec<ImportBlock> {
             } else {
                 seen.insert(&import.id);
             }
-            rtn.push_str("import {\n");
-            rtn.push_str(format!("    id = \"{}\"\n", import.id).as_str());
-            rtn.push_str(format!("    to = {}\n", import.to).as_str());
-            rtn.push_str("}\n");
+            rtn.push_str(
+                formatdoc! {
+                    r#"
+                        import {{
+                            id = "{}"
+                            to = {}
+                        }}
+                    "#,
+                    import.id,
+                    import.to
+                }
+                .as_str(),
+            );
+            rtn.push('\n');
         }
 
         rtn
     }
 }
 
-pub trait IndentTrimmable {
-    fn trim_indent(&self) -> String;
-}
-
-impl<T: AsRef<str>> IndentTrimmable for T {
-    fn trim_indent(&self) -> String {
-        let s = self.as_ref();
-        if s.trim().is_empty() {
-            return String::new();
-        }
-
-        let indent = s
-            .lines()
-            .filter(|line| !line.trim().is_empty())
-            .map(|line| line.len() - line.trim_start().len())
-            .min()
-            .unwrap_or(0);
-
-        s.lines()
-            .map(|line| line.get(indent..).unwrap_or(""))
-            .join("\n")
-    }
-}
-
+#[derive(Default)]
 pub struct TFImporter {
     imports_dir: Option<PathBuf>,
 }
 impl TFImporter {
-    pub fn new() -> TFImporter {
-        TFImporter { imports_dir: None }
-    }
     pub fn using_dir(&mut self, imports_dir: impl AsRef<Path>) -> &mut Self {
         self.imports_dir = Some(imports_dir.as_ref().to_path_buf());
         self
@@ -140,14 +124,12 @@ impl TFImporter {
         // Write boilerplate
         boilerplate_file
             .write_all(
-                r#"
-            provider "azurerm" {
-                features {}
-                skip_provider_registration = true
-            }
-        "#
-                .trim_indent()
-                .trim()
+                indoc! {r#"
+                    provider "azurerm" {
+                        features {}
+                        skip_provider_registration = true
+                    }
+                "#}
                 .as_bytes(),
             )
             .await?;
@@ -156,9 +138,10 @@ impl TFImporter {
         let mut init_cmd = CommandBuilder::new(CommandKind::TF);
         init_cmd.should_announce(true);
         init_cmd.use_run_dir(imports_dir.clone());
-        init_cmd.use_output_behaviour(OutputBehaviour::Display);
+        // init_cmd.use_output_behaviour(OutputBehaviour::Display);
         init_cmd.args(["init"]);
         init_cmd.run_raw().await?;
+        println!("tf init successful!");
 
         // remove old plan outputs
         let generated_path = imports_dir.join("generated.tf");
@@ -174,10 +157,11 @@ impl TFImporter {
         let mut plan_cmd = CommandBuilder::new(CommandKind::TF);
         plan_cmd.should_announce(true);
         plan_cmd.use_run_dir(imports_dir.clone());
-        plan_cmd.use_output_behaviour(OutputBehaviour::Display);
+        // plan_cmd.use_output_behaviour(OutputBehaviour::Display);
         plan_cmd.args(["plan", "-generate-config-out", "generated.tf"]);
         plan_cmd.run_raw().await?;
-        
+        println!("tf plan successful!");
+
         // Success!
         println!("🚀 Successfully generated TF files from imports!");
         Ok(())

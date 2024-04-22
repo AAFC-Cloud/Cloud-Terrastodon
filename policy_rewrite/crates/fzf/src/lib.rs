@@ -53,7 +53,7 @@ where
     }
 }
 
-pub struct PickOptions<T>
+pub struct FzfArgs<T>
 where
     T: Choicey,
 {
@@ -63,25 +63,25 @@ where
     pub header: Option<String>,
 }
 
-pub fn choose<T>(options: PickOptions<T>) -> Result<Vec<T>>
+pub fn pick<T>(args: FzfArgs<T>) -> Result<Vec<T>>
 where
     T: Choicey + Into<Choice<T>>,
 {
     // Prepare choices
-    let choices: Vec<Choice<T>> = options.choices.into_iter().map(|x| x.into()).collect_vec();
+    let choices: Vec<Choice<T>> = args.choices.into_iter().map(|x| x.into()).collect_vec();
 
     // Spawn the fzf process
     let mut fzf = Command::new("fzf");
     fzf.stdin(Stdio::piped());
     fzf.stdout(Stdio::piped());
-    if options.many {
+    if args.many {
         fzf.arg("--multi");
     }
-    if let Some(prompt) = options.prompt {
+    if let Some(prompt) = args.prompt {
         fzf.arg("--prompt");
         fzf.arg(prompt);
     }
-    if let Some(header) = options.header {
+    if let Some(header) = args.header {
         fzf.arg("--header");
         fzf.arg(header);
     }
@@ -125,13 +125,13 @@ mod tests {
     #[test]
     fn it_works() -> Result<()> {
         let choices = vec!["Choice 1", "Choice 2", "Choice 3", "Choice 4"];
-        let options = PickOptions {
+        let options = FzfArgs {
             choices,
             many: true,
             prompt: Some("Pick things".to_string()),
             header: Some("bruh".to_string()),
         };
-        let chosen = choose(options)?;
+        let chosen = pick(options)?;
         println!("You chose: {:?}", chosen);
 
         Ok(())

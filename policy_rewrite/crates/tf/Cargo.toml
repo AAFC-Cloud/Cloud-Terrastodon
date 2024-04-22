@@ -10,3 +10,5 @@ tokio = { workspace = true}
 anyhow = { workspace = true}
 command = { workspace = true}
 itertools = { workspace = true }
+indoc = { workspace = true }
+hcl-rs = {workspace=true}

@@ -4,10 +4,9 @@ pub enum Scope {
 impl Scope {
     pub fn expanded_form(&self) -> String {
         match self {
-            Scope::ManagementGroup { name } => format!(
-                "/providers/Microsoft.Management/managementGroups/{}",
-                name
-            ),
+            Scope::ManagementGroup { name } => {
+                format!("/providers/Microsoft.Management/managementGroups/{}", name)
+            }
         }
     }
     pub fn short_name(&self) -> &str {

@@ -25,6 +25,7 @@ use crate::errors::dump_to_ignore_file;
 pub enum CommandKind {
     #[default]
     Echo,
+    Pause,
     AzureCLI,
     TF,
 }
@@ -32,6 +33,7 @@ impl CommandKind {
     fn program(&self) -> &'static str {
         match self {
             CommandKind::Echo => "pwsh",
+            CommandKind::Pause => "pwsh",
             CommandKind::AzureCLI => "az.cmd",
             CommandKind::TF => "tofu.exe",
         }
@@ -39,8 +41,15 @@ impl CommandKind {
     fn apply_args_and_envs(&self, this: &CommandBuilder, cmd: &mut Command) {
         match self {
             CommandKind::Echo => {
-                cmd.args(["-NoProfile", "-Command", "Write-Host -ForegroundColor Green $env:value"]);
+                cmd.args([
+                    "-NoProfile",
+                    "-Command",
+                    "Write-Host -ForegroundColor Green $env:value",
+                ]);
                 cmd.env("value", this.args.join(" "));
+            }
+            CommandKind::Pause => {
+                cmd.args(["-NoProfile", "-Command", "Pause"]);
             }
             _ => {
                 cmd.args(&this.args);
@@ -101,7 +110,7 @@ pub enum OutputBehaviour {
 pub struct CommandBuilder {
     kind: CommandKind,
     args: Vec<String>,
-    env: HashMap<String,String>,
+    env: HashMap<String, String>,
     run_dir: Option<PathBuf>,
     retry_behaviour: RetryBehaviour,
     output_behaviour: OutputBehaviour,
@@ -151,7 +160,8 @@ impl CommandBuilder {
     }
 
     pub fn env(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) -> &mut Self {
-        self.env.insert(key.as_ref().to_string(), value.as_ref().to_string());
+        self.env
+            .insert(key.as_ref().to_string(), value.as_ref().to_string());
         self
     }
 
@@ -323,7 +333,7 @@ impl CommandBuilder {
                     .any(|x| output.stderr.contains(x)) =>
                 {
                     // Let the user know
-                    println!("Refreshing credential, user action required in a moment...");
+                    println!("Command failed due to bad auth. Refreshing credential, user action required in a moment...");
 
                     // Perform login command
                     CommandBuilder::new(CommandKind::AzureCLI)

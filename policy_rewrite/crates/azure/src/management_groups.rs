@@ -42,7 +42,9 @@ impl std::fmt::Display for ManagementGroup {
 }
 impl AsScope for ManagementGroup {
     fn as_scope(&self) -> Scope {
-        Scope::ManagementGroup { name: self.name.clone() }
+        Scope::ManagementGroup {
+            name: self.name.clone(),
+        }
     }
 }
 

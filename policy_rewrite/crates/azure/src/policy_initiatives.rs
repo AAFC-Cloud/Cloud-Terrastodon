@@ -5,12 +5,12 @@ use command::prelude::CommandKind;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use tf::prelude::ImportBlock;
 use tf::prelude::ResourceIdentifier;
 use tf::prelude::ResourceType;
 use tf::prelude::Sanitizable;
-use std::collections::HashMap;
-use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicyInitiativePolicyDefinitionGroup {
@@ -65,7 +65,7 @@ impl std::fmt::Display for PolicyInitiative {
 impl From<PolicyInitiative> for ImportBlock {
     fn from(policy_definition: PolicyInitiative) -> Self {
         ImportBlock {
-            id: policy_definition.id.clone(),//.replace("policyDefinitions", "policySetDefinitions"),
+            id: policy_definition.id.clone(), //.replace("policyDefinitions", "policySetDefinitions"),
             to: ResourceIdentifier {
                 kind: ResourceType {
                     provider: "azurerm".to_string(),
