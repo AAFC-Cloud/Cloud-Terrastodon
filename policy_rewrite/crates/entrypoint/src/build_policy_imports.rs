@@ -21,7 +21,7 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::task::JoinSet;
 
-pub async fn import_policy() -> Result<()> {
+pub async fn build_policy_imports() -> Result<()> {
     // Fetch management groups
     println!("Fetching management groups...");
     let management_groups = fetch_management_groups().await?;
@@ -193,20 +193,6 @@ pub async fn import_policy() -> Result<()> {
         .await?;
     println!("Writing {:?}", imports_path);
     imports_file.write_all(imports.as_tf().as_bytes()).await?;
-
-    // not necessary if capturing terraform output
-    // // Double check that we are logged in before running tf command
-    // // Previous commands may have used cached results
-    // // Capturing tf output while also sending to console to detect
-    // // login failures for auto-retry is not yet implemented
-    // if !is_logged_in().await {
-    //     println!("You aren't logged in! Running login command...");
-    //     login().await?;
-    // }
-
-    // Run tf import
-    println!("Beginning tf import...");
-    TFImporter::default().using_dir(imports_dir).run().await?;
 
     Ok(())
 }

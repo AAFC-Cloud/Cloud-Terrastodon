@@ -55,11 +55,7 @@ impl From<PolicyAssignment> for ImportBlock {
                     provider: "azurerm".to_string(),
                     kind: "management_group_policy_assignment".to_string(),
                 },
-                name: format!(
-                    "{}_{}",
-                    policy_assignment.display_name, policy_assignment.id
-                )
-                .sanitize(),
+                name: policy_assignment.display_name.sanitize(),
             },
         }
     }

@@ -584,6 +584,7 @@ dependencies = [
  "hcl-rs",
  "indoc",
  "itertools",
+ "serde_json",
  "tokio",
 ]
 
