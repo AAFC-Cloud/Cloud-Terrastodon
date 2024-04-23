@@ -1,12 +1,12 @@
-use std::path::PathBuf;
-
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
-use tf::prelude::process_to_files;
+use std::path::PathBuf;
+use tf::prelude::reflow_workspace;
 use tokio::fs::OpenOptions;
 use tokio::fs::{self};
 use tokio::io::AsyncWriteExt;
+
 pub async fn process_generated() -> Result<()> {
     // Determine output directory
     let out_dir = PathBuf::from_iter(["ignore", "processed"]);
@@ -18,9 +18,10 @@ pub async fn process_generated() -> Result<()> {
     }
 
     // Read generated code
-    let generated = fs::read(PathBuf::from_iter(["ignore", "imports", "generated.tf"])).await?;
-    let generated_str = String::from_utf8(generated)?;
-    let files = process_to_files(&generated_str, &out_dir)?;
+    let workspace_path = PathBuf::from_iter(["ignore", "imports"]);
+
+    // Write output files
+    let files = reflow_workspace(&workspace_path, &out_dir).await?;
 
     let mut error_count = 0;
     // Write the files

@@ -1,3 +1,4 @@
+#![feature(let_chains)]
 mod imports;
 mod parser;
 pub mod prelude {
