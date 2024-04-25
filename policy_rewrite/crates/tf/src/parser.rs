@@ -5,17 +5,22 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use anyhow::Result;
+use hcl::edit::expr::Expression;
+use hcl::edit::structure::Attribute;
+use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::Structure;
+use hcl::edit::visit_mut::visit_attr_mut;
 use hcl::edit::visit_mut::visit_expr_mut;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::Decorate;
+use indoc::formatdoc;
 use itertools::Itertools;
 use serde_json::Value;
 use tokio::fs;
 
-struct ParametersToJsonVisitor;
-impl VisitMut for ParametersToJsonVisitor {
+struct ParametersToJsonPatcherVisitor;
+impl VisitMut for ParametersToJsonPatcherVisitor {
     fn visit_expr_mut(&mut self, node: &mut hcl::edit::expr::Expression) {
         let _ = || -> Result<()> {
             // Must be string
@@ -50,9 +55,188 @@ impl VisitMut for ParametersToJsonVisitor {
 }
 
 fn parameters_to_json(body: &mut Body) -> Result<()> {
-    let mut visitor = ParametersToJsonVisitor;
+    let mut visitor = ParametersToJsonPatcherVisitor;
     visitor.visit_body_mut(body);
     Ok(())
+}
+
+#[derive(Default, Clone)]
+struct ReferencePatchingSortingVisitor {
+    resource_blocks: HashMap<String, Block>,
+    resource_keys_by_id: HashMap<String, String>,
+    import_blocks: Vec<Block>,
+    provider_blocks: Vec<Block>,
+    other_blocks: Vec<Block>,
+    attrs: Vec<Attribute>,
+}
+impl ReferencePatchingSortingVisitor {
+    pub fn populate(&mut self, src: Body) -> Result<&mut Self> {
+        // Populate holders
+        for structure in src.into_iter() {
+            match structure {
+                Structure::Block(block) => {
+                    match block.ident.as_str() {
+                        "resource" => {
+                            // Get the lookup key
+                            let key = block.labels.iter().map(|l| l.to_string()).join(".");
+
+                            // Add it to the lookup table
+                            self.resource_blocks.insert(key, block);
+                        }
+                        "provider" => self.provider_blocks.push(block),
+                        "import" => {
+                            // Add it to the alias table
+                            let id = block
+                                .body
+                                .get_attribute("id")
+                                .ok_or(anyhow!("import block missing property").context("id"))?
+                                .value
+                                .as_str()
+                                .ok_or(anyhow!("import block property not a string").context("id"))?
+                                .to_string();
+                            let key = block
+                                .body
+                                .get_attribute("to")
+                                .ok_or(anyhow!("import block missing property").context("key"))?
+                                .value
+                                .to_string();
+                            self.resource_keys_by_id.insert(id, key);
+
+                            // Add it to the import block list
+                            self.import_blocks.push(block);
+                        }
+                        _ => self.other_blocks.push(block),
+                    };
+                }
+                Structure::Attribute(attr) => {
+                    self.attrs.push(attr);
+                }
+            }
+        }
+        Ok(self)
+    }
+    pub fn sorted(mut self) -> Body {
+        // Create output
+        let mut output = Body::new();
+
+        // Add providers to the top of the output
+        self.provider_blocks
+            .into_iter()
+            .for_each(|block| output.push(block));
+
+        // Add unknowns
+        self.other_blocks
+            .into_iter()
+            .for_each(|block| output.push(block));
+
+        // Sort import blocks by destination
+        self.import_blocks
+            .sort_by_key(|b| b.body.get_attribute("to").map(|a| a.value.to_string()));
+
+        // Add import blocks followed by their resource blocks
+        for mut import_block in self.import_blocks.into_iter() {
+            // Import block must contain `to` key
+            let Some(key) = import_block.body.get_attribute("to") else {
+                output.push(import_block);
+                continue;
+            };
+
+            // Get and trim key
+            let to = key.value.to_string();
+            let key = to.trim();
+
+            // Find resource block
+            let found = self.resource_blocks.remove(key);
+            let Some(mut resource_block) = found else {
+                output.push(import_block);
+                eprintln!("Couldn't find resource for import block targetting {key}");
+                continue;
+            };
+
+            // Determine label
+            let label = resource_block
+                .body
+                .get_attribute("display_name")
+                .or(resource_block.body.get_attribute("name"))
+                .map(|x| x.value.to_string())
+                .or(resource_block.labels.get(1).map(|x| x.to_string()))
+                .unwrap_or_default();
+
+            // Apply label
+            import_block.decor_mut().set_prefix(formatdoc! {"
+                #############
+                ## {}
+                #############
+            ", label});
+
+            // Clear block decorations
+            resource_block.decor_mut().set_prefix("");
+
+            // Push blocks
+            output.push(import_block);
+            output.push(resource_block);
+        }
+
+        // Add remaining resource blocks
+        self.resource_blocks
+            .into_iter()
+            .for_each(|(_k, v)| output.push(v));
+
+        // Return
+        output
+    }
+}
+impl VisitMut for ReferencePatchingSortingVisitor {
+    fn visit_attr_mut(&mut self, mut node: hcl::edit::structure::AttributeMut) {
+        // Only process policy_definition_id attributes
+        if node.key.to_string().trim() != "policy_definition_id" {
+            visit_attr_mut(self, node);
+            return;
+        }
+
+        // Only process string literals
+        let Some(policy_definition_id) = node.value.as_str() else {
+            visit_attr_mut(self, node);
+            return;
+        };
+
+        // Lookup the policy definition key by the id
+        let policy_definition_key = match self.resource_keys_by_id.get(policy_definition_id).ok_or(
+            anyhow!("policy assignment policy definition id not present in lookup table")
+                .context(format!("tried finding: {policy_definition_id}")),
+        ) {
+            Ok(x) => x,
+            Err(e) => {
+                eprintln!("Skipping ID reference update because of problem: {e:?}");
+                return;
+            }
+        };
+
+        // Parse the key into a reference expression
+        let Ok(expr) = format!("{}.id", policy_definition_key.trim()).parse::<Expression>() else {
+            return;
+        };
+
+        // Update the value to use the reference
+        *node.value_mut() = expr;
+    }
+}
+
+fn update_references_and_sort(src: Body) -> Result<Body> {
+    // Create visitor
+    let mut visitor = ReferencePatchingSortingVisitor::default();
+
+    // Ingest source body
+    visitor.populate(src)?;
+
+    // Build sorted body
+    let mut output = visitor.clone().sorted();
+
+    // Update references
+    visitor.visit_body_mut(&mut output);
+
+    // Return output
+    Ok(output)
 }
 
 async fn as_single_body(source_dir: &Path) -> Result<Body> {
@@ -76,67 +260,6 @@ async fn as_single_body(source_dir: &Path) -> Result<Body> {
     Ok(body)
 }
 
-fn sort_body(src: Body) -> Result<Body> {
-    let mut resource_blocks = HashMap::new();
-    let mut import_blocks = Vec::new();
-    let mut provider_blocks = Vec::new();
-    let mut other_blocks = Vec::new();
-    let mut attrs = Vec::new();
-    for structure in src.into_iter() {
-        match structure {
-            Structure::Block(mut block) => {
-                match block.ident.as_str() {
-                    "resource" => {
-                        let key = block.labels.iter().map(|l| l.to_string()).join(".");
-                        let new_prefix = format!("# key={}\n{}",key, block.decor().prefix().map(|x| x.to_string()).unwrap_or_default());
-                        block.decor_mut().set_prefix(new_prefix);
-                        resource_blocks.insert(key, block);
-                    }
-                    "provider" => provider_blocks.push(block),
-                    "import" => import_blocks.push(block),
-                    _ => other_blocks.push(block),
-                };
-            }
-            Structure::Attribute(attr) => {
-                attrs.push(attr);
-            }
-        }
-    }
-
-    let mut dest = Body::new();
-    // Add providers at the top
-    provider_blocks
-        .into_iter()
-        .for_each(|block| dest.push(block));
-
-    // Add unknowns
-    other_blocks.into_iter().for_each(|block| dest.push(block));
-    
-    // Add import blocks followed by their resource blocks
-    for import_block in import_blocks.into_iter() {
-        let Some(key) = import_block.body.get_attribute("to") else {
-            dest.push(import_block);
-            continue;
-        };
-        let to = key.value.to_string();
-        let key = to.trim();
-        let found = resource_blocks.remove(key);
-        dest.push(import_block);
-        if let Some(resource_block) = found {
-            dest.push(resource_block);
-        } else {
-            eprintln!("Couldn't find resource for import block targetting {key}");
-        }
-    }
-    
-    // Add remaining resource blocks
-    resource_blocks
-        .into_iter()
-        .for_each(|(_k,v)| dest.push(v));
-
-    Ok(dest)
-}
-
 pub async fn reflow_workspace(
     source_dir: &Path,
     dest_dir: &Path,
@@ -146,32 +269,10 @@ pub async fn reflow_workspace(
     // Employ jsonparse
     parameters_to_json(&mut body)?;
 
-    // Sort
-    let body = sort_body(body)?;
-
-    // // Split generated into files
-    // split_to_files(&body, out_dir)
+    // Update references and sort
+    let body = update_references_and_sort(body)?;
 
     Ok(vec![(dest_dir.join("generated.tf"), body.to_string())])
-}
-
-pub fn split_to_files(body: &Body, out_dir: &Path) -> Result<Vec<(PathBuf, String)>> {
-    let mut rtn = Vec::new();
-    for block in body.blocks().filter(|b| b.ident.as_str() == "resource") {
-        let [kind, name, ..] = block.labels.as_slice() else {
-            return Err(anyhow!("failed to destructure").context(format!("{:?}", block.labels)));
-        };
-        let out_file = out_dir.join(PathBuf::from_iter([
-            kind.as_str(),
-            format!("{}.tf", name.as_str()).as_str(),
-        ]));
-
-        let mut body = Body::new();
-        body.push(block.clone());
-        rtn.push((out_file, format!("{body}")))
-    }
-
-    Ok(rtn)
 }
 
 #[cfg(test)]
@@ -287,6 +388,27 @@ mod tests {
                 println!("Found suffix {}", suffix.to_string());
             }
         }
+        Ok(())
+    }
+
+    #[test]
+    fn id_replacement() -> Result<()> {
+        let x = indoc! {r#"
+            import {
+                id = "abc"
+                to = my.thing
+            }
+            resource "thing" "main" {
+                bruh = "abc"
+            }
+        "#};
+        let x = indoc! {r#"
+            a = b.c
+        "#};
+        let body: Body = x.parse()?;
+        let z = &body.get_attribute("a").unwrap().value;
+        // body.get_blocks("resource")
+        println!("{z:?}");
         Ok(())
     }
 }
