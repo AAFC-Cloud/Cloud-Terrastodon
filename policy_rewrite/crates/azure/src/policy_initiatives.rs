@@ -5,11 +5,11 @@ use command::prelude::CommandKind;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use tf::prelude::AzureRMResourceKind;
+use tf::prelude::TofuResourceReference;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tf::prelude::ImportBlock;
-use tf::prelude::ResourceIdentifier;
-use tf::prelude::ResourceType;
 use tf::prelude::Sanitizable;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -65,12 +65,9 @@ impl std::fmt::Display for PolicyInitiative {
 impl From<PolicyInitiative> for ImportBlock {
     fn from(policy_definition: PolicyInitiative) -> Self {
         ImportBlock {
-            id: policy_definition.id.clone(), //.replace("policyDefinitions", "policySetDefinitions"),
-            to: ResourceIdentifier {
-                kind: ResourceType {
-                    provider: "azurerm".to_string(),
-                    kind: "policy_set_definition".to_string(),
-                },
+            id: policy_definition.id.clone(),
+            to: TofuResourceReference::AzureRM {
+                kind: AzureRMResourceKind::PolicySetDefinition,
                 name: policy_definition.display_name.sanitize(),
             },
         }

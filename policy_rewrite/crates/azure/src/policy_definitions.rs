@@ -41,11 +41,8 @@ impl From<PolicyDefinition> for ImportBlock {
     fn from(policy_definition: PolicyDefinition) -> Self {
         ImportBlock {
             id: policy_definition.id.clone(),
-            to: ResourceIdentifier {
-                kind: ResourceType {
-                    provider: "azurerm".to_string(),
-                    kind: "policy_definition".to_string(),
-                },
+            to: TofuResourceReference::AzureRM {
+                kind: AzureRMResourceKind::PolicyDefinition,
                 name: policy_definition.display_name.sanitize(),
             },
         }

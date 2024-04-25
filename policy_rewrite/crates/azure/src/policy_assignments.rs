@@ -5,11 +5,11 @@ use command::prelude::CommandKind;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use tf::prelude::AzureRMResourceKind;
+use tf::prelude::TofuResourceReference;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tf::prelude::ImportBlock;
-use tf::prelude::ResourceIdentifier;
-use tf::prelude::ResourceType;
 use tf::prelude::Sanitizable;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -46,15 +46,13 @@ impl std::fmt::Display for PolicyAssignment {
         Ok(())
     }
 }
+
 impl From<PolicyAssignment> for ImportBlock {
     fn from(policy_assignment: PolicyAssignment) -> Self {
         ImportBlock {
             id: policy_assignment.id.clone(),
-            to: ResourceIdentifier {
-                kind: ResourceType {
-                    provider: "azurerm".to_string(),
-                    kind: "management_group_policy_assignment".to_string(),
-                },
+            to: TofuResourceReference::AzureRM {
+                kind: AzureRMResourceKind::ManagementGroupPolicyAssignment,
                 name: policy_assignment.display_name.sanitize(),
             },
         }

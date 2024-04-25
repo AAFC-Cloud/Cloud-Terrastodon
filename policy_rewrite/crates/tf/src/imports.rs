@@ -11,36 +11,101 @@ use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 
-#[derive(Debug)]
-pub struct ResourceType {
-    pub provider: String,
-    pub kind: String,
+#[derive(Debug, Clone)]
+pub enum TofuProvider {
+    AzureRM,
+    AzureAD,
+    Other(String),
 }
-impl std::fmt::Display for ResourceType {
+impl TofuProvider {
+    pub fn provider_prefix(&self) -> &str {
+        match self {
+            TofuProvider::AzureRM => "azurerm",
+            TofuProvider::AzureAD => "azuread",
+            TofuProvider::Other(s) => s.as_str(),
+        }
+    }
+}
+impl std::fmt::Display for TofuProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.provider)?;
-        f.write_str("_")?;
-        f.write_str(&self.kind)
+        f.write_str(self.provider_prefix())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum AzureRMResourceKind {
+    ManagementGroupPolicyAssignment,
+    PolicyAssignment,
+    PolicyDefinition,
+    PolicySetDefinition,
+    Other(String),
+}
+impl AsRef<str> for AzureRMResourceKind {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::ManagementGroupPolicyAssignment => "management_group_policy_assignment",
+            Self::PolicyAssignment => "policy_assignment",
+            Self::PolicyDefinition => "policy_definition",
+            Self::PolicySetDefinition => "policy_set_definition",
+            Self::Other(s) => s.as_ref(),
+        }
     }
 }
 
 #[derive(Debug)]
-pub struct ResourceIdentifier {
-    pub kind: ResourceType,
-    pub name: String,
+pub enum TofuResourceReference {
+    AzureRM {
+        kind: AzureRMResourceKind,
+        name: String,
+    },
+    Other {
+        provider: TofuProvider,
+        kind: String,
+        name: String,
+    },
 }
-impl std::fmt::Display for ResourceIdentifier {
+impl TofuResourceReference {
+    pub fn expression(&self) -> String {
+        format!("{}.{}", self.kind_label(), self.name_label())
+    }
+    pub fn kind_label(&self) -> String {
+        match self {
+            Self::AzureRM { kind, .. } => format!(
+                "{}_{}",
+                TofuProvider::AzureRM.provider_prefix(),
+                kind.as_ref()
+            ),
+            Self::Other { provider, kind, .. } => format!("{}_{}", provider, kind),
+        }
+    }
+    pub fn name_label(&self) -> &str {
+        match self {
+            Self::AzureRM { name, .. } => name.as_str(),
+            Self::Other { name, .. } => name.as_str(),
+        }
+    }
+    pub fn use_name(&mut self, mapper: impl Fn(&str) -> String) -> &mut Self {
+        match self {
+            Self::AzureRM { name, .. } => {
+                *name = (mapper)(name);
+            }
+            Self::Other { name, .. } => {
+                *name = (mapper)(name);
+            }
+        };
+        self
+    }
+}
+impl std::fmt::Display for TofuResourceReference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.kind.to_string())?;
-        f.write_str(".")?;
-        f.write_str(&self.name)
+        f.write_str(&self.expression())
     }
 }
 
 #[derive(Debug)]
 pub struct ImportBlock {
     pub id: String,
-    pub to: ResourceIdentifier,
+    pub to: TofuResourceReference,
 }
 
 pub trait Sanitizable {

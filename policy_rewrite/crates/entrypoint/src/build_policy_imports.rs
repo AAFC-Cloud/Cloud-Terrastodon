@@ -143,12 +143,12 @@ pub async fn build_policy_imports() -> Result<()> {
             WorkResult::PolicyAssignments { policy_assignments } => policy_assignments
                 .into_iter()
                 .map(|x| x.into())
-                .map(|x: ImportBlock| ImportBlock {
-                    id: x.id,
-                    to: ResourceIdentifier {
-                        kind: x.to.kind,
-                        name: format!("{}_{}", x.to.name, mg.display_name.sanitize()),
-                    },
+                .map(|x: ImportBlock| {
+                    // update to include management group name as suffix
+                    let id = x.id;
+                    let mut to = x.to;
+                    to.use_name(|name| format!("{}_{}", name, mg.display_name.sanitize()));
+                    ImportBlock { id, to }
                 })
                 .collect_vec(),
             WorkResult::PolicyInitiatives { policy_initiatives } => policy_initiatives
