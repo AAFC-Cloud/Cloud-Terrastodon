@@ -264,14 +264,16 @@ pub async fn reflow_workspace(
     source_dir: &Path,
     dest_dir: &Path,
 ) -> Result<Vec<(PathBuf, String)>> {
+    // Gather all tf files into a single body
     let mut body = as_single_body(source_dir).await?;
 
-    // Employ jsonparse
+    // Switch string literals to using jsonencode
     parameters_to_json(&mut body)?;
 
     // Update references and sort
     let body = update_references_and_sort(body)?;
 
+    // Return single output file with formatted body as content
     Ok(vec![(dest_dir.join("generated.tf"), body.to_string())])
 }
 
