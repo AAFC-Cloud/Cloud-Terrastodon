@@ -27,7 +27,7 @@ pub enum CommandKind {
     Echo,
     Pause,
     AzureCLI,
-    TF,
+    Tofu,
 }
 impl CommandKind {
     fn program(&self) -> &'static str {
@@ -35,7 +35,7 @@ impl CommandKind {
             CommandKind::Echo => "pwsh",
             CommandKind::Pause => "pwsh",
             CommandKind::AzureCLI => "az.cmd",
-            CommandKind::TF => "tofu.exe",
+            CommandKind::Tofu => "tofu.exe",
         }
     }
     fn apply_args_and_envs(&self, this: &CommandBuilder, cmd: &mut Command) {

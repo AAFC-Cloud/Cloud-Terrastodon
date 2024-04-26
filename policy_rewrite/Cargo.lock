@@ -45,12 +45,27 @@ name = "azure"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "azure_types",
  "command",
  "fzf",
  "serde",
  "serde_json",
  "tempfile",
- "tf",
+ "tofu_types",
+ "tokio",
+]
+
+[[package]]
+name = "azure_types"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "command",
+ "fzf",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tofu_types",
  "tokio",
 ]
 
@@ -148,7 +163,7 @@ dependencies = [
  "itertools",
  "serde",
  "serde_json",
- "tf",
+ "tofu",
  "tokio",
 ]
 
@@ -576,7 +591,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "tf"
+name = "tofu"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "azure_types",
+ "command",
+ "hcl-rs",
+ "indoc",
+ "itertools",
+ "serde_json",
+ "tofu_types",
+ "tokio",
+]
+
+[[package]]
+name = "tofu_types"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -14,8 +14,10 @@ use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use itertools::Itertools;
+use tofu::prelude::AsTofuString;
+use tofu::prelude::ImportBlock;
+use tofu::prelude::Sanitizable;
 use std::path::PathBuf;
-use tf::prelude::*;
 use tokio::fs::create_dir_all;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -67,7 +69,7 @@ pub async fn build_policy_imports() -> Result<()> {
         // Launch background worker
         work_pool.spawn(async move {
             // Fetch policy definitions
-            let result = fetch_policy_definitions(Some(mg.name.clone()), None).await;
+            let result = fetch_policy_definitions(Some(&mg.id), None).await;
 
             // Update progress indicator
             pb.inc(1);
@@ -90,7 +92,7 @@ pub async fn build_policy_imports() -> Result<()> {
         // Launch background worker
         work_pool.spawn(async move {
             // Fetch policy definitions
-            let result = fetch_policy_assignments(Some(&mg), None).await;
+            let result = fetch_policy_assignments(Some(&mg.id), None).await;
 
             // Update progress indicator
             pb.inc(1);
@@ -113,7 +115,7 @@ pub async fn build_policy_imports() -> Result<()> {
         // Launch background worker
         work_pool.spawn(async move {
             // Fetch policy definitions
-            let result = fetch_policy_initiatives(Some(mg.name.clone()), None).await;
+            let result = fetch_policy_initiatives(Some(&mg.id), None).await;
 
             // Update progress indicator
             pb.inc(1);
@@ -192,7 +194,7 @@ pub async fn build_policy_imports() -> Result<()> {
         .open(&imports_path)
         .await?;
     println!("Writing {:?}", imports_path);
-    imports_file.write_all(imports.as_tf().as_bytes()).await?;
+    imports_file.write_all(imports.as_tofu_string().as_bytes()).await?;
 
     Ok(())
 }

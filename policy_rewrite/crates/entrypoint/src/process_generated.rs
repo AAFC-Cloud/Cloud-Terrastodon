@@ -1,9 +1,9 @@
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
+use tofu::prelude::reflow_workspace;
 use std::path::Path;
 use std::path::PathBuf;
-use tf::prelude::reflow_workspace;
 use tokio::fs::OpenOptions;
 use tokio::fs::{self};
 use tokio::io::AsyncWriteExt;
@@ -89,7 +89,7 @@ pub async fn process_generated() -> Result<()> {
     let error_count = write_many_contents(files).await?;
 
     // Format the files
-    CommandBuilder::new(CommandKind::TF)
+    CommandBuilder::new(CommandKind::Tofu)
         .should_announce(true)
         .use_run_dir(out_dir)
         .args(["fmt", "-recursive"])

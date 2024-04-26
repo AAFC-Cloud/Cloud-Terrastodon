@@ -1,5 +1,5 @@
 [package]
-name = "entrypoint"
+name = "azure_types"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,12 +7,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-itertools = { workspace = true }
+tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
 fzf = { workspace = true }
-indicatif = { workspace = true }
-tofu = { workspace = true } 
-azure = { workspace = true }
-command = { workspace = true } 
+tempfile = { workspace = true }
+command = { workspace = true }
+tofu_types = { workspace = true }

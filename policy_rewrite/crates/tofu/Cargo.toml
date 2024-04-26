@@ -1,11 +1,13 @@
 [package]
-name = "tf"
+name = "tofu"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tofu_types = { workspace = true }
+azure_types = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 command = { workspace = true }

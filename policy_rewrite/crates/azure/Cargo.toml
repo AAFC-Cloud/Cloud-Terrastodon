@@ -13,4 +13,5 @@ serde_json = { workspace = true }
 fzf = { workspace = true }
 tempfile = { workspace = true }
 command = { workspace = true }
-tf = { workspace = true }
+tofu_types = { workspace = true }
+azure_types = { workspace = true }

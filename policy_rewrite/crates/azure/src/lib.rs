@@ -4,7 +4,6 @@ mod management_groups;
 mod policy_assignments;
 mod policy_definitions;
 mod policy_initiatives;
-mod scope;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::errors::*;
@@ -12,4 +11,5 @@ pub mod prelude {
     pub use crate::policy_assignments::*;
     pub use crate::policy_definitions::*;
     pub use crate::policy_initiatives::*;
+    pub use azure_types::prelude::*;
 }

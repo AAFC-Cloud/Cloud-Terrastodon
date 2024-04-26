@@ -1,56 +1,13 @@
-use crate::prelude::ManagementGroupId;
 use anyhow::Result;
+use azure_types::policy_definitions::PolicyDefinition;
+use azure_types::scopes::AsScope;
+use azure_types::scopes::Scope;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
-use std::collections::HashMap;
 use std::path::PathBuf;
-use tf::prelude::*;
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct PolicyDefinition {
-    pub description: Option<String>,
-    #[serde(rename = "displayName")]
-    pub display_name: String,
-    pub id: String,
-    pub metadata: HashMap<String, Value>,
-    pub mode: String,
-    pub name: String,
-    pub parameters: Option<HashMap<String, Value>>,
-    #[serde(rename = "policyRule")]
-    pub policy_rule: serde_json::Value,
-    #[serde(rename = "policyType")]
-    pub policy_type: String,
-    #[serde(rename = "systemData")]
-    pub system_data: Value,
-    #[serde(rename = "type")]
-    pub kind: String,
-}
-impl std::fmt::Display for PolicyDefinition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.display_name)?;
-        f.write_str(" (")?;
-        f.write_str(&self.name)?;
-        f.write_str(")")?;
-        Ok(())
-    }
-}
-impl From<PolicyDefinition> for ImportBlock {
-    fn from(policy_definition: PolicyDefinition) -> Self {
-        ImportBlock {
-            id: policy_definition.id.clone(),
-            to: TofuResourceReference::AzureRM {
-                kind: AzureRMResourceKind::PolicyDefinition,
-                name: policy_definition.display_name.sanitize(),
-            },
-        }
-    }
-}
 
 pub async fn fetch_policy_definitions(
-    management_group: Option<ManagementGroupId>,
+    scope: Option<&impl AsScope>,
     subscription: Option<String>,
 ) -> Result<Vec<PolicyDefinition>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -58,9 +15,10 @@ pub async fn fetch_policy_definitions(
     let mut cache = PathBuf::new();
     cache.push("ignore");
     cache.push("policy_definitions");
-    if let Some(management_group) = management_group {
-        cmd.args(["--management-group", &management_group]);
-        cache.push(management_group)
+    if let Some(scope) = scope {
+        let scope = scope.as_scope();
+        cmd.args(["--management-group", &scope.short_name()]);
+        cache.push(scope.short_name())
     }
     if let Some(subscription) = subscription {
         cmd.args(["--subscription", &subscription]);
@@ -72,11 +30,13 @@ pub async fn fetch_policy_definitions(
 
 #[cfg(test)]
 mod tests {
+    use azure_types::management_groups::ManagementGroupId;
+
     use super::*;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_policy_definitions(None, None).await?;
+        let result = fetch_policy_definitions(None::<&ManagementGroupId>, None).await?;
         println!("Found {} policy definitions:", result.len());
         for mg in result {
             println!("- {} ({})", mg.display_name, mg.name);

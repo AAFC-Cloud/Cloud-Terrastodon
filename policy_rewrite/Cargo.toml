@@ -10,9 +10,11 @@ members = ["crates/*"]
 
 [workspace.dependencies]
 azure = { version = "0.1.0", path = "./crates/azure" }
+azure_types = { version = "0.1.0", path = "./crates/azure_types" }
+tofu = { version = "0.1.0", path = "./crates/tofu" }
+tofu_types = { version = "0.1.0", path = "./crates/tofu_types" }
 fzf = { version = "0.1.0", path = "./crates/fzf" }
 command = { version = "0.1.0", path = "./crates/command" }
-tf = { version = "0.1.0", path = "./crates/tf" }
 entrypoint = { version = "0.1.0", path = "./crates/entrypoint" }
 anyhow = "1.0.82"
 itertools = "0.12.1"

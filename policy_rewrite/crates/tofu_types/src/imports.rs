@@ -128,12 +128,12 @@ impl<T: AsRef<str>> Sanitizable for T {
     }
 }
 
-pub trait AsTF {
-    fn as_tf(&self) -> String;
+pub trait AsTofuString {
+    fn as_tofu_string(&self) -> String;
 }
 
-impl AsTF for Vec<ImportBlock> {
-    fn as_tf(&self) -> String {
+impl AsTofuString for Vec<ImportBlock> {
+    fn as_tofu_string(&self) -> String {
         let mut rtn = String::new();
         let mut seen = HashSet::new();
         for import in self.iter() {
@@ -200,13 +200,13 @@ impl TFImporter {
             .await?;
 
         // tf init
-        let mut init_cmd = CommandBuilder::new(CommandKind::TF);
+        let mut init_cmd = CommandBuilder::new(CommandKind::Tofu);
         init_cmd.should_announce(true);
         init_cmd.use_run_dir(imports_dir.clone());
         // init_cmd.use_output_behaviour(OutputBehaviour::Display);
         init_cmd.args(["init"]);
         init_cmd.run_raw().await?;
-        println!("tf init successful!");
+        println!("tofu init successful!");
 
         // remove old plan outputs
         let generated_path = imports_dir.join("generated.tf");
@@ -219,16 +219,16 @@ impl TFImporter {
         }
 
         // tf plan
-        let mut plan_cmd = CommandBuilder::new(CommandKind::TF);
+        let mut plan_cmd = CommandBuilder::new(CommandKind::Tofu);
         plan_cmd.should_announce(true);
         plan_cmd.use_run_dir(imports_dir.clone());
         // plan_cmd.use_output_behaviour(OutputBehaviour::Display);
         plan_cmd.args(["plan", "-generate-config-out", "generated.tf"]);
         plan_cmd.run_raw().await?;
-        println!("tf plan successful!");
+        println!("tofu plan successful!");
 
         // Success!
-        println!("🚀 Successfully generated TF files from imports!");
+        println!("🚀 Successfully generated tofu files from imports!");
         Ok(())
     }
 }
