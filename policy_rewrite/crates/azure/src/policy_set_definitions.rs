@@ -1,22 +1,21 @@
 use anyhow::Result;
-use azure_types::policy_initiatives::PolicyInitiative;
-use azure_types::scopes::AsScope;
+use azure_types::policy_set_definitions::PolicySetDefinition;
 use azure_types::scopes::Scope;
+use azure_types::scopes::ScopeImpl;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use std::path::PathBuf;
 
-pub async fn fetch_policy_initiatives(
-    management_group: Option<&impl AsScope>,
+pub async fn fetch_policy_set_definitions(
+    scope: Option<ScopeImpl>,
     subscription: Option<String>,
-) -> Result<Vec<PolicyInitiative>> {
+) -> Result<Vec<PolicySetDefinition>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["policy", "set-definition", "list", "--output", "json"]);
     let mut cache = PathBuf::new();
     cache.push("ignore");
-    cache.push("policy_initiatives");
-    if let Some(scope) = management_group {
-        let scope = scope.as_scope();
+    cache.push("policy_set_definitions");
+    if let Some(scope) = scope {
         cmd.args(["--management-group", &scope.short_name()]);
         cache.push(scope.short_name())
     }
@@ -30,14 +29,12 @@ pub async fn fetch_policy_initiatives(
 
 #[cfg(test)]
 mod tests {
-    use azure_types::management_groups::ManagementGroupId;
-
     use super::*;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_policy_initiatives(None::<&ManagementGroupId>, None).await?;
-        println!("Found {} policy initiatives:", result.len());
+        let result = fetch_policy_set_definitions(None, None).await?;
+        println!("Found {} policy set definitions:", result.len());
         for mg in result {
             println!("- {} ({})", mg.display_name, mg.name);
         }

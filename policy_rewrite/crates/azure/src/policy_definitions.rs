@@ -1,13 +1,13 @@
 use anyhow::Result;
 use azure_types::policy_definitions::PolicyDefinition;
-use azure_types::scopes::AsScope;
 use azure_types::scopes::Scope;
+use azure_types::scopes::ScopeImpl;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use std::path::PathBuf;
 
 pub async fn fetch_policy_definitions(
-    scope: Option<&impl AsScope>,
+    scope: Option<ScopeImpl>,
     subscription: Option<String>,
 ) -> Result<Vec<PolicyDefinition>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -16,7 +16,6 @@ pub async fn fetch_policy_definitions(
     cache.push("ignore");
     cache.push("policy_definitions");
     if let Some(scope) = scope {
-        let scope = scope.as_scope();
         cmd.args(["--management-group", &scope.short_name()]);
         cache.push(scope.short_name())
     }
@@ -30,13 +29,11 @@ pub async fn fetch_policy_definitions(
 
 #[cfg(test)]
 mod tests {
-    use azure_types::management_groups::ManagementGroupId;
-
     use super::*;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_policy_definitions(None::<&ManagementGroupId>, None).await?;
+        let result = fetch_policy_definitions(None, None).await?;
         println!("Found {} policy definitions:", result.len());
         for mg in result {
             println!("- {} ({})", mg.display_name, mg.name);

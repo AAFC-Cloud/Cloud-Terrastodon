@@ -1,5 +1,9 @@
+use std::str::FromStr;
+
+use azure_types::scopes::ScopeImpl;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
+use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::visit_attr_mut;
 use hcl::edit::visit_mut::VisitMut;
 
@@ -10,6 +14,27 @@ pub struct ReferencePatcher {
     pub lookups: LookupHolder,
     pub missing_entries: Vec<ResourceId>,
 }
+impl ReferencePatcher {
+    pub fn add_data_for_missing(&self, body: &mut Body) {
+        for missing in &self.missing_entries {
+            let scope = match ScopeImpl::from_str(missing) {
+                Ok(x) => x,
+                Err(e) => {
+                    eprintln!("Couldn't determine kind for {missing}: {e:?}");
+                    continue;
+                }
+            };
+            match scope {
+                ScopeImpl::PolicyDefinition(_) => todo!(),
+                ScopeImpl::PolicySetDefinition(_) => todo!(),
+                x => todo!("{}", x)
+            }
+            // println!("Need data block for {missing}");
+            // /providers/Microsoft.Authorization/policyDefinitions/
+            // /providers/Microsoft.Authorization/policySetDefinitions/
+        }
+    }
+}
 impl From<LookupHolder> for ReferencePatcher {
     fn from(lookup: LookupHolder) -> Self {
         ReferencePatcher {
@@ -18,7 +43,6 @@ impl From<LookupHolder> for ReferencePatcher {
         }
     }
 }
-
 impl VisitMut for ReferencePatcher {
     fn visit_attr_mut(&mut self, mut node: AttributeMut) {
         // Only process policy_definition_id attributes

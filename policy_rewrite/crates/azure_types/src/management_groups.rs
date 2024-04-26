@@ -1,37 +1,25 @@
 use crate::scopes::Scope;
 use crate::scopes::ScopeError;
+use anyhow::Context;
+use anyhow::Result;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 
-const PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
+pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ManagementGroupId {
     expanded: String,
 }
 impl ManagementGroupId {
-    pub fn new(name: &str) -> Self {
-        let expanded = format!("{}{}", PREFIX, name);
+    pub fn from_name(name: &str) -> Self {
+        let expanded = format!("{}{}", MANAGEMENT_GROUP_ID_PREFIX, name);
         Self { expanded }
     }
-    pub fn from_expanded(expanded: &str) -> Result<Self, ScopeError> {
-        if let Some(name) = expanded.strip_prefix(PREFIX) {
-            // Check the name is valid based on Microsoft's documentation
-            if !ManagementGroupId::is_valid_name(name) {
-                return Err(ScopeError::InvalidName);
-            }
-
-            Ok(ManagementGroupId {
-                expanded: expanded.to_string(),
-            })
-        } else {
-            Err(ScopeError::Malformed)
-        }
-    }
-
+    /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftmanagement
     fn is_valid_name(name: &str) -> bool {
         if name.is_empty() || name.len() > 90 {
             return false;
@@ -55,40 +43,36 @@ impl ManagementGroupId {
     }
 }
 
-impl TryFrom<&str> for ManagementGroupId {
-    type Error = ScopeError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_expanded(value)
-    }
-}
-
 impl Scope for ManagementGroupId {
+    fn from_expanded(expanded: &str) -> Result<Self> {
+        let Some(name) = expanded.strip_prefix(MANAGEMENT_GROUP_ID_PREFIX) else {
+            return Err(ScopeError::Malformed).context("missing prefix");
+        };
+        if !ManagementGroupId::is_valid_name(name) {
+            return Err(ScopeError::InvalidName.into());
+        }
+        Ok(ManagementGroupId {
+            expanded: expanded.to_string(),
+        })
+    }
+
     fn expanded_form(&self) -> &str {
         &self.expanded
     }
 
     fn short_name(&self) -> &str {
-        self.expanded
-            .strip_prefix(PREFIX)
+        self.expanded_form()
+            .strip_prefix(MANAGEMENT_GROUP_ID_PREFIX)
             .unwrap_or_else(|| unreachable!("structure should have been validated at construction"))
     }
 }
-
-// fn deserialize_management_group_id<'de, D>(deserializer: D) -> Result<ManagementGroupId, D::Error>
-// where
-//     D: Deserializer<'de>,
-// {
-//     let id_str = String::deserialize(deserializer)?;
-//     Ok(ManagementGroupId::from_expanded(id_str))
-// }
 
 impl Serialize for ManagementGroupId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.expanded)
+        serializer.serialize_str(self.expanded_form())
     }
 }
 
@@ -102,6 +86,8 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
         Ok(id)
     }
 }
+
+
 /// `az account management-group list --no-register --output json`
 /// ```json
 /// {

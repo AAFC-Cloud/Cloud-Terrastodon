@@ -105,6 +105,7 @@ impl std::fmt::Display for TofuResourceReference {
 #[derive(Debug)]
 pub struct ImportBlock {
     pub id: String,
+    //     pub id: ScopeImpl,
     pub to: TofuResourceReference,
 }
 

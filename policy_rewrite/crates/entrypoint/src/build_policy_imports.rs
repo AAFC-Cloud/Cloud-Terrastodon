@@ -4,10 +4,11 @@ use anyhow::Result;
 use azure::prelude::fetch_management_groups;
 use azure::prelude::fetch_policy_assignments;
 use azure::prelude::fetch_policy_definitions;
-use azure::prelude::fetch_policy_initiatives;
+use azure::prelude::fetch_policy_set_definitions;
 use azure::prelude::PolicyAssignment;
 use azure::prelude::PolicyDefinition;
-use azure::prelude::PolicyInitiative;
+use azure::prelude::PolicySetDefinition;
+use azure::prelude::ScopeImpl;
 use fzf::pick;
 use fzf::FzfArgs;
 use indicatif::MultiProgress;
@@ -51,8 +52,8 @@ pub async fn build_policy_imports() -> Result<()> {
         PolicyAssignments {
             policy_assignments: Vec<PolicyAssignment>,
         },
-        PolicyInitiatives {
-            policy_initiatives: Vec<PolicyInitiative>,
+        PolicySetDefinitons {
+            policy_set_definitions: Vec<PolicySetDefinition>,
         },
     }
     let mut work_pool = JoinSet::new();
@@ -69,7 +70,7 @@ pub async fn build_policy_imports() -> Result<()> {
         // Launch background worker
         work_pool.spawn(async move {
             // Fetch policy definitions
-            let result = fetch_policy_definitions(Some(&mg.id), None).await;
+            let result = fetch_policy_definitions(Some(ScopeImpl::ManagementGroup(mg.id.clone())), None).await;
 
             // Update progress indicator
             pb.inc(1);
@@ -92,7 +93,7 @@ pub async fn build_policy_imports() -> Result<()> {
         // Launch background worker
         work_pool.spawn(async move {
             // Fetch policy definitions
-            let result = fetch_policy_assignments(Some(&mg.id), None).await;
+            let result = fetch_policy_assignments(Some(ScopeImpl::ManagementGroup(mg.id.clone())), None).await;
 
             // Update progress indicator
             pb.inc(1);
@@ -110,12 +111,12 @@ pub async fn build_policy_imports() -> Result<()> {
         let mg = management_group.clone();
         let pb = m.add(ProgressBar::new(1));
         pb.set_style(spinner_style.clone());
-        pb.set_message(format!("{} - {}", "policy initiatives", mg.display_name));
+        pb.set_message(format!("{} - {}", "policy set definitions", mg.display_name));
 
         // Launch background worker
         work_pool.spawn(async move {
             // Fetch policy definitions
-            let result = fetch_policy_initiatives(Some(&mg.id), None).await;
+            let result = fetch_policy_set_definitions(Some(ScopeImpl::ManagementGroup(mg.id.clone())), None).await;
 
             // Update progress indicator
             pb.inc(1);
@@ -125,10 +126,12 @@ pub async fn build_policy_imports() -> Result<()> {
                 mg,
                 pb,
                 result
-                    .map(|policy_initiatives| WorkResult::PolicyInitiatives { policy_initiatives }),
+                    .map(|policy_set_definitions| WorkResult::PolicySetDefinitons { policy_set_definitions }),
             )
         });
     }
+
+    println!("Tasks dispatched, now collecting results...");
 
     // Collect worker results
     let mut imports = Vec::<ImportBlock>::new();
@@ -153,7 +156,7 @@ pub async fn build_policy_imports() -> Result<()> {
                     ImportBlock { id, to }
                 })
                 .collect_vec(),
-            WorkResult::PolicyInitiatives { policy_initiatives } => policy_initiatives
+            WorkResult::PolicySetDefinitons { policy_set_definitions } => policy_set_definitions
                 .into_iter()
                 .filter(|def| def.policy_type == "Custom")
                 .map(|x| x.into())

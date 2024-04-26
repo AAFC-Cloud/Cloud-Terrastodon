@@ -30,11 +30,7 @@ pub async fn reflow_workspace(
     // Update references from hardcoded IDs to resource attribute references
     let mut reference_patcher: ReferencePatcher = lookups.into();
     reference_patcher.visit_body_mut(&mut body);
-    for missing in reference_patcher.missing_entries {
-        println!("Need data block for {missing}");
-        // /providers/Microsoft.Authorization/policyDefinitions/
-        // /providers/Microsoft.Authorization/policySetDefinitions/
-    }
+    reference_patcher.add_data_for_missing(&mut body);
 
     // Format the body
     let body: BodyFormatter = body.try_into()?;
