@@ -1,26 +1,16 @@
-use std::collections::HashMap;
+use anyhow::Result;
+use hcl::edit::structure::Body;
+use hcl::edit::visit::Visit;
+use hcl::edit::visit_mut::VisitMut;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
-
-use anyhow::anyhow;
-use anyhow::Result;
-use hcl::edit::expr::Expression;
-use hcl::edit::structure::Attribute;
-use hcl::edit::structure::AttributeMut;
-use hcl::edit::structure::Block;
-use hcl::edit::structure::Body;
-use hcl::edit::structure::Structure;
-use hcl::edit::visit::visit_block;
-use hcl::edit::visit::Visit;
-use hcl::edit::visit_mut::visit_attr_mut;
-use hcl::edit::visit_mut::visit_expr_mut;
-use hcl::edit::visit_mut::VisitMut;
-use hcl::edit::Decorate;
-use indoc::formatdoc;
-use itertools::Itertools;
-use serde_json::Value;
 use tokio::fs;
+
+use crate::body_formatter::BodyFormatter;
+use crate::json_patcher::JsonPatcher;
+use crate::lookup_holder::LookupHolder;
+use crate::reference_patcher::ReferencePatcher;
 
 pub async fn reflow_workspace(
     source_dir: &Path,
@@ -54,254 +44,6 @@ pub async fn reflow_workspace(
     Ok(vec![(dest_dir.join("generated.tf"), body.to_string())])
 }
 
-struct JsonPatcher;
-impl VisitMut for JsonPatcher {
-    fn visit_expr_mut(&mut self, node: &mut hcl::edit::expr::Expression) {
-        let _ = || -> Result<()> {
-            // Must be string
-            let Some(node_content) = node.as_str() else {
-                // Recurse otherwise
-                visit_expr_mut(self, node);
-                return Ok(());
-            };
-            // Must contain a quote
-            if !node_content.contains('"') {
-                return Err(anyhow!("not json"));
-            }
-
-            // Prettify json, failing if not json
-            let json = serde_json::to_string_pretty(&serde_json::from_str::<Value>(node_content)?)?;
-
-            // Convert to HCL
-            let input = format!(r#"a = jsonencode({json})"#);
-            let body: Body = input.parse()?;
-            let json_encode_expr = body
-                .into_attributes()
-                .next()
-                .ok_or(anyhow!("'a' not found"))?
-                .value;
-
-            // Update node
-            *node = json_encode_expr;
-
-            Ok(())
-        }();
-    }
-}
-
-#[derive(Default)]
-struct LookupHolder {
-    resource_references_by_id: HashMap<String, String>,
-}
-impl Visit for LookupHolder {
-    fn visit_block(&mut self, block: &Block) {
-        // Only process import blocks
-        if block.ident.to_string() != "import" {
-            visit_block(self, block);
-            return;
-        }
-
-        // Get properties
-        let Some(id) = block.body.get_attribute("id").map(|x| x.value.to_string()) else {
-            return;
-        };
-        let Some(to) = block.body.get_attribute("to").map(|x| x.value.to_string()) else {
-            return;
-        };
-
-        // Add to lookup table
-        self.resource_references_by_id.insert(id, to);
-    }
-}
-
-struct ReferencePatcher {
-    lookups: LookupHolder,
-    missing_entries: Vec<ResourceId>,
-}
-impl From<LookupHolder> for ReferencePatcher {
-    fn from(lookup: LookupHolder) -> Self {
-        ReferencePatcher {
-            lookups: lookup,
-            missing_entries: Vec::new(),
-        }
-    }
-}
-
-impl VisitMut for ReferencePatcher {
-    fn visit_attr_mut(&mut self, mut node: AttributeMut) {
-        // Only process policy_definition_id attributes
-        if node.key.to_string().trim() != "policy_definition_id" {
-            visit_attr_mut(self, node);
-            return;
-        }
-
-        // Only process string literals
-        let Some(policy_definition_id) = node.value.as_str() else {
-            visit_attr_mut(self, node);
-            return;
-        };
-
-        // Lookup the policy definition key by the id
-        let reference = match self
-            .lookups
-            .resource_references_by_id
-            .get(policy_definition_id)
-        {
-            Some(x) => x,
-            None => {
-                self.missing_entries.push(policy_definition_id.to_string());
-                return;
-            }
-        };
-
-        // Parse the key into a reference expression
-        let Ok(expr) = format!("{}.id", reference.trim()).parse::<Expression>() else {
-            return;
-        };
-
-        // Update the value to use the reference
-        *node.value_mut() = expr;
-    }
-}
-
-type ResourceReference = String;
-type ResourceId = String;
-#[derive(Default, Clone)]
-struct BodyFormatter {
-    resource_blocks: HashMap<ResourceReference, Block>,
-    resource_keys_by_id: HashMap<ResourceId, ResourceReference>,
-    import_blocks: Vec<Block>,
-    provider_blocks: Vec<Block>,
-    other_blocks: Vec<Block>,
-    attrs: Vec<Attribute>,
-}
-impl TryFrom<Body> for BodyFormatter {
-    type Error = anyhow::Error;
-
-    fn try_from(src: Body) -> Result<Self> {
-        let mut rtn = BodyFormatter::default();
-        // Populate holders
-        for structure in src.into_iter() {
-            match structure {
-                Structure::Block(block) => {
-                    match block.ident.as_str() {
-                        "resource" => {
-                            // Get the lookup key
-                            let key = block.labels.iter().map(|l| l.to_string()).join(".");
-
-                            // Add it to the lookup table
-                            rtn.resource_blocks.insert(key, block);
-                        }
-                        "provider" => rtn.provider_blocks.push(block),
-                        "import" => {
-                            // Add it to the alias table
-                            let id = block
-                                .body
-                                .get_attribute("id")
-                                .ok_or(anyhow!("import block missing property").context("id"))?
-                                .value
-                                .as_str()
-                                .ok_or(anyhow!("import block property not a string").context("id"))?
-                                .to_string();
-                            let key = block
-                                .body
-                                .get_attribute("to")
-                                .ok_or(anyhow!("import block missing property").context("key"))?
-                                .value
-                                .to_string();
-                            rtn.resource_keys_by_id.insert(id, key);
-
-                            // Add it to the import block list
-                            rtn.import_blocks.push(block);
-                        }
-                        _ => rtn.other_blocks.push(block),
-                    };
-                }
-                Structure::Attribute(attr) => {
-                    rtn.attrs.push(attr);
-                }
-            }
-        }
-        Ok(rtn)
-    }
-}
-impl From<BodyFormatter> for Body {
-    fn from(mut value: BodyFormatter) -> Self {
-        // Create output
-        let mut output = Body::new();
-
-        // Add providers to the top of the output
-        value
-            .provider_blocks
-            .into_iter()
-            .for_each(|block| output.push(block));
-
-        // Add unknowns
-        value
-            .other_blocks
-            .into_iter()
-            .for_each(|block| output.push(block));
-
-        // Sort import blocks by destination
-        value
-            .import_blocks
-            .sort_by_key(|b| b.body.get_attribute("to").map(|a| a.value.to_string()));
-
-        // Add import blocks followed by their resource blocks
-        for mut import_block in value.import_blocks.into_iter() {
-            // Import block must contain `to` key
-            let Some(key) = import_block.body.get_attribute("to") else {
-                output.push(import_block);
-                continue;
-            };
-
-            // Get and trim key
-            let to = key.value.to_string();
-            let key = to.trim();
-
-            // Find resource block
-            let found = value.resource_blocks.remove(key);
-            let Some(mut resource_block) = found else {
-                output.push(import_block);
-                eprintln!("Couldn't find resource for import block targetting {key}");
-                continue;
-            };
-
-            // Determine label
-            let label = resource_block
-                .body
-                .get_attribute("display_name")
-                .or(resource_block.body.get_attribute("name"))
-                .map(|x| x.value.to_string())
-                .or(resource_block.labels.get(1).map(|x| x.to_string()))
-                .unwrap_or_default();
-
-            // Apply label
-            import_block.decor_mut().set_prefix(formatdoc! {"
-                #############
-                ## {}
-                #############
-            ", label});
-
-            // Clear block decorations
-            resource_block.decor_mut().set_prefix("");
-
-            // Push blocks
-            output.push(import_block);
-            output.push(resource_block);
-        }
-
-        // Add remaining resource blocks
-        value
-            .resource_blocks
-            .into_iter()
-            .for_each(|(_k, v)| output.push(v));
-
-        // Return
-        output
-    }
-}
-
 async fn as_single_body(source_dir: &Path) -> Result<Body> {
     let mut body = Body::new();
 
@@ -325,8 +67,10 @@ async fn as_single_body(source_dir: &Path) -> Result<Body> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use hcl::edit::structure::Structure;
     use hcl::edit::Decorate;
+    use hcl::Value;
     use indoc::indoc;
     use itertools::Itertools;
 
@@ -384,7 +128,8 @@ mod tests {
         // Parse the body
         let mut body = input.parse()?;
         // Convert embedded json strings
-        parameters_to_json(&mut body)?;
+        let mut visitor = JsonPatcher;
+        visitor.visit_body_mut(&mut body);
         // Should now use jsonencode
         assert_eq!(format!("{body}"), r#"a = jsonencode({"guh":true})"#);
         Ok(())

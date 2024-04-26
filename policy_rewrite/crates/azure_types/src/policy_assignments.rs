@@ -1,11 +1,11 @@
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use std::collections::HashMap;
 use tofu_types::imports::AzureRMResourceKind;
 use tofu_types::imports::ImportBlock;
 use tofu_types::imports::Sanitizable;
 use tofu_types::imports::TofuResourceReference;
-use std::collections::HashMap;
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicyAssignment {
     pub description: Option<String>,

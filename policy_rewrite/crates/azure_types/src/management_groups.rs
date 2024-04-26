@@ -18,9 +18,7 @@ impl ManagementGroupId {
         Self { expanded }
     }
     pub fn from_expanded(expanded: &str) -> Result<Self, ScopeError> {
-        if expanded.starts_with(PREFIX) {
-            let name = &expanded[PREFIX.len()..];
-
+        if let Some(name) = expanded.strip_prefix(PREFIX) {
             // Check the name is valid based on Microsoft's documentation
             if !ManagementGroupId::is_valid_name(name) {
                 return Err(ScopeError::InvalidName);

@@ -14,10 +14,10 @@ use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use itertools::Itertools;
+use std::path::PathBuf;
 use tofu::prelude::AsTofuString;
 use tofu::prelude::ImportBlock;
 use tofu::prelude::Sanitizable;
-use std::path::PathBuf;
 use tokio::fs::create_dir_all;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -194,7 +194,9 @@ pub async fn build_policy_imports() -> Result<()> {
         .open(&imports_path)
         .await?;
     println!("Writing {:?}", imports_path);
-    imports_file.write_all(imports.as_tofu_string().as_bytes()).await?;
+    imports_file
+        .write_all(imports.as_tofu_string().as_bytes())
+        .await?;
 
     Ok(())
 }
