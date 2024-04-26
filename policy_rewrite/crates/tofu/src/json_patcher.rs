@@ -39,3 +39,32 @@ impl VisitMut for JsonPatcher {
         }();
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+
+    use super::*;
+    #[test]
+    fn it_works() -> Result<()> {
+        // A json example
+        let inner = r#"{"guh": true}"#;
+        // Encode it as a string
+        let encoded = serde_json::to_string(inner)?;
+        // Embed it as if it were a string in HCL
+        let input = format!(r#"a = {encoded}"#);
+        // Parse the body
+        let mut body = input.parse()?;
+        // Convert embedded json strings
+        let mut visitor = JsonPatcher;
+        visitor.visit_body_mut(&mut body);
+        // Should now use jsonencode
+        assert_eq!(format!("{body}\n"), indoc! {r#"
+            a = jsonencode({
+              "guh": true
+            })
+        "#});
+        Ok(())
+    }
+}

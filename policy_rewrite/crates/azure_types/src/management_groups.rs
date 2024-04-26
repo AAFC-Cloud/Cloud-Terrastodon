@@ -103,7 +103,7 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
     }
 }
 /// `az account management-group list --no-register --output json`
-/// ```
+/// ```json
 /// {
 ///   "displayName": "OPS",
 ///   "id": "/providers/Microsoft.Management/managementGroups/55555555-5555-5555-5555-555555555555",

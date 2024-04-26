@@ -438,6 +438,17 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn user() -> Result<()> {
+        let result = CommandBuilder::new(CommandKind::AzureCLI)
+            .args(["ad", "signed-in-user", "show"])
+            .run_raw()
+            .await;
+        println!("{:?}", result);
+        Ok(())
+    }
+    
+    #[tokio::test]
+    #[ignore]
     async fn login() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["login"])
@@ -448,6 +459,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn logout() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["logout"])
@@ -456,17 +468,8 @@ mod tests {
         println!("{:?}", result);
         Ok(())
     }
-
     #[tokio::test]
-    async fn user() -> Result<()> {
-        let result = CommandBuilder::new(CommandKind::AzureCLI)
-            .args(["ad", "signed-in-user", "show"])
-            .run_raw()
-            .await;
-        println!("{:?}", result);
-        Ok(())
-    }
-    #[tokio::test]
+    #[ignore]
     async fn reauth() -> Result<()> {
         println!("Logging out...");
         let logout_result = CommandBuilder::new(CommandKind::AzureCLI)

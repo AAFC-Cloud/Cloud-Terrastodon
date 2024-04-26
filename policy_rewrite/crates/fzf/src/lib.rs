@@ -123,6 +123,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn it_works() -> Result<()> {
         let choices = vec!["Choice 1", "Choice 2", "Choice 3", "Choice 4"];
         let options = FzfArgs {
