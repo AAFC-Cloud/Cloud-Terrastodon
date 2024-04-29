@@ -7,10 +7,10 @@ use hcl::edit::visit::Visit;
 pub type ResourceReference = String;
 pub type ResourceId = String;
 #[derive(Default)]
-pub struct LookupHolder {
+pub struct ImportLookupHolder {
     pub resource_references_by_id: HashMap<ResourceId, ResourceReference>,
 }
-impl Visit for LookupHolder {
+impl Visit for ImportLookupHolder {
     fn visit_block(&mut self, block: &Block) {
         // Only process import blocks
         if block.ident.to_string() != "import" {
@@ -19,7 +19,11 @@ impl Visit for LookupHolder {
         }
 
         // Get properties
-        let Some(id) = block.body.get_attribute("id").map(|x| x.value.to_string()) else {
+        let Some(id) = block
+            .body
+            .get_attribute("id")
+            .and_then(|x| x.value.as_str())
+        else {
             return;
         };
         let Some(to) = block.body.get_attribute("to").map(|x| x.value.to_string()) else {
@@ -27,6 +31,6 @@ impl Visit for LookupHolder {
         };
 
         // Add to lookup table
-        self.resource_references_by_id.insert(id, to);
+        self.resource_references_by_id.insert(id.to_string(), to);
     }
 }

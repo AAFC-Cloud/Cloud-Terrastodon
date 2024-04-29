@@ -1,9 +1,10 @@
-use std::str::FromStr;
-use anyhow::{Error, Result};
 use crate::management_groups::ManagementGroupId;
 use crate::policy_assignments::PolicyAssignmentId;
 use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
+use anyhow::Error;
+use anyhow::Result;
+use std::str::FromStr;
 
 pub trait Scope: Sized {
     fn expanded_form(&self) -> &str;
@@ -28,7 +29,7 @@ impl std::fmt::Display for ScopeError {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub enum ScopeImpl {
     ManagementGroup(ManagementGroupId),
     PolicyDefinition(PolicyDefinitionId),

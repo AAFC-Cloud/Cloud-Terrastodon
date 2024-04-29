@@ -3,7 +3,7 @@ use tokio::fs;
 
 use crate::build_policy_imports::build_policy_imports;
 use crate::process_generated::process_generated;
-use crate::tf_plan_generate_config_out::run_tf_import;
+use crate::run_tf_import::run_tf_import;
 pub enum Action {
     BuildPolicyImports,
     RunTFImport,

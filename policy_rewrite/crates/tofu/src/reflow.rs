@@ -8,31 +8,53 @@ use std::path::PathBuf;
 use tokio::fs;
 
 use crate::body_formatter::BodyFormatter;
+use crate::data_block_creation::create_data_blocks_for_ids;
+use crate::data_reference_patcher::DataReferencePatcher;
+use crate::import_lookup_holder::ImportLookupHolder;
+use crate::imported_resource_reference_patcher::ImportedResourceReferencePatcher;
 use crate::json_patcher::JsonPatcher;
-use crate::lookup_holder::LookupHolder;
-use crate::reference_patcher::ReferencePatcher;
 
 pub async fn reflow_workspace(
     source_dir: &Path,
     dest_dir: &Path,
 ) -> Result<Vec<(PathBuf, String)>> {
     // Gather all tf files into a single body
+    println!("Assembling body for parsing...");
     let mut body = as_single_body(source_dir).await?;
 
     // Switch string literals to using jsonencode
+    println!("Updating json string literals to use jsonencode...");
     let mut json_patcher = JsonPatcher;
     json_patcher.visit_body_mut(&mut body);
 
     // Build lookup details from body
-    let mut lookups = LookupHolder::default();
+    println!("Gathering import blocks...");
+    let mut lookups = ImportLookupHolder::default();
     lookups.visit_body(&body);
 
     // Update references from hardcoded IDs to resource attribute references
-    let mut reference_patcher: ReferencePatcher = lookups.into();
-    reference_patcher.visit_body_mut(&mut body);
-    reference_patcher.add_data_for_missing(&mut body);
+    println!("Updating references...");
+    let mut import_reference_patcher: ImportedResourceReferencePatcher = lookups.into();
+    import_reference_patcher.visit_body_mut(&mut body);
+
+    // Create data blocks
+    println!("Creating data blocks for missing references...");
+    let (data_blocks, data_references) =
+        create_data_blocks_for_ids(&import_reference_patcher.missing_entries).await?;
+
+    // Add data blocks to body
+    for block in data_blocks.into_blocks() {
+        body.push(block);
+    }
+
+    // Update references to data blocks
+    let mut data_reference_patcher = DataReferencePatcher {
+        lookup: data_references,
+    };
+    data_reference_patcher.visit_body_mut(&mut body);
 
     // Format the body
+    println!("Formatting final body...");
     let body: BodyFormatter = body.try_into()?;
     let body: Body = body.into();
 

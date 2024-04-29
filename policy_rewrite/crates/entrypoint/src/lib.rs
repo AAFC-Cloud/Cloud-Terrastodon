@@ -3,7 +3,7 @@ mod action;
 mod build_policy_imports;
 mod menu;
 mod process_generated;
-mod tf_plan_generate_config_out;
+mod run_tf_import;
 pub mod prelude {
     pub use crate::menu::*;
 }

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use tofu::prelude::TFImporter;
+use tofu::prelude::TofuImporter;
 pub async fn run_tf_import() -> Result<()> {
     // not necessary if capturing terraform output
     // // Double check that we are logged in before running tf command
@@ -16,7 +16,7 @@ pub async fn run_tf_import() -> Result<()> {
     // Run tf import
     println!("Beginning tofu import...");
     let imports_dir = PathBuf::from("ignore").join("imports");
-    TFImporter::default().using_dir(imports_dir).run().await?;
+    TofuImporter::default().using_dir(imports_dir).run().await?;
 
     Ok(())
 }

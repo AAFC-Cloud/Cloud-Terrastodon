@@ -7,10 +7,10 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;
 use std::collections::HashMap;
-use tofu_types::imports::AzureRMResourceKind;
-use tofu_types::imports::ImportBlock;
-use tofu_types::imports::Sanitizable;
-use tofu_types::imports::TofuResourceReference;
+use tofu_types::prelude::Sanitizable;
+use tofu_types::prelude::TofuAzureRMResourceKind;
+use tofu_types::prelude::TofuImportBlock;
+use tofu_types::prelude::TofuResourceReference;
 
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
 use crate::scopes::Scope;
@@ -19,12 +19,13 @@ use crate::scopes::ScopeError;
 pub const POLICY_DEFINITION_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyDefinitions/";
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PolicyDefinitionId {
     Unscoped { expanded: String },
     ManagementGroupScoped { expanded: String },
 }
 impl PolicyDefinitionId {
+    // pub fn name(&self) -> &str {}
     pub fn from_expanded_unscoped(expanded: &str) -> Result<Self> {
         let Some(name) = expanded.strip_prefix(POLICY_DEFINITION_ID_PREFIX) else {
             return Err(ScopeError::Malformed).context(format!(
@@ -44,7 +45,7 @@ impl PolicyDefinitionId {
             return Err(ScopeError::Malformed)
             .context(format!("missing management group prefix, expected to begin with {MANAGEMENT_GROUP_ID_PREFIX} and got {expanded}"));
         };
-        let Some((_management_group_name, remaining)) = remaining.split_once("/") else {
+        let Some((_management_group_name, remaining)) = remaining.split_once('/') else {
             return Err(ScopeError::Malformed).context(format!("bad name split given {expanded}"));
         };
         // Calculate the new slice that includes the slash using the original string's indices
@@ -63,7 +64,7 @@ impl PolicyDefinitionId {
     /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
     fn is_valid_name(name: &str) -> bool {
         // Check the length constraints
-        if name.len() < 1 || name.len() > 64 {
+        if name.is_empty() || name.len() > 64 {
             return false;
         }
 
@@ -94,7 +95,9 @@ impl Scope for PolicyDefinitionId {
     fn from_expanded(expanded: &str) -> Result<Self> {
         match Self::from_expanded_management_group_scoped(expanded) {
             Ok(x) => Ok(x),
-            Err(e) => Self::from_expanded_unscoped(expanded).context(format!("tried management group scoped but it failed with {e:?}"))
+            Err(e) => Self::from_expanded_unscoped(expanded).context(format!(
+                "tried management group scoped but it failed with {e:?}"
+            )),
         }
     }
 
@@ -107,8 +110,9 @@ impl Scope for PolicyDefinitionId {
 
     fn short_name(&self) -> &str {
         self.expanded_form()
-            .strip_prefix(POLICY_DEFINITION_ID_PREFIX)
-            .unwrap_or_else(|| unreachable!("structure should have been validated at construction"))
+            .rsplit_once('/')
+            .expect("no slash found, form should have been validated at construction")
+            .1
     }
 }
 
@@ -160,12 +164,12 @@ impl std::fmt::Display for PolicyDefinition {
         Ok(())
     }
 }
-impl From<PolicyDefinition> for ImportBlock {
+impl From<PolicyDefinition> for TofuImportBlock {
     fn from(policy_definition: PolicyDefinition) -> Self {
-        ImportBlock {
+        TofuImportBlock {
             id: policy_definition.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
-                kind: AzureRMResourceKind::PolicyDefinition,
+                kind: TofuAzureRMResourceKind::PolicyDefinition,
                 name: policy_definition.display_name.sanitize(),
             },
         }
@@ -181,9 +185,31 @@ mod tests {
         let expanded = "/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555";
         let id = PolicyDefinitionId::from_expanded(expanded)?;
         assert_eq!(id.expanded_form(), expanded);
+        assert_eq!(
+            PolicyDefinitionId::Unscoped {
+                expanded: expanded.to_string()
+            },
+            id
+        );
+        assert_eq!(id.short_name(), "55555555-5555-5555-5555-555555555555");
         Ok(())
     }
-    // "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555"
+
+    #[test]
+    fn management_group_scoped() -> Result<()> {
+        let expanded = "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555";
+        let id = PolicyDefinitionId::from_expanded(expanded)?;
+        assert_eq!(id.expanded_form(), expanded);
+        assert_eq!(
+            PolicyDefinitionId::ManagementGroupScoped {
+                expanded: expanded.to_string()
+            },
+            id
+        );
+        assert_eq!(id.short_name(), "55555555-5555-5555-5555-555555555555");
+        Ok(())
+    }
+
     #[test]
     fn deserializes() -> Result<()> {
         let expanded = "/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555";

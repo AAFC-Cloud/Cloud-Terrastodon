@@ -9,8 +9,10 @@ use serde::Serialize;
 use serde::Serializer;
 
 pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
+pub const MANAGEMENT_GROUP_ID_PREFIX_NO_TRAILING_SLASH: &str =
+    "/providers/Microsoft.Management/managementGroups";
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ManagementGroupId {
     expanded: String,
 }
@@ -86,7 +88,6 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
         Ok(id)
     }
 }
-
 
 /// `az account management-group list --no-register --output json`
 /// ```json

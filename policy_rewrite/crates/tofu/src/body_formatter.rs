@@ -10,8 +10,8 @@ use hcl::edit::Decorate;
 use indoc::formatdoc;
 use itertools::Itertools;
 
-use crate::lookup_holder::ResourceId;
-use crate::lookup_holder::ResourceReference;
+use crate::import_lookup_holder::ResourceId;
+use crate::import_lookup_holder::ResourceReference;
 
 #[derive(Default, Clone)]
 pub struct BodyFormatter {

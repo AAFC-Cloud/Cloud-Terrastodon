@@ -7,10 +7,10 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;
 use std::collections::HashMap;
-use tofu_types::imports::AzureRMResourceKind;
-use tofu_types::imports::ImportBlock;
-use tofu_types::imports::Sanitizable;
-use tofu_types::imports::TofuResourceReference;
+use tofu_types::prelude::Sanitizable;
+use tofu_types::prelude::TofuAzureRMResourceKind;
+use tofu_types::prelude::TofuImportBlock;
+use tofu_types::prelude::TofuResourceReference;
 
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
 use crate::scopes::Scope;
@@ -19,7 +19,7 @@ use crate::scopes::ScopeError;
 pub const POLICY_ASSIGNMENT_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyAssignments/";
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PolicyAssignmentId {
     Unscoped { expanded: String },
     SubscriptionScoped { expanded: String },
@@ -39,14 +39,14 @@ impl PolicyAssignmentId {
             expanded: expanded.to_string(),
         })
     }
-    
+
     pub fn from_expanded_subscription_scoped(expanded: &str) -> Result<Self> {
         const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";
         let Some(remaining) = expanded.strip_prefix(SUBSCRIPTION_ID_PREFIX) else {
             return Err(ScopeError::Malformed)
                 .context(format!("missing subscription prefix, expected to begin with {SUBSCRIPTION_ID_PREFIX} and got {expanded}"));
         };
-        let Some((_sub_name, remaining)) = remaining.split_once("/") else {
+        let Some((_sub_name, remaining)) = remaining.split_once('/') else {
             return Err(ScopeError::Malformed).context(format!("bad name split given {expanded}"));
         };
         // Calculate the new slice that includes the slash using the original string's indices
@@ -67,7 +67,7 @@ impl PolicyAssignmentId {
             return Err(ScopeError::Malformed)
                 .context(format!("missing management group prefix, expected to begin with {MANAGEMENT_GROUP_ID_PREFIX} and got {expanded}"));
         };
-        let Some((_management_group_name, remaining)) = remaining.split_once("/") else {
+        let Some((_management_group_name, remaining)) = remaining.split_once('/') else {
             return Err(ScopeError::Malformed).context(format!("bad name split given {expanded}"));
         };
         // Calculate the new slice that includes the slash using the original string's indices
@@ -188,12 +188,12 @@ impl std::fmt::Display for PolicyAssignment {
     }
 }
 
-impl From<PolicyAssignment> for ImportBlock {
+impl From<PolicyAssignment> for TofuImportBlock {
     fn from(policy_assignment: PolicyAssignment) -> Self {
-        ImportBlock {
+        TofuImportBlock {
             id: policy_assignment.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
-                kind: AzureRMResourceKind::ManagementGroupPolicyAssignment,
+                kind: TofuAzureRMResourceKind::ManagementGroupPolicyAssignment,
                 name: policy_assignment.display_name.sanitize(),
             },
         }

@@ -40,7 +40,6 @@ impl VisitMut for JsonPatcher {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
@@ -60,11 +59,14 @@ mod tests {
         let mut visitor = JsonPatcher;
         visitor.visit_body_mut(&mut body);
         // Should now use jsonencode
-        assert_eq!(format!("{body}\n"), indoc! {r#"
+        assert_eq!(
+            format!("{body}\n"),
+            indoc! {r#"
             a = jsonencode({
               "guh": true
             })
-        "#});
+        "#}
+        );
         Ok(())
     }
 }

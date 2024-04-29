@@ -1,4 +1,5 @@
 use anyhow::Context;
+use anyhow::Result;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -6,11 +7,10 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;
 use std::collections::HashMap;
-use tofu_types::imports::AzureRMResourceKind;
-use tofu_types::imports::ImportBlock;
-use tofu_types::imports::Sanitizable;
-use tofu_types::imports::TofuResourceReference;
-use anyhow::Result;
+use tofu_types::prelude::Sanitizable;
+use tofu_types::prelude::TofuAzureRMResourceKind;
+use tofu_types::prelude::TofuImportBlock;
+use tofu_types::prelude::TofuResourceReference;
 
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
 use crate::scopes::Scope;
@@ -19,7 +19,7 @@ use crate::scopes::ScopeError;
 pub const POLICY_SET_DEFINITION_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policySetDefinitions/";
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PolicySetDefinitionId {
     Unscoped { expanded: String },
     ManagementGroupScoped { expanded: String },
@@ -44,7 +44,7 @@ impl PolicySetDefinitionId {
             return Err(ScopeError::Malformed)
             .context(format!("missing management group prefix, expected to begin with {MANAGEMENT_GROUP_ID_PREFIX} and got {expanded}"));
         };
-        let Some((_management_group_name, remaining)) = remaining.split_once("/") else {
+        let Some((_management_group_name, remaining)) = remaining.split_once('/') else {
             return Err(ScopeError::Malformed).context(format!("bad name split given {expanded}"));
         };
         // Calculate the new slice that includes the slash using the original string's indices
@@ -68,7 +68,7 @@ impl PolicySetDefinitionId {
     /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
     fn is_valid_name(name: &str) -> bool {
         // Check the length constraints
-        if name.len() < 1 || name.len() > 64 {
+        if name.is_empty() || name.len() > 64 {
             return false;
         }
 
@@ -96,7 +96,9 @@ impl Scope for PolicySetDefinitionId {
     fn from_expanded(expanded: &str) -> Result<Self> {
         match Self::from_expanded_management_group_scoped(expanded) {
             Ok(x) => Ok(x),
-            Err(e) => Self::from_expanded_unscoped(expanded).context(format!("tried management group scoped but it failed with {e:?}"))
+            Err(e) => Self::from_expanded_unscoped(expanded).context(format!(
+                "tried management group scoped but it failed with {e:?}"
+            )),
         }
     }
 
@@ -106,7 +108,7 @@ impl Scope for PolicySetDefinitionId {
             Self::ManagementGroupScoped { expanded } => expanded,
         }
     }
-    
+
     fn short_name(&self) -> &str {
         self.expanded_form()
             .strip_prefix(POLICY_SET_DEFINITION_ID_PREFIX)
@@ -185,12 +187,12 @@ impl std::fmt::Display for PolicySetDefinition {
         Ok(())
     }
 }
-impl From<PolicySetDefinition> for ImportBlock {
+impl From<PolicySetDefinition> for TofuImportBlock {
     fn from(policy_definition: PolicySetDefinition) -> Self {
-        ImportBlock {
+        TofuImportBlock {
             id: policy_definition.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
-                kind: AzureRMResourceKind::PolicySetDefinition,
+                kind: TofuAzureRMResourceKind::PolicySetDefinition,
                 name: policy_definition.display_name.sanitize(),
             },
         }
@@ -220,11 +222,13 @@ mod tests {
     #[test]
     fn deserializes() -> Result<()> {
         let expanded = "/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
-        let id: PolicySetDefinitionId = serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+        let id: PolicySetDefinitionId =
+            serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
         assert_eq!(id.expanded_form(), expanded);
 
         let expanded = "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
-        let id: PolicySetDefinitionId = serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+        let id: PolicySetDefinitionId =
+            serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
         assert_eq!(id.expanded_form(), expanded);
 
         Ok(())

@@ -598,6 +598,7 @@ dependencies = [
  "azure_types",
  "command",
  "hcl-rs",
+ "indicatif",
  "indoc",
  "itertools",
  "serde_json",

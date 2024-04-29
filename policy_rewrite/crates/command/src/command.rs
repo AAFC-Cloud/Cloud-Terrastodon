@@ -379,9 +379,9 @@ impl CommandBuilder {
             Err(e) => {
                 let context = dump_to_ignore_file(&output.to_string())?;
                 Err(e)
-                .context(format!("dumped to {:?}", context))
-                .context("deserializing")
-                .context(self.summarize())
+                    .context(format!("dumped to {:?}", context))
+                    .context("deserializing")
+                    .context(self.summarize())
             }
         }
     }
@@ -447,7 +447,7 @@ mod tests {
         println!("{:?}", result);
         Ok(())
     }
-    
+
     #[tokio::test]
     #[ignore]
     async fn login() -> Result<()> {

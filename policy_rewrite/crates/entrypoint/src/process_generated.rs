@@ -8,6 +8,40 @@ use tokio::fs::OpenOptions;
 use tokio::fs::{self};
 use tokio::io::AsyncWriteExt;
 
+pub async fn process_generated() -> Result<()> {
+    // Determine output directory
+    let out_dir = PathBuf::from_iter(["ignore", "processed"]);
+
+    // Cleanup
+    if !out_dir.exists() {
+        fs::create_dir(&out_dir).await?;
+    } else {
+        // Cleanup the directory except for specified exclusions
+        remove_dir_contents_except(&out_dir, &[".terraform", ".terraform.lock.hcl"]).await?;
+    }
+
+    // Read generated code
+    let workspace_path = PathBuf::from_iter(["ignore", "imports"]);
+
+    // Determine output files
+    let files = reflow_workspace(&workspace_path, &out_dir).await?;
+
+    // Write files
+    let error_count = write_many_contents(files).await?;
+
+    // Format the files
+    CommandBuilder::new(CommandKind::Tofu)
+        .should_announce(true)
+        .use_run_dir(out_dir)
+        .args(["fmt", "-recursive"])
+        .run_raw()
+        .await?;
+
+    println!("Processing finished with {} problems.", error_count);
+
+    Ok(())
+}
+
 async fn remove_dir_contents_except(dir: &Path, exclude: &[&str]) -> Result<(), std::io::Error> {
     let mut entries = fs::read_dir(dir).await?;
 
@@ -65,38 +99,4 @@ pub async fn write_many_contents(files: Vec<(impl AsRef<Path>, String)>) -> Resu
         file.write_all(content.as_bytes()).await?;
     }
     Ok(error_count)
-}
-
-pub async fn process_generated() -> Result<()> {
-    // Determine output directory
-    let out_dir = PathBuf::from_iter(["ignore", "processed"]);
-
-    // Cleanup
-    if !out_dir.exists() {
-        fs::create_dir(&out_dir).await?;
-    } else {
-        // Cleanup the directory except for specified exclusions
-        remove_dir_contents_except(&out_dir, &[".terraform", ".terraform.lock.hcl"]).await?;
-    }
-
-    // Read generated code
-    let workspace_path = PathBuf::from_iter(["ignore", "imports"]);
-
-    // Determine output files
-    let files = reflow_workspace(&workspace_path, &out_dir).await?;
-
-    // Write files
-    let error_count = write_many_contents(files).await?;
-
-    // Format the files
-    CommandBuilder::new(CommandKind::Tofu)
-        .should_announce(true)
-        .use_run_dir(out_dir)
-        .args(["fmt", "-recursive"])
-        .run_raw()
-        .await?;
-
-    println!("Processing finished with {} problems.", error_count);
-
-    Ok(())
 }

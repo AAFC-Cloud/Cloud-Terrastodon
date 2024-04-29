@@ -17,8 +17,8 @@ use indicatif::ProgressStyle;
 use itertools::Itertools;
 use std::path::PathBuf;
 use tofu::prelude::AsTofuString;
-use tofu::prelude::ImportBlock;
 use tofu::prelude::Sanitizable;
+use tofu::prelude::TofuImportBlock;
 use tokio::fs::create_dir_all;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -70,7 +70,9 @@ pub async fn build_policy_imports() -> Result<()> {
         // Launch background worker
         work_pool.spawn(async move {
             // Fetch policy definitions
-            let result = fetch_policy_definitions(Some(ScopeImpl::ManagementGroup(mg.id.clone())), None).await;
+            let result =
+                fetch_policy_definitions(Some(ScopeImpl::ManagementGroup(mg.id.clone())), None)
+                    .await;
 
             // Update progress indicator
             pb.inc(1);
@@ -93,7 +95,9 @@ pub async fn build_policy_imports() -> Result<()> {
         // Launch background worker
         work_pool.spawn(async move {
             // Fetch policy definitions
-            let result = fetch_policy_assignments(Some(ScopeImpl::ManagementGroup(mg.id.clone())), None).await;
+            let result =
+                fetch_policy_assignments(Some(ScopeImpl::ManagementGroup(mg.id.clone())), None)
+                    .await;
 
             // Update progress indicator
             pb.inc(1);
@@ -111,12 +115,17 @@ pub async fn build_policy_imports() -> Result<()> {
         let mg = management_group.clone();
         let pb = m.add(ProgressBar::new(1));
         pb.set_style(spinner_style.clone());
-        pb.set_message(format!("{} - {}", "policy set definitions", mg.display_name));
+        pb.set_message(format!(
+            "{} - {}",
+            "policy set definitions", mg.display_name
+        ));
 
         // Launch background worker
         work_pool.spawn(async move {
             // Fetch policy definitions
-            let result = fetch_policy_set_definitions(Some(ScopeImpl::ManagementGroup(mg.id.clone())), None).await;
+            let result =
+                fetch_policy_set_definitions(Some(ScopeImpl::ManagementGroup(mg.id.clone())), None)
+                    .await;
 
             // Update progress indicator
             pb.inc(1);
@@ -125,8 +134,9 @@ pub async fn build_policy_imports() -> Result<()> {
             (
                 mg,
                 pb,
-                result
-                    .map(|policy_set_definitions| WorkResult::PolicySetDefinitons { policy_set_definitions }),
+                result.map(|policy_set_definitions| WorkResult::PolicySetDefinitons {
+                    policy_set_definitions,
+                }),
             )
         });
     }
@@ -134,12 +144,12 @@ pub async fn build_policy_imports() -> Result<()> {
     println!("Tasks dispatched, now collecting results...");
 
     // Collect worker results
-    let mut imports = Vec::<ImportBlock>::new();
+    let mut imports = Vec::<TofuImportBlock>::new();
     while let Some(res) = work_pool.join_next().await {
         // Get result if worker success
         let (mg, pb, result) = res?;
         let result = result?;
-        let mut results: Vec<ImportBlock> = match result {
+        let mut results: Vec<TofuImportBlock> = match result {
             WorkResult::PolicyDefinitions { policy_definitions } => policy_definitions
                 .into_iter()
                 .filter(|def| def.policy_type == "Custom")
@@ -148,15 +158,17 @@ pub async fn build_policy_imports() -> Result<()> {
             WorkResult::PolicyAssignments { policy_assignments } => policy_assignments
                 .into_iter()
                 .map(|x| x.into())
-                .map(|x: ImportBlock| {
+                .map(|x: TofuImportBlock| {
                     // update to include management group name as suffix
                     let id = x.id;
                     let mut to = x.to;
                     to.use_name(|name| format!("{}_{}", name, mg.display_name.sanitize()));
-                    ImportBlock { id, to }
+                    TofuImportBlock { id, to }
                 })
                 .collect_vec(),
-            WorkResult::PolicySetDefinitons { policy_set_definitions } => policy_set_definitions
+            WorkResult::PolicySetDefinitons {
+                policy_set_definitions,
+            } => policy_set_definitions
                 .into_iter()
                 .filter(|def| def.policy_type == "Custom")
                 .map(|x| x.into())
