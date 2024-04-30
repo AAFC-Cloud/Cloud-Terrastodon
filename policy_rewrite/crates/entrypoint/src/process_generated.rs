@@ -1,6 +1,9 @@
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
+use tracing::error;
+use tracing::info;
+use tracing::instrument;
 use std::path::Path;
 use std::path::PathBuf;
 use tofu::prelude::reflow_workspace;
@@ -8,6 +11,7 @@ use tokio::fs::OpenOptions;
 use tokio::fs::{self};
 use tokio::io::AsyncWriteExt;
 
+#[instrument(level="debug")]
 pub async fn process_generated() -> Result<()> {
     // Determine output directory
     let out_dir = PathBuf::from_iter(["ignore", "processed"]);
@@ -37,7 +41,7 @@ pub async fn process_generated() -> Result<()> {
         .run_raw()
         .await?;
 
-    println!("Processing finished with {} problems.", error_count);
+    info!("Processing finished with {} problems.", error_count);
 
     Ok(())
 }
@@ -89,7 +93,7 @@ pub async fn write_many_contents(files: Vec<(impl AsRef<Path>, String)>) -> Resu
         {
             Ok(x) => x,
             Err(e) => {
-                eprintln!("Failed to open {:?}: {:?}", path, e);
+                error!("Failed to open {:?}: {:?}", path, e);
                 error_count += 1;
                 continue;
             }

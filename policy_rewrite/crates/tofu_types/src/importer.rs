@@ -3,6 +3,7 @@ use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use indoc::indoc;
+use tracing::info;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs;
@@ -53,7 +54,7 @@ impl TofuImporter {
         // init_cmd.use_output_behaviour(OutputBehaviour::Display);
         init_cmd.args(["init"]);
         init_cmd.run_raw().await?;
-        println!("tofu init successful!");
+        info!("tofu init successful!");
 
         // remove old plan outputs
         let generated_path = imports_dir.join("generated.tf");
@@ -72,10 +73,10 @@ impl TofuImporter {
         // plan_cmd.use_output_behaviour(OutputBehaviour::Display);
         plan_cmd.args(["plan", "-generate-config-out", "generated.tf"]);
         plan_cmd.run_raw().await?;
-        println!("tofu plan successful!");
+        info!("tofu plan successful!");
 
         // Success!
-        println!("🚀 Successfully generated tofu files from imports!");
+        info!("🚀 Successfully generated tofu files from imports!");
         Ok(())
     }
 }

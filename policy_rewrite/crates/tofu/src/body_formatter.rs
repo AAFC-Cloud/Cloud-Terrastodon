@@ -9,6 +9,7 @@ use hcl::edit::structure::Structure;
 use hcl::edit::Decorate;
 use indoc::formatdoc;
 use itertools::Itertools;
+use tracing::error;
 
 use crate::import_lookup_holder::ResourceId;
 use crate::import_lookup_holder::ResourceReference;
@@ -110,7 +111,7 @@ impl From<BodyFormatter> for Body {
             let found = value.resource_blocks.remove(key);
             let Some(mut resource_block) = found else {
                 output.push(import_block);
-                eprintln!("Couldn't find resource for import block targetting {key}");
+                error!("Couldn't find resource for import block targetting {key}");
                 continue;
             };
 

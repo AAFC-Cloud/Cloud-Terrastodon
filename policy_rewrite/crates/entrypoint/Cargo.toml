@@ -16,3 +16,4 @@ indicatif = { workspace = true }
 tofu = { workspace = true } 
 azure = { workspace = true }
 command = { workspace = true } 
+tracing = { workspace = true }

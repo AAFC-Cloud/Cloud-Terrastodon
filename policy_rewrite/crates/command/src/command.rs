@@ -6,6 +6,8 @@ use async_recursion::async_recursion;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
+use tracing::error;
+use tracing::info;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::os::windows::process::ExitStatusExt;
@@ -287,7 +289,7 @@ impl CommandBuilder {
             Ok(None) => {}
             Ok(Some(output)) => return Ok(output),
             Err(e) => {
-                eprintln!("Failed to load from cache: {:?}", e);
+                error!("Failed to load from cache: {:?}", e);
             }
         }
 
@@ -309,7 +311,7 @@ impl CommandBuilder {
 
         // Announce launch
         if self.should_announce {
-            println!("Running {}", self.summarize());
+            info!("Running {}", self.summarize());
         }
 
         // Launch command
@@ -333,7 +335,7 @@ impl CommandBuilder {
                     .any(|x| output.stderr.contains(x)) =>
                 {
                     // Let the user know
-                    println!("Command failed due to bad auth. Refreshing credential, user action required in a moment...");
+                    info!("Command failed due to bad auth. Refreshing credential, user action required in a moment...");
 
                     // Perform login command
                     CommandBuilder::new(CommandKind::AzureCLI)
@@ -342,7 +344,7 @@ impl CommandBuilder {
                         .await?;
 
                     // Retry the failed command, no further retries
-                    println!("Retrying command with refreshed credential...");
+                    info!("Retrying command with refreshed credential...");
                     let mut retry = self.clone();
                     retry.use_retry_behaviour(RetryBehaviour::Fail);
                     let output = retry.run_raw().await;
@@ -358,9 +360,9 @@ impl CommandBuilder {
 
         // Write happy results to the cache
         if output.success() && self.cache_dir.is_some() {
-            println!("Writing command results to cache file...");
+            info!("Writing command results to cache file...");
             if let Err(e) = self.put_cached_output(&output).await {
-                eprintln!("Encountered problem saving cache: {:?}", e);
+                error!("Encountered problem saving cache: {:?}", e);
             }
         }
 

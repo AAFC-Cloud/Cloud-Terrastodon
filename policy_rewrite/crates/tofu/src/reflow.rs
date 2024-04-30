@@ -2,6 +2,8 @@ use anyhow::Result;
 use hcl::edit::structure::Body;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit_mut::VisitMut;
+use tracing::info;
+use tracing::instrument;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
@@ -14,31 +16,32 @@ use crate::import_lookup_holder::ImportLookupHolder;
 use crate::imported_resource_reference_patcher::ImportedResourceReferencePatcher;
 use crate::json_patcher::JsonPatcher;
 
+#[instrument(level="debug")]
 pub async fn reflow_workspace(
     source_dir: &Path,
     dest_dir: &Path,
 ) -> Result<Vec<(PathBuf, String)>> {
     // Gather all tf files into a single body
-    println!("Assembling body for parsing...");
+    info!("Assembling body for parsing...");
     let mut body = as_single_body(source_dir).await?;
 
     // Switch string literals to using jsonencode
-    println!("Updating json string literals to use jsonencode...");
+    info!("Updating json string literals to use jsonencode...");
     let mut json_patcher = JsonPatcher;
     json_patcher.visit_body_mut(&mut body);
 
     // Build lookup details from body
-    println!("Gathering import blocks...");
+    info!("Gathering import blocks...");
     let mut lookups = ImportLookupHolder::default();
     lookups.visit_body(&body);
 
     // Update references from hardcoded IDs to resource attribute references
-    println!("Updating references...");
+    info!("Updating references...");
     let mut import_reference_patcher: ImportedResourceReferencePatcher = lookups.into();
     import_reference_patcher.visit_body_mut(&mut body);
 
     // Create data blocks
-    println!("Creating data blocks for missing references...");
+    info!("Creating data blocks for missing references...");
     let (data_blocks, data_references) =
         create_data_blocks_for_ids(&import_reference_patcher.missing_entries).await?;
 
@@ -54,7 +57,7 @@ pub async fn reflow_workspace(
     data_reference_patcher.visit_body_mut(&mut body);
 
     // Format the body
-    println!("Formatting final body...");
+    info!("Formatting final body...");
     let body: BodyFormatter = body.try_into()?;
     let body: Body = body.into();
 
@@ -70,7 +73,7 @@ async fn as_single_body(source_dir: &Path) -> Result<Body> {
     while let Some(entry) = found.next_entry().await? {
         let path = entry.path();
         if !path.is_file() || path.extension() != Some(OsStr::new("tf")) {
-            println!("Skipping {}", path.display());
+            info!("Skipping {}", path.display());
             continue;
         }
         let contents = fs::read(&path).await?;

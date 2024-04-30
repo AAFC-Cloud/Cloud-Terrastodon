@@ -15,3 +15,4 @@ tempfile = { workspace = true }
 command = { workspace = true }
 tofu_types = { workspace = true }
 azure_types = { workspace = true }
+tracing = { workspace = true }

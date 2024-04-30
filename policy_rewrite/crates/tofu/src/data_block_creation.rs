@@ -12,6 +12,7 @@ use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
+use tracing::error;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -107,11 +108,11 @@ pub async fn create_data_blocks_for_ids(
                 });
             }
             Ok(x) => {
-                eprintln!("Kind {x} doesn't have a patcher data missing impl");
+                error!("Kind {x} doesn't have a patcher data missing impl");
                 continue;
             }
             Err(e) => {
-                eprintln!("Couldn't determine kind for {missing}: {e:?}");
+                error!("Couldn't determine kind for {missing}: {e:?}");
                 continue;
             }
         };
@@ -130,7 +131,7 @@ pub async fn create_data_blocks_for_ids(
             match pb_thread.lock() {
                 Ok(pb) => pb.tick(),
                 Err(e) => {
-                    eprintln!("Failed to tick progress bar! {e:?}");
+                    error!("Failed to tick progress bar! {e:?}");
                 }
             }
         }
@@ -164,7 +165,7 @@ pub async fn create_data_blocks_for_ids(
                 pb.set_message(format!("Received info for {reference}"));
             }
             Err(e) => {
-                eprintln!("Failed to update progress bar! {e:?}");
+                error!("Failed to update progress bar! {e:?}");
             }
         }
 
@@ -185,7 +186,7 @@ pub async fn create_data_blocks_for_ids(
             pb.finish();
         }
         Err(e) => {
-            eprintln!("Failed to update progress bar! {e:?}");
+            error!("Failed to update progress bar! {e:?}");
         }
     }
 

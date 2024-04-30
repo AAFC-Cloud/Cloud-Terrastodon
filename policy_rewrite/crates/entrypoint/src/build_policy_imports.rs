@@ -15,6 +15,7 @@ use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use itertools::Itertools;
+use tracing::info;
 use std::path::PathBuf;
 use tofu::prelude::AsTofuString;
 use tofu::prelude::Sanitizable;
@@ -26,7 +27,7 @@ use tokio::task::JoinSet;
 
 pub async fn build_policy_imports() -> Result<()> {
     // Fetch management groups
-    println!("Fetching management groups...");
+    info!("Fetching management groups...");
     let management_groups = fetch_management_groups().await?;
 
     // Pick management groups to import from
@@ -59,7 +60,7 @@ pub async fn build_policy_imports() -> Result<()> {
     let mut work_pool = JoinSet::new();
 
     // Fetch info from each management group
-    println!("Fetching info from management groups...");
+    info!("Fetching info from management groups...");
     for management_group in management_groups.iter() {
         // Prepare progress indicator
         let mg = management_group.clone();
@@ -141,7 +142,7 @@ pub async fn build_policy_imports() -> Result<()> {
         });
     }
 
-    println!("Tasks dispatched, now collecting results...");
+    info!("Tasks dispatched, now collecting results...");
 
     // Collect worker results
     let mut imports = Vec::<TofuImportBlock>::new();
@@ -193,7 +194,7 @@ pub async fn build_policy_imports() -> Result<()> {
     // Prepare imports dir
     let imports_dir = PathBuf::from("ignore").join("imports");
     if !imports_dir.exists() {
-        println!("Creating {:?}", imports_dir);
+        info!("Creating {:?}", imports_dir);
         create_dir_all(&imports_dir).await?;
     } else if !imports_dir.is_dir() {
         return Err(anyhow!("Path exists but isn't a dir!"))
@@ -208,7 +209,7 @@ pub async fn build_policy_imports() -> Result<()> {
         .write(true)
         .open(&imports_path)
         .await?;
-    println!("Writing {:?}", imports_path);
+    info!("Writing {:?}", imports_path);
     imports_file
         .write_all(imports.as_tofu_string().as_bytes())
         .await?;

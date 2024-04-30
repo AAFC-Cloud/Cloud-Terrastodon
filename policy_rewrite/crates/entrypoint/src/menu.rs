@@ -9,8 +9,13 @@ use fzf::FzfArgs;
 use crate::action::Action;
 
 pub async fn menu() -> Result<()> {
+    // Create a container for the choices we are about to gather
     let mut choices = Vec::new();
+
+    // Flag for showing a warning
     let mut some_unavailable = false;
+
+    // Collect choices
     for action in Action::variants() {
         if action.is_available().await {
             choices.push(action);
@@ -18,6 +23,8 @@ pub async fn menu() -> Result<()> {
             some_unavailable = true;
         }
     }
+
+    // Prompt user for action of choice
     let chosen = pick(FzfArgs {
         choices,
         header: Some(
@@ -31,16 +38,20 @@ pub async fn menu() -> Result<()> {
         prompt: None,
         many: false,
     })?;
+
+    // Invoke action
     chosen
         .first()
         .ok_or(anyhow!("menu choice failed"))?
         .invoke()
         .await?;
 
+    // Run pause command
     CommandBuilder::new(CommandKind::Pause)
         .use_output_behaviour(OutputBehaviour::Display)
         .run_raw()
         .await?;
+
     Ok(())
 }
 

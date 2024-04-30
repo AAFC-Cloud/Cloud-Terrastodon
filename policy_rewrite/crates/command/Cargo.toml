@@ -12,3 +12,4 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 async-recursion = { workspace = true }
+tracing = { workspace = true }

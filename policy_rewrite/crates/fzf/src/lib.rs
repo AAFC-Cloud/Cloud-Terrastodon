@@ -63,6 +63,7 @@ where
     pub header: Option<String>,
 }
 
+/// Prompt the user to pick from a predetermined list of options.
 pub fn pick<T>(args: FzfArgs<T>) -> Result<Vec<T>>
 where
     T: Choicey + Into<Choice<T>>,

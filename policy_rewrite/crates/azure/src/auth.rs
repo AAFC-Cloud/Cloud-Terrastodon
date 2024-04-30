@@ -2,6 +2,7 @@ use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use command::prelude::RetryBehaviour;
+use tracing::debug;
 
 pub async fn is_logged_in() -> bool {
     let result = CommandBuilder::new(CommandKind::AzureCLI)
@@ -17,6 +18,6 @@ pub async fn login() -> Result<()> {
         .args(["login"])
         .run_raw()
         .await?;
-    println!("{}", result);
+    debug!("{}", result);
     Ok(())
 }

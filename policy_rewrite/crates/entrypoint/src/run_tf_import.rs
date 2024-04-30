@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use tofu::prelude::TofuImporter;
+use tracing::info;
 pub async fn run_tf_import() -> Result<()> {
     // not necessary if capturing terraform output
     // // Double check that we are logged in before running tf command
@@ -9,12 +10,12 @@ pub async fn run_tf_import() -> Result<()> {
     // // Capturing tf output while also sending to console to detect
     // // login failures for auto-retry is not yet implemented
     // if !is_logged_in().await {
-    //     println!("You aren't logged in! Running login command...");
+    //     info!("You aren't logged in! Running login command...");
     //     login().await?;
     // }
 
     // Run tf import
-    println!("Beginning tofu import...");
+    info!("Beginning tofu import...");
     let imports_dir = PathBuf::from("ignore").join("imports");
     TofuImporter::default().using_dir(imports_dir).run().await?;
 
