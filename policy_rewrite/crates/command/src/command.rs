@@ -355,7 +355,7 @@ impl CommandBuilder {
                     return output;
                 }
                 (_, o) => {
-                    return Err(Error::from(o).context(self.summarize()));
+                    return Err(Error::from(o).context(format!("Command did not execute successfully: {}", self.summarize())));
                 }
             }
         }

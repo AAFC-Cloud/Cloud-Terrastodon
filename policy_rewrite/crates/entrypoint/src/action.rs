@@ -1,5 +1,7 @@
+use crate::actions::prelude::apply_processed;
 use crate::actions::prelude::build_policy_imports;
 use crate::actions::prelude::clean;
+use crate::actions::prelude::init_processed;
 use crate::actions::prelude::process_generated;
 use crate::actions::prelude::run_tf_import;
 use anyhow::Result;
@@ -11,6 +13,8 @@ pub enum Action {
     RunTFImport,
     ProcessGenerated,
     Clean,
+    InitProcessed,
+    ApplyProcessed,
 }
 impl Action {
     pub fn name(&self) -> &str {
@@ -19,6 +23,8 @@ impl Action {
             Action::RunTFImport => "perform import",
             Action::ProcessGenerated => "process generated",
             Action::Clean => "clean",
+            Action::InitProcessed => "init processed",
+            Action::ApplyProcessed => "apply processed",
         }
     }
     #[instrument]
@@ -28,10 +34,14 @@ impl Action {
             Action::RunTFImport => run_tf_import().await,
             Action::ProcessGenerated => process_generated().await,
             Action::Clean => clean().await,
+            Action::InitProcessed => init_processed().await,
+            Action::ApplyProcessed => apply_processed().await,
         }
     }
     pub fn variants() -> Vec<Action> {
         vec![
+            Action::ApplyProcessed,
+            Action::InitProcessed,
             Action::ProcessGenerated,
             Action::RunTFImport,
             Action::BuildPolicyImports,
@@ -49,6 +59,12 @@ impl Action {
                 .await
                 .unwrap_or(false),
             Action::Clean => fs::try_exists("ignore").await.unwrap_or(false),
+            Action::InitProcessed => fs::try_exists("ignore/processed/generated.tf")
+                .await
+                .unwrap_or(false),
+            Action::ApplyProcessed => fs::try_exists("ignore/processed/.terraform.lock.hcl")
+                .await
+                .unwrap_or(false),
             _ => true,
         }
     }

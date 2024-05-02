@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use anyhow::Context;
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
@@ -40,11 +41,11 @@ pub async fn menu() -> Result<()> {
     })?;
 
     // Invoke action
+    let chosen = chosen.first().ok_or(anyhow!("menu choice failed"))?;
     chosen
-        .first()
-        .ok_or(anyhow!("menu choice failed"))?
         .invoke()
-        .await?;
+        .await
+        .context(format!("invoking action: {chosen}"))?;
 
     // Run pause command
     CommandBuilder::new(CommandKind::Pause)
