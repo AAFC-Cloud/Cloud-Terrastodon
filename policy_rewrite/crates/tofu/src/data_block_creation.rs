@@ -12,7 +12,6 @@ use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
-use tracing::error;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -25,6 +24,7 @@ use tofu_types::prelude::TofuDataBlock;
 use tofu_types::prelude::TofuDataReference;
 use tokio::task::JoinSet;
 use tokio::time::interval;
+use tracing::error;
 
 pub async fn create_data_blocks_for_ids(
     ids: &HashSet<ResourceId>,

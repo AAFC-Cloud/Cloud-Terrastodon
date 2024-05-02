@@ -6,8 +6,6 @@ use async_recursion::async_recursion;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
-use tracing::error;
-use tracing::info;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::os::windows::process::ExitStatusExt;
@@ -20,6 +18,8 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
+use tracing::error;
+use tracing::info;
 
 use crate::errors::dump_to_ignore_file;
 

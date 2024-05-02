@@ -1,14 +1,16 @@
+use crate::actions::prelude::build_policy_imports;
+use crate::actions::prelude::clean;
+use crate::actions::prelude::process_generated;
+use crate::actions::prelude::run_tf_import;
 use anyhow::Result;
 use tokio::fs;
 use tracing::instrument;
-use crate::build_policy_imports::build_policy_imports;
-use crate::process_generated::process_generated;
-use crate::run_tf_import::run_tf_import;
 #[derive(Debug)]
 pub enum Action {
     BuildPolicyImports,
     RunTFImport,
     ProcessGenerated,
+    Clean,
 }
 impl Action {
     pub fn name(&self) -> &str {
@@ -16,6 +18,7 @@ impl Action {
             Action::BuildPolicyImports => "build policy imports",
             Action::RunTFImport => "perform import",
             Action::ProcessGenerated => "process generated",
+            Action::Clean => "clean",
         }
     }
     #[instrument]
@@ -24,6 +27,7 @@ impl Action {
             Action::BuildPolicyImports => build_policy_imports().await,
             Action::RunTFImport => run_tf_import().await,
             Action::ProcessGenerated => process_generated().await,
+            Action::Clean => clean().await,
         }
     }
     pub fn variants() -> Vec<Action> {
@@ -31,6 +35,7 @@ impl Action {
             Action::BuildPolicyImports,
             Action::RunTFImport,
             Action::ProcessGenerated,
+            Action::Clean,
         ]
     }
 
@@ -43,6 +48,7 @@ impl Action {
             Action::ProcessGenerated => fs::try_exists("ignore/imports/generated.tf")
                 .await
                 .unwrap_or(false),
+            Action::Clean => fs::try_exists("ignore").await.unwrap_or(false),
             _ => true,
         }
     }

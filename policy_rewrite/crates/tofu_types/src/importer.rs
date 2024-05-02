@@ -3,12 +3,12 @@ use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use indoc::indoc;
-use tracing::info;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
+use tracing::info;
 
 #[derive(Default)]
 pub struct TofuImporter {
