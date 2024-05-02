@@ -2,6 +2,7 @@ use crate::actions::prelude::apply_processed;
 use crate::actions::prelude::build_policy_imports;
 use crate::actions::prelude::clean;
 use crate::actions::prelude::init_processed;
+use crate::actions::prelude::jump_to_block;
 use crate::actions::prelude::process_generated;
 use crate::actions::prelude::run_tf_import;
 use anyhow::Result;
@@ -15,6 +16,7 @@ pub enum Action {
     Clean,
     InitProcessed,
     ApplyProcessed,
+    JumpToBlock,
 }
 impl Action {
     pub fn name(&self) -> &str {
@@ -25,6 +27,7 @@ impl Action {
             Action::Clean => "clean",
             Action::InitProcessed => "init processed",
             Action::ApplyProcessed => "apply processed",
+            Action::JumpToBlock => "jump to block",
         }
     }
     #[instrument]
@@ -36,10 +39,12 @@ impl Action {
             Action::Clean => clean().await,
             Action::InitProcessed => init_processed().await,
             Action::ApplyProcessed => apply_processed().await,
+            Action::JumpToBlock => jump_to_block().await,
         }
     }
     pub fn variants() -> Vec<Action> {
         vec![
+            Action::JumpToBlock,
             Action::ApplyProcessed,
             Action::InitProcessed,
             Action::ProcessGenerated,
@@ -63,6 +68,9 @@ impl Action {
                 .await
                 .unwrap_or(false),
             Action::ApplyProcessed => fs::try_exists("ignore/processed/.terraform.lock.hcl")
+                .await
+                .unwrap_or(false),
+            Action::JumpToBlock => fs::try_exists("ignore/processed/generated.tf")
                 .await
                 .unwrap_or(false),
             _ => true,

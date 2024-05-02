@@ -1,7 +1,2 @@
-- separate types crates, rename tf -> tofu
-    - crates/azure
-    - crates/azure_types
-    - crates/tofu
-    - crates/tofu_types
-- create specific type for azure resource IDs
-    - can we tell serde to try-from the strings on `id` and `scope` fields?
+- separate `pick` into `pick_single` and `pick_many`
+- create policy lookup-by-id cache to avoid duplicate fetching in `process generated` action, only lookup if cache miss

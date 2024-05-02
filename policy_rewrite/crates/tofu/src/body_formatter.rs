@@ -116,20 +116,29 @@ impl From<BodyFormatter> for Body {
             };
 
             // Determine label
-            let label = resource_block
-                .body
-                .get_attribute("display_name")
-                .or(resource_block.body.get_attribute("name"))
-                .map(|x| x.value.to_string())
-                .or(resource_block.labels.get(1).map(|x| x.to_string()))
-                .unwrap_or_default();
+            let section_heading = format!(
+                "{} {}",
+                resource_block
+                    .labels
+                    .first()
+                    .map(|x| x.to_string())
+                    .unwrap_or_default(),
+                resource_block
+                    .body
+                    .get_attribute("display_name")
+                    .or(resource_block.body.get_attribute("name"))
+                    .map(|x| x.value.to_string())
+                    .or(resource_block.labels.get(1).map(|x| x.to_string()))
+                    .unwrap_or_default()
+                    .trim()
+            );
 
             // Apply label
             import_block.decor_mut().set_prefix(formatdoc! {"
                 #############
                 ## {}
                 #############
-            ", label});
+            ", section_heading});
 
             // Clear block decorations
             resource_block.decor_mut().set_prefix("");

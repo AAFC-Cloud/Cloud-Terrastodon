@@ -14,3 +14,4 @@ indoc = { workspace = true }
 hcl-rs = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+fzf = { workspace = true }

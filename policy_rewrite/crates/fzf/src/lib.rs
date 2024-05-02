@@ -9,21 +9,13 @@ use std::ops::Deref;
 use std::process::Command;
 use std::process::Stdio;
 
-// in case we want to impose any expectations later
-pub trait Choicey {}
-impl<T> Choicey for T {}
-
 #[derive(Debug)]
 pub struct Choice<T>
-where
-    T: Choicey,
 {
     pub inner: T,
     pub display: String,
 }
 impl<T> std::fmt::Display for Choice<T>
-where
-    T: Choicey,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.display)
@@ -32,7 +24,7 @@ where
 
 impl<T> From<T> for Choice<T>
 where
-    T: Choicey + Display,
+    T: Display,
 {
     fn from(value: T) -> Self {
         Choice {
@@ -43,8 +35,6 @@ where
 }
 
 impl<T> Deref for Choice<T>
-where
-    T: Choicey,
 {
     type Target = T;
 
@@ -54,8 +44,6 @@ where
 }
 
 pub struct FzfArgs<T>
-where
-    T: Choicey,
 {
     pub choices: Vec<T>,
     pub many: bool,
@@ -66,7 +54,7 @@ where
 /// Prompt the user to pick from a predetermined list of options.
 pub fn pick<T>(args: FzfArgs<T>) -> Result<Vec<T>>
 where
-    T: Choicey + Into<Choice<T>>,
+    T: Into<Choice<T>>,
 {
     // Prepare choices
     let choices: Vec<Choice<T>> = args.choices.into_iter().map(|x| x.into()).collect_vec();

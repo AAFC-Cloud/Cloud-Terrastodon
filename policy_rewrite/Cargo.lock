@@ -665,6 +665,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "command",
+ "fzf",
  "hcl-rs",
  "indoc",
  "itertools",

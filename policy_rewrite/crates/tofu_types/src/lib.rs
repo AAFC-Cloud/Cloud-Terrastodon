@@ -4,6 +4,7 @@ mod imports;
 mod providers;
 mod resources;
 mod strings;
+mod locatable_block;
 
 pub mod prelude {
     pub use crate::data::*;
@@ -12,4 +13,5 @@ pub mod prelude {
     pub use crate::providers::*;
     pub use crate::resources::*;
     pub use crate::strings::*;
+    pub use crate::locatable_block::*;
 }
