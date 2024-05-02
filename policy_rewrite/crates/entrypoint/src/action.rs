@@ -32,9 +32,9 @@ impl Action {
     }
     pub fn variants() -> Vec<Action> {
         vec![
-            Action::BuildPolicyImports,
-            Action::RunTFImport,
             Action::ProcessGenerated,
+            Action::RunTFImport,
+            Action::BuildPolicyImports,
             Action::Clean,
         ]
     }

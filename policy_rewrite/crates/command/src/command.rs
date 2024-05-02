@@ -6,6 +6,8 @@ use async_recursion::async_recursion;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
+use tracing::debug;
+use tracing::warn;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::os::windows::process::ExitStatusExt;
@@ -335,7 +337,7 @@ impl CommandBuilder {
                     .any(|x| output.stderr.contains(x)) =>
                 {
                     // Let the user know
-                    info!("Command failed due to bad auth. Refreshing credential, user action required in a moment...");
+                    warn!("Command failed due to bad auth. Refreshing credential, user action required in a moment...");
 
                     // Perform login command
                     CommandBuilder::new(CommandKind::AzureCLI)
@@ -360,7 +362,7 @@ impl CommandBuilder {
 
         // Write happy results to the cache
         if output.success() && self.cache_dir.is_some() {
-            info!("Writing command results to cache file...");
+            debug!("Writing command results to cache file...");
             if let Err(e) = self.put_cached_output(&output).await {
                 error!("Encountered problem saving cache: {:?}", e);
             }
