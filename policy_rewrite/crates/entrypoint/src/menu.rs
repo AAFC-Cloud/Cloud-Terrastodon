@@ -40,18 +40,18 @@ pub async fn menu() -> Result<()> {
         many: false,
     })?;
 
-    // Invoke action
     let chosen = chosen.first().ok_or(anyhow!("menu choice failed"))?;
     chosen
         .invoke()
         .await
         .context(format!("invoking action: {chosen}"))?;
 
-    // Run pause command
-    CommandBuilder::new(CommandKind::Pause)
-        .use_output_behaviour(OutputBehaviour::Display)
-        .run_raw()
-        .await?;
+    if chosen.should_pause() {
+        CommandBuilder::new(CommandKind::Pause)
+            .use_output_behaviour(OutputBehaviour::Display)
+            .run_raw()
+            .await?;
+    }
 
     Ok(())
 }

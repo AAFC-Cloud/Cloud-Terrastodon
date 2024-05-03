@@ -53,6 +53,12 @@ impl Action {
             Action::Clean,
         ]
     }
+    pub fn should_pause(&self) -> bool {
+        match self {
+            Action::JumpToBlock => false,
+            _ => true
+        }
+    }
 
     /// Some actions don't make sense if files are missing from expected locations.
     pub async fn is_available(&self) -> bool {
