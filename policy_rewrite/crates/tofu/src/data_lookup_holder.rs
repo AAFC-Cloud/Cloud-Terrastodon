@@ -1,4 +1,4 @@
-use azure_types::scopes::ScopeImpl;
+use azure::prelude::ScopeImpl;
 use std::collections::HashMap;
 use tofu_types::prelude::TofuDataReference;
 

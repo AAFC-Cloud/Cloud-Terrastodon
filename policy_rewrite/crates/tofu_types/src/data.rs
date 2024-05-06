@@ -7,6 +7,7 @@ use anyhow::Context;
 use anyhow::Result;
 use hcl::edit::structure::Block;
 use indoc::formatdoc;
+use itertools::Itertools;
 
 #[derive(Debug, Clone)]
 pub enum TofuAzureRMDataKind {
@@ -90,6 +91,10 @@ pub enum TofuDataBlock {
         reference: TofuDataReference,
         name: String,
     },
+    UserLookup {
+        label: String,
+        user_principal_names: Vec<String>,
+    },
 }
 
 impl AsTofuString for TofuDataBlock {
@@ -107,6 +112,22 @@ impl AsTofuString for TofuDataBlock {
                     ref_kind,
                     ref_name,
                     name
+                }
+            }
+            TofuDataBlock::UserLookup {
+                label,
+                user_principal_names,
+            } => {
+                formatdoc! {
+                    r#"
+                        data "azuread_users" "{}" {{
+                            user_principal_names = [
+                                {}
+                            ]
+                        }}
+                    "#,
+                    label,
+                    user_principal_names.iter().map(|x| format!("      \"{}\",", x)).join("\n")
                 }
             }
         }

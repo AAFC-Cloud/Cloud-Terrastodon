@@ -2,6 +2,7 @@ use crate::actions::prelude::apply_processed;
 use crate::actions::prelude::build_group_imports;
 use crate::actions::prelude::build_policy_imports;
 use crate::actions::prelude::clean;
+use crate::actions::prelude::clean_imports;
 use crate::actions::prelude::init_processed;
 use crate::actions::prelude::jump_to_block;
 use crate::actions::prelude::process_generated;
@@ -16,6 +17,7 @@ pub enum Action {
     PerformImport,
     ProcessGenerated,
     Clean,
+    CleanImports,
     InitProcessed,
     ApplyProcessed,
     JumpToBlock,
@@ -28,6 +30,7 @@ impl Action {
             Action::PerformImport => "perform import",
             Action::ProcessGenerated => "process generated",
             Action::Clean => "clean",
+            Action::CleanImports => "clean imports",
             Action::InitProcessed => "init processed",
             Action::ApplyProcessed => "apply processed",
             Action::JumpToBlock => "jump to block",
@@ -41,6 +44,7 @@ impl Action {
             Action::PerformImport => perform_import().await,
             Action::ProcessGenerated => process_generated().await,
             Action::Clean => clean().await,
+            Action::CleanImports => clean_imports().await,
             Action::InitProcessed => init_processed().await,
             Action::ApplyProcessed => apply_processed().await,
             Action::JumpToBlock => jump_to_block().await,
@@ -55,6 +59,7 @@ impl Action {
             Action::PerformImport,
             Action::BuildPolicyImports,
             Action::BuildGroupImports,
+            Action::CleanImports,
             Action::Clean,
         ]
     }
@@ -80,6 +85,7 @@ impl Action {
                 .await
                 .unwrap_or(false),
             Action::Clean => fs::try_exists("ignore").await.unwrap_or(false),
+            Action::CleanImports => fs::try_exists("ignore/imports").await.unwrap_or(false),
             Action::InitProcessed => fs::try_exists("ignore/processed/generated.tf")
                 .await
                 .unwrap_or(false),

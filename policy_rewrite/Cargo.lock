@@ -648,7 +648,7 @@ name = "tofu"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "azure_types",
+ "azure",
  "command",
  "hcl-rs",
  "indicatif",

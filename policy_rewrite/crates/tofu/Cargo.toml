@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 tofu_types = { workspace = true }
-azure_types = { workspace = true }
+azure = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 command = { workspace = true }

@@ -7,7 +7,7 @@ use command::prelude::CommandKind;
 use std::path::PathBuf;
 
 pub async fn fetch_policy_set_definitions(
-    scope: Option<ScopeImpl>,
+    management_group: Option<ScopeImpl>,
     subscription: Option<String>,
 ) -> Result<Vec<PolicySetDefinition>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -15,19 +15,19 @@ pub async fn fetch_policy_set_definitions(
     let mut cache_key = PathBuf::new();
     cache_key.push("ignore");
     cache_key.push("az policy set-definition list");
-    match (scope, subscription) {
-        (Some(scope), Some(subscription)) => {
-            cmd.args(["--scope", &scope.expanded_form()]);
+    match (management_group, subscription) {
+        (Some(management_group), Some(subscription)) => {
+            cmd.args(["--management-group", &management_group.short_name()]);
             cmd.args(["--subscription", &subscription]);
             cache_key.push(format!(
-                "--scope {} --subscription {}",
-                scope.short_name(),
+                "--management-group {} --subscription {}",
+                management_group.short_name(),
                 subscription
             ));
         }
-        (Some(scope), None) => {
-            cmd.args(["--scope", &scope.expanded_form()]);
-            cache_key.push(format!("--scope {}", scope.short_name()));
+        (Some(management_group), None) => {
+            cmd.args(["--management-group", &management_group.short_name()]);
+            cache_key.push(format!("--management-group {}", management_group.short_name()));
         }
         (None, Some(subscription)) => {
             cmd.args(["--subscription", &subscription]);

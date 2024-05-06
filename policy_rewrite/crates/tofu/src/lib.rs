@@ -8,6 +8,7 @@ mod imported_resource_reference_patcher;
 mod json_patcher;
 mod reflow;
 mod block_lister;
+mod user_id_reference_patcher;
 pub mod prelude {
     pub use crate::reflow::*;
     pub use tofu_types::prelude::*;

@@ -13,4 +13,5 @@ pub mod prelude {
     pub use crate::policy_set_definitions::*;
     pub use crate::groups::*;
     pub use crate::scopes::*;
+    pub use crate::users::*;
 }

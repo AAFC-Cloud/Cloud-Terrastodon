@@ -1,4 +1,5 @@
-use hcl::edit::{structure::Body, Span};
+use hcl::edit::structure::Body;
+use hcl::edit::Span;
 use itertools::Itertools;
 use tofu_types::prelude::LocatableBlock;
 
@@ -7,11 +8,23 @@ pub fn list_blocks(content: &str) -> anyhow::Result<Vec<LocatableBlock>> {
     Ok(body
         .into_blocks()
         .map(|block| LocatableBlock {
-            display: format!(
-                "{} {}",
-                block.ident,
-                block.labels.iter().map(|x| x.to_string()).join(".")
-            ),
+            display: if block.ident.to_string() == "import" {
+                format!(
+                    "{} {}",
+                    block.ident,
+                    block
+                        .body
+                        .get_attribute("to")
+                        .map(|x| x.value.to_string())
+                        .unwrap_or_default()
+                )
+            } else {
+                format!(
+                    "{} {}",
+                    block.ident,
+                    block.labels.iter().map(|x| x.to_string()).join(".")
+                )
+            },
             line_number: block
                 .span()
                 .and_then(|span| find_line_column(content, span.start))

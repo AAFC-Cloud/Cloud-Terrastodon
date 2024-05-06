@@ -5,7 +5,6 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use tofu_types::prelude::TofuAzureADResourceKind;
-use uuid::Uuid;
 use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuImportBlock;
@@ -13,7 +12,9 @@ use tofu_types::prelude::TofuResourceReference;
 
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct UserId(Uuid);
+pub struct UserId(pub Uuid);
+
+pub use uuid::Uuid;
 
 impl std::fmt::Display for UserId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -56,18 +57,18 @@ pub struct User {
     #[serde(rename = "displayName")]
     pub display_name: String,
     #[serde(rename = "givenName")]
-    pub given_name: String,
+    pub given_name: Option<String>,
     pub id: UserId,
     #[serde(rename = "jobTitle")]
-    pub job_title: String,
-    pub mail: String,
+    pub job_title: Option<String>,
+    pub mail: Option<String>,
     #[serde(rename = "mobilePhone")]
-    pub mobile_phone: String,
+    pub mobile_phone: Option<String>,
     #[serde(rename = "officeLocation")]
-    pub office_location: String,
+    pub office_location: Option<String>,
     #[serde(rename = "preferredLanguage")]
-    pub preferred_language: String,
-    pub surname: String,
+    pub preferred_language: Option<String>,
+    pub surname: Option<String>,
     #[serde(rename = "userPrincipalName")]
     pub user_principal_name: String,
 }
