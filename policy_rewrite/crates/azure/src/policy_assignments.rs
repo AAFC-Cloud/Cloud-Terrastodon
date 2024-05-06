@@ -21,14 +21,28 @@ pub async fn fetch_policy_assignments(
     ]);
     let mut cache_key = PathBuf::new();
     cache_key.push("ignore");
-    cache_key.push("policy_assignments");
-    if let Some(scope) = scope {
-        cmd.args(["--scope", &scope.expanded_form()]);
-        cache_key.push(scope.short_name());
-    }
-    if let Some(subscription) = subscription {
-        cmd.args(["--subscription", &subscription]);
-        cache_key.push(subscription)
+    cache_key.push("az policy assignment list");
+    match (scope, subscription) {
+        (Some(scope), Some(subscription)) => {
+            cmd.args(["--scope", &scope.expanded_form()]);
+            cmd.args(["--subscription", &subscription]);
+            cache_key.push(format!(
+                "--scope {} --subscription {}",
+                scope.short_name(),
+                subscription
+            ));
+        }
+        (Some(scope), None) => {
+            cmd.args(["--scope", &scope.expanded_form()]);
+            cache_key.push(format!("--scope {}", scope.short_name()));
+        }
+        (None, Some(subscription)) => {
+            cmd.args(["--subscription", &subscription]);
+            cache_key.push(format!("--subscription {}", subscription))
+        }
+        (None, None) => {
+            cache_key.push("(unscoped, default subscription)");
+        }
     }
     cmd.use_cache_dir(Some(cache_key));
     cmd.run().await

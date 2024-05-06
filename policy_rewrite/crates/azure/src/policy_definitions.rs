@@ -12,18 +12,32 @@ pub async fn fetch_policy_definitions(
 ) -> Result<Vec<PolicyDefinition>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["policy", "definition", "list", "--output", "json"]);
-    let mut cache = PathBuf::new();
-    cache.push("ignore");
-    cache.push("policy_definitions");
-    if let Some(scope) = scope {
-        cmd.args(["--management-group", &scope.short_name()]);
-        cache.push(scope.short_name())
+    let mut cache_key = PathBuf::new();
+    cache_key.push("ignore");
+    cache_key.push("az policy definition list");
+    match (scope, subscription) {
+        (Some(scope), Some(subscription)) => {
+            cmd.args(["--scope", &scope.expanded_form()]);
+            cmd.args(["--subscription", &subscription]);
+            cache_key.push(format!(
+                "--scope {} --subscription {}",
+                scope.short_name(),
+                subscription
+            ));
+        }
+        (Some(scope), None) => {
+            cmd.args(["--scope", &scope.expanded_form()]);
+            cache_key.push(format!("--scope {}", scope.short_name()));
+        }
+        (None, Some(subscription)) => {
+            cmd.args(["--subscription", &subscription]);
+            cache_key.push(format!("--subscription {}", subscription))
+        }
+        (None, None) => {
+            cache_key.push("(unscoped, default subscription)");
+        }
     }
-    if let Some(subscription) = subscription {
-        cmd.args(["--subscription", &subscription]);
-        cache.push(subscription)
-    }
-    cmd.use_cache_dir(Some(cache));
+    cmd.use_cache_dir(Some(cache_key));
     cmd.run().await
 }
 
