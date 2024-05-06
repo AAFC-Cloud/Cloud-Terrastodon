@@ -54,7 +54,7 @@ impl TofuImporter {
         // init_cmd.use_output_behaviour(OutputBehaviour::Display);
         init_cmd.args(["init"]);
         init_cmd.run_raw().await?;
-        info!("tofu init successful!");
+        info!("Tofu init successful!");
 
         // remove old plan outputs
         let generated_path = imports_dir.join("generated.tf");
@@ -72,8 +72,10 @@ impl TofuImporter {
         plan_cmd.use_run_dir(imports_dir.clone());
         // plan_cmd.use_output_behaviour(OutputBehaviour::Display);
         plan_cmd.args(["plan", "-generate-config-out", "generated.tf"]);
+
+        info!("Executing import, please be patient.");
         plan_cmd.run_raw().await?;
-        info!("tofu plan successful!");
+        info!("Tofu plan successful!");
 
         // Success!
         info!("🚀 Successfully generated tofu files from imports!");

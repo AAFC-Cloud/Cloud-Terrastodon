@@ -14,3 +14,4 @@ fzf = { workspace = true }
 tempfile = { workspace = true }
 command = { workspace = true }
 tofu_types = { workspace = true }
+uuid = { workspace = true }

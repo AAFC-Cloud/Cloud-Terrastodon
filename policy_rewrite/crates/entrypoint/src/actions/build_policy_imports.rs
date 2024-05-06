@@ -226,7 +226,7 @@ pub async fn build_policy_imports() -> Result<()> {
     }
 
     // Write imports.tf
-    let imports_path = imports_dir.join("imports.tf");
+    let imports_path = imports_dir.join("policy_imports.tf");
     let mut imports_file = OpenOptions::new()
         .create(true)
         .truncate(true)

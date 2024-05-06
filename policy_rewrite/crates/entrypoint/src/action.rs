@@ -1,17 +1,19 @@
 use crate::actions::prelude::apply_processed;
+use crate::actions::prelude::build_group_imports;
 use crate::actions::prelude::build_policy_imports;
 use crate::actions::prelude::clean;
 use crate::actions::prelude::init_processed;
 use crate::actions::prelude::jump_to_block;
 use crate::actions::prelude::process_generated;
-use crate::actions::prelude::run_tf_import;
+use crate::actions::prelude::perform_import;
 use anyhow::Result;
 use tokio::fs;
 use tracing::instrument;
 #[derive(Debug)]
 pub enum Action {
     BuildPolicyImports,
-    RunTFImport,
+    BuildGroupImports,
+    PerformImport,
     ProcessGenerated,
     Clean,
     InitProcessed,
@@ -22,7 +24,8 @@ impl Action {
     pub fn name(&self) -> &str {
         match self {
             Action::BuildPolicyImports => "build policy imports",
-            Action::RunTFImport => "perform import",
+            Action::BuildGroupImports => "build group imports",
+            Action::PerformImport => "perform import",
             Action::ProcessGenerated => "process generated",
             Action::Clean => "clean",
             Action::InitProcessed => "init processed",
@@ -34,7 +37,8 @@ impl Action {
     pub async fn invoke(&self) -> Result<()> {
         match self {
             Action::BuildPolicyImports => build_policy_imports().await,
-            Action::RunTFImport => run_tf_import().await,
+            Action::BuildGroupImports => build_group_imports().await,
+            Action::PerformImport => perform_import().await,
             Action::ProcessGenerated => process_generated().await,
             Action::Clean => clean().await,
             Action::InitProcessed => init_processed().await,
@@ -48,24 +52,30 @@ impl Action {
             Action::ApplyProcessed,
             Action::InitProcessed,
             Action::ProcessGenerated,
-            Action::RunTFImport,
+            Action::PerformImport,
             Action::BuildPolicyImports,
+            Action::BuildGroupImports,
             Action::Clean,
         ]
     }
     pub fn should_pause(&self) -> bool {
         match self {
             Action::JumpToBlock => false,
-            _ => true
+            _ => true,
         }
     }
 
     /// Some actions don't make sense if files are missing from expected locations.
     pub async fn is_available(&self) -> bool {
         match self {
-            Action::RunTFImport => fs::try_exists("ignore/imports/imports.tf")
-                .await
-                .unwrap_or(false),
+            Action::PerformImport => {
+                fs::try_exists("ignore/imports/policy_imports.tf")
+                    .await
+                    .unwrap_or(false)
+                    || fs::try_exists("ignore/imports/group_imports.tf")
+                        .await
+                        .unwrap_or(false)
+            }
             Action::ProcessGenerated => fs::try_exists("ignore/imports/generated.tf")
                 .await
                 .unwrap_or(false),
