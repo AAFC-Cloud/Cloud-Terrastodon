@@ -1,13 +1,19 @@
+use std::path::PathBuf;
+
 use hcl::edit::structure::Body;
 use hcl::edit::Span;
 use itertools::Itertools;
 use tofu_types::prelude::LocatableBlock;
+use tokio::fs;
 
-pub fn list_blocks(content: &str) -> anyhow::Result<Vec<LocatableBlock>> {
+pub async fn list_blocks(path: PathBuf) -> anyhow::Result<Vec<LocatableBlock>> {
+    let content = fs::read(&path).await?;
+    let content = String::from_utf8(content)?;
     let body: Body = content.parse()?;
     Ok(body
         .into_blocks()
         .map(|block| LocatableBlock {
+            path: path.to_owned(),
             display: if block.ident.to_string() == "import" {
                 format!(
                     "{} {}",
@@ -27,7 +33,7 @@ pub fn list_blocks(content: &str) -> anyhow::Result<Vec<LocatableBlock>> {
             },
             line_number: block
                 .span()
-                .and_then(|span| find_line_column(content, span.start))
+                .and_then(|span| find_line_column(&content, span.start))
                 .map(|pos| pos.0)
                 .unwrap_or_default(),
         })

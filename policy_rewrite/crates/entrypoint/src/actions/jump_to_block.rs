@@ -10,12 +10,16 @@ use fzf::FzfArgs;
 use tofu::prelude::list_blocks;
 use tokio::fs;
 pub async fn jump_to_block() -> Result<()> {
-    let tf_file = PathBuf::from_iter(["ignore", "processed", "generated.tf"]);
-    let content = fs::read(&tf_file).await?;
-    let content = String::from_utf8(content)?;
-    let blocks = list_blocks(content.as_str())?;
+    let dir = PathBuf::from_iter(["ignore", "processed"]);
+    let mut files = fs::read_dir(dir).await?;
+    let mut choices = Vec::new();
+    while let Some(tf_file) = files.next_entry().await? {
+        let mut blocks = list_blocks(tf_file.path()).await?;
+        choices.append(&mut blocks);
+    }
+
     let chosen = pick(FzfArgs {
-        choices: blocks,
+        choices,
         many: false,
         prompt: None,
         header: Some("Blocks".to_string()),
@@ -24,7 +28,7 @@ pub async fn jump_to_block() -> Result<()> {
     CommandBuilder::new(CommandKind::VSCode)
         .args([
             "--goto",
-            format!("{}:{}", tf_file.display(), chosen.line_number).as_str(),
+            format!("{}:{}", chosen.path.display(), chosen.line_number).as_str(),
         ])
         .use_output_behaviour(OutputBehaviour::Display)
         .run_raw()
