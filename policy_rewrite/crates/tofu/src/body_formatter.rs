@@ -158,3 +158,17 @@ impl From<BodyFormatter> for Body {
         output
     }
 }
+
+
+pub trait PrettyBody {
+    fn to_string_pretty(self) -> Result<String>;
+}
+
+impl PrettyBody for Body {
+    fn to_string_pretty(self) -> Result<String> {
+        let body: Body = self;
+        let body: BodyFormatter = body.try_into()?;
+        let body: Body = body.into();
+        Ok(body.to_string())
+    }
+}

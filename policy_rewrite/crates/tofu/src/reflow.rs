@@ -12,7 +12,7 @@ use tokio::fs;
 use tracing::info;
 use tracing::instrument;
 
-use crate::body_formatter::BodyFormatter;
+use crate::body_formatter::PrettyBody;
 use crate::data_block_creation::create_data_blocks_for_ids;
 use crate::data_reference_patcher::DataReferencePatcher;
 use crate::import_lookup_holder::ImportLookupHolder;
@@ -25,6 +25,8 @@ pub async fn reflow_workspace(
     source_dir: &Path,
     dest_dir: &Path,
 ) -> Result<Vec<(PathBuf, String)>> {
+    let mut rtn = Vec::new();
+
     info!("Assembling body for parsing");
     let mut body = as_single_body(source_dir).await?;
     {
@@ -73,15 +75,17 @@ pub async fn reflow_workspace(
 
         info!("Building user lookup");
         let block: Block = user_reference_patcher.build_lookup_block().try_into()?;
+
+        info!("Appending users.tf to output");
+        let mut body = Body::with_capacity(1);
         body.push(block);
+        rtn.push((dest_dir.join("users.tf"), body.to_string_pretty()?));
     }
 
-    info!("Formatting final body");
-    let body: BodyFormatter = body.try_into()?;
-    let body: Body = body.into();
+    info!("Appending generated.tf to output");
+    rtn.push((dest_dir.join("generated.tf"), body.to_string_pretty()?));
 
-    info!("Preparing single output file with formatted body as content");
-    Ok(vec![(dest_dir.join("generated.tf"), body.to_string())])
+    Ok(rtn)
 }
 
 async fn as_single_body(source_dir: &Path) -> Result<Body> {
