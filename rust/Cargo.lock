@@ -117,6 +117,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "cloud_terrastodon"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "entrypoint",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "command"
 version = "0.1.0"
 dependencies = [
@@ -463,17 +474,6 @@ name = "pin-project-lite"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bda66fc9667c18cb2758a2ac84d1167245054bcf85d5d1aaa6923f45801bdd02"
-
-[[package]]
-name = "policy_rewrite"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "entrypoint",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "portable-atomic"

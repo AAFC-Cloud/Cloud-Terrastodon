@@ -1,5 +1,5 @@
 [package]
-name = "policy_rewrite"
+name = "cloud_terrastodon"
 version = "0.1.0"
 edition = "2021"
 
