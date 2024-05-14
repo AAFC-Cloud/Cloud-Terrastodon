@@ -1,6 +1,7 @@
 use crate::actions::prelude::apply_processed;
 use crate::actions::prelude::build_group_imports;
 use crate::actions::prelude::build_policy_imports;
+use crate::actions::prelude::build_resource_group_imports;
 use crate::actions::prelude::clean;
 use crate::actions::prelude::clean_imports;
 use crate::actions::prelude::init_processed;
@@ -14,6 +15,7 @@ use tracing::instrument;
 pub enum Action {
     BuildPolicyImports,
     BuildGroupImports,
+    BuildResourceGroupImports,
     PerformImport,
     ProcessGenerated,
     Clean,
@@ -26,6 +28,7 @@ impl Action {
     pub fn name(&self) -> &str {
         match self {
             Action::BuildPolicyImports => "build policy imports",
+            Action::BuildResourceGroupImports => "build resource group imports",
             Action::BuildGroupImports => "build group imports",
             Action::PerformImport => "perform import",
             Action::ProcessGenerated => "process generated",
@@ -41,6 +44,7 @@ impl Action {
         match self {
             Action::BuildPolicyImports => build_policy_imports().await,
             Action::BuildGroupImports => build_group_imports().await,
+            Action::BuildResourceGroupImports => build_resource_group_imports().await,
             Action::PerformImport => perform_import().await,
             Action::ProcessGenerated => process_generated().await,
             Action::Clean => clean().await,
@@ -59,6 +63,7 @@ impl Action {
             Action::PerformImport,
             Action::BuildPolicyImports,
             Action::BuildGroupImports,
+            Action::BuildResourceGroupImports,
             Action::CleanImports,
             Action::Clean,
         ]
@@ -78,6 +83,9 @@ impl Action {
                     .await
                     .unwrap_or(false)
                     || fs::try_exists("ignore/imports/group_imports.tf")
+                        .await
+                        .unwrap_or(false)
+                    || fs::try_exists("ignore/imports/resource_group_imports.tf")
                         .await
                         .unwrap_or(false)
             }

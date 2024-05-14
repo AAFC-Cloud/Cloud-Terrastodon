@@ -7,6 +7,7 @@ use crate::providers::TofuProvider;
 #[derive(Debug, Clone)]
 pub enum TofuAzureRMResourceKind {
     ManagementGroupPolicyAssignment,
+    ResourceGroup,
     PolicyAssignment,
     PolicyDefinition,
     PolicySetDefinition,
@@ -16,6 +17,7 @@ impl TofuAzureRMResourceKind {
     pub fn supported_variants() -> Vec<TofuAzureRMResourceKind> {
         vec![
             TofuAzureRMResourceKind::ManagementGroupPolicyAssignment,
+            TofuAzureRMResourceKind::ResourceGroup,
             TofuAzureRMResourceKind::PolicyAssignment,
             TofuAzureRMResourceKind::PolicyDefinition,
             TofuAzureRMResourceKind::PolicySetDefinition,
@@ -27,6 +29,7 @@ impl AsRef<str> for TofuAzureRMResourceKind {
         match self {
             Self::ManagementGroupPolicyAssignment => "management_group_policy_assignment",
             Self::PolicyAssignment => "policy_assignment",
+            Self::ResourceGroup => "resource_group",
             Self::PolicyDefinition => "policy_definition",
             Self::PolicySetDefinition => "policy_set_definition",
             Self::Other(s) => s.as_ref(),
