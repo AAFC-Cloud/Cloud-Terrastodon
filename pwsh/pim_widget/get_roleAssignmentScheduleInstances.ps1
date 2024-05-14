@@ -1,0 +1,1 @@
+az rest --method GET --url '@url_roleAssignmentScheduleInstances.txt'
