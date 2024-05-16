@@ -6,8 +6,6 @@ use async_recursion::async_recursion;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
-use tracing::debug;
-use tracing::warn;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::os::windows::process::ExitStatusExt;
@@ -20,8 +18,10 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
+use tracing::debug;
 use tracing::error;
 use tracing::info;
+use tracing::warn;
 
 use crate::errors::dump_to_ignore_file;
 
@@ -357,7 +357,10 @@ impl CommandBuilder {
                     return output;
                 }
                 (_, o) => {
-                    return Err(Error::from(o).context(format!("Command did not execute successfully: {}", self.summarize())));
+                    return Err(Error::from(o).context(format!(
+                        "Command did not execute successfully: {}",
+                        self.summarize()
+                    )));
                 }
             }
         }
@@ -375,7 +378,10 @@ impl CommandBuilder {
     }
 
     #[async_recursion]
-    pub async fn run<T: DeserializeOwned>(&mut self) -> Result<T> {
+    pub async fn run<T>(&mut self) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
         // Get stdout
         let output = self.run_raw().await?;
 

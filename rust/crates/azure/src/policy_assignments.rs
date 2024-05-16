@@ -24,7 +24,7 @@ pub async fn fetch_policy_assignments(
     cache_key.push("az policy assignment list");
     match (scope, subscription) {
         (Some(scope), Some(subscription)) => {
-            cmd.args(["--scope", &scope.expanded_form()]);
+            cmd.args(["--scope", scope.expanded_form()]);
             cmd.args(["--subscription", &subscription]);
             cache_key.push(format!(
                 "--scope {} --subscription {}",
@@ -33,7 +33,7 @@ pub async fn fetch_policy_assignments(
             ));
         }
         (Some(scope), None) => {
-            cmd.args(["--scope", &scope.expanded_form()]);
+            cmd.args(["--scope", scope.expanded_form()]);
             cache_key.push(format!("--scope {}", scope.short_name()));
         }
         (None, Some(subscription)) => {

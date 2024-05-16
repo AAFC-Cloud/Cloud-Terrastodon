@@ -1,6 +1,5 @@
 use anyhow::Result;
 use azure::prelude::fetch_users;
-use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit_mut::VisitMut;
@@ -74,12 +73,12 @@ pub async fn reflow_workspace(
         user_reference_patcher.visit_body_mut(&mut body);
 
         info!("Building user lookup");
-        let block: Block = user_reference_patcher.build_lookup_block().try_into()?;
-
-        info!("Appending users.tf to output");
-        let mut body = Body::with_capacity(1);
-        body.push(block);
-        rtn.push((dest_dir.join("users.tf"), body.to_string_pretty()?));
+        if let Some(body) = user_reference_patcher.build_lookup_blocks()? {
+            info!("Appending users.tf to output");
+            rtn.push((dest_dir.join("users.tf"), body.to_string_pretty()?));
+        } else {
+            info!("No users referenced, lookup not needed");
+        }
     }
 
     info!("Appending generated.tf to output");

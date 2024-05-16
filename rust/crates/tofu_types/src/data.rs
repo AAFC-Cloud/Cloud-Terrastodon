@@ -3,9 +3,7 @@ use std::str::FromStr;
 use crate::prelude::AsTofuString;
 use crate::providers::TofuProvider;
 use anyhow::anyhow;
-use anyhow::Context;
 use anyhow::Result;
-use hcl::edit::structure::Block;
 use indoc::formatdoc;
 use itertools::Itertools;
 
@@ -131,19 +129,5 @@ impl AsTofuString for TofuDataBlock {
                 }
             }
         }
-    }
-}
-
-impl TryFrom<TofuDataBlock> for Block {
-    type Error = anyhow::Error;
-
-    fn try_from(value: TofuDataBlock) -> Result<Self> {
-        let body = value
-            .as_tofu_string()
-            .parse::<hcl::edit::structure::Body>()
-            .context("should be valid body")?;
-        body.into_blocks()
-            .next()
-            .ok_or(anyhow!("parsed body should contain the import block"))
     }
 }

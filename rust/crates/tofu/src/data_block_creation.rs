@@ -8,7 +8,6 @@ use azure::prelude::PolicySetDefinitionId;
 use azure::prelude::Scope;
 use azure::prelude::ScopeImpl;
 use command::prelude::CommandBuilder;
-use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
@@ -22,6 +21,7 @@ use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMDataKind;
 use tofu_types::prelude::TofuDataBlock;
 use tofu_types::prelude::TofuDataReference;
+use tofu_types::prelude::TryAsTofuBlocks;
 use tokio::task::JoinSet;
 use tokio::time::interval;
 use tracing::error;
@@ -170,12 +170,12 @@ pub async fn create_data_blocks_for_ids(
         }
 
         // Add the data block to the document
-        let data_block: Block = TofuDataBlock::LookupByName {
+        TofuDataBlock::LookupByName {
             reference: reference.clone(),
             name: id.short_name().to_owned(),
         }
-        .try_into()?;
-        body.push(data_block);
+        .try_as_tofu_blocks()?
+        .for_each(|b| body.push(b));
 
         // Add the reference to the lookup
         lookup_holder.data_references_by_id.insert(id, reference);

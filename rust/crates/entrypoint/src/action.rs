@@ -4,6 +4,7 @@ use crate::actions::prelude::build_policy_imports;
 use crate::actions::prelude::build_resource_group_imports;
 use crate::actions::prelude::clean;
 use crate::actions::prelude::clean_imports;
+use crate::actions::prelude::clean_processed;
 use crate::actions::prelude::init_processed;
 use crate::actions::prelude::jump_to_block;
 use crate::actions::prelude::process_generated;
@@ -20,6 +21,7 @@ pub enum Action {
     ProcessGenerated,
     Clean,
     CleanImports,
+    CleanProcessed,
     InitProcessed,
     ApplyProcessed,
     JumpToBlock,
@@ -27,15 +29,16 @@ pub enum Action {
 impl Action {
     pub fn name(&self) -> &str {
         match self {
-            Action::BuildPolicyImports => "build policy imports",
-            Action::BuildResourceGroupImports => "build resource group imports",
-            Action::BuildGroupImports => "build group imports",
-            Action::PerformImport => "perform import",
-            Action::ProcessGenerated => "process generated",
-            Action::Clean => "clean",
+            Action::BuildPolicyImports => "imports - create policy_imports.tf",
+            Action::BuildResourceGroupImports => "imports - create resource_group_imports.tf",
+            Action::BuildGroupImports => "imports - create group_imports.tf",
+            Action::PerformImport => "imports - tf plan -generate-config-out generated.tf",
+            Action::ProcessGenerated => "processed - create",
+            Action::Clean => "clean all",
             Action::CleanImports => "clean imports",
-            Action::InitProcessed => "init processed",
-            Action::ApplyProcessed => "apply processed",
+            Action::CleanProcessed => "clean processed",
+            Action::InitProcessed => "processed - tf init",
+            Action::ApplyProcessed => "processed - tf apply",
             Action::JumpToBlock => "jump to block",
         }
     }
@@ -49,6 +52,7 @@ impl Action {
             Action::ProcessGenerated => process_generated().await,
             Action::Clean => clean().await,
             Action::CleanImports => clean_imports().await,
+            Action::CleanProcessed => clean_processed().await,
             Action::InitProcessed => init_processed().await,
             Action::ApplyProcessed => apply_processed().await,
             Action::JumpToBlock => jump_to_block().await,
@@ -64,15 +68,13 @@ impl Action {
             Action::BuildPolicyImports,
             Action::BuildGroupImports,
             Action::BuildResourceGroupImports,
+            Action::CleanProcessed,
             Action::CleanImports,
             Action::Clean,
         ]
     }
     pub fn should_pause(&self) -> bool {
-        match self {
-            Action::JumpToBlock => false,
-            _ => true,
-        }
+        !matches!(self, Action::JumpToBlock)
     }
 
     /// Some actions don't make sense if files are missing from expected locations.
@@ -94,6 +96,7 @@ impl Action {
                 .unwrap_or(false),
             Action::Clean => fs::try_exists("ignore").await.unwrap_or(false),
             Action::CleanImports => fs::try_exists("ignore/imports").await.unwrap_or(false),
+            Action::CleanProcessed => fs::try_exists("ignore/processed").await.unwrap_or(false),
             Action::InitProcessed => fs::try_exists("ignore/processed/generated.tf")
                 .await
                 .unwrap_or(false),

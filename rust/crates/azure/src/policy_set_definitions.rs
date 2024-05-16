@@ -17,7 +17,7 @@ pub async fn fetch_policy_set_definitions(
     cache_key.push("az policy set-definition list");
     match (management_group, subscription) {
         (Some(management_group), Some(subscription)) => {
-            cmd.args(["--management-group", &management_group.short_name()]);
+            cmd.args(["--management-group", management_group.short_name()]);
             cmd.args(["--subscription", &subscription]);
             cache_key.push(format!(
                 "--management-group {} --subscription {}",
@@ -26,7 +26,7 @@ pub async fn fetch_policy_set_definitions(
             ));
         }
         (Some(management_group), None) => {
-            cmd.args(["--management-group", &management_group.short_name()]);
+            cmd.args(["--management-group", management_group.short_name()]);
             cache_key.push(format!("--management-group {}", management_group.short_name()));
         }
         (None, Some(subscription)) => {

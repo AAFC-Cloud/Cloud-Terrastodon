@@ -1,0 +1,1 @@
+- warn if any of `azurerm_resource_group.tags.keys()` starts or ends with whitespace
