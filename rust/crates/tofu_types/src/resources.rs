@@ -48,8 +48,6 @@ impl FromStr for TofuAzureRMResourceKind {
     }
 }
 
-
-
 #[derive(Debug, Clone)]
 pub enum TofuAzureADResourceKind {
     Group,
@@ -84,7 +82,6 @@ impl FromStr for TofuAzureADResourceKind {
             .ok_or(anyhow!("no variant matches"))
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub enum TofuResourceReference {

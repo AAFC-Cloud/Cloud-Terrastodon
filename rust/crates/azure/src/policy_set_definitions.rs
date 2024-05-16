@@ -27,7 +27,10 @@ pub async fn fetch_policy_set_definitions(
         }
         (Some(management_group), None) => {
             cmd.args(["--management-group", management_group.short_name()]);
-            cache_key.push(format!("--management-group {}", management_group.short_name()));
+            cache_key.push(format!(
+                "--management-group {}",
+                management_group.short_name()
+            ));
         }
         (None, Some(subscription)) => {
             cmd.args(["--subscription", &subscription]);

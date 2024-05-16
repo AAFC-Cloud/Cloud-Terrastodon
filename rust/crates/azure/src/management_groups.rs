@@ -6,7 +6,10 @@ use std::path::PathBuf;
 
 pub async fn fetch_management_groups() -> Result<Vec<ManagementGroup>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.use_cache_dir(Some(PathBuf::from_iter(["ignore", "az account management-group list"])));
+    cmd.use_cache_dir(Some(PathBuf::from_iter([
+        "ignore",
+        "az account management-group list",
+    ])));
     cmd.args([
         "account",
         "management-group",

@@ -1,6 +1,6 @@
 use anyhow::Result;
-use tokio::fs;
 use std::path::PathBuf;
+use tokio::fs;
 use tracing::info;
 pub async fn clean() -> Result<()> {
     info!("Cleaning");

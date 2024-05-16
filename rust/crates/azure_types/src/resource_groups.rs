@@ -4,13 +4,12 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use tofu_types::prelude::TofuAzureRMResourceKind;
 use std::collections::HashMap;
 use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
+use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuResourceReference;
-
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ResourceGroupId(String);
@@ -22,7 +21,7 @@ impl std::fmt::Display for ResourceGroupId {
 }
 
 impl FromStr for ResourceGroupId {
-    type Err=anyhow::Error;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Ok(ResourceGroupId(uuid::Uuid::parse_str(s)?))
@@ -57,11 +56,10 @@ pub struct ResourceGroup {
     #[serde(rename = "managedBy")]
     managed_by: Option<String>,
     name: String,
-    properties: HashMap<String,String>,
-    tags: Option<HashMap<String,String>>,
+    properties: HashMap<String, String>,
+    tags: Option<HashMap<String, String>>,
     #[serde(rename = "type")]
     kind: String,
-
     // description: Option<String>,
     // #[serde(rename = "displayName")]
     // pub display_name: String,
@@ -99,8 +97,7 @@ mod tests {
     #[test]
     fn deserializes() -> Result<()> {
         let expanded = "55555555-5555-5555-5555-555555555555";
-        let id: ResourceGroupId =
-            serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+        let id: ResourceGroupId = serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
         assert_eq!(id.to_string(), expanded);
 
         Ok(())

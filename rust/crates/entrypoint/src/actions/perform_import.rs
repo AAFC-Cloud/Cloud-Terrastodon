@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use tofu::prelude::TofuImporter;
-use tracing::{info, warn};
+use tracing::info;
+use tracing::warn;
 pub async fn perform_import() -> Result<()> {
     // not necessary if capturing terraform output
     // // Double check that we are logged in before running tf command
@@ -19,7 +20,9 @@ pub async fn perform_import() -> Result<()> {
     let imports_dir = PathBuf::from("ignore").join("imports");
     match TofuImporter::default().using_dir(imports_dir).run().await {
         Ok(_) => info!("Import success!"),
-        Err(_) => warn!("Import finished with problems, generated code will be fixed in processing step.")
+        Err(_) => {
+            warn!("Import finished with problems, generated code will be fixed in processing step.")
+        }
     };
 
     Ok(())

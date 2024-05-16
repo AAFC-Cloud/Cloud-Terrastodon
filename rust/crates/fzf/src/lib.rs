@@ -10,13 +10,11 @@ use std::process::Command;
 use std::process::Stdio;
 
 #[derive(Debug)]
-pub struct Choice<T>
-{
+pub struct Choice<T> {
     pub inner: T,
     pub display: String,
 }
-impl<T> std::fmt::Display for Choice<T>
-{
+impl<T> std::fmt::Display for Choice<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.display)
     }
@@ -34,8 +32,7 @@ where
     }
 }
 
-impl<T> Deref for Choice<T>
-{
+impl<T> Deref for Choice<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -43,8 +40,7 @@ impl<T> Deref for Choice<T>
     }
 }
 
-pub struct FzfArgs<T>
-{
+pub struct FzfArgs<T> {
     pub choices: Vec<T>,
     pub many: bool,
     pub prompt: Option<String>,

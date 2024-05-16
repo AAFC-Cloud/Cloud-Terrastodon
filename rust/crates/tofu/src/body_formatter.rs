@@ -159,7 +159,6 @@ impl From<BodyFormatter> for Body {
     }
 }
 
-
 pub trait PrettyBody {
     fn to_string_pretty(self) -> Result<String>;
 }

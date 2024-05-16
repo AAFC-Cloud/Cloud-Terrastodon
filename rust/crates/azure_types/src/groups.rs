@@ -4,13 +4,12 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use tofu_types::prelude::TofuAzureADResourceKind;
-use uuid::Uuid;
 use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
+use tofu_types::prelude::TofuAzureADResourceKind;
 use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuResourceReference;
-
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct GroupId(Uuid);
@@ -22,7 +21,7 @@ impl std::fmt::Display for GroupId {
 }
 
 impl FromStr for GroupId {
-    type Err=uuid::Error;
+    type Err = uuid::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(GroupId(uuid::Uuid::parse_str(s)?))
@@ -88,8 +87,7 @@ mod tests {
     #[test]
     fn deserializes() -> Result<()> {
         let expanded = "55555555-5555-5555-5555-555555555555";
-        let id: GroupId =
-            serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+        let id: GroupId = serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
         assert_eq!(id.to_string(), expanded);
 
         Ok(())
