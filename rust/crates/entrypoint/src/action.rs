@@ -60,17 +60,17 @@ impl Action {
     }
     pub fn variants() -> Vec<Action> {
         vec![
-            Action::JumpToBlock,
-            Action::ApplyProcessed,
-            Action::InitProcessed,
-            Action::ProcessGenerated,
-            Action::PerformImport,
-            Action::BuildPolicyImports,
-            Action::BuildGroupImports,
-            Action::BuildResourceGroupImports,
-            Action::CleanProcessed,
-            Action::CleanImports,
             Action::Clean,
+            Action::CleanImports,
+            Action::CleanProcessed,
+            Action::BuildResourceGroupImports,
+            Action::BuildGroupImports,
+            Action::BuildPolicyImports,
+            Action::PerformImport,
+            Action::ProcessGenerated,
+            Action::InitProcessed,
+            Action::ApplyProcessed,
+            Action::JumpToBlock,
         ]
     }
     pub fn should_pause(&self) -> bool {

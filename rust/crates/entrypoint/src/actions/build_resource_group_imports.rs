@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use azure::prelude::fetch_resource_groups;
-use fzf::pick;
+use fzf::pick_many;
 use fzf::FzfArgs;
 use itertools::Itertools;
 use std::path::PathBuf;
@@ -16,9 +16,8 @@ pub async fn build_resource_group_imports() -> Result<()> {
     info!("Fetching resource groups");
     let resource_groups = fetch_resource_groups().await?;
 
-    let chosen = pick(FzfArgs {
+    let chosen = pick_many(FzfArgs {
         choices: resource_groups,
-        many: true,
         prompt: Some("Groups to import: ".to_string()),
         header: None,
     })?;

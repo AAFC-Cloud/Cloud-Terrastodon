@@ -1,11 +1,11 @@
-use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use command::prelude::OutputBehaviour;
-use fzf::pick;
+use fzf::pick_many;
 use fzf::FzfArgs;
+use tracing::info;
 
 use crate::action::Action;
 
@@ -25,8 +25,11 @@ pub async fn menu() -> Result<()> {
         }
     }
 
+    // show most specific actions first
+    choices.reverse();
+
     // Prompt user for action of choice
-    let chosen = pick(FzfArgs {
+    let mut chosen = pick_many(FzfArgs {
         choices,
         header: Some(
             if !some_unavailable {
@@ -37,20 +40,24 @@ pub async fn menu() -> Result<()> {
             .to_string(),
         ),
         prompt: None,
-        many: false,
     })?;
 
-    let chosen = chosen.first().ok_or(anyhow!("menu choice failed"))?;
-    chosen
-        .invoke()
-        .await
-        .context(format!("invoking action: {chosen}"))?;
+    // restore execution order
+    chosen.reverse();
 
-    if chosen.should_pause() {
-        CommandBuilder::new(CommandKind::Pause)
-            .use_output_behaviour(OutputBehaviour::Display)
-            .run_raw()
-            .await?;
+    for action in &chosen {
+        info!("Invoking action {action}");
+        action
+            .invoke()
+            .await
+            .context(format!("invoking action: {action}"))?;
+        // Don't pause when running multiple actions
+        if action.should_pause() && chosen.len() == 1 {
+            CommandBuilder::new(CommandKind::Pause)
+                .use_output_behaviour(OutputBehaviour::Display)
+                .run_raw()
+                .await?;
+        }
     }
 
     Ok(())

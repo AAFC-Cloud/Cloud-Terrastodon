@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use azure::prelude::fetch_groups;
-use fzf::pick;
+use fzf::pick_many;
 use fzf::FzfArgs;
 use itertools::Itertools;
 use std::path::PathBuf;
@@ -20,9 +20,8 @@ pub async fn build_group_imports() -> Result<()> {
         .filter(|def| def.security_enabled)
         .collect_vec();
 
-    let chosen = pick(FzfArgs {
+    let chosen = pick_many(FzfArgs {
         choices: groups,
-        many: true,
         prompt: Some("Groups to import: ".to_string()),
         header: None,
     })?;

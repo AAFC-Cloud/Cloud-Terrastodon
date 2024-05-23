@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use command::prelude::CommandBuilder;
@@ -27,12 +26,10 @@ pub async fn jump_to_block() -> Result<()> {
 
     let chosen = pick(FzfArgs {
         choices,
-        many: false,
         prompt: None,
         header: Some("Blocks".to_string()),
     })
     .context("picking")?;
-    let chosen = chosen.first().ok_or(anyhow!("pick one failed"))?;
     CommandBuilder::new(CommandKind::VSCode)
         .args([
             "--goto",

@@ -5,6 +5,7 @@ use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
 use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::visit_attr_mut;
+use hcl::edit::visit_mut::visit_block_mut;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::Decorate;
 use std::collections::HashMap;
@@ -40,7 +41,7 @@ impl UserIdReferencePatcher {
         // No need to use indoc to strip indent because this gets parsed into body
         let local_block = r#"
             locals {
-                user_id_by_mail = {
+                users = {
                     for x in data.azuread_users.users.users :
                     x.user_principal_name => x.object_id
                 }
@@ -57,6 +58,21 @@ impl UserIdReferencePatcher {
     }
 }
 impl VisitMut for UserIdReferencePatcher {
+    fn visit_block_mut(&mut self, node: &mut hcl::edit::structure::Block) {
+        visit_block_mut(self, node);
+        // Comment out empty owners/members attributes to satisfy terraform validate
+        if node.labels.first().map(|x| x.as_str()) == Some("azuread_group") {
+            for key in ["owners", "members"] {
+                if let Some(ref mut attr) = node.body.get_attribute_mut(key)
+                    && let Some(ref mut array) = attr.value_mut().as_array_mut()
+                    && array.is_empty()
+                {
+                    array.set_trailing("");
+                    attr.decor_mut().set_prefix("#");
+                }
+            }
+        }
+    }
     fn visit_attr_mut(&mut self, mut node: AttributeMut) {
         let key = node.key.to_string();
         let key = key.trim();
