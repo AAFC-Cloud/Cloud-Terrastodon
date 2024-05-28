@@ -9,7 +9,6 @@ use indicatif::ProgressStyle;
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::debug;
@@ -49,16 +48,11 @@ impl<T> SubscriptionBins<T> {
     }
 }
 
-
-pub async fn gather_from_subscriptions<T>(
-    fetcher: impl Fn(Subscription, Arc<MultiProgress>) -> Pin<Box<dyn Future<Output = Result<Vec<T>>> + Send>>
-        + Send
-        + Sync
-        + Clone
-        + 'static,
-) -> Result<SubscriptionBins<T>>
+pub async fn gather_from_subscriptions<T, F, Fut>(fetcher: F) -> Result<SubscriptionBins<T>>
 where
     T: Send + 'static,
+    F: Fn(Subscription, Arc<MultiProgress>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<Vec<T>>> + Send + 'static,
 {
     // Fetch subscriptions
     debug!("Fetching subscriptions");
@@ -73,12 +67,13 @@ where
             .template("[{elapsed_precise}] {bar:30.cyan/blue} {pos:>7}/{len:7} {msg}")?,
     );
 
+    let fetcher = Arc::new(fetcher);
     let mut work_pool: JoinSet<(Subscription, Result<Vec<T>>)> = JoinSet::new();
     debug!("Launching fetchers");
     for subscription in subscriptions {
         let fetcher = fetcher.clone();
         let mp = mp.clone();
-        work_pool.spawn(async move { (subscription.clone(), (fetcher)(subscription, mp).await) });
+        work_pool.spawn(async move { (subscription.clone(), fetcher(subscription, mp).await) });
     }
 
     debug!("Collecting results");
@@ -126,32 +121,23 @@ mod tests {
         Ok(())
     }
 
-    async fn dummy_fetcher(sub: Subscription, _mp: Arc<MultiProgress>) -> Result<Vec<String>> {
-        let delay = rand::thread_rng().gen_range(200..=3000);
-        sleep(Duration::from_millis(delay)).await;
-        Ok(vec![format!("item1 from {}", sub.name), format!("item2 from {}", sub.name)])
-    }
-
-
     #[tokio::test]
     async fn test_gather_from_subscriptions() -> Result<()> {
-        // let dummy_fetcher =
-        //     async |sub: Subscription, _mp: Arc<MultiProgress>| -> Result<Vec<String>> {
-        //         sleep(Duration::from_millis(100)).await;
-        //         Ok(vec![
-        //             format!("item1 from {}", sub.name),
-        //             format!("item2 from {}", sub.name),
-        //         ])
-        //     };
-        let dummy_fetcher = |sub: Subscription, mp: Arc<MultiProgress>| {
-            Box::pin(dummy_fetcher(sub, mp)) as Pin<Box<dyn Future<Output = Result<Vec<String>>> + Send>>
-        };
-        let results = gather_from_subscriptions(dummy_fetcher).await?;
+        let results =
+            gather_from_subscriptions(async |sub: Subscription, _mp: Arc<MultiProgress>| {
+                let delay = rand::thread_rng().gen_range(200..=3000);
+                sleep(Duration::from_millis(delay)).await;
+                Ok(vec![
+                    format!("item1 from {}", sub.name),
+                    format!("item2 from {}", sub.name),
+                ])
+            })
+            .await?;
         assert!(!results.is_empty());
 
         for (sub, items) in results.into_iter() {
             println!("Subscription: {}", sub.name);
-            assert_eq!(items.len(),2);
+            assert_eq!(items.len(), 2);
             for item in items {
                 println!(" - {}", item);
             }
