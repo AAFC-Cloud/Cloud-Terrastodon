@@ -12,7 +12,7 @@ use tofu_types::prelude::TofuResourceReference;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct GroupId(Uuid);
+pub struct GroupId(pub Uuid);
 
 impl std::fmt::Display for GroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

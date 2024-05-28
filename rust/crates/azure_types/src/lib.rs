@@ -8,9 +8,11 @@ pub mod scopes;
 pub mod users;
 pub mod role_assignments;
 mod subscriptions;
+mod tenants;
 
 pub mod prelude {
     pub use crate::groups::*;
+    pub use crate::tenants::*;
     pub use crate::management_groups::*;
     pub use crate::subscriptions::*;
     pub use crate::policy_assignments::*;
