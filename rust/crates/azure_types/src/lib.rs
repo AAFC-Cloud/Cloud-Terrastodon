@@ -7,10 +7,12 @@ pub mod resource_groups;
 pub mod scopes;
 pub mod users;
 pub mod role_assignments;
+mod subscriptions;
 
 pub mod prelude {
     pub use crate::groups::*;
     pub use crate::management_groups::*;
+    pub use crate::subscriptions::*;
     pub use crate::policy_assignments::*;
     pub use crate::policy_definitions::*;
     pub use crate::policy_set_definitions::*;

@@ -9,8 +9,6 @@ use serde::Serialize;
 use serde::Serializer;
 
 pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
-pub const MANAGEMENT_GROUP_ID_PREFIX_NO_TRAILING_SLASH: &str =
-    "/providers/Microsoft.Management/managementGroups";
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ManagementGroupId {

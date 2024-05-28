@@ -20,8 +20,8 @@ pub async fn perform_import() -> Result<()> {
     let imports_dir = PathBuf::from("ignore").join("imports");
     match TofuImporter::default().using_dir(imports_dir).run().await {
         Ok(_) => info!("Import success!"),
-        Err(_) => {
-            warn!("Import finished with problems, generated code will be fixed in processing step.")
+        Err(e) => {
+            warn!("Error: {e:?}\nImport encountered problems. This may be because the generated code needs attention, or it could have failed.")
         }
     };
 

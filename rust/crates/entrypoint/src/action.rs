@@ -36,7 +36,7 @@ impl Action {
             Action::BuildGroupImports => "imports - create group_imports.tf",
             Action::BuildImportsFromExisting => "imports - build from existing",
             Action::PerformImport => "imports - tf plan -generate-config-out generated.tf",
-            Action::ProcessGenerated => "processed - create",
+            Action::ProcessGenerated => "processed - create from generated.tf",
             Action::Clean => "clean all",
             Action::CleanImports => "clean imports",
             Action::CleanProcessed => "clean processed",
@@ -95,7 +95,7 @@ impl Action {
 
         let any_exist = async |required_files| -> bool {
             for path in required_files {
-                if !fs::try_exists(path).await.unwrap_or(false) {
+                if fs::try_exists(path).await.unwrap_or(false) {
                     return true;
                 }
             }

@@ -59,15 +59,15 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ResourceGroup {
-    id: ResourceGroupId,
-    location: String,
+    pub id: ResourceGroupId,
+    pub location: String,
     #[serde(rename = "managedBy")]
-    managed_by: Option<String>,
-    name: String,
-    properties: HashMap<String, String>,
-    tags: Option<HashMap<String, String>>,
+    pub managed_by: Option<String>,
+    pub name: String,
+    pub properties: HashMap<String, String>,
+    pub tags: Option<HashMap<String, String>>,
     #[serde(rename = "type")]
-    kind: String,
+    pub kind: String,
     // description: Option<String>,
     // #[serde(rename = "displayName")]
     // pub display_name: String,
