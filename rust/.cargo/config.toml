@@ -1,0 +1,12 @@
+# https://github.com/rust-lang/rust/issues/71520
+# https://github.com/bevyengine/bevy/blob/release-0.13.2/.cargo/config_fast_builds.toml
+# https://stackoverflow.com/questions/57812916/how-do-i-change-the-default-rustc-cargo-linker
+# https://doc.rust-lang.org/cargo/reference/config.html
+# https://github.com/TeamDman/Poche/blob/0a19283bf949c3adf9d961f01114631cf44960eb/game/.cargo/config.toml
+[target.x86_64-pc-windows-msvc]
+# [target.'cfg(target_os = "windows")']
+linker = "rust-lld.exe" # Use LLD Linker
+rustflags = [
+  "-Zshare-generics=n",
+  "-Zthreads=0",        # (Nightly) Use improved multithreading with the recommended amount of threads.
+]
