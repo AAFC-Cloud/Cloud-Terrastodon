@@ -48,26 +48,26 @@ impl<'de> Deserialize<'de> for SubscriptionId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SubscriptionUserKind {
     #[serde(rename = "user")]
     User,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SubscriptionUser {
     pub name: String,
     #[serde(rename = "type")]
     pub kind: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SubscriptionState {
     Enabled,
 }
 
 /// `az cloud list --output table`
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AzureCloudKind {
     AzureCloud,
     AzureChinaCloud,
@@ -75,7 +75,7 @@ pub enum AzureCloudKind {
     AzureGermanCloud,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Subscription {
     #[serde(rename = "cloudName")]
     pub cloud_name: AzureCloudKind,

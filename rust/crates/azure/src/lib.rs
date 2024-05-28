@@ -1,3 +1,4 @@
+#![feature(async_closure)]
 mod auth;
 mod errors;
 mod groups;

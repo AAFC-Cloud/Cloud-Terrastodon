@@ -33,6 +33,7 @@ unidecode = "0.3.0"
 hcl-primitives = "0.1.5"
 uuid = {version = "1.8.0", features = ["serde"]}
 chrono = {version = "0.4.38", features = ["serde"]}
+rand = "0.8.5"
 
 [dependencies]
 tokio = { workspace = true }
