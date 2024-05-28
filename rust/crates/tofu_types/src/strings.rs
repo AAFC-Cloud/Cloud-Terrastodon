@@ -1,6 +1,8 @@
 use anyhow::Result;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::IntoBlocks;
+use hcl_primitives::ident::is_id_continue;
+use unidecode::unidecode_char;
 
 pub trait AsTofuString {
     fn as_tofu_string(&self) -> String;
@@ -24,8 +26,10 @@ impl<T: AsRef<str>> Sanitizable for T {
     fn sanitize(&self) -> String {
         self.as_ref()
             .chars()
-            .map(|c| {
-                if c.is_alphanumeric() || c == '_' {
+            .flat_map(|c| unidecode_char(c).chars())
+            .enumerate()
+            .map(|(i, c)| {
+                if i == 0 && hcl_primitives::ident::is_id_start(c) || i > 0 && is_id_continue(c) {
                     c
                 } else {
                     '_'

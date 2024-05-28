@@ -11,6 +11,7 @@ pub enum TofuAzureRMResourceKind {
     PolicyAssignment,
     PolicyDefinition,
     PolicySetDefinition,
+    RoleAssignment,
     Other(String),
 }
 impl TofuAzureRMResourceKind {
@@ -21,6 +22,7 @@ impl TofuAzureRMResourceKind {
             TofuAzureRMResourceKind::PolicyAssignment,
             TofuAzureRMResourceKind::PolicyDefinition,
             TofuAzureRMResourceKind::PolicySetDefinition,
+            TofuAzureRMResourceKind::RoleAssignment,
         ]
     }
 }
@@ -32,6 +34,7 @@ impl AsRef<str> for TofuAzureRMResourceKind {
             Self::ResourceGroup => "resource_group",
             Self::PolicyDefinition => "policy_definition",
             Self::PolicySetDefinition => "policy_set_definition",
+            Self::RoleAssignment => "role_assignment",
             Self::Other(s) => s.as_ref(),
         }
     }
@@ -98,6 +101,7 @@ pub enum TofuResourceReference {
         kind: String,
         name: String,
     },
+    Raw(String),
 }
 impl TofuResourceReference {
     pub fn expression(&self) -> String {
@@ -116,6 +120,10 @@ impl TofuResourceReference {
                 kind.as_ref()
             ),
             Self::Other { provider, kind, .. } => format!("{}_{}", provider, kind),
+            Self::Raw(value) => value
+                .split_once(".")
+                .map(|pair| pair.0.to_owned())
+                .unwrap_or(value.to_owned()),
         }
     }
     pub fn name_label(&self) -> &str {
@@ -123,6 +131,7 @@ impl TofuResourceReference {
             Self::AzureRM { name, .. } => name.as_str(),
             Self::AzureAD { name, .. } => name.as_str(),
             Self::Other { name, .. } => name.as_str(),
+            Self::Raw(value) => value.split_once(".").map(|pair| pair.1).unwrap_or(value),
         }
     }
     pub fn use_name(&mut self, mapper: impl Fn(&str) -> String) -> &mut Self {
@@ -135,6 +144,12 @@ impl TofuResourceReference {
             }
             Self::Other { name, .. } => {
                 *name = (mapper)(name);
+            }
+            Self::Raw(value) => {
+                if let Some((kind, name)) = value.split_once('.') {
+                    let new_name = (mapper)(name);
+                    *value = format!("{}.{}", kind, new_name);
+                }
             }
         };
         self

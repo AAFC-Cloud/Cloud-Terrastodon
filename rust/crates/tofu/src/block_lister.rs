@@ -6,12 +6,15 @@ use hcl::edit::Span;
 use itertools::Itertools;
 use tofu_types::prelude::LocatableBlock;
 use tokio::fs;
+use tracing::debug;
 
 pub async fn list_blocks(path: PathBuf) -> anyhow::Result<Vec<LocatableBlock>> {
     let content = fs::read(&path)
         .await
         .context(format!("reading content from path {path:?}"))?;
+    debug!("Read {} bytes", content.len());
     let content = String::from_utf8(content).context("parsing content as utf-8")?;
+    debug!("Parsed into UTF-8 string of length {}", content.len());
     let body: Body = content.parse().context("parsing content as body")?;
     Ok(body
         .into_blocks()

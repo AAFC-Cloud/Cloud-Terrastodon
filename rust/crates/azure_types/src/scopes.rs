@@ -2,6 +2,8 @@ use crate::management_groups::ManagementGroupId;
 use crate::policy_assignments::PolicyAssignmentId;
 use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
+use crate::prelude::ResourceGroupId;
+use crate::prelude::RoleAssignmentId;
 use anyhow::Error;
 use anyhow::Result;
 use std::str::FromStr;
@@ -35,6 +37,8 @@ pub enum ScopeImpl {
     PolicyDefinition(PolicyDefinitionId),
     PolicySetDefinition(PolicySetDefinitionId),
     PolicyAssignment(PolicyAssignmentId),
+    ResourceGroup(ResourceGroupId),
+    RoleAssignment(RoleAssignmentId),
 }
 impl Scope for ScopeImpl {
     fn expanded_form(&self) -> &str {
@@ -43,6 +47,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::PolicyDefinition(p) => p.expanded_form(),
             ScopeImpl::PolicySetDefinition(p) => p.expanded_form(),
             ScopeImpl::PolicyAssignment(p) => p.expanded_form(),
+            ScopeImpl::ResourceGroup(r) => r.expanded_form(),
+            ScopeImpl::RoleAssignment(r) => r.expanded_form(),
         }
     }
 
@@ -52,6 +58,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::PolicyDefinition(p) => p.short_name(),
             ScopeImpl::PolicySetDefinition(p) => p.short_name(),
             ScopeImpl::PolicyAssignment(p) => p.short_name(),
+            ScopeImpl::ResourceGroup(r) => r.short_name(),
+            ScopeImpl::RoleAssignment(r) => r.short_name(),
         }
     }
 
@@ -95,6 +103,12 @@ impl std::fmt::Display for ScopeImpl {
             ScopeImpl::PolicyAssignment(x) => {
                 f.write_fmt(format_args!("PolicyAssignment({})", x.expanded_form()))
             }
+            ScopeImpl::ResourceGroup(x) => {
+                f.write_fmt(format_args!("ResourceGroup({})", x.expanded_form()))
+            },
+            ScopeImpl::RoleAssignment(x) => {
+                f.write_fmt(format_args!("RoleAssignment({})", x.expanded_form()))
+            },
         }
     }
 }

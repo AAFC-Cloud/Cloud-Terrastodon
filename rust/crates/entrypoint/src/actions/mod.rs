@@ -9,6 +9,7 @@ mod init_processed;
 mod jump_to_block;
 mod perform_import;
 mod process_generated;
+mod build_imports_from_existing;
 
 pub mod prelude {
     pub use crate::actions::apply_processed::*;
@@ -22,4 +23,5 @@ pub mod prelude {
     pub use crate::actions::jump_to_block::*;
     pub use crate::actions::perform_import::*;
     pub use crate::actions::process_generated::*;
+    pub use crate::actions::build_imports_from_existing::*;
 }

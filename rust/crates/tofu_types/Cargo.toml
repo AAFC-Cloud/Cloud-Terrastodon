@@ -15,3 +15,5 @@ hcl-rs = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 fzf = { workspace = true }
+unidecode = { workspace = true }
+hcl-primitives = { workspace = true }

@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-use anyhow::Context;
 use anyhow::Result;
 use azure::prelude::fetch_management_groups;
 use azure::prelude::fetch_policy_assignments;
@@ -13,15 +12,11 @@ use azure::prelude::ScopeImpl;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use itertools::Itertools;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tofu::prelude::AsTofuString;
+use tofu::prelude::TofuImportWriter;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
-use tokio::fs::create_dir_all;
-use tokio::fs::OpenOptions;
-use tokio::io::AsyncWriteExt;
 use tokio::task::JoinSet;
 use tracing::debug;
 use tracing::info;
@@ -215,27 +210,8 @@ pub async fn build_policy_imports() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    // Prepare imports dir
-    let imports_dir = PathBuf::from("ignore").join("imports");
-    if !imports_dir.exists() {
-        info!("Creating {:?}", imports_dir);
-        create_dir_all(&imports_dir).await?;
-    } else if !imports_dir.is_dir() {
-        return Err(anyhow!("Path exists but isn't a dir!"))
-            .context(imports_dir.to_string_lossy().into_owned());
-    }
-
-    // Write imports.tf
-    let imports_path = imports_dir.join("policy_imports.tf");
-    let mut imports_file = OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .write(true)
-        .open(&imports_path)
-        .await?;
-    info!("Writing {:?}", imports_path);
-    imports_file
-        .write_all(imports.as_tofu_string().as_bytes())
+    TofuImportWriter::new("policy_imports.tf")
+        .overwrite(imports)
         .await?;
 
     Ok(())

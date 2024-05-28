@@ -9,6 +9,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::os::windows::process::ExitStatusExt;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitStatus;
 use std::process::Output;
@@ -67,9 +68,9 @@ impl CommandKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandOutput {
-    stdout: String,
-    stderr: String,
-    status: u32,
+    pub stdout: String,
+    pub stderr: String,
+    pub status: u32,
 }
 impl CommandOutput {
     fn success(&self) -> bool {
@@ -137,8 +138,8 @@ impl CommandBuilder {
         self.cache_dir = cache;
         self
     }
-    pub fn use_run_dir(&mut self, dir: PathBuf) -> &mut Self {
-        self.run_dir = Some(dir);
+    pub fn use_run_dir(&mut self, dir: impl AsRef<Path>) -> &mut Self {
+        self.run_dir = Some(dir.as_ref().to_path_buf());
         self
     }
     pub fn use_retry_behaviour(&mut self, behaviour: RetryBehaviour) -> &mut Self {
@@ -377,7 +378,7 @@ impl CommandBuilder {
         Ok(output)
     }
 
-    #[async_recursion]
+    // #[async_recursion]
     pub async fn run<T>(&mut self) -> Result<T>
     where
         T: DeserializeOwned,

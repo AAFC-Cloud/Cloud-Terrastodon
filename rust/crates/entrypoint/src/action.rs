@@ -1,5 +1,6 @@
 use crate::actions::prelude::apply_processed;
 use crate::actions::prelude::build_group_imports;
+use crate::actions::prelude::build_imports_from_existing;
 use crate::actions::prelude::build_policy_imports;
 use crate::actions::prelude::build_resource_group_imports;
 use crate::actions::prelude::clean;
@@ -17,6 +18,7 @@ pub enum Action {
     BuildPolicyImports,
     BuildGroupImports,
     BuildResourceGroupImports,
+    BuildImportsFromExisting,
     PerformImport,
     ProcessGenerated,
     Clean,
@@ -32,6 +34,7 @@ impl Action {
             Action::BuildPolicyImports => "imports - create policy_imports.tf",
             Action::BuildResourceGroupImports => "imports - create resource_group_imports.tf",
             Action::BuildGroupImports => "imports - create group_imports.tf",
+            Action::BuildImportsFromExisting => "imports - build from existing",
             Action::PerformImport => "imports - tf plan -generate-config-out generated.tf",
             Action::ProcessGenerated => "processed - create",
             Action::Clean => "clean all",
@@ -48,6 +51,7 @@ impl Action {
             Action::BuildPolicyImports => build_policy_imports().await,
             Action::BuildGroupImports => build_group_imports().await,
             Action::BuildResourceGroupImports => build_resource_group_imports().await,
+            Action::BuildImportsFromExisting => build_imports_from_existing().await,
             Action::PerformImport => perform_import().await,
             Action::ProcessGenerated => process_generated().await,
             Action::Clean => clean().await,
@@ -66,6 +70,7 @@ impl Action {
             Action::BuildResourceGroupImports,
             Action::BuildGroupImports,
             Action::BuildPolicyImports,
+            Action::BuildImportsFromExisting,
             Action::PerformImport,
             Action::ProcessGenerated,
             Action::InitProcessed,
@@ -79,33 +84,41 @@ impl Action {
 
     /// Some actions don't make sense if files are missing from expected locations.
     pub async fn is_available(&self) -> bool {
+        let all_exist = async |required_files| -> bool {
+            for path in required_files {
+                if !fs::try_exists(path).await.unwrap_or(false) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        let any_exist = async |required_files| -> bool {
+            for path in required_files {
+                if !fs::try_exists(path).await.unwrap_or(false) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
         match self {
             Action::PerformImport => {
-                fs::try_exists("ignore/imports/policy_imports.tf")
-                    .await
-                    .unwrap_or(false)
-                    || fs::try_exists("ignore/imports/group_imports.tf")
-                        .await
-                        .unwrap_or(false)
-                    || fs::try_exists("ignore/imports/resource_group_imports.tf")
-                        .await
-                        .unwrap_or(false)
+                any_exist([
+                    "ignore/imports/policy_imports.tf",
+                    "ignore/imports/group_imports.tf",
+                    "ignore/imports/resource_group_imports.tf",
+                    "ignore/imports/existing.tf",
+                ])
+                .await
             }
-            Action::ProcessGenerated => fs::try_exists("ignore/imports/generated.tf")
-                .await
-                .unwrap_or(false),
-            Action::Clean => fs::try_exists("ignore").await.unwrap_or(false),
-            Action::CleanImports => fs::try_exists("ignore/imports").await.unwrap_or(false),
-            Action::CleanProcessed => fs::try_exists("ignore/processed").await.unwrap_or(false),
-            Action::InitProcessed => fs::try_exists("ignore/processed/generated.tf")
-                .await
-                .unwrap_or(false),
-            Action::ApplyProcessed => fs::try_exists("ignore/processed/.terraform.lock.hcl")
-                .await
-                .unwrap_or(false),
-            Action::JumpToBlock => fs::try_exists("ignore/processed/generated.tf")
-                .await
-                .unwrap_or(false),
+            Action::ProcessGenerated => all_exist(["ignore/imports/generated.tf"]).await,
+            Action::Clean => all_exist(["ignore"]).await,
+            Action::CleanImports => all_exist(["ignore/imports"]).await,
+            Action::CleanProcessed => all_exist(["ignore/processed"]).await,
+            Action::InitProcessed => all_exist(["ignore/processed/generated.tf"]).await,
+            Action::ApplyProcessed => all_exist(["ignore/processed/.terraform.lock.hcl"]).await,
+            Action::JumpToBlock => all_exist(["ignore/processed/generated.tf"]).await,
             _ => true,
         }
     }

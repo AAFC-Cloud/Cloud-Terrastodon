@@ -1,19 +1,22 @@
 use anyhow::Result;
+use chrono::DateTime;
+use chrono::Utc;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use std::collections::HashMap;
+use serde_json::Value;
 use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuResourceReference;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct ResourceGroupId(String);
-impl ResourceGroupId {
+pub struct RoleAssignmentId(String);
+impl RoleAssignmentId {
     pub fn expanded_form(&self) -> &str {
         &self.0
     }
@@ -22,22 +25,21 @@ impl ResourceGroupId {
     }
 }
 
-impl std::fmt::Display for ResourceGroupId {
+impl std::fmt::Display for RoleAssignmentId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.0.to_string().as_str())
     }
 }
 
-impl FromStr for ResourceGroupId {
+impl FromStr for RoleAssignmentId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Ok(ResourceGroupId(uuid::Uuid::parse_str(s)?))
-        Ok(ResourceGroupId(s.to_string()))
+        Ok(RoleAssignmentId(s.to_string()))
     }
 }
 
-impl Serialize for ResourceGroupId {
+impl Serialize for RoleAssignmentId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -46,7 +48,7 @@ impl Serialize for ResourceGroupId {
     }
 }
 
-impl<'de> Deserialize<'de> for ResourceGroupId {
+impl<'de> Deserialize<'de> for RoleAssignmentId {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -58,40 +60,54 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct ResourceGroup {
-    id: ResourceGroupId,
-    location: String,
-    #[serde(rename = "managedBy")]
-    managed_by: Option<String>,
-    name: String,
-    properties: HashMap<String, String>,
-    tags: Option<HashMap<String, String>>,
+pub struct RoleAssignment {
+    condition: Option<Value>,
+    #[serde(rename = "conditionVersion")]
+    condition_version: Option<Value>,
+    #[serde(rename = "createdBy")]
+    created_by: Uuid,
+    #[serde(rename = "createdOn")]
+    created_on: DateTime<Utc>,
+    #[serde(rename = "delegatedManagedIdentityResourceId")]
+    delegated_managed_identity_resource_id: Option<Value>,
+    description: Option<Value>,
+    id: String,
+    name: Uuid,
+    #[serde(rename = "principalId")]
+    principal_id: Uuid,
+    #[serde(rename = "principalName")]
+    principal_name: String,
+    #[serde(rename = "principalType")]
+    principal_type: String,
+    #[serde(rename = "roleDefinitionId")]
+    role_definition_id: String,
+    #[serde(rename = "roleDefinitionName")]
+    role_definition_name: String,
+    scope: String,
     #[serde(rename = "type")]
     kind: String,
-    // description: Option<String>,
-    // #[serde(rename = "displayName")]
-    // pub display_name: String,
-    // pub id: ResourceGroupId,
-    // #[serde(rename = "isAssignableToRole")]
-    // pub is_assignable_to_role: Option<bool>,
-    // #[serde(rename = "securityEnabled")]
-    // pub security_enabled: bool,
+    #[serde(rename = "updatedBy")]
+    updated_by: Uuid,
+    #[serde(rename = "updatedOn")]
+    updated_on: DateTime<Utc>,
 }
-impl std::fmt::Display for ResourceGroup {
+impl std::fmt::Display for RoleAssignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.name)?;
+        f.write_str(&self.role_definition_name)?;
+        f.write_str(" for ")?;
+        f.write_str(&self.principal_name)?;
         f.write_str(" (")?;
-        f.write_str(self.id.to_string().as_str())?;
+        f.write_str(self.principal_id.to_string().as_str())?;
         f.write_str(")")?;
         Ok(())
     }
 }
-impl From<ResourceGroup> for TofuImportBlock {
-    fn from(resource_group: ResourceGroup) -> Self {
+impl From<RoleAssignment> for TofuImportBlock {
+    fn from(resource_group: RoleAssignment) -> Self {
         TofuImportBlock {
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
-                kind: TofuAzureRMResourceKind::ResourceGroup,
+                kind: TofuAzureRMResourceKind::RoleAssignment,
                 name: format!("{}__{}", resource_group.name, resource_group.id).sanitize(),
             },
         }
@@ -105,7 +121,7 @@ mod tests {
     #[test]
     fn deserializes() -> Result<()> {
         let expanded = "55555555-5555-5555-5555-555555555555";
-        let id: ResourceGroupId = serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+        let id: RoleAssignmentId = serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
         assert_eq!(id.to_string(), expanded);
 
         Ok(())

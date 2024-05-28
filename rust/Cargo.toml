@@ -25,11 +25,14 @@ tempfile = "3.10.1"
 indicatif = "0.17.8"
 async-recursion = "1.1.0"
 indoc = "2.0.5"
-hcl-rs = "0.16.9"
+hcl-rs = "0.17.2"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
-uuid = "1.8.0"
 indexmap = "2.2.6"
+unidecode = "0.3.0"
+hcl-primitives = "0.1.5"
+uuid = {version = "1.8.0", features = ["serde"]}
+chrono = {version = "0.4.38", features = ["serde"]}
 
 [dependencies]
 tokio = { workspace = true }

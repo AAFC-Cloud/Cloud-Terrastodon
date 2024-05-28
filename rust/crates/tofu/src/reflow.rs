@@ -1,3 +1,4 @@
+use anyhow::Context;
 use anyhow::Result;
 use azure::prelude::fetch_users;
 use hcl::edit::structure::Body;
@@ -98,12 +99,59 @@ async fn as_single_body(source_dir: &Path) -> Result<Body> {
             info!("Skipping {}", path.display());
             continue;
         }
-        let contents = fs::read(&path).await?;
-        let text = String::from_utf8(contents)?;
-        let found_body: Body = text.parse()?;
+        info!("Adding {} to body", path.display());
+        let contents = fs::read(&path)
+            .await
+            .context(format!("reading {}", path.display()))?;
+        let text =
+            String::from_utf8(contents).context(format!("utf-8 parsing {}", path.display()))?;
+        let found_body: Body = text
+            .parse()
+            .context(format!("body parsing {}", path.display()))?;
         for structure in found_body.into_iter() {
             body.push(structure);
         }
     }
     Ok(body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // https://stackoverflow.com/a/74942075/11141271
+    fn workspace_dir() -> PathBuf {
+        let output = std::process::Command::new(env!("CARGO"))
+            .arg("locate-project")
+            .arg("--workspace")
+            .arg("--message-format=plain")
+            .output()
+            .unwrap()
+            .stdout;
+        let cargo_path = Path::new(std::str::from_utf8(&output).unwrap().trim());
+        cargo_path.parent().unwrap().to_path_buf()
+    }
+
+    #[test]
+    fn utf8_problem() {
+        let text = r#"
+            import {
+                id = "omitted"
+                to = azuread_group.écurité
+            }
+        "#;
+        let _body: Body = text.parse().unwrap();
+    }
+    #[test]
+    fn utf8_problem2() {
+        let text = r#"
+            locals {
+                é = 4
+            }
+            output "ééé" {
+            value = local.é
+            }
+        "#;
+        let _body: Body = text.parse().unwrap();
+    }
 }
