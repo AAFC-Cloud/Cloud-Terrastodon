@@ -1,4 +1,4 @@
-#![feature(async_closure)]
+#![feature(async_closure, impl_trait_in_assoc_type)]
 mod auth;
 mod errors;
 mod groups;

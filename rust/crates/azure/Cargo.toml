@@ -17,6 +17,8 @@ tofu_types = { workspace = true }
 azure_types = { workspace = true }
 tracing = { workspace = true }
 indicatif = { workspace = true }
+itertools = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }
+test-log = { workspace = true }

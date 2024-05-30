@@ -1,4 +1,5 @@
 use serde::de::Error;
+use std::hash::Hash;
 use std::str::FromStr;
 
 use serde::Deserialize;
@@ -75,7 +76,7 @@ pub enum AzureCloudKind {
     AzureGermanCloud,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subscription {
     #[serde(rename = "cloudName")]
     pub cloud_name: AzureCloudKind,
@@ -87,4 +88,20 @@ pub struct Subscription {
     #[serde(rename = "tenantId")]
     pub tenant_id: TenantId,
     pub user: SubscriptionUser,
+}
+impl Hash for Subscription {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+impl PartialEq for Subscription {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+impl Eq for Subscription {}
+impl std::fmt::Display for Subscription {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name)
+    }
 }

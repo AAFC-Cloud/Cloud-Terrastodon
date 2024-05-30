@@ -1,11 +1,12 @@
+use anyhow::anyhow;
 use anyhow::Result;
 use azure_types::prelude::Subscription;
-use azure_types::prelude::SubscriptionId;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
@@ -20,35 +21,21 @@ pub async fn fetch_subscriptions() -> Result<Vec<Subscription>> {
     cache.push("ignore");
     cache.push("az account list");
     cmd.use_cache_dir(Some(cache));
-    cmd.run().await
+    let subs = cmd.run::<Vec<Subscription>>().await?;
+    let tenant_id = subs
+        .iter()
+        .filter(|s| s.is_default)
+        .map(|s| s.tenant_id.clone())
+        .next()
+        .ok_or_else(|| anyhow!("No subscription active, can't determine filter"))?;
+    Ok(subs
+        .into_iter()
+        .filter(|sub| sub.tenant_id == tenant_id)
+        .collect_vec())
 }
 
-#[derive(Debug)]
-pub struct SubscriptionBins<T: Sized> {
-    results: HashMap<SubscriptionId, Vec<T>>,
-    subscriptions: HashMap<SubscriptionId, Subscription>,
-}
-impl<T> Default for SubscriptionBins<T> {
-    fn default() -> Self {
-        Self {
-            results: Default::default(),
-            subscriptions: Default::default(),
-        }
-    }
-}
-impl<T> SubscriptionBins<T> {
-    pub fn is_empty(&self) -> bool {
-        self.results.is_empty()
-    }
-    pub fn into_iter(mut self) -> impl Iterator<Item = (Subscription, Vec<T>)> {
-        self.results.into_iter().map(move |(k, v)| {
-            let subscription = self.subscriptions.remove(&k).unwrap();
-            (subscription, v)
-        })
-    }
-}
-
-pub async fn gather_from_subscriptions<T, F, Fut>(fetcher: F) -> Result<SubscriptionBins<T>>
+pub type SubscriptionMap<T> = HashMap<Subscription, T>;
+pub async fn gather_from_subscriptions<T, F, Fut>(fetcher: F) -> Result<SubscriptionMap<Vec<T>>>
 where
     T: Send + 'static,
     F: Fn(Subscription, Arc<MultiProgress>) -> Fut + Send + Sync + 'static,
@@ -73,11 +60,12 @@ where
     for subscription in subscriptions {
         let fetcher = fetcher.clone();
         let mp = mp.clone();
+        debug!("Spawning work pool entry for {}", subscription);
         work_pool.spawn(async move { (subscription.clone(), fetcher(subscription, mp).await) });
     }
 
     debug!("Collecting results");
-    let mut rtn = SubscriptionBins::<T>::default();
+    let mut rtn = SubscriptionMap::<Vec<T>>::default();
     while let Some(res) = work_pool.join_next().await {
         let (sub, res) = res?;
         let res = res?;
@@ -89,14 +77,13 @@ where
             sub.name
         ));
 
-        rtn.results.insert(sub.id.clone(), res);
-        rtn.subscriptions.insert(sub.id.clone(), sub);
+        rtn.insert(sub, res);
     }
 
     pb_sub.finish_with_message(format!(
         "Obtained {} things from {} subscriptions.",
-        rtn.results.values().map(|x| x.len()).sum::<usize>(),
-        rtn.subscriptions.len(),
+        rtn.values().map(|x| x.len()).sum::<usize>(),
+        rtn.keys().len(),
     ));
 
     Ok(rtn)

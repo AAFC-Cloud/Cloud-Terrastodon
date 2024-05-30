@@ -34,6 +34,7 @@ hcl-primitives = "0.1.5"
 uuid = {version = "1.8.0", features = ["serde"]}
 chrono = {version = "0.4.38", features = ["serde"]}
 rand = "0.8.5"
+test-log = {version="0.2.16",features=["trace"]}
 
 [dependencies]
 tokio = { workspace = true }
