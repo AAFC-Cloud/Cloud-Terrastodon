@@ -1,6 +1,5 @@
 #![feature(async_closure, impl_trait_in_assoc_type)]
 mod auth;
-mod errors;
 mod groups;
 mod management_groups;
 mod policy_assignments;
@@ -11,7 +10,6 @@ mod users;
 mod subscriptions;
 pub mod prelude {
     pub use crate::auth::*;
-    pub use crate::errors::*;
     pub use crate::groups::*;
     pub use crate::subscriptions::*;
     pub use crate::management_groups::*;

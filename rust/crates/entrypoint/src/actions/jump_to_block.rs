@@ -5,13 +5,14 @@ use command::prelude::CommandKind;
 use command::prelude::OutputBehaviour;
 use fzf::pick;
 use fzf::FzfArgs;
+use pathing_types::IgnoreDir;
 use std::path::PathBuf;
 use tofu::prelude::list_blocks;
 use tokio::fs;
 use tracing::info;
 
 pub async fn jump_to_block() -> Result<()> {
-    let dir = PathBuf::from_iter(["ignore", "processed"]);
+    let dir: PathBuf = IgnoreDir::Processed.into();
     let mut files = fs::read_dir(dir).await.context("reading files")?;
     let mut choices = Vec::new();
     let mut num_files = 0;

@@ -17,3 +17,4 @@ hcl-rs = { workspace = true }
 serde_json = { workspace = true }
 indicatif = { workspace = true }
 tracing = { workspace = true }
+pathing_types = { workspace = true }

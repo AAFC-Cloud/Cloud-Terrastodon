@@ -13,7 +13,6 @@ pub async fn fetch_policy_definitions(
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["policy", "definition", "list", "--output", "json"]);
     let mut cache_key = PathBuf::new();
-    cache_key.push("ignore");
     cache_key.push("az policy definition list");
     match (management_group, subscription) {
         (Some(management_group), Some(subscription)) => {
@@ -52,8 +51,8 @@ mod tests {
     async fn it_works() -> Result<()> {
         let result = fetch_policy_definitions(None, None).await?;
         println!("Found {} policy definitions:", result.len());
-        for mg in result {
-            println!("- {} ({})", mg.display_name, mg.name);
+        for v in result {
+            println!("- {}", v);
         }
         Ok(())
     }

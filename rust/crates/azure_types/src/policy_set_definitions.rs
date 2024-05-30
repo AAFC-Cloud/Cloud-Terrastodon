@@ -1,3 +1,4 @@
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use serde::de::Error;
@@ -13,6 +14,7 @@ use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuResourceReference;
 
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
+use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::scopes::Scope;
 use crate::scopes::ScopeError;
 
@@ -23,6 +25,7 @@ pub const POLICY_SET_DEFINITION_ID_PREFIX: &str =
 pub enum PolicySetDefinitionId {
     Unscoped { expanded: String },
     ManagementGroupScoped { expanded: String },
+    SubscriptionScoped { expanded: String },
 }
 impl PolicySetDefinitionId {
     pub fn from_expanded_unscoped(expanded: &str) -> Result<Self> {
@@ -60,6 +63,28 @@ impl PolicySetDefinitionId {
         })
     }
 
+    pub fn from_expanded_subscription_scoped(expanded: &str) -> Result<Self> {
+        let Some(remaining) = expanded.strip_prefix(SUBSCRIPTION_ID_PREFIX) else {
+            return Err(ScopeError::Malformed)
+            .context(format!("missing subscription prefix, expected to begin with {SUBSCRIPTION_ID_PREFIX} and got {expanded}"));
+        };
+        let Some((_subscription_id, remaining)) = remaining.split_once('/') else {
+            return Err(ScopeError::Malformed).context(format!("bad name split given {expanded}"));
+        };
+        // Calculate the new slice that includes the slash using the original string's indices
+        let remaining_with_slash = &expanded[expanded.len() - remaining.len() - 1..];
+        let Some(name) = remaining_with_slash.strip_prefix(POLICY_SET_DEFINITION_ID_PREFIX) else {
+            return Err(ScopeError::Malformed).context(format!("missing policy set definition prefix, expected to begin with {POLICY_SET_DEFINITION_ID_PREFIX} and got {remaining_with_slash} (full: {expanded})"));
+        };
+        if !PolicySetDefinitionId::is_valid_name(name) {
+            return Err(ScopeError::InvalidName).context(name.to_string());
+        }
+        Ok(PolicySetDefinitionId::SubscriptionScoped {
+            expanded: expanded.to_string(),
+        })
+    }
+
+
     pub fn from_name(name: &str) -> Self {
         let expanded = format!("{}{}", POLICY_SET_DEFINITION_ID_PREFIX, name);
         Self::Unscoped { expanded }
@@ -96,16 +121,28 @@ impl Scope for PolicySetDefinitionId {
     fn from_expanded(expanded: &str) -> Result<Self> {
         match Self::from_expanded_management_group_scoped(expanded) {
             Ok(x) => Ok(x),
-            Err(e) => Self::from_expanded_unscoped(expanded).context(format!(
-                "tried management group scoped but it failed with {e:?}"
-            )),
+            Err(management_group_scoped_error) => {
+                match Self::from_expanded_subscription_scoped(expanded) {
+                    Ok(x) => Ok(x),
+                    Err(subscription_scoped_error) => {
+                        match Self::from_expanded_unscoped(expanded) {
+                            Ok(x) => Ok(x),
+                            Err(unscoped_error) => {
+                                bail!("Policy definition id parse failed.\nmanagement group scoped attempt: {management_group_scoped_error:?}\nsubscription scoped attempt: {subscription_scoped_error:?}\nunscoped attempt: {unscoped_error:?}")
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
+
 
     fn expanded_form(&self) -> &str {
         match self {
             Self::Unscoped { expanded } => expanded,
             Self::ManagementGroupScoped { expanded } => expanded,
+            Self::SubscriptionScoped { expanded } => expanded,
         }
     }
 

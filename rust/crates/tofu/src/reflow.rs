@@ -119,19 +119,6 @@ async fn as_single_body(source_dir: &Path) -> Result<Body> {
 mod tests {
     use super::*;
 
-    // https://stackoverflow.com/a/74942075/11141271
-    fn workspace_dir() -> PathBuf {
-        let output = std::process::Command::new(env!("CARGO"))
-            .arg("locate-project")
-            .arg("--workspace")
-            .arg("--message-format=plain")
-            .output()
-            .unwrap()
-            .stdout;
-        let cargo_path = Path::new(std::str::from_utf8(&output).unwrap().trim());
-        cargo_path.parent().unwrap().to_path_buf()
-    }
-
     #[test]
     fn utf8_problem() {
         let text = r#"

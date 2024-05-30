@@ -1,3 +1,4 @@
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use serde::de::Error;
@@ -13,6 +14,7 @@ use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuResourceReference;
 
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
+use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::scopes::Scope;
 use crate::scopes::ScopeError;
 
@@ -41,7 +43,6 @@ impl PolicyAssignmentId {
     }
 
     pub fn from_expanded_subscription_scoped(expanded: &str) -> Result<Self> {
-        const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";
         let Some(remaining) = expanded.strip_prefix(SUBSCRIPTION_ID_PREFIX) else {
             return Err(ScopeError::Malformed)
                 .context(format!("missing subscription prefix, expected to begin with {SUBSCRIPTION_ID_PREFIX} and got {expanded}"));
@@ -82,6 +83,7 @@ impl PolicyAssignmentId {
             expanded: expanded.to_string(),
         })
     }
+    
 
     /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftmanagement
     fn is_valid_name(name: &str) -> bool {
@@ -108,15 +110,26 @@ impl PolicyAssignmentId {
 }
 
 impl Scope for PolicyAssignmentId {
+
     fn from_expanded(expanded: &str) -> Result<Self> {
         match Self::from_expanded_management_group_scoped(expanded) {
             Ok(x) => Ok(x),
-            Err(e) => match Self::from_expanded_subscription_scoped(expanded) {
-                Ok(x) => Ok(x),
-                Err(ee) => Self::from_expanded_unscoped(expanded).context(format!("tried management group scoped but it failed with {e:?} then tried subscription scoped but it failed with {ee:?}"))
+            Err(management_group_scoped_error) => {
+                match Self::from_expanded_subscription_scoped(expanded) {
+                    Ok(x) => Ok(x),
+                    Err(subscription_scoped_error) => {
+                        match Self::from_expanded_unscoped(expanded) {
+                            Ok(x) => Ok(x),
+                            Err(unscoped_error) => {
+                                bail!("Policy definition id parse failed.\nmanagement group scoped attempt: {management_group_scoped_error:?}\nsubscription scoped attempt: {subscription_scoped_error:?}\nunscoped attempt: {unscoped_error:?}")
+                            }
+                        }
+                    }
+                }
             }
         }
     }
+
 
     fn expanded_form(&self) -> &str {
         match self {
@@ -157,7 +170,7 @@ impl<'de> Deserialize<'de> for PolicyAssignmentId {
 pub struct PolicyAssignment {
     pub description: Option<String>,
     #[serde(rename = "displayName")]
-    pub display_name: String,
+    pub display_name: Option<String>,
     #[serde(rename = "enforcementMode")]
     pub enforcement_mode: String,
     pub id: PolicyAssignmentId,
@@ -180,9 +193,9 @@ pub struct PolicyAssignment {
 }
 impl std::fmt::Display for PolicyAssignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.display_name)?;
-        f.write_str(" (")?;
         f.write_str(&self.name)?;
+        f.write_str(" (")?;
+        f.write_fmt(format_args!("{:?}", &self.display_name))?;
         f.write_str(")")?;
         Ok(())
     }
@@ -194,7 +207,7 @@ impl From<PolicyAssignment> for TofuImportBlock {
             id: policy_assignment.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::ManagementGroupPolicyAssignment,
-                name: policy_assignment.display_name.sanitize(),
+                name: policy_assignment.name.sanitize(),
             },
         }
     }

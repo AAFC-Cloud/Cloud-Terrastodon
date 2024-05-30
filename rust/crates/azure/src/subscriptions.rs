@@ -9,7 +9,6 @@ use indicatif::ProgressStyle;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::future::Future;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::debug;
@@ -17,10 +16,8 @@ use tracing::debug;
 pub async fn fetch_subscriptions() -> Result<Vec<Subscription>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["account", "list", "--output", "json"]);
-    let mut cache = PathBuf::new();
-    cache.push("ignore");
-    cache.push("az account list");
-    cmd.use_cache_dir(Some(cache));
+    cmd.use_cache_dir(Some("az account list"));
+
     let subs = cmd.run::<Vec<Subscription>>().await?;
     let tenant_id = subs
         .iter()
@@ -92,7 +89,6 @@ where
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-
     use rand::Rng;
     use tokio::time::sleep;
 

@@ -75,7 +75,7 @@ impl PolicyDefinitionId {
         // Calculate the new slice that includes the slash using the original string's indices
         let remaining_with_slash = &expanded[expanded.len() - remaining.len() - 1..];
         let Some(name) = remaining_with_slash.strip_prefix(POLICY_DEFINITION_ID_PREFIX) else {
-            return Err(ScopeError::Malformed).context(format!("missing policy assignment prefix, expected to begin with {POLICY_DEFINITION_ID_PREFIX} and got {remaining_with_slash} (full: {expanded})"));
+            return Err(ScopeError::Malformed).context(format!("missing policy definition prefix, expected to begin with {POLICY_DEFINITION_ID_PREFIX} and got {remaining_with_slash} (full: {expanded})"));
         };
         if !PolicyDefinitionId::is_valid_name(name) {
             return Err(ScopeError::InvalidName).context(name.to_string());

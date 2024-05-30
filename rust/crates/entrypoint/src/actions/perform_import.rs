@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use pathing_types::IgnoreDir;
 use tofu::prelude::TofuImporter;
 use tracing::info;
 use tracing::warn;
@@ -17,7 +18,7 @@ pub async fn perform_import() -> Result<()> {
 
     // Run tf import
     info!("Beginning tofu import...");
-    let imports_dir = PathBuf::from("ignore").join("imports");
+    let imports_dir: PathBuf = IgnoreDir::Imports.into();
     match TofuImporter::default().using_dir(imports_dir).run().await {
         Ok(_) => info!("Import success!"),
         Err(e) => {

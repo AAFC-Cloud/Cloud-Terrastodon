@@ -20,7 +20,6 @@ pub async fn fetch_policy_assignments(
         "json",
     ]);
     let mut cache_key = PathBuf::new();
-    cache_key.push("ignore");
     cache_key.push("az policy assignment list");
     match (scope, subscription) {
         (Some(scope), Some(subscription)) => {
@@ -56,8 +55,8 @@ mod tests {
     async fn it_works() -> Result<()> {
         let result = fetch_policy_assignments(None, None).await?;
         println!("Found {} policy assignments:", result.len());
-        for mg in result {
-            println!("- {} ({})", mg.display_name, mg.name);
+        for v in result {
+            println!("- {}", v);
         }
         Ok(())
     }

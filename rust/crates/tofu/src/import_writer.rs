@@ -1,12 +1,14 @@
+use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
-use anyhow::anyhow;
+use pathing_types::IgnoreDir;
+use std::path::Path;
+use std::path::PathBuf;
 use tofu_types::prelude::AsTofuString;
 use tokio::fs::create_dir_all;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
-use std::path::{Path, PathBuf};
 
 pub struct TofuImportWriter {
     path: PathBuf,
@@ -18,7 +20,7 @@ impl TofuImportWriter {
         }
     }
     pub async fn overwrite(&self, content: impl AsTofuString) -> Result<()> {
-        let imports_dir = PathBuf::from("ignore").join("imports");
+        let imports_dir: PathBuf = IgnoreDir::Imports.into();
         if !imports_dir.exists() {
             info!("Creating {:?}", imports_dir);
             create_dir_all(&imports_dir).await?;
@@ -26,7 +28,7 @@ impl TofuImportWriter {
             return Err(anyhow!("Path exists but isn't a dir!"))
                 .context(imports_dir.to_string_lossy().into_owned());
         }
-        
+
         let imports_path = imports_dir.join(&self.path);
         let mut imports_file = OpenOptions::new()
             .create(true)

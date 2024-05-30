@@ -238,6 +238,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-recursion",
+ "pathing",
+ "pathing_types",
  "serde",
  "serde_json",
  "tempfile",
@@ -286,6 +288,7 @@ dependencies = [
  "fzf",
  "indicatif",
  "itertools",
+ "pathing_types",
  "serde",
  "serde_json",
  "tofu",
@@ -670,6 +673,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pathing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "itertools",
+]
+
+[[package]]
+name = "pathing_types"
+version = "0.1.0"
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,6 +971,7 @@ dependencies = [
  "indicatif",
  "indoc",
  "itertools",
+ "pathing_types",
  "serde_json",
  "tofu_types",
  "tokio",

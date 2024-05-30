@@ -68,7 +68,6 @@ pub async fn create_data_blocks_for_ids(
                             policy_definition_id.short_name(),
                         ])
                         .use_cache_dir(Some(PathBuf::from_iter([
-                            "ignore",
                             "az policy definition show --name",
                             policy_definition_id.short_name(),
                         ])))
@@ -95,7 +94,6 @@ pub async fn create_data_blocks_for_ids(
                             policy_set_definition_id.short_name(),
                         ])
                         .use_cache_dir(Some(PathBuf::from_iter([
-                            "ignore",
                             "az policy set-definition show --name",
                             policy_set_definition_id.short_name(),
                         ])))

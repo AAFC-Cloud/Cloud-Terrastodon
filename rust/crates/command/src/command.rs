@@ -3,6 +3,7 @@ use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
 use async_recursion::async_recursion;
+use pathing_types::IgnoreDir;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
@@ -14,6 +15,7 @@ use std::path::PathBuf;
 use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
+use tempfile::Builder;
 use tokio::fs::create_dir_all;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
@@ -23,8 +25,6 @@ use tracing::debug;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
-
-use crate::errors::dump_to_ignore_file;
 
 #[derive(Clone, Default, Debug)]
 pub enum CommandKind {
@@ -114,6 +114,14 @@ pub enum OutputBehaviour {
 }
 
 #[derive(Debug, Default, Clone)]
+pub enum CacheBehaviour {
+    #[default]
+    None,
+    Recommended,
+    FileBased(PathBuf),
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct CommandBuilder {
     kind: CommandKind,
     args: Vec<String>,
@@ -134,8 +142,11 @@ impl CommandBuilder {
         self.kind = kind;
         self
     }
-    pub fn use_cache_dir(&mut self, cache: Option<PathBuf>) -> &mut Self {
-        self.cache_dir = cache;
+    pub fn use_cache_dir(&mut self, cache: Option<impl AsRef<Path>>) -> &mut Self {
+        self.cache_dir = match cache {
+            None => None,
+            Some(x) => Some(IgnoreDir::Commands.join(x)),
+        };
         self
     }
     pub fn use_run_dir(&mut self, dir: impl AsRef<Path>) -> &mut Self {
@@ -240,20 +251,17 @@ impl CommandBuilder {
         Ok(Some(output))
     }
 
-    pub async fn put_cached_output(&self, output: &CommandOutput) -> Result<()> {
-        // Ensure cache dir is known
-        let Some(ref cache_dir) = self.cache_dir else {
-            return Err(anyhow!("Cache destination unknown"));
-        };
+    pub async fn write_output(&self, output: &CommandOutput, parent_dir: &PathBuf) -> Result<()> {
+        debug!("Writing command results to {}", parent_dir.display());
 
         // Validate directory presence
-        if !cache_dir.exists() {
-            create_dir_all(cache_dir)
+        if !parent_dir.exists() {
+            create_dir_all(parent_dir)
                 .await
                 .context("creating directories")?;
-        } else if !cache_dir.is_dir() {
+        } else if !parent_dir.is_dir() {
             return Err(anyhow!("Cache destination isn't a directory")
-                .context(cache_dir.clone().to_string_lossy().into_owned()));
+                .context(parent_dir.clone().to_string_lossy().into_owned()));
         }
 
         // Prepare write contents
@@ -267,21 +275,25 @@ impl CommandBuilder {
         // Write to files
         for (file_name, file_contents) in files {
             // Open file
-            let path = cache_dir.join(file_name);
+            let path = parent_dir.join(file_name);
             let mut file = OpenOptions::new()
                 .write(true)
                 .create(true)
                 .truncate(true)
                 .open(&path)
                 .await
-                .context("opening file")
-                .context(path.to_string_lossy().into_owned())?;
+                .context(format!(
+                    "opening file {}",
+                    path.to_string_lossy().into_owned()
+                ))?;
 
             // Write content
             file.write_all(file_contents.as_bytes())
                 .await
-                .context("writing file")
-                .context(path.to_string_lossy().into_owned())?;
+                .context(format!(
+                    "writing file {}",
+                    path.to_string_lossy().into_owned()
+                ))?;
         }
 
         Ok(())
@@ -367,9 +379,10 @@ impl CommandBuilder {
         }
 
         // Write happy results to the cache
-        if output.success() && self.cache_dir.is_some() {
-            debug!("Writing command results to cache file...");
-            if let Err(e) = self.put_cached_output(&output).await {
+        if output.success()
+            && let Some(ref cache_dir) = self.cache_dir
+        {
+            if let Err(e) = self.write_output(&output, cache_dir).await {
                 error!("Encountered problem saving cache: {:?}", e);
             }
         }
@@ -390,11 +403,18 @@ impl CommandBuilder {
         match serde_json::from_str(&output.stdout) {
             Ok(results) => Ok(results),
             Err(e) => {
-                let context = dump_to_ignore_file(&output.to_string())?;
-                Err(e)
-                    .context(format!("dumped to {:?}", context))
-                    .context("deserializing")
-                    .context(self.summarize())
+                let dir = match self.cache_dir {
+                    None => IgnoreDir::Commands.join("failed"),
+                    Some(ref x) => x.join("failed"),
+                };
+                create_dir_all(&dir).await?;
+                let dir = Builder::new().prefix("temp_").tempdir_in(dir)?.into_path();
+                self.write_output(&output, &dir).await?;
+                Err(e).context(format!(
+                    "deserializing {} failed, dumped to {:?}",
+                    self.summarize(),
+                    dir
+                ))
             }
         }
     }
@@ -405,8 +425,6 @@ impl CommandBuilder {
 /// You have been warned.
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
     use super::*;
 
     #[tokio::test]
@@ -444,7 +462,7 @@ mod tests {
     async fn it_works_cached() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["--version"])
-            .use_cache_dir(Some(PathBuf::from_str(r"ignore\version")?))
+            .use_cache_dir(Some("version"))
             .run_raw()
             .await?;
         println!("{}", result);

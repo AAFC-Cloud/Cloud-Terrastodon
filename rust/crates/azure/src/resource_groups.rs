@@ -4,7 +4,6 @@ use azure_types::resource_groups::ResourceGroup;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use indicatif::MultiProgress;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::prelude::gather_from_subscriptions;
@@ -22,10 +21,9 @@ pub async fn fetch_all_resource_groups() -> Result<SubscriptionMap<Vec<ResourceG
                 "--subscription",
                 sub.id.to_string().as_ref(),
             ]);
-            let mut cache = PathBuf::new();
-            cache.push("ignore");
-            cache.push(format!("az group list --subscription {}", sub.name));
-            cmd.use_cache_dir(Some(cache));
+            cmd.use_cache_dir(Some(
+                format!("az group list --subscription {}", sub.name).as_str(),
+            ));
             cmd.run().await
         })
         .await?;

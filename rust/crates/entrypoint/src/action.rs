@@ -11,6 +11,7 @@ use crate::actions::prelude::jump_to_block;
 use crate::actions::prelude::perform_import;
 use crate::actions::prelude::process_generated;
 use anyhow::Result;
+use pathing_types::IgnoreDir;
 use tokio::fs;
 use tracing::instrument;
 #[derive(Debug)]
@@ -105,20 +106,20 @@ impl Action {
         match self {
             Action::PerformImport => {
                 any_exist([
-                    "ignore/imports/policy_imports.tf",
-                    "ignore/imports/group_imports.tf",
-                    "ignore/imports/resource_group_imports.tf",
-                    "ignore/imports/existing.tf",
+                    IgnoreDir::Imports.join("policy_imports.tf"),
+                    IgnoreDir::Imports.join("group_imports.tf"),
+                    IgnoreDir::Imports.join("resource_group_imports.tf"),
+                    IgnoreDir::Imports.join("existing.tf"),
                 ])
                 .await
             }
-            Action::ProcessGenerated => all_exist(["ignore/imports/generated.tf"]).await,
-            Action::Clean => all_exist(["ignore"]).await,
-            Action::CleanImports => all_exist(["ignore/imports"]).await,
-            Action::CleanProcessed => all_exist(["ignore/processed"]).await,
-            Action::InitProcessed => all_exist(["ignore/processed/generated.tf"]).await,
-            Action::ApplyProcessed => all_exist(["ignore/processed/.terraform.lock.hcl"]).await,
-            Action::JumpToBlock => all_exist(["ignore/processed/generated.tf"]).await,
+            Action::ProcessGenerated => all_exist([IgnoreDir::Imports.join("generated.tf")]).await,
+            Action::Clean => all_exist([IgnoreDir::Root.into()]).await,
+            Action::CleanImports => all_exist([IgnoreDir::Imports.into()]).await,
+            Action::CleanProcessed => all_exist([IgnoreDir::Processed.into()]).await,
+            Action::InitProcessed => all_exist([IgnoreDir::Processed.join("generated.tf")]).await,
+            Action::ApplyProcessed => all_exist([IgnoreDir::Processed.join(".terraform.lock.hcl")]).await,
+            Action::JumpToBlock => all_exist([IgnoreDir::Processed.join("generated.tf")]).await,
             _ => true,
         }
     }
