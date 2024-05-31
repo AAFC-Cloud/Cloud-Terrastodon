@@ -84,7 +84,6 @@ impl PolicySetDefinitionId {
         })
     }
 
-
     pub fn from_name(name: &str) -> Self {
         let expanded = format!("{}{}", POLICY_SET_DEFINITION_ID_PREFIX, name);
         Self::Unscoped { expanded }
@@ -98,7 +97,8 @@ impl PolicySetDefinitionId {
         }
 
         // Define the set of forbidden characters
-        let forbidden_chars = "<>*%&:\\?.+/";
+        // https://github.com/MicrosoftDocs/azure-docs/issues/122963
+        let forbidden_chars = r#"#<>*%&:\?.+/"#;
 
         // Check for forbidden characters and control characters
         if name
@@ -128,7 +128,7 @@ impl Scope for PolicySetDefinitionId {
                         match Self::from_expanded_unscoped(expanded) {
                             Ok(x) => Ok(x),
                             Err(unscoped_error) => {
-                                bail!("Policy definition id parse failed.\nmanagement group scoped attempt: {management_group_scoped_error:?}\nsubscription scoped attempt: {subscription_scoped_error:?}\nunscoped attempt: {unscoped_error:?}")
+                                bail!("Policy definition id parse failed.\n\nmanagement group scoped attempt: {management_group_scoped_error:?}\n\nsubscription scoped attempt: {subscription_scoped_error:?}\n\nunscoped attempt: {unscoped_error:?}")
                             }
                         }
                     }
@@ -136,7 +136,6 @@ impl Scope for PolicySetDefinitionId {
             }
         }
     }
-
 
     fn expanded_form(&self) -> &str {
         match self {
@@ -148,8 +147,9 @@ impl Scope for PolicySetDefinitionId {
 
     fn short_name(&self) -> &str {
         self.expanded_form()
-            .strip_prefix(POLICY_SET_DEFINITION_ID_PREFIX)
-            .unwrap_or_else(|| unreachable!("structure should have been validated at construction"))
+            .rsplit_once('/')
+            .expect("no slash found, structure should have been validated at construction")
+            .1
     }
 }
 
@@ -199,7 +199,7 @@ pub struct PolicySetDefinitionPolicyDefinition {
 pub struct PolicySetDefinition {
     pub description: Option<String>,
     #[serde(rename = "displayName")]
-    pub display_name: String,
+    pub display_name: Option<String>,
     pub id: PolicySetDefinitionId,
     pub metadata: HashMap<String, Value>,
     pub name: String,
@@ -217,9 +217,9 @@ pub struct PolicySetDefinition {
 }
 impl std::fmt::Display for PolicySetDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.display_name)?;
-        f.write_str(" (")?;
         f.write_str(&self.name)?;
+        f.write_str(" (")?;
+        f.write_fmt(format_args!("{:?}", self.display_name))?;
         f.write_str(")")?;
         Ok(())
     }
@@ -230,7 +230,7 @@ impl From<PolicySetDefinition> for TofuImportBlock {
             id: policy_definition.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::PolicySetDefinition,
-                name: policy_definition.display_name.sanitize(),
+                name: policy_definition.name.sanitize(),
             },
         }
     }
@@ -246,28 +246,59 @@ mod tests {
         let expanded = "/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
         let id = PolicySetDefinitionId::from_expanded(expanded)?;
         assert_eq!(id.expanded_form(), expanded);
+        assert_eq!(
+            PolicySetDefinitionId::Unscoped {
+                expanded: expanded.to_string()
+            },
+            id
+        );
+        assert_eq!(id.short_name(), "my-policy-set-name");
         Ok(())
     }
+
     #[test]
     fn management_group_scoped() -> Result<()> {
         let expanded = "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
         let id = PolicySetDefinitionId::from_expanded_management_group_scoped(expanded)?;
         assert_eq!(id, PolicySetDefinitionId::from_expanded(expanded)?);
         assert_eq!(id.expanded_form(), expanded);
+        assert_eq!(
+            PolicySetDefinitionId::ManagementGroupScoped {
+                expanded: expanded.to_string()
+            },
+            id
+        );
+        assert_eq!(id.short_name(), "my-policy-set-name");
         Ok(())
     }
+
+    #[test]
+    fn subscription_scoped() -> Result<()> {
+        let expanded = "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
+        let id = PolicySetDefinitionId::from_expanded_subscription_scoped(expanded)?;
+        assert_eq!(id, PolicySetDefinitionId::from_expanded(expanded)?);
+        assert_eq!(id.expanded_form(), expanded);
+        assert_eq!(
+            PolicySetDefinitionId::SubscriptionScoped {
+                expanded: expanded.to_string()
+            },
+            id
+        );
+        assert_eq!(id.short_name(), "my-policy-set-name");
+        Ok(())
+    }
+
     #[test]
     fn deserializes() -> Result<()> {
-        let expanded = "/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
-        let id: PolicySetDefinitionId =
-            serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
-        assert_eq!(id.expanded_form(), expanded);
-
-        let expanded = "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
-        let id: PolicySetDefinitionId =
-            serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
-        assert_eq!(id.expanded_form(), expanded);
-
+        for expanded in [
+            "/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name",
+            "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name",
+            "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name",
+        ] {
+            let id: PolicySetDefinitionId =
+                serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+            assert_eq!(id.expanded_form(), expanded);
+        }
         Ok(())
     }
 }

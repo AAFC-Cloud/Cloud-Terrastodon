@@ -146,14 +146,14 @@ pub async fn create_data_blocks_for_ids(
                 ScopeImpl::PolicyDefinition(id.clone()),
                 TofuDataReference::AzureRM {
                     kind: TofuAzureRMDataKind::PolicyDefinition,
-                    name: definition.display_name.sanitize(),
+                    name: definition.name.sanitize(),
                 },
             ),
             WorkResult::SetDefinition { id, definition } => (
                 ScopeImpl::PolicySetDefinition(id.clone()),
                 TofuDataReference::AzureRM {
                     kind: TofuAzureRMDataKind::PolicySetDefinition,
-                    name: definition.display_name.sanitize(),
+                    name: definition.name.sanitize(),
                 },
             ),
         };

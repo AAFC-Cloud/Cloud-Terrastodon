@@ -93,10 +93,8 @@ impl PolicyDefinitionId {
         }
 
         // Define the set of forbidden characters
-        // Periods are listed as forbidden on the website but we have some in our tenant :/
-        // https://github.com/MicrosoftDocs/azure-docs/issues/122020
-        // let forbidden_chars = "<>*%&:\\?.+/";
-        let forbidden_chars = "<>*%&:\\?+/";
+        // https://github.com/MicrosoftDocs/azure-docs/issues/122963
+        let forbidden_chars = r#"#<>*%&:\?.+/"#;
 
         // Check for forbidden characters and control characters
         if name
@@ -126,7 +124,7 @@ impl Scope for PolicyDefinitionId {
                         match Self::from_expanded_unscoped(expanded) {
                             Ok(x) => Ok(x),
                             Err(unscoped_error) => {
-                                bail!("Policy definition id parse failed.\nmanagement group scoped attempt: {management_group_scoped_error:?}\nsubscription scoped attempt: {subscription_scoped_error:?}\nunscoped attempt: {unscoped_error:?}")
+                                bail!("Policy definition id parse failed.\n\nmanagement group scoped attempt: {management_group_scoped_error:?}\n\nsubscription scoped attempt: {subscription_scoped_error:?}\n\nunscoped attempt: {unscoped_error:?}")
                             }
                         }
                     }
@@ -146,7 +144,7 @@ impl Scope for PolicyDefinitionId {
     fn short_name(&self) -> &str {
         self.expanded_form()
             .rsplit_once('/')
-            .expect("no slash found, form should have been validated at construction")
+            .expect("no slash found, structure should have been validated at construction")
             .1
     }
 }
@@ -192,9 +190,9 @@ pub struct PolicyDefinition {
 }
 impl std::fmt::Display for PolicyDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.display_name)?;
-        f.write_str(" (")?;
         f.write_str(&self.name)?;
+        f.write_str(" (")?;
+        f.write_fmt(format_args!("{:?}", self.display_name))?;
         f.write_str(")")?;
         Ok(())
     }
@@ -205,7 +203,7 @@ impl From<PolicyDefinition> for TofuImportBlock {
             id: policy_definition.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::PolicyDefinition,
-                name: policy_definition.display_name.sanitize(),
+                name: policy_definition.name.sanitize(),
             },
         }
     }
@@ -246,12 +244,31 @@ mod tests {
     }
 
     #[test]
-    fn deserializes() -> Result<()> {
-        let expanded = "/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555";
-        let id: PolicyDefinitionId =
-            serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+    fn subscription_scoped() -> Result<()> {
+        let expanded = "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555";
+        let id = PolicyDefinitionId::from_expanded(expanded)?;
         assert_eq!(id.expanded_form(), expanded);
+        assert_eq!(
+            PolicyDefinitionId::SubscriptionScoped {
+                expanded: expanded.to_string()
+            },
+            id
+        );
+        assert_eq!(id.short_name(), "55555555-5555-5555-5555-555555555555");
+        Ok(())
+    }
 
+    #[test]
+    fn deserializes() -> Result<()> {
+        for expanded in [
+            "/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555",
+            "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555",
+            "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555",
+        ] {
+            let id: PolicyDefinitionId =
+                serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+            assert_eq!(id.expanded_form(), expanded);
+        }
         Ok(())
     }
 }

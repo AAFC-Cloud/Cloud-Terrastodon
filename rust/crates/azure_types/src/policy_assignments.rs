@@ -83,34 +83,36 @@ impl PolicyAssignmentId {
             expanded: expanded.to_string(),
         })
     }
-    
 
-    /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftmanagement
+    /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
     fn is_valid_name(name: &str) -> bool {
-        if name.is_empty() || name.len() > 90 {
+        // Check the length constraints
+        if name.is_empty() || name.len() > 64 {
             return false;
         }
 
-        // Must start with a letter or number
-        if let Some(first_char) = name.chars().next() {
-            if !first_char.is_alphanumeric() {
-                return false;
-            }
-        }
+        // Define the set of forbidden characters
+        // https://github.com/MicrosoftDocs/azure-docs/issues/122963
+        let forbidden_chars = r#"#<>*%&\?.+/"#;
 
-        // Cannot end with a period
-        if name.ends_with('.') {
+        // Check for forbidden characters and control characters
+        if name
+            .chars()
+            .any(|c| forbidden_chars.contains(c) || c.is_control())
+        {
             return false;
         }
 
-        // Allowed characters are alphanumerics, hyphens, underscores, periods, and parentheses
-        name.chars()
-            .all(|c| c.is_alphanumeric() || "-_().".contains(c))
+        // Check that it does not end with a period or a space
+        if name.ends_with('.') || name.ends_with(' ') {
+            return false;
+        }
+
+        true
     }
 }
 
 impl Scope for PolicyAssignmentId {
-
     fn from_expanded(expanded: &str) -> Result<Self> {
         match Self::from_expanded_management_group_scoped(expanded) {
             Ok(x) => Ok(x),
@@ -121,7 +123,7 @@ impl Scope for PolicyAssignmentId {
                         match Self::from_expanded_unscoped(expanded) {
                             Ok(x) => Ok(x),
                             Err(unscoped_error) => {
-                                bail!("Policy definition id parse failed.\nmanagement group scoped attempt: {management_group_scoped_error:?}\nsubscription scoped attempt: {subscription_scoped_error:?}\nunscoped attempt: {unscoped_error:?}")
+                                bail!("Policy definition id parse failed.\n\nmanagement group scoped attempt: {management_group_scoped_error:?}\n\nsubscription scoped attempt: {subscription_scoped_error:?}\n\nunscoped attempt: {unscoped_error:?}")
                             }
                         }
                     }
@@ -129,7 +131,6 @@ impl Scope for PolicyAssignmentId {
             }
         }
     }
-
 
     fn expanded_form(&self) -> &str {
         match self {
@@ -141,8 +142,9 @@ impl Scope for PolicyAssignmentId {
 
     fn short_name(&self) -> &str {
         self.expanded_form()
-            .strip_prefix(POLICY_ASSIGNMENT_ID_PREFIX)
-            .unwrap_or_else(|| unreachable!("structure should have been validated at construction"))
+            .rsplit_once('/')
+            .expect("no slash found, structure should have been validated at construction")
+            .1
     }
 }
 
@@ -223,6 +225,13 @@ mod tests {
         let expanded = "/providers/Microsoft.Authorization/policyAssignments/abc123";
         let id = PolicyAssignmentId::from_expanded(expanded)?;
         assert_eq!(id.expanded_form(), expanded);
+        assert_eq!(
+            PolicyAssignmentId::Unscoped {
+                expanded: expanded.to_string()
+            },
+            id
+        );
+        assert_eq!(id.short_name(), "abc123");
         Ok(())
     }
 
@@ -232,6 +241,45 @@ mod tests {
         let id = PolicyAssignmentId::from_expanded_management_group_scoped(expanded)?;
         assert_eq!(id, PolicyAssignmentId::from_expanded(expanded)?);
         assert_eq!(id.expanded_form(), expanded);
+        assert_eq!(
+            PolicyAssignmentId::ManagementGroupScoped {
+                expanded: expanded.to_string()
+            },
+            id
+        );
+        assert_eq!(id.short_name(), "abc123");
         Ok(())
     }
+
+    #[test]
+    fn subscription_scoped() -> Result<()> {
+        let expanded = "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policyAssignments/GC Audit ISO 27001:20133";
+        let id = PolicyAssignmentId::from_expanded_subscription_scoped(expanded)?;
+        assert_eq!(id, PolicyAssignmentId::from_expanded(expanded)?);
+        assert_eq!(id.expanded_form(), expanded);
+        assert_eq!(
+            PolicyAssignmentId::SubscriptionScoped {
+                expanded: expanded.to_string()
+            },
+            id
+        );
+        assert_eq!(id.short_name(), "GC Audit ISO 27001:20133");
+        Ok(())
+    }
+
+    
+    #[test]
+    fn deserializes() -> Result<()> {
+        for expanded in [
+            "/providers/Microsoft.Authorization/policyAssignments/abc123",
+            "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policyAssignments/abc123",
+            "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policyAssignments/GC Audit ISO 27001:20133",
+        ] {
+            let id: PolicyAssignmentId =
+                serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+            assert_eq!(id.expanded_form(), expanded);
+        }
+        Ok(())
+    }
+    
 }
