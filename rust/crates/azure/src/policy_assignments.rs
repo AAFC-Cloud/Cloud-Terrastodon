@@ -27,13 +27,13 @@ pub async fn fetch_policy_assignments(
             cmd.args(["--subscription", &subscription]);
             cache_key.push(format!(
                 "--scope {} --subscription {}",
-                scope.short_name(),
+                scope.short_form(),
                 subscription
             ));
         }
         (Some(scope), None) => {
             cmd.args(["--scope", scope.expanded_form()]);
-            cache_key.push(format!("--scope {}", scope.short_name()));
+            cache_key.push(format!("--scope {}", scope.short_form()));
         }
         (None, Some(subscription)) => {
             cmd.args(["--subscription", &subscription]);

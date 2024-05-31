@@ -44,7 +44,7 @@ impl ManagementGroupId {
 }
 
 impl Scope for ManagementGroupId {
-    fn from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
         let Some(name) = expanded.strip_prefix(MANAGEMENT_GROUP_ID_PREFIX) else {
             return Err(ScopeError::Malformed).context("missing prefix");
         };
@@ -60,7 +60,7 @@ impl Scope for ManagementGroupId {
         &self.expanded
     }
 
-    fn short_name(&self) -> &str {
+    fn short_form(&self) -> &str {
         self.expanded_form()
             .strip_prefix(MANAGEMENT_GROUP_ID_PREFIX)
             .unwrap_or_else(|| unreachable!("structure should have been validated at construction"))
@@ -82,7 +82,7 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
         D: Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id = ManagementGroupId::from_expanded(expanded.as_str()).map_err(D::Error::custom)?;
+        let id = ManagementGroupId::try_from_expanded(expanded.as_str()).map_err(D::Error::custom)?;
         Ok(id)
     }
 }

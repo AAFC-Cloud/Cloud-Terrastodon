@@ -16,19 +16,19 @@ pub async fn fetch_policy_definitions(
     cache_key.push("az policy definition list");
     match (management_group, subscription) {
         (Some(management_group), Some(subscription)) => {
-            cmd.args(["--management-group", management_group.short_name()]);
+            cmd.args(["--management-group", management_group.short_form()]);
             cmd.args(["--subscription", &subscription]);
             cache_key.push(format!(
                 "--management-group {} --subscription {}",
-                management_group.short_name(),
+                management_group.short_form(),
                 subscription
             ));
         }
         (Some(management_group), None) => {
-            cmd.args(["--management-group", management_group.short_name()]);
+            cmd.args(["--management-group", management_group.short_form()]);
             cache_key.push(format!(
                 "--management-group {}",
-                management_group.short_name()
+                management_group.short_form()
             ));
         }
         (None, Some(subscription)) => {

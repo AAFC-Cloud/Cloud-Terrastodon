@@ -1,5 +1,3 @@
-use anyhow::bail;
-use anyhow::Context;
 use anyhow::Result;
 use serde::de::Error;
 use serde::Deserialize;
@@ -12,11 +10,14 @@ use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuResourceReference;
-
-use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
-use crate::prelude::SUBSCRIPTION_ID_PREFIX;
+use crate::resource_name_rules::validate_policy_name;
+use crate::scopes::try_from_expanded_hierarchy_scoped;
+use crate::scopes::HasPrefix;
+use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
-use crate::scopes::ScopeError;
+use crate::scopes::TryFromManagementGroupScoped;
+use crate::scopes::TryFromSubscriptionScoped;
+use crate::scopes::TryFromUnscoped;
 
 pub const POLICY_DEFINITION_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyDefinitions/";
@@ -27,121 +28,50 @@ pub enum PolicyDefinitionId {
     ManagementGroupScoped { expanded: String },
     SubscriptionScoped { expanded: String },
 }
-impl PolicyDefinitionId {
-    // pub fn name(&self) -> &str {}
-    pub fn from_expanded_unscoped(expanded: &str) -> Result<Self> {
-        let Some(name) = expanded.strip_prefix(POLICY_DEFINITION_ID_PREFIX) else {
-            return Err(ScopeError::Malformed).context(format!(
-                "missing prefix, expected to begin with {POLICY_DEFINITION_ID_PREFIX} and got {expanded}",
-            ));
-        };
-        if !PolicyDefinitionId::is_valid_name(name) {
-            return Err(ScopeError::InvalidName).context(name.to_string());
-        }
-        Ok(PolicyDefinitionId::Unscoped {
-            expanded: expanded.to_string(),
-        })
+impl NameValidatable for PolicyDefinitionId {
+    fn validate_name(name: &str) -> Result<()> {
+        validate_policy_name(name)
     }
-
-    pub fn from_expanded_management_group_scoped(expanded: &str) -> Result<Self> {
-        let Some(remaining) = expanded.strip_prefix(MANAGEMENT_GROUP_ID_PREFIX) else {
-            return Err(ScopeError::Malformed)
-            .context(format!("missing management group prefix, expected to begin with {MANAGEMENT_GROUP_ID_PREFIX} and got {expanded}"));
-        };
-        let Some((_management_group_name, remaining)) = remaining.split_once('/') else {
-            return Err(ScopeError::Malformed).context(format!("bad name split given {expanded}"));
-        };
-        // Calculate the new slice that includes the slash using the original string's indices
-        let remaining_with_slash = &expanded[expanded.len() - remaining.len() - 1..];
-        let Some(name) = remaining_with_slash.strip_prefix(POLICY_DEFINITION_ID_PREFIX) else {
-            return Err(ScopeError::Malformed).context(format!("missing policy assignment prefix, expected to begin with {POLICY_DEFINITION_ID_PREFIX} and got {remaining_with_slash} (full: {expanded})"));
-        };
-        if !PolicyDefinitionId::is_valid_name(name) {
-            return Err(ScopeError::InvalidName).context(name.to_string());
-        }
-        Ok(PolicyDefinitionId::ManagementGroupScoped {
-            expanded: expanded.to_string(),
-        })
+}
+impl HasPrefix for PolicyDefinitionId {
+    fn get_prefix() -> Option<&'static str> {
+        Some(POLICY_DEFINITION_ID_PREFIX)
     }
-
-    pub fn from_expanded_subscription_scoped(expanded: &str) -> Result<Self> {
-        let Some(remaining) = expanded.strip_prefix(SUBSCRIPTION_ID_PREFIX) else {
-            return Err(ScopeError::Malformed)
-            .context(format!("missing subscription prefix, expected to begin with {SUBSCRIPTION_ID_PREFIX} and got {expanded}"));
-        };
-        let Some((_subscription_id, remaining)) = remaining.split_once('/') else {
-            return Err(ScopeError::Malformed).context(format!("bad name split given {expanded}"));
-        };
-        // Calculate the new slice that includes the slash using the original string's indices
-        let remaining_with_slash = &expanded[expanded.len() - remaining.len() - 1..];
-        let Some(name) = remaining_with_slash.strip_prefix(POLICY_DEFINITION_ID_PREFIX) else {
-            return Err(ScopeError::Malformed).context(format!("missing policy definition prefix, expected to begin with {POLICY_DEFINITION_ID_PREFIX} and got {remaining_with_slash} (full: {expanded})"));
-        };
-        if !PolicyDefinitionId::is_valid_name(name) {
-            return Err(ScopeError::InvalidName).context(name.to_string());
-        }
-        Ok(PolicyDefinitionId::SubscriptionScoped {
+}
+impl TryFromUnscoped for PolicyDefinitionId {
+    unsafe fn new_unscoped_unchecked(expanded: &str) -> Self {
+        PolicyDefinitionId::Unscoped {
             expanded: expanded.to_string(),
-        })
+        }
     }
-
-    /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
-    fn is_valid_name(name: &str) -> bool {
-        // Check the length constraints
-        if name.is_empty() || name.len() > 64 {
-            return false;
+}
+impl TryFromSubscriptionScoped for PolicyDefinitionId {
+    unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
+        PolicyDefinitionId::SubscriptionScoped {
+            expanded: expanded.to_string(),
         }
-
-        // Define the set of forbidden characters
-        // https://github.com/MicrosoftDocs/azure-docs/issues/122963
-        let forbidden_chars = r#"#<>*%&:\?.+/"#;
-
-        // Check for forbidden characters and control characters
-        if name
-            .chars()
-            .any(|c| forbidden_chars.contains(c) || c.is_control())
-        {
-            return false;
-        }
-
-        // Check that it does not end with a period or a space
-        if name.ends_with('.') || name.ends_with(' ') {
-            return false;
-        }
-
-        true
+    }
+}
+impl TryFromManagementGroupScoped for PolicyDefinitionId {
+    unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self {
+        PolicyDefinitionId::ManagementGroupScoped { expanded: expanded.to_string() }
     }
 }
 
 impl Scope for PolicyDefinitionId {
-    fn from_expanded(expanded: &str) -> Result<Self> {
-        match Self::from_expanded_management_group_scoped(expanded) {
-            Ok(x) => Ok(x),
-            Err(management_group_scoped_error) => {
-                match Self::from_expanded_subscription_scoped(expanded) {
-                    Ok(x) => Ok(x),
-                    Err(subscription_scoped_error) => {
-                        match Self::from_expanded_unscoped(expanded) {
-                            Ok(x) => Ok(x),
-                            Err(unscoped_error) => {
-                                bail!("Policy definition id parse failed.\n\nmanagement group scoped attempt: {management_group_scoped_error:?}\n\nsubscription scoped attempt: {subscription_scoped_error:?}\n\nunscoped attempt: {unscoped_error:?}")
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        try_from_expanded_hierarchy_scoped(expanded)
     }
 
     fn expanded_form(&self) -> &str {
         match self {
             Self::Unscoped { expanded } => expanded,
-            Self::ManagementGroupScoped { expanded } => expanded,
             Self::SubscriptionScoped { expanded } => expanded,
+            Self::ManagementGroupScoped { expanded } => expanded,
         }
     }
 
-    fn short_name(&self) -> &str {
+    fn short_form(&self) -> &str {
         self.expanded_form()
             .rsplit_once('/')
             .expect("no slash found, structure should have been validated at construction")
@@ -164,7 +94,7 @@ impl<'de> Deserialize<'de> for PolicyDefinitionId {
         D: Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id = PolicyDefinitionId::from_expanded(expanded.as_str()).map_err(D::Error::custom)?;
+        let id = PolicyDefinitionId::try_from_expanded(expanded.as_str()).map_err(D::Error::custom)?;
         Ok(id)
     }
 }
@@ -216,7 +146,7 @@ mod tests {
     #[test]
     fn unscoped() -> Result<()> {
         let expanded = "/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555";
-        let id = PolicyDefinitionId::from_expanded(expanded)?;
+        let id = PolicyDefinitionId::try_from_expanded(expanded)?;
         assert_eq!(id.expanded_form(), expanded);
         assert_eq!(
             PolicyDefinitionId::Unscoped {
@@ -224,14 +154,14 @@ mod tests {
             },
             id
         );
-        assert_eq!(id.short_name(), "55555555-5555-5555-5555-555555555555");
+        assert_eq!(id.short_form(), "55555555-5555-5555-5555-555555555555");
         Ok(())
     }
 
     #[test]
     fn management_group_scoped() -> Result<()> {
         let expanded = "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555";
-        let id = PolicyDefinitionId::from_expanded(expanded)?;
+        let id = PolicyDefinitionId::try_from_expanded(expanded)?;
         assert_eq!(id.expanded_form(), expanded);
         assert_eq!(
             PolicyDefinitionId::ManagementGroupScoped {
@@ -239,14 +169,14 @@ mod tests {
             },
             id
         );
-        assert_eq!(id.short_name(), "55555555-5555-5555-5555-555555555555");
+        assert_eq!(id.short_form(), "55555555-5555-5555-5555-555555555555");
         Ok(())
     }
 
     #[test]
     fn subscription_scoped() -> Result<()> {
         let expanded = "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555";
-        let id = PolicyDefinitionId::from_expanded(expanded)?;
+        let id = PolicyDefinitionId::try_from_expanded(expanded)?;
         assert_eq!(id.expanded_form(), expanded);
         assert_eq!(
             PolicyDefinitionId::SubscriptionScoped {
@@ -254,7 +184,7 @@ mod tests {
             },
             id
         );
-        assert_eq!(id.short_name(), "55555555-5555-5555-5555-555555555555");
+        assert_eq!(id.short_form(), "55555555-5555-5555-5555-555555555555");
         Ok(())
     }
 

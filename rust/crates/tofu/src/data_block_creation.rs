@@ -56,7 +56,7 @@ pub async fn create_data_blocks_for_ids(
             Ok(ScopeImpl::PolicyDefinition(policy_definition_id)) => {
                 pb.set_message(format!(
                     "Spawning worker for fetching policy_definition {}",
-                    policy_definition_id.short_name()
+                    policy_definition_id.short_form()
                 ));
                 work_pool.spawn(async move {
                     CommandBuilder::new(command::prelude::CommandKind::AzureCLI)
@@ -65,11 +65,11 @@ pub async fn create_data_blocks_for_ids(
                             "definition",
                             "show",
                             "--name",
-                            policy_definition_id.short_name(),
+                            policy_definition_id.short_form(),
                         ])
                         .use_cache_dir(Some(PathBuf::from_iter([
                             "az policy definition show --name",
-                            policy_definition_id.short_name(),
+                            policy_definition_id.short_form(),
                         ])))
                         .run::<PolicyDefinition>()
                         .await
@@ -82,7 +82,7 @@ pub async fn create_data_blocks_for_ids(
             Ok(ScopeImpl::PolicySetDefinition(policy_set_definition_id)) => {
                 pb.set_message(format!(
                     "Spawning worker for fetching policy_set_definition {}",
-                    policy_set_definition_id.short_name()
+                    policy_set_definition_id.short_form()
                 ));
                 work_pool.spawn(async move {
                     CommandBuilder::new(command::prelude::CommandKind::AzureCLI)
@@ -91,11 +91,11 @@ pub async fn create_data_blocks_for_ids(
                             "set-definition",
                             "show",
                             "--name",
-                            policy_set_definition_id.short_name(),
+                            policy_set_definition_id.short_form(),
                         ])
                         .use_cache_dir(Some(PathBuf::from_iter([
                             "az policy set-definition show --name",
-                            policy_set_definition_id.short_name(),
+                            policy_set_definition_id.short_form(),
                         ])))
                         .run::<PolicySetDefinition>()
                         .await
@@ -170,7 +170,7 @@ pub async fn create_data_blocks_for_ids(
         // Add the data block to the document
         TofuDataBlock::LookupByName {
             reference: reference.clone(),
-            name: id.short_name().to_owned(),
+            name: id.short_form().to_owned(),
         }
         .try_as_tofu_blocks()?
         .for_each(|b| body.push(b));

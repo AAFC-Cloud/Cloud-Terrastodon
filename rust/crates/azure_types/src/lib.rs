@@ -9,6 +9,7 @@ pub mod users;
 pub mod role_assignments;
 mod subscriptions;
 mod tenants;
+mod resource_name_rules;
 
 pub mod prelude {
     pub use crate::groups::*;
@@ -18,6 +19,7 @@ pub mod prelude {
     pub use crate::policy_assignments::*;
     pub use crate::policy_definitions::*;
     pub use crate::policy_set_definitions::*;
+    pub use crate::resource_name_rules::*;
     pub use crate::resource_groups::*;
     pub use crate::role_assignments::*;
     pub use crate::scopes::*;
