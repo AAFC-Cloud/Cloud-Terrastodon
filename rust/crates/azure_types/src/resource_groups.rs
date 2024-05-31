@@ -9,6 +9,8 @@ use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
+use tofu_types::prelude::TofuProviderKind;
+use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -85,6 +87,9 @@ impl std::fmt::Display for ResourceGroup {
 impl From<ResourceGroup> for TofuImportBlock {
     fn from(resource_group: ResourceGroup) -> Self {
         TofuImportBlock {
+            provider: TofuProviderReference::Default {
+                kind: Some(TofuProviderKind::AzureRM),
+            },
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::ResourceGroup,

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::prelude::AsTofuString;
-use crate::providers::TofuProvider;
+use crate::providers::TofuProviderKind;
 use anyhow::anyhow;
 use anyhow::Result;
 use indoc::formatdoc;
@@ -34,7 +34,7 @@ impl FromStr for TofuAzureRMDataKind {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let seeking = s.trim_start_matches(TofuProvider::AzureRM.provider_prefix());
+        let seeking = s.trim_start_matches(TofuProviderKind::AzureRM.provider_prefix());
         Self::supported_variants()
             .into_iter()
             .find(|x| x.as_ref() == seeking)
@@ -49,7 +49,7 @@ pub enum TofuDataReference {
         name: String,
     },
     Other {
-        provider: TofuProvider,
+        provider: TofuProviderKind,
         kind: String,
         name: String,
     },
@@ -65,7 +65,7 @@ impl TofuDataReference {
         match self {
             Self::AzureRM { kind, .. } => format!(
                 "{}_{}",
-                TofuProvider::AzureRM.provider_prefix(),
+                TofuProviderKind::AzureRM.provider_prefix(),
                 kind.as_ref()
             ),
             Self::Other { provider, kind, .. } => format!("{}_{}", provider, kind),

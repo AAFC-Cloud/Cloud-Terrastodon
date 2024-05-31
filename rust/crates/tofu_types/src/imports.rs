@@ -1,5 +1,6 @@
 use crate::prelude::AsTofuString;
 use crate::prelude::TofuResourceReference;
+use crate::providers::TofuProviderReference;
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
@@ -9,9 +10,19 @@ use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct TofuImportBlock {
+    pub provider: TofuProviderReference,
     pub id: String,
     //     pub id: ScopeImpl,
     pub to: TofuResourceReference,
+}
+impl TofuImportBlock {
+    pub fn using_provider_alias(&self, provider: TofuProviderReference) -> TofuImportBlock {
+        TofuImportBlock {
+            provider,
+            id: self.id.clone(),
+            to: self.to.clone(),
+        }
+    }
 }
 
 impl TryFrom<TofuImportBlock> for Block {
@@ -30,13 +41,19 @@ impl TryFrom<TofuImportBlock> for Block {
 
 impl AsTofuString for TofuImportBlock {
     fn as_tofu_string(&self) -> String {
+        let provider = match &self.provider {
+            TofuProviderReference::Alias { kind, name } => format!("\n    provider = {kind}.{name}"),
+            TofuProviderReference::Default { kind: None } => "".to_string(),
+            TofuProviderReference::Default { kind: Some(kind) } => format!("\n    provider = {kind}"),
+        };
         formatdoc! {
             r#"
-                import {{
+                import {{{}
                     id = "{}"
                     to = {}
                 }}
             "#,
+            provider,
             self.id,
             self.to
         }

@@ -32,11 +32,11 @@ pub enum Action {
 impl Action {
     pub fn name(&self) -> &str {
         match self {
-            Action::BuildPolicyImports => "imports - create policy_imports.tf",
-            Action::BuildResourceGroupImports => "imports - create resource_group_imports.tf",
-            Action::BuildGroupImports => "imports - create group_imports.tf",
-            Action::BuildImportsFromExisting => "imports - build from existing",
-            Action::PerformImport => "imports - tf plan -generate-config-out generated.tf",
+            Action::BuildPolicyImports => "build imports - create policy_imports.tf",
+            Action::BuildResourceGroupImports => "build imports - create resource_group_imports.tf",
+            Action::BuildGroupImports => "build imports - create group_imports.tf",
+            Action::BuildImportsFromExisting => "build imports - build from existing",
+            Action::PerformImport => "perform import - tf plan -generate-config-out generated.tf",
             Action::ProcessGenerated => "processed - create from generated.tf",
             Action::Clean => "clean all",
             Action::CleanImports => "clean imports",

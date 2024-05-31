@@ -163,11 +163,12 @@ pub async fn build_policy_imports() -> Result<()> {
                         .into_iter()
                         .map(|x| x.into())
                         .map(|x: TofuImportBlock| {
-                            // update to include management group name as suffix
+                            let provider = x.provider;
                             let id = x.id;
                             let mut to = x.to;
+                            // update to include management group name as suffix
                             to.use_name(|name| format!("{}_{}", name, mg_name));
-                            TofuImportBlock { id, to }
+                            TofuImportBlock { provider, id, to }
                         })
                         .collect_vec(),
                 )

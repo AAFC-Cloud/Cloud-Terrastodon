@@ -4,6 +4,7 @@ use hcl::edit::structure::Body;
 use hcl::edit::Decorate;
 use std::path::Path;
 use tofu_types::prelude::TofuImportBlock;
+use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
 
 pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<TofuImportBlock>> {
@@ -22,6 +23,9 @@ pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<Tof
         if block.ident.to_string() != "resource" {
             continue;
         }
+        // let provider = block.body.get_attribute("provider").and_then(|x| x.value.as_) // TODO: detect this properly
+        let provider = TofuProviderReference::Default { kind: None };
+
         let id = block
             .body
             .get_attribute("id")
@@ -37,7 +41,7 @@ pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<Tof
             .unwrap_or_else(|| "unknown")
             .to_owned();
         let to = TofuResourceReference::Raw(to);
-        imports.push(TofuImportBlock { id, to })
+        imports.push(TofuImportBlock { provider, id, to })
     }
 
     Ok(imports)

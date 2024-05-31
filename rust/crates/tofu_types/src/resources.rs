@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 
-use crate::providers::TofuProvider;
+use crate::providers::TofuProviderKind;
 
 #[derive(Debug, Clone)]
 pub enum TofuAzureRMResourceKind {
@@ -43,7 +43,7 @@ impl FromStr for TofuAzureRMResourceKind {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let seeking = s.trim_start_matches(TofuProvider::AzureRM.provider_prefix());
+        let seeking = s.trim_start_matches(TofuProviderKind::AzureRM.provider_prefix());
         Self::supported_variants()
             .into_iter()
             .find(|x| x.as_ref() == seeking)
@@ -78,7 +78,7 @@ impl FromStr for TofuAzureADResourceKind {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let seeking = s.trim_start_matches(TofuProvider::AzureAD.provider_prefix());
+        let seeking = s.trim_start_matches(TofuProviderKind::AzureAD.provider_prefix());
         Self::supported_variants()
             .into_iter()
             .find(|x| x.as_ref() == seeking)
@@ -97,7 +97,7 @@ pub enum TofuResourceReference {
         name: String,
     },
     Other {
-        provider: TofuProvider,
+        provider_kind: TofuProviderKind,
         kind: String,
         name: String,
     },
@@ -111,15 +111,15 @@ impl TofuResourceReference {
         match self {
             Self::AzureRM { kind, .. } => format!(
                 "{}_{}",
-                TofuProvider::AzureRM.provider_prefix(),
+                TofuProviderKind::AzureRM.provider_prefix(),
                 kind.as_ref()
             ),
             Self::AzureAD { kind, .. } => format!(
                 "{}_{}",
-                TofuProvider::AzureAD.provider_prefix(),
+                TofuProviderKind::AzureAD.provider_prefix(),
                 kind.as_ref()
             ),
-            Self::Other { provider, kind, .. } => format!("{}_{}", provider, kind),
+            Self::Other { provider_kind: provider, kind, .. } => format!("{}_{}", provider, kind),
             Self::Raw(value) => value
                 .split_once(".")
                 .map(|pair| pair.0.to_owned())

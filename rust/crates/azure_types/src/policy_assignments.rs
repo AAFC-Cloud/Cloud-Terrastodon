@@ -5,6 +5,8 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;
+use tofu_types::prelude::TofuProviderKind;
+use tofu_types::prelude::TofuProviderReference;
 use std::collections::HashMap;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
@@ -137,6 +139,7 @@ impl std::fmt::Display for PolicyAssignment {
 impl From<PolicyAssignment> for TofuImportBlock {
     fn from(policy_assignment: PolicyAssignment) -> Self {
         TofuImportBlock {
+            provider: TofuProviderReference::Default { kind: Some(TofuProviderKind::AzureRM) },
             id: policy_assignment.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::ManagementGroupPolicyAssignment,
