@@ -11,7 +11,7 @@ use fzf::FzfArgs;
 use itertools::Itertools;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
-use tofu::prelude::TofuImportWriter;
+use tofu::prelude::TofuWriter;
 use tofu::prelude::TofuProviderKind;
 use tofu::prelude::TofuProviderReference;
 use tracing::info;
@@ -51,14 +51,19 @@ pub async fn build_resource_group_imports() -> Result<()> {
         header: None,
     })?;
 
+    let mut used_subscriptions = Vec::new();
+
     let imports = chosen
         .into_iter()
         .map(|pair| {
-            let block: TofuImportBlock = pair.resource_group.into();
-            block.using_provider_alias(TofuProviderReference::Alias {
+            let provider_alias = TofuProviderReference::Alias {
                 kind: TofuProviderKind::AzureRM,
                 name: pair.subscription.name.sanitize(),
-            })
+            };
+            used_subscriptions.push((pair.subscription, provider_alias.clone()));
+
+            let block: TofuImportBlock = pair.resource_group.into();
+            block.using_provider_alias(provider_alias)
         })
         .collect_vec();
 
@@ -66,9 +71,14 @@ pub async fn build_resource_group_imports() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuImportWriter::new("resource_group_imports.tf")
+    TofuWriter::new("resource_group_imports.tf")
         .overwrite(imports)
         .await?;
+
+    // let providers = 
+    // TofuWriter::new("boilerplate.tf")
+    //     .merge(providers)
+    //     .await?;
 
     Ok(())
 }

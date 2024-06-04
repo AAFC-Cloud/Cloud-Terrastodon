@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use tofu::prelude::get_imports_from_existing;
-use tofu::prelude::TofuImportWriter;
+use tofu::prelude::TofuWriter;
 use tokio::io;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
@@ -39,7 +39,7 @@ pub async fn build_imports_from_existing() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuImportWriter::new(name).overwrite(imports).await?;
+    TofuWriter::new(name).overwrite(imports).await?;
 
     Ok(())
 }

@@ -4,7 +4,8 @@ use azure::prelude::fetch_groups;
 use fzf::pick_many;
 use fzf::FzfArgs;
 use itertools::Itertools;
-use tofu::prelude::TofuImportWriter;
+use tofu::prelude::TofuImportBlock;
+use tofu::prelude::TofuWriter;
 use tracing::info;
 
 pub async fn build_group_imports() -> Result<()> {
@@ -21,13 +22,13 @@ pub async fn build_group_imports() -> Result<()> {
         header: None,
     })?;
 
-    let imports = chosen.into_iter().map(|x| x.into()).collect_vec();
+    let imports: Vec<TofuImportBlock> = chosen.into_iter().map(|x| x.into()).collect_vec();
 
     if imports.is_empty() {
         return Err(anyhow!("Imports should not be empty"));
     }
-    
-    TofuImportWriter::new("group_imports.tf")
+
+    TofuWriter::new("group_imports.tf")
         .overwrite(imports)
         .await?;
 

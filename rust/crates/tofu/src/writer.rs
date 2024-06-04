@@ -10,12 +10,12 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
 
-pub struct TofuImportWriter {
+pub struct TofuWriter {
     path: PathBuf,
 }
-impl TofuImportWriter {
-    pub fn new(path: impl AsRef<Path>) -> TofuImportWriter {
-        TofuImportWriter {
+impl TofuWriter {
+    pub fn new(path: impl AsRef<Path>) -> TofuWriter {
+        TofuWriter {
             path: path.as_ref().to_path_buf(),
         }
     }
@@ -40,6 +40,10 @@ impl TofuImportWriter {
         imports_file
             .write_all(content.as_tofu_string().as_bytes())
             .await?;
+        Ok(())
+    }
+    pub async fn merge(&self, content: impl AsTofuString) -> Result<()> {
+
         Ok(())
     }
 }

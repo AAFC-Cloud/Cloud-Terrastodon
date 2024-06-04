@@ -14,7 +14,7 @@ use indicatif::ProgressStyle;
 use itertools::Itertools;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tofu::prelude::TofuImportWriter;
+use tofu::prelude::TofuWriter;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
 use tokio::task::JoinSet;
@@ -211,7 +211,7 @@ pub async fn build_policy_imports() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuImportWriter::new("policy_imports.tf")
+    TofuWriter::new("policy_imports.tf")
         .overwrite(imports)
         .await?;
 
