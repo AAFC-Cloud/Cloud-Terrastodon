@@ -85,7 +85,7 @@ impl std::fmt::Display for User {
 impl From<User> for TofuImportBlock {
     fn from(user: User) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default { kind: Some(TofuProviderKind::AzureAD) },
+            provider: TofuProviderReference::Default { kind: TofuProviderKind::AzureAD },
             id: user.id.to_string(),
             to: TofuResourceReference::AzureAD {
                 kind: TofuAzureADResourceKind::User,

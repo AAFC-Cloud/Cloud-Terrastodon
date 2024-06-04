@@ -88,7 +88,7 @@ impl From<ResourceGroup> for TofuImportBlock {
     fn from(resource_group: ResourceGroup) -> Self {
         TofuImportBlock {
             provider: TofuProviderReference::Default {
-                kind: Some(TofuProviderKind::AzureRM),
+                kind: TofuProviderKind::AzureRM,
             },
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {

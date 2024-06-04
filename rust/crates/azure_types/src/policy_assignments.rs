@@ -139,7 +139,7 @@ impl std::fmt::Display for PolicyAssignment {
 impl From<PolicyAssignment> for TofuImportBlock {
     fn from(policy_assignment: PolicyAssignment) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default { kind: Some(TofuProviderKind::AzureRM) },
+            provider: TofuProviderReference::Default { kind: TofuProviderKind::AzureRM },
             id: policy_assignment.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::ManagementGroupPolicyAssignment,

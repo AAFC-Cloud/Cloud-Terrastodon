@@ -73,7 +73,7 @@ impl std::fmt::Display for Group {
 impl From<Group> for TofuImportBlock {
     fn from(group: Group) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default { kind: Some(TofuProviderKind::AzureAD) },
+            provider: TofuProviderReference::Default { kind: TofuProviderKind::AzureAD },
             id: group.id.to_string(),
             to: TofuResourceReference::AzureAD {
                 kind: TofuAzureADResourceKind::Group,

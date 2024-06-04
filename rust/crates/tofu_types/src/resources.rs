@@ -1,10 +1,12 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use hcl::edit::expr::Expression;
+use hcl::edit::parser;
 
 use crate::providers::TofuProviderKind;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TofuAzureRMResourceKind {
     ManagementGroupPolicyAssignment,
     ResourceGroup,
@@ -51,7 +53,7 @@ impl FromStr for TofuAzureRMResourceKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TofuAzureADResourceKind {
     Group,
     User,
@@ -86,7 +88,7 @@ impl FromStr for TofuAzureADResourceKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum TofuResourceReference {
     AzureRM {
         kind: TofuAzureRMResourceKind,
@@ -104,7 +106,7 @@ pub enum TofuResourceReference {
     Raw(String),
 }
 impl TofuResourceReference {
-    pub fn expression(&self) -> String {
+    pub fn expression_str(&self) -> String {
         format!("{}.{}", self.kind_label(), self.name_label())
     }
     pub fn kind_label(&self) -> String {
@@ -119,7 +121,11 @@ impl TofuResourceReference {
                 TofuProviderKind::AzureAD.provider_prefix(),
                 kind.as_ref()
             ),
-            Self::Other { provider_kind: provider, kind, .. } => format!("{}_{}", provider, kind),
+            Self::Other {
+                provider_kind: provider,
+                kind,
+                ..
+            } => format!("{}_{}", provider, kind),
             Self::Raw(value) => value
                 .split_once(".")
                 .map(|pair| pair.0.to_owned())
@@ -157,6 +163,29 @@ impl TofuResourceReference {
 }
 impl std::fmt::Display for TofuResourceReference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.expression())
+        f.write_str(&self.expression_str())
+    }
+}
+impl TryFrom<TofuResourceReference> for Expression {
+    type Error = parser::Error;
+
+    fn try_from(value: TofuResourceReference) -> Result<Self, Self::Error> {
+        value.expression_str().parse::<Expression>()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn simple() -> anyhow::Result<()> {
+        let x = TofuResourceReference::AzureRM {
+            kind: TofuAzureRMResourceKind::ResourceGroup,
+            name: "my-rg".to_string(),
+        };
+        let y: Expression = x.try_into()?;
+        println!("{y:?}");
+        Ok(())
     }
 }

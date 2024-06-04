@@ -107,7 +107,7 @@ impl std::fmt::Display for RoleAssignment {
 impl From<RoleAssignment> for TofuImportBlock {
     fn from(resource_group: RoleAssignment) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default { kind: Some(TofuProviderKind::AzureRM) },
+            provider: TofuProviderReference::Default { kind: TofuProviderKind::AzureRM },
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleAssignment,

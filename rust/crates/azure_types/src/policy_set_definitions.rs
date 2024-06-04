@@ -155,7 +155,7 @@ impl std::fmt::Display for PolicySetDefinition {
 impl From<PolicySetDefinition> for TofuImportBlock {
     fn from(policy_definition: PolicySetDefinition) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default { kind: Some(TofuProviderKind::AzureRM) },
+            provider: TofuProviderReference::Default { kind: TofuProviderKind::AzureRM },
             id: policy_definition.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::PolicySetDefinition,
