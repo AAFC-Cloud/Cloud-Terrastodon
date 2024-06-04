@@ -4,11 +4,11 @@ use anyhow::Context;
 use hcl::edit::structure::Body;
 use hcl::edit::Span;
 use itertools::Itertools;
-use tofu_types::prelude::LocatableBlock;
+use tofu_types::prelude::CodeReference;
 use tokio::fs;
 use tracing::debug;
 
-pub async fn list_blocks(path: PathBuf) -> anyhow::Result<Vec<LocatableBlock>> {
+pub async fn list_blocks(path: PathBuf) -> anyhow::Result<Vec<CodeReference>> {
     let content = fs::read(&path)
         .await
         .context(format!("reading content from path {path:?}"))?;
@@ -18,7 +18,7 @@ pub async fn list_blocks(path: PathBuf) -> anyhow::Result<Vec<LocatableBlock>> {
     let body: Body = content.parse().context("parsing content as body")?;
     Ok(body
         .into_blocks()
-        .map(|block| LocatableBlock {
+        .map(|block| CodeReference {
             path: path.to_owned(),
             display: if block.ident.to_string() == "import" {
                 format!(
