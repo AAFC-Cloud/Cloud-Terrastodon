@@ -1,4 +1,5 @@
 use anyhow::Result;
+use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::IntoBlocks;
 use hcl_primitives::ident::is_id_continue;
@@ -46,5 +47,25 @@ pub trait TryAsTofuBlocks {
 impl<T: AsTofuString> TryAsTofuBlocks for T {
     fn try_as_tofu_blocks(&self) -> Result<IntoBlocks> {
         Ok(self.as_tofu_string().parse::<Body>()?.into_blocks())
+    }
+}
+
+impl<T> AsTofuString for Vec<T>
+where
+    T: AsTofuString,
+{
+    fn as_tofu_string(&self) -> String {
+        let mut rtn = String::new();
+        for v in self.iter() {
+            rtn.push_str(v.as_tofu_string().as_str());
+            rtn.push('\n');
+        }
+        rtn
+    }
+}
+
+impl AsTofuString for Block {
+    fn as_tofu_string(&self) -> String {
+        Body::builder().block(self.clone()).build().to_string()
     }
 }
