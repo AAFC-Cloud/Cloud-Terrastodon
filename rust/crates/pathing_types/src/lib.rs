@@ -1,6 +1,7 @@
 use anyhow::bail;
 use std::path::Path;
 use std::path::PathBuf;
+use tokio::fs::try_exists;
 
 use tokio::fs::create_dir_all;
 use tracing::info;
@@ -26,15 +27,35 @@ impl IgnoreDir {
         let buf: PathBuf = self.into();
         buf.join(path)
     }
-    pub async fn ensure_exists(&self) -> anyhow::Result<()> {
-        let path: PathBuf = self.as_path_buf();
-        if !path.exists() {
-            info!("Creating {:?}", path);
-            create_dir_all(&path).await?;
-        } else if !path.is_dir() {
-            bail!("Path {} exists but isn't a dir!", path.to_string_lossy());
+}
+
+#[allow(async_fn_in_trait)]
+pub trait Existy {
+    async fn ensure_dir_exists(&self) -> anyhow::Result<()>;
+}
+impl<T: AsRef<Path>> Existy for T {
+    async fn ensure_dir_exists(&self) -> anyhow::Result<()> {
+        let path = self.as_ref();
+        match try_exists(&path).await {
+            Ok(true) => {
+                if !path.is_dir() {
+                    bail!("Path {} exists but isn't a dir!", path.display());
+                }
+                Ok(())
+            }
+            Ok(false) => {
+                info!("Creating {}", path.display());
+                create_dir_all(&path).await?;
+                Ok(())
+            }
+            Err(e) => {
+                bail!(
+                    "Error encountered checking if {} exists: {:?}",
+                    path.display(),
+                    e
+                )
+            }
         }
-        Ok(())
     }
 }
 

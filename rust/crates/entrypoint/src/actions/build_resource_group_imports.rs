@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-use std::rc::Rc;
 use anyhow::anyhow;
 use anyhow::Result;
 use azure::prelude::fetch_all_resource_groups;
@@ -10,6 +8,8 @@ use fzf::Choice;
 use fzf::FzfArgs;
 use itertools::Itertools;
 use pathing_types::IgnoreDir;
+use std::collections::HashSet;
+use std::rc::Rc;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
 use tofu::prelude::TofuProviderKind;

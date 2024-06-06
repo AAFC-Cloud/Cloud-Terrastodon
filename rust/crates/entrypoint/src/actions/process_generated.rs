@@ -1,6 +1,7 @@
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
+use pathing_types::Existy;
 use pathing_types::IgnoreDir;
 use std::path::Path;
 use std::path::PathBuf;
@@ -78,10 +79,8 @@ pub async fn write_many_contents(files: Vec<(impl AsRef<Path>, String)>) -> Resu
         let path = path.as_ref();
 
         // Ensure parent dir exists
-        if let Some(parent) = path.parent()
-            && !parent.exists()
-        {
-            fs::create_dir_all(parent).await?;
+        if let Some(parent) = path.parent() {
+            parent.ensure_dir_exists().await?;
         }
 
         // Open the file

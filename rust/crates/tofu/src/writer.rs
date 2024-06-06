@@ -2,6 +2,7 @@ use anyhow::Context;
 use anyhow::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
+use pathing_types::Existy;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
@@ -23,6 +24,7 @@ impl TofuWriter {
     }
 
     pub async fn overwrite(&self, content: impl AsTofuString) -> Result<()> {
+        self.path.ensure_dir_exists().await?;
         let mut imports_file = OpenOptions::new()
             .create(true)
             .truncate(true)
@@ -38,6 +40,7 @@ impl TofuWriter {
         Ok(())
     }
     pub async fn merge(&self, providers: Vec<TofuProviderBlock>) -> Result<()> {
+        self.path.ensure_dir_exists().await?;
         let mut file = OpenOptions::new()
             .create(true)
             .read(true)

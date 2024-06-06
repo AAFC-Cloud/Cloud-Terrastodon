@@ -3,6 +3,7 @@ use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
 use async_recursion::async_recursion;
+use pathing_types::Existy;
 use pathing_types::IgnoreDir;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -16,7 +17,6 @@ use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
 use tempfile::Builder;
-use tokio::fs::create_dir_all;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -252,14 +252,7 @@ impl CommandBuilder {
         debug!("Writing command results to {}", parent_dir.display());
 
         // Validate directory presence
-        if !parent_dir.exists() {
-            create_dir_all(parent_dir)
-                .await
-                .context("creating directories")?;
-        } else if !parent_dir.is_dir() {
-            return Err(anyhow!("Cache destination isn't a directory")
-                .context(parent_dir.clone().to_string_lossy().into_owned()));
-        }
+        parent_dir.ensure_dir_exists().await?;
 
         // Prepare write contents
         let files = [
@@ -404,7 +397,7 @@ impl CommandBuilder {
                     None => IgnoreDir::Commands.join("failed"),
                     Some(ref x) => x.join("failed"),
                 };
-                create_dir_all(&dir).await?;
+                dir.ensure_dir_exists().await?;
                 let dir = Builder::new().prefix("temp_").tempdir_in(dir)?.into_path();
                 self.write_output(&output, &dir).await?;
                 Err(e).context(format!(
