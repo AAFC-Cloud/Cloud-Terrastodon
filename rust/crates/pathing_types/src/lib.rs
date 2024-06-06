@@ -40,6 +40,6 @@ impl IgnoreDir {
 
 impl From<IgnoreDir> for PathBuf {
     fn from(dir: IgnoreDir) -> Self {
-        dir.into()
+        dir.as_path_buf()
     }
 }

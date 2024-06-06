@@ -29,7 +29,7 @@ pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<Tof
             .body
             .get_attribute("id")
             .and_then(|x| x.value.as_str())
-            .unwrap_or_else(|| "\"unknown id\"")
+            .unwrap_or("\"unknown id\"")
             .to_owned();
 
         let to = block
@@ -37,7 +37,7 @@ pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<Tof
             .prefix()
             .and_then(|x| x.trim().strip_prefix("# "))
             .and_then(|x| x.strip_suffix(":"))
-            .unwrap_or_else(|| "unknown")
+            .unwrap_or("unknown")
             .to_owned();
         let to = TofuResourceReference::Raw(to);
         imports.push(TofuImportBlock { provider, id, to })

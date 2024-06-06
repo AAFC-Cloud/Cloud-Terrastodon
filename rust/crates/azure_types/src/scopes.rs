@@ -44,6 +44,9 @@ where
 
         unsafe { Ok(Self::new_unscoped_unchecked(expanded_unscoped)) }
     }
+    /// # Safety
+    /// 
+    /// The try_from methods should be used instead
     unsafe fn new_unscoped_unchecked(expanded: &str) -> Self;
 }
 
@@ -80,6 +83,10 @@ where
 
         unsafe { Ok(Self::new_subscription_scoped_unchecked(expanded)) }
     }
+    
+    /// # Safety
+    /// 
+    /// The try_from methods should be used instead
     unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self;
 }
 pub trait TryFromManagementGroupScoped
@@ -115,6 +122,9 @@ where
 
         unsafe { Ok(Self::new_management_group_scoped_unchecked(expanded)) }
     }
+    /// # Safety
+    /// 
+    /// The try_from methods should be used instead
     unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self;
 }
 

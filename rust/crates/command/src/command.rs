@@ -143,10 +143,7 @@ impl CommandBuilder {
         self
     }
     pub fn use_cache_dir(&mut self, cache: Option<impl AsRef<Path>>) -> &mut Self {
-        self.cache_dir = match cache {
-            None => None,
-            Some(x) => Some(IgnoreDir::Commands.join(x)),
-        };
+        self.cache_dir = cache.map(|x| IgnoreDir::Commands.join(x));
         self
     }
     pub fn use_run_dir(&mut self, dir: impl AsRef<Path>) -> &mut Self {

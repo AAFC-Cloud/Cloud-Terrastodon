@@ -1,6 +1,3 @@
-use std::str::FromStr;
-
-use anyhow::anyhow;
 use anyhow::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::Object;
@@ -11,6 +8,7 @@ use hcl::edit::structure::Block;
 use hcl::edit::structure::BlockBuilder;
 use hcl::edit::structure::BlockLabel;
 use hcl_primitives::Ident;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TofuProviderKind {

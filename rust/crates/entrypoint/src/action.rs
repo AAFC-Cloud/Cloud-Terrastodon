@@ -91,7 +91,7 @@ impl Action {
                     return false;
                 }
             }
-            return true;
+            true
         };
 
         let any_exist = async |required_files| -> bool {
@@ -100,7 +100,7 @@ impl Action {
                     return true;
                 }
             }
-            return false;
+            false
         };
 
         match self {
