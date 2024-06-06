@@ -12,6 +12,7 @@ use azure::prelude::ScopeImpl;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use itertools::Itertools;
+use pathing_types::IgnoreDir;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tofu::prelude::TofuWriter;
@@ -211,7 +212,7 @@ pub async fn build_policy_imports() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuWriter::new("policy_imports.tf")
+    TofuWriter::new(IgnoreDir::Imports.join("policy_imports.tf"))
         .overwrite(imports)
         .await?;
 

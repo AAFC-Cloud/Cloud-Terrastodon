@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
+use pathing_types::IgnoreDir;
 use tofu::prelude::get_imports_from_existing;
 use tofu::prelude::TofuWriter;
 use tokio::io;
@@ -39,7 +40,7 @@ pub async fn build_imports_from_existing() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuWriter::new(name).overwrite(imports).await?;
+    TofuWriter::new(IgnoreDir::Imports.join(name)).overwrite(imports).await?;
 
     Ok(())
 }

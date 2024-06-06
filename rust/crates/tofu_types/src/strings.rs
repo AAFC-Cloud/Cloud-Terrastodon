@@ -69,3 +69,9 @@ impl AsTofuString for Block {
         Body::builder().block(self.clone()).build().to_string()
     }
 }
+
+impl AsTofuString for Body {
+    fn as_tofu_string(&self) -> String {
+        self.to_string()
+    }
+}

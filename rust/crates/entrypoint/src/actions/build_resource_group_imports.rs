@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use anyhow::anyhow;
@@ -9,11 +11,12 @@ use fzf::pick_many;
 use fzf::Choice;
 use fzf::FzfArgs;
 use itertools::Itertools;
+use pathing_types::IgnoreDir;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
-use tofu::prelude::TofuWriter;
 use tofu::prelude::TofuProviderKind;
 use tofu::prelude::TofuProviderReference;
+use tofu::prelude::TofuWriter;
 use tracing::info;
 
 pub struct SubRGPair {
@@ -51,7 +54,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
         header: None,
     })?;
 
-    let mut used_subscriptions = Vec::new();
+    let mut used_subscriptions = HashSet::new();
 
     let imports = chosen
         .into_iter()
@@ -60,7 +63,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
                 kind: TofuProviderKind::AzureRM,
                 name: pair.subscription.name.sanitize(),
             };
-            used_subscriptions.push((pair.subscription, provider_alias.clone()));
+            used_subscriptions.insert(pair.subscription);
 
             let block: TofuImportBlock = pair.resource_group.into();
             block.using_provider_alias(provider_alias)
@@ -71,14 +74,18 @@ pub async fn build_resource_group_imports() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuWriter::new("resource_group_imports.tf")
+    TofuWriter::new(IgnoreDir::Imports.join("resource_group_imports.tf"))
         .overwrite(imports)
         .await?;
 
-    // let providers = 
-    // TofuWriter::new("boilerplate.tf")
-    //     .merge(providers)
-    //     .await?;
+    let mut providers = Vec::new();
+    for sub in used_subscriptions {
+        let sub = Rc::try_unwrap(sub)
+            .map_err(|_| anyhow!("Failed to take Subscription out of reference"))?;
+        let provider = sub.into_provider_block();
+        providers.push(provider);
+    }
+    TofuWriter::new(IgnoreDir::Imports.join("boilerplate.tf")).merge(providers).await?;
 
     Ok(())
 }

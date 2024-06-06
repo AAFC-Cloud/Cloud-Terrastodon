@@ -23,9 +23,7 @@ pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<Tof
         if block.ident.to_string() != "resource" {
             continue;
         }
-        // let provider = block.body.get_attribute("provider").and_then(|x| x.value.as_) // TODO: detect this properly
-        // let provider = TofuProviderReference::Inherited;
-        let provider = todo!();
+        let provider: TofuProviderReference = block.clone().try_into()?;
 
         let id = block
             .body

@@ -4,6 +4,7 @@ use azure::prelude::fetch_groups;
 use fzf::pick_many;
 use fzf::FzfArgs;
 use itertools::Itertools;
+use pathing_types::IgnoreDir;
 use tofu::prelude::TofuImportBlock;
 use tofu::prelude::TofuWriter;
 use tracing::info;
@@ -28,7 +29,7 @@ pub async fn build_group_imports() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuWriter::new("group_imports.tf")
+    TofuWriter::new(IgnoreDir::Imports.join("group_imports.tf"))
         .overwrite(imports)
         .await?;
 

@@ -1,14 +1,15 @@
 use anyhow::anyhow;
+use anyhow::Context;
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
-use indoc::indoc;
 use std::path::Path;
 use std::path::PathBuf;
+use tofu_types::prelude::TofuProviderBlock;
 use tokio::fs;
-use tokio::fs::OpenOptions;
-use tokio::io::AsyncWriteExt;
 use tracing::info;
+
+use crate::prelude::TofuWriter;
 
 #[derive(Default)]
 pub struct TofuImporter {
@@ -27,25 +28,34 @@ impl TofuImporter {
 
         // Open boilerplate file
         let boilerplate_path = imports_dir.join("boilerplate.tf");
-        let mut boilerplate_file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(&boilerplate_path)
-            .await?;
+        let import_writer = TofuWriter::new(boilerplate_path);
+        import_writer
+            .merge(vec![TofuProviderBlock::AzureRM {
+                alias: None,
+                subscription_id: None,
+            }])
+            .await
+            .context("writing default azurerm provider block")?;
 
-        // Write boilerplate
-        boilerplate_file
-            .write_all(
-                indoc! {r#"
-                    provider "azurerm" {
-                        features {}
-                        skip_provider_registration = true
-                    }
-                "#}
-                .as_bytes(),
-            )
-            .await?;
+        // let mut boilerplate_file = OpenOptions::new()
+        //     .create(true)
+        //     .write(true)
+        //     .truncate(true)
+        //     .open(&boilerplate_path)
+        //     .await?;
+
+        // // Write boilerplate
+        // boilerplate_file
+        //     .write_all(
+        //         indoc! {r#"
+        //             provider "azurerm" {
+        //                 features {}
+        //                 skip_provider_registration = true
+        //             }
+        //         "#}
+        //         .as_bytes(),
+        //     )
+        //     .await?;
 
         // tf init
         let mut init_cmd = CommandBuilder::new(CommandKind::Tofu);

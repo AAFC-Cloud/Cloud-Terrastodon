@@ -1,6 +1,7 @@
 use serde::de::Error;
 use std::hash::Hash;
 use std::str::FromStr;
+use tofu_types::prelude::TofuProviderBlock;
 
 use serde::Deserialize;
 use serde::Deserializer;
@@ -103,5 +104,18 @@ impl Eq for Subscription {}
 impl std::fmt::Display for Subscription {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)
+    }
+}
+impl Subscription {
+    pub fn into_provider_block(self) -> TofuProviderBlock {
+        TofuProviderBlock::AzureRM {
+            alias: Some(self.name),
+            subscription_id: Some(self.id.to_string()),
+        }
+    }
+}
+impl From<Subscription> for TofuProviderBlock {
+    fn from(value: Subscription) -> Self {
+        value.into_provider_block()
     }
 }
