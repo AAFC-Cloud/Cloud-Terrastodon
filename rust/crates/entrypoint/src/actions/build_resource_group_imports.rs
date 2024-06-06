@@ -85,7 +85,9 @@ pub async fn build_resource_group_imports() -> Result<()> {
         let provider = sub.into_provider_block();
         providers.push(provider);
     }
-    TofuWriter::new(IgnoreDir::Imports.join("boilerplate.tf")).merge(providers).await?;
+    TofuWriter::new(IgnoreDir::Imports.join("boilerplate.tf"))
+        .merge(providers)
+        .await?;
 
     Ok(())
 }

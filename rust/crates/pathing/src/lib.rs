@@ -1,10 +1,10 @@
 // https://stackoverflow.com/a/74942075/11141271
 #[cfg(test)]
 fn cd_to_workspace_dir() -> anyhow::Result<std::path::PathBuf> {
+    use anyhow::anyhow;
     use std::env::current_dir;
     use std::env::set_current_dir;
     use std::path::Path;
-    use anyhow::anyhow;
 
     let output = std::process::Command::new(env!("CARGO"))
         .arg("locate-project")

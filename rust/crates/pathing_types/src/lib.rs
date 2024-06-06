@@ -1,6 +1,6 @@
+use anyhow::bail;
 use std::path::Path;
 use std::path::PathBuf;
-use anyhow::bail;
 
 use tokio::fs::create_dir_all;
 use tracing::info;

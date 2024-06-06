@@ -1,5 +1,6 @@
 mod apply_processed;
 mod build_group_imports;
+mod build_imports_from_existing;
 mod build_policy_imports;
 mod build_resource_group_imports;
 mod clean;
@@ -9,11 +10,11 @@ mod init_processed;
 mod jump_to_block;
 mod perform_import;
 mod process_generated;
-mod build_imports_from_existing;
 
 pub mod prelude {
     pub use crate::actions::apply_processed::*;
     pub use crate::actions::build_group_imports::*;
+    pub use crate::actions::build_imports_from_existing::*;
     pub use crate::actions::build_policy_imports::*;
     pub use crate::actions::build_resource_group_imports::*;
     pub use crate::actions::clean::*;
@@ -23,5 +24,4 @@ pub mod prelude {
     pub use crate::actions::jump_to_block::*;
     pub use crate::actions::perform_import::*;
     pub use crate::actions::process_generated::*;
-    pub use crate::actions::build_imports_from_existing::*;
 }

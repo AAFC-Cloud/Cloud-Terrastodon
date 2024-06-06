@@ -7,12 +7,12 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;
-use tofu_types::prelude::TofuProviderKind;
-use tofu_types::prelude::TofuProviderReference;
 use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
+use tofu_types::prelude::TofuProviderKind;
+use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
 use uuid::Uuid;
 
@@ -107,7 +107,9 @@ impl std::fmt::Display for RoleAssignment {
 impl From<RoleAssignment> for TofuImportBlock {
     fn from(resource_group: RoleAssignment) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default { kind: TofuProviderKind::AzureRM },
+            provider: TofuProviderReference::Default {
+                kind: TofuProviderKind::AzureRM,
+            },
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleAssignment,

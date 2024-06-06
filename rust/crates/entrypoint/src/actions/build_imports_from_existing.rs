@@ -40,7 +40,9 @@ pub async fn build_imports_from_existing() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuWriter::new(IgnoreDir::Imports.join(name)).overwrite(imports).await?;
+    TofuWriter::new(IgnoreDir::Imports.join(name))
+        .overwrite(imports)
+        .await?;
 
     Ok(())
 }

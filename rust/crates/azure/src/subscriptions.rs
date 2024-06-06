@@ -88,8 +88,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
     use rand::Rng;
+    use std::time::Duration;
     use tokio::time::sleep;
 
     use super::*;

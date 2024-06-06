@@ -32,11 +32,13 @@ pub fn validate_policy_name(name: &str) -> Result<()> {
     Ok(())
 }
 
-
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftmanagement
 pub fn validate_management_group_name(name: &str) -> Result<()> {
     if name.is_empty() || name.len() > 90 {
-        bail!("Name {name:?} must be  1-90 characters (was {})", name.len());
+        bail!(
+            "Name {name:?} must be  1-90 characters (was {})",
+            name.len()
+        );
     }
 
     if let Some(first_char) = name.chars().next() {

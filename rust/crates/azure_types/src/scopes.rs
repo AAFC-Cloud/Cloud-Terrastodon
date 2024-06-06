@@ -127,14 +127,12 @@ where
         Err(management_group_scoped_error) => {
             match T::try_from_expanded_subscription_scoped(expanded) {
                 Ok(x) => Ok(x),
-                Err(subscription_scoped_error) => {
-                    match T::try_from_expanded_unscoped(expanded) {
-                        Ok(x) => Ok(x),
-                        Err(unscoped_error) => {
-                            bail!("Policy definition id parse failed.\n\nmanagement group scoped attempt: {management_group_scoped_error:?}\n\nsubscription scoped attempt: {subscription_scoped_error:?}\n\nunscoped attempt: {unscoped_error:?}")
-                        }
+                Err(subscription_scoped_error) => match T::try_from_expanded_unscoped(expanded) {
+                    Ok(x) => Ok(x),
+                    Err(unscoped_error) => {
+                        bail!("Policy definition id parse failed.\n\nmanagement group scoped attempt: {management_group_scoped_error:?}\n\nsubscription scoped attempt: {subscription_scoped_error:?}\n\nunscoped attempt: {unscoped_error:?}")
                     }
-                }
+                },
             }
         }
     }

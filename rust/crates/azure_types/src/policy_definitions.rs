@@ -1,17 +1,3 @@
-use anyhow::Result;
-use serde::de::Error;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-use serde_json::Value;
-use tofu_types::prelude::TofuProviderKind;
-use tofu_types::prelude::TofuProviderReference;
-use std::collections::HashMap;
-use tofu_types::prelude::Sanitizable;
-use tofu_types::prelude::TofuAzureRMResourceKind;
-use tofu_types::prelude::TofuImportBlock;
-use tofu_types::prelude::TofuResourceReference;
 use crate::resource_name_rules::validate_policy_name;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
@@ -20,6 +6,20 @@ use crate::scopes::Scope;
 use crate::scopes::TryFromManagementGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
+use anyhow::Result;
+use serde::de::Error;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
+use serde_json::Value;
+use std::collections::HashMap;
+use tofu_types::prelude::Sanitizable;
+use tofu_types::prelude::TofuAzureRMResourceKind;
+use tofu_types::prelude::TofuImportBlock;
+use tofu_types::prelude::TofuProviderKind;
+use tofu_types::prelude::TofuProviderReference;
+use tofu_types::prelude::TofuResourceReference;
 
 pub const POLICY_DEFINITION_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyDefinitions/";
@@ -56,7 +56,9 @@ impl TryFromSubscriptionScoped for PolicyDefinitionId {
 }
 impl TryFromManagementGroupScoped for PolicyDefinitionId {
     unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self {
-        PolicyDefinitionId::ManagementGroupScoped { expanded: expanded.to_string() }
+        PolicyDefinitionId::ManagementGroupScoped {
+            expanded: expanded.to_string(),
+        }
     }
 }
 
@@ -96,7 +98,8 @@ impl<'de> Deserialize<'de> for PolicyDefinitionId {
         D: Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id = PolicyDefinitionId::try_from_expanded(expanded.as_str()).map_err(D::Error::custom)?;
+        let id =
+            PolicyDefinitionId::try_from_expanded(expanded.as_str()).map_err(D::Error::custom)?;
         Ok(id)
     }
 }
@@ -132,7 +135,9 @@ impl std::fmt::Display for PolicyDefinition {
 impl From<PolicyDefinition> for TofuImportBlock {
     fn from(policy_definition: PolicyDefinition) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default { kind: TofuProviderKind::AzureRM },
+            provider: TofuProviderReference::Default {
+                kind: TofuProviderKind::AzureRM,
+            },
             id: policy_definition.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::PolicyDefinition,

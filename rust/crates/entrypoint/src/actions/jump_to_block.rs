@@ -22,7 +22,11 @@ pub async fn jump_to_block() -> Result<()> {
             continue;
         }
         let path = tf_file.path();
-        if path.extension().filter(|ext| ext.to_string_lossy() == "tf").is_none() {
+        if path
+            .extension()
+            .filter(|ext| ext.to_string_lossy() == "tf")
+            .is_none()
+        {
             continue;
         }
 

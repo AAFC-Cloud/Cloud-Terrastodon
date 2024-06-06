@@ -1,4 +1,4 @@
-#![feature(let_chains,async_closure)]
+#![feature(let_chains, async_closure)]
 mod action;
 mod actions;
 mod menu;

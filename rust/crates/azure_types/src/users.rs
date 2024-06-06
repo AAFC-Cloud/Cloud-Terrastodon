@@ -4,12 +4,12 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use tofu_types::prelude::TofuProviderKind;
-use tofu_types::prelude::TofuProviderReference;
 use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureADResourceKind;
 use tofu_types::prelude::TofuImportBlock;
+use tofu_types::prelude::TofuProviderKind;
+use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -85,7 +85,9 @@ impl std::fmt::Display for User {
 impl From<User> for TofuImportBlock {
     fn from(user: User) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default { kind: TofuProviderKind::AzureAD },
+            provider: TofuProviderReference::Default {
+                kind: TofuProviderKind::AzureAD,
+            },
             id: user.id.to_string(),
             to: TofuResourceReference::AzureAD {
                 kind: TofuAzureADResourceKind::User,

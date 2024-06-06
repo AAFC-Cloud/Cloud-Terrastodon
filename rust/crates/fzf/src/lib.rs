@@ -142,7 +142,8 @@ where
             .into_iter()
             .filter(|c| chosen_set.contains(c.display.as_str()))
             .map(|c| c.inner)
-            .next().ok_or(anyhow::anyhow!("No choice present"))?;
+            .next()
+            .ok_or(anyhow::anyhow!("No choice present"))?;
         Ok(chosen)
     } else {
         let mut error_message = String::from_utf8_lossy(&output.stderr).to_string();

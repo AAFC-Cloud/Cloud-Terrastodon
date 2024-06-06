@@ -118,7 +118,9 @@ impl Action {
             Action::CleanImports => all_exist([IgnoreDir::Imports.into()]).await,
             Action::CleanProcessed => all_exist([IgnoreDir::Processed.into()]).await,
             Action::InitProcessed => all_exist([IgnoreDir::Processed.join("generated.tf")]).await,
-            Action::ApplyProcessed => all_exist([IgnoreDir::Processed.join(".terraform.lock.hcl")]).await,
+            Action::ApplyProcessed => {
+                all_exist([IgnoreDir::Processed.join(".terraform.lock.hcl")]).await
+            }
             Action::JumpToBlock => all_exist([IgnoreDir::Processed.join("generated.tf")]).await,
             _ => true,
         }
