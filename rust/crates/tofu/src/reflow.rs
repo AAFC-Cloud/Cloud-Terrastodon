@@ -40,7 +40,13 @@ pub async fn reflow_workspace(
         lookups.visit_body(&body);
 
         info!("Updating strings from hardcoded IDs to reference resource blocks instead");
-        let mut import_reference_patcher: ImportedResourceReferencePatcher = lookups.into();
+        let mut import_reference_patcher = ImportedResourceReferencePatcher::new(
+            lookups,
+            ["policy_definition_id"]
+                .into_iter()
+                .map(|x| x.to_string())
+                .collect(),
+        );
         import_reference_patcher.visit_body_mut(&mut body);
 
         info!("Creating data blocks for hardcoded IDs without a matching resource block");
@@ -88,7 +94,7 @@ pub async fn reflow_workspace(
     Ok(rtn)
 }
 
-async fn as_single_body(source_dir: &Path) -> Result<Body> {
+pub async fn as_single_body(source_dir: &Path) -> Result<Body> {
     let mut body = Body::new();
 
     // Read all files in source dir and append to body

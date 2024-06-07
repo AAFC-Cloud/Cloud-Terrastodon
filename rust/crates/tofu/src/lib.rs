@@ -1,4 +1,4 @@
-#![feature(let_chains)]
+#![feature(let_chains, split_at_checked)]
 mod block_lister;
 mod body_formatter;
 mod data_block_creation;

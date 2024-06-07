@@ -11,8 +11,8 @@ use azure::prelude::PolicySetDefinition;
 use azure::prelude::ScopeImpl;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
-use itertools::Itertools;
 use pathing_types::IgnoreDir;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tofu::prelude::Sanitizable;
@@ -138,10 +138,10 @@ pub async fn build_policy_imports() -> Result<()> {
     }
 
     info!("Collecting results");
-    let mut imports = Vec::<TofuImportBlock>::new();
+    let mut imports = HashSet::<TofuImportBlock>::new();
     while let Some(res) = work_pool.join_next().await {
         let work = res?;
-        let (management_group, mut results) = match work {
+        let (management_group, results): (_, HashSet<TofuImportBlock>) = match work {
             WorkResult::PolicyDefinitions {
                 management_group,
                 policy_definitions,
@@ -151,7 +151,7 @@ pub async fn build_policy_imports() -> Result<()> {
                     .into_iter()
                     .filter(|def| def.policy_type == "Custom")
                     .map(|x| x.into())
-                    .collect_vec(),
+                    .collect(),
             ),
             WorkResult::PolicyAssignments {
                 management_group,
@@ -171,7 +171,7 @@ pub async fn build_policy_imports() -> Result<()> {
                             to.use_name(|name| format!("{}_{}", name, mg_name));
                             TofuImportBlock { provider, id, to }
                         })
-                        .collect_vec(),
+                        .collect(),
                 )
             }
             WorkResult::PolicySetDefinitons {
@@ -183,7 +183,7 @@ pub async fn build_policy_imports() -> Result<()> {
                     .into_iter()
                     .filter(|def| def.policy_type == "Custom")
                     .map(|x| x.into())
-                    .collect_vec(),
+                    .collect(),
             ),
         };
 
@@ -197,7 +197,9 @@ pub async fn build_policy_imports() -> Result<()> {
         });
 
         // Add to list
-        imports.append(&mut results);
+        for x in results {
+            imports.insert(x);
+        }
     }
 
     let _ = pb.lock().map(|pb| {

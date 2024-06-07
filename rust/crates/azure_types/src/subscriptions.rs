@@ -1,4 +1,5 @@
 use serde::de::Error;
+use tofu_types::prelude::Sanitizable;
 use std::hash::Hash;
 use std::str::FromStr;
 use tofu_types::prelude::TofuProviderBlock;
@@ -109,7 +110,7 @@ impl std::fmt::Display for Subscription {
 impl Subscription {
     pub fn into_provider_block(self) -> TofuProviderBlock {
         TofuProviderBlock::AzureRM {
-            alias: Some(self.name),
+            alias: Some(self.name.sanitize()),
             subscription_id: Some(self.id.to_string()),
         }
     }

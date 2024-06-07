@@ -22,10 +22,10 @@ pub async fn fetch_all_resource_groups() -> Result<SubscriptionMap<Vec<ResourceG
                 "--subscription",
                 sub.id.to_string().as_ref(),
             ]);
-            cmd.use_cache_dir(Some(PathBuf::from_iter([
+            cmd.use_cache_dir(PathBuf::from_iter([
                 "az group list",
                 format!("--subscription {}", sub.name).as_str(),
-            ])));
+            ]));
             cmd.run().await
         })
         .await?;

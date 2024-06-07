@@ -3,6 +3,7 @@ use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
+use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromManagementGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
@@ -80,6 +81,10 @@ impl Scope for PolicySetDefinitionId {
             .rsplit_once('/')
             .expect("no slash found, structure should have been validated at construction")
             .1
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::PolicySetDefinition
     }
 }
 

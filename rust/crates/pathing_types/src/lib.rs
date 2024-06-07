@@ -1,10 +1,9 @@
 use anyhow::bail;
+use tracing::debug;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs::try_exists;
-
 use tokio::fs::create_dir_all;
-use tracing::info;
 
 const IGNORE_ROOT: &str = "ignore";
 
@@ -32,6 +31,7 @@ impl IgnoreDir {
 #[allow(async_fn_in_trait)]
 pub trait Existy {
     async fn ensure_dir_exists(&self) -> anyhow::Result<()>;
+    async fn ensure_parent_dir_exists(&self) -> anyhow::Result<()>;
 }
 impl<T: AsRef<Path>> Existy for T {
     async fn ensure_dir_exists(&self) -> anyhow::Result<()> {
@@ -44,7 +44,7 @@ impl<T: AsRef<Path>> Existy for T {
                 Ok(())
             }
             Ok(false) => {
-                info!("Creating {}", path.display());
+                debug!("Creating {}", path.display());
                 create_dir_all(&path).await?;
                 Ok(())
             }
@@ -55,6 +55,14 @@ impl<T: AsRef<Path>> Existy for T {
                     e
                 )
             }
+        }
+    }
+    async fn ensure_parent_dir_exists(&self) -> anyhow::Result<()> {
+        if let Some(parent) = self.as_ref().parent() {
+            parent.ensure_dir_exists().await?;
+            Ok(())
+        } else {
+            bail!("Could not acquire parent for {}", self.as_ref().display());
         }
     }
 }

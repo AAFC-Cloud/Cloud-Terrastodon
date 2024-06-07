@@ -16,7 +16,7 @@ use tracing::debug;
 pub async fn fetch_subscriptions() -> Result<Vec<Subscription>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["account", "list", "--output", "json"]);
-    cmd.use_cache_dir(Some("az account list"));
+    cmd.use_cache_dir("az account list");
 
     let subs = cmd.run::<Vec<Subscription>>().await?;
     let tenant_id = subs

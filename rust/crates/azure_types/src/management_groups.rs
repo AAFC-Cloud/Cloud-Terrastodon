@@ -1,6 +1,7 @@
 use crate::resource_name_rules::validate_management_group_name;
 use crate::scopes::Scope;
 use crate::scopes::ScopeError;
+use crate::scopes::ScopeImplKind;
 use anyhow::Context;
 use anyhow::Result;
 use serde::de::Error;
@@ -41,6 +42,10 @@ impl Scope for ManagementGroupId {
         self.expanded_form()
             .strip_prefix(MANAGEMENT_GROUP_ID_PREFIX)
             .unwrap_or_else(|| unreachable!("structure should have been validated at construction"))
+    }
+    
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::ManagementGroup
     }
 }
 

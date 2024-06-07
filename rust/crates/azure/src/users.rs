@@ -6,7 +6,7 @@ use command::prelude::CommandKind;
 pub async fn fetch_users() -> Result<Vec<User>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["ad", "user", "list", "--output", "json"]);
-    cmd.use_cache_dir(Some("az ad user list"));
+    cmd.use_cache_dir("az ad user list");
     cmd.run().await
 }
 

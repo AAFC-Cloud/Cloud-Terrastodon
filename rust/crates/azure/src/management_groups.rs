@@ -5,7 +5,7 @@ use command::prelude::CommandKind;
 
 pub async fn fetch_management_groups() -> Result<Vec<ManagementGroup>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.use_cache_dir(Some("az account management-group list"));
+    cmd.use_cache_dir("az account management-group list");
     cmd.args([
         "account",
         "management-group",

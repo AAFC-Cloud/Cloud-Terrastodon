@@ -3,11 +3,12 @@ use crate::actions::prelude::build_group_imports;
 use crate::actions::prelude::build_imports_from_existing;
 use crate::actions::prelude::build_policy_imports;
 use crate::actions::prelude::build_resource_group_imports;
-use crate::actions::prelude::clean;
+use crate::actions::prelude::clean_all;
 use crate::actions::prelude::clean_imports;
 use crate::actions::prelude::clean_processed;
 use crate::actions::prelude::init_processed;
 use crate::actions::prelude::jump_to_block;
+use crate::actions::prelude::list_imports;
 use crate::actions::prelude::perform_import;
 use crate::actions::prelude::process_generated;
 use anyhow::Result;
@@ -28,6 +29,7 @@ pub enum Action {
     InitProcessed,
     ApplyProcessed,
     JumpToBlock,
+    ListImports,
 }
 impl Action {
     pub fn name(&self) -> &str {
@@ -44,6 +46,7 @@ impl Action {
             Action::InitProcessed => "processed - tf init",
             Action::ApplyProcessed => "processed - tf apply",
             Action::JumpToBlock => "jump to block",
+            Action::ListImports => "list imports",
         }
     }
     #[instrument]
@@ -55,12 +58,13 @@ impl Action {
             Action::BuildImportsFromExisting => build_imports_from_existing().await,
             Action::PerformImport => perform_import().await,
             Action::ProcessGenerated => process_generated().await,
-            Action::Clean => clean().await,
+            Action::Clean => clean_all().await,
             Action::CleanImports => clean_imports().await,
             Action::CleanProcessed => clean_processed().await,
             Action::InitProcessed => init_processed().await,
             Action::ApplyProcessed => apply_processed().await,
-            Action::JumpToBlock => jump_to_block().await,
+            Action::JumpToBlock => jump_to_block(IgnoreDir::Processed.into()).await,
+            Action::ListImports => list_imports().await,
         }
     }
     pub fn variants() -> Vec<Action> {
@@ -72,6 +76,7 @@ impl Action {
             Action::BuildGroupImports,
             Action::BuildPolicyImports,
             Action::BuildImportsFromExisting,
+            Action::ListImports,
             Action::PerformImport,
             Action::ProcessGenerated,
             Action::InitProcessed,
@@ -80,7 +85,7 @@ impl Action {
         ]
     }
     pub fn should_pause(&self) -> bool {
-        !matches!(self, Action::JumpToBlock)
+        !matches!(self, Action::JumpToBlock | Action::ListImports)
     }
 
     /// Some actions don't make sense if files are missing from expected locations.
@@ -113,6 +118,7 @@ impl Action {
                 ])
                 .await
             }
+            Action::ListImports => all_exist([IgnoreDir::Imports.into()]).await,
             Action::ProcessGenerated => all_exist([IgnoreDir::Imports.join("generated.tf")]).await,
             Action::Clean => all_exist([IgnoreDir::Root.into()]).await,
             Action::CleanImports => all_exist([IgnoreDir::Imports.into()]).await,

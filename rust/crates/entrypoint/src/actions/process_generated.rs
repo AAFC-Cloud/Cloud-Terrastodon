@@ -79,9 +79,7 @@ pub async fn write_many_contents(files: Vec<(impl AsRef<Path>, String)>) -> Resu
         let path = path.as_ref();
 
         // Ensure parent dir exists
-        if let Some(parent) = path.parent() {
-            parent.ensure_dir_exists().await?;
-        }
+        path.ensure_parent_dir_exists().await?;
 
         // Open the file
         let mut file = match OpenOptions::new()

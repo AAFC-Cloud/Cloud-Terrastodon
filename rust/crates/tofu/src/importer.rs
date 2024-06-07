@@ -3,8 +3,10 @@ use anyhow::Context;
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
+use command::prelude::OutputBehaviour;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::Duration;
 use tofu_types::prelude::TofuProviderBlock;
 use tokio::fs;
 use tracing::info;
@@ -27,6 +29,7 @@ impl TofuImporter {
         };
 
         // Open boilerplate file
+        info!("Writing default AzureRM provider");
         let boilerplate_path = imports_dir.join("boilerplate.tf");
         let import_writer = TofuWriter::new(boilerplate_path);
         import_writer
@@ -35,36 +38,27 @@ impl TofuImporter {
                 subscription_id: None,
             }])
             .await
-            .context("writing default azurerm provider block")?;
-
-        // let mut boilerplate_file = OpenOptions::new()
-        //     .create(true)
-        //     .write(true)
-        //     .truncate(true)
-        //     .open(&boilerplate_path)
-        //     .await?;
-
-        // // Write boilerplate
-        // boilerplate_file
-        //     .write_all(
-        //         indoc! {r#"
-        //             provider "azurerm" {
-        //                 features {}
-        //                 skip_provider_registration = true
-        //             }
-        //         "#}
-        //         .as_bytes(),
-        //     )
-        //     .await?;
+            .context("writing default azurerm provider block")?
+            .format()
+            .await?;
 
         // tf init
         let mut init_cmd = CommandBuilder::new(CommandKind::Tofu);
         init_cmd.should_announce(true);
-        init_cmd.use_run_dir(imports_dir.clone());
-        // init_cmd.use_output_behaviour(OutputBehaviour::Display);
-        init_cmd.args(["init"]);
+        init_cmd.use_run_dir(&imports_dir);
+        init_cmd.use_output_behaviour(OutputBehaviour::Display);
+        init_cmd.use_timeout(Duration::from_secs(10));
+        init_cmd.arg("init");
         init_cmd.run_raw().await?;
         info!("Tofu init successful!");
+
+        let mut validate_cmd = CommandBuilder::new(CommandKind::Tofu);
+        validate_cmd.should_announce(true);
+        validate_cmd.use_run_dir(&imports_dir);
+        validate_cmd.use_output_behaviour(OutputBehaviour::Display);
+        validate_cmd.use_timeout(Duration::from_secs(5));
+        validate_cmd.arg("validate");
+        validate_cmd.run_raw().await?;
 
         // remove old plan outputs
         let generated_path = imports_dir.join("generated.tf");
@@ -80,7 +74,6 @@ impl TofuImporter {
         let mut plan_cmd = CommandBuilder::new(CommandKind::Tofu);
         plan_cmd.should_announce(true);
         plan_cmd.use_run_dir(imports_dir.clone());
-        // plan_cmd.use_output_behaviour(OutputBehaviour::Display);
         plan_cmd.args(["plan", "-generate-config-out", "generated.tf"]);
 
         info!("Executing import, please be patient.");

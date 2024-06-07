@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
@@ -16,11 +17,13 @@ use std::path::PathBuf;
 use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
+use std::time::Duration;
 use tempfile::Builder;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
+use tokio::time::timeout;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
@@ -131,6 +134,7 @@ pub struct CommandBuilder {
     output_behaviour: OutputBehaviour,
     cache_dir: Option<PathBuf>,
     should_announce: bool,
+    timeout: Option<Duration>,
 }
 impl CommandBuilder {
     pub fn new(kind: CommandKind) -> CommandBuilder {
@@ -142,8 +146,8 @@ impl CommandBuilder {
         self.kind = kind;
         self
     }
-    pub fn use_cache_dir(&mut self, cache: Option<impl AsRef<Path>>) -> &mut Self {
-        self.cache_dir = cache.map(|x| IgnoreDir::Commands.join(x));
+    pub fn use_cache_dir(&mut self, cache: impl AsRef<Path>) -> &mut Self {
+        self.cache_dir = Some(IgnoreDir::Commands.join(cache));
         self
     }
     pub fn use_run_dir(&mut self, dir: impl AsRef<Path>) -> &mut Self {
@@ -156,6 +160,10 @@ impl CommandBuilder {
     }
     pub fn use_output_behaviour(&mut self, behaviour: OutputBehaviour) -> &mut Self {
         self.output_behaviour = behaviour;
+        self
+    }
+    pub fn use_timeout(&mut self, timeout: Duration) -> &mut Self {
+        self.timeout = Some(timeout);
         self
     }
     pub fn args<I, S>(&mut self, args: I) -> &mut Self
@@ -321,14 +329,24 @@ impl CommandBuilder {
             info!("Running {}", self.summarize());
         }
 
+
         // Launch command
+        command.kill_on_drop(true);
         let child = command.spawn()?;
 
         // Wait for it to finish
-        let output = child.wait_with_output().await?;
+        let output: CommandOutput = match timeout(
+            self.timeout.unwrap_or(Duration::MAX),
+            child.wait_with_output(),
+        ).await {
+            Ok(result) => result?.try_into()?,
+            Err(elapsed) => {
+                bail!("Command timeout, {elapsed:?}: {}", self.summarize());
+            }
+        };
 
-        // Convert to our output type
-        let output: CommandOutput = output.try_into()?;
+        // // Convert to our output type
+        // let output: CommandOutput = output.try_into()?;
 
         // Return if errored
         if !output.success() {
@@ -452,7 +470,7 @@ mod tests {
     async fn it_works_cached() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["--version"])
-            .use_cache_dir(Some("version"))
+            .use_cache_dir("version")
             .run_raw()
             .await?;
         println!("{}", result);

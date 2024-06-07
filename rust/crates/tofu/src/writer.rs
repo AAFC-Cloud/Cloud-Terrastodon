@@ -1,5 +1,7 @@
 use anyhow::Context;
 use anyhow::Result;
+use command::prelude::CommandBuilder;
+use command::prelude::CommandKind;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use pathing_types::Existy;
@@ -23,8 +25,18 @@ impl TofuWriter {
         }
     }
 
-    pub async fn overwrite(&self, content: impl AsTofuString) -> Result<()> {
-        self.path.ensure_dir_exists().await?;
+    pub async fn format(&self) -> Result<()> {
+        CommandBuilder::new(CommandKind::Tofu)
+            .arg("fmt")
+            .arg(self.path.as_os_str())
+            .should_announce(true)
+            .run_raw()
+            .await?;
+        Ok(())
+    }
+
+    pub async fn overwrite(&self, content: impl AsTofuString) -> Result<&Self> {
+        self.path.ensure_parent_dir_exists().await?;
         let mut imports_file = OpenOptions::new()
             .create(true)
             .truncate(true)
@@ -37,10 +49,10 @@ impl TofuWriter {
             .write_all(content.as_tofu_string().as_bytes())
             .await
             .context("writing content")?;
-        Ok(())
+        Ok(self)
     }
-    pub async fn merge(&self, providers: Vec<TofuProviderBlock>) -> Result<()> {
-        self.path.ensure_dir_exists().await?;
+    pub async fn merge(&self, providers: Vec<TofuProviderBlock>) -> Result<&Self> {
+        self.path.ensure_parent_dir_exists().await?;
         let mut file = OpenOptions::new()
             .create(true)
             .read(true)
@@ -77,6 +89,6 @@ impl TofuWriter {
         file.write_all(append_body.as_tofu_string().as_bytes())
             .await
             .context("appending content")?;
-        Ok(())
+        Ok(self)
     }
 }

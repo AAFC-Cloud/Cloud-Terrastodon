@@ -16,6 +16,7 @@ pub trait Scope: Sized {
     fn expanded_form(&self) -> &str;
     fn short_form(&self) -> &str;
     fn try_from_expanded(expanded: &str) -> Result<Self>;
+    fn kind(&self) -> ScopeImplKind;
 }
 pub trait NameValidatable {
     fn validate_name(name: &str) -> Result<()>;
@@ -164,6 +165,15 @@ impl std::fmt::Display for ScopeError {
         })
     }
 }
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub enum ScopeImplKind {
+    ManagementGroup,
+    PolicyDefinition,
+    PolicySetDefinition,
+    PolicyAssignment,
+    ResourceGroup,
+    RoleAssignment,
+}
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub enum ScopeImpl {
@@ -192,8 +202,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::PolicyDefinition(p) => p.short_form(),
             ScopeImpl::PolicySetDefinition(p) => p.short_form(),
             ScopeImpl::PolicyAssignment(p) => p.short_form(),
-            ScopeImpl::ResourceGroup(r) => r.short_name(),
-            ScopeImpl::RoleAssignment(r) => r.short_name(),
+            ScopeImpl::ResourceGroup(r) => r.short_form(),
+            ScopeImpl::RoleAssignment(r) => r.short_form(),
         }
     }
 
@@ -211,6 +221,17 @@ impl Scope for ScopeImpl {
             return Ok(ScopeImpl::PolicyAssignment(scope));
         }
         Err(ScopeError::Unrecognized.into())
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        match self {
+            ScopeImpl::ManagementGroup(x) => x.kind(),
+            ScopeImpl::PolicyDefinition(x) => x.kind(),
+            ScopeImpl::PolicySetDefinition(x) => x.kind(),
+            ScopeImpl::PolicyAssignment(x) => x.kind(),
+            ScopeImpl::ResourceGroup(x) => x.kind(),
+            ScopeImpl::RoleAssignment(x) => x.kind(),
+        }
     }
 }
 

@@ -26,7 +26,7 @@ impl VisitMut for DataReferencePatcher {
             return;
         };
 
-        // Lookup the policy definition key by the id
+        // Lookup the key by the id
         let reference = match self.lookup.data_references_by_id.get(&resource_id) {
             Some(x) => x,
             None => {

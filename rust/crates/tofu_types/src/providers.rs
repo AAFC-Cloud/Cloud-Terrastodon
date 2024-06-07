@@ -1,6 +1,5 @@
 use anyhow::bail;
 use hcl::edit::expr::Expression;
-use hcl::edit::expr::Object;
 use hcl::edit::expr::TraversalOperator;
 use hcl::edit::parser;
 use hcl::edit::structure::Attribute;
@@ -177,15 +176,21 @@ impl TryFrom<TofuProviderBlock> for Block {
 
         // Kind-specific configuration
         if let TofuProviderBlock::AzureRM {
-            subscription_id: Some(subscription_id),
-            ..
+            subscription_id, ..
         } = provider
         {
-            builder = builder.attributes([
-                Attribute::new(Ident::new("subscription_id"), subscription_id),
-                Attribute::new(Ident::new("features"), Object::new()),
-                Attribute::new(Ident::new("skip_provider_registration"), true),
-            ]);
+            builder = builder
+                .block(Block::builder(Ident::new("features")).build())
+                .attribute(Attribute::new(
+                    Ident::new("skip_provider_registration"),
+                    true,
+                ));
+            if let Some(subscription_id) = subscription_id {
+                builder = builder.attribute(Attribute::new(
+                    Ident::new("subscription_id"),
+                    subscription_id,
+                ));
+            }
         }
 
         // Return

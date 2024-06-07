@@ -1,3 +1,5 @@
+use crate::scopes::Scope;
+use crate::scopes::ScopeImplKind;
 use anyhow::Result;
 use chrono::DateTime;
 use chrono::Utc;
@@ -18,14 +20,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct RoleAssignmentId(String);
-impl RoleAssignmentId {
-    pub fn expanded_form(&self) -> &str {
-        &self.0
-    }
-    pub fn short_name(&self) -> &str {
-        todo!()
-    }
-}
 
 impl std::fmt::Display for RoleAssignmentId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -38,6 +32,27 @@ impl FromStr for RoleAssignmentId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(RoleAssignmentId(s.to_string()))
+    }
+}
+
+impl Scope for RoleAssignmentId {
+    fn expanded_form(&self) -> &str {
+        &self.0
+    }
+
+    fn short_form(&self) -> &str {
+        self.expanded_form()
+            .rsplit_once('/')
+            .expect("no slash found, structure should have been validated at construction")
+            .1
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        Ok(RoleAssignmentId(expanded.to_owned()))
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::RoleAssignment
     }
 }
 

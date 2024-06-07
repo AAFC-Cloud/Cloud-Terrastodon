@@ -43,7 +43,7 @@ pub async fn fetch_policy_assignments(
             cache_key.push("(unscoped, default subscription)");
         }
     }
-    cmd.use_cache_dir(Some(cache_key));
+    cmd.use_cache_dir(cache_key);
     cmd.run().await
 }
 

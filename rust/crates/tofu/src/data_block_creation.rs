@@ -67,10 +67,10 @@ pub async fn create_data_blocks_for_ids(
                             "--name",
                             policy_definition_id.short_form(),
                         ])
-                        .use_cache_dir(Some(PathBuf::from_iter([
+                        .use_cache_dir(PathBuf::from_iter([
                             "az policy definition show --name",
                             policy_definition_id.short_form(),
-                        ])))
+                        ]))
                         .run::<PolicyDefinition>()
                         .await
                         .map(|definition| WorkResult::Definition {
@@ -93,10 +93,10 @@ pub async fn create_data_blocks_for_ids(
                             "--name",
                             policy_set_definition_id.short_form(),
                         ])
-                        .use_cache_dir(Some(PathBuf::from_iter([
+                        .use_cache_dir(PathBuf::from_iter([
                             "az policy set-definition show --name",
                             policy_set_definition_id.short_form(),
-                        ])))
+                        ]))
                         .run::<PolicySetDefinition>()
                         .await
                         .map(|definition| WorkResult::SetDefinition {

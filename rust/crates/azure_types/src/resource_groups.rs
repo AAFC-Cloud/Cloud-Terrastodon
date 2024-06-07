@@ -13,20 +13,36 @@ use tofu_types::prelude::TofuProviderKind;
 use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
 
+use crate::resource_name_rules::validate_resource_group_name;
+use crate::scopes::HasPrefix;
+use crate::scopes::NameValidatable;
+use crate::scopes::Scope;
+use crate::scopes::ScopeImplKind;
+use crate::scopes::TryFromSubscriptionScoped;
+
+pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ResourceGroupId(String);
-impl ResourceGroupId {
-    pub fn expanded_form(&self) -> &str {
-        &self.0
-    }
-    pub fn short_name(&self) -> &str {
-        todo!()
-    }
-}
 
 impl std::fmt::Display for ResourceGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.0.to_string().as_str())
+    }
+}
+
+impl NameValidatable for ResourceGroupId {
+    fn validate_name(name: &str) -> Result<()> {
+        validate_resource_group_name(name)
+    }
+}
+impl HasPrefix for ResourceGroupId {
+    fn get_prefix() -> Option<&'static str> {
+        Some(RESOURCE_GROUP_ID_PREFIX)
+    }
+}
+impl TryFromSubscriptionScoped for ResourceGroupId {
+    unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
+        ResourceGroupId(expanded.to_owned())
     }
 }
 
@@ -36,6 +52,27 @@ impl FromStr for ResourceGroupId {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Ok(ResourceGroupId(uuid::Uuid::parse_str(s)?))
         Ok(ResourceGroupId(s.to_string()))
+    }
+}
+
+impl Scope for ResourceGroupId {
+    fn expanded_form(&self) -> &str {
+        &self.0
+    }
+
+    fn short_form(&self) -> &str {
+        self.expanded_form()
+            .rsplit_once('/')
+            .expect("no slash found, structure should have been validated at construction")
+            .1
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        ResourceGroupId::try_from_expanded_subscription_scoped(expanded)
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::ResourceGroup
     }
 }
 
