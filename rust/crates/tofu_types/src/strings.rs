@@ -1,9 +1,11 @@
+use std::collections::HashSet;
+
 use anyhow::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::IntoBlocks;
 use hcl_primitives::ident::is_id_continue;
-use unidecode::unidecode_char;
+use hcl_primitives::ident::is_id_start;
 
 pub trait AsTofuString {
     fn as_tofu_string(&self) -> String;
@@ -25,19 +27,27 @@ pub trait Sanitizable {
 
 impl<T: AsRef<str>> Sanitizable for T {
     fn sanitize(&self) -> String {
-        self.as_ref()
+        let mut rtn: String = self
+            .as_ref()
             .chars()
-            .flat_map(|c| unidecode_char(c).chars())
+            // .flat_map(|c| unidecode_char(c).chars())
             .enumerate()
             .map(|(i, c)| {
-                if i == 0 && hcl_primitives::ident::is_id_start(c) || i > 0 && is_id_continue(c) {
+                if i == 0 && is_id_start(c) || i > 0 && is_id_continue(c) {
                     c
                 } else {
                     '_'
                 }
             })
             .skip_while(|c| *c == '_')
-            .collect()
+            .collect();
+        match rtn.chars().next() {
+            Some(x) if !is_id_start(x) => {
+                rtn.insert_str(0, "ZZZ_");
+            }
+            _ => {}
+        };
+        rtn
     }
 }
 
@@ -51,6 +61,19 @@ impl<T: AsTofuString> TryAsTofuBlocks for T {
 }
 
 impl<T> AsTofuString for Vec<T>
+where
+    T: AsTofuString,
+{
+    fn as_tofu_string(&self) -> String {
+        let mut rtn = String::new();
+        for v in self.iter() {
+            rtn.push_str(v.as_tofu_string().as_str());
+            rtn.push('\n');
+        }
+        rtn
+    }
+}
+impl<T> AsTofuString for HashSet<T>
 where
     T: AsTofuString,
 {
