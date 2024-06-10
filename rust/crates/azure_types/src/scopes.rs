@@ -5,6 +5,7 @@ use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::RoleAssignmentId;
+use crate::subscriptions::SubscriptionId;
 use crate::subscriptions::SUBSCRIPTION_ID_PREFIX;
 use anyhow::bail;
 use anyhow::Context;
@@ -12,10 +13,15 @@ use anyhow::Error;
 use anyhow::Result;
 use std::str::FromStr;
 
+pub trait HasName {
+    fn name(&self) -> &str;
+}
+
 pub trait Scope: Sized {
     fn expanded_form(&self) -> &str;
     fn short_form(&self) -> &str;
     fn try_from_expanded(expanded: &str) -> Result<Self>;
+    fn as_scope(&self) -> ScopeImpl;
     fn kind(&self) -> ScopeImplKind;
 }
 pub trait NameValidatable {
@@ -165,7 +171,7 @@ impl std::fmt::Display for ScopeError {
         })
     }
 }
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 pub enum ScopeImplKind {
     ManagementGroup,
     PolicyDefinition,
@@ -173,9 +179,10 @@ pub enum ScopeImplKind {
     PolicyAssignment,
     ResourceGroup,
     RoleAssignment,
+    Subscription,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum ScopeImpl {
     ManagementGroup(ManagementGroupId),
     PolicyDefinition(PolicyDefinitionId),
@@ -183,55 +190,66 @@ pub enum ScopeImpl {
     PolicyAssignment(PolicyAssignmentId),
     ResourceGroup(ResourceGroupId),
     RoleAssignment(RoleAssignmentId),
+    Subscription(SubscriptionId),
 }
 impl Scope for ScopeImpl {
     fn expanded_form(&self) -> &str {
         match self {
-            ScopeImpl::ManagementGroup(m) => m.expanded_form(),
-            ScopeImpl::PolicyDefinition(p) => p.expanded_form(),
-            ScopeImpl::PolicySetDefinition(p) => p.expanded_form(),
-            ScopeImpl::PolicyAssignment(p) => p.expanded_form(),
-            ScopeImpl::ResourceGroup(r) => r.expanded_form(),
-            ScopeImpl::RoleAssignment(r) => r.expanded_form(),
+            ScopeImpl::ManagementGroup(id) => id.expanded_form(),
+            ScopeImpl::PolicyDefinition(id) => id.expanded_form(),
+            ScopeImpl::PolicySetDefinition(id) => id.expanded_form(),
+            ScopeImpl::PolicyAssignment(id) => id.expanded_form(),
+            ScopeImpl::ResourceGroup(id) => id.expanded_form(),
+            ScopeImpl::RoleAssignment(id) => id.expanded_form(),
+            ScopeImpl::Subscription(id) => id.expanded_form(),
         }
     }
 
     fn short_form(&self) -> &str {
         match self {
-            ScopeImpl::ManagementGroup(m) => m.short_form(),
-            ScopeImpl::PolicyDefinition(p) => p.short_form(),
-            ScopeImpl::PolicySetDefinition(p) => p.short_form(),
-            ScopeImpl::PolicyAssignment(p) => p.short_form(),
-            ScopeImpl::ResourceGroup(r) => r.short_form(),
-            ScopeImpl::RoleAssignment(r) => r.short_form(),
+            ScopeImpl::ManagementGroup(id) => id.short_form(),
+            ScopeImpl::PolicyDefinition(id) => id.short_form(),
+            ScopeImpl::PolicySetDefinition(id) => id.short_form(),
+            ScopeImpl::PolicyAssignment(id) => id.short_form(),
+            ScopeImpl::ResourceGroup(id) => id.short_form(),
+            ScopeImpl::RoleAssignment(id) => id.short_form(),
+            ScopeImpl::Subscription(id) => id.short_form(),
         }
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        if let Ok(scope) = ManagementGroupId::try_from_expanded(expanded) {
-            return Ok(ScopeImpl::ManagementGroup(scope));
+        if let Ok(id) = ManagementGroupId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::ManagementGroup(id));
         }
-        if let Ok(scope) = PolicyDefinitionId::try_from_expanded(expanded) {
-            return Ok(ScopeImpl::PolicyDefinition(scope));
+        if let Ok(id) = PolicyDefinitionId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::PolicyDefinition(id));
         }
-        if let Ok(scope) = PolicySetDefinitionId::try_from_expanded(expanded) {
-            return Ok(ScopeImpl::PolicySetDefinition(scope));
+        if let Ok(id) = PolicySetDefinitionId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::PolicySetDefinition(id));
         }
-        if let Ok(scope) = PolicyAssignmentId::try_from_expanded(expanded) {
-            return Ok(ScopeImpl::PolicyAssignment(scope));
+        if let Ok(id) = PolicyAssignmentId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::PolicyAssignment(id));
+        }
+        if let Ok(id) = SubscriptionId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::Subscription(id));
         }
         Err(ScopeError::Unrecognized.into())
     }
 
     fn kind(&self) -> ScopeImplKind {
         match self {
-            ScopeImpl::ManagementGroup(x) => x.kind(),
-            ScopeImpl::PolicyDefinition(x) => x.kind(),
-            ScopeImpl::PolicySetDefinition(x) => x.kind(),
-            ScopeImpl::PolicyAssignment(x) => x.kind(),
-            ScopeImpl::ResourceGroup(x) => x.kind(),
-            ScopeImpl::RoleAssignment(x) => x.kind(),
+            ScopeImpl::ManagementGroup(_) => ScopeImplKind::ManagementGroup,
+            ScopeImpl::PolicyDefinition(_) => ScopeImplKind::PolicyDefinition,
+            ScopeImpl::PolicySetDefinition(_) => ScopeImplKind::PolicySetDefinition,
+            ScopeImpl::PolicyAssignment(_) => ScopeImplKind::PolicyAssignment,
+            ScopeImpl::ResourceGroup(_) => ScopeImplKind::ResourceGroup,
+            ScopeImpl::RoleAssignment(_) => ScopeImplKind::RoleAssignment,
+            ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
         }
+    }
+
+    fn as_scope(&self) -> ScopeImpl {
+        self.clone()
     }
 }
 
@@ -263,6 +281,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::RoleAssignment(x) => {
                 f.write_fmt(format_args!("RoleAssignment({})", x.expanded_form()))
+            }
+            ScopeImpl::Subscription(x) => {
+                f.write_fmt(format_args!("SubscriptionId({})", x.short_form()))
             }
         }
     }

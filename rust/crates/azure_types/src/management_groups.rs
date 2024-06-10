@@ -1,6 +1,7 @@
 use crate::resource_name_rules::validate_management_group_name;
 use crate::scopes::Scope;
 use crate::scopes::ScopeError;
+use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use anyhow::Context;
 use anyhow::Result;
@@ -9,6 +10,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::hash::Hash;
 
 pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
 
@@ -43,9 +45,12 @@ impl Scope for ManagementGroupId {
             .strip_prefix(MANAGEMENT_GROUP_ID_PREFIX)
             .unwrap_or_else(|| unreachable!("structure should have been validated at construction"))
     }
-    
+
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::ManagementGroup
+    }
+    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+        ScopeImpl::ManagementGroup(self.clone())
     }
 }
 
@@ -70,7 +75,7 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ManagementGroup {
     #[serde(rename = "displayName")]
     pub display_name: String,
@@ -90,3 +95,15 @@ impl std::fmt::Display for ManagementGroup {
         Ok(())
     }
 }
+
+impl Hash for ManagementGroup {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+impl PartialEq for ManagementGroup {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+impl Eq for ManagementGroup {}

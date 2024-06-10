@@ -1,7 +1,7 @@
 use serde::de::Error;
-use tofu_types::prelude::Sanitizable;
 use std::hash::Hash;
 use std::str::FromStr;
+use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuProviderBlock;
 
 use serde::Deserialize;
@@ -11,15 +11,45 @@ use serde::Serializer;
 use uuid::Uuid;
 
 use crate::prelude::TenantId;
+use crate::scopes::Scope;
+use crate::scopes::ScopeImpl;
+use crate::scopes::ScopeImplKind;
 
 pub const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct SubscriptionId(pub Uuid);
+pub struct SubscriptionId {
+    expanded: String,
+    uuid: Uuid,
+}
 
 impl std::fmt::Display for SubscriptionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0.to_string().as_str())
+        f.write_str(&self.expanded)
+    }
+}
+
+impl Scope for SubscriptionId {
+    fn expanded_form(&self) -> &str {
+        &self.expanded
+    }
+
+    fn short_form(&self) -> &str {
+        self.expanded_form()
+            .strip_prefix(SUBSCRIPTION_ID_PREFIX)
+            .unwrap()
+    }
+
+    fn try_from_expanded(expanded: &str) -> anyhow::Result<Self> {
+        expanded.parse()
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::Subscription
+    }
+    
+    fn as_scope(&self) -> ScopeImpl {
+        ScopeImpl::Subscription(self.clone())
     }
 }
 
@@ -27,7 +57,9 @@ impl FromStr for SubscriptionId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(SubscriptionId(uuid::Uuid::parse_str(s)?))
+        let uuid = uuid::Uuid::parse_str(s.strip_prefix(SUBSCRIPTION_ID_PREFIX).unwrap_or(s))?;
+        let expanded = format!("{}{}", SUBSCRIPTION_ID_PREFIX, uuid);
+        Ok(SubscriptionId { uuid, expanded })
     }
 }
 
@@ -36,7 +68,7 @@ impl Serialize for SubscriptionId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.0.to_string().as_str())
+        serializer.serialize_str(self.uuid.to_string().as_str())
     }
 }
 
