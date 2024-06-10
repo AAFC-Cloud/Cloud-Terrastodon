@@ -8,7 +8,6 @@ use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureADResourceKind;
 use tofu_types::prelude::TofuImportBlock;
-use tofu_types::prelude::TofuProviderKind;
 use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
 use uuid::Uuid;
@@ -73,9 +72,7 @@ impl std::fmt::Display for Group {
 impl From<Group> for TofuImportBlock {
     fn from(group: Group) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default {
-                kind: TofuProviderKind::AzureAD,
-            },
+            provider: TofuProviderReference::Inherited,
             id: group.id.to_string(),
             to: TofuResourceReference::AzureAD {
                 kind: TofuAzureADResourceKind::Group,

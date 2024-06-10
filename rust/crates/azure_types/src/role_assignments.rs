@@ -1,4 +1,5 @@
 use crate::scopes::Scope;
+use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use anyhow::Result;
 use chrono::DateTime;
@@ -13,7 +14,6 @@ use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
-use tofu_types::prelude::TofuProviderKind;
 use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
 use uuid::Uuid;
@@ -54,6 +54,9 @@ impl Scope for RoleAssignmentId {
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::RoleAssignment
     }
+    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+        ScopeImpl::RoleAssignment(self.clone())
+    }
 }
 
 impl Serialize for RoleAssignmentId {
@@ -76,37 +79,53 @@ impl<'de> Deserialize<'de> for RoleAssignmentId {
     }
 }
 
+fn stupid_uuid_deserialize<'de, D>(deserializer: D) -> Result<Option<Uuid>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<&str> = Option::deserialize(deserializer)?;
+    if let Some(s) = s {
+        if s.is_empty() {
+            Ok(None)
+        } else {
+            Uuid::parse_str(s).map(Some).map_err(serde::de::Error::custom)
+        }
+    } else {
+        Ok(None)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct RoleAssignment {
-    condition: Option<Value>,
+    pub condition: Option<Value>,
     #[serde(rename = "conditionVersion")]
-    condition_version: Option<Value>,
-    #[serde(rename = "createdBy")]
-    created_by: Uuid,
+    pub condition_version: Option<Value>,
+    #[serde(rename = "createdBy", deserialize_with = "stupid_uuid_deserialize")]
+    pub created_by: Option<Uuid>,
     #[serde(rename = "createdOn")]
-    created_on: DateTime<Utc>,
+    pub created_on: DateTime<Utc>,
     #[serde(rename = "delegatedManagedIdentityResourceId")]
-    delegated_managed_identity_resource_id: Option<Value>,
-    description: Option<Value>,
-    id: String,
-    name: Uuid,
+    pub delegated_managed_identity_resource_id: Option<Value>,
+    pub description: Option<Value>,
+    pub id: String,
+    pub name: Uuid,
     #[serde(rename = "principalId")]
-    principal_id: Uuid,
+    pub principal_id: Uuid,
     #[serde(rename = "principalName")]
-    principal_name: String,
+    pub principal_name: String,
     #[serde(rename = "principalType")]
-    principal_type: String,
+    pub principal_type: String,
     #[serde(rename = "roleDefinitionId")]
-    role_definition_id: String,
+    pub role_definition_id: String,
     #[serde(rename = "roleDefinitionName")]
-    role_definition_name: String,
-    scope: String,
+    pub role_definition_name: String,
+    pub scope: String,
     #[serde(rename = "type")]
-    kind: String,
-    #[serde(rename = "updatedBy")]
-    updated_by: Uuid,
+    pub kind: String,
+    #[serde(rename = "updatedBy", deserialize_with = "stupid_uuid_deserialize")]
+    pub updated_by: Option<Uuid>,
     #[serde(rename = "updatedOn")]
-    updated_on: DateTime<Utc>,
+    pub updated_on: DateTime<Utc>,
 }
 impl std::fmt::Display for RoleAssignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -122,9 +141,7 @@ impl std::fmt::Display for RoleAssignment {
 impl From<RoleAssignment> for TofuImportBlock {
     fn from(resource_group: RoleAssignment) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default {
-                kind: TofuProviderKind::AzureRM,
-            },
+            provider: TofuProviderReference::Inherited,
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleAssignment,

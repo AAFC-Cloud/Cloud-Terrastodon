@@ -3,6 +3,7 @@ use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
+use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromManagementGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
@@ -18,7 +19,6 @@ use std::collections::HashMap;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
-use tofu_types::prelude::TofuProviderKind;
 use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
 
@@ -86,6 +86,9 @@ impl Scope for PolicyDefinitionId {
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::PolicyDefinition
     }
+    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+        ScopeImpl::PolicyDefinition(self.clone())
+    }
 }
 
 impl Serialize for PolicyDefinitionId {
@@ -140,9 +143,7 @@ impl std::fmt::Display for PolicyDefinition {
 impl From<PolicyDefinition> for TofuImportBlock {
     fn from(policy_definition: PolicyDefinition) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default {
-                kind: TofuProviderKind::AzureRM,
-            },
+            provider: TofuProviderReference::Inherited,
             id: policy_definition.id.expanded_form().to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::PolicyDefinition,

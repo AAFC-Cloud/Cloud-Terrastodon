@@ -1,3 +1,10 @@
+use crate::resource_name_rules::validate_resource_group_name;
+use crate::scopes::HasPrefix;
+use crate::scopes::NameValidatable;
+use crate::scopes::Scope;
+use crate::scopes::ScopeImpl;
+use crate::scopes::ScopeImplKind;
+use crate::scopes::TryFromSubscriptionScoped;
 use anyhow::Result;
 use serde::de::Error;
 use serde::Deserialize;
@@ -9,24 +16,18 @@ use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
-use tofu_types::prelude::TofuProviderKind;
 use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
 
-use crate::resource_name_rules::validate_resource_group_name;
-use crate::scopes::HasPrefix;
-use crate::scopes::NameValidatable;
-use crate::scopes::Scope;
-use crate::scopes::ScopeImplKind;
-use crate::scopes::TryFromSubscriptionScoped;
-
 pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct ResourceGroupId(String);
+pub struct ResourceGroupId {
+    expanded: String,
+}
 
 impl std::fmt::Display for ResourceGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0.to_string().as_str())
+        f.write_str(self.expanded.to_string().as_str())
     }
 }
 
@@ -42,7 +43,9 @@ impl HasPrefix for ResourceGroupId {
 }
 impl TryFromSubscriptionScoped for ResourceGroupId {
     unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
-        ResourceGroupId(expanded.to_owned())
+        ResourceGroupId {
+            expanded: expanded.to_owned(),
+        }
     }
 }
 
@@ -50,14 +53,15 @@ impl FromStr for ResourceGroupId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Ok(ResourceGroupId(uuid::Uuid::parse_str(s)?))
-        Ok(ResourceGroupId(s.to_string()))
+        Ok(ResourceGroupId {
+            expanded: s.to_string(),
+        })
     }
 }
 
 impl Scope for ResourceGroupId {
     fn expanded_form(&self) -> &str {
-        &self.0
+        &self.expanded
     }
 
     fn short_form(&self) -> &str {
@@ -71,6 +75,9 @@ impl Scope for ResourceGroupId {
         ResourceGroupId::try_from_expanded_subscription_scoped(expanded)
     }
 
+    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+        ScopeImpl::ResourceGroup(self.clone())
+    }
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::ResourceGroup
     }
@@ -81,7 +88,7 @@ impl Serialize for ResourceGroupId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.0.to_string().as_str())
+        serializer.serialize_str(self.expanded.to_string().as_str())
     }
 }
 
@@ -107,14 +114,6 @@ pub struct ResourceGroup {
     pub tags: Option<HashMap<String, String>>,
     #[serde(rename = "type")]
     pub kind: String,
-    // description: Option<String>,
-    // #[serde(rename = "displayName")]
-    // pub display_name: String,
-    // pub id: ResourceGroupId,
-    // #[serde(rename = "isAssignableToRole")]
-    // pub is_assignable_to_role: Option<bool>,
-    // #[serde(rename = "securityEnabled")]
-    // pub security_enabled: bool,
 }
 impl std::fmt::Display for ResourceGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -124,9 +123,7 @@ impl std::fmt::Display for ResourceGroup {
 impl From<ResourceGroup> for TofuImportBlock {
     fn from(resource_group: ResourceGroup) -> Self {
         TofuImportBlock {
-            provider: TofuProviderReference::Default {
-                kind: TofuProviderKind::AzureRM,
-            },
+            provider: TofuProviderReference::Inherited,
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::ResourceGroup,
@@ -135,6 +132,7 @@ impl From<ResourceGroup> for TofuImportBlock {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
