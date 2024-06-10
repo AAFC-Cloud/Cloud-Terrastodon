@@ -20,13 +20,14 @@ impl CodeReference {
             path: path.to_owned(),
             display: if block.ident.to_string() == "import" {
                 format!(
-                    "{} {}",
+                    "{} - to = {}",
                     block.ident,
                     block
                         .body
                         .get_attribute("to")
                         .map(|x| x.value.to_string())
                         .unwrap_or_default()
+                        .trim()
                 )
             } else if block.ident.to_string() == "provider" {
                 match block
@@ -35,23 +36,34 @@ impl CodeReference {
                     .map(|x| x.value.to_string())
                 {
                     Some(alias) => format!(
-                        "provider {} {}",
-                        block
-                            .labels
-                            .first()
-                            .map(|x| x.to_string())
-                            .unwrap_or_default(),
+                        "provider {} - alias={}",
+                        block.labels.iter().map(|x| x.to_string()).join(" "),
                         alias
                     ),
                     None => format!(
                         "provider {}",
-                        block
-                            .labels
-                            .first()
-                            .map(|x| x.to_string())
-                            .unwrap_or_default()
+                        block.labels.iter().map(|x| x.to_string()).join(" ")
                     ),
                 }
+            } else if (block.ident.to_string() == "data" || block.ident.to_string() == "resource")
+                && let Some(name) = block
+                    .body
+                    .get_attribute("display_name")
+                    .or_else(|| block.body.get_attribute("name"))
+                && block
+                    .labels
+                    .get(1)
+                    .map(|label| label.to_string())
+                    .filter(|label| Some(label.as_str()) != name.value.as_str())
+                    .is_some()
+            {
+                format!(
+                    "{} {} - {} = {}",
+                    block.ident.to_string(),
+                    block.labels.iter().map(|x| x.to_string()).join(" "),
+                    name.key.to_string(),
+                    name.value.to_string()
+                )
             } else {
                 format!(
                     "{} {}",
