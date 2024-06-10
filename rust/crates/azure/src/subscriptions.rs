@@ -31,8 +31,9 @@ pub async fn fetch_subscriptions() -> Result<Vec<Subscription>> {
         .collect_vec())
 }
 
-pub type SubscriptionMap<T> = HashMap<Subscription, T>;
-pub async fn gather_from_subscriptions<T, F, Fut>(fetcher: F) -> Result<SubscriptionMap<Vec<T>>>
+pub async fn gather_from_subscriptions<T, F, Fut>(
+    fetcher: F,
+) -> Result<HashMap<Subscription, Vec<T>>>
 where
     T: Send + 'static,
     F: Fn(Subscription, Arc<MultiProgress>) -> Fut + Send + Sync + 'static,
@@ -60,9 +61,10 @@ where
         debug!("Spawning work pool entry for {}", subscription);
         work_pool.spawn(async move { (subscription.clone(), fetcher(subscription, mp).await) });
     }
+    pb_sub.tick();
 
     debug!("Collecting results");
-    let mut rtn = SubscriptionMap::<Vec<T>>::default();
+    let mut rtn = HashMap::<Subscription, Vec<T>>::default();
     while let Some(res) = work_pool.join_next().await {
         let (sub, res) = res?;
         let res = res?;

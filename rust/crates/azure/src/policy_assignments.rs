@@ -1,14 +1,25 @@
+use crate::prelude::gather_from_management_groups;
 use anyhow::Result;
 use azure_types::policy_assignments::PolicyAssignment;
+use azure_types::prelude::ManagementGroup;
+use azure_types::prelude::SubscriptionId;
 use azure_types::scopes::Scope;
 use azure_types::scopes::ScopeImpl;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
+use std::collections::HashMap;
 use std::path::PathBuf;
+
+pub async fn fetch_all_policy_assignments() -> Result<HashMap<ManagementGroup, Vec<PolicyAssignment>>> {
+    gather_from_management_groups(async |mg: ManagementGroup, _pb| {
+        fetch_policy_assignments(Some(mg.id.as_scope()), None).await
+    })
+    .await
+}
 
 pub async fn fetch_policy_assignments(
     scope: Option<ScopeImpl>,
-    subscription: Option<String>,
+    subscription_id: Option<SubscriptionId>,
 ) -> Result<Vec<PolicyAssignment>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args([
@@ -21,23 +32,23 @@ pub async fn fetch_policy_assignments(
     ]);
     let mut cache_key = PathBuf::new();
     cache_key.push("az policy assignment list");
-    match (scope, subscription) {
-        (Some(scope), Some(subscription)) => {
+    match (scope, subscription_id) {
+        (Some(scope), Some(subscription_id)) => {
             cmd.args(["--scope", scope.expanded_form()]);
-            cmd.args(["--subscription", &subscription]);
+            cmd.args(["--subscription", subscription_id.short_form()]);
             cache_key.push(format!(
                 "--scope {} --subscription {}",
                 scope.short_form(),
-                subscription
+                subscription_id.short_form()
             ));
         }
         (Some(scope), None) => {
             cmd.args(["--scope", scope.expanded_form()]);
             cache_key.push(format!("--scope {}", scope.short_form()));
         }
-        (None, Some(subscription)) => {
-            cmd.args(["--subscription", &subscription]);
-            cache_key.push(format!("--subscription {}", subscription))
+        (None, Some(subscription_id)) => {
+            cmd.args(["--subscription", subscription_id.short_form()]);
+            cache_key.push(format!("--subscription {}", subscription_id.short_form()))
         }
         (None, None) => {
             cache_key.push("(unscoped, default subscription)");
