@@ -20,7 +20,7 @@ use crate::imported_resource_reference_patcher::ImportedResourceReferencePatcher
 use crate::json_patcher::JsonPatcher;
 use crate::user_id_reference_patcher::UserIdReferencePatcher;
 
-#[instrument(level = "debug")]
+#[instrument(level = "trace")]
 pub async fn reflow_workspace(
     source_dir: &Path,
     dest_dir: &Path,
