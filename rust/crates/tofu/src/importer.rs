@@ -47,7 +47,7 @@ impl TofuImporter {
         init_cmd.should_announce(true);
         init_cmd.use_run_dir(&imports_dir);
         init_cmd.use_output_behaviour(OutputBehaviour::Display);
-        init_cmd.use_timeout(Duration::from_secs(10));
+        init_cmd.use_timeout(Duration::from_secs(30));
         init_cmd.arg("init");
         init_cmd.run_raw().await?;
         info!("Tofu init successful!");
