@@ -15,15 +15,6 @@ pub struct TofuImportBlock {
     pub id: String,
     pub to: TofuResourceReference,
 }
-impl TofuImportBlock {
-    pub fn using_provider_alias(&self, provider: TofuProviderReference) -> TofuImportBlock {
-        TofuImportBlock {
-            provider,
-            id: self.id.clone(),
-            to: self.to.clone(),
-        }
-    }
-}
 
 impl AsTofuString for TofuImportBlock {
     fn as_tofu_string(&self) -> String {

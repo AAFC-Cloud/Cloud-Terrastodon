@@ -11,6 +11,7 @@ mod jump_to_block;
 mod perform_import;
 mod process_generated;
 mod list_imports;
+mod build_role_assignment_imports;
 
 pub mod prelude {
     pub use crate::actions::apply_processed::*;
@@ -18,6 +19,7 @@ pub mod prelude {
     pub use crate::actions::build_imports_from_existing::*;
     pub use crate::actions::build_policy_imports::*;
     pub use crate::actions::build_resource_group_imports::*;
+    pub use crate::actions::build_role_assignment_imports::*;
     pub use crate::actions::clean_all::*;
     pub use crate::actions::clean_imports::*;
     pub use crate::actions::clean_processed::*;

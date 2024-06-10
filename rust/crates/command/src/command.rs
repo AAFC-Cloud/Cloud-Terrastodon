@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Error;
@@ -230,27 +229,27 @@ impl CommandBuilder {
                 .read(true)
                 .open(&path)
                 .await
-                .context("opening file")
-                .context(path.to_string_lossy().into_owned())?;
+                .context(format!("opening file {}", path.display()))?;
 
             // Read the file
             file.read_to_string(file_contents)
                 .await
-                .context("reading file")
-                .context(path.to_string_lossy().into_owned())?;
+                .context(format!("reading file {}", path.display()))?;
 
             // If an expectation is present, validate it
             if let Some(ref expected_contents) = expected_contents
                 && file_contents != &expected_contents
             {
-                return Err(anyhow!("Cache context mismatch")
-                    .context(format!("found: {}", file_contents))
-                    .context(format!("expected: {}", expected_contents)));
+                bail!(
+                    "Cache context mismatch, found: {}, expected: {}",
+                    file_contents,
+                    expected_contents
+                );
             }
         }
 
         // Finish moving info into destination
-        output.status = status.parse().context("parsing status").context(status)?;
+        output.status = status.parse().context(format!("parsing status: {status}"))?;
 
         // Return!
         Ok(Some(output))
@@ -329,7 +328,6 @@ impl CommandBuilder {
             info!("Running {}", self.summarize());
         }
 
-
         // Launch command
         command.kill_on_drop(true);
         let child = command.spawn()?;
@@ -338,7 +336,9 @@ impl CommandBuilder {
         let output: CommandOutput = match timeout(
             self.timeout.unwrap_or(Duration::MAX),
             child.wait_with_output(),
-        ).await {
+        )
+        .await
+        {
             Ok(result) => result?.try_into()?,
             Err(elapsed) => {
                 bail!("Command timeout, {elapsed:?}: {}", self.summarize());

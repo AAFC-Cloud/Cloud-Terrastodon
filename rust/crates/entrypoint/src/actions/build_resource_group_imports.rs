@@ -63,8 +63,9 @@ pub async fn build_resource_group_imports() -> Result<()> {
             };
             used_subscriptions.insert(pair.subscription);
 
-            let block: TofuImportBlock = pair.resource_group.into();
-            block.using_provider_alias(provider_alias)
+            let mut block: TofuImportBlock = pair.resource_group.into();
+            block.provider = provider_alias;
+            block
         })
         .collect_vec();
 

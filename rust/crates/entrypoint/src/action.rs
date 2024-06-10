@@ -3,6 +3,7 @@ use crate::actions::prelude::build_group_imports;
 use crate::actions::prelude::build_imports_from_existing;
 use crate::actions::prelude::build_policy_imports;
 use crate::actions::prelude::build_resource_group_imports;
+use crate::actions::prelude::build_role_assignment_imports;
 use crate::actions::prelude::clean_all;
 use crate::actions::prelude::clean_imports;
 use crate::actions::prelude::clean_processed;
@@ -20,6 +21,7 @@ pub enum Action {
     BuildPolicyImports,
     BuildGroupImports,
     BuildResourceGroupImports,
+    BuildRoleAssignmentImports,
     BuildImportsFromExisting,
     PerformImport,
     ProcessGenerated,
@@ -37,6 +39,7 @@ impl Action {
             Action::BuildPolicyImports => "build imports - create policy_imports.tf",
             Action::BuildResourceGroupImports => "build imports - create resource_group_imports.tf",
             Action::BuildGroupImports => "build imports - create group_imports.tf",
+            Action::BuildRoleAssignmentImports => "build imports - create role_assignments.tf",
             Action::BuildImportsFromExisting => "build imports - build from existing",
             Action::PerformImport => "perform import - tf plan -generate-config-out generated.tf",
             Action::ProcessGenerated => "processed - create from generated.tf",
@@ -55,6 +58,7 @@ impl Action {
             Action::BuildPolicyImports => build_policy_imports().await,
             Action::BuildGroupImports => build_group_imports().await,
             Action::BuildResourceGroupImports => build_resource_group_imports().await,
+            Action::BuildRoleAssignmentImports => build_role_assignment_imports().await,
             Action::BuildImportsFromExisting => build_imports_from_existing().await,
             Action::PerformImport => perform_import().await,
             Action::ProcessGenerated => process_generated().await,
@@ -73,6 +77,7 @@ impl Action {
             Action::CleanImports,
             Action::CleanProcessed,
             Action::BuildResourceGroupImports,
+            Action::BuildRoleAssignmentImports,
             Action::BuildGroupImports,
             Action::BuildPolicyImports,
             Action::BuildImportsFromExisting,
@@ -114,6 +119,7 @@ impl Action {
                     IgnoreDir::Imports.join("policy_imports.tf"),
                     IgnoreDir::Imports.join("group_imports.tf"),
                     IgnoreDir::Imports.join("resource_group_imports.tf"),
+                    IgnoreDir::Imports.join("role_assignment_imports.tf"),
                     IgnoreDir::Imports.join("existing.tf"),
                 ])
                 .await
