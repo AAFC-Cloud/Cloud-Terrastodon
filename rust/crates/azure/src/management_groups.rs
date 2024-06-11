@@ -1,14 +1,13 @@
-use std::collections::HashMap;
-use std::future::Future;
-use std::sync::Arc;
-
 use anyhow::Result;
-use azure_types::management_groups::ManagementGroup;
+use azure_types::prelude::ManagementGroup;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
+use std::collections::HashMap;
+use std::future::Future;
+use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::debug;
 
@@ -57,7 +56,7 @@ where
         work_pool.spawn(async move { (mg.clone(), fetcher(mg, mp).await) });
     }
     pb_mg.tick();
-    
+
     debug!("Collecting results");
     let mut rtn = HashMap::<ManagementGroup, Vec<T>>::default();
     while let Some(res) = work_pool.join_next().await {

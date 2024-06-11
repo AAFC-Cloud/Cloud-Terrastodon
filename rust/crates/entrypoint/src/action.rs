@@ -13,6 +13,7 @@ use crate::actions::prelude::list_imports;
 use crate::actions::prelude::perform_import;
 use crate::actions::prelude::process_generated;
 use anyhow::Result;
+use azure::prelude::remediate_policy_assignment;
 use pathing_types::IgnoreDir;
 use tokio::fs;
 use tracing::instrument;
@@ -32,6 +33,7 @@ pub enum Action {
     ApplyProcessed,
     JumpToBlock,
     ListImports,
+    RemediatePolicyAssignment,
 }
 impl Action {
     pub fn name(&self) -> &str {
@@ -50,6 +52,7 @@ impl Action {
             Action::ApplyProcessed => "processed - tf apply",
             Action::JumpToBlock => "jump to block",
             Action::ListImports => "list imports",
+            Action::RemediatePolicyAssignment => "remediate policy assignment",
         }
     }
     #[instrument]
@@ -69,6 +72,7 @@ impl Action {
             Action::ApplyProcessed => apply_processed().await,
             Action::JumpToBlock => jump_to_block(IgnoreDir::Processed.into()).await,
             Action::ListImports => list_imports().await,
+            Action::RemediatePolicyAssignment => remediate_policy_assignment().await,
         }
     }
     pub fn variants() -> Vec<Action> {
@@ -76,6 +80,7 @@ impl Action {
             Action::Clean,
             Action::CleanImports,
             Action::CleanProcessed,
+            Action::RemediatePolicyAssignment,
             Action::BuildResourceGroupImports,
             Action::BuildRoleAssignmentImports,
             Action::BuildGroupImports,

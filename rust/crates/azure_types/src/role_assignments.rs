@@ -1,3 +1,4 @@
+use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
@@ -107,7 +108,7 @@ pub struct RoleAssignment {
     #[serde(rename = "delegatedManagedIdentityResourceId")]
     pub delegated_managed_identity_resource_id: Option<Value>,
     pub description: Option<Value>,
-    pub id: String,
+    pub id: RoleAssignmentId,
     pub name: Uuid,
     #[serde(rename = "principalId")]
     pub principal_id: Uuid,
@@ -127,6 +128,18 @@ pub struct RoleAssignment {
     #[serde(rename = "updatedOn")]
     pub updated_on: DateTime<Utc>,
 }
+
+impl HasScope for RoleAssignment {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+impl HasScope for &RoleAssignment {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+
 impl std::fmt::Display for RoleAssignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.role_definition_name)?;

@@ -1,6 +1,7 @@
 use crate::resource_name_rules::validate_policy_name;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
+use crate::scopes::HasScope;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
@@ -153,6 +154,18 @@ pub struct PolicySetDefinition {
     #[serde(rename = "type")]
     pub kind: String,
 }
+
+impl HasScope for PolicySetDefinition {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+impl HasScope for &PolicySetDefinition {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+
 impl std::fmt::Display for PolicySetDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;

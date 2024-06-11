@@ -1,5 +1,6 @@
 use crate::resource_name_rules::validate_resource_group_name;
 use crate::scopes::HasPrefix;
+use crate::scopes::HasScope;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
@@ -115,6 +116,18 @@ pub struct ResourceGroup {
     #[serde(rename = "type")]
     pub kind: String,
 }
+
+impl HasScope for ResourceGroup {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+impl HasScope for &ResourceGroup {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+
 impl std::fmt::Display for ResourceGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)

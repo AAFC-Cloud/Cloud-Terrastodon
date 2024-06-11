@@ -1,19 +1,18 @@
+use crate::prelude::TenantId;
+use crate::scopes::HasScope;
+use crate::scopes::Scope;
+use crate::scopes::ScopeImpl;
+use crate::scopes::ScopeImplKind;
 use serde::de::Error;
-use std::hash::Hash;
-use std::str::FromStr;
-use tofu_types::prelude::Sanitizable;
-use tofu_types::prelude::TofuProviderBlock;
-
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::hash::Hash;
+use std::str::FromStr;
+use tofu_types::prelude::Sanitizable;
+use tofu_types::prelude::TofuProviderBlock;
 use uuid::Uuid;
-
-use crate::prelude::TenantId;
-use crate::scopes::Scope;
-use crate::scopes::ScopeImpl;
-use crate::scopes::ScopeImplKind;
 
 pub const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";
 
@@ -47,7 +46,7 @@ impl Scope for SubscriptionId {
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::Subscription
     }
-    
+
     fn as_scope(&self) -> ScopeImpl {
         ScopeImpl::Subscription(self.clone())
     }
@@ -123,6 +122,18 @@ pub struct Subscription {
     pub tenant_id: TenantId,
     pub user: SubscriptionUser,
 }
+
+impl HasScope for Subscription {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+impl HasScope for &Subscription {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+
 impl Hash for Subscription {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);

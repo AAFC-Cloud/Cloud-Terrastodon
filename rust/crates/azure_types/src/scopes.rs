@@ -5,6 +5,7 @@ use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::RoleAssignmentId;
+use crate::prelude::TestResourceId;
 use crate::subscriptions::SubscriptionId;
 use crate::subscriptions::SUBSCRIPTION_ID_PREFIX;
 use anyhow::bail;
@@ -24,6 +25,15 @@ pub trait Scope: Sized {
     fn as_scope(&self) -> ScopeImpl;
     fn kind(&self) -> ScopeImplKind;
 }
+pub trait HasScope {
+    fn scope(&self) -> &impl Scope;
+}
+impl <T> HasScope for &T where T: Scope {
+    fn scope(&self) -> &impl Scope {
+        *self
+    }
+}
+
 pub trait NameValidatable {
     fn validate_name(name: &str) -> Result<()>;
 }
@@ -180,6 +190,7 @@ pub enum ScopeImplKind {
     ResourceGroup,
     RoleAssignment,
     Subscription,
+    Test,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
@@ -191,6 +202,7 @@ pub enum ScopeImpl {
     ResourceGroup(ResourceGroupId),
     RoleAssignment(RoleAssignmentId),
     Subscription(SubscriptionId),
+    TestResource(TestResourceId),
 }
 impl Scope for ScopeImpl {
     fn expanded_form(&self) -> &str {
@@ -202,6 +214,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceGroup(id) => id.expanded_form(),
             ScopeImpl::RoleAssignment(id) => id.expanded_form(),
             ScopeImpl::Subscription(id) => id.expanded_form(),
+            ScopeImpl::TestResource(id) => id.expanded_form(),
         }
     }
 
@@ -214,6 +227,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceGroup(id) => id.short_form(),
             ScopeImpl::RoleAssignment(id) => id.short_form(),
             ScopeImpl::Subscription(id) => id.short_form(),
+            ScopeImpl::TestResource(id) => id.short_form(),
         }
     }
 
@@ -233,6 +247,19 @@ impl Scope for ScopeImpl {
         if let Ok(id) = SubscriptionId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::Subscription(id));
         }
+        if let Ok(id) = ResourceGroupId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::ResourceGroup(id));
+        }
+        if let Ok(id) = RoleAssignmentId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::RoleAssignment(id));
+        }
+        if let Ok(id) = SubscriptionId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::Subscription(id));
+        }
+        if let Ok(id) = TestResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::TestResource(id));
+        }
+
         Err(ScopeError::Unrecognized.into())
     }
 
@@ -245,6 +272,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceGroup(_) => ScopeImplKind::ResourceGroup,
             ScopeImpl::RoleAssignment(_) => ScopeImplKind::RoleAssignment,
             ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
+            ScopeImpl::TestResource(_) => ScopeImplKind::Test,
         }
     }
 
@@ -283,7 +311,10 @@ impl std::fmt::Display for ScopeImpl {
                 f.write_fmt(format_args!("RoleAssignment({})", x.expanded_form()))
             }
             ScopeImpl::Subscription(x) => {
-                f.write_fmt(format_args!("SubscriptionId({})", x.short_form()))
+                f.write_fmt(format_args!("Subscription({})", x.short_form()))
+            }
+            ScopeImpl::TestResource(x) => {
+                f.write_fmt(format_args!("TestResource({})", x.short_form()))
             }
         }
     }

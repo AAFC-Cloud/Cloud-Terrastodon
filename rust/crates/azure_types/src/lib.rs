@@ -1,15 +1,17 @@
-pub mod groups;
-pub mod management_groups;
-pub mod policy_assignments;
-pub mod policy_definitions;
-pub mod policy_set_definitions;
-pub mod resource_groups;
+mod groups;
+mod management_groups;
+mod policy_assignments;
+mod policy_definitions;
+mod policy_set_definitions;
+mod resource_groups;
 mod resource_name_rules;
-pub mod role_assignments;
-pub mod scopes;
+mod role_assignments;
+mod scopes;
 mod subscriptions;
 mod tenants;
-pub mod users;
+mod users;
+mod scope_itertools;
+mod test_resource;
 
 pub mod prelude {
     pub use crate::groups::*;
@@ -24,4 +26,6 @@ pub mod prelude {
     pub use crate::subscriptions::*;
     pub use crate::tenants::*;
     pub use crate::users::*;
+    pub use crate::scope_itertools::*;
+    pub(crate) use crate::test_resource::*;
 }

@@ -10,6 +10,7 @@ mod subscriptions;
 mod users;
 mod name_lookup_helper;
 mod role_assignments;
+mod remediate_policy_assignment;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::groups::*;
@@ -22,5 +23,6 @@ pub mod prelude {
     pub use crate::subscriptions::*;
     pub use crate::users::*;
     pub use crate::name_lookup_helper::*;
+    pub use crate::remediate_policy_assignment::*;
     pub use azure_types::prelude::*;
 }

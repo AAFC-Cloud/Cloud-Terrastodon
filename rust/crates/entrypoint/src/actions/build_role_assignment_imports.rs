@@ -2,7 +2,6 @@ use anyhow::anyhow;
 use anyhow::Result;
 use azure::prelude::fetch_all_role_assignments;
 use pathing_types::IgnoreDir;
-use std::any::Any;
 use std::collections::HashSet;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
@@ -21,7 +20,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     let mut import_blocks = Vec::new();
     for (subscription, role_assignments) in found {
         let provider_alias = TofuProviderReference::Alias {
-            kind: TofuProviderKind::AzureRM,
+            kind: TofuProviderKind::AzureRM,	
             name: subscription.name.sanitize(),
         };
         for role_assignment in role_assignments {

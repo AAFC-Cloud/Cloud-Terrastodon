@@ -2,7 +2,7 @@ use crate::prelude::gather_from_subscriptions;
 use anyhow::Result;
 use azure_types::prelude::Scope;
 use azure_types::prelude::Subscription;
-use azure_types::resource_groups::ResourceGroup;
+use azure_types::prelude::ResourceGroup;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use indicatif::MultiProgress;

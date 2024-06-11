@@ -1,6 +1,7 @@
 use crate::resource_name_rules::validate_policy_name;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
+use crate::scopes::HasScope;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
@@ -112,7 +113,7 @@ impl<'de> Deserialize<'de> for PolicyAssignmentId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PolicyAssignment {
     pub description: Option<String>,
     #[serde(rename = "displayName")]
@@ -137,6 +138,19 @@ pub struct PolicyAssignment {
     #[serde(rename = "type")]
     pub kind: String,
 }
+
+
+impl HasScope for PolicyAssignment {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+impl HasScope for &PolicyAssignment {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+
 impl std::fmt::Display for PolicyAssignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;

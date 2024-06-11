@@ -1,16 +1,17 @@
 use crate::prelude::gather_from_management_groups;
 use anyhow::Result;
-use azure_types::policy_definitions::PolicyDefinition;
 use azure_types::prelude::ManagementGroup;
 use azure_types::prelude::ManagementGroupId;
+use azure_types::prelude::PolicyDefinition;
+use azure_types::prelude::Scope;
 use azure_types::prelude::SubscriptionId;
-use azure_types::scopes::Scope;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-pub async fn fetch_all_policy_definitions() -> Result<HashMap<ManagementGroup, Vec<PolicyDefinition>>> {
+pub async fn fetch_all_policy_definitions(
+) -> Result<HashMap<ManagementGroup, Vec<PolicyDefinition>>> {
     gather_from_management_groups(async |mg: ManagementGroup, _pb| {
         fetch_policy_definitions(Some(mg.id.clone()), None).await
     })
