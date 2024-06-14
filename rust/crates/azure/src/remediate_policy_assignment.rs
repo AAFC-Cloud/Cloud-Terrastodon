@@ -44,8 +44,6 @@ pub async fn remediate_policy_assignment() -> Result<()> {
         header: Some("Choose policy to remediate".to_string()),
     })?;
 
-    info!("You chose: {policy_assignment:#?}");
-
     info!("Finding policy definition for chosen");
     match (
         PolicySetDefinitionId::try_from_expanded(&policy_assignment.policy_definition_id),

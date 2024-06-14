@@ -19,6 +19,8 @@ tracing = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
 rand = { workspace = true }
+indoc = { workspace = true }
+pathing_types = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }
