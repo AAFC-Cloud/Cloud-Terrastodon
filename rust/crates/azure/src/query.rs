@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -18,7 +19,10 @@ pub struct QueryBuilder {
 impl QueryBuilder {
     pub fn new(query: String, mut cache_behaviour: CacheBehaviour) -> Self {
         if let CacheBehaviour::Some { ref mut path, .. } = cache_behaviour {
-            *path = PathBuf::from("az graph query").join(&path);
+            let mut segment = OsString::new();
+            segment.push("--graph-query ");
+            segment.push(path.as_os_str());
+            *path = PathBuf::from("az graph query").join(segment);
         }
         Self {
             query: Rc::new(query),
