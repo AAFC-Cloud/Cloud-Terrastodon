@@ -45,7 +45,7 @@ impl TofuImporter {
         // tf init
         let mut init_cmd = CommandBuilder::new(CommandKind::Tofu);
         init_cmd.should_announce(true);
-        init_cmd.use_run_dir(&imports_dir);
+        init_cmd.use_run_dir(imports_dir);
         init_cmd.use_output_behaviour(OutputBehaviour::Display);
         init_cmd.use_timeout(Duration::from_secs(30));
         init_cmd.arg("init");
@@ -54,7 +54,7 @@ impl TofuImporter {
 
         let mut validate_cmd = CommandBuilder::new(CommandKind::Tofu);
         validate_cmd.should_announce(true);
-        validate_cmd.use_run_dir(&imports_dir);
+        validate_cmd.use_run_dir(imports_dir);
         validate_cmd.use_output_behaviour(OutputBehaviour::Display);
         validate_cmd.use_timeout(Duration::from_secs(30));
         validate_cmd.arg("validate");

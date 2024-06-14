@@ -9,11 +9,7 @@ use fzf::pick;
 use fzf::Choice;
 use fzf::FzfArgs;
 use indoc::formatdoc;
-use pathing_types::Existy;
-use pathing_types::IgnoreDir;
-use std::ffi::OsString;
 use std::path::PathBuf;
-use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 pub async fn evaluate_policy_assignment_compliance() -> Result<()> {

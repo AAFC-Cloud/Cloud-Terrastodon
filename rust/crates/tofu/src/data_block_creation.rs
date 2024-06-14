@@ -49,7 +49,7 @@ pub async fn create_data_blocks_for_ids(
 
         // Create the data block
         let data_block = TofuDataBlock::LookupByName {
-            reference: reference,
+            reference,
             name: name.to_owned(),
         };
 

@@ -73,7 +73,7 @@ impl CodeReference {
             },
             line_number: block
                 .span()
-                .and_then(|span| find_line_column(&content, span.start))
+                .and_then(|span| find_line_column(content, span.start))
                 .map(|pos| pos.0)
                 .unwrap_or_default(),
         }

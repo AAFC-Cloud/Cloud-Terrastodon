@@ -2,6 +2,7 @@ use anyhow::Result;
 use azure_types::prelude::Scope;
 use azure_types::prelude::ScopeImpl;
 use azure_types::prelude::ScopeImplKind;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use tracing::info;
 
@@ -16,9 +17,9 @@ pub struct NameLookupHelper {
 impl NameLookupHelper {
     pub async fn get_name_for_scope(&mut self, scope: &ScopeImpl) -> Result<Option<&String>> {
         let kind = scope.kind();
-        if !self.cache.contains_key(&kind) {
+        if let Entry::Vacant(e) = self.cache.entry(kind) {
             let names = fetch_names_for(kind).await?;
-            self.cache.insert(kind, names);
+            e.insert(names);
         }
         Ok(self.cache.get(&kind).and_then(|names| names.get(scope)))
     }

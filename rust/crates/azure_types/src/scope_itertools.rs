@@ -43,7 +43,7 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(item) = self.iter.next() {
+        for item in self.iter.by_ref() {
             let scope = item.scope().expanded_form().to_string();
             if self.seen.insert(scope) {
                 return Some(item);

@@ -26,7 +26,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
         for role_assignment in role_assignments {
             if seen_ids.insert(role_assignment.id.to_owned()) {
                 let mut block: TofuImportBlock = role_assignment.into();
-                block.provider = provider_alias.to_owned();
+                provider_alias.clone_into(&mut block.provider);
                 import_blocks.push(block);
             }
         }

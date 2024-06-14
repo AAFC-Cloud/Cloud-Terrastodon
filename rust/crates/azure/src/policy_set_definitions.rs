@@ -44,7 +44,7 @@ pub async fn fetch_policy_set_definitions(
             ));
         }
         (None, Some(subscription_id)) => {
-            cmd.args(["--subscription", &subscription_id.short_form()]);
+            cmd.args(["--subscription", subscription_id.short_form()]);
             cache_key.push(format!("--subscription {}", subscription_id.short_form()))
         }
         (None, None) => {

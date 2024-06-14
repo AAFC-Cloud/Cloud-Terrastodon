@@ -106,16 +106,16 @@ impl CommandKind {
                             cache_dir.ensure_dir_exists().await?;
                             let file_path = cache_dir.join(&arg.path);
                             patch_arg(*i, &file_path).await?;
-                            let file = tokio::fs::OpenOptions::new()
+                            tokio::fs::OpenOptions::new()
                                 .write(true)
                                 .create(true)
+                                .truncate(true)
                                 .open(&file_path)
                                 .await
                                 .context(format!(
                                     "opening azure arg file {}",
                                     arg.path.to_string_lossy()
-                                ))?;
-                            file
+                                ))?
                         }
                         None => {
                             // No cache dir
