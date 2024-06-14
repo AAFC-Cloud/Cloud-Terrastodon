@@ -12,6 +12,7 @@ pub enum IgnoreDir {
     Commands,
     Imports,
     Processed,
+    Temp,
 }
 impl IgnoreDir {
     pub fn as_path_buf(&self) -> PathBuf {
@@ -20,6 +21,7 @@ impl IgnoreDir {
             IgnoreDir::Commands => PathBuf::from_iter([IGNORE_ROOT, "commands"]),
             IgnoreDir::Imports => PathBuf::from_iter([IGNORE_ROOT, "imports"]),
             IgnoreDir::Processed => PathBuf::from_iter([IGNORE_ROOT, "processed"]),
+            IgnoreDir::Temp => PathBuf::from_iter([IGNORE_ROOT, "temp"]),
         }
     }
     pub fn join(self, path: impl AsRef<Path>) -> PathBuf {

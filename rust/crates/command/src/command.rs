@@ -10,6 +10,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::os::windows::process::ExitStatusExt;
 use std::path::Path;
 use std::path::PathBuf;
@@ -18,6 +19,7 @@ use std::process::Output;
 use std::process::Stdio;
 use std::time::Duration;
 use tempfile::Builder;
+use tempfile::TempPath;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -47,24 +49,131 @@ impl CommandKind {
             CommandKind::VSCode => "code.cmd",
         }
     }
-    fn apply_args_and_envs(&self, this: &CommandBuilder, cmd: &mut Command) {
+    async fn apply_args_and_envs(
+        &self,
+        this: &CommandBuilder,
+        cmd: &mut Command,
+    ) -> Result<Vec<TempPath>> {
+        let mut rtn = Vec::new();
+        let mut args = this.args.clone();
+        // Write azure args to files
+        match (self, this.azure_args.is_empty()) {
+            (CommandKind::AzureCLI, false) => {
+                // todo: add tests
+                for (i, arg) in this.azure_args.iter() {
+                    debug!("Writing arg {}", arg.path.to_string_lossy());
+                    let mut patch_arg = async |i: usize, file_path: &PathBuf| -> Result<()> {
+                        // Get the arg from the array
+                        // We are converting @myfile.txt to @/path/to/myfile.txt
+                        let arg_to_update =
+                            args.get_mut(i).expect("azure arg must match an argument");
+
+                        // Check assumption - it should already begin with an @
+                        let first_char = arg_to_update.to_string_lossy().chars().next().unwrap();
+                        assert_eq!(first_char, '@', "First character must be '@'");
+
+                        // Write the file
+                        let mut file = OpenOptions::new()
+                            .create(true)
+                            .truncate(true)
+                            .write(true)
+                            .open(&file_path)
+                            .await
+                            .context(format!("Opening azure arg file {}", file_path.display()))?;
+                        file.write_all(arg.content.as_bytes())
+                            .await
+                            .context(format!("Writing azure arg file {}", file_path.display()))?;
+
+                        // Update the value
+                        arg_to_update.clear();
+                        arg_to_update.push("@");
+                        arg_to_update.push(file_path.canonicalize().context(
+                            "azure arg file must be written before absolute path can be determined",
+                        )?);
+                        Ok(())
+                    };
+                    let mut file = match &this.cache_dir {
+                        Some(cache_dir) => {
+                            // Cache dir has been provided
+                            // we won't use temp files
+                            cache_dir.ensure_dir_exists().await?;
+                            let file_path = cache_dir.join(&arg.path);
+                            patch_arg(*i, &file_path).await?;
+                            let file = tokio::fs::OpenOptions::new()
+                                .write(true)
+                                .create(true)
+                                .open(&file_path)
+                                .await
+                                .context(format!(
+                                    "opening azure arg file {}",
+                                    arg.path.to_string_lossy()
+                                ))?;
+                            file
+                        }
+                        None => {
+                            // No cache dir
+                            // We will write azure args to temp files
+                            let temp_dir = IgnoreDir::Temp.as_path_buf();
+                            temp_dir.ensure_dir_exists().await?;
+                            let path = tempfile::Builder::new()
+                                .suffix(&arg.path)
+                                .tempfile_in(temp_dir)
+                                .context(format!(
+                                    "creating temp file {}",
+                                    arg.path.to_string_lossy()
+                                ))?
+                                .into_temp_path();
+                            patch_arg(*i, &path.to_path_buf()).await?;
+                            let file = tokio::fs::OpenOptions::new()
+                                .write(true)
+                                .open(&path)
+                                .await
+                                .context(format!(
+                                    "opening azure arg file {}",
+                                    arg.path.to_string_lossy()
+                                ))?;
+                            rtn.push(path); // add to rtn list so its not dropped+cleaned immediately
+                            file
+                        }
+                    };
+                    file.write_all(arg.content.as_bytes())
+                        .await
+                        .context(format!(
+                            "writing azure arg file {}",
+                            arg.path.to_string_lossy()
+                        ))?;
+                }
+            }
+            (_, false) => {
+                bail!("Only {:?} can use Azure args", CommandKind::AzureCLI);
+            }
+            (_, true) => {}
+        }
+        // Apply args and envs to tokio Command
         match self {
             CommandKind::Echo => {
+                if !this.env.is_empty() {
+                    bail!("envs cannot be specified for {self:?}");
+                }
+                cmd.env("value", this.args.join(&OsString::from(" ")));
                 cmd.args([
                     "-NoProfile",
                     "-Command",
                     "Write-Host -ForegroundColor Green $env:value",
                 ]);
-                cmd.env("value", this.args.join(" "));
             }
             CommandKind::Pause => {
+                if !this.env.is_empty() {
+                    bail!("envs cannot be specified for {self:?}");
+                }
                 cmd.args(["-NoProfile", "-Command", "Pause"]);
             }
             _ => {
-                cmd.args(&this.args);
+                cmd.args(args);
                 cmd.envs(&this.env);
             }
         }
+        Ok(rtn)
     }
 }
 
@@ -122,11 +231,17 @@ pub enum CacheBehaviour {
     Recommended,
     FileBased(PathBuf),
 }
+#[derive(Debug, Clone)]
+struct AzureArg {
+    path: PathBuf,
+    content: String,
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct CommandBuilder {
     kind: CommandKind,
-    args: Vec<String>,
+    args: Vec<OsString>,
+    azure_args: HashMap<usize, AzureArg>,
     env: HashMap<String, String>,
     run_dir: Option<PathBuf>,
     retry_behaviour: RetryBehaviour,
@@ -177,7 +292,27 @@ impl CommandBuilder {
     }
 
     pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
-        self.args.push(arg.as_ref().to_string_lossy().to_string());
+        self.args.push(arg.as_ref().to_owned());
+        self
+    }
+
+    pub fn azure_arg<S: AsRef<Path>>(&mut self, path: S, content: String) -> &mut Self {
+        let path = path.as_ref().to_path_buf();
+
+        let mut arg = OsString::new();
+        arg.push("@");
+        arg.push(path.as_os_str());
+
+        // Ensure path is unique
+        if self.args.iter().any(|existing_arg| existing_arg == &arg) {
+            // In theory, you might want to reuse the same file for multiple arguments.
+            // I don't know why you would, so for now lets assume that it's a mistake.
+            panic!("Argument with the same path already exists");
+        }
+
+        self.azure_args
+            .insert(self.args.len(), AzureArg { path, content });
+        self.args.push(arg.clone());
         self
     }
 
@@ -193,11 +328,15 @@ impl CommandBuilder {
     }
 
     pub fn summarize(&self) -> String {
-        format!("{} {}", self.kind.program(), self.args.join(" "))
+        format!(
+            "{} {}",
+            self.kind.program(),
+            self.args.join(&OsString::from(" ")).to_string_lossy()
+        )
     }
 
     pub async fn get_cached_output(&self) -> Result<Option<CommandOutput>> {
-        // Short circuit if no cache
+        // Short circuit if not using cache or if cache entry not present
         let Some(ref cache_dir) = self.cache_dir else {
             return Ok(None);
         };
@@ -205,24 +344,55 @@ impl CommandBuilder {
             return Ok(None);
         }
 
-        // Prepare destination object
+        // Validate cache matches expectations
+        let expect_files = [
+            // Command summary must match
+            (&PathBuf::from("context.txt"), &self.summarize()),
+        ];
+        let mut expect_files = Vec::from_iter(expect_files);
+        for arg in self.azure_args.values() {
+            // Azure argument files must match
+            expect_files.push((&arg.path, &arg.content));
+        }
+        for (path, expected_contents) in expect_files {
+            // Open the file
+            let path = cache_dir.join(path);
+            let mut file = OpenOptions::new()
+                .read(true)
+                .open(&path)
+                .await
+                .context(format!("opening file {}", path.display()))?;
+
+            // Read the file
+            let mut file_contents = String::new();
+            file.read_to_string(&mut file_contents)
+                .await
+                .context(format!("reading file {}", path.display()))?;
+
+            // If an expectation is present, validate it
+            if file_contents != *expected_contents {
+                bail!(
+                    "Cache context mismatch for {}, found: {}, expected: {}",
+                    path.display(),
+                    file_contents,
+                    expected_contents
+                );
+            }
+        }
+
+        // Perform cache load
         let mut output = CommandOutput {
             status: 0,
             stdout: String::new(),
             stderr: String::new(),
         };
         let mut status = String::new();
-
-        // Prepare for file reading, with an expectation that context content matches
-        let mut files = [
-            ("context.txt", &mut String::new(), Some(self.summarize())),
-            ("stdout.json", &mut output.stdout, None),
-            ("stderr.json", &mut output.stderr, None),
-            ("status.txt", &mut status, None),
+        let load_files = [
+            ("stdout.json", &mut output.stdout),
+            ("stderr.json", &mut output.stderr),
+            ("status.txt", &mut status),
         ];
-
-        // For each file
-        for (ref file_name, ref mut file_contents, ref expected_contents) in files.iter_mut() {
+        for (file_name, file_contents) in load_files {
             // Open the file
             let path = cache_dir.join(file_name);
             let mut file = OpenOptions::new()
@@ -235,21 +405,12 @@ impl CommandBuilder {
             file.read_to_string(file_contents)
                 .await
                 .context(format!("reading file {}", path.display()))?;
-
-            // If an expectation is present, validate it
-            if let Some(ref expected_contents) = expected_contents
-                && file_contents != &expected_contents
-            {
-                bail!(
-                    "Cache context mismatch, found: {}, expected: {}",
-                    file_contents,
-                    expected_contents
-                );
-            }
         }
 
-        // Finish moving info into destination
-        output.status = status.parse().context(format!("parsing status: {status}"))?;
+        // Finish deserializing cache response
+        output.status = status
+            .parse()
+            .context(format!("parsing status: {status}"))?;
 
         // Return!
         Ok(Some(output))
@@ -317,7 +478,12 @@ impl CommandBuilder {
             OutputBehaviour::Display => {}
         }
 
-        self.kind.clone().apply_args_and_envs(self, &mut command);
+        // Apply arguments, saving temp files to a variable to be cleaned up when dropped later
+        let _temp_files = self
+            .kind
+            .apply_args_and_envs(self, &mut command)
+            .await
+            .context("applying args and envs")?;
 
         if let Some(ref dir) = self.run_dir {
             command.current_dir(dir);
@@ -471,6 +637,45 @@ mod tests {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["--version"])
             .use_cache_dir("version")
+            .run_raw()
+            .await?;
+        println!("{}", result);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn it_works_azure() -> Result<()> {
+        let result = CommandBuilder::new(CommandKind::AzureCLI)
+            .args(["graph", "query", "--graph-query"])
+            .azure_arg(
+                "query.kql",
+                r#"
+resourcecontainers
+| summarize count()
+"#
+                .to_string(),
+            )
+            .run_raw()
+            .await?;
+        println!("{}", result);
+        Ok(())
+    }
+    #[tokio::test]
+    async fn it_works_azure_cached() -> Result<()> {
+        let result = CommandBuilder::new(CommandKind::AzureCLI)
+            .args(["graph", "query", "--graph-query"])
+            .azure_arg(
+                "query.kql",
+                r#"
+resourcecontainers
+| summarize count()
+"#
+                .to_string(),
+            )
+            .use_cache_dir(PathBuf::from_iter([
+                "az graph query",
+                "--graph-query count-resource-containers",
+            ]))
             .run_raw()
             .await?;
         println!("{}", result);
