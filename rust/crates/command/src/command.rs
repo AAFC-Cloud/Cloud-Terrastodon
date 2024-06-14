@@ -487,7 +487,7 @@ impl CommandBuilder {
             Ok(None) => {}
             Ok(Some(output)) => return Ok(output),
             Err(e) => {
-                warn!("Cache load failed: {:?}", e);
+                debug!("Cache load failed: {:?}", e);
             }
         }
 
