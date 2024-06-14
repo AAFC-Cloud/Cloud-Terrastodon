@@ -303,7 +303,7 @@ impl CommandBuilder {
         self
     }
 
-    pub fn file_arg<S: AsRef<Path>>(&mut self, path: S, content: String) -> Result<&mut Self> {
+    pub fn file_arg<S: AsRef<Path>>(&mut self, path: S, content: String) -> &mut Self {
         // setup
         let path_buf = path.as_ref().to_path_buf();
         let path = path_buf.clone();
@@ -321,7 +321,7 @@ impl CommandBuilder {
         self.file_args
             .insert(self.args.len(), FileArg { path, content });
         self.args.push(arg);
-        Ok(self)
+        self
     }
 
     pub fn env(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) -> &mut Self {
