@@ -86,7 +86,7 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
 
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["graph", "query", "--graph-query"]);
-    cmd.azure_arg("query.kql", query);
+    cmd.file_arg("query.kql", query);
     cmd.use_cache_dir(PathBuf::from_iter([
         "az graph query",
         format!(

@@ -30,7 +30,7 @@ use tracing::error;
 use tracing::info;
 use tracing::warn;
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub enum CommandKind {
     #[default]
     Echo,
@@ -57,10 +57,10 @@ impl CommandKind {
         let mut rtn = Vec::new();
         let mut args = this.args.clone();
         // Write azure args to files
-        match (self, this.azure_args.is_empty()) {
+        match (self, this.file_args.is_empty()) {
             (CommandKind::AzureCLI, false) => {
                 // todo: add tests
-                for (i, arg) in this.azure_args.iter() {
+                for (i, arg) in this.file_args.iter() {
                     debug!("Writing arg {}", arg.path.to_string_lossy());
                     let mut patch_arg = async |i: usize, file_path: &PathBuf| -> Result<()> {
                         // Get the arg from the array
@@ -69,8 +69,15 @@ impl CommandKind {
                             args.get_mut(i).expect("azure arg must match an argument");
 
                         // Check assumption - it should already begin with an @
-                        let first_char = arg_to_update.to_string_lossy().chars().next().unwrap();
-                        assert_eq!(first_char, '@', "First character must be '@'");
+                        let check = arg_to_update.to_string_lossy();
+                        let first_char = check.chars().next().unwrap();
+                        if first_char != '@' {
+                            bail!(
+                                "First character in file arg for {:?} must be '@', got {}",
+                                this.kind,
+                                check
+                            )
+                        }
 
                         // Write the file
                         let mut file = OpenOptions::new()
@@ -232,7 +239,7 @@ pub enum CacheBehaviour {
     FileBased(PathBuf),
 }
 #[derive(Debug, Clone)]
-struct AzureArg {
+struct FileArg {
     path: PathBuf,
     content: String,
 }
@@ -241,7 +248,7 @@ struct AzureArg {
 pub struct CommandBuilder {
     kind: CommandKind,
     args: Vec<OsString>,
-    azure_args: HashMap<usize, AzureArg>,
+    file_args: HashMap<usize, FileArg>,
     env: HashMap<String, String>,
     run_dir: Option<PathBuf>,
     retry_behaviour: RetryBehaviour,
@@ -296,24 +303,25 @@ impl CommandBuilder {
         self
     }
 
-    pub fn azure_arg<S: AsRef<Path>>(&mut self, path: S, content: String) -> &mut Self {
-        let path = path.as_ref().to_path_buf();
+    pub fn file_arg<S: AsRef<Path>>(&mut self, path: S, content: String) -> Result<&mut Self> {
+        // setup
+        let path_buf = path.as_ref().to_path_buf();
+        let path = path_buf.clone();
+        let mut arg = path_buf.into_os_string();
 
-        let mut arg = OsString::new();
-        arg.push("@");
-        arg.push(path.as_os_str());
-
-        // Ensure path is unique
-        if self.args.iter().any(|existing_arg| existing_arg == &arg) {
-            // In theory, you might want to reuse the same file for multiple arguments.
-            // I don't know why you would, so for now lets assume that it's a mistake.
-            panic!("Argument with the same path already exists");
+        // transform based on kind
+        if self.kind == CommandKind::AzureCLI {
+            let mut new_arg = OsString::new();
+            new_arg.push("@");
+            new_arg.push(arg);
+            arg = new_arg;
         }
 
-        self.azure_args
-            .insert(self.args.len(), AzureArg { path, content });
-        self.args.push(arg.clone());
-        self
+        // push
+        self.file_args
+            .insert(self.args.len(), FileArg { path, content });
+        self.args.push(arg);
+        Ok(self)
     }
 
     pub fn env(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) -> &mut Self {
@@ -350,7 +358,7 @@ impl CommandBuilder {
             (&PathBuf::from("context.txt"), &self.summarize()),
         ];
         let mut expect_files = Vec::from_iter(expect_files);
-        for arg in self.azure_args.values() {
+        for arg in self.file_args.values() {
             // Azure argument files must match
             expect_files.push((&arg.path, &arg.content));
         }
@@ -647,7 +655,7 @@ mod tests {
     async fn it_works_azure() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["graph", "query", "--graph-query"])
-            .azure_arg(
+            .file_arg(
                 "query.kql",
                 r#"
 resourcecontainers
@@ -660,11 +668,12 @@ resourcecontainers
         println!("{}", result);
         Ok(())
     }
+
     #[tokio::test]
     async fn it_works_azure_cached() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["graph", "query", "--graph-query"])
-            .azure_arg(
+            .file_arg(
                 "query.kql",
                 r#"
 resourcecontainers
