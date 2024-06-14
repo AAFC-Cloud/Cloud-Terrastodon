@@ -19,66 +19,67 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
     info!("Fetching policy assignments");
     let policy_assignments = fetch_all_policy_assignments().await?;
 
-    info!("Building policy choice list");
-    let choices = policy_assignments
-        .into_values()
-        .flatten()
-        .distinct_by_scope()
-        .map(|ass| Choice::<PolicyAssignment> {
-            display: format!("{} {:?}", ass.name, ass.display_name),
-            inner: ass,
-        })
-        .collect();
-
-    info!("Prompting for user choice");
     let Choice {
         inner: policy_assignment,
         ..
     } = pick(FzfArgs {
-        choices,
+        choices: policy_assignments
+            .into_values()
+            .flatten()
+            .distinct_by_scope()
+            .map(|ass| Choice::<PolicyAssignment> {
+                display: format!("{} {:?}", ass.name, ass.display_name),
+                inner: ass,
+            })
+            .collect(),
         prompt: None,
         header: Some("Choose policy to evaluate".to_string()),
     })?;
 
-    info!("You chose: {:?}", policy_assignment.id);
+    info!(
+        "Querying policy compliance for {} ({:?})",
+        policy_assignment.name, policy_assignment.display_name
+    );
 
     let query = formatdoc! {
         r#"
-            policyResources 
-            | where type =~ 'Microsoft.PolicyInsights/PolicyStates'
-            | where properties.policyAssignmentId =~ "{}"
-            | where properties.complianceState =~ "noncompliant"
-            | extend policy_definition_reference_id = tostring(properties.policyDefinitionReferenceId)
-            | summarize found = count() by policy_definition_reference_id
-            | order by found desc
+policyResources 
+| where type =~ 'Microsoft.PolicyInsights/PolicyStates'
+| where properties.policyAssignmentId =~ "{}"
+| where properties.complianceState =~ "noncompliant"
+| extend policy_definition_reference_id = tostring(properties.policyDefinitionReferenceId)
+| extend resource_type = tostring(properties.resourceType)
+| summarize found = count() by policy_definition_reference_id, resource_type
+| order by found desc
         "#,
         policy_assignment.id.expanded_form()
     };
     #[derive(Deserialize)]
-    struct Row {
+    struct ReferenceIdRow {
         policy_definition_reference_id: String,
-        found: u32,	
+        resource_type: String,
+        found: u32,
     }
-    let data = QueryBuilder::new(
+    let reference_ids = QueryBuilder::new(
         query.to_string(),
         CacheBehaviour::Some {
-            path: PathBuf::from(format!(
-                "--graph-query policy-compliance-for-{}",
-                policy_assignment.name
-            )),
+            path: PathBuf::from(format!("policy-compliance-for-{}", policy_assignment.name)),
             valid_for: Duration::from_mins(15),
         },
     )
-    .collect_all::<Row>()
+    .collect_all::<ReferenceIdRow>()
     .await?;
 
-    let choice = pick(FzfArgs {
-        choices: data
+    let Choice {
+        inner: chosen_reference_id,
+        ..
+    } = pick(FzfArgs {
+        choices: reference_ids
             .into_iter()
             .map(|row| Choice {
                 display: format!(
-                    "{} - {} non-compliant resources",
-                    row.policy_definition_reference_id, row.found
+                    "{:64} - {:64} - {} non-compliant resources",
+                    row.policy_definition_reference_id, row.resource_type, row.found
                 ),
                 inner: row,
             })
@@ -87,7 +88,85 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
         header: Some("Choose an inner policy to review".to_string()),
     })?;
 
-    info!("You chose: {}", choice.inner.policy_definition_reference_id);
+    info!(
+        "Fetching resource compliance for {}",
+        chosen_reference_id.policy_definition_reference_id
+    );
+
+    let query = formatdoc! {
+        r#"
+policyResources 
+| where type =~ 'Microsoft.PolicyInsights/PolicyStates'
+| where properties.policyAssignmentId =~ "{}"
+| where properties.complianceState =~ "noncompliant"
+| where properties.policyDefinitionReferenceId =~ "{}"
+| where properties.resourceType =~ "{}"
+| join kind=leftouter (
+    resourcecontainers
+    | where type =~ "microsoft.resources/subscriptions"
+    | project subscriptionId, sub_name=name
+) on $left.subscriptionId == $right.subscriptionId
+| project
+    resource_group_name=resourceGroup,
+    subscription_id=subscriptionId,
+    subscription_name=sub_name,
+    resource_id=properties.resourceId
+        "#,
+        policy_assignment.id.expanded_form(),
+        chosen_reference_id.policy_definition_reference_id,
+        chosen_reference_id.resource_type
+    };
+    #[derive(Deserialize)]
+    struct ResourceRow {
+        resource_group_name: String,
+        subscription_id: String,
+        subscription_name: String,
+        resource_id: String,
+    }
+    let resource_ids = QueryBuilder::new(
+        query.to_string(),
+        CacheBehaviour::Some {
+            path: PathBuf::from(format!(
+                "policy-compliance-for-{}-{}",
+                policy_assignment.name, chosen_reference_id.policy_definition_reference_id
+            )),
+            valid_for: Duration::from_mins(15),
+        },
+    )
+    .collect_all::<ResourceRow>()
+    .await?;
+
+    let Choice {
+        inner: chosen_resource_id,
+        ..
+    } = pick(FzfArgs {
+        choices: resource_ids
+            .into_iter()
+            .map(|row| Choice {
+                display: format!(
+                    "{:16} - {:64} - {}",
+                    row.subscription_name,
+                    row.resource_group_name,
+                    row.resource_id
+                        .rsplit_once("/")
+                        .map(|x| x.1)
+                        .unwrap_or(row.resource_id.as_str())
+                ),
+                inner: row,
+            })
+            .collect_vec(),
+        prompt: Some("Choose an inner policy to review> ".to_string()),
+        header: Some(format!(
+            "{} - {}",
+            chosen_reference_id.policy_definition_reference_id,
+            chosen_reference_id.resource_type,
+        )),
+    })?;
+
+    info!(
+        "You chose: {} - {}",
+        chosen_resource_id.subscription_id, chosen_resource_id.resource_id
+    );
 
     Ok(())
 }
