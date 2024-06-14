@@ -83,7 +83,7 @@ impl Scope for PolicyDefinitionId {
             .expect("no slash found, structure should have been validated at construction")
             .1
     }
-    
+
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::PolicyDefinition
     }

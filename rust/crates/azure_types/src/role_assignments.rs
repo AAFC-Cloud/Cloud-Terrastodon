@@ -89,7 +89,9 @@ where
         if s.is_empty() {
             Ok(None)
         } else {
-            Uuid::parse_str(s).map(Some).map_err(serde::de::Error::custom)
+            Uuid::parse_str(s)
+                .map(Some)
+                .map_err(serde::de::Error::custom)
         }
     } else {
         Ok(None)

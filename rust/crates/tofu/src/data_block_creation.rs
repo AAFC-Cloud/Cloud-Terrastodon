@@ -15,7 +15,6 @@ use tofu_types::prelude::TryAsTofuBlocks;
 pub async fn create_data_blocks_for_ids(
     ids: &HashSet<ResourceId>,
 ) -> Result<(Body, DataLookupHolder)> {
-
     let mut body = Body::new();
     let mut name_helper = NameLookupHelper::default();
     let mut lookup_holder = DataLookupHolder::default();

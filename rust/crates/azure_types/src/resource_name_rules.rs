@@ -62,7 +62,10 @@ pub fn validate_management_group_name(name: &str) -> Result<()> {
 // https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftresources
 pub fn validate_resource_group_name(name: &str) -> Result<()> {
     if name.is_empty() || name.len() > 90 {
-        bail!("Name {name:?} must be 1-90 characters long (was {})", name.len());
+        bail!(
+            "Name {name:?} must be 1-90 characters long (was {})",
+            name.len()
+        );
     }
 
     if let Some(first_char) = name.chars().next() {
@@ -80,6 +83,6 @@ pub fn validate_resource_group_name(name: &str) -> Result<()> {
             bail!("Name {name:?} must not contain the character {char:?}");
         }
     }
-    
+
     Ok(())
 }

@@ -83,7 +83,7 @@ impl Scope for PolicyAssignmentId {
             .expect("no slash found, structure should have been validated at construction")
             .1
     }
-    
+
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::PolicyAssignment
     }
@@ -138,7 +138,6 @@ pub struct PolicyAssignment {
     #[serde(rename = "type")]
     pub kind: String,
 }
-
 
 impl HasScope for PolicyAssignment {
     fn scope(&self) -> &impl Scope {

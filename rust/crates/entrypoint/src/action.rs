@@ -76,7 +76,9 @@ impl Action {
             Action::JumpToBlock => jump_to_block(IgnoreDir::Processed.into()).await,
             Action::ListImports => list_imports().await,
             Action::RemediatePolicyAssignment => remediate_policy_assignment().await,
-            Action::EvaluatePolicyAssignmentCompliance => evaluate_policy_assignment_compliance().await,
+            Action::EvaluatePolicyAssignmentCompliance => {
+                evaluate_policy_assignment_compliance().await
+            }
         }
     }
     pub fn variants() -> Vec<Action> {

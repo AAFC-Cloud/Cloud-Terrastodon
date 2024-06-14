@@ -20,7 +20,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     let mut import_blocks = Vec::new();
     for (subscription, role_assignments) in found {
         let provider_alias = TofuProviderReference::Alias {
-            kind: TofuProviderKind::AzureRM,	
+            kind: TofuProviderKind::AzureRM,
             name: subscription.name.sanitize(),
         };
         for role_assignment in role_assignments {

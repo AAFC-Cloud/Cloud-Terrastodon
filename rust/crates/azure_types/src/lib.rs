@@ -6,12 +6,12 @@ mod policy_set_definitions;
 mod resource_groups;
 mod resource_name_rules;
 mod role_assignments;
+mod scope_itertools;
 mod scopes;
 mod subscriptions;
 mod tenants;
-mod users;
-mod scope_itertools;
 mod test_resource;
+mod users;
 
 pub mod prelude {
     pub use crate::groups::*;
@@ -22,10 +22,10 @@ pub mod prelude {
     pub use crate::resource_groups::*;
     pub use crate::resource_name_rules::*;
     pub use crate::role_assignments::*;
+    pub use crate::scope_itertools::*;
     pub use crate::scopes::*;
     pub use crate::subscriptions::*;
     pub use crate::tenants::*;
-    pub use crate::users::*;
-    pub use crate::scope_itertools::*;
     pub(crate) use crate::test_resource::*;
+    pub use crate::users::*;
 }
