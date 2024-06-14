@@ -12,6 +12,7 @@ mod subscriptions;
 mod tenants;
 mod test_resource;
 mod users;
+mod query_response;
 
 pub mod prelude {
     pub use crate::groups::*;
@@ -28,4 +29,5 @@ pub mod prelude {
     pub use crate::tenants::*;
     pub(crate) use crate::test_resource::*;
     pub use crate::users::*;
+    pub use crate::query_response::*;
 }

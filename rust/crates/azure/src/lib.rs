@@ -1,4 +1,4 @@
-#![feature(async_closure, impl_trait_in_assoc_type)]
+#![feature(async_closure, impl_trait_in_assoc_type, duration_constructors)]
 mod auth;
 mod evaluate_policy_assignment_compliance;
 mod groups;
@@ -12,6 +12,7 @@ mod resource_groups;
 mod role_assignments;
 mod subscriptions;
 mod users;
+mod query;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
@@ -26,5 +27,6 @@ pub mod prelude {
     pub use crate::role_assignments::*;
     pub use crate::subscriptions::*;
     pub use crate::users::*;
+    pub use crate::query::*;
     pub use azure_types::prelude::*;
 }

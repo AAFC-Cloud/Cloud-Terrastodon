@@ -1,15 +1,18 @@
 use crate::prelude::fetch_all_policy_assignments;
+use crate::prelude::QueryBuilder;
 use anyhow::Result;
 use azure_types::prelude::DistinctByScope;
 use azure_types::prelude::PolicyAssignment;
 use azure_types::prelude::Scope;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
+use command::prelude::CacheBehaviour;
 use fzf::pick;
 use fzf::Choice;
 use fzf::FzfArgs;
 use indoc::formatdoc;
+use itertools::Itertools;
+use serde::Deserialize;
 use std::path::PathBuf;
+use std::time::Duration;
 use tracing::info;
 
 pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
@@ -42,57 +45,49 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
     let query = formatdoc! {
         r#"
             policyResources 
-                | where type =~ 'Microsoft.PolicyInsights/PolicyStates'
-                | where properties.policyAssignmentId =~ "{}"
-                | where properties.complianceState =~ "noncompliant"
-                | summarize count() by tostring(properties.policyDefinitionReferenceId)
-                | order by count_ desc
+            | where type =~ 'Microsoft.PolicyInsights/PolicyStates'
+            | where properties.policyAssignmentId =~ "{}"
+            | where properties.complianceState =~ "noncompliant"
+            | extend policy_definition_reference_id = tostring(properties.policyDefinitionReferenceId)
+            | summarize found = count() by policy_definition_reference_id
+            | order by found desc
         "#,
         policy_assignment.id.expanded_form()
     };
+    #[derive(Deserialize)]
+    struct Row {
+        policy_definition_reference_id: String,
+        found: u32,	
+    }
+    let data = QueryBuilder::new(
+        query.to_string(),
+        CacheBehaviour::Some {
+            path: PathBuf::from(format!(
+                "--graph-query policy-compliance-for-{}",
+                policy_assignment.name
+            )),
+            valid_for: Duration::from_mins(15),
+        },
+    )
+    .collect_all::<Row>()
+    .await?;
 
-    // Write the query to disk so we can use with az cli @<file> convention
-    // https://github.com/Azure/azure-cli/blob/dev/doc/quoting-issues-with-powershell.md#best-practice-use-file-input-for-json
-    // we could also use "@-" for stdin but I didn't think of that till now
+    let choice = pick(FzfArgs {
+        choices: data
+            .into_iter()
+            .map(|row| Choice {
+                display: format!(
+                    "{} - {} non-compliant resources",
+                    row.policy_definition_reference_id, row.found
+                ),
+                inner: row,
+            })
+            .collect_vec(),
+        prompt: None,
+        header: Some("Choose an inner policy to review".to_string()),
+    })?;
 
-    // // Acquire temp file path
-    // let temp_dir = IgnoreDir::Temp.as_path_buf();
-    // temp_dir.ensure_dir_exists().await?;
-    // let query_file_path = tempfile::Builder::new()
-    //     .prefix("policy_assignment_compliance_graph_query_")
-    //     .suffix(".kql")
-    //     .tempfile_in(temp_dir)?.into_temp_path();
-
-    // // Write content async
-    // let mut query_file = tokio::fs::OpenOptions::new().write(true).open(&query_file_path).await?;
-    // query_file
-    //     .write_all(query.as_bytes())
-    //     .await?;
-
-    // // Build command
-    // let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    // cmd.args(["graph", "query", "--graph-query"]);
-    // let mut arg = OsString::new();
-    // arg.push("@");
-    // arg.push(query_file_path.canonicalize()?);
-    // cmd.arg(arg);
-
-    // // Clean up temp file
-    // drop(query_file_path);
-
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["graph", "query", "--graph-query"]);
-    cmd.file_arg("query.kql", query);
-    cmd.use_cache_dir(PathBuf::from_iter([
-        "az graph query",
-        format!(
-            "--graph-query policy-compliance-for-{}",
-            policy_assignment.name
-        )
-        .as_str(),
-    ]));
-    // Run command
-    let results = cmd.run_raw().await?;
+    info!("You chose: {}", choice.inner.policy_definition_reference_id);
 
     Ok(())
 }
