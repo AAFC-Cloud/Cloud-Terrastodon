@@ -154,7 +154,7 @@ impl Subscription {
     pub fn into_provider_block(self) -> TofuProviderBlock {
         TofuProviderBlock::AzureRM {
             alias: Some(self.name.sanitize()),
-            subscription_id: Some(self.id.to_string()),
+            subscription_id: Some(self.id.short_form().to_owned()),
         }
     }
 }
