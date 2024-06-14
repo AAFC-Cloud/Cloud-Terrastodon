@@ -3,6 +3,8 @@ use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
 use async_recursion::async_recursion;
+use chrono::DateTime;
+use chrono::Local;
 use pathing_types::Existy;
 use pathing_types::IgnoreDir;
 use serde::de::DeserializeOwned;
@@ -99,8 +101,10 @@ impl CommandKind {
                         )?);
                         Ok(())
                     };
-                    let mut file = match &this.cache_dir {
-                        Some(cache_dir) => {
+                    let mut file = match &this.cache_behaviour {
+                        CacheBehaviour::Some {
+                            path: cache_dir, ..
+                        } => {
                             // Cache dir has been provided
                             // we won't use temp files
                             cache_dir.ensure_dir_exists().await?;
@@ -117,7 +121,7 @@ impl CommandKind {
                                     arg.path.to_string_lossy()
                                 ))?
                         }
-                        None => {
+                        CacheBehaviour::None => {
                             // No cache dir
                             // We will write azure args to temp files
                             let temp_dir = IgnoreDir::Temp.as_path_buf();
@@ -184,7 +188,7 @@ impl CommandKind {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct CommandOutput {
     pub stdout: String,
     pub stderr: String,
@@ -235,9 +239,12 @@ pub enum OutputBehaviour {
 pub enum CacheBehaviour {
     #[default]
     None,
-    Recommended,
-    FileBased(PathBuf),
+    Some {
+        path: PathBuf,
+        valid_for: Duration,
+    },
 }
+
 #[derive(Debug, Clone)]
 struct FileArg {
     path: PathBuf,
@@ -253,7 +260,7 @@ pub struct CommandBuilder {
     run_dir: Option<PathBuf>,
     retry_behaviour: RetryBehaviour,
     output_behaviour: OutputBehaviour,
-    cache_dir: Option<PathBuf>,
+    cache_behaviour: CacheBehaviour,
     should_announce: bool,
     timeout: Option<Duration>,
 }
@@ -268,7 +275,17 @@ impl CommandBuilder {
         self
     }
     pub fn use_cache_dir(&mut self, cache: impl AsRef<Path>) -> &mut Self {
-        self.cache_dir = Some(IgnoreDir::Commands.join(cache));
+        self.cache_behaviour = CacheBehaviour::Some {
+            path: IgnoreDir::Commands.join(cache),
+            valid_for: Duration::from_days(1),
+        };
+        self
+    }
+    pub fn use_cache_behaviour(&mut self, mut behaviour: CacheBehaviour) -> &mut Self {
+        if let CacheBehaviour::Some { ref mut path, .. } = behaviour {
+            *path = IgnoreDir::Commands.join(&path);
+        }
+        self.cache_behaviour = behaviour;
         self
     }
     pub fn use_run_dir(&mut self, dir: impl AsRef<Path>) -> &mut Self {
@@ -345,12 +362,34 @@ impl CommandBuilder {
 
     pub async fn get_cached_output(&self) -> Result<Option<CommandOutput>> {
         // Short circuit if not using cache or if cache entry not present
-        let Some(ref cache_dir) = self.cache_dir else {
+        let CacheBehaviour::Some {
+            path: cache_dir,
+            valid_for,
+        } = &self.cache_behaviour
+        else {
             return Ok(None);
         };
         if !cache_dir.exists() {
             return Ok(None);
         }
+
+        let load_path = async |path: &PathBuf| -> Result<String> {
+            let path = cache_dir.join(path);
+            let mut file = OpenOptions::new()
+                .read(true)
+                .open(&path)
+                .await
+                .context(format!("opening cache file {}", path.display()))?;
+
+            // Read the file
+            let mut file_contents = String::new();
+            file.read_to_string(&mut file_contents)
+                .await
+                .context(format!("reading cache file {}", path.display()))?;
+            Ok(file_contents)
+        };
+        let load_file =
+            async |path: &str| -> Result<String> { load_path(&PathBuf::from(path)).await };
 
         // Validate cache matches expectations
         let expect_files = [
@@ -363,19 +402,7 @@ impl CommandBuilder {
             expect_files.push((&arg.path, &arg.content));
         }
         for (path, expected_contents) in expect_files {
-            // Open the file
-            let path = cache_dir.join(path);
-            let mut file = OpenOptions::new()
-                .read(true)
-                .open(&path)
-                .await
-                .context(format!("opening file {}", path.display()))?;
-
-            // Read the file
-            let mut file_contents = String::new();
-            file.read_to_string(&mut file_contents)
-                .await
-                .context(format!("reading file {}", path.display()))?;
+            let file_contents = load_path(path).await?;
 
             // If an expectation is present, validate it
             if file_contents != *expected_contents {
@@ -388,40 +415,27 @@ impl CommandBuilder {
             }
         }
 
-        // Perform cache load
-        let mut output = CommandOutput {
-            status: 0,
-            stdout: String::new(),
-            stderr: String::new(),
-        };
-        let mut status = String::new();
-        let load_files = [
-            ("stdout.json", &mut output.stdout),
-            ("stderr.json", &mut output.stderr),
-            ("status.txt", &mut status),
-        ];
-        for (file_name, file_contents) in load_files {
-            // Open the file
-            let path = cache_dir.join(file_name);
-            let mut file = OpenOptions::new()
-                .read(true)
-                .open(&path)
-                .await
-                .context(format!("opening file {}", path.display()))?;
-
-            // Read the file
-            file.read_to_string(file_contents)
-                .await
-                .context(format!("reading file {}", path.display()))?;
+        let timestamp = load_file("timestamp.txt").await?;
+        let timestamp = DateTime::parse_from_rfc2822(&timestamp)?;
+        let now = Local::now();
+        if now > timestamp + *valid_for {
+            bail!(
+                "Cache entry has expired (was from {}, was valid for {} hours)",
+                timestamp,
+                valid_for.as_secs() / 60 / 60
+            );
         }
 
-        // Finish deserializing cache response
-        output.status = status
-            .parse()
-            .context(format!("parsing status: {status}"))?;
+        let status: u32 = load_file("status.txt").await?.parse()?;
+        let stdout = load_file("stdout.json").await?;
+        let stderr = load_file("stderr.json").await?;
 
         // Return!
-        Ok(Some(output))
+        Ok(Some(CommandOutput {
+            status,
+            stdout,
+            stderr,
+        }))
     }
 
     pub async fn write_output(&self, output: &CommandOutput, parent_dir: &PathBuf) -> Result<()> {
@@ -436,6 +450,7 @@ impl CommandBuilder {
             ("stdout.json", &output.stdout),
             ("stderr.json", &output.stderr),
             ("status.txt", &output.status.to_string()),
+            ("timestamp.txt", &Local::now().to_rfc2822()),
         ];
 
         // Write to files
@@ -466,13 +481,13 @@ impl CommandBuilder {
     }
 
     #[async_recursion]
-    pub async fn run_raw(&mut self) -> Result<CommandOutput> {
+    pub async fn run_raw(&self) -> Result<CommandOutput> {
         // Check cache
         match self.get_cached_output().await {
             Ok(None) => {}
             Ok(Some(output)) => return Ok(output),
             Err(e) => {
-                error!("Failed to load from cache: {:?}", e);
+                warn!("Cache load failed: {:?}", e);
             }
         }
 
@@ -562,7 +577,9 @@ impl CommandBuilder {
 
         // Write happy results to the cache
         if output.success()
-            && let Some(ref cache_dir) = self.cache_dir
+            && let CacheBehaviour::Some {
+                path: cache_dir, ..
+            } = &self.cache_behaviour
         {
             if let Err(e) = self.write_output(&output, cache_dir).await {
                 error!("Encountered problem saving cache: {:?}", e);
@@ -574,7 +591,7 @@ impl CommandBuilder {
     }
 
     // #[async_recursion]
-    pub async fn run<T>(&mut self) -> Result<T>
+    pub async fn run<T>(&self) -> Result<T>
     where
         T: DeserializeOwned,
     {
@@ -585,9 +602,11 @@ impl CommandBuilder {
         match serde_json::from_str(&output.stdout) {
             Ok(results) => Ok(results),
             Err(e) => {
-                let dir = match self.cache_dir {
-                    None => IgnoreDir::Commands.join("failed"),
-                    Some(ref x) => x.join("failed"),
+                let dir = match &self.cache_behaviour {
+                    CacheBehaviour::None => IgnoreDir::Commands.join("failed"),
+                    CacheBehaviour::Some {
+                        path: cache_dir, ..
+                    } => cache_dir.join("failed"),
                 };
                 dir.ensure_dir_exists().await?;
                 let dir = Builder::new().prefix("temp_").tempdir_in(dir)?.into_path();
@@ -607,6 +626,8 @@ impl CommandBuilder {
 /// You have been warned.
 #[cfg(test)]
 mod tests {
+    use tokio::time::sleep;
+
     use super::*;
 
     #[tokio::test]
@@ -688,6 +709,34 @@ resourcecontainers
             .run_raw()
             .await?;
         println!("{}", result);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn it_works_azure_cached_valid_for() -> Result<()> {
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.args(["graph", "query", "--graph-query"]);
+        cmd.file_arg(
+            "query.kql",
+            r#"
+Resources	
+| limit 1
+| project CurrentTime = now()
+"#
+            .to_string(),
+        );
+        cmd.use_cache_behaviour(CacheBehaviour::Some {
+            path: PathBuf::from_iter(["az graph query", "--graph-query count-resource-containers"]),
+            valid_for: Duration::from_secs(3),
+        });
+
+        let result1 = cmd.run_raw().await?;
+        let result2 = cmd.run_raw().await?;
+        sleep(Duration::from_secs(4)).await;
+        let result3 = cmd.run_raw().await?;
+        println!("result1: {result1:?}\nresult2: {result2:?}\nresult3: {result3:?}");
+        assert_eq!(result1, result2);
+        assert_ne!(result1, result3);
         Ok(())
     }
 
