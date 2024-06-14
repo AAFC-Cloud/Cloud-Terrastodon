@@ -56,7 +56,7 @@ impl TofuImporter {
         validate_cmd.should_announce(true);
         validate_cmd.use_run_dir(&imports_dir);
         validate_cmd.use_output_behaviour(OutputBehaviour::Display);
-        validate_cmd.use_timeout(Duration::from_secs(5));
+        validate_cmd.use_timeout(Duration::from_secs(30));
         validate_cmd.arg("validate");
         validate_cmd.run_raw().await?;
 
