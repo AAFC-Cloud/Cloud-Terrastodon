@@ -1,4 +1,3 @@
-- create policy lookup-by-id cache to avoid duplicate fetching in `process generated` action, only lookup if cache miss
 - create import blocks for policy assignment principal's role assignments 
     - https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment
     https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/management_group_policy_assignment#principal_id
@@ -8,13 +7,29 @@
     | % { $_.policyRule.then.details.roleDefinitionIds } `
     | Sort-Object -Unique
     ```
-- create import blocks from existing terraform project
-    - "I just created this flat but now I want to convert it to modules"
-        - the "id" for importing a resource isn't always trivial, specific to the resource type
-        - tf state pull || can generate the "to" field from this
-    - Create import blocks for project to enable easy recovery if state file dies
-        - just write everything to imports.tf
-        - drift detection - import blocks aren't checked by terraform after initial import
-            - probably want to just update the id attribute in the import block
-- search terraform provider docs using ripgrep; provider CLI documentation explorer
+
+
+	- search terraform provider docs using ripgrep; provider CLI documentation explorer
     - https://github.com/TeamDman/horobi-transcript-utility/blob/main/chatgpt/actions/Search%20mappings.ps1
+
+
+- devops add user
+    - https://web.archive.org/web/20240214091953/http://www.bryancook.net/2021/03/using-azure-cli-to-call-azure-devops.html
+    - https://github.com/bryanbcook/az-devops-cli-examples/blob/master/az_devops_invoke.json
+        - `az devops invoke | code -`
+    1. add user to devops as stakeholder
+        - `az devops user add --email-id <email here> --license-type stakeholder`
+    1. list devops group entitlements
+        - `az devops invoke --area MemberEntitlementManagement --resource GroupEntitlements --encoding utf-8 --output json --api-version 5.1`
+        - `originId`,`displayName`
+    1. add user to Entra security group group
+        - `az ad group member add --group <group id> --member-id <object id>`
+    1. start refresh
+        - `az devops invoke --area MEMInternal --resource GroupEntitlementUserApplication --encoding utf-8 --output json --api-version 5.1-preview`
+    1. wait for refresh to complete
+        - `az devops invoke --area LicensingRule --resource GroupLicensingRulesApplicationStatus --api-version 5.1-preview --encoding utf-8 --output json`
+    1. get summary
+        - `az devops invoke --area MemberEntitlementManagement --resource UserEntitlementSummary --api-version 5.1-preview --encoding utf-8 --output json --query-parameters "select=licenses,accesslevels"`
+    1. get users
+        - `az devops invoke --area MemberEntitlementManagement --resource MemberEntitlements --api-version 7.1-preview --encoding utf-8 --output json --query-parameters '$orderBy=name Ascending'`
+        - `az devops invoke --area MemberEntitlementManagement --resource MemberEntitlements --api-version 7.1-preview --encoding utf-8 --output json --query-parameters '$filter=name eq ''john''&$orderBy=name Ascending'`
