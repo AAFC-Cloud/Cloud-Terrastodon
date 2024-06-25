@@ -18,3 +18,4 @@ azure = { workspace = true }
 command = { workspace = true } 
 tracing = { workspace = true }
 pathing_types = { workspace = true }
+clap = { workspace = true }

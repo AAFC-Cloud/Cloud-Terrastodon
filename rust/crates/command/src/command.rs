@@ -11,6 +11,7 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::env;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::os::windows::process::ExitStatusExt;
@@ -41,13 +42,19 @@ pub enum CommandKind {
     Tofu,
     VSCode,
 }
+
+pub const USE_TERRAFORM_FLAG_KEY: &'static str = "CLOUD_TERRASTODON_USE_TERRAFORM";
+
 impl CommandKind {
     fn program(&self) -> &'static str {
         match self {
             CommandKind::Echo => "pwsh",
             CommandKind::Pause => "pwsh",
             CommandKind::AzureCLI => "az.cmd",
-            CommandKind::Tofu => "tofu.exe",
+            CommandKind::Tofu => match env::var(USE_TERRAFORM_FLAG_KEY) {
+                Err(_) => "tofu.exe",
+                Ok(_) => "terraform.exe",
+            },
             CommandKind::VSCode => "code.cmd",
         }
     }

@@ -1,3 +1,5 @@
+use std::env;
+
 use crate::actions::prelude::apply_processed;
 use crate::actions::prelude::build_group_imports;
 use crate::actions::prelude::build_imports_from_existing;
@@ -11,10 +13,12 @@ use crate::actions::prelude::init_processed;
 use crate::actions::prelude::jump_to_block;
 use crate::actions::prelude::list_imports;
 use crate::actions::prelude::perform_import;
+use crate::actions::prelude::populate_cache;
 use crate::actions::prelude::process_generated;
 use anyhow::Result;
 use azure::prelude::evaluate_policy_assignment_compliance;
 use azure::prelude::remediate_policy_assignment;
+use command::prelude::USE_TERRAFORM_FLAG_KEY;
 use pathing_types::IgnoreDir;
 use tokio::fs;
 use tracing::instrument;
@@ -36,7 +40,11 @@ pub enum Action {
     ListImports,
     RemediatePolicyAssignment,
     EvaluatePolicyAssignmentCompliance,
+    UseTerraform,
+    UseTofu,
+    PopulateCache,
 }
+
 impl Action {
     pub fn name(&self) -> &str {
         match self {
@@ -56,6 +64,9 @@ impl Action {
             Action::ListImports => "list imports",
             Action::RemediatePolicyAssignment => "remediate policy assignment",
             Action::EvaluatePolicyAssignmentCompliance => "evaluate policy assignment complaince",
+            Action::UseTerraform => "use terraform",
+            Action::UseTofu => "use tofu",
+            Action::PopulateCache => "populate cache",
         }
     }
     #[instrument]
@@ -79,13 +90,25 @@ impl Action {
             Action::EvaluatePolicyAssignmentCompliance => {
                 evaluate_policy_assignment_compliance().await
             }
+            Action::UseTerraform => {
+                env::set_var(USE_TERRAFORM_FLAG_KEY, "1");
+                Ok(())
+            }
+            Action::UseTofu => {
+                env::remove_var(USE_TERRAFORM_FLAG_KEY);
+                Ok(())
+            },
+            Action::PopulateCache => populate_cache().await,
         }
     }
     pub fn variants() -> Vec<Action> {
         vec![
+            Action::UseTerraform,
+            Action::UseTofu,
             Action::Clean,
             Action::CleanImports,
             Action::CleanProcessed,
+            Action::PopulateCache,
             Action::RemediatePolicyAssignment,
             Action::EvaluatePolicyAssignmentCompliance,
             Action::BuildResourceGroupImports,
@@ -146,6 +169,8 @@ impl Action {
                 all_exist([IgnoreDir::Processed.join(".terraform.lock.hcl")]).await
             }
             Action::JumpToBlock => all_exist([IgnoreDir::Processed.join("generated.tf")]).await,
+            Action::UseTerraform => env::var(USE_TERRAFORM_FLAG_KEY).is_err(),
+            Action::UseTofu => env::var(USE_TERRAFORM_FLAG_KEY).is_ok(),
             _ => true,
         }
     }

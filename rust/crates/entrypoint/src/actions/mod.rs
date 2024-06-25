@@ -12,6 +12,7 @@ mod jump_to_block;
 mod list_imports;
 mod perform_import;
 mod process_generated;
+mod populate_cache;
 
 pub mod prelude {
     pub use crate::actions::apply_processed::*;
@@ -20,12 +21,13 @@ pub mod prelude {
     pub use crate::actions::build_policy_imports::*;
     pub use crate::actions::build_resource_group_imports::*;
     pub use crate::actions::build_role_assignment_imports::*;
-    pub use crate::actions::clean_all::*;
     pub use crate::actions::clean_imports::*;
     pub use crate::actions::clean_processed::*;
+    pub use crate::actions::clean_all::*;
     pub use crate::actions::init_processed::*;
     pub use crate::actions::jump_to_block::*;
     pub use crate::actions::list_imports::*;
     pub use crate::actions::perform_import::*;
     pub use crate::actions::process_generated::*;
+    pub use crate::actions::populate_cache::*;
 }

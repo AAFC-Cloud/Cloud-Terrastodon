@@ -1,6 +1,6 @@
 use anyhow::Context;
 use anyhow::Result;
-use azure::prelude::fetch_users;
+use azure::prelude::fetch_all_users;
 use hcl::edit::structure::Body;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit_mut::VisitMut;
@@ -66,7 +66,7 @@ pub async fn reflow_workspace(
     }
     {
         info!("Fetching users to perform user ID substitution");
-        let users = fetch_users()
+        let users = fetch_all_users()
             .await?
             .into_iter()
             .map(|user| (user.id, user.user_principal_name))

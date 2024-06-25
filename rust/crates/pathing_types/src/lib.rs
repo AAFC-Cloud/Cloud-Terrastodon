@@ -1,4 +1,5 @@
 use anyhow::bail;
+use clap::ValueEnum;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs::create_dir_all;
@@ -7,6 +8,7 @@ use tracing::debug;
 
 const IGNORE_ROOT: &str = "ignore";
 
+#[derive(Debug, Clone, ValueEnum)]
 pub enum IgnoreDir {
     Root,
     Commands,

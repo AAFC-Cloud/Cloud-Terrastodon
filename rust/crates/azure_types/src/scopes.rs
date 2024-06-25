@@ -12,6 +12,7 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
+use clap::ValueEnum;
 use std::str::FromStr;
 
 pub trait HasName {
@@ -184,7 +185,7 @@ impl std::fmt::Display for ScopeError {
         })
     }
 }
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, ValueEnum)]
 pub enum ScopeImplKind {
     ManagementGroup,
     PolicyDefinition,

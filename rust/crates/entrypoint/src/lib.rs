@@ -2,6 +2,7 @@
 mod action;
 mod actions;
 mod menu;
+mod clap;
 pub mod prelude {
-    pub use crate::menu::*;
+    pub use crate::clap::*;
 }

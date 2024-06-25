@@ -21,9 +21,12 @@ function Count-SpecialChars {
     $items `
     | ForEach-Object { $_.name } `
     | ForEach-Object {
+        $name = $_
         $_.ToCharArray() | ForEach-Object {
-            if ($_ -match $specialChars) {
-                $charCount[$_]++
+            $char = $_
+            if ($char -match $specialChars) {
+                $charCount[$char]++
+                Write-Host "Found character $char in $name"
             }
         }
     }
