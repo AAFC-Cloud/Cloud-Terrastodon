@@ -7,6 +7,7 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromManagementGroupScoped;
+use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use anyhow::Result;
@@ -31,6 +32,7 @@ pub enum PolicyAssignmentId {
     Unscoped { expanded: String },
     SubscriptionScoped { expanded: String },
     ManagementGroupScoped { expanded: String },
+    ResourceGroupScoped { expanded: String },
 }
 impl NameValidatable for PolicyAssignmentId {
     fn validate_name(name: &str) -> Result<()> {
@@ -38,13 +40,20 @@ impl NameValidatable for PolicyAssignmentId {
     }
 }
 impl HasPrefix for PolicyAssignmentId {
-    fn get_prefix() -> Option<&'static str> {
-        Some(POLICY_ASSIGNMENT_ID_PREFIX)
+    fn get_prefix() -> &'static str {
+        POLICY_ASSIGNMENT_ID_PREFIX
     }
 }
 impl TryFromUnscoped for PolicyAssignmentId {
     unsafe fn new_unscoped_unchecked(expanded: &str) -> Self {
         PolicyAssignmentId::Unscoped {
+            expanded: expanded.to_string(),
+        }
+    }
+}
+impl TryFromResourceGroupScoped for PolicyAssignmentId {
+    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
+        PolicyAssignmentId::ResourceGroupScoped {
             expanded: expanded.to_string(),
         }
     }
@@ -72,6 +81,7 @@ impl Scope for PolicyAssignmentId {
     fn expanded_form(&self) -> &str {
         match self {
             Self::Unscoped { expanded } => expanded,
+            Self::ResourceGroupScoped { expanded } => expanded,
             Self::SubscriptionScoped { expanded } => expanded,
             Self::ManagementGroupScoped { expanded } => expanded,
         }

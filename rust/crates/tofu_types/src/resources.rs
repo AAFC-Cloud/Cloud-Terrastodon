@@ -14,6 +14,7 @@ pub enum TofuAzureRMResourceKind {
     PolicyDefinition,
     PolicySetDefinition,
     RoleAssignment,
+    RoleDefinition,
     Other(String),
 }
 impl TofuAzureRMResourceKind {
@@ -25,6 +26,7 @@ impl TofuAzureRMResourceKind {
             TofuAzureRMResourceKind::PolicyDefinition,
             TofuAzureRMResourceKind::PolicySetDefinition,
             TofuAzureRMResourceKind::RoleAssignment,
+            TofuAzureRMResourceKind::RoleDefinition,
         ]
     }
 }
@@ -37,6 +39,7 @@ impl AsRef<str> for TofuAzureRMResourceKind {
             Self::PolicyDefinition => "policy_definition",
             Self::PolicySetDefinition => "policy_set_definition",
             Self::RoleAssignment => "role_assignment",
+            Self::RoleDefinition => "role_definition",
             Self::Other(s) => s.as_ref(),
         }
     }

@@ -1,3 +1,4 @@
+#![feature(pattern)]
 mod groups;
 mod management_groups;
 mod policy_assignments;
@@ -13,6 +14,7 @@ mod tenants;
 mod test_resource;
 mod users;
 mod query_response;
+mod role_definitions;
 
 pub mod prelude {
     pub use crate::groups::*;
@@ -23,6 +25,7 @@ pub mod prelude {
     pub use crate::resource_groups::*;
     pub use crate::resource_name_rules::*;
     pub use crate::role_assignments::*;
+    pub use crate::role_definitions::*;
     pub use crate::scope_itertools::*;
     pub use crate::scopes::*;
     pub use crate::subscriptions::*;

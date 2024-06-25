@@ -38,8 +38,8 @@ impl NameValidatable for ResourceGroupId {
     }
 }
 impl HasPrefix for ResourceGroupId {
-    fn get_prefix() -> Option<&'static str> {
-        Some(RESOURCE_GROUP_ID_PREFIX)
+    fn get_prefix() -> &'static str {
+        RESOURCE_GROUP_ID_PREFIX
     }
 }
 impl TryFromSubscriptionScoped for ResourceGroupId {

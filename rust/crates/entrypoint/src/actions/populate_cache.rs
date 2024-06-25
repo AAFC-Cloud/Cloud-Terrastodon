@@ -6,8 +6,6 @@ use azure::prelude::fetch_all_resource_groups;
 use azure::prelude::fetch_all_role_assignments;
 use azure::prelude::fetch_all_users;
 use indicatif::ProgressBar;
-use indicatif::ProgressDrawTarget;
-use indicatif::ProgressStyle;
 use tokio::task::JoinSet;
 pub async fn populate_cache() -> Result<()> {
     let mut work: JoinSet<(&str, bool)> = JoinSet::new();

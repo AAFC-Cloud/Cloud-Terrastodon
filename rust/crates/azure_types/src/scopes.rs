@@ -5,7 +5,9 @@ use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::RoleAssignmentId;
+use crate::prelude::RoleDefinitionId;
 use crate::prelude::TestResourceId;
+use crate::resource_groups::RESOURCE_GROUP_ID_PREFIX;
 use crate::subscriptions::SubscriptionId;
 use crate::subscriptions::SUBSCRIPTION_ID_PREFIX;
 use anyhow::bail;
@@ -42,24 +44,23 @@ pub trait NameValidatable {
     fn validate_name(name: &str) -> Result<()>;
 }
 pub trait HasPrefix {
-    fn get_prefix() -> Option<&'static str>;
+    fn get_prefix() -> &'static str;
 }
+
 pub trait TryFromUnscoped
 where
     Self: Sized + NameValidatable + HasPrefix,
 {
     fn try_from_expanded_unscoped(expanded_unscoped: &str) -> Result<Self> {
         // Get name without prefix
-        let name = match Self::get_prefix() {
-            None => expanded_unscoped,
-            Some(prefix) => match expanded_unscoped.strip_prefix(prefix) {
-                None => {
-                    return Err(ScopeError::Malformed).context(format!(
-                        "Unscoped expanded form {expanded_unscoped:?} must begin with prefix {prefix:?}"
-                    ))
-                }
-                Some(name) => name,
-            },
+        let prefix = Self::get_prefix();
+        let name = match expanded_unscoped.strip_prefix(prefix) {
+            None => {
+                return Err(ScopeError::Malformed).context(format!(
+                "Unscoped expanded form {expanded_unscoped:?} must begin with prefix {prefix:?}"
+            ))
+            }
+            Some(name) => name,
         };
         Self::validate_name(name)?;
 
@@ -71,37 +72,63 @@ where
     unsafe fn new_unscoped_unchecked(expanded: &str) -> Self;
 }
 
+fn strip_prefix_and_slug_leaving_slash<'a>(expanded: &'a str, prefix: &str) -> Result<&'a str> {
+    // /subscription/abc/resourceGroups/def
+    // Remove prefix
+    let Some(remaining) = expanded.strip_prefix(prefix) else {
+        return Err(ScopeError::Malformed)
+            .context(format!("String {expanded:?} must begin with {prefix:?}"));
+    };
+
+    // abc/resourceGroups/def
+    // Remove slug
+    let Some((_slug, remaining)) = remaining.split_once('/') else {
+        return Err(ScopeError::Malformed).context(format!(
+            "String {expanded:?} must contain a slash after the prefix {prefix:?}"
+        ));
+    };
+
+    // resourceGroups/def
+    // Unstrip leading slash
+    let remaining = &expanded[expanded.len() - remaining.len() - 1..];
+
+    // /resourceGroups/def
+    Ok(remaining)
+}
+
+fn strip_prefix<'a>(expanded: &'a str, prefix: &str) -> Result<&'a str> {
+    let Some(remaining) = expanded.strip_prefix(prefix) else {
+        return Err(ScopeError::Malformed)
+            .context(format!("String {expanded:?} must begin with {prefix:?}"));
+    };
+    Ok(remaining)
+}
+
+pub trait TryFromResourceGroupScoped
+where
+    Self: Sized + NameValidatable + HasPrefix,
+{
+    fn try_from_expanded_resource_group_scoped(expanded: &str) -> Result<Self> {
+        let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
+        let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)?;
+        let name = strip_prefix(remaining, Self::get_prefix())?;
+        Self::validate_name(name)?;
+        unsafe { Ok(Self::new_resource_group_scoped_unchecked(expanded)) }
+    }
+
+    /// # Safety
+    ///
+    /// The try_from methods should be used instead
+    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self;
+}
 pub trait TryFromSubscriptionScoped
 where
     Self: Sized + NameValidatable + HasPrefix,
 {
     fn try_from_expanded_subscription_scoped(expanded: &str) -> Result<Self> {
-        // Remove subscription prefix
-        let Some(remaining) = expanded.strip_prefix(SUBSCRIPTION_ID_PREFIX) else {
-            return Err(ScopeError::Malformed)
-                .context(format!("Subscription scoped expanded form {expanded:?} must begin with {SUBSCRIPTION_ID_PREFIX:?}"));
-        };
-
-        // Remove subscription id
-        let Some((_sub_name, remaining)) = remaining.split_once('/') else {
-            return Err(ScopeError::Malformed).context(format!("Subscription scoped expanded form {expanded:?} must contain a slash after the prefix {SUBSCRIPTION_ID_PREFIX:?}"));
-        };
-        let expanded_unscoped = &expanded[expanded.len() - remaining.len() - 1..]; // Keep leading slash
-
-        // Get name without prefix
-        let name = match Self::get_prefix() {
-            None => expanded_unscoped,
-            Some(prefix) => match expanded_unscoped.strip_prefix(prefix) {
-                None => {
-                    return Err(ScopeError::Malformed).context(format!("Stripped expanded form {expanded_unscoped:?} (from {expanded:?}) must begin with {prefix:?}"
-                    ))
-                }
-                Some(name) => name,
-            },
-        };
-
+        let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
+        let name = strip_prefix(remaining, Self::get_prefix())?;
         Self::validate_name(name)?;
-
         unsafe { Ok(Self::new_subscription_scoped_unchecked(expanded)) }
     }
 
@@ -115,32 +142,9 @@ where
     Self: Sized + NameValidatable + HasPrefix,
 {
     fn try_from_expanded_management_group_scoped(expanded: &str) -> Result<Self> {
-        // Remove management group prefix
-        let Some(remaining) = expanded.strip_prefix(MANAGEMENT_GROUP_ID_PREFIX) else {
-            return Err(ScopeError::Malformed)
-                .context(format!("Management group scoped expanded form {expanded:?} must begin with {MANAGEMENT_GROUP_ID_PREFIX:?}"));
-        };
-
-        // Remove management group name
-        let Some((_management_group_name, remaining)) = remaining.split_once('/') else {
-            return Err(ScopeError::Malformed).context(format!("Management group scoped expanded form {expanded:?} must contain a slash after the prefix {MANAGEMENT_GROUP_ID_PREFIX:?}"));
-        };
-        let expanded_unscoped = &expanded[expanded.len() - remaining.len() - 1..]; // Keep leading slash
-
-        // Get name without prefix
-        let name = match Self::get_prefix() {
-            None => expanded_unscoped,
-            Some(prefix) => match expanded_unscoped.strip_prefix(prefix) {
-                None => {
-                    return Err(ScopeError::Malformed).context(format!("Stripped expanded form {expanded_unscoped:?} (from {expanded:?}) must begin with {prefix:?}"
-                    ))
-                }
-                Some(name) => name,
-            },
-        };
-
+        let remaining = strip_prefix_and_slug_leaving_slash(expanded, MANAGEMENT_GROUP_ID_PREFIX)?;
+        let name = strip_prefix(remaining, Self::get_prefix())?;
         Self::validate_name(name)?;
-
         unsafe { Ok(Self::new_management_group_scoped_unchecked(expanded)) }
     }
     /// # Safety
@@ -151,19 +155,41 @@ where
 
 pub fn try_from_expanded_hierarchy_scoped<T>(expanded: &str) -> Result<T>
 where
-    T: TryFromUnscoped + TryFromManagementGroupScoped + TryFromSubscriptionScoped,
+    T: TryFromUnscoped
+        + TryFromManagementGroupScoped
+        + TryFromSubscriptionScoped
+        + TryFromResourceGroupScoped,
 {
     match T::try_from_expanded_management_group_scoped(expanded) {
         Ok(x) => Ok(x),
         Err(management_group_scoped_error) => {
             match T::try_from_expanded_subscription_scoped(expanded) {
                 Ok(x) => Ok(x),
-                Err(subscription_scoped_error) => match T::try_from_expanded_unscoped(expanded) {
-                    Ok(x) => Ok(x),
-                    Err(unscoped_error) => {
-                        bail!("Policy definition id parse failed.\n\nmanagement group scoped attempt: {management_group_scoped_error:?}\n\nsubscription scoped attempt: {subscription_scoped_error:?}\n\nunscoped attempt: {unscoped_error:?}")
+                Err(subscription_scoped_error) => {
+                    match T::try_from_expanded_resource_group_scoped(expanded) {
+                        Ok(x) => Ok(x),
+                        Err(resource_group_scoped_error) => {
+                            match T::try_from_expanded_unscoped(expanded) {
+                                Ok(x) => Ok(x),
+                                Err(unscoped_error) => {
+                                    bail!(
+                                        "{}\n{:?}\n========\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}",
+                                        "Hierarchy scoped parse failed for ",
+                                        expanded,
+                                        "management group scoped attempt: ",
+                                        management_group_scoped_error,
+                                        "subscription scoped attempt: ",
+                                        subscription_scoped_error,
+                                        "resource group scoped attempt: ",
+                                        resource_group_scoped_error,
+                                        "unscoped attempt: ",
+                                        unscoped_error
+                                    );
+                                }
+                            }
+                        }
                     }
-                },
+                }
             }
         }
     }
@@ -193,6 +219,7 @@ pub enum ScopeImplKind {
     PolicyAssignment,
     ResourceGroup,
     RoleAssignment,
+    RoleDefinition,
     Subscription,
     Test,
 }
@@ -205,6 +232,7 @@ pub enum ScopeImpl {
     PolicyAssignment(PolicyAssignmentId),
     ResourceGroup(ResourceGroupId),
     RoleAssignment(RoleAssignmentId),
+    RoleDefinition(RoleDefinitionId),
     Subscription(SubscriptionId),
     TestResource(TestResourceId),
 }
@@ -217,6 +245,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::PolicyAssignment(id) => id.expanded_form(),
             ScopeImpl::ResourceGroup(id) => id.expanded_form(),
             ScopeImpl::RoleAssignment(id) => id.expanded_form(),
+            ScopeImpl::RoleDefinition(id) => id.expanded_form(),
             ScopeImpl::Subscription(id) => id.expanded_form(),
             ScopeImpl::TestResource(id) => id.expanded_form(),
         }
@@ -230,6 +259,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::PolicyAssignment(id) => id.short_form(),
             ScopeImpl::ResourceGroup(id) => id.short_form(),
             ScopeImpl::RoleAssignment(id) => id.short_form(),
+            ScopeImpl::RoleDefinition(id) => id.short_form(),
             ScopeImpl::Subscription(id) => id.short_form(),
             ScopeImpl::TestResource(id) => id.short_form(),
         }
@@ -257,6 +287,9 @@ impl Scope for ScopeImpl {
         if let Ok(id) = RoleAssignmentId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RoleAssignment(id));
         }
+        if let Ok(id) = RoleDefinitionId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::RoleDefinition(id));
+        }
         if let Ok(id) = SubscriptionId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::Subscription(id));
         }
@@ -275,6 +308,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::PolicyAssignment(_) => ScopeImplKind::PolicyAssignment,
             ScopeImpl::ResourceGroup(_) => ScopeImplKind::ResourceGroup,
             ScopeImpl::RoleAssignment(_) => ScopeImplKind::RoleAssignment,
+            ScopeImpl::RoleDefinition(_) => ScopeImplKind::RoleDefinition,
             ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
         }
@@ -313,6 +347,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::RoleAssignment(x) => {
                 f.write_fmt(format_args!("RoleAssignment({})", x.expanded_form()))
+            }
+            ScopeImpl::RoleDefinition(x) => {
+                f.write_fmt(format_args!("RoleDefinition({})", x.expanded_form()))
             }
             ScopeImpl::Subscription(x) => {
                 f.write_fmt(format_args!("Subscription({})", x.short_form()))

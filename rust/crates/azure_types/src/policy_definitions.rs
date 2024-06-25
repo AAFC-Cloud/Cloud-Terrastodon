@@ -7,6 +7,7 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromManagementGroupScoped;
+use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use anyhow::Result;
@@ -31,6 +32,7 @@ pub enum PolicyDefinitionId {
     Unscoped { expanded: String },
     ManagementGroupScoped { expanded: String },
     SubscriptionScoped { expanded: String },
+    ResourceGroupScoped { expanded: String },
 }
 impl NameValidatable for PolicyDefinitionId {
     fn validate_name(name: &str) -> Result<()> {
@@ -38,8 +40,8 @@ impl NameValidatable for PolicyDefinitionId {
     }
 }
 impl HasPrefix for PolicyDefinitionId {
-    fn get_prefix() -> Option<&'static str> {
-        Some(POLICY_DEFINITION_ID_PREFIX)
+    fn get_prefix() -> &'static str {
+        POLICY_DEFINITION_ID_PREFIX
     }
 }
 impl TryFromUnscoped for PolicyDefinitionId {
@@ -49,6 +51,14 @@ impl TryFromUnscoped for PolicyDefinitionId {
         }
     }
 }
+impl TryFromResourceGroupScoped for PolicyDefinitionId {
+    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
+        PolicyDefinitionId::ResourceGroupScoped {
+            expanded: expanded.to_string(),
+        }
+    }
+}
+
 impl TryFromSubscriptionScoped for PolicyDefinitionId {
     unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
         PolicyDefinitionId::SubscriptionScoped {
@@ -56,6 +66,7 @@ impl TryFromSubscriptionScoped for PolicyDefinitionId {
         }
     }
 }
+
 impl TryFromManagementGroupScoped for PolicyDefinitionId {
     unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self {
         PolicyDefinitionId::ManagementGroupScoped {
@@ -72,10 +83,11 @@ impl Scope for PolicyDefinitionId {
     fn expanded_form(&self) -> &str {
         match self {
             Self::Unscoped { expanded } => expanded,
+            Self::ResourceGroupScoped { expanded } => expanded,
             Self::SubscriptionScoped { expanded } => expanded,
             Self::ManagementGroupScoped { expanded } => expanded,
         }
-    }
+    }	
 
     fn short_form(&self) -> &str {
         self.expanded_form()
