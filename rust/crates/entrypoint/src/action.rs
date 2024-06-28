@@ -43,6 +43,14 @@ pub enum Action {
     UseTerraform,
     UseTofu,
     PopulateCache,
+    Quit,
+}
+
+#[derive(Eq, PartialEq, Debug)]
+pub enum ActionResult {
+    QuitApplication,
+    Continue,
+    PauseAndContinue,
 }
 
 impl Action {
@@ -67,39 +75,42 @@ impl Action {
             Action::UseTerraform => "use terraform",
             Action::UseTofu => "use tofu",
             Action::PopulateCache => "populate cache",
+            Action::Quit => "quit",
         }
     }
     #[instrument]
-    pub async fn invoke(&self) -> Result<()> {
+    pub async fn invoke(&self) -> Result<ActionResult> {
         match self {
-            Action::BuildPolicyImports => build_policy_imports().await,
-            Action::BuildGroupImports => build_group_imports().await,
-            Action::BuildResourceGroupImports => build_resource_group_imports().await,
-            Action::BuildRoleAssignmentImports => build_role_assignment_imports().await,
-            Action::BuildImportsFromExisting => build_imports_from_existing().await,
-            Action::PerformImport => perform_import().await,
-            Action::ProcessGenerated => process_generated().await,
-            Action::Clean => clean_all().await,
-            Action::CleanImports => clean_imports().await,
-            Action::CleanProcessed => clean_processed().await,
-            Action::InitProcessed => init_processed().await,
-            Action::ApplyProcessed => apply_processed().await,
-            Action::JumpToBlock => jump_to_block(IgnoreDir::Processed.into()).await,
-            Action::ListImports => list_imports().await,
-            Action::RemediatePolicyAssignment => remediate_policy_assignment().await,
-            Action::EvaluatePolicyAssignmentCompliance => {
-                evaluate_policy_assignment_compliance().await
-            }
-            Action::UseTerraform => {
-                env::set_var(USE_TERRAFORM_FLAG_KEY, "1");
-                Ok(())
-            }
-            Action::UseTofu => {
-                env::remove_var(USE_TERRAFORM_FLAG_KEY);
-                Ok(())
+            Action::BuildPolicyImports => build_policy_imports().await?,
+            Action::BuildGroupImports => build_group_imports().await?,
+            Action::BuildResourceGroupImports => build_resource_group_imports().await?,
+            Action::BuildRoleAssignmentImports => build_role_assignment_imports().await?,
+            Action::BuildImportsFromExisting => build_imports_from_existing().await?,
+            Action::PerformImport => perform_import().await?,
+            Action::ProcessGenerated => process_generated().await?,
+            Action::Clean => clean_all().await?,
+            Action::CleanImports => clean_imports().await?,
+            Action::CleanProcessed => clean_processed().await?,
+            Action::InitProcessed => init_processed().await?,
+            Action::ApplyProcessed => apply_processed().await?,
+            Action::JumpToBlock => {
+                jump_to_block(IgnoreDir::Processed.into()).await?;
+                return Ok(ActionResult::Continue);
             },
-            Action::PopulateCache => populate_cache().await,
+            Action::ListImports => {
+                list_imports().await?;
+                return Ok(ActionResult::Continue);
+            },
+            Action::RemediatePolicyAssignment => remediate_policy_assignment().await?,
+            Action::EvaluatePolicyAssignmentCompliance => {
+                evaluate_policy_assignment_compliance().await?
+            }
+            Action::UseTerraform => env::set_var(USE_TERRAFORM_FLAG_KEY, "1"),
+            Action::UseTofu => env::remove_var(USE_TERRAFORM_FLAG_KEY),
+            Action::PopulateCache => populate_cache().await?,
+            Action::Quit => return Ok(ActionResult::QuitApplication),
         }
+        Ok(ActionResult::PauseAndContinue)
     }
     pub fn variants() -> Vec<Action> {
         vec![
@@ -108,6 +119,7 @@ impl Action {
             Action::Clean,
             Action::CleanImports,
             Action::CleanProcessed,
+            Action::Quit,
             Action::PopulateCache,
             Action::RemediatePolicyAssignment,
             Action::EvaluatePolicyAssignmentCompliance,
@@ -123,9 +135,6 @@ impl Action {
             Action::ApplyProcessed,
             Action::JumpToBlock,
         ]
-    }
-    pub fn should_pause(&self) -> bool {
-        !matches!(self, Action::JumpToBlock | Action::ListImports)
     }
 
     /// Some actions don't make sense if files are missing from expected locations.

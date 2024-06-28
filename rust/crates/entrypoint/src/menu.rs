@@ -8,8 +8,9 @@ use fzf::FzfArgs;
 use tracing::info;
 
 use crate::action::Action;
+	use crate::action::ActionResult;
 
-pub async fn menu() -> Result<()> {
+pub async fn menu() -> Result<ActionResult> {
     // Create a container for the choices we are about to gather
     let mut choices = Vec::new();
 
@@ -39,7 +40,7 @@ pub async fn menu() -> Result<()> {
             }
             .to_string(),
         ),
-        prompt: None,
+        prompt: None,	
     })?;
 
     // restore execution order
@@ -47,24 +48,35 @@ pub async fn menu() -> Result<()> {
 
     for action in &chosen {
         info!("Invoking action {action}");
-        action
+        let result = action
             .invoke()
             .await
             .context(format!("invoking action: {action}"))?;
-        // Don't pause when running multiple actions
-        if action.should_pause() && chosen.len() == 1 {
-            CommandBuilder::new(CommandKind::Pause)
-                .use_output_behaviour(OutputBehaviour::Display)
-                .run_raw()
-                .await?;
+        match result {
+            ActionResult::PauseAndContinue if chosen.len() == 1 => {
+                // Don't pause when running multiple actions
+                CommandBuilder::new(CommandKind::Pause)
+                    .use_output_behaviour(OutputBehaviour::Display)
+                    .run_raw()
+                    .await?;
+            }
+            ActionResult::QuitApplication => {
+                return Ok(result);
+            }
+            ActionResult::Continue | _ => {}
         }
     }
-
-    Ok(())
+    Ok(ActionResult::Continue)
 }
 
 pub async fn menu_loop() -> Result<()> {
     loop {
-        menu().await?;
+        match menu().await? {
+            ActionResult::QuitApplication => {
+                info!("Goodbye!");
+                return Ok(());
+            },
+            _ => {}
+        }
     }
 }
