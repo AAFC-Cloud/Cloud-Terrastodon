@@ -609,15 +609,7 @@ impl CommandBuilder {
         match serde_json::from_str(&output.stdout) {
             Ok(results) => Ok(results),
             Err(e) => {
-                let dir = match &self.cache_behaviour {
-                    CacheBehaviour::None => IgnoreDir::Commands.join("failed"),
-                    CacheBehaviour::Some {
-                        path: cache_dir, ..
-                    } => cache_dir.join("failed"),
-                };
-                dir.ensure_dir_exists().await?;
-                let dir = Builder::new().prefix("temp_").tempdir_in(dir)?.into_path();
-                self.write_output(&output, &dir).await?;
+                let dir = self.write_failure(&output).await?;
                 Err(e).context(format!(
                     "deserializing {} failed, dumped to {:?}",
                     self.summarize(),
@@ -625,6 +617,19 @@ impl CommandBuilder {
                 ))
             }
         }
+    }
+
+    pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
+        let dir = match &self.cache_behaviour {
+            CacheBehaviour::None => IgnoreDir::Commands.join("failed"),
+            CacheBehaviour::Some {
+                path: cache_dir, ..
+            } => cache_dir.join("failed"),
+        };
+        dir.ensure_dir_exists().await?;
+        let dir = Builder::new().prefix("temp_").tempdir_in(dir)?.into_path();
+        self.write_output(&output, &dir).await?;
+        Ok(dir)
     }
 }
 

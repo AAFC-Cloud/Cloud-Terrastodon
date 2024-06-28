@@ -17,7 +17,6 @@ use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
-use uuid::Uuid;
 
 pub const ROLE_DEFINITION_ID_PREFIX: &str = "/providers/Microsoft.Authorization/RoleDefinitions/";
 
@@ -111,15 +110,20 @@ pub struct RolePermission {
     #[serde(rename = "actions")]
     actions: Vec<String>,
 }
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub enum RoleDefinitionKind {
+    BuiltInRole,
+    CustomRole
+}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct RoleDefinition {
     pub id: RoleDefinitionId,
-    pub name: Uuid,
-    pub role_name: String,
+    pub display_name: String,
     pub description: String,
     pub assignable_scopes: Vec<String>,
     pub permissions: Vec<RolePermission>,
+    pub kind: RoleDefinitionKind,
 }
 
 impl HasScope for RoleDefinition {
@@ -135,7 +139,7 @@ impl HasScope for &RoleDefinition {
 
 impl std::fmt::Display for RoleDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.role_name)?;
+        f.write_str(&self.display_name)?;
         f.write_str(" (")?;
         f.write_str(self.id.short_form())?;
         f.write_str(")")?;
@@ -149,7 +153,7 @@ impl From<RoleDefinition> for TofuImportBlock {
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleDefinition,
-                name: format!("{}__{}", resource_group.name, resource_group.id).sanitize(),
+                name: format!("{}__{}", resource_group.display_name, resource_group.id.short_form()).sanitize(),
             },
         }
     }
@@ -158,6 +162,7 @@ impl From<RoleDefinition> for TofuImportBlock {
 mod tests {
     use super::*;
     use anyhow::Result;
+    use uuid::Uuid;
 
     #[test]
     fn deserializes() -> Result<()> {

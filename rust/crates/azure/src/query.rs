@@ -8,12 +8,44 @@ use command::prelude::CacheBehaviour;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde::Serialize;
 
 pub struct QueryBuilder {
     query: Rc<String>,
     cache_behaviour: CacheBehaviour,
     skip_token: Option<String>,
     index: usize,
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QueryRestOptions {
+    #[serde(rename = "$skip")]
+    skip: u32,
+    #[serde(rename = "$top")]
+    top: u32,
+    #[serde(rename = "$skipToken")]
+    skip_token: Option<String>,
+    #[serde(rename = "authorizationScopeFilter")]
+    authorization_scope_filter: QueryRestScopeFilterOption,
+    #[serde(rename = "resultFormat")]
+    result_format: QueryRestResultFormat,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum QueryRestScopeFilterOption {
+    AtScopeAboveAndBelow,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum QueryRestResultFormat {
+    #[serde(rename = "table")]
+    Table,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QueryRestBody {
+    query: String,
+    options: QueryRestOptions,
 }
 
 impl QueryBuilder {
@@ -35,11 +67,38 @@ impl QueryBuilder {
     pub async fn fetch<T: DeserializeOwned>(&mut self) -> Result<Option<QueryResponse<T>>> {
         // Assemble command
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        // Previously tried using `az graph query` but hit issues with scopes
+        // we want the results to be identical to the resource graph explorer in the portal
+        // so we must be able to pass authorizationScopeFilter: AtScopeAboveandBelow
+        // in the body, so we will use `az rest` instead.
+
+        /*
         cmd.args(["graph", "query", "--graph-query"]);
         cmd.file_arg("query.kql", self.query.to_string());
         if let Some(ref skip_token) = self.skip_token {
             cmd.args(["--skip-token", skip_token]);
         }
+        */
+
+        cmd.args(["rest","--method","POST","--url","https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01", "--body"]);
+        let batch_size = 1000;
+        cmd.file_arg(
+            "body.json",
+            serde_json::to_string_pretty(&QueryRestBody {
+                query: self.query.to_string(),
+                options: QueryRestOptions {
+                    skip: if self.skip_token.is_some() {
+                        batch_size
+                    } else {
+                        0
+                    },
+                    top: batch_size,
+                    skip_token: self.skip_token.to_owned(),
+                    authorization_scope_filter: QueryRestScopeFilterOption::AtScopeAboveAndBelow,
+                    result_format: QueryRestResultFormat::Table,
+                },
+            })?,
+        );
 
         // Set up caching
         if let CacheBehaviour::Some {
@@ -58,7 +117,13 @@ impl QueryBuilder {
 
         // Run command
         let results = cmd.run::<QueryResponse<T>>().await?;
+
+        // Update skip token
         self.skip_token = results.skip_token.clone();
+        
+        // // Transform results
+        // let results: QueryResponse<T> = results.try_into()?;
+
         Ok(Some(results))
     }
 
@@ -107,7 +172,9 @@ resourcecontainers
         assert!(data.len() > 100);
         for row in data.iter().take(5) {
             println!("- {}", row.name);
+            assert!(!row.name.is_empty());
         }
+        println!("({} rows omitted)", data.len() - 5);
         Ok(())
     }
 }

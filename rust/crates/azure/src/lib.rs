@@ -13,6 +13,7 @@ mod role_assignments;
 mod subscriptions;
 mod users;
 mod query;
+mod role_definitions;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
@@ -25,6 +26,7 @@ pub mod prelude {
     pub use crate::remediate_policy_assignment::*;
     pub use crate::resource_groups::*;
     pub use crate::role_assignments::*;
+    pub use crate::role_definitions::*;
     pub use crate::subscriptions::*;
     pub use crate::users::*;
     pub use crate::query::*;
