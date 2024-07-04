@@ -13,6 +13,7 @@ use itertools::Itertools;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::time::Duration;
+use tofu_types::prelude::Sanitizable;
 use tracing::info;
 
 pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
@@ -63,7 +64,10 @@ policyResources
     let reference_ids = QueryBuilder::new(
         query.to_string(),
         CacheBehaviour::Some {
-            path: PathBuf::from(format!("policy-compliance-for-{}", policy_assignment.name)),
+            path: PathBuf::from(format!(
+                "policy-compliance-for-{}",
+                policy_assignment.name.sanitize()
+            )),
             valid_for: Duration::from_mins(15),
         },
     )
@@ -128,7 +132,10 @@ policyResources
         CacheBehaviour::Some {
             path: PathBuf::from(format!(
                 "policy-compliance-for-{}-{}",
-                policy_assignment.name, chosen_reference_id.policy_definition_reference_id
+                policy_assignment.name.sanitize(),
+                chosen_reference_id
+                    .policy_definition_reference_id
+                    .sanitize()
             )),
             valid_for: Duration::from_mins(15),
         },
@@ -158,8 +165,7 @@ policyResources
         prompt: Some("Choose an inner policy to review> ".to_string()),
         header: Some(format!(
             "{} - {}",
-            chosen_reference_id.policy_definition_reference_id,
-            chosen_reference_id.resource_type,
+            chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
         )),
     })?;
 

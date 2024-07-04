@@ -6,6 +6,7 @@ use azure_types::prelude::Subscription;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use indicatif::MultiProgress;
+use tofu_types::prelude::Sanitizable;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -24,7 +25,7 @@ pub async fn fetch_all_resource_groups() -> Result<HashMap<Subscription, Vec<Res
             ]);
             cmd.use_cache_dir(PathBuf::from_iter([
                 "az group list",
-                format!("--subscription {}", sub.name).as_str(),
+                format!("--subscription {}", sub.name.sanitize()).as_str(),
             ]));
             cmd.run().await
         })
