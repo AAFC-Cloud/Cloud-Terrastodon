@@ -19,3 +19,6 @@ command = { workspace = true }
 tracing = { workspace = true }
 pathing_types = { workspace = true }
 clap = { workspace = true }
+
+[dev-dependencies]
+test-log = { workspace = true }

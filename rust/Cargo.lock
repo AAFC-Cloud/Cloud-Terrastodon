@@ -336,6 +336,7 @@ dependencies = [
  "pathing_types",
  "serde",
  "serde_json",
+ "test-log",
  "tofu",
  "tokio",
  "tracing",

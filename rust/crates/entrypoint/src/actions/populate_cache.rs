@@ -60,3 +60,15 @@ pub async fn populate_cache() -> Result<()> {
     pb.finish_with_message("Cache population complete");
     Ok(())
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test_log::test(tokio::test)]
+    #[ignore]
+    async fn it_works() -> Result<()> {
+        populate_cache().await?;
+        Ok(())
+    }
+}
