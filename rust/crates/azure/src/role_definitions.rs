@@ -17,7 +17,7 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     display_name = properties.roleName,
     ['kind'] = properties.type
 | project-away properties"#
-        .to_string(),
+            .to_string(),
         CacheBehaviour::Some {
             path: PathBuf::from("role-definitions"),
             valid_for: Duration::from_days(1),
@@ -30,6 +30,7 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use azure_types::prelude::Scope;
 
     use super::*;
@@ -39,8 +40,22 @@ mod tests {
         let results = fetch_all_role_definitions().await?;
         println!("Found {} role definitions:", results.len());
         for role in results {
-            println!("- {:?} {} ({})", role.kind, role.display_name, role.id.short_form());
+            println!(
+                "- {:?} {} ({})",
+                role.kind,
+                role.display_name,
+                role.id.short_form()
+            );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn understanding_context() -> Result<()> {
+        let e1 = anyhow!("Something went wrong! (base error)").context("e1 context");
+        let e2 = e1.context("e2 context");
+
+        println!("{e2:#}\n=====\n{e2:#?}\n=====");
         Ok(())
     }
 }
