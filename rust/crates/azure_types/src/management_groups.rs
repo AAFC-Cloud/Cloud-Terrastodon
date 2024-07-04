@@ -1,4 +1,5 @@
 use crate::resource_name_rules::validate_management_group_name;
+use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeError;
 use crate::scopes::ScopeImpl;
@@ -70,7 +71,7 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id =
-            ManagementGroupId::try_from_expanded(expanded.as_str()).map_err(D::Error::custom)?;
+            ManagementGroupId::try_from_expanded(expanded.as_str()).map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }
@@ -85,6 +86,16 @@ pub struct ManagementGroup {
     pub tenant_id: String,
     #[serde(rename = "type")]
     pub kind: String,
+}
+impl HasScope for ManagementGroup {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+impl HasScope for &ManagementGroup {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
 }
 impl std::fmt::Display for ManagementGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
