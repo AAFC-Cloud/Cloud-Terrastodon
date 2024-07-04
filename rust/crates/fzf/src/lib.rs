@@ -11,8 +11,8 @@ use std::process::Stdio;
 
 #[derive(Debug)]
 pub struct Choice<T> {
-    pub inner: T,
     pub display: String,
+    pub inner: T,
 }
 impl<T> std::fmt::Display for Choice<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

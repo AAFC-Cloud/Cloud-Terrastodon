@@ -13,6 +13,7 @@ mod list_imports;
 mod perform_import;
 mod process_generated;
 mod populate_cache;
+mod pim_activate;
 
 pub mod prelude {
     pub use crate::actions::apply_processed::*;
@@ -30,4 +31,5 @@ pub mod prelude {
     pub use crate::actions::perform_import::*;
     pub use crate::actions::process_generated::*;
     pub use crate::actions::populate_cache::*;
+    pub use crate::actions::pim_activate::*;
 }

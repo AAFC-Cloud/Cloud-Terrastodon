@@ -1,5 +1,6 @@
 use crate::management_groups::ManagementGroupId;
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
+use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
 use crate::policy_assignments::PolicyAssignmentId;
 use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
@@ -15,6 +16,7 @@ use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
 use clap::ValueEnum;
+use std::str::pattern::Pattern;
 use std::str::FromStr;
 
 pub trait HasName {
@@ -72,13 +74,19 @@ where
     unsafe fn new_unscoped_unchecked(expanded: &str) -> Self;
 }
 
+pub fn strip_prefix_case_insensitive<'a>(expanded: &'a str, prefix: &str) -> Result<&'a str> {
+    if !prefix.to_lowercase().is_prefix_of(&expanded.to_lowercase()) {
+        return Err(ScopeError::Malformed)
+            .context(format!("String {expanded:?} must begin with {prefix:?}"));
+    }
+    let remaining = &expanded[prefix.len()..];
+    Ok(remaining)
+}
+
 fn strip_prefix_and_slug_leaving_slash<'a>(expanded: &'a str, prefix: &str) -> Result<&'a str> {
     // /subscription/abc/resourceGroups/def
     // Remove prefix
-    let Some(remaining) = expanded.strip_prefix(prefix) else {
-        return Err(ScopeError::Malformed)
-            .context(format!("String {expanded:?} must begin with {prefix:?}"));
-    };
+    let remaining = strip_prefix_case_insensitive(expanded, prefix)?;
 
     // abc/resourceGroups/def
     // Remove slug
@@ -96,14 +104,6 @@ fn strip_prefix_and_slug_leaving_slash<'a>(expanded: &'a str, prefix: &str) -> R
     Ok(remaining)
 }
 
-fn strip_prefix<'a>(expanded: &'a str, prefix: &str) -> Result<&'a str> {
-    let Some(remaining) = expanded.strip_prefix(prefix) else {
-        return Err(ScopeError::Malformed)
-            .context(format!("String {expanded:?} must begin with {prefix:?}"));
-    };
-    Ok(remaining)
-}
-
 pub trait TryFromResourceGroupScoped
 where
     Self: Sized + NameValidatable + HasPrefix,
@@ -111,7 +111,7 @@ where
     fn try_from_expanded_resource_group_scoped(expanded: &str) -> Result<Self> {
         let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
         let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)?;
-        let name = strip_prefix(remaining, Self::get_prefix())?;
+        let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
         Self::validate_name(name)?;
         unsafe { Ok(Self::new_resource_group_scoped_unchecked(expanded)) }
     }
@@ -127,7 +127,7 @@ where
 {
     fn try_from_expanded_subscription_scoped(expanded: &str) -> Result<Self> {
         let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
-        let name = strip_prefix(remaining, Self::get_prefix())?;
+        let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
         Self::validate_name(name)?;
         unsafe { Ok(Self::new_subscription_scoped_unchecked(expanded)) }
     }
@@ -143,7 +143,7 @@ where
 {
     fn try_from_expanded_management_group_scoped(expanded: &str) -> Result<Self> {
         let remaining = strip_prefix_and_slug_leaving_slash(expanded, MANAGEMENT_GROUP_ID_PREFIX)?;
-        let name = strip_prefix(remaining, Self::get_prefix())?;
+        let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
         Self::validate_name(name)?;
         unsafe { Ok(Self::new_management_group_scoped_unchecked(expanded)) }
     }
@@ -220,6 +220,7 @@ pub enum ScopeImplKind {
     ResourceGroup,
     RoleAssignment,
     RoleDefinition,
+    RoleEligibilitySchedule,
     Subscription,
     Test,
 }
@@ -233,6 +234,7 @@ pub enum ScopeImpl {
     ResourceGroup(ResourceGroupId),
     RoleAssignment(RoleAssignmentId),
     RoleDefinition(RoleDefinitionId),
+    RoleEligibilitySchedule(RoleEligibilityScheduleId),
     Subscription(SubscriptionId),
     TestResource(TestResourceId),
 }
@@ -248,6 +250,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleDefinition(id) => id.expanded_form(),
             ScopeImpl::Subscription(id) => id.expanded_form(),
             ScopeImpl::TestResource(id) => id.expanded_form(),
+            ScopeImpl::RoleEligibilitySchedule(id) => id.expanded_form(),
         }
     }
 
@@ -262,6 +265,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleDefinition(id) => id.short_form(),
             ScopeImpl::Subscription(id) => id.short_form(),
             ScopeImpl::TestResource(id) => id.short_form(),
+            ScopeImpl::RoleEligibilitySchedule(id) => id.short_form(),
         }
     }
 
@@ -296,6 +300,9 @@ impl Scope for ScopeImpl {
         if let Ok(id) = TestResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::TestResource(id));
         }
+        if let Ok(id) = RoleEligibilityScheduleId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::RoleEligibilitySchedule(id));
+        }
 
         Err(ScopeError::Unrecognized.into())
     }
@@ -311,6 +318,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleDefinition(_) => ScopeImplKind::RoleDefinition,
             ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
+            ScopeImpl::RoleEligibilitySchedule(_) => ScopeImplKind::RoleEligibilitySchedule,
         }
     }
 
@@ -356,6 +364,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::TestResource(x) => {
                 f.write_fmt(format_args!("TestResource({})", x.short_form()))
+            }
+            ScopeImpl::RoleEligibilitySchedule(x) => {
+                f.write_fmt(format_args!("RoleEligibilitySchedule({})", x.short_form()))
             }
         }
     }

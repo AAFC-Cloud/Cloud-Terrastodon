@@ -13,6 +13,7 @@ use crate::actions::prelude::init_processed;
 use crate::actions::prelude::jump_to_block;
 use crate::actions::prelude::list_imports;
 use crate::actions::prelude::perform_import;
+use crate::actions::prelude::pim_activate;
 use crate::actions::prelude::populate_cache;
 use crate::actions::prelude::process_generated;
 use anyhow::Result;
@@ -43,6 +44,7 @@ pub enum Action {
     UseTerraform,
     UseTofu,
     PopulateCache,
+    PimActivate,
     Quit,
 }
 
@@ -75,6 +77,7 @@ impl Action {
             Action::UseTerraform => "use terraform",
             Action::UseTofu => "use tofu",
             Action::PopulateCache => "populate cache",
+            Action::PimActivate => "pim activate",
             Action::Quit => "quit",
         }
     }
@@ -93,6 +96,7 @@ impl Action {
             Action::CleanProcessed => clean_processed().await?,
             Action::InitProcessed => init_processed().await?,
             Action::ApplyProcessed => apply_processed().await?,
+            Action::PimActivate => pim_activate().await?,
             Action::JumpToBlock => {
                 jump_to_block(IgnoreDir::Processed.into()).await?;
                 return Ok(ActionResult::Continue);
@@ -121,6 +125,7 @@ impl Action {
             Action::CleanProcessed,
             Action::Quit,
             Action::PopulateCache,
+            Action::PimActivate,
             Action::RemediatePolicyAssignment,
             Action::EvaluatePolicyAssignmentCompliance,
             Action::BuildResourceGroupImports,
