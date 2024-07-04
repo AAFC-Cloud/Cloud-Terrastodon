@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::debug;
 
-pub async fn fetch_management_groups() -> Result<Vec<ManagementGroup>> {
+pub async fn fetch_all_management_groups() -> Result<Vec<ManagementGroup>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.use_cache_dir("az account management-group list");
     cmd.args([
@@ -35,7 +35,7 @@ where
 {
     // Fetch subscriptions
     debug!("Fetching management groups");
-    let management_groups = fetch_management_groups().await?;
+    let management_groups = fetch_all_management_groups().await?;
 
     // Set up progress bars
     // https://github.com/console-rs/indicatif/blob/main/examples/multi-tree.rs
@@ -88,7 +88,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_management_groups().await?;
+        let result = fetch_all_management_groups().await?;
         println!("Found {} management groups:", result.len());
         for mg in result {
             println!("- {} ({})", mg.display_name, mg.name);
