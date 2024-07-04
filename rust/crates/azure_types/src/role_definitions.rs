@@ -1,3 +1,4 @@
+use crate::scopes::strip_prefix_case_insensitive;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
@@ -10,7 +11,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use std::str::pattern::Pattern;
 use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
@@ -41,7 +41,7 @@ impl FromStr for RoleDefinitionId {
     type Err = anyhow::Error;
 
     fn from_str(expanded: &str) -> Result<Self, Self::Err> {
-        if !ROLE_DEFINITION_ID_PREFIX.is_prefix_of(expanded) {
+        if strip_prefix_case_insensitive(expanded, ROLE_DEFINITION_ID_PREFIX).is_err() {
             bail!(
                 "Missing prefix {ROLE_DEFINITION_ID_PREFIX} trying to parse {expanded} as {:?}",
                 ScopeImplKind::RoleDefinition
@@ -93,7 +93,7 @@ impl<'de> Deserialize<'de> for RoleDefinitionId {
         D: Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id = expanded.parse().map_err(D::Error::custom)?;
+        let id = expanded.parse().map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }
@@ -102,12 +102,16 @@ impl<'de> Deserialize<'de> for RoleDefinitionId {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct RolePermission {
     #[serde(rename = "notDataActions")]
+    #[serde(alias = "NotDataActions")]
     not_data_actions: Vec<String>,
     #[serde(rename = "dataActions")]
+    #[serde(alias = "DataActions")]
     data_actions: Vec<String>,
     #[serde(rename = "notActions")]
+    #[serde(alias = "NotActions")]
     not_actions: Vec<String>,
     #[serde(rename = "actions")]
+    #[serde(alias = "Actions")]
     actions: Vec<String>,
 }
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
