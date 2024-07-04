@@ -120,7 +120,7 @@ impl<'de> Deserialize<'de> for PolicyDefinitionId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id =
-            PolicyDefinitionId::try_from_expanded(expanded.as_str()).map_err(D::Error::custom)?;
+            PolicyDefinitionId::try_from_expanded(expanded.as_str()).map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }
@@ -129,7 +129,7 @@ impl<'de> Deserialize<'de> for PolicyDefinitionId {
 pub struct PolicyDefinition {
     pub description: Option<String>,
     #[serde(rename = "displayName")]
-    pub display_name: String,
+    pub display_name: Option<String>,
     pub id: PolicyDefinitionId,
     pub metadata: HashMap<String, Value>,
     pub mode: String,

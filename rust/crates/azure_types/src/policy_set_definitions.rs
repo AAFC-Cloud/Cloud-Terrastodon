@@ -118,7 +118,7 @@ impl<'de> Deserialize<'de> for PolicySetDefinitionId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = PolicySetDefinitionId::try_from_expanded(expanded.as_str())
-            .map_err(D::Error::custom)?;
+            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }
