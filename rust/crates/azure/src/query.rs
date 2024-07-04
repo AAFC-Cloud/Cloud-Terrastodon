@@ -1,7 +1,5 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
-use std::rc::Rc;
-
 use anyhow::Result;
 use azure_types::prelude::QueryResponse;
 use command::prelude::CacheBehaviour;
@@ -12,7 +10,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 pub struct QueryBuilder {
-    query: Rc<String>,
+    query: String,
     cache_behaviour: CacheBehaviour,
     skip_token: Option<String>,
     index: usize,
@@ -52,12 +50,12 @@ impl QueryBuilder {
     pub fn new(query: String, mut cache_behaviour: CacheBehaviour) -> Self {
         if let CacheBehaviour::Some { ref mut path, .. } = cache_behaviour {
             let mut segment = OsString::new();
-            segment.push("--graph-query ");
+            segment.push("az graph query --graph-query ");
             segment.push(path.as_os_str());
-            *path = PathBuf::from("az graph query").join(segment);
+            *path = PathBuf::from(segment);
         }
         Self {
-            query: Rc::new(query),
+            query,
             cache_behaviour,
             skip_token: None,
             index: 0,
