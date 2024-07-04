@@ -13,7 +13,7 @@ use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::debug;
 
-pub async fn fetch_subscriptions() -> Result<Vec<Subscription>> {
+pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["account", "list", "--output", "json"]);
     cmd.use_cache_dir("az account list");
@@ -41,7 +41,7 @@ where
 {
     // Fetch subscriptions
     debug!("Fetching subscriptions");
-    let subscriptions = fetch_subscriptions().await?;
+    let subscriptions = fetch_all_subscriptions().await?;
 
     // Set up progress bars
     // https://github.com/console-rs/indicatif/blob/main/examples/multi-tree.rs
@@ -98,7 +98,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_subscriptions().await?;
+        let result = fetch_all_subscriptions().await?;
         println!("Found {} subscriptions:", result.len());
         for sub in result {
             println!("- {} ({})", sub.name, sub.id);

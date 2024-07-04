@@ -1,36 +1,36 @@
-use crate::prelude::gather_from_subscriptions;
+use crate::prelude::QueryBuilder;
 use anyhow::Result;
 use azure_types::prelude::ResourceGroup;
-use azure_types::prelude::Scope;
-use azure_types::prelude::Subscription;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
-use indicatif::MultiProgress;
-use tofu_types::prelude::Sanitizable;
-use std::collections::HashMap;
+use indoc::indoc;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::time::Duration;
 
-pub async fn fetch_all_resource_groups() -> Result<HashMap<Subscription, Vec<ResourceGroup>>> {
-    let resource_groups =
-        gather_from_subscriptions(async |sub: Subscription, _mp: Arc<MultiProgress>| {
-            let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-            cmd.args([
-                "group",
-                "list",
-                "--output",
-                "json",
-                "--subscription",
-                sub.id.short_form(),
-            ]);
-            cmd.use_cache_dir(PathBuf::from_iter([
-                "az group list",
-                format!("--subscription {}", sub.name.sanitize()).as_str(),
-            ]));
-            cmd.run().await
-        })
-        .await?;
-    Ok(resource_groups)
+pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
+    let query = indoc! {r#"
+        resourcecontainers
+        | where type =~ "microsoft.resources/subscriptions/resourcegroups"
+        | project
+            id,
+            location,
+            managed_by=managedBy,
+            name,
+            properties,
+            tags,
+            subscription_id=subscriptionId
+    "#}
+    .to_owned();
+
+    let rgs = QueryBuilder::	new(
+        query,
+        command::prelude::CacheBehaviour::Some {
+            path: PathBuf::from("resource_groups"),
+            valid_for: Duration::from_hours(8),
+        },
+    )
+    .collect_all::<ResourceGroup>()
+    .await?;
+
+    Ok(rgs)
 }
 
 #[cfg(test)]
@@ -41,12 +41,11 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
         let result = fetch_all_resource_groups().await?;
+        assert!(result.len() > 0);
         println!("Found {} resource groups:", result.len());
-        for (sub, groups) in result {
-            println!("Subscription: {}", sub.name);
-            for group in groups {
-                println!(" - {}", group);
-            }
+        for rg in result {
+            assert!(!rg.name.is_empty());
+            println!(" - {} (sub={})", rg.name, rg.subscription_id);
         }
         Ok(())
     }

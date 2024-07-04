@@ -6,6 +6,7 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromSubscriptionScoped;
+use crate::subscriptions::SubscriptionId;
 use anyhow::Result;
 use serde::de::Error;
 use serde::Deserialize;
@@ -107,14 +108,12 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ResourceGroup {
     pub id: ResourceGroupId,
+    pub subscription_id: SubscriptionId,
     pub location: String,
-    #[serde(rename = "managedBy")]
     pub managed_by: Option<String>,
     pub name: String,
     pub properties: HashMap<String, String>,
     pub tags: Option<HashMap<String, String>>,
-    #[serde(rename = "type")]
-    pub kind: String,
 }
 
 impl HasScope for ResourceGroup {

@@ -1,6 +1,5 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
+use crate::management_groups::fetch_root_management_group;
+use crate::resource_groups::fetch_all_resource_groups;
 use anyhow::Result;
 use azure_types::prelude::EligibleChildResource;
 use azure_types::prelude::HasScope;
@@ -8,12 +7,9 @@ use azure_types::prelude::Scope;
 use command::prelude::CacheBehaviour;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
-use fzf::Choice;
-use itertools::Itertools;
 use serde::Deserialize;
-
-use crate::management_groups::fetch_root_management_group;
-use crate::resource_groups::fetch_all_resource_groups;
+use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Eq, PartialEq, Debug, Default)]
 pub enum FetchChildrenBehaviour {
@@ -68,8 +64,6 @@ pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChil
     let rgs = fetch_all_resource_groups()
         .await?
         .into_iter()
-        .map(|x| x.1)
-        .flatten()
         .map(|x| EligibleChildResource {
             name: x.name.to_owned(),
             kind: azure_types::prelude::EligibleChildResourceKind::ResourceGroup,
@@ -84,8 +78,8 @@ pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChil
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::management_groups::fetch_all_management_groups;
     use crate::management_groups::fetch_root_management_group;
+    use crate::subscriptions::fetch_all_subscriptions;
     use azure_types::prelude::HasScope;
     use azure_types::prelude::Scope;
     use fzf::pick;
@@ -122,8 +116,6 @@ mod tests {
         let rg = fetch_all_resource_groups()
             .await?
             .into_iter()
-            .map(|x| x.1)
-            .flatten()
             .find(|x| x.name == "OPSSc-Dom-Sandbox-RG")
             .unwrap();
         let found = fetch_eligible_child_resources(
@@ -140,16 +132,8 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works4() -> Result<()> {
-        let sub = fetch_all_resource_groups()
-            .await?
-            .into_iter()
-            .find(|x| {
-                x.1.iter()
-                    .find(|rg| rg.name == "OPSSc-Dom-Sandbox-RG")
-                    .is_some()
-            })
-            .unwrap()
-            .0;
+        let subs = fetch_all_subscriptions().await?;
+        let sub = subs.first().unwrap();
         let found = fetch_eligible_child_resources(
             sub.scope().expanded_form(),
             FetchChildrenBehaviour::GetAllChildren,

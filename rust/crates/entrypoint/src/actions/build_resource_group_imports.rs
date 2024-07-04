@@ -1,15 +1,16 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use azure::prelude::fetch_all_resource_groups;
+use azure::prelude::fetch_all_subscriptions;
 use azure::prelude::ResourceGroup;
 use azure::prelude::Subscription;
+use azure::prelude::SubscriptionId;
 use fzf::pick_many;
 use fzf::Choice;
 use fzf::FzfArgs;
-use itertools::Itertools;
 use pathing_types::IgnoreDir;
+use std::collections::HashMap;
 use std::collections::HashSet;
-use std::rc::Rc;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
 use tofu::prelude::TofuProviderKind;
@@ -17,62 +18,62 @@ use tofu::prelude::TofuProviderReference;
 use tofu::prelude::TofuWriter;
 use tracing::info;
 
-pub struct SubRGPair {
-    subscription: Rc<Subscription>,
+pub struct SubRGPair<'a> {
+    subscription: &'a Subscription,
     resource_group: ResourceGroup,
 }
-
-impl From<SubRGPair> for Choice<SubRGPair> {
-    fn from(value: SubRGPair) -> Self {
-        let display = format!("{}", value.resource_group.name);
-        Choice {
-            inner: value,
-            display,
-        }
+impl std::fmt::Display for SubRGPair<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.resource_group.name)
     }
 }
 
 pub async fn build_resource_group_imports() -> Result<()> {
     info!("Fetching resource groups");
-    let resource_groups = fetch_all_resource_groups()
+    let subscriptions = fetch_all_subscriptions()
         .await?
         .into_iter()
-        .flat_map(|(sub, rgs)| {
-            let subscription = Rc::new(sub);
-            rgs.into_iter().map(move |rg| SubRGPair {
-                subscription: subscription.clone(),
-                resource_group: rg,
-            })
-        })
-        .collect_vec();
+        .map(|sub| (sub.id.clone(), sub))
+        .collect::<HashMap<SubscriptionId, Subscription>>();
 
+    let resource_groups = fetch_all_resource_groups().await?;
+
+    info!("Prompting for which to import");
+    let mut choices: Vec<Choice<SubRGPair>> = Vec::with_capacity(resource_groups.len());
+    for rg in resource_groups {
+        let sub = subscriptions
+            .get(&rg.subscription_id)
+            .ok_or_else(|| anyhow!("could not find subscription for resource group {rg:?}"))?;
+        let choice = SubRGPair {
+            subscription: sub,
+            resource_group: rg,
+        };
+        choices.push(choice.into());
+    }
     let chosen = pick_many(FzfArgs {
-        choices: resource_groups,
+        choices,
         prompt: Some("Groups to import: ".to_string()),
         header: None,
     })?;
 
+    info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();
+    let mut imports = Vec::with_capacity(chosen.len());
+    for Choice { inner: pair, .. } in chosen {
+        let mut block: TofuImportBlock = pair.resource_group.into();
+        block.provider = TofuProviderReference::Alias {
+            kind: TofuProviderKind::AzureRM,
+            name: pair.subscription.name.sanitize(),
+        };
+        imports.push(block);
 
-    let imports = chosen
-        .into_iter()
-        .map(|pair| {
-            let provider_alias = TofuProviderReference::Alias {
-                kind: TofuProviderKind::AzureRM,
-                name: pair.subscription.name.sanitize(),
-            };
-            used_subscriptions.insert(pair.subscription);
-
-            let mut block: TofuImportBlock = pair.resource_group.into();
-            block.provider = provider_alias;
-            block
-        })
-        .collect_vec();
-
+        used_subscriptions.insert(pair.subscription);
+    }
     if imports.is_empty() {
         return Err(anyhow!("Imports should not be empty"));
     }
 
+    info!("Writing import blocks");
     TofuWriter::new(IgnoreDir::Imports.join("resource_group_imports.tf"))
         .overwrite(imports)
         .await?
@@ -81,9 +82,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
 
     let mut providers = Vec::new();
     for sub in used_subscriptions {
-        let sub = Rc::try_unwrap(sub)
-            .map_err(|_| anyhow!("Failed to take Subscription out of reference"))?;
-        let provider = sub.into_provider_block();
+        let provider = sub.clone().into_provider_block();
         providers.push(provider);
     }
     TofuWriter::new(IgnoreDir::Imports.join("boilerplate.tf"))
