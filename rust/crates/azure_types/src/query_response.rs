@@ -15,21 +15,7 @@ pub struct QueryResponse<T> {
     pub truncated: bool,
 }
 
-impl<'de, T> Deserialize<'de> for QueryResponse<T>
-where
-    T: for<'de2> Deserialize<'de2>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let raw = RawQueryResponse::deserialize(deserializer)?;
-        let good: QueryResponse<T> = raw.try_into().map_err(D::Error::custom)?;
-        Ok(good)
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RawQueryResponse {
     pub count: u64,
     pub data: Data,
@@ -41,6 +27,35 @@ pub struct RawQueryResponse {
     pub total_records: u64,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Data {
+    pub columns: Vec<Column>,
+    pub rows: Vec<Vec<Value>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Column {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+}
+
+impl<'de, T> Deserialize<'de> for QueryResponse<T>
+where
+    T: for<'de2> Deserialize<'de2>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = RawQueryResponse::deserialize(deserializer)?;
+        let good: QueryResponse<T> = raw
+            .try_into()
+            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+        Ok(good)
+    }
+}
+
 impl<T> TryFrom<RawQueryResponse> for QueryResponse<T>
 where
     T: for<'de> Deserialize<'de>,
@@ -50,25 +65,15 @@ where
     fn try_from(value: RawQueryResponse) -> Result<Self> {
         Ok(QueryResponse {
             count: value.count,
-            data: transform(value.data)?,
+            data: transform(value.data).context("transforming data")?,
             skip_token: value.skip_token,
             total_records: value.total_records,
-            truncated: value.truncated.parse()?,
+            truncated: value
+                .truncated
+                .parse()
+                .context("parsing boolean named 'truncated'")?,
         })
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Data {
-    pub columns: Vec<Column>,
-    pub rows: Vec<Vec<Value>>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Column {
-    pub name: String,
-    #[serde(rename = "type")]
-    pub kind: String,
 }
 
 fn transform<T>(data: Data) -> Result<Vec<T>>
@@ -81,8 +86,13 @@ where
         for (column, value) in data.columns.iter().zip(row) {
             map.insert(column.name.to_owned(), value);
         }
+        // in dev, clone the map so we can display when there are errors :/
+        #[cfg(debug_assertions)]
+        let record = serde_json::from_value(Value::Object(map.clone()))
+            .context(format!("failed to deserialize entry {i}, map={map:?}"))?;
+        #[cfg(not(debug_assertions))]
         let record = serde_json::from_value(Value::Object(map))
-            .context(format!("Failed to deserialize entry {}", i))?;
+            .context(format!("failed to deserialize entry {i}"))?;
         rtn.push(record);
     }
     Ok(rtn)
