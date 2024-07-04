@@ -610,11 +610,11 @@ impl CommandBuilder {
             Ok(results) => Ok(results),
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
-                Err(e).context(format!(
+                Err(anyhow::Error::new(e).context(format!(
                     "deserializing {} failed, dumped to {:?}",
                     self.summarize(),
                     dir
-                ))
+                )))
             }
         }
     }
