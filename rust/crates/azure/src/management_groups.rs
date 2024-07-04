@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use anyhow::Result;
 use azure_types::prelude::ManagementGroup;
 use command::prelude::CommandBuilder;
@@ -10,6 +11,16 @@ use std::future::Future;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::debug;
+
+pub async fn fetch_root_management_group() -> Result<ManagementGroup> {
+    fetch_all_management_groups()
+        .await?
+        .into_iter()
+        .find(|mg| mg.name == mg.tenant_id)
+        .ok_or_else(|| {
+            anyhow!("Failed to find a management group with name matching the tenant ID")
+        })
+}
 
 pub async fn fetch_all_management_groups() -> Result<Vec<ManagementGroup>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
