@@ -1,6 +1,5 @@
 use anyhow::Result;
-use azure::prelude::UserId;
-use azure::prelude::Uuid;
+use azure::prelude::uuid::Uuid;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
 use hcl::edit::structure::Body;
@@ -15,8 +14,8 @@ use tofu_types::prelude::TofuDataBlock;
 use tofu_types::prelude::TryAsTofuBlocks;
 
 pub struct UserIdReferencePatcher {
-    pub user_principal_name_by_user_id: HashMap<UserId, String>,
-    pub used: HashSet<UserId>,
+    pub user_principal_name_by_user_id: HashMap<Uuid, String>,
+    pub used: HashSet<Uuid>,
 }
 impl UserIdReferencePatcher {
     /// Returns None if no user references were transformed.
@@ -82,13 +81,13 @@ impl VisitMut for UserIdReferencePatcher {
             for entry in array.iter_mut() {
                 if let Some(value) = entry.as_str()
                     && let Ok(id) = Uuid::parse_str(value)
-                    && let Some(mail) = self.user_principal_name_by_user_id.get(&UserId(id))
+                    && let Some(mail) = self.user_principal_name_by_user_id.get(&id)
                     && let Ok(expr) = format!("local.users[\"{}\"]", mail).parse::<Expression>()
                 {
                     *entry = expr;
                     let decor = entry.decor_mut();
                     decor.set_prefix("\n");
-                    self.used.insert(UserId(id));
+                    self.used.insert(id);
                 }
             }
             array.set_trailing_comma(true);

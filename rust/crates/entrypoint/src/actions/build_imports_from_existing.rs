@@ -1,28 +1,9 @@
 use anyhow::anyhow;
-use anyhow::Context;
 use anyhow::Result;
 use pathing_types::IgnoreDir;
 use tofu::prelude::get_imports_from_existing;
 use tofu::prelude::TofuWriter;
-use tokio::io;
-use tokio::io::AsyncBufReadExt;
-use tokio::io::BufReader;
-
-async fn read_line() -> Result<String> {
-    let stdin = io::stdin();
-    let mut reader = BufReader::new(stdin);
-    let mut input = String::new();
-
-    // Reading a line asynchronously
-    reader
-        .read_line(&mut input)
-        .await
-        .context("Failed to read line")?;
-
-    // Remove the newline character from the end of the input
-    let input = input.trim();
-    Ok(input.to_string())
-}
+use crate::read_line::read_line;
 
 pub async fn build_imports_from_existing() -> Result<()> {
     println!("Enter the path to the existing workspace:");

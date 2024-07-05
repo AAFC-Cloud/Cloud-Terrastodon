@@ -17,7 +17,9 @@ mod role_eligibility_schedules;
 mod role_management_policy_assignments;
 mod subscriptions;
 mod users;
+mod pim_activate;
 pub mod prelude {
+    pub use azure_types::prelude::*;
     pub use crate::auth::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
@@ -36,5 +38,5 @@ pub mod prelude {
     pub use crate::role_management_policy_assignments::*;
     pub use crate::subscriptions::*;
     pub use crate::users::*;
-    pub use azure_types::prelude::*;
+    pub use crate::pim_activate::*;
 }
