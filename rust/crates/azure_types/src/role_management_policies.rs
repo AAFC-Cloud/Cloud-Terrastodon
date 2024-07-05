@@ -1,4 +1,4 @@
-use crate::scopes::try_from_expanded_hierarchy_scoped;
+use crate::scopes::try_from_expanded_resource_container_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -70,7 +70,7 @@ impl TryFromManagementGroupScoped for RoleManagementPolicyId {
 
 impl Scope for RoleManagementPolicyId {
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        try_from_expanded_hierarchy_scoped(expanded)
+        try_from_expanded_resource_container_scoped(expanded)
     }
 
     fn expanded_form(&self) -> &str {

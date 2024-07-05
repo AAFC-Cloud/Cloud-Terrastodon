@@ -161,13 +161,19 @@ where
 
 pub trait TryFromResourceScoped
 where
-    Self: Sized + NameValidatable + HasPrefix,	
+    Self: Sized + NameValidatable + HasPrefix,
 {
-    fn try_from_expanded_resource_group_scoped(expanded: &str) -> Result<Self> {
+    fn try_from_expanded_resource_scoped(expanded: &str) -> Result<Self> {
         let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
         let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)?;
         let remaining = strip_provider_and_resource(remaining)?;
-        let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
+        // the resource could have a subresource, like a subnet on a vnet
+        // now we search from the right
+        let prefix = Self::get_prefix();
+        let prefix_pos = remaining
+            .rfind(prefix)
+            .ok_or_else(|| anyhow!("String {remaining:?} must contain {prefix}"))?;
+        let name = &remaining[prefix_pos + prefix.len()..];
         Self::validate_name(name).context("validating name")?;
         unsafe { Ok(Self::new_resource_scoped_unchecked(expanded)) }
     }
@@ -210,7 +216,7 @@ where
     unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self;
 }
 
-pub fn try_from_expanded_hierarchy_scoped<T>(expanded: &str) -> Result<T>
+pub fn try_from_expanded_resource_container_scoped<T>(expanded: &str) -> Result<T>
 where
     T: TryFromUnscoped
         + TryFromManagementGroupScoped
@@ -242,6 +248,55 @@ where
                                         "unscoped attempt: ",
                                         unscoped_error
                                     );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+pub fn try_from_expanded_hierarchy_scoped<T>(expanded: &str) -> Result<T>
+where
+    T: TryFromUnscoped
+        + TryFromManagementGroupScoped
+        + TryFromSubscriptionScoped
+        + TryFromResourceGroupScoped
+        + TryFromResourceScoped,
+{
+    match T::try_from_expanded_management_group_scoped(expanded) {
+        Ok(x) => Ok(x),
+        Err(management_group_scoped_error) => {
+            match T::try_from_expanded_subscription_scoped(expanded) {
+                Ok(x) => Ok(x),
+                Err(subscription_scoped_error) => {
+                    match T::try_from_expanded_resource_group_scoped(expanded) {
+                        Ok(x) => Ok(x),
+                        Err(resource_group_scoped_error) => {
+                            match T::try_from_expanded_resource_scoped(expanded) {
+                                Ok(x) => Ok(x),
+                                Err(resource_scoped_error) => {
+                                    match T::try_from_expanded_unscoped(expanded) {
+                                        Ok(x) => Ok(x),
+                                        Err(unscoped_error) => {
+                                            bail!(
+                                                "{}\n{:?}\n========\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}",
+                                                "Hierarchy scoped parse failed for ",
+                                                expanded,
+                                                "management group scoped attempt: ",
+                                                management_group_scoped_error,
+                                                "subscription scoped attempt: ",
+                                                subscription_scoped_error,
+                                                "resource group scoped attempt: ",
+                                                resource_group_scoped_error,
+                                                "resource scoped attempt: ",
+                                                resource_scoped_error,
+                                                "unscoped attempt: ",
+                                                unscoped_error
+                                            );
+                                        }
+                                    }
                                 }
                             }
                         }

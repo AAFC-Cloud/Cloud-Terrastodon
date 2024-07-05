@@ -1,5 +1,5 @@
 use crate::resource_name_rules::validate_policy_name;
-use crate::scopes::try_from_expanded_hierarchy_scoped;
+use crate::scopes::try_from_expanded_resource_container_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
 use crate::scopes::NameValidatable;
@@ -75,7 +75,7 @@ impl TryFromManagementGroupScoped for PolicySetDefinitionId {
 
 impl Scope for PolicySetDefinitionId {
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        try_from_expanded_hierarchy_scoped(expanded)
+        try_from_expanded_resource_container_scoped(expanded)
     }
 
     fn expanded_form(&self) -> &str {
