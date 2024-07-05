@@ -638,6 +638,7 @@ impl CommandBuilder {
 /// You have been warned.
 #[cfg(test)]
 mod tests {
+    use tokio::task::spawn_blocking;
     use tokio::time::sleep;
 
     use super::*;
@@ -741,16 +742,23 @@ Resources
             path: PathBuf::from_iter(["az graph query", "--graph-query count-resource-containers"]),
             valid_for: Duration::from_secs(3),
         });
-
-        let result1 = cmd.run_raw().await?;
-        let result2 = cmd.run_raw().await?;
-        sleep(Duration::from_secs(4)).await;
-        let result3 = cmd.run_raw().await?;
-        println!("result1: {result1:?}\nresult2: {result2:?}\nresult3: {result3:?}");
-        assert_eq!(result1, result2);
-        assert_ne!(result1, result3);
+        
+        // we don't want anything between our `await` calls that could mess with the timing
+        spawn_blocking(move || {
+            tokio::runtime::Handle::current().block_on(async {
+                let result1 = cmd.run_raw().await?;
+                let result2 = cmd.run_raw().await?;
+                sleep(Duration::from_secs(4)).await;
+                let result3 = cmd.run_raw().await?;
+                println!("result1: {result1:?}\nresult2: {result2:?}\nresult3: {result3:?}");
+                assert_eq!(result1, result2);
+                assert_ne!(result1, result3);
+                Ok::<(),anyhow::Error>(())
+            })
+        })
+        .await??;
         Ok(())
-    }
+    }	
 
     #[tokio::test]
     async fn user() -> Result<()> {
