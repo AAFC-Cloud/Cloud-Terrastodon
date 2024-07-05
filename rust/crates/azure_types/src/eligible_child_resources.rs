@@ -1,8 +1,9 @@
 use serde::de::Visitor;
 use serde::de::{self};
-use serde::{Deserialize, Serializer};
+use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
+use serde::Serializer;
 use std::fmt;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -18,7 +19,6 @@ impl std::fmt::Display for EligibleChildResource {
     }
 }
 
-
 #[derive(Debug)]
 pub enum EligibleChildResourceKind {
     ManagementGroup,
@@ -33,7 +33,9 @@ impl Serialize for EligibleChildResourceKind {
         S: Serializer,
     {
         match self {
-            EligibleChildResourceKind::ManagementGroup => serializer.serialize_str("managementgroup"),
+            EligibleChildResourceKind::ManagementGroup => {
+                serializer.serialize_str("managementgroup")
+            }
             EligibleChildResourceKind::Subscription => serializer.serialize_str("subscription"),
             EligibleChildResourceKind::ResourceGroup => serializer.serialize_str("resourcegroup"),
             EligibleChildResourceKind::Other(ref s) => serializer.serialize_str(s),
@@ -72,7 +74,6 @@ impl<'de> Deserialize<'de> for EligibleChildResourceKind {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,7 +88,8 @@ mod tests {
         };
 
         let json = serde_json::to_string(&resource).unwrap();
-        let expected_json = r#"{"name":"Example Resource","type":"managementgroup","id":"resource-id-123"}"#;
+        let expected_json =
+            r#"{"name":"Example Resource","type":"managementgroup","id":"resource-id-123"}"#;
 
         assert_eq!(json, expected_json);
     }
@@ -114,7 +116,8 @@ mod tests {
         };
 
         let json = serde_json::to_string(&resource).unwrap();
-        let expected_json = r#"{"name":"Another Resource","type":"customtype","id":"resource-id-456"}"#;
+        let expected_json =
+            r#"{"name":"Another Resource","type":"customtype","id":"resource-id-456"}"#;
 
         assert_eq!(json, expected_json);
     }

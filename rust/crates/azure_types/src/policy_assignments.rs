@@ -117,8 +117,8 @@ impl<'de> Deserialize<'de> for PolicyAssignmentId {
         D: Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id =
-            PolicyAssignmentId::try_from_expanded(expanded.as_str()).map_err(|e| D::Error::custom(format!("{e:#}")))?;
+        let id = PolicyAssignmentId::try_from_expanded(expanded.as_str())
+            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }

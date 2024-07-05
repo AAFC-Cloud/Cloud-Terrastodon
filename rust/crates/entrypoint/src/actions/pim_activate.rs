@@ -27,7 +27,8 @@ pub async fn pim_activate() -> Result<()> {
             x.properties
                 .expanded_properties
                 .role_definition
-                .display_name.clone()
+                .display_name
+                .clone()
         })
         .join(", ");
 

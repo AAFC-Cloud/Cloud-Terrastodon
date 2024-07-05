@@ -87,7 +87,7 @@ impl Scope for PolicyDefinitionId {
             Self::SubscriptionScoped { expanded } => expanded,
             Self::ManagementGroupScoped { expanded } => expanded,
         }
-    }	
+    }
 
     fn short_form(&self) -> &str {
         self.expanded_form()
@@ -119,8 +119,8 @@ impl<'de> Deserialize<'de> for PolicyDefinitionId {
         D: Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id =
-            PolicyDefinitionId::try_from_expanded(expanded.as_str()).map_err(|e| D::Error::custom(format!("{e:#}")))?;
+        let id = PolicyDefinitionId::try_from_expanded(expanded.as_str())
+            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }

@@ -1,5 +1,3 @@
-use std::ffi::OsString;
-use std::path::PathBuf;
 use anyhow::Result;
 use azure_types::prelude::QueryResponse;
 use command::prelude::CacheBehaviour;
@@ -8,6 +6,8 @@ use command::prelude::CommandKind;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
+use std::ffi::OsString;
+use std::path::PathBuf;
 
 pub struct QueryBuilder {
     query: String,
@@ -118,7 +118,7 @@ impl QueryBuilder {
 
         // Update skip token
         self.skip_token = results.skip_token.clone();
-        
+
         // // Transform results
         // let results: QueryResponse<T> = results.try_into()?;
 

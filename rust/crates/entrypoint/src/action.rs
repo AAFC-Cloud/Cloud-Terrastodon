@@ -100,11 +100,11 @@ impl Action {
             Action::JumpToBlock => {
                 jump_to_block(IgnoreDir::Processed.into()).await?;
                 return Ok(ActionResult::Continue);
-            },
+            }
             Action::ListImports => {
                 list_imports().await?;
                 return Ok(ActionResult::Continue);
-            },
+            }
             Action::RemediatePolicyAssignment => remediate_policy_assignment().await?,
             Action::EvaluatePolicyAssignmentCompliance => {
                 evaluate_policy_assignment_compliance().await?

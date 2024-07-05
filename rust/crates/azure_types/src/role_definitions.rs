@@ -93,11 +93,12 @@ impl<'de> Deserialize<'de> for RoleDefinitionId {
         D: Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id = expanded.parse().map_err(|e| D::Error::custom(format!("{e:#}")))?;
+        let id = expanded
+            .parse()
+            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct RolePermission {
@@ -117,7 +118,7 @@ pub struct RolePermission {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum RoleDefinitionKind {
     BuiltInRole,
-    CustomRole
+    CustomRole,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -157,7 +158,12 @@ impl From<RoleDefinition> for TofuImportBlock {
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleDefinition,
-                name: format!("{}__{}", resource_group.display_name, resource_group.id.short_form()).sanitize(),
+                name: format!(
+                    "{}__{}",
+                    resource_group.display_name,
+                    resource_group.id.short_form()
+                )
+                .sanitize(),
             },
         }
     }
@@ -171,7 +177,8 @@ mod tests {
     #[test]
     fn deserializes() -> Result<()> {
         let expanded = format!("{}{}", ROLE_DEFINITION_ID_PREFIX, Uuid::default());
-        let id: RoleDefinitionId = serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let id: RoleDefinitionId =
+            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(id.to_string(), expanded);
 
         Ok(())

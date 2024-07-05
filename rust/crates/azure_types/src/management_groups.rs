@@ -70,8 +70,8 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
         D: Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id =
-            ManagementGroupId::try_from_expanded(expanded.as_str()).map_err(|e| D::Error::custom(format!("{e:#}")))?;
+        let id = ManagementGroupId::try_from_expanded(expanded.as_str())
+            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }

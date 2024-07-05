@@ -742,7 +742,7 @@ Resources
             path: PathBuf::from_iter(["az graph query", "--graph-query count-resource-containers"]),
             valid_for: Duration::from_secs(3),
         });
-        
+
         // we don't want anything between our `await` calls that could mess with the timing
         spawn_blocking(move || {
             tokio::runtime::Handle::current().block_on(async {
@@ -753,12 +753,12 @@ Resources
                 println!("result1: {result1:?}\nresult2: {result2:?}\nresult3: {result3:?}");
                 assert_eq!(result1, result2);
                 assert_ne!(result1, result3);
-                Ok::<(),anyhow::Error>(())
+                Ok::<(), anyhow::Error>(())
             })
         })
         .await??;
         Ok(())
-    }	
+    }
 
     #[tokio::test]
     async fn user() -> Result<()> {

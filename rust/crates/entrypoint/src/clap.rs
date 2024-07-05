@@ -117,7 +117,10 @@ fn print_subcommands_recursively(cmd: &clap::Command, indent: usize) {
             )
         }
     };
-    println!("{}{}{}\n{:#?}", indent_str, cmd_name, cmd_params, cmd_param_variants);
+    println!(
+        "{}{}{}\n{:#?}",
+        indent_str, cmd_name, cmd_params, cmd_param_variants
+    );
 
     // interactive mode - match against ID to prompt for arg values before invoking the normal command
 

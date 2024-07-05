@@ -406,7 +406,6 @@ impl std::fmt::Display for ScopeImpl {
     }
 }
 
-
 impl Serialize for ScopeImpl {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

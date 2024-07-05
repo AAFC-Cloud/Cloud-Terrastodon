@@ -20,7 +20,7 @@ pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
     "#}
     .to_owned();
 
-    let rgs = QueryBuilder::	new(
+    let rgs = QueryBuilder::new(
         query,
         command::prelude::CacheBehaviour::Some {
             path: PathBuf::from("resource_groups"),

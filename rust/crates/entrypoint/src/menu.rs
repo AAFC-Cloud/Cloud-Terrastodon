@@ -8,7 +8,7 @@ use fzf::FzfArgs;
 use tracing::info;
 
 use crate::action::Action;
-	use crate::action::ActionResult;
+use crate::action::ActionResult;
 
 pub async fn menu() -> Result<ActionResult> {
     // Create a container for the choices we are about to gather
@@ -40,7 +40,7 @@ pub async fn menu() -> Result<ActionResult> {
             }
             .to_string(),
         ),
-        prompt: None,	
+        prompt: None,
     })?;
 
     // restore execution order
@@ -75,7 +75,7 @@ pub async fn menu_loop() -> Result<()> {
             ActionResult::QuitApplication => {
                 info!("Goodbye!");
                 return Ok(());
-            },
+            }
             _ => {}
         }
     }
