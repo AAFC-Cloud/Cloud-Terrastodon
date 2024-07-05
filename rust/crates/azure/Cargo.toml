@@ -21,6 +21,7 @@ itertools = { workspace = true }
 rand = { workspace = true }
 indoc = { workspace = true }
 pathing_types = { workspace = true }
+humantime = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }

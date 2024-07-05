@@ -13,6 +13,7 @@ use crate::resource_groups::RESOURCE_GROUP_ID_PREFIX;
 use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
 use crate::subscriptions::SubscriptionId;
 use crate::subscriptions::SUBSCRIPTION_ID_PREFIX;
+use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Error;
@@ -113,6 +114,33 @@ fn strip_prefix_and_slug_leaving_slash<'a>(expanded: &'a str, prefix: &str) -> R
     Ok(remaining)
 }
 
+fn strip_provider_and_resource<'a>(expanded: &'a str) -> Result<&'a str> {
+    // /providers/Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
+    // /providers/Microsoft.Network/bastionHosts/my-bst/providers/Microsoft.Authorization/roleAssignments/0000
+    // /providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/0000
+    // /providers/Microsoft.Network/virtualNetworks/my-vnet/providers/Microsoft.Authorization/roleAssignments/0000
+    // /providers/Microsoft.Compute/virtualMachines/my-vm/providers/Microsoft.Authorization/roleAssignments/0000
+    let remaining = expanded;
+    let remaining = strip_prefix_case_insensitive(remaining, "/providers/")?;
+    // Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
+    let (_, remaining) = remaining
+        .split_once('/')
+        .ok_or_else(|| anyhow!("Missing provider"))?;
+    // vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
+    let (_, remaining) = remaining
+        .split_once('/')
+        .ok_or_else(|| anyhow!("Missing resource type"))?;
+    // my-vault/providers/Microsoft.Authorization/roleAssignments/0000
+    let (_, remaining) = remaining
+        .split_once('/')
+        .ok_or_else(|| anyhow!("Missing resource name"))?;
+    // providers/Microsoft.Authorization/roleAssignments/0000
+    let remaining = &expanded[expanded.len() - remaining.len() - 1..];
+    // /providers/Microsoft.Authorization/roleAssignments/0000
+
+    Ok(remaining)
+}
+
 pub trait TryFromResourceGroupScoped
 where
     Self: Sized + NameValidatable + HasPrefix,
@@ -130,6 +158,26 @@ where
     /// The try_from methods should be used instead
     unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self;
 }
+
+pub trait TryFromResourceScoped
+where
+    Self: Sized + NameValidatable + HasPrefix,	
+{
+    fn try_from_expanded_resource_group_scoped(expanded: &str) -> Result<Self> {
+        let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
+        let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)?;
+        let remaining = strip_provider_and_resource(remaining)?;
+        let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
+        Self::validate_name(name).context("validating name")?;
+        unsafe { Ok(Self::new_resource_scoped_unchecked(expanded)) }
+    }
+
+    /// # Safety
+    ///
+    /// The try_from methods should be used instead
+    unsafe fn new_resource_scoped_unchecked(expanded: &str) -> Self;
+}
+
 pub trait TryFromSubscriptionScoped
 where
     Self: Sized + NameValidatable + HasPrefix,

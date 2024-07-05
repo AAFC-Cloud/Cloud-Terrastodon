@@ -6,12 +6,16 @@ use serde::Serialize;
 use serde::Serializer;
 use std::fmt;
 
+use crate::scopes::ScopeImpl;
+
+// TODO: this should be converted to an enum to prevent states where `kind` doesn't match `id`
+//#[serde(tag = "type")]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EligibleChildResource {
     pub name: String,
     #[serde(rename = "type")]
     pub kind: EligibleChildResourceKind,
-    pub id: String,
+    pub id: ScopeImpl,
 }
 impl std::fmt::Display for EligibleChildResource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -76,31 +80,42 @@ impl<'de> Deserialize<'de> for EligibleChildResourceKind {
 
 #[cfg(test)]
 mod tests {
+    use crate::management_groups::ManagementGroupId;
+    use crate::prelude::TestResourceId;
+    use crate::scopes::Scope;
+
     use super::*;
     use serde_json;
 
     #[test]
     fn test_serialization() {
+        let thing_id = ManagementGroupId::from_name("test-mg");
         let resource = EligibleChildResource {
             name: String::from("Example Resource"),
             kind: EligibleChildResourceKind::ManagementGroup,
-            id: String::from("resource-id-123"),
+            id: thing_id.as_scope(),
         };
 
         let json = serde_json::to_string(&resource).unwrap();
-        let expected_json =
-            r#"{"name":"Example Resource","type":"managementgroup","id":"resource-id-123"}"#;
+        let expected_json = format!(
+            r#"{{"name":"Example Resource","type":"managementgroup","id":"{}"}}"#,
+            thing_id.expanded_form()
+        );
 
         assert_eq!(json, expected_json);
     }
 
     #[test]
     fn test_deserialization() {
-        let json = r#"{"name":"Example Resource","type":"managementgroup","id":"resource-id-123"}"#;
-        let resource: EligibleChildResource = serde_json::from_str(json).unwrap();
+        let thing_id = ManagementGroupId::from_name("test-mg");
+        let json = format!(
+            r#"{{"name":"Example Resource","type":"managementgroup","id":"{}"}}"#,
+            thing_id.expanded_form()
+        );
+        let resource: EligibleChildResource = serde_json::from_str(&json).unwrap();
 
         assert_eq!(resource.name, "Example Resource");
-        assert_eq!(resource.id, "resource-id-123");
+        assert_eq!(resource.id, thing_id.as_scope());
         match resource.kind {
             EligibleChildResourceKind::ManagementGroup => {}
             _ => panic!("Expected ManagementGroup"),
@@ -109,26 +124,33 @@ mod tests {
 
     #[test]
     fn test_serialization_with_other() {
+        let thing_id = TestResourceId::new("resource-id-456");
         let resource = EligibleChildResource {
             name: String::from("Another Resource"),
             kind: EligibleChildResourceKind::Other(String::from("customtype")),
-            id: String::from("resource-id-456"),
+            id: thing_id.as_scope(),
         };
 
         let json = serde_json::to_string(&resource).unwrap();
-        let expected_json =
-            r#"{"name":"Another Resource","type":"customtype","id":"resource-id-456"}"#;
+        let expected_json = format!(
+            r#"{{"name":"Another Resource","type":"customtype","id":"{}"}}"#,
+            thing_id.expanded_form()
+        );
 
         assert_eq!(json, expected_json);
     }
 
     #[test]
     fn test_deserialization_with_other() {
-        let json = r#"{"name":"Another Resource","type":"customtype","id":"resource-id-456"}"#;
-        let resource: EligibleChildResource = serde_json::from_str(json).unwrap();
+        let thing_id = TestResourceId::new("test-resource-123");
+        let json = format!(
+            r#"{{"name":"Another Resource","type":"customtype","id":"{}"}}"#,
+            thing_id.expanded_form()
+        );
+        let resource: EligibleChildResource = serde_json::from_str(&json).unwrap();
 
         assert_eq!(resource.name, "Another Resource");
-        assert_eq!(resource.id, "resource-id-456");
+        assert_eq!(resource.id, thing_id.as_scope());
         match resource.kind {
             EligibleChildResourceKind::Other(ref s) if s == "customtype" => {}
             _ => panic!("Expected Other with value 'customtype'"),

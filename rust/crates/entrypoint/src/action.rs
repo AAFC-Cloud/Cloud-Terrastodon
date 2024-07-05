@@ -80,7 +80,7 @@ impl Action {
             Action::Quit => "quit",
         }
     }
-    
+
     pub async fn invoke(&self) -> Result<ActionResult> {
         match self {
             Action::BuildPolicyImports => build_policy_imports().await?,

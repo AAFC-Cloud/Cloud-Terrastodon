@@ -39,6 +39,8 @@ pub async fn fetch_role_management_policy_assignments(
 
 #[cfg(test)]
 mod tests {
+    use humantime::format_duration;
+
     use crate::role_eligibility_schedules::fetch_my_role_eligibility_schedules;
 
     use super::*;
@@ -52,7 +54,16 @@ mod tests {
         let found_policy_assignments =
             fetch_role_management_policy_assignments(scope, role_definition_id).await?;
         assert!(found_policy_assignments.len() > 0);
-        println!("{found_policy_assignments:#?}");
+        for ass in found_policy_assignments {
+            println!(
+                "- {} up to {}",
+                role.properties
+                    .expanded_properties
+                    .role_definition
+                    .display_name,
+                format_duration(ass.get_maximum_activation_duration().unwrap())
+            );
+        }
         Ok(())
     }
 }

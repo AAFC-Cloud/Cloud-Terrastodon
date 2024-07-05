@@ -20,10 +20,10 @@ pub enum FetchChildrenBehaviour {
 
 // https://learn.microsoft.com/en-us/rest/api/authorization/eligible-child-resources/get?view=rest-authorization-2020-10-01&tabs=HTTP
 pub async fn fetch_eligible_child_resources(
-    scope: impl AsRef<str>,
+    scope: &impl Scope,
     behaviour: FetchChildrenBehaviour,
 ) -> Result<Vec<EligibleChildResource>> {
-    let scope = scope.as_ref();
+    let scope = scope.expanded_form();
     let scope = scope.strip_prefix('/').unwrap_or(scope);
     let mut url = format!(
         "https://management.azure.com/{scope}/providers/Microsoft.Authorization/eligibleChildResources?api-version=2020-10-01"
@@ -56,7 +56,7 @@ pub async fn fetch_eligible_child_resources(
 
 pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChildResource>> {
     let root_mg = fetch_root_management_group().await?;
-    let scope = root_mg.scope().expanded_form();
+    let scope = root_mg.scope();
     let mut resource_containers =
         fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
     // this contains management groups and subscriptions
@@ -67,7 +67,7 @@ pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChil
         .map(|x| EligibleChildResource {
             name: x.name.to_owned(),
             kind: azure_types::prelude::EligibleChildResourceKind::ResourceGroup,
-            id: x.id.expanded_form().to_owned(),
+            id: x.scope().as_scope(),
         });
     resource_containers.extend(rgs);
     // extend to include resource groups
@@ -91,7 +91,7 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
         let mg = fetch_root_management_group().await?;
-        let scope = mg.scope().expanded_form();
+        let scope = mg.scope();
         let found =
             fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
         assert!(found.len() > 0);
@@ -119,7 +119,7 @@ mod tests {
             .find(|x| x.name == "OPSSc-Dom-Sandbox-RG")
             .unwrap();
         let found = fetch_eligible_child_resources(
-            rg.scope().expanded_form(),
+            rg.scope(),
             FetchChildrenBehaviour::GetAllChildren,
         )
         .await;
@@ -135,7 +135,7 @@ mod tests {
         let subs = fetch_all_subscriptions().await?;
         let sub = subs.first().unwrap();
         let found = fetch_eligible_child_resources(
-            sub.scope().expanded_form(),
+            sub.scope(),
             FetchChildrenBehaviour::GetAllChildren,
         )
         .await;
@@ -150,11 +150,11 @@ mod tests {
     #[ignore]
     async fn it_works_interactive() -> Result<()> {
         let mg = fetch_root_management_group().await?;
-        let mut scope = mg.scope().expanded_form().to_owned();
+        let mut scope = mg.scope().as_scope().to_owned();
         loop {
             println!("{}", scope);
             let next_scope = pick(FzfArgs {
-                choices: fetch_eligible_child_resources(scope, FetchChildrenBehaviour::default())
+                choices: fetch_eligible_child_resources(&scope, FetchChildrenBehaviour::default())
                     .await?
                     .into_iter()
                     .map(|x| Choice {

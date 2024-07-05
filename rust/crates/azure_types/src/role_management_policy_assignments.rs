@@ -24,6 +24,7 @@ use serde::Serializer;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
+use std::time::Duration;
 use uuid::Uuid;
 
 pub const ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX: &str =
@@ -229,6 +230,61 @@ pub struct RoleManagementPolicyAssignmentPropertiesPolicyAssignmentProperties {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RoleManagementPolicyAssignmentPropertiesEffectiveRuleId {
+    #[serde(rename = "Enablement_Admin_Eligibility")]
+    EnablementAdminEligibility,
+    #[serde(rename = "Expiration_Admin_Eligibility")]
+    ExpirationAdminEligibility,
+    #[serde(rename = "Notification_Admin_Admin_Eligibility")]
+    NotificationAdminAdminEligibility,
+    #[serde(rename = "Notification_Requestor_Admin_Eligibility")]
+    NotificationRequestorAdminEligibility,
+    #[serde(rename = "Notification_Approver_Admin_Eligibility")]
+    NotificationApproverAdminEligibility,
+    #[serde(rename = "Enablement_Admin_Assignment")]
+    EnablementAdminAssignment,
+    #[serde(rename = "Expiration_Admin_Assignment")]
+    ExpirationAdminAssignment,
+    #[serde(rename = "Notification_Admin_Admin_Assignment")]
+    NotificationAdminAdminAssignment,
+    #[serde(rename = "Notification_Requestor_Admin_Assignment")]
+    NotificationRequestorAdminAssignment,
+    #[serde(rename = "Notification_Approver_Admin_Assignment")]
+    NotificationApproverAdminAssignment,
+    #[serde(rename = "Approval_EndUser_Assignment")]
+    ApprovalEnduserAssignment,
+    #[serde(rename = "AuthenticationContext_EndUser_Assignment")]
+    AuthenticationcontextEnduserAssignment,
+    #[serde(rename = "Enablement_EndUser_Assignment")]
+    EnablementEnduserAssignment,
+    #[serde(rename = "Expiration_EndUser_Assignment")]
+    ExpirationEnduserAssignment,
+    #[serde(rename = "Notification_Admin_EndUser_Assignment")]
+    NotificationAdminEnduserAssignment,
+    #[serde(rename = "Notification_Requestor_EndUser_Assignment")]
+    NotificationRequestorEnduserAssignment,
+    #[serde(rename = "Notification_Approver_EndUser_Assignment")]
+    NotificationApproverEnduserAssignment,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "ruleType")]
+pub enum RoleManagementPolicyAssignmentPropertiesEffectiveRule {
+    RoleManagementPolicyEnablementRule,
+    RoleManagementPolicyExpirationRule {
+        id: RoleManagementPolicyAssignmentPropertiesEffectiveRuleId,
+        #[serde(rename = "isExpirationRequired")]
+        is_expiration_required: bool,
+        #[serde(rename = "maximumDuration")]
+        maximum_duration: iso8601_duration::Duration,
+        target: Value,
+    },
+    RoleManagementPolicyNotificationRule,
+    RoleManagementPolicyApprovalRule,
+    RoleManagementPolicyAuthenticationContextRule,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct RoleManagementPolicyAssignmentProperties {
     pub scope: String,
     #[serde(rename = "roleDefinitionId")]
@@ -236,16 +292,29 @@ pub struct RoleManagementPolicyAssignmentProperties {
     #[serde(rename = "policyId")]
     pub policy_id: String,
     #[serde(rename = "effectiveRules")]
-    pub effective_rules: Vec<Value>,
+    pub effective_rules: Vec<RoleManagementPolicyAssignmentPropertiesEffectiveRule>,
     #[serde(rename = "policyAssignmentProperties")]
     pub policy_assignment_properties: HashMap<String, Value>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct RoleManagementPolicyAssignment {
     pub properties: RoleManagementPolicyAssignmentProperties,
     pub name: String,
     pub id: RoleManagementPolicyAssignmentId,
+}
+
+impl RoleManagementPolicyAssignment {
+    pub fn get_maximum_activation_duration(&self) -> Option<Duration> {
+        for rule in &self.properties.effective_rules {
+            if let RoleManagementPolicyAssignmentPropertiesEffectiveRule::RoleManagementPolicyExpirationRule {
+                 id: RoleManagementPolicyAssignmentPropertiesEffectiveRuleId::ExpirationEnduserAssignment, maximum_duration, ..
+            } = rule {
+                return maximum_duration.to_std();
+            }
+        }
+        None
+    }
 }
 
 #[cfg(test)]

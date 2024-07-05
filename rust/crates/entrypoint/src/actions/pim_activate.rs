@@ -1,6 +1,10 @@
+use std::ops::Deref;
+use std::time::Duration;
+
 use anyhow::Result;
 use azure::prelude::fetch_all_eligible_resource_containers;
 use azure::prelude::fetch_my_role_eligibility_schedules;
+use azure::prelude::fetch_role_management_policy_assignments;
 use fzf::pick_many;
 use fzf::Choice;
 use fzf::FzfArgs;
@@ -21,7 +25,7 @@ pub async fn pim_activate() -> Result<()> {
         header: Some("Choose roles to activate".to_string()),
     })?;
 
-    let roles = chosen_roles
+    let chosen_roles_display = chosen_roles
         .iter()
         .map(|x| {
             x.properties
@@ -43,15 +47,21 @@ pub async fn pim_activate() -> Result<()> {
             })
             .collect(),
         prompt: None,
-        header: Some(format!("Activating {roles}")),
+        header: Some(format!("Activating {chosen_roles_display}")),
     })?;
 
-    for role in &chosen_roles {
-        info!("Activating {role} for: ");
-        for scope in &chosen_scopes {
-            info!("- {scope}");
-        }
+    info!("Fetching maximum eligible duration");
+    let mut maximum_duration = Duration::MAX;
+    for (role, scope) in chosen_roles.iter().zip(chosen_scopes.iter()) {
+        let role_policy = fetch_role_management_policy_assignments(scope.inner.id.clone(), role.properties.role_definition_id.clone()).await?;
     }
+
+    // for role in &chosen_roles {
+    //     info!("Activating {role} for: ");
+    //     for scope in &chosen_scopes {
+    //         info!("- {scope}");
+    //     }
+    // }
 
     // for x in chosen {
     //     info!("Activating {x}");
