@@ -5,6 +5,7 @@ mod evaluate_policy_assignment_compliance;
 mod groups;
 mod management_groups;
 mod name_lookup_helper;
+mod pim_activate;
 mod policy_assignments;
 mod policy_definitions;
 mod policy_set_definitions;
@@ -17,15 +18,14 @@ mod role_eligibility_schedules;
 mod role_management_policy_assignments;
 mod subscriptions;
 mod users;
-mod pim_activate;
 pub mod prelude {
-    pub use azure_types::prelude::*;
     pub use crate::auth::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
     pub use crate::groups::*;
     pub use crate::management_groups::*;
     pub use crate::name_lookup_helper::*;
+    pub use crate::pim_activate::*;
     pub use crate::policy_assignments::*;
     pub use crate::policy_definitions::*;
     pub use crate::policy_set_definitions::*;
@@ -38,5 +38,5 @@ pub mod prelude {
     pub use crate::role_management_policy_assignments::*;
     pub use crate::subscriptions::*;
     pub use crate::users::*;
-    pub use crate::pim_activate::*;
+    pub use azure_types::prelude::*;
 }

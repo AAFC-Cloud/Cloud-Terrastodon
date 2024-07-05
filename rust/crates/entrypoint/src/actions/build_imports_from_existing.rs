@@ -1,9 +1,9 @@
+use crate::read_line::read_line;
 use anyhow::anyhow;
 use anyhow::Result;
 use pathing_types::IgnoreDir;
 use tofu::prelude::get_imports_from_existing;
 use tofu::prelude::TofuWriter;
-use crate::read_line::read_line;
 
 pub async fn build_imports_from_existing() -> Result<()> {
     println!("Enter the path to the existing workspace:");

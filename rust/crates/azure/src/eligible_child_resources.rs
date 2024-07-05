@@ -118,11 +118,9 @@ mod tests {
             .into_iter()
             .find(|x| x.name == "OPSSc-Dom-Sandbox-RG")
             .unwrap();
-        let found = fetch_eligible_child_resources(
-            rg.scope(),
-            FetchChildrenBehaviour::GetAllChildren,
-        )
-        .await;
+        let found =
+            fetch_eligible_child_resources(rg.scope(), FetchChildrenBehaviour::GetAllChildren)
+                .await;
         assert!(
             found.is_err(),
             "GetAllChildren is only supported for management groups?"
@@ -134,11 +132,9 @@ mod tests {
     async fn it_works4() -> Result<()> {
         let subs = fetch_all_subscriptions().await?;
         let sub = subs.first().unwrap();
-        let found = fetch_eligible_child_resources(
-            sub.scope(),
-            FetchChildrenBehaviour::GetAllChildren,
-        )
-        .await;
+        let found =
+            fetch_eligible_child_resources(sub.scope(), FetchChildrenBehaviour::GetAllChildren)
+                .await;
         assert!(
             found.is_err(),
             "GetAllChildren is only supported for management groups?"

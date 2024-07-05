@@ -22,7 +22,7 @@ mod tests {
         let duration = Duration::new(28800, 0); // 8 hours in seconds
         let iso_string = to_iso8601(duration);
         assert_eq!(iso_string, "PT8H".parse().unwrap());
-        
+
         let duration = Duration::new(3661, 0); // 1 hour, 1 minute, and 1 second
         let iso_string = to_iso8601(duration);
         assert_eq!(iso_string, "PT1H1M1S".parse().unwrap());
