@@ -106,7 +106,7 @@ impl QueryBuilder {
         {
             cmd.use_cache_behaviour(CacheBehaviour::Some {
                 path: path.join(self.index.to_string()),
-                valid_for: valid_for.clone(),
+                valid_for: *valid_for,
             });
         }
 
@@ -117,7 +117,7 @@ impl QueryBuilder {
         let results = cmd.run::<QueryResponse<T>>().await?;
 
         // Update skip token
-        self.skip_token = results.skip_token.clone();
+        self.skip_token.clone_from(&results.skip_token);
 
         // // Transform results
         // let results: QueryResponse<T> = results.try_into()?;

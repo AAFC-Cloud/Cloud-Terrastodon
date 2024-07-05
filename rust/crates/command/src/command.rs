@@ -43,7 +43,7 @@ pub enum CommandKind {
     VSCode,
 }
 
-pub const USE_TERRAFORM_FLAG_KEY: &'static str = "CLOUD_TERRASTODON_USE_TERRAFORM";
+pub const USE_TERRAFORM_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TERRAFORM";
 
 impl CommandKind {
     fn program(&self) -> &'static str {
@@ -628,7 +628,7 @@ impl CommandBuilder {
         };
         dir.ensure_dir_exists().await?;
         let dir = Builder::new().prefix("temp_").tempdir_in(dir)?.into_path();
-        self.write_output(&output, &dir).await?;
+        self.write_output(output, &dir).await?;
         Ok(dir)
     }
 }

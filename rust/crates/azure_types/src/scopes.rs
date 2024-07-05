@@ -428,7 +428,7 @@ impl<'de> Visitor<'de> for ScopeImplVisitor {
     where
         E: de::Error,
     {
-        Ok(ScopeImpl::try_from_expanded(value).map_err(|e| E::custom(format!("{e:#}")))?)
+        ScopeImpl::try_from_expanded(value).map_err(|e| E::custom(format!("{e:#}")))
     }
 }
 

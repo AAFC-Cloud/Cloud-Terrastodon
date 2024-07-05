@@ -22,7 +22,6 @@ use azure::prelude::remediate_policy_assignment;
 use command::prelude::USE_TERRAFORM_FLAG_KEY;
 use pathing_types::IgnoreDir;
 use tokio::fs;
-use tracing::instrument;
 #[derive(Debug)]
 pub enum Action {
     BuildPolicyImports,
@@ -81,7 +80,7 @@ impl Action {
             Action::Quit => "quit",
         }
     }
-    // #[instrument]
+    
     pub async fn invoke(&self) -> Result<ActionResult> {
         match self {
             Action::BuildPolicyImports => build_policy_imports().await?,

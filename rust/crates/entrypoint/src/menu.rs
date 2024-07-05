@@ -63,7 +63,7 @@ pub async fn menu() -> Result<ActionResult> {
             ActionResult::QuitApplication => {
                 return Ok(result);
             }
-            ActionResult::Continue | _ => {}
+            ActionResult::Continue | ActionResult::PauseAndContinue => {}
         }
     }
     Ok(ActionResult::Continue)
@@ -71,12 +71,9 @@ pub async fn menu() -> Result<ActionResult> {
 
 pub async fn menu_loop() -> Result<()> {
     loop {
-        match menu().await? {
-            ActionResult::QuitApplication => {
-                info!("Goodbye!");
-                return Ok(());
-            }
-            _ => {}
+        if menu().await? == ActionResult::QuitApplication {
+            info!("Goodbye!");
+            return Ok(());
         }
     }
 }

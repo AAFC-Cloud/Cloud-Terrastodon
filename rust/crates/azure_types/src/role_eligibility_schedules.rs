@@ -171,7 +171,7 @@ pub struct RoleEligibilitySchedule {
 }
 impl RoleEligibilitySchedule {
     pub fn get_type() -> &'static str {
-        return "Microsoft.Authorization/roleEligibilitySchedules";
+        "Microsoft.Authorization/roleEligibilitySchedules"
     }
 }
 
