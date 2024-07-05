@@ -10,7 +10,7 @@ use serde::Serialize;
 use serde::Serializer;
 use std::str::FromStr;
 
-pub const TEST_ID_PREFIX: &str = "/tests/";
+pub const TEST_ID_PREFIX: &str = "/CloudTerrastodon/testResources/";
 
 /// A zero-assumption thing for usage in tests
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -19,7 +19,7 @@ pub struct TestResourceId {
 }
 
 impl TestResourceId {
-    fn new(slug: &str) -> Self {
+    pub fn new(slug: &str) -> Self {
         Self {
             expanded: format!("{}{}", TEST_ID_PREFIX, slug),
         }

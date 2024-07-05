@@ -21,6 +21,12 @@ pub struct SubscriptionId {
     expanded: String,
     uuid: Uuid,
 }
+impl SubscriptionId {
+    pub fn new(uuid: Uuid) -> SubscriptionId {
+        let expanded = format!("{}{}", SUBSCRIPTION_ID_PREFIX, uuid);
+        SubscriptionId { uuid, expanded }
+    }
+}
 
 impl std::fmt::Display for SubscriptionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -57,8 +63,7 @@ impl FromStr for SubscriptionId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let uuid = uuid::Uuid::parse_str(s.strip_prefix(SUBSCRIPTION_ID_PREFIX).unwrap_or(s))?;
-        let expanded = format!("{}{}", SUBSCRIPTION_ID_PREFIX, uuid);
-        Ok(SubscriptionId { uuid, expanded })
+        Ok(SubscriptionId::new(uuid))
     }
 }
 
@@ -77,7 +82,9 @@ impl<'de> Deserialize<'de> for SubscriptionId {
         D: Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id = expanded.parse().map_err(|e| D::Error::custom(format!("{e:#}")))?;
+        let id = expanded
+            .parse()
+            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }

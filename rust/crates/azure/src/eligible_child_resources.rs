@@ -176,7 +176,7 @@ mod tests {
                 .await?
                 .into_iter()
                 .map(|x| Choice {
-                    display: format!("{:?} - {} - {}", x.kind, x.name, x.id),
+                    display: x.to_string(),
                     inner: x,
                 })
                 .collect(),

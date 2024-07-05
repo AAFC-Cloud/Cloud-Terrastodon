@@ -1,14 +1,16 @@
 use crate::management_groups::ManagementGroupId;
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
-use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
 use crate::policy_assignments::PolicyAssignmentId;
 use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::RoleAssignmentId;
 use crate::prelude::RoleDefinitionId;
+use crate::prelude::RoleManagementPolicyAssignmentId;
+use crate::prelude::RoleManagementPolicyId;
 use crate::prelude::TestResourceId;
 use crate::resource_groups::RESOURCE_GROUP_ID_PREFIX;
+use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
 use crate::subscriptions::SubscriptionId;
 use crate::subscriptions::SUBSCRIPTION_ID_PREFIX;
 use anyhow::bail;
@@ -16,6 +18,13 @@ use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
 use clap::ValueEnum;
+use serde::de::Visitor;
+use serde::de::{self};
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
+use std::fmt;
 use std::str::pattern::Pattern;
 use std::str::FromStr;
 
@@ -64,7 +73,7 @@ where
             }
             Some(name) => name,
         };
-        Self::validate_name(name)?;
+        Self::validate_name(name).context("validating name")?;
 
         unsafe { Ok(Self::new_unscoped_unchecked(expanded_unscoped)) }
     }
@@ -112,7 +121,7 @@ where
         let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
         let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)?;
         let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
-        Self::validate_name(name)?;
+        Self::validate_name(name).context("validating name")?;
         unsafe { Ok(Self::new_resource_group_scoped_unchecked(expanded)) }
     }
 
@@ -128,7 +137,7 @@ where
     fn try_from_expanded_subscription_scoped(expanded: &str) -> Result<Self> {
         let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
         let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
-        Self::validate_name(name)?;
+        Self::validate_name(name).context("validating name")?;
         unsafe { Ok(Self::new_subscription_scoped_unchecked(expanded)) }
     }
 
@@ -144,7 +153,7 @@ where
     fn try_from_expanded_management_group_scoped(expanded: &str) -> Result<Self> {
         let remaining = strip_prefix_and_slug_leaving_slash(expanded, MANAGEMENT_GROUP_ID_PREFIX)?;
         let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
-        Self::validate_name(name)?;
+        Self::validate_name(name).context("validating name")?;
         unsafe { Ok(Self::new_management_group_scoped_unchecked(expanded)) }
     }
     /// # Safety
@@ -214,6 +223,8 @@ impl std::fmt::Display for ScopeError {
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, ValueEnum)]
 pub enum ScopeImplKind {
     ManagementGroup,
+    RoleManagementPolicyAssignment,
+    RoleManagementPolicy,
     PolicyDefinition,
     PolicySetDefinition,
     PolicyAssignment,
@@ -237,6 +248,8 @@ pub enum ScopeImpl {
     RoleEligibilitySchedule(RoleEligibilityScheduleId),
     Subscription(SubscriptionId),
     TestResource(TestResourceId),
+    RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId),
+    RoleManagementPolicy(RoleManagementPolicyId),
 }
 impl Scope for ScopeImpl {
     fn expanded_form(&self) -> &str {
@@ -251,6 +264,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::Subscription(id) => id.expanded_form(),
             ScopeImpl::TestResource(id) => id.expanded_form(),
             ScopeImpl::RoleEligibilitySchedule(id) => id.expanded_form(),
+            ScopeImpl::RoleManagementPolicyAssignment(id) => id.expanded_form(),
+            ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
         }
     }
 
@@ -266,6 +281,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::Subscription(id) => id.short_form(),
             ScopeImpl::TestResource(id) => id.short_form(),
             ScopeImpl::RoleEligibilitySchedule(id) => id.short_form(),
+            ScopeImpl::RoleManagementPolicyAssignment(id) => id.short_form(),
+            ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
         }
     }
 
@@ -303,6 +320,12 @@ impl Scope for ScopeImpl {
         if let Ok(id) = RoleEligibilityScheduleId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RoleEligibilitySchedule(id));
         }
+        if let Ok(id) = RoleManagementPolicyAssignmentId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::RoleManagementPolicyAssignment(id));
+        }
+        if let Ok(id) = RoleManagementPolicyId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::RoleManagementPolicy(id));
+        }
 
         Err(ScopeError::Unrecognized.into())
     }
@@ -319,6 +342,10 @@ impl Scope for ScopeImpl {
             ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
             ScopeImpl::RoleEligibilitySchedule(_) => ScopeImplKind::RoleEligibilitySchedule,
+            ScopeImpl::RoleManagementPolicyAssignment(_) => {
+                ScopeImplKind::RoleManagementPolicyAssignment
+            }
+            ScopeImpl::RoleManagementPolicy(_) => ScopeImplKind::RoleManagementPolicyAssignment,
         }
     }
 
@@ -368,6 +395,71 @@ impl std::fmt::Display for ScopeImpl {
             ScopeImpl::RoleEligibilitySchedule(x) => {
                 f.write_fmt(format_args!("RoleEligibilitySchedule({})", x.short_form()))
             }
+            ScopeImpl::RoleManagementPolicyAssignment(x) => f.write_fmt(format_args!(
+                "RoleManagementPolicyAssignment({})",
+                x.short_form()
+            )),
+            ScopeImpl::RoleManagementPolicy(x) => {
+                f.write_fmt(format_args!("RoleManagementPolicy({})", x.short_form()))
+            }
         }
+    }
+}
+
+
+impl Serialize for ScopeImpl {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.expanded_form())
+    }
+}
+
+struct ScopeImplVisitor;
+
+impl<'de> Visitor<'de> for ScopeImplVisitor {
+    type Value = ScopeImpl;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string representing an azure scope")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<ScopeImpl, E>
+    where
+        E: de::Error,
+    {
+        Ok(ScopeImpl::try_from_expanded(value).map_err(|e| E::custom(format!("{e:#}")))?)
+    }
+}
+
+impl<'de> Deserialize<'de> for ScopeImpl {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(ScopeImplVisitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use uuid::Uuid;
+
+    use super::*;
+
+    #[test]
+    fn it_works() -> Result<()> {
+        let scope = ScopeImpl::TestResource(TestResourceId::new("bruh"));
+        let expected = format!("{:?}", scope.expanded_form());
+        assert_eq!(serde_json::to_string(&scope)?, expected);
+        Ok(())
+    }
+    #[test]
+    fn it_works2() -> Result<()> {
+        let scope = ScopeImpl::Subscription(SubscriptionId::new(Uuid::nil()));
+        let expected = format!("{:?}", scope.expanded_form());
+        assert_eq!(serde_json::to_string(&scope)?, expected);
+        Ok(())
     }
 }

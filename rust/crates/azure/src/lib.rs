@@ -16,6 +16,7 @@ mod query;
 mod role_definitions;
 mod role_eligibility_schedules;
 mod eligible_child_resources;
+mod role_management_policy_assignments;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
@@ -34,5 +35,6 @@ pub mod prelude {
     pub use crate::users::*;
     pub use crate::query::*;
     pub use crate::eligible_child_resources::*;
+    pub use crate::role_management_policy_assignments::*;
     pub use azure_types::prelude::*;
 }

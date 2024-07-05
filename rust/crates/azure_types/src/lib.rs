@@ -17,6 +17,8 @@ mod query_response;
 mod role_definitions;
 mod role_eligibility_schedules;
 mod eligible_child_resources;
+mod role_management_policy_assignments;
+mod role_management_policies;
 
 pub mod prelude {
     pub use crate::groups::*;
@@ -37,4 +39,6 @@ pub mod prelude {
     pub use crate::query_response::*;
     pub use crate::role_eligibility_schedules::*;
     pub use crate::eligible_child_resources::*;
+    pub use crate::role_management_policy_assignments::*;
+    pub use crate::role_management_policies::*;
 }

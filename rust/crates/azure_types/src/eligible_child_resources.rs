@@ -12,6 +12,11 @@ pub struct EligibleChildResource {
     pub kind: EligibleChildResourceKind,
     pub id: String,
 }
+impl std::fmt::Display for EligibleChildResource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("{:?} - {}", self.kind, self.name))
+    }
+}
 
 
 #[derive(Debug)]

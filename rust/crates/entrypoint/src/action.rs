@@ -81,7 +81,7 @@ impl Action {
             Action::Quit => "quit",
         }
     }
-    #[instrument]
+    // #[instrument]
     pub async fn invoke(&self) -> Result<ActionResult> {
         match self {
             Action::BuildPolicyImports => build_policy_imports().await?,
