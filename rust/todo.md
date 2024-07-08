@@ -33,3 +33,10 @@
     1. get users
         - `az devops invoke --area MemberEntitlementManagement --resource MemberEntitlements --api-version 7.1-preview --encoding utf-8 --output json --query-parameters '$orderBy=name Ascending'`
         - `az devops invoke --area MemberEntitlementManagement --resource MemberEntitlements --api-version 7.1-preview --encoding utf-8 --output json --query-parameters '$filter=name eq ''john''&$orderBy=name Ascending'`
+
+- advertise this tool
+    - GitHub release (exe, linux?)
+    - https://github.com/Azure/azure-cli/issues/13064#issuecomment-2118107000
+    - OpenTofu slack
+    - Terraform slack
+    - Azuretfcommunity slack
