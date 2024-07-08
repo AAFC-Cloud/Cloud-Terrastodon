@@ -40,3 +40,12 @@
     - OpenTofu slack
     - Terraform slack
     - Azuretfcommunity slack
+
+
+- IPAM solution?
+    - pre-allocate IP ranges by env
+    - pre-allocate IP ranges by resource group
+    - detect existing vnets and subnets using the ranges
+    - conflict detection on rg/env mismatch
+    - persist in json file
+    - CLI for creating or modifying assignments
