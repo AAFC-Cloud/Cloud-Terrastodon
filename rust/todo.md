@@ -1,3 +1,6 @@
+- non-interactive invocation for pipeline usage
+
+
 - create import blocks for policy assignment principal's role assignments 
     - https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment
     https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/management_group_policy_assignment#principal_id

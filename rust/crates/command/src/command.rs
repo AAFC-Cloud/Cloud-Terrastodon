@@ -14,7 +14,10 @@ use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
 use std::ffi::OsString;
+#[cfg(windows)]
 use std::os::windows::process::ExitStatusExt;
+#[cfg(not(windows))]
+use std::os::unix::process::ExitStatusExt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitStatus;
@@ -199,11 +202,14 @@ impl CommandKind {
 pub struct CommandOutput {
     pub stdout: String,
     pub stderr: String,
-    pub status: u32,
+    pub status: i32,
 }
 impl CommandOutput {
     fn success(&self) -> bool {
-        ExitStatus::from_raw(self.status).success()
+        #[cfg(windows)]
+        return ExitStatus::from_raw(self.status as u32).success();
+        #[cfg(not(windows))]
+        return ExitStatus::from_raw(self.status).success();
     }
 }
 impl std::error::Error for CommandOutput {}
@@ -223,7 +229,7 @@ impl TryFrom<Output> for CommandOutput {
             stderr: String::from_utf8(value.stderr)?,
             status: match value.status.code().unwrap_or(1) {
                 x if x < 0 => 1,
-                x => x as u32,
+                x => x,
             },
         })
     }
@@ -433,7 +439,7 @@ impl CommandBuilder {
             );
         }
 
-        let status: u32 = load_file("status.txt").await?.parse()?;
+        let status: i32 = load_file("status.txt").await?.parse()?;
         let stdout = load_file("stdout.json").await?;
         let stderr = load_file("stderr.json").await?;
 
