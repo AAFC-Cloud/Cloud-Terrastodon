@@ -16,7 +16,7 @@ pub async fn fetch_root_management_group() -> Result<ManagementGroup> {
     fetch_all_management_groups()
         .await?
         .into_iter()
-        .find(|mg| mg.name == mg.tenant_id)
+        .find(|mg| mg.name == mg.tenant_id.to_string())
         .ok_or_else(|| {
             anyhow!("Failed to find a management group with name matching the tenant ID")
         })

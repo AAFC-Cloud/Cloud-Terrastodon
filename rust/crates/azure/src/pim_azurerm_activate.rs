@@ -34,7 +34,7 @@ pub async fn activate_pim_role(
         ))?,
     );
     cmd.use_cache_behaviour(CacheBehaviour::Some {
-        path: PathBuf::from("az rest --method GET --url roleAssignmentScheduleRequests"),
+        path: PathBuf::from("az rest --method PUT --url roleAssignmentScheduleRequests"),
         valid_for: Duration::ZERO,
     });
     cmd.run_raw().await?;

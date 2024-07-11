@@ -1,0 +1,64 @@
+use crate::prelude::fetch_current_user;
+use anyhow::Result;
+use azure_types::prelude::PimEntraRoleAssignment;
+use command::prelude::CommandBuilder;
+use command::prelude::CommandKind;
+use itertools::Itertools;
+use serde::Deserialize;
+use std::path::PathBuf;
+
+pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<PimEntraRoleAssignment>> {
+    let my_object_id = fetch_current_user().await?.id;
+    let url = format!(
+        "{}{}{}{}",
+        "https://graph.microsoft.com/beta/",
+        "privilegedAccess/aadroles/roleAssignments",
+        format!(
+            "?$filter=(subject/id eq '{}') and (assignmentState in ('Eligible', 'Active'))",
+            my_object_id
+        ),
+        format!(
+            "&$select={}",
+            [
+                "assignmentState",
+                "endDateTime",
+                "id",
+                "linkedEligibleRoleAssignmentId",
+                "memberType",
+                "roleDefinitionId",
+                "startDateTime",
+                "status",
+                "subjectId",
+            ]
+            .into_iter()
+            .join(",")
+        )
+    );
+    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+    cmd.args(["rest", "--method", "GET", "--url", &url]);
+    cmd.use_cache_dir(PathBuf::from(
+        "az rest --method GET --url pim_roleAssignments",
+    ));
+
+    #[derive(Deserialize)]
+    struct Response {
+        value: Vec<PimEntraRoleAssignment>,
+    }
+
+    let resp: Response = cmd.run().await?;
+    Ok(resp.value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_works() -> Result<()> {
+        let result = fetch_my_entra_pim_role_assignments().await?;
+        for ass in result {
+            println!("- {:?}", ass)
+        }
+        Ok(())
+    }
+}

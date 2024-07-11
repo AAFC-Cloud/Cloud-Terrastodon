@@ -1,15 +1,19 @@
-#![feature(pattern)]
+#![feature(pattern, duration_constructors)]
 mod duration;
 mod eligible_child_resources;
 mod groups;
 mod management_groups;
+mod pim_azurerm_role_assignment_schedule_requests;
+mod pim_entra_role_assignment_requests;
+mod pim_entra_role_assignments;
+mod pim_entra_role_definitions;
+pub mod pim_entra_role_settings;
 mod policy_assignments;
 mod policy_definitions;
 mod policy_set_definitions;
 mod query_response;
 mod resource_groups;
 mod resource_name_rules;
-mod role_assignment_schedule_requests;
 mod role_assignments;
 mod role_definitions;
 mod role_eligibility_schedules;
@@ -27,13 +31,17 @@ pub mod prelude {
     pub use crate::eligible_child_resources::*;
     pub use crate::groups::*;
     pub use crate::management_groups::*;
+    pub use crate::pim_azurerm_role_assignment_schedule_requests::*;
+    pub use crate::pim_entra_role_assignment_requests::*;
+    pub use crate::pim_entra_role_assignments::*;
+    pub use crate::pim_entra_role_definitions::*;
+    pub use crate::pim_entra_role_settings::*;
     pub use crate::policy_assignments::*;
     pub use crate::policy_definitions::*;
     pub use crate::policy_set_definitions::*;
     pub use crate::query_response::*;
     pub use crate::resource_groups::*;
     pub use crate::resource_name_rules::*;
-    pub use crate::role_assignment_schedule_requests::*;
     pub use crate::role_assignments::*;
     pub use crate::role_definitions::*;
     pub use crate::role_eligibility_schedules::*;
