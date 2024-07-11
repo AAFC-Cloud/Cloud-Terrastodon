@@ -5,6 +5,7 @@ use command::prelude::CommandKind;
 use command::prelude::OutputBehaviour;
 use fzf::pick_many;
 use fzf::FzfArgs;
+use tracing::error;
 use tracing::info;
 
 use crate::action::Action;
@@ -51,22 +52,31 @@ pub async fn menu() -> Result<ActionResult> {
         let result = action
             .invoke()
             .await
-            .context(format!("invoking action: {action}"))?;
+            .context(format!("invoking action: {action}"));
         match result {
-            ActionResult::PauseAndContinue if chosen.len() == 1 => {
-                // Don't pause when running multiple actions
-                CommandBuilder::new(CommandKind::Pause)
-                    .use_output_behaviour(OutputBehaviour::Display)
-                    .run_raw()
-                    .await?;
+            Err(e) => {
+                error!("Encountered error invoking action: {:?}", e);
+                pause().await?;
             }
-            ActionResult::QuitApplication => {
-                return Ok(result);
+            Ok(ActionResult::PauseAndContinue) if chosen.len() == 1 => {
+                // Only pause when running a single action
+                pause().await?;
             }
-            ActionResult::Continue | ActionResult::PauseAndContinue => {}
+            Ok(ActionResult::QuitApplication) => {
+                return Ok(ActionResult::QuitApplication);
+            }
+            Ok(ActionResult::Continue) | Ok(ActionResult::PauseAndContinue) => {}
         }
     }
     Ok(ActionResult::Continue)
+}
+
+pub async fn pause() -> Result<()> {
+    CommandBuilder::new(CommandKind::Pause)
+        .use_output_behaviour(OutputBehaviour::Display)
+        .run_raw()
+        .await?;
+    Ok(())
 }
 
 pub async fn menu_loop() -> Result<()> {
