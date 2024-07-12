@@ -1,7 +1,9 @@
 use crate::actions::prelude::jump_to_block;
 use crate::menu::menu_loop;
+use crate::prelude::Version;
 use azure::prelude::ScopeImplKind;
 use clap::CommandFactory;
+use clap::FromArgMatches;
 use clap::Parser;
 use clap::Subcommand;
 use itertools::Itertools;
@@ -9,7 +11,7 @@ use pathing_types::IgnoreDir;
 use tracing::info;
 
 #[derive(Parser, Debug)]
-#[command(name = "ct", version, about, long_about = None)]
+#[command(name = "cloud_terrastodon", about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -49,8 +51,14 @@ enum PolicyCommand {
     Remediation,
 }
 
-pub async fn main() -> anyhow::Result<()> {
-    let cli = Cli::parse();
+pub async fn main(version: Version) -> anyhow::Result<()> {
+
+    // Set the version
+    let mut cmd = Cli::command();
+    cmd = cmd.version(version.to_string());
+
+    // Parse the command-line arguments
+    let cli = Cli::from_arg_matches(&cmd.get_matches())?;
 
     match cli.command {
         None => {

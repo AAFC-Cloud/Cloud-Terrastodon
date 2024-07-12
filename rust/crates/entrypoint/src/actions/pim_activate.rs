@@ -19,6 +19,7 @@ use humantime::format_duration;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::io::Write;
 use std::time::Duration;
 use tracing::info;
 
@@ -130,6 +131,7 @@ pub async fn pim_activate_entra() -> Result<()> {
     })?;
 
     print!("Justification: ");
+    std::io::stdout().flush()?;
     let justification = read_line().await?;
 
     let principal_id = fetch_current_user().await?.id;
@@ -220,6 +222,7 @@ pub async fn pim_activate_azurerm() -> Result<()> {
     })?;
 
     print!("Justification: ");
+    std::io::stdout().flush()?;
     let justification = read_line().await?;
 
     let principal_id = fetch_current_user().await?.id;
