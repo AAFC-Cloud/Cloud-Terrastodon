@@ -48,6 +48,12 @@ pub async fn pim_activate() -> Result<()> {
 }
 
 pub async fn pim_activate_entra() -> Result<()> {
+    // https://learn.microsoft.com/en-us/graph/api/resources/unifiedroleassignmentschedulerequest?view=graph-rest-beta
+    // https://learn.microsoft.com/en-us/graph/api/governancerolesetting-list?view=graph-rest-beta
+    // https://learn.microsoft.com/en-us/graph/api/resources/privilegedidentitymanagementv3-overview?view=graph-rest-1.0
+    // https://learn.microsoft.com/en-us/graph/api/rbacapplication-list-roleassignmentschedulerequests?view=graph-rest-1.0&tabs=http
+    // https://learn.microsoft.com/en-us/graph/api/resources/privilegedidentitymanagementv3-overview?view=graph-rest-1.0
+    // https://github.com/Azure/azure-cli/issues/28854
     info!("Fetching role definitions");
     let role_definitions = fetch_all_entra_pim_role_definitions()
         .await?
