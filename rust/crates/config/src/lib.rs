@@ -27,7 +27,6 @@ impl Config {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CommandsConfig {
-    pub powershell: String,
     pub azure_cli: String,
     pub tofu: String,
     pub terraform: String,
@@ -39,7 +38,6 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             commands: CommandsConfig {
-                powershell: "pwsh".to_string(),
                 azure_cli: "az.cmd".to_string(),
                 tofu: "tofu.exe".to_string(),
                 terraform: "terraform.exe".to_string(),
@@ -51,7 +49,6 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             commands: CommandsConfig {
-                powershell: "pwsh".to_string(),
                 azure_cli: "az".to_string(),
                 tofu: "tofu".to_string(),
                 terraform: "terraform".to_string(),

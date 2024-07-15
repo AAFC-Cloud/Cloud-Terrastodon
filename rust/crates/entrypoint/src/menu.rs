@@ -1,15 +1,13 @@
+use std::io::Write;
 use anyhow::Context;
 use anyhow::Result;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
-use command::prelude::OutputBehaviour;
 use fzf::pick_many;
 use fzf::FzfArgs;
 use tracing::error;
 use tracing::info;
-
 use crate::action::Action;
 use crate::action::ActionResult;
+use crate::read_line::read_line;
 
 pub async fn menu() -> Result<ActionResult> {
     // Create a container for the choices we are about to gather
@@ -56,11 +54,11 @@ pub async fn menu() -> Result<ActionResult> {
         match result {
             Err(e) => {
                 error!("Error calling action handler: {:?}", e);
-                pause().await?;
+                press_enter_to_continue().await?;
             }
             Ok(ActionResult::PauseAndContinue) if chosen.len() == 1 => {
                 // Only pause when running a single action
-                pause().await?;
+                press_enter_to_continue().await?;
             }
             Ok(ActionResult::QuitApplication) => {
                 return Ok(ActionResult::QuitApplication);
@@ -71,11 +69,10 @@ pub async fn menu() -> Result<ActionResult> {
     Ok(ActionResult::Continue)
 }
 
-pub async fn pause() -> Result<()> {
-    CommandBuilder::new(CommandKind::Pause)
-        .use_output_behaviour(OutputBehaviour::Display)
-        .run_raw()
-        .await?;
+pub async fn press_enter_to_continue() -> Result<()> {
+    print!("Press Enter to continue...");
+    std::io::stdout().flush()?;
+    read_line().await?;
     Ok(())
 }
 

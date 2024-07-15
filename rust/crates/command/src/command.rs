@@ -40,8 +40,6 @@ use tracing::warn;
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub enum CommandKind {
     #[default]
-    Echo,
-    Pause,
     AzureCLI,
     Tofu,
     VSCode,
@@ -52,8 +50,6 @@ pub const USE_TERRAFORM_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TERRAFORM";
 impl CommandKind {
     fn program(&self) -> &str {
         match self {
-            CommandKind::Echo => Config::get_active_config().commands.powershell.as_ref(),
-            CommandKind::Pause => Config::get_active_config().commands.powershell.as_ref(),
             CommandKind::AzureCLI => Config::get_active_config().commands.azure_cli.as_ref(),
             CommandKind::Tofu => match env::var(USE_TERRAFORM_FLAG_KEY) {
                 Err(_) => Config::get_active_config().commands.tofu.as_ref(),
@@ -172,29 +168,8 @@ impl CommandKind {
             (_, true) => {}
         }
         // Apply args and envs to tokio Command
-        match self {
-            CommandKind::Echo => {
-                if !this.env.is_empty() {
-                    bail!("envs cannot be specified for {self:?}");
-                }
-                cmd.env("value", this.args.join(&OsString::from(" ")));
-                cmd.args([
-                    "-NoProfile",
-                    "-Command",
-                    "Write-Host -ForegroundColor Green $env:value",
-                ]);
-            }
-            CommandKind::Pause => {
-                if !this.env.is_empty() {
-                    bail!("envs cannot be specified for {self:?}");
-                }
-                cmd.args(["-NoProfile", "-Command", "Pause"]);
-            }
-            _ => {
-                cmd.args(args);
-                cmd.envs(&this.env);
-            }
-        }
+        cmd.args(args);
+        cmd.envs(&this.env);
         Ok(rtn)
     }
 }
@@ -680,27 +655,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn echo() -> Result<()> {
-        let result = CommandBuilder::new(CommandKind::Echo)
-            .use_output_behaviour(OutputBehaviour::Display)
-            .args(["Ahoy,", "world!"])
-            .run_raw()
-            .await?;
-        println!("{}", result);
-        Ok(())
-    }
-    #[tokio::test]
-    async fn pwsh() -> Result<()> {
-        let result = Command::new("pwsh.exe")
-            .args(["-NoProfile", "-Command", "echo \"got $($env:a)\""])
-            .env("a", "b$(2+2)")
-            .spawn()?
-            .wait_with_output()
-            .await?;
-        println!("{:?}", result);
-        Ok(())
-    }
-    #[tokio::test]
     async fn it_works() -> Result<()> {
         let result = CommandBuilder::new(CommandKind::AzureCLI)
             .args(["--version"])
@@ -776,7 +730,7 @@ Resources
         );
         cmd.use_cache_behaviour(CacheBehaviour::Some {
             path: PathBuf::from_iter(["az graph query", "--graph-query count-resource-containers"]),
-            valid_for: Duration::from_secs(3),
+            valid_for: Duration::from_secs(5),
         });
 
         // we don't want anything between our `await` calls that could mess with the timing
@@ -784,7 +738,7 @@ Resources
             tokio::runtime::Handle::current().block_on(async {
                 let result1 = cmd.run_raw().await?;
                 let result2 = cmd.run_raw().await?;
-                sleep(Duration::from_secs(4)).await;
+                sleep(Duration::from_secs(10)).await;
                 let result3 = cmd.run_raw().await?;
                 println!("result1: {result1:?}\nresult2: {result2:?}\nresult3: {result3:?}");
                 assert_eq!(result1, result2);
