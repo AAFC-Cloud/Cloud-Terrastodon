@@ -52,7 +52,6 @@ enum PolicyCommand {
 }
 
 pub async fn main(version: Version) -> anyhow::Result<()> {
-
     // Set the version
     let mut cmd = Cli::command();
     cmd = cmd.version(version.to_string());

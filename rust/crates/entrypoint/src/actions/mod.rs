@@ -10,11 +10,11 @@ mod clean_processed;
 mod init_processed;
 mod jump_to_block;
 mod list_imports;
+mod open_dir;
 mod perform_import;
 mod pim_activate;
 mod populate_cache;
 mod process_generated;
-mod open_dir;
 
 pub mod prelude {
     pub use crate::actions::apply_processed::*;
@@ -29,9 +29,9 @@ pub mod prelude {
     pub use crate::actions::init_processed::*;
     pub use crate::actions::jump_to_block::*;
     pub use crate::actions::list_imports::*;
+    pub use crate::actions::open_dir::*;
     pub use crate::actions::perform_import::*;
     pub use crate::actions::pim_activate::*;
     pub use crate::actions::populate_cache::*;
     pub use crate::actions::process_generated::*;
-    pub use crate::actions::open_dir::*;
 }

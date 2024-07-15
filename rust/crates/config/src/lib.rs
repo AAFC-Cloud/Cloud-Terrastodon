@@ -98,7 +98,10 @@ fn load_config_from_disk(config_path: &PathBuf) -> Result<Config> {
 
 fn write_config_to_disk(config: &Config, config_path: &PathBuf) -> Result<()> {
     let Some(config_dir) = config_path.parent() else {
-        bail!("Config path doesn't have a parent dir? path={}", config_path.display());
+        bail!(
+            "Config path doesn't have a parent dir? path={}",
+            config_path.display()
+        );
     };
     std::fs::create_dir_all(config_dir).context(format!(
         "ensuring config dir \"{}\" exists",

@@ -3,8 +3,8 @@ use fzf::pick_many;
 use fzf::Choice;
 use fzf::FzfArgs;
 use opener::open;
-use pathing::Existy;
 use pathing::AppDir;
+use pathing::Existy;
 use tokio::fs::try_exists;
 
 pub async fn open_dir() -> Result<()> {

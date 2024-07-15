@@ -1,13 +1,13 @@
-use std::io::Write;
+use crate::action::Action;
+use crate::action::ActionResult;
+use crate::read_line::read_line;
 use anyhow::Context;
 use anyhow::Result;
 use fzf::pick_many;
 use fzf::FzfArgs;
+use std::io::Write;
 use tracing::error;
 use tracing::info;
-use crate::action::Action;
-use crate::action::ActionResult;
-use crate::read_line::read_line;
 
 pub async fn menu() -> Result<ActionResult> {
     // Create a container for the choices we are about to gather

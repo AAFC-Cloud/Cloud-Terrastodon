@@ -14,15 +14,9 @@ static PROJECT_DIRS: Lazy<ProjectDirs> = Lazy::new(|| {
     };
     project_dirs
 });
-static CACHE_DIR: Lazy<PathBuf> = Lazy::new(|| {
-    PROJECT_DIRS.cache_dir().to_path_buf()
-});
-static DATA_DIR: Lazy<PathBuf> = Lazy::new(|| {
-    PROJECT_DIRS.data_dir().to_path_buf()
-});
-static CONFIG_DIR: Lazy<PathBuf> = Lazy::new(|| {
-    PROJECT_DIRS.config_dir().to_path_buf()
-});
+static CACHE_DIR: Lazy<PathBuf> = Lazy::new(|| PROJECT_DIRS.cache_dir().to_path_buf());
+static DATA_DIR: Lazy<PathBuf> = Lazy::new(|| PROJECT_DIRS.data_dir().to_path_buf());
+static CONFIG_DIR: Lazy<PathBuf> = Lazy::new(|| PROJECT_DIRS.config_dir().to_path_buf());
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum AppDir {

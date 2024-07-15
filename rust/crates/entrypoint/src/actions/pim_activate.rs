@@ -92,7 +92,8 @@ pub async fn pim_activate_entra() -> Result<()> {
             }
 
             // get role display name
-            let PimEntraRoleDefinition { display_name, .. } = role_definitions.get(&eligible.role_definition_id)?;
+            let PimEntraRoleDefinition { display_name, .. } =
+                role_definitions.get(&eligible.role_definition_id)?;
 
             Some(Choice {
                 display: display_name.clone(),
@@ -118,7 +119,7 @@ pub async fn pim_activate_entra() -> Result<()> {
             max_duration = duration;
         }
     }
-    
+
     info!("Maximum duration is {}", format_duration(max_duration));
     let chosen_duration = pick(FzfArgs {
         choices: build_duration_choices(&max_duration)
@@ -142,13 +143,8 @@ pub async fn pim_activate_entra() -> Result<()> {
             "Activating {role} for {}",
             format_duration(*chosen_duration)
         );
-        activate_pim_entra_role(
-            principal_id,
-            role,
-            justification.clone(),
-            *chosen_duration,
-        )
-        .await?;
+        activate_pim_entra_role(principal_id, role, justification.clone(), *chosen_duration)
+            .await?;
     }
 
     Ok(())
