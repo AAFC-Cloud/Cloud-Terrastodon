@@ -295,6 +295,24 @@ impl CommandBuilder {
         };
         self
     }
+    pub async fn bust_cache(&self) -> Result<()> {
+        let CacheBehaviour::Some {
+            path: cache_dir, ..
+        } = &self.cache_behaviour
+        else {
+            bail!("no cache entry present");
+        };
+        let busted_path = cache_dir.join("busted");
+        let _file = OpenOptions::new()
+            .create(true)
+            .open(&busted_path)
+            .await
+            .context(format!(
+                "failed creating busted cache indicator at {}",
+                busted_path.display(),
+            ))?;
+        Ok(())
+    }
     pub fn use_cache_behaviour(&mut self, mut behaviour: CacheBehaviour) -> &mut Self {
         if let CacheBehaviour::Some { ref mut path, .. } = behaviour {
             *path = AppDir::Commands.join(&path);
@@ -466,6 +484,14 @@ impl CommandBuilder {
             ("status.txt", &output.status.to_string()),
             ("timestamp.txt", &Local::now().to_rfc2822()),
         ];
+
+        // Remove busted marker if present
+        let busted_path = parent_dir.join("busted");
+        if let Ok(true) = busted_path.try_exists() {
+            tokio::fs::remove_file(&busted_path)
+                .await
+                .context("Removing busted cache marker")?;
+        }
 
         // Write to files
         for (file_name, file_contents) in files {

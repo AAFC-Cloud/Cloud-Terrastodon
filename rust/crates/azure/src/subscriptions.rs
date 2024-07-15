@@ -1,4 +1,6 @@
 use anyhow::anyhow;
+use anyhow::bail;
+use anyhow::Context;
 use anyhow::Result;
 use azure_types::prelude::Subscription;
 use command::prelude::CommandBuilder;
@@ -19,12 +21,25 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
     cmd.use_cache_dir("az account list");
 
     let subs = cmd.run::<Vec<Subscription>>().await?;
+    if subs.len() == 0 {
+        cmd.bust_cache()
+            .await
+            .context("Busting cache because we expect more subscriptions once logged in")?;
+        bail!("no subscriptions found, are you logged in?");
+    }
     let tenant_id = subs
         .iter()
         .filter(|s| s.is_default)
         .map(|s| s.tenant_id.clone())
-        .next()
-        .ok_or_else(|| anyhow!("No subscription active, can't determine filter"))?;
+        .next();
+
+    let tenant_id = match tenant_id {
+        Some(tenant_id) => tenant_id,
+        None => {
+            cmd.bust_cache().await.context("Busting cache because 	subscription list details will change once user activates a subscription")?;
+            bail!("No subscription active, can't determine filter");
+        }
+    };
     Ok(subs
         .into_iter()
         .filter(|sub| sub.tenant_id == tenant_id)
