@@ -532,7 +532,7 @@ impl CommandBuilder {
 
         // Launch command
         command.kill_on_drop(true);
-        let child = command.spawn()?;
+        let child = command.spawn().context(format!("Failed to spawn command `{}`", self.summarize()))?;
 
         // Wait for it to finish
         let output: CommandOutput = match timeout(

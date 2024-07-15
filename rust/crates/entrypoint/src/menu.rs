@@ -52,10 +52,10 @@ pub async fn menu() -> Result<ActionResult> {
         let result = action
             .invoke()
             .await
-            .context(format!("invoking action: {action}"));
+            .context(format!("invoking action \"{action}\""));
         match result {
             Err(e) => {
-                error!("Encountered error invoking action: {:?}", e);
+                error!("Error calling action handler: {:?}", e);
                 pause().await?;
             }
             Ok(ActionResult::PauseAndContinue) if chosen.len() == 1 => {
