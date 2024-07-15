@@ -38,7 +38,7 @@ impl std::fmt::Display for PimKind {
 
 pub async fn pim_activate() -> Result<()> {
     match pick(FzfArgs {
-        choices: vec![PimKind::Entra, PimKind::AzureRM].into(),
+        choices: vec![PimKind::Entra, PimKind::AzureRM],
         prompt: None,
         header: Some("Choose the kind of role to activate".to_string()),
     })? {
@@ -75,7 +75,7 @@ pub async fn pim_activate_entra() -> Result<()> {
             let PimEntraRoleAssignment::Active(active) = ra else {
                 return None;
             };
-            return Some(&active.linked_eligible_role_assignment_id);
+            Some(&active.linked_eligible_role_assignment_id)
         })
         .collect::<HashSet<_>>();
 
@@ -92,16 +92,12 @@ pub async fn pim_activate_entra() -> Result<()> {
             }
 
             // get role display name
-            let Some(PimEntraRoleDefinition { display_name, .. }) =
-                role_definitions.get(&eligible.role_definition_id)
-            else {
-                return None;
-            };
+            let PimEntraRoleDefinition { display_name, .. } = role_definitions.get(&eligible.role_definition_id)?;
 
-            return Some(Choice {
+            Some(Choice {
                 display: display_name.clone(),
                 inner: eligible,
-            });
+            })
         })
         .collect_vec();
 
@@ -148,7 +144,7 @@ pub async fn pim_activate_entra() -> Result<()> {
         );
         activate_pim_entra_role(
             principal_id,
-            &role,
+            role,
             justification.clone(),
             *chosen_duration,
         )
@@ -257,9 +253,9 @@ pub async fn pim_activate_azurerm() -> Result<()> {
 pub fn build_duration_choices(maximum_duration: &Duration) -> Vec<Duration> {
     let mut choices = Vec::new();
     let incr = Duration::from_mins(30);
-    let mut current = incr.clone();
+    let mut current = incr;
     while current <= *maximum_duration {
-        choices.push(current.clone());
+        choices.push(current);
         current += incr;
     }
     choices

@@ -20,7 +20,7 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
     cmd.use_cache_dir("az account list");
 
     let subs = cmd.run::<Vec<Subscription>>().await?;
-    if subs.len() == 0 {
+    if subs.is_empty() {
         cmd.bust_cache()
             .await
             .context("Busting cache because we expect more subscriptions once logged in")?;

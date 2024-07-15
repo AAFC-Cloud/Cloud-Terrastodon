@@ -114,7 +114,7 @@ fn strip_prefix_and_slug_leaving_slash<'a>(expanded: &'a str, prefix: &str) -> R
     Ok(remaining)
 }
 
-fn strip_provider_and_resource<'a>(expanded: &'a str) -> Result<&'a str> {
+fn strip_provider_and_resource(expanded: &str) -> Result<&str> {
     // /providers/Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
     // /providers/Microsoft.Network/bastionHosts/my-bst/providers/Microsoft.Authorization/roleAssignments/0000
     // /providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/0000

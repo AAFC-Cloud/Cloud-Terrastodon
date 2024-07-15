@@ -19,7 +19,7 @@ pub async fn activate_pim_entra_role(
     let tenant_id = fetch_root_management_group().await?.tenant_id;
     let url = "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests";
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["rest", "--method", "POST", "--url", &url, "--body"]);
+    cmd.args(["rest", "--method", "POST", "--url", url, "--body"]);
     cmd.file_arg(
         "body.json",
         serde_json::to_string_pretty(&RoleAssignmentRequest::new_self_activation(

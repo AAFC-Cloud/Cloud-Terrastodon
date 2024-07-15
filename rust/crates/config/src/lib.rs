@@ -13,7 +13,7 @@ use tracing::debug;
 use tracing::error;
 use tracing::warn;
 
-static CONFIG: Lazy<Config> = Lazy::new(|| get_or_create_config());
+static CONFIG: Lazy<Config> = Lazy::new(get_or_create_config);
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
@@ -81,7 +81,7 @@ fn get_or_create_config() -> Config {
 fn load_config_from_disk(config_path: &PathBuf) -> Result<Config> {
     let mut file = OpenOptions::new()
         .read(true)
-        .open(&config_path)
+        .open(config_path)
         .context(format!(
             "opening config file for reading \"{}\"",
             config_path.display()
@@ -100,7 +100,7 @@ fn write_config_to_disk(config: &Config, config_path: &PathBuf) -> Result<()> {
     let Some(config_dir) = config_path.parent() else {
         bail!("Config path doesn't have a parent dir? path={}", config_path.display());
     };
-    std::fs::create_dir_all(&config_dir).context(format!(
+    std::fs::create_dir_all(config_dir).context(format!(
         "ensuring config dir \"{}\" exists",
         config_dir.display()
     ))?;
@@ -108,7 +108,7 @@ fn write_config_to_disk(config: &Config, config_path: &PathBuf) -> Result<()> {
         .write(true)
         .truncate(true)
         .create(true)
-        .open(&config_path)
+        .open(config_path)
         .context(format!(
             "opening config file for writing \"{}\"",
             config_path.display()
