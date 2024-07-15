@@ -10,6 +10,7 @@ members = ["crates/*"]
 
 [workspace.dependencies]
 pathing = { version = "0.1.0", path = "./crates/pathing" }
+config = { version = "0.1.0", path = "./crates/config" }
 azure = { version = "0.1.0", path = "./crates/azure" }
 azure_types = { version = "0.1.0", path = "./crates/azure_types" }
 tofu = { version = "0.1.0", path = "./crates/tofu" }

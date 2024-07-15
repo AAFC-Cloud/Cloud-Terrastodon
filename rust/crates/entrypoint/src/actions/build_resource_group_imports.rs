@@ -8,7 +8,7 @@ use azure::prelude::SubscriptionId;
 use fzf::pick_many;
 use fzf::Choice;
 use fzf::FzfArgs;
-use pathing::IgnoreDir;
+use pathing::AppDir;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use tofu::prelude::Sanitizable;
@@ -74,7 +74,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
     }
 
     info!("Writing import blocks");
-    TofuWriter::new(IgnoreDir::Imports.join("resource_group_imports.tf"))
+    TofuWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
         .overwrite(imports)
         .await?
         .format()
@@ -85,7 +85,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
         let provider = sub.clone().into_provider_block();
         providers.push(provider);
     }
-    TofuWriter::new(IgnoreDir::Imports.join("boilerplate.tf"))
+    TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
         .format()

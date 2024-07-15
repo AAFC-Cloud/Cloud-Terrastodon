@@ -297,10 +297,24 @@ dependencies = [
  "anyhow",
  "async-recursion",
  "chrono",
+ "config",
  "pathing",
  "serde",
  "serde_json",
  "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "config"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "once_cell",
+ "pathing",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
 ]

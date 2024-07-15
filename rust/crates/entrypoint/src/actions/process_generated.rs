@@ -2,7 +2,7 @@ use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use pathing::Existy;
-use pathing::IgnoreDir;
+use pathing::AppDir;
 use std::path::Path;
 use std::path::PathBuf;
 use tofu::prelude::reflow_workspace;
@@ -16,7 +16,7 @@ use tracing::instrument;
 #[instrument(level = "debug")]
 pub async fn process_generated() -> Result<()> {
     // Determine output directory
-    let out_dir: PathBuf = IgnoreDir::Processed.into();
+    let out_dir: PathBuf = AppDir::Processed.into();
 
     // Cleanup
     if !out_dir.exists() {
@@ -27,7 +27,7 @@ pub async fn process_generated() -> Result<()> {
     }
 
     // Read generated code
-    let workspace_path: PathBuf = IgnoreDir::Imports.into();
+    let workspace_path: PathBuf = AppDir::Imports.into();
 
     // Determine output files
     let files = reflow_workspace(&workspace_path, &out_dir).await?;

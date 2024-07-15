@@ -4,12 +4,12 @@ use fzf::Choice;
 use fzf::FzfArgs;
 use opener::open;
 use pathing::Existy;
-use pathing::IgnoreDir;
+use pathing::AppDir;
 use tokio::fs::try_exists;
 
 pub async fn open_dir() -> Result<()> {
     let mut choices = Vec::new();
-    for dir in IgnoreDir::variants() {
+    for dir in AppDir::variants() {
         let exists = try_exists(dir.as_path_buf()).await?;
         let display = if exists {
             dir.to_string()

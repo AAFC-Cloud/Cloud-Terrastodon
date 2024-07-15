@@ -4,10 +4,10 @@ use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use command::prelude::OutputBehaviour;
-use pathing::IgnoreDir;
+use pathing::AppDir;
 use tracing::warn;
 pub async fn apply_processed() -> Result<()> {
-    let processed_dir: PathBuf = IgnoreDir::Processed.into();
+    let processed_dir: PathBuf = AppDir::Processed.into();
     let result = CommandBuilder::new(CommandKind::Tofu)
         .arg("apply")
         .use_run_dir(processed_dir)

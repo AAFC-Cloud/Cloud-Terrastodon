@@ -20,43 +20,58 @@ static CACHE_DIR: Lazy<PathBuf> = Lazy::new(|| {
 static DATA_DIR: Lazy<PathBuf> = Lazy::new(|| {
     PROJECT_DIRS.data_dir().to_path_buf()
 });
+static CONFIG_DIR: Lazy<PathBuf> = Lazy::new(|| {
+    PROJECT_DIRS.config_dir().to_path_buf()
+});
 
 #[derive(Debug, Clone, ValueEnum)]
-pub enum IgnoreDir {
+pub enum AppDir {
     Commands,
     Imports,
     Processed,
     Temp,
+    Config,
 }
-impl std::fmt::Display for IgnoreDir {
+impl std::fmt::Display for AppDir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            IgnoreDir::Commands => "Commands",
-            IgnoreDir::Imports => "Imports",
-            IgnoreDir::Processed => "Processed",
-            IgnoreDir::Temp => "Temp",
+            AppDir::Commands => "Commands",
+            AppDir::Imports => "Imports",
+            AppDir::Processed => "Processed",
+            AppDir::Temp => "Temp",
+            AppDir::Config => "Config",
         })
     }
 }
-impl IgnoreDir {
+impl AppDir {
     pub fn as_path_buf(&self) -> PathBuf {
         match self {
-            IgnoreDir::Commands => CACHE_DIR.join("commands"),
-            IgnoreDir::Imports => DATA_DIR.join("imports"),
-            IgnoreDir::Processed => DATA_DIR.join("processed"),
-            IgnoreDir::Temp => DATA_DIR.join("temp"),
+            AppDir::Commands => CACHE_DIR.join("commands"),
+            AppDir::Imports => DATA_DIR.join("imports"),
+            AppDir::Processed => DATA_DIR.join("processed"),
+            AppDir::Temp => DATA_DIR.join("temp"),
+            AppDir::Config => CONFIG_DIR.clone(),
         }
     }
     pub fn join(self, path: impl AsRef<Path>) -> PathBuf {
         let buf: PathBuf = self.into();
         buf.join(path)
     }
-    pub fn variants() -> Vec<IgnoreDir> {
+    pub fn ok_to_clean() -> Vec<AppDir> {
         vec![
-            IgnoreDir::Commands,
-            IgnoreDir::Imports,
-            IgnoreDir::Processed,
-            IgnoreDir::Temp,
+            AppDir::Commands,
+            AppDir::Imports,
+            AppDir::Processed,
+            AppDir::Temp,
+        ]
+    }
+    pub fn variants() -> Vec<AppDir> {
+        vec![
+            AppDir::Commands,
+            AppDir::Imports,
+            AppDir::Processed,
+            AppDir::Temp,
+            AppDir::Config,
         ]
     }
 }
@@ -100,8 +115,8 @@ impl<T: AsRef<Path>> Existy for T {
     }
 }
 
-impl From<IgnoreDir> for PathBuf {
-    fn from(dir: IgnoreDir) -> Self {
+impl From<AppDir> for PathBuf {
+    fn from(dir: AppDir) -> Self {
         dir.as_path_buf()
     }
 }

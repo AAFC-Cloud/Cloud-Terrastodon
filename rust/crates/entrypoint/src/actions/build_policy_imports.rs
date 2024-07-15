@@ -4,7 +4,7 @@ use azure::prelude::fetch_all_policy_assignments;
 use azure::prelude::fetch_all_policy_definitions;
 use azure::prelude::fetch_all_policy_set_definitions;
 use azure::prelude::PolicyAssignment;
-use pathing::IgnoreDir;
+use pathing::AppDir;
 use std::collections::HashSet;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
@@ -65,7 +65,7 @@ pub async fn build_policy_imports() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuWriter::new(IgnoreDir::Imports.join("policy_imports.tf"))
+    TofuWriter::new(AppDir::Imports.join("policy_imports.tf"))
         .overwrite(imports)
         .await?;
 

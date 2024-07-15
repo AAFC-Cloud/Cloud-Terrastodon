@@ -5,8 +5,9 @@ use anyhow::Result;
 use async_recursion::async_recursion;
 use chrono::DateTime;
 use chrono::Local;
+use config::Config;
+use pathing::AppDir;
 use pathing::Existy;
-use pathing::IgnoreDir;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
@@ -14,10 +15,10 @@ use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
 use std::ffi::OsString;
-#[cfg(windows)]
-use std::os::windows::process::ExitStatusExt;
 #[cfg(not(windows))]
 use std::os::unix::process::ExitStatusExt;
+#[cfg(windows)]
+use std::os::windows::process::ExitStatusExt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitStatus;
@@ -49,16 +50,16 @@ pub enum CommandKind {
 pub const USE_TERRAFORM_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TERRAFORM";
 
 impl CommandKind {
-    fn program(&self) -> &'static str {
+    fn program(&self) -> &str {
         match self {
-            CommandKind::Echo => "pwsh",
-            CommandKind::Pause => "pwsh",
-            CommandKind::AzureCLI => "az.cmd",
+            CommandKind::Echo => Config::get_active_config().commands.powershell.as_ref(),
+            CommandKind::Pause => Config::get_active_config().commands.powershell.as_ref(),
+            CommandKind::AzureCLI => Config::get_active_config().commands.azure_cli.as_ref(),
             CommandKind::Tofu => match env::var(USE_TERRAFORM_FLAG_KEY) {
-                Err(_) => "tofu.exe",
-                Ok(_) => "terraform.exe",
+                Err(_) => Config::get_active_config().commands.tofu.as_ref(),
+                Ok(_) => Config::get_active_config().commands.terraform.as_ref(),
             },
-            CommandKind::VSCode => "code.cmd",
+            CommandKind::VSCode => Config::get_active_config().commands.vscode.as_ref(),
         }
     }
     async fn apply_args_and_envs(
@@ -134,7 +135,7 @@ impl CommandKind {
                         CacheBehaviour::None => {
                             // No cache dir
                             // We will write azure args to temp files
-                            let temp_dir = IgnoreDir::Temp.as_path_buf();
+                            let temp_dir = AppDir::Temp.as_path_buf();
                             temp_dir.ensure_dir_exists().await?;
                             let path = tempfile::Builder::new()
                                 .suffix(&arg.path)
@@ -289,14 +290,14 @@ impl CommandBuilder {
     }
     pub fn use_cache_dir(&mut self, cache: impl AsRef<Path>) -> &mut Self {
         self.cache_behaviour = CacheBehaviour::Some {
-            path: IgnoreDir::Commands.join(cache),
+            path: AppDir::Commands.join(cache),
             valid_for: Duration::from_days(1),
         };
         self
     }
     pub fn use_cache_behaviour(&mut self, mut behaviour: CacheBehaviour) -> &mut Self {
         if let CacheBehaviour::Some { ref mut path, .. } = behaviour {
-            *path = IgnoreDir::Commands.join(&path);
+            *path = AppDir::Commands.join(&path);
         }
         self.cache_behaviour = behaviour;
         self
@@ -532,7 +533,9 @@ impl CommandBuilder {
 
         // Launch command
         command.kill_on_drop(true);
-        let child = command.spawn().context(format!("Failed to spawn command `{}`", self.summarize()))?;
+        let child = command
+            .spawn()
+            .context(format!("Failed to spawn command `{}`", self.summarize()))?;
 
         // Wait for it to finish
         let output: CommandOutput = match timeout(
@@ -627,7 +630,7 @@ impl CommandBuilder {
 
     pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
         let dir = match &self.cache_behaviour {
-            CacheBehaviour::None => IgnoreDir::Commands.join("failed"),
+            CacheBehaviour::None => AppDir::Commands.join("failed"),
             CacheBehaviour::Some {
                 path: cache_dir, ..
             } => cache_dir.join("failed"),

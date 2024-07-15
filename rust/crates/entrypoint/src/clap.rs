@@ -7,7 +7,7 @@ use clap::FromArgMatches;
 use clap::Parser;
 use clap::Subcommand;
 use itertools::Itertools;
-use pathing::IgnoreDir;
+use pathing::AppDir;
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -24,7 +24,7 @@ enum Commands {
     /// Clean up working files
     Clean {
         #[arg(long)]
-        dir: Vec<IgnoreDir>,
+        dir: Vec<AppDir>,
     },
     /// Interact with Azure policy
     #[command(subcommand)]
@@ -70,7 +70,7 @@ pub async fn main(version: Version) -> anyhow::Result<()> {
                 info!("You chose: {kind:?}");
             }
             Commands::Tf(tf_command) => match tf_command {
-                TfCommand::Jump => jump_to_block(IgnoreDir::Processed.into()).await?,
+                TfCommand::Jump => jump_to_block(AppDir::Processed.into()).await?,
             },
             Commands::Policy(policy_command) => match policy_command {
                 PolicyCommand::Compliance => todo!(),

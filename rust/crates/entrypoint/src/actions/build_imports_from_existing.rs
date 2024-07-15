@@ -1,7 +1,7 @@
 use crate::read_line::read_line;
 use anyhow::anyhow;
 use anyhow::Result;
-use pathing::IgnoreDir;
+use pathing::AppDir;
 use tofu::prelude::get_imports_from_existing;
 use tofu::prelude::TofuWriter;
 
@@ -21,7 +21,7 @@ pub async fn build_imports_from_existing() -> Result<()> {
         return Err(anyhow!("Imports should not be empty"));
     }
 
-    TofuWriter::new(IgnoreDir::Imports.join(name))
+    TofuWriter::new(AppDir::Imports.join(name))
         .overwrite(imports)
         .await?;
 

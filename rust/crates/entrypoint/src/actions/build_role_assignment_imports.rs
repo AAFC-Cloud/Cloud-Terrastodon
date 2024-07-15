@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use azure::prelude::fetch_all_role_assignments;
-use pathing::IgnoreDir;
+use pathing::AppDir;
 use std::collections::HashSet;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
@@ -38,7 +38,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     }
 
     info!("Writing imports to file");
-    TofuWriter::new(IgnoreDir::Imports.join("role_assignment_imports.tf"))
+    TofuWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
         .overwrite(import_blocks)
         .await?
         .format()
@@ -49,7 +49,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
         .into_iter()
         .map(|sub| sub.into_provider_block())
         .collect();
-    TofuWriter::new(IgnoreDir::Imports.join("boilerplate.tf"))
+    TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
         .format()

@@ -23,7 +23,7 @@ use azure::prelude::evaluate_policy_assignment_compliance;
 use azure::prelude::remediate_policy_assignment;
 use command::prelude::USE_TERRAFORM_FLAG_KEY;
 use itertools::Itertools;
-use pathing::IgnoreDir;
+use pathing::AppDir;
 use tokio::fs;
 #[derive(Debug)]
 pub enum Action {
@@ -102,7 +102,7 @@ impl Action {
             Action::ApplyProcessed => apply_processed().await?,
             Action::PimActivate => pim_activate().await?,
             Action::JumpToBlock => {
-                jump_to_block(IgnoreDir::Processed.into()).await?;
+                jump_to_block(AppDir::Processed.into()).await?;
                 return Ok(ActionResult::Continue);
             }
             Action::ListImports => {
@@ -171,32 +171,32 @@ impl Action {
         match self {
             Action::PerformImport => {
                 any_exist([
-                    IgnoreDir::Imports.join("policy_imports.tf"),
-                    IgnoreDir::Imports.join("group_imports.tf"),
-                    IgnoreDir::Imports.join("resource_group_imports.tf"),
-                    IgnoreDir::Imports.join("role_assignment_imports.tf"),
-                    IgnoreDir::Imports.join("existing.tf"),
+                    AppDir::Imports.join("policy_imports.tf"),
+                    AppDir::Imports.join("group_imports.tf"),
+                    AppDir::Imports.join("resource_group_imports.tf"),
+                    AppDir::Imports.join("role_assignment_imports.tf"),
+                    AppDir::Imports.join("existing.tf"),
                 ])
                 .await
             }
-            Action::ListImports => all_exist([IgnoreDir::Imports.into()]).await,
-            Action::ProcessGenerated => all_exist([IgnoreDir::Imports.join("generated.tf")]).await,
+            Action::ListImports => all_exist([AppDir::Imports.into()]).await,
+            Action::ProcessGenerated => all_exist([AppDir::Imports.join("generated.tf")]).await,
             Action::Clean => {
                 any_exist(
-                    IgnoreDir::variants()
+                    AppDir::ok_to_clean()
                         .into_iter()
                         .map(|x| x.as_path_buf())
                         .collect_vec(),
                 )
                 .await
             }
-            Action::CleanImports => all_exist([IgnoreDir::Imports.into()]).await,
-            Action::CleanProcessed => all_exist([IgnoreDir::Processed.into()]).await,
-            Action::InitProcessed => all_exist([IgnoreDir::Processed.join("generated.tf")]).await,
+            Action::CleanImports => all_exist([AppDir::Imports.into()]).await,
+            Action::CleanProcessed => all_exist([AppDir::Processed.into()]).await,
+            Action::InitProcessed => all_exist([AppDir::Processed.join("generated.tf")]).await,
             Action::ApplyProcessed => {
-                all_exist([IgnoreDir::Processed.join(".terraform.lock.hcl")]).await
+                all_exist([AppDir::Processed.join(".terraform.lock.hcl")]).await
             }
-            Action::JumpToBlock => all_exist([IgnoreDir::Processed.join("generated.tf")]).await,
+            Action::JumpToBlock => all_exist([AppDir::Processed.join("generated.tf")]).await,
             Action::UseTerraform => env::var(USE_TERRAFORM_FLAG_KEY).is_err(),
             Action::UseTofu => env::var(USE_TERRAFORM_FLAG_KEY).is_ok(),
             _ => true,
