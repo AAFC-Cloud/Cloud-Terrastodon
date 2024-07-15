@@ -14,6 +14,7 @@ mod perform_import;
 mod pim_activate;
 mod populate_cache;
 mod process_generated;
+mod open_dir;
 
 pub mod prelude {
     pub use crate::actions::apply_processed::*;
@@ -32,4 +33,5 @@ pub mod prelude {
     pub use crate::actions::pim_activate::*;
     pub use crate::actions::populate_cache::*;
     pub use crate::actions::process_generated::*;
+    pub use crate::actions::open_dir::*;
 }

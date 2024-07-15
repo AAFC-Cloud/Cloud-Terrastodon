@@ -1,43 +1,107 @@
-// https://stackoverflow.com/a/74942075/11141271
-#[cfg(test)]
-fn cd_to_workspace_dir() -> anyhow::Result<std::path::PathBuf> {
-    use anyhow::anyhow;
-    use std::env::current_dir;
-    use std::env::set_current_dir;
-    use std::path::Path;
+use anyhow::bail;
+use clap::ValueEnum;
+use directories_next::ProjectDirs;
+use once_cell::sync::Lazy;
+use std::path::Path;
+use std::path::PathBuf;
+use tokio::fs::create_dir_all;
+use tokio::fs::try_exists;
+use tracing::debug;
 
-    let output = std::process::Command::new(env!("CARGO"))
-        .arg("locate-project")
-        .arg("--workspace")
-        .arg("--message-format=plain")
-        .output()
-        .unwrap()
-        .stdout;
-    let cargo_path = Path::new(std::str::from_utf8(&output).unwrap().trim());
-    let workspace_dir = cargo_path
-        .parent()
-        .ok_or(anyhow!("Cargo path parent is not valid"))?;
-    let rtn = current_dir()?;
-    set_current_dir(workspace_dir)?;
-    Ok(rtn)
+static PROJECT_DIRS: Lazy<ProjectDirs> = Lazy::new(|| {
+    let Some(project_dirs) = ProjectDirs::from_path(PathBuf::from("cloud_terrastodon")) else {
+        panic!("Failed to acquire disk locations for project");
+    };
+    project_dirs
+});
+static CACHE_DIR: Lazy<PathBuf> = Lazy::new(|| {
+    PROJECT_DIRS.cache_dir().to_path_buf()
+});
+static DATA_DIR: Lazy<PathBuf> = Lazy::new(|| {
+    PROJECT_DIRS.data_dir().to_path_buf()
+});
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum IgnoreDir {
+    Commands,
+    Imports,
+    Processed,
+    Temp,
+}
+impl std::fmt::Display for IgnoreDir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            IgnoreDir::Commands => "Commands",
+            IgnoreDir::Imports => "Imports",
+            IgnoreDir::Processed => "Processed",
+            IgnoreDir::Temp => "Temp",
+        })
+    }
+}
+impl IgnoreDir {
+    pub fn as_path_buf(&self) -> PathBuf {
+        match self {
+            IgnoreDir::Commands => CACHE_DIR.join("commands"),
+            IgnoreDir::Imports => DATA_DIR.join("imports"),
+            IgnoreDir::Processed => DATA_DIR.join("processed"),
+            IgnoreDir::Temp => DATA_DIR.join("temp"),
+        }
+    }
+    pub fn join(self, path: impl AsRef<Path>) -> PathBuf {
+        let buf: PathBuf = self.into();
+        buf.join(path)
+    }
+    pub fn variants() -> Vec<IgnoreDir> {
+        vec![
+            IgnoreDir::Commands,
+            IgnoreDir::Imports,
+            IgnoreDir::Processed,
+            IgnoreDir::Temp,
+        ]
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::io::Read;
+#[allow(async_fn_in_trait)]
+pub trait Existy {
+    async fn ensure_dir_exists(&self) -> anyhow::Result<()>;
+    async fn ensure_parent_dir_exists(&self) -> anyhow::Result<()>;
+}
+impl<T: AsRef<Path>> Existy for T {
+    async fn ensure_dir_exists(&self) -> anyhow::Result<()> {
+        let path = self.as_ref();
+        match try_exists(&path).await {
+            Ok(true) => {
+                if !path.is_dir() {
+                    bail!("Path {} exists but isn't a dir!", path.display());
+                }
+                Ok(())
+            }
+            Ok(false) => {
+                debug!("Creating {}", path.display());
+                create_dir_all(&path).await?;
+                Ok(())
+            }
+            Err(e) => {
+                bail!(
+                    "Error encountered checking if {} exists: {:?}",
+                    path.display(),
+                    e
+                )
+            }
+        }
+    }
+    async fn ensure_parent_dir_exists(&self) -> anyhow::Result<()> {
+        if let Some(parent) = self.as_ref().parent() {
+            parent.ensure_dir_exists().await?;
+            Ok(())
+        } else {
+            bail!("Could not acquire parent for {}", self.as_ref().display());
+        }
+    }
+}
 
-    use super::*;
-
-    #[test]
-    fn it_works() -> anyhow::Result<()> {
-        cd_to_workspace_dir()?;
-        let mut manifest = std::fs::OpenOptions::new().read(true).open("Cargo.toml")?;
-        let mut contents = String::new();
-        manifest.read_to_string(&mut contents)?;
-        contents
-            .lines()
-            .find(|l| *l == r#"name = "cloud_terrastodon""#)
-            .unwrap();
-        Ok(())
+impl From<IgnoreDir> for PathBuf {
+    fn from(dir: IgnoreDir) -> Self {
+        dir.as_path_buf()
     }
 }

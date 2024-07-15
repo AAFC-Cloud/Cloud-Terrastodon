@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use azure::prelude::fetch_all_role_assignments;
-use pathing_types::IgnoreDir;
+use pathing::IgnoreDir;
 use std::collections::HashSet;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;

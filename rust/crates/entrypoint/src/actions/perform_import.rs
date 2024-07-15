@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use pathing_types::IgnoreDir;
+use pathing::IgnoreDir;
 use tofu::prelude::TofuImporter;
 use tracing::info;
 use tracing::warn;

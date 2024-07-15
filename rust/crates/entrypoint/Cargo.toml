@@ -17,9 +17,10 @@ tofu = { workspace = true }
 azure = { workspace = true }
 command = { workspace = true } 
 tracing = { workspace = true }
-pathing_types = { workspace = true }
+pathing = { workspace = true }
 clap = { workspace = true }
 humantime = { workspace = true }
+opener = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }

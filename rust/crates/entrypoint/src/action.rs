@@ -1,4 +1,5 @@
 use std::env;
+use std::path::PathBuf;
 
 use crate::actions::prelude::apply_processed;
 use crate::actions::prelude::build_group_imports;
@@ -12,6 +13,7 @@ use crate::actions::prelude::clean_processed;
 use crate::actions::prelude::init_processed;
 use crate::actions::prelude::jump_to_block;
 use crate::actions::prelude::list_imports;
+use crate::actions::prelude::open_dir;
 use crate::actions::prelude::perform_import;
 use crate::actions::prelude::pim_activate;
 use crate::actions::prelude::populate_cache;
@@ -20,7 +22,8 @@ use anyhow::Result;
 use azure::prelude::evaluate_policy_assignment_compliance;
 use azure::prelude::remediate_policy_assignment;
 use command::prelude::USE_TERRAFORM_FLAG_KEY;
-use pathing_types::IgnoreDir;
+use itertools::Itertools;
+use pathing::IgnoreDir;
 use tokio::fs;
 #[derive(Debug)]
 pub enum Action {
@@ -44,6 +47,7 @@ pub enum Action {
     UseTofu,
     PopulateCache,
     PimActivate,
+    OpenDir,
     Quit,
 }
 
@@ -77,6 +81,7 @@ impl Action {
             Action::UseTofu => "use tofu",
             Action::PopulateCache => "populate cache",
             Action::PimActivate => "pim activate",
+            Action::OpenDir => "open dir",
             Action::Quit => "quit",
         }
     }
@@ -111,6 +116,7 @@ impl Action {
             Action::UseTerraform => env::set_var(USE_TERRAFORM_FLAG_KEY, "1"),
             Action::UseTofu => env::remove_var(USE_TERRAFORM_FLAG_KEY),
             Action::PopulateCache => populate_cache().await?,
+            Action::OpenDir => open_dir().await?,
             Action::Quit => return Ok(ActionResult::QuitApplication),
         }
         Ok(ActionResult::PauseAndContinue)
@@ -123,6 +129,7 @@ impl Action {
             Action::CleanImports,
             Action::CleanProcessed,
             Action::Quit,
+            Action::OpenDir,
             Action::PopulateCache,
             Action::PimActivate,
             Action::RemediatePolicyAssignment,
@@ -143,23 +150,23 @@ impl Action {
 
     /// Some actions don't make sense if files are missing from expected locations.
     pub async fn is_available(&self) -> bool {
-        let all_exist = async |required_files| -> bool {
+        async fn all_exist(required_files: impl IntoIterator<Item = PathBuf>) -> bool {
             for path in required_files {
                 if !fs::try_exists(path).await.unwrap_or(false) {
                     return false;
                 }
             }
             true
-        };
+        }
 
-        let any_exist = async |required_files| -> bool {
+        async fn any_exist(required_files: impl IntoIterator<Item = PathBuf>) -> bool {
             for path in required_files {
                 if fs::try_exists(path).await.unwrap_or(false) {
                     return true;
                 }
             }
             false
-        };
+        }
 
         match self {
             Action::PerformImport => {
@@ -174,7 +181,15 @@ impl Action {
             }
             Action::ListImports => all_exist([IgnoreDir::Imports.into()]).await,
             Action::ProcessGenerated => all_exist([IgnoreDir::Imports.join("generated.tf")]).await,
-            Action::Clean => all_exist([IgnoreDir::Root.into()]).await,
+            Action::Clean => {
+                any_exist(
+                    IgnoreDir::variants()
+                        .into_iter()
+                        .map(|x| x.as_path_buf())
+                        .collect_vec(),
+                )
+                .await
+            }
             Action::CleanImports => all_exist([IgnoreDir::Imports.into()]).await,
             Action::CleanProcessed => all_exist([IgnoreDir::Processed.into()]).await,
             Action::InitProcessed => all_exist([IgnoreDir::Processed.join("generated.tf")]).await,

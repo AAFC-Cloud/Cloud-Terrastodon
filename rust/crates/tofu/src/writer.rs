@@ -4,7 +4,7 @@ use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
-use pathing_types::Existy;
+use pathing::Existy;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;

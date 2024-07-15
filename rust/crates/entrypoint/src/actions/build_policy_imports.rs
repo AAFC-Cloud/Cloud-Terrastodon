@@ -4,7 +4,7 @@ use azure::prelude::fetch_all_policy_assignments;
 use azure::prelude::fetch_all_policy_definitions;
 use azure::prelude::fetch_all_policy_set_definitions;
 use azure::prelude::PolicyAssignment;
-use pathing_types::IgnoreDir;
+use pathing::IgnoreDir;
 use std::collections::HashSet;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;

@@ -4,7 +4,7 @@ use azure::prelude::fetch_groups;
 use fzf::pick_many;
 use fzf::FzfArgs;
 use itertools::Itertools;
-use pathing_types::IgnoreDir;
+use pathing::IgnoreDir;
 use tofu::prelude::TofuImportBlock;
 use tofu::prelude::TofuWriter;
 use tracing::info;

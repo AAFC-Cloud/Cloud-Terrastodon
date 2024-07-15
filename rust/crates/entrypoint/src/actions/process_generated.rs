@@ -1,8 +1,8 @@
 use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
-use pathing_types::Existy;
-use pathing_types::IgnoreDir;
+use pathing::Existy;
+use pathing::IgnoreDir;
 use std::path::Path;
 use std::path::PathBuf;
 use tofu::prelude::reflow_workspace;

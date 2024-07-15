@@ -4,7 +4,7 @@ use anyhow::Result;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
 use command::prelude::OutputBehaviour;
-use pathing_types::IgnoreDir;
+use pathing::IgnoreDir;
 pub async fn init_processed() -> Result<()> {
     let processed_dir: PathBuf = IgnoreDir::Processed.into();
     CommandBuilder::new(CommandKind::Tofu)

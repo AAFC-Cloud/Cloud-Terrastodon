@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pathing_types::IgnoreDir;
+use pathing::IgnoreDir;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::info;

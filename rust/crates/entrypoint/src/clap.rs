@@ -7,7 +7,7 @@ use clap::FromArgMatches;
 use clap::Parser;
 use clap::Subcommand;
 use itertools::Itertools;
-use pathing_types::IgnoreDir;
+use pathing::IgnoreDir;
 use tracing::info;
 
 #[derive(Parser, Debug)]

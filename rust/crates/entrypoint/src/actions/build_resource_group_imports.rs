@@ -8,7 +8,7 @@ use azure::prelude::SubscriptionId;
 use fzf::pick_many;
 use fzf::Choice;
 use fzf::FzfArgs;
-use pathing_types::IgnoreDir;
+use pathing::IgnoreDir;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use tofu::prelude::Sanitizable;

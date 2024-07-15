@@ -1,8 +1,7 @@
 use anyhow::bail;
 use anyhow::Result;
 use fzf::FzfArgs;
-use pathing_types::IgnoreDir;
-use std::path::PathBuf;
+use pathing::IgnoreDir;
 use tokio::fs;
 use tracing::info;
 pub async fn clean_all() -> Result<()> {
@@ -23,8 +22,10 @@ pub async fn clean_all() -> Result<()> {
         }
         "purge command cache" => {
             info!("Cleaning everything including command cache");
-            let ignore_dir: PathBuf = IgnoreDir::Root.into();
-            fs::remove_dir_all(ignore_dir).await?;
+            for dir in IgnoreDir::variants() {
+                // ignore errors if not exists
+                let _ = fs::remove_dir_all(dir.as_path_buf()).await;
+            }
             Ok(())
         }
         bad => {
