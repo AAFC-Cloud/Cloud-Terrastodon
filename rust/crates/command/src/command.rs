@@ -305,6 +305,7 @@ impl CommandBuilder {
         let busted_path = cache_dir.join("busted");
         let _file = OpenOptions::new()
             .create(true)
+            .write(true)
             .open(&busted_path)
             .await
             .context(format!(
