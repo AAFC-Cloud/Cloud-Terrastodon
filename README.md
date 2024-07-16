@@ -17,8 +17,8 @@ See also: https://github.com/Azure/aztfexport
 
 ## Dependencies
 
-- Azure CLI `az`
-- PowerShell Core `pwsh`
+- [Azure CLI `az`](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli#install)
+- [Fuzzy Finder `fzf`](https://github.com/junegunn/fzf?tab=readme-ov-file#installation)
 
 ## Copyright
 
