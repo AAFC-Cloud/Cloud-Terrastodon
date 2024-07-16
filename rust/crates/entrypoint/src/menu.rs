@@ -1,5 +1,5 @@
-use crate::action::Action;
-use crate::action::ActionResult;
+use crate::menu_action::MenuAction;
+use crate::menu_action::MenuActionResult;
 use crate::read_line::read_line;
 use anyhow::Context;
 use anyhow::Result;
@@ -9,7 +9,7 @@ use std::io::Write;
 use tracing::error;
 use tracing::info;
 
-pub async fn menu() -> Result<ActionResult> {
+pub async fn menu() -> Result<MenuActionResult> {
     // Create a container for the choices we are about to gather
     let mut choices = Vec::new();
 
@@ -17,7 +17,7 @@ pub async fn menu() -> Result<ActionResult> {
     let mut some_unavailable = false;
 
     // Collect choices
-    for action in Action::variants() {
+    for action in MenuAction::variants() {
         if action.is_available().await {
             choices.push(action);
         } else {
@@ -56,17 +56,17 @@ pub async fn menu() -> Result<ActionResult> {
                 error!("Error calling action handler: {:?}", e);
                 press_enter_to_continue().await?;
             }
-            Ok(ActionResult::PauseAndContinue) if chosen.len() == 1 => {
+            Ok(MenuActionResult::PauseAndContinue) if chosen.len() == 1 => {
                 // Only pause when running a single action
                 press_enter_to_continue().await?;
             }
-            Ok(ActionResult::QuitApplication) => {
-                return Ok(ActionResult::QuitApplication);
+            Ok(MenuActionResult::QuitApplication) => {
+                return Ok(MenuActionResult::QuitApplication);
             }
-            Ok(ActionResult::Continue) | Ok(ActionResult::PauseAndContinue) => {}
+            Ok(MenuActionResult::Continue) | Ok(MenuActionResult::PauseAndContinue) => {}
         }
     }
-    Ok(ActionResult::Continue)
+    Ok(MenuActionResult::Continue)
 }
 
 pub async fn press_enter_to_continue() -> Result<()> {
@@ -78,7 +78,7 @@ pub async fn press_enter_to_continue() -> Result<()> {
 
 pub async fn menu_loop() -> Result<()> {
     loop {
-        if menu().await? == ActionResult::QuitApplication {
+        if menu().await? == MenuActionResult::QuitApplication {
             info!("Goodbye!");
             return Ok(());
         }

@@ -1,0 +1,210 @@
+use std::env;
+use std::path::PathBuf;
+
+use crate::interactive::prelude::apply_processed;
+use crate::interactive::prelude::build_group_imports;
+use crate::interactive::prelude::build_imports_from_existing;
+use crate::interactive::prelude::build_policy_imports;
+use crate::interactive::prelude::build_resource_group_imports;
+use crate::interactive::prelude::build_role_assignment_imports;
+use crate::interactive::prelude::clean_all;
+use crate::interactive::prelude::clean_imports;
+use crate::interactive::prelude::clean_processed;
+use crate::interactive::prelude::init_processed;
+use crate::interactive::prelude::jump_to_block;
+use crate::interactive::prelude::list_imports;
+use crate::interactive::prelude::open_dir;
+use crate::noninteractive::prelude::perform_import;
+use crate::interactive::prelude::pim_activate;
+use crate::interactive::prelude::populate_cache;
+use crate::noninteractive::prelude::process_generated;
+use anyhow::Result;
+use azure::prelude::evaluate_policy_assignment_compliance;
+use azure::prelude::remediate_policy_assignment;
+use command::prelude::USE_TERRAFORM_FLAG_KEY;
+use itertools::Itertools;
+use pathing::AppDir;
+use tokio::fs;
+#[derive(Debug)]
+pub enum MenuAction {
+    BuildPolicyImports,
+    BuildGroupImports,
+    BuildResourceGroupImports,
+    BuildRoleAssignmentImports,
+    BuildImportsFromExisting,
+    PerformImport,
+    ProcessGenerated,
+    Clean,
+    CleanImports,
+    CleanProcessed,
+    InitProcessed,
+    ApplyProcessed,
+    JumpToBlock,
+    ListImports,
+    RemediatePolicyAssignment,
+    EvaluatePolicyAssignmentCompliance,
+    UseTerraform,
+    UseTofu,
+    PopulateCache,
+    PimActivate,
+    OpenDir,
+    Quit,
+}
+
+#[derive(Eq, PartialEq, Debug)]
+pub enum MenuActionResult {
+    QuitApplication,
+    Continue,
+    PauseAndContinue,
+}
+
+impl MenuAction {
+    pub fn name(&self) -> &str {
+        match self {
+            MenuAction::BuildPolicyImports => "build imports - create policy_imports.tf",
+            MenuAction::BuildResourceGroupImports => "build imports - create resource_group_imports.tf",
+            MenuAction::BuildGroupImports => "build imports - create group_imports.tf",
+            MenuAction::BuildRoleAssignmentImports => "build imports - create role_assignments.tf",
+            MenuAction::BuildImportsFromExisting => "build imports - build from existing",
+            MenuAction::PerformImport => "perform import - tf plan -generate-config-out generated.tf",
+            MenuAction::ProcessGenerated => "processed - create from generated.tf",
+            MenuAction::Clean => "clean all",
+            MenuAction::CleanImports => "clean imports",
+            MenuAction::CleanProcessed => "clean processed",
+            MenuAction::InitProcessed => "processed - tf init",
+            MenuAction::ApplyProcessed => "processed - tf apply",
+            MenuAction::JumpToBlock => "jump to block",
+            MenuAction::ListImports => "list imports",
+            MenuAction::RemediatePolicyAssignment => "remediate policy assignment",
+            MenuAction::EvaluatePolicyAssignmentCompliance => "evaluate policy assignment complaince",
+            MenuAction::UseTerraform => "use terraform",
+            MenuAction::UseTofu => "use tofu",
+            MenuAction::PopulateCache => "populate cache",
+            MenuAction::PimActivate => "pim activate",
+            MenuAction::OpenDir => "open dir",
+            MenuAction::Quit => "quit",
+        }
+    }
+
+    pub async fn invoke(&self) -> Result<MenuActionResult> {
+        match self {
+            MenuAction::BuildPolicyImports => build_policy_imports().await?,
+            MenuAction::BuildGroupImports => build_group_imports().await?,
+            MenuAction::BuildResourceGroupImports => build_resource_group_imports().await?,
+            MenuAction::BuildRoleAssignmentImports => build_role_assignment_imports().await?,
+            MenuAction::BuildImportsFromExisting => build_imports_from_existing().await?,
+            MenuAction::PerformImport => perform_import().await?,
+            MenuAction::ProcessGenerated => process_generated().await?,
+            MenuAction::Clean => clean_all().await?,
+            MenuAction::CleanImports => clean_imports().await?,
+            MenuAction::CleanProcessed => clean_processed().await?,
+            MenuAction::InitProcessed => init_processed().await?,
+            MenuAction::ApplyProcessed => apply_processed().await?,
+            MenuAction::PimActivate => pim_activate().await?,
+            MenuAction::JumpToBlock => {
+                jump_to_block(AppDir::Processed.into()).await?;
+                return Ok(MenuActionResult::Continue);
+            }
+            MenuAction::ListImports => {
+                list_imports().await?;
+                return Ok(MenuActionResult::Continue);
+            }
+            MenuAction::RemediatePolicyAssignment => remediate_policy_assignment().await?,
+            MenuAction::EvaluatePolicyAssignmentCompliance => {
+                evaluate_policy_assignment_compliance().await?
+            }
+            MenuAction::UseTerraform => env::set_var(USE_TERRAFORM_FLAG_KEY, "1"),
+            MenuAction::UseTofu => env::remove_var(USE_TERRAFORM_FLAG_KEY),
+            MenuAction::PopulateCache => populate_cache().await?,
+            MenuAction::OpenDir => open_dir().await?,
+            MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
+        }
+        Ok(MenuActionResult::PauseAndContinue)
+    }
+    pub fn variants() -> Vec<MenuAction> {
+        vec![
+            MenuAction::UseTerraform,
+            MenuAction::UseTofu,
+            MenuAction::Clean,
+            MenuAction::CleanImports,
+            MenuAction::CleanProcessed,
+            MenuAction::Quit,
+            MenuAction::OpenDir,
+            MenuAction::PopulateCache,
+            MenuAction::PimActivate,
+            MenuAction::RemediatePolicyAssignment,
+            MenuAction::EvaluatePolicyAssignmentCompliance,
+            MenuAction::BuildResourceGroupImports,
+            MenuAction::BuildRoleAssignmentImports,
+            MenuAction::BuildGroupImports,
+            MenuAction::BuildPolicyImports,
+            MenuAction::BuildImportsFromExisting,
+            MenuAction::ListImports,
+            MenuAction::PerformImport,
+            MenuAction::ProcessGenerated,
+            MenuAction::InitProcessed,
+            MenuAction::ApplyProcessed,
+            MenuAction::JumpToBlock,
+        ]
+    }
+
+    /// Some actions don't make sense if files are missing from expected locations.
+    pub async fn is_available(&self) -> bool {
+        async fn all_exist(required_files: impl IntoIterator<Item = PathBuf>) -> bool {
+            for path in required_files {
+                if !fs::try_exists(path).await.unwrap_or(false) {
+                    return false;
+                }
+            }
+            true
+        }
+
+        async fn any_exist(required_files: impl IntoIterator<Item = PathBuf>) -> bool {
+            for path in required_files {
+                if fs::try_exists(path).await.unwrap_or(false) {
+                    return true;
+                }
+            }
+            false
+        }
+
+        match self {
+            MenuAction::PerformImport => {
+                any_exist([
+                    AppDir::Imports.join("policy_imports.tf"),
+                    AppDir::Imports.join("group_imports.tf"),
+                    AppDir::Imports.join("resource_group_imports.tf"),
+                    AppDir::Imports.join("role_assignment_imports.tf"),
+                    AppDir::Imports.join("existing.tf"),
+                ])
+                .await
+            }
+            MenuAction::ListImports => all_exist([AppDir::Imports.into()]).await,
+            MenuAction::ProcessGenerated => all_exist([AppDir::Imports.join("generated.tf")]).await,
+            MenuAction::Clean => {
+                any_exist(
+                    AppDir::ok_to_clean()
+                        .into_iter()
+                        .map(|x| x.as_path_buf())
+                        .collect_vec(),
+                )
+                .await
+            }
+            MenuAction::CleanImports => all_exist([AppDir::Imports.into()]).await,
+            MenuAction::CleanProcessed => all_exist([AppDir::Processed.into()]).await,
+            MenuAction::InitProcessed => all_exist([AppDir::Processed.join("generated.tf")]).await,
+            MenuAction::ApplyProcessed => {
+                all_exist([AppDir::Processed.join(".terraform.lock.hcl")]).await
+            }
+            MenuAction::JumpToBlock => all_exist([AppDir::Processed.join("generated.tf")]).await,
+            MenuAction::UseTerraform => env::var(USE_TERRAFORM_FLAG_KEY).is_err(),
+            MenuAction::UseTofu => env::var(USE_TERRAFORM_FLAG_KEY).is_ok(),
+            _ => true,
+        }
+    }
+}
+impl std::fmt::Display for MenuAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name())
+    }
+}

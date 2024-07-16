@@ -1,7 +1,6 @@
 #![feature(let_chains)]
 use anyhow::Result;
 use entrypoint::prelude::Version;
-use tracing::info;
 
 #[cfg(windows)]
 mod windows_ansi {
@@ -30,15 +29,13 @@ mod windows_ansi {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // fix colours in the default exe terminal
-    #[cfg(windows)]
-    if let Err(e) = windows_ansi::enable_ansi_support() {
-        eprintln!("Failed to enable terminal colours: {e:?}");
-    };
-
     // start logging
     tracing_subscriber::fmt::init();
-    info!("Ahoy!");
+
+    // fix colours in the default exe terminal
+    // show no errors when colours unavailable (piping situations)
+    #[cfg(windows)]
+    let _ = windows_ansi::enable_ansi_support();
 
     // go to menu
     entrypoint::prelude::main(Version::new(env!("CARGO_PKG_VERSION").to_string())).await?;

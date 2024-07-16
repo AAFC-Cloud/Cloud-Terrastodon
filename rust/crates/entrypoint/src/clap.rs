@@ -1,15 +1,20 @@
-use crate::actions::prelude::jump_to_block;
+use std::fmt::Debug;
+
 use crate::menu::menu_loop;
+use crate::noninteractive::prelude::perform_import;
+use crate::noninteractive::prelude::process_generated;
+use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::prelude::Version;
-use azure::prelude::ScopeImplKind;
 use clap::CommandFactory;
 use clap::FromArgMatches;
 use clap::Parser;
 use clap::Subcommand;
-use itertools::Itertools;
 use pathing::AppDir;
+use tokio::fs::remove_dir_all;
+use tokio::io::stdout;
+use tokio::io::AsyncWriteExt;
 use tracing::info;
-
+use tracing::warn;
 #[derive(Parser, Debug)]
 #[command(name = "cloud_terrastodon", about, long_about = None)]
 struct Cli {
@@ -19,36 +24,12 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Interactive mode
-    Interactive,
-    /// Clean up working files
-    Clean {
-        #[arg(long)]
-        dir: Vec<AppDir>,
-    },
-    /// Interact with Azure policy
-    #[command(subcommand)]
-    Policy(PolicyCommand),
-    /// Display an object as json
-    Show {
-        #[arg(long)]
-        kind: Option<ScopeImplKind>,
-    },
-    /// Terraform related commands
-    #[command(subcommand)]
-    Tf(TfCommand),
-}
-
-#[derive(Subcommand, Debug)]
-enum TfCommand {
-    /// Jump to a specific block
-    Jump,
-}
-
-#[derive(Subcommand, Debug)]
-enum PolicyCommand {
-    Compliance,
-    Remediation,
+    Clean,
+    WriteAllImports,
+    PerformCodeGenerationFromImports,
+    GetPath {
+        dir: AppDir
+    }
 }
 
 pub async fn main(version: Version) -> anyhow::Result<()> {
@@ -64,74 +45,27 @@ pub async fn main(version: Version) -> anyhow::Result<()> {
             menu_loop().await?;
         }
         Some(command) => match command {
-            Commands::Interactive => print_subcommands::<Cli>(),
-            Commands::Show { kind } => {
-                info!("You chose: {kind:?}");
-            }
-            Commands::Tf(tf_command) => match tf_command {
-                TfCommand::Jump => jump_to_block(AppDir::Processed.into()).await?,
-            },
-            Commands::Policy(policy_command) => match policy_command {
-                PolicyCommand::Compliance => todo!(),
-                PolicyCommand::Remediation => todo!(),
-            },
-            Commands::Clean { dir: dirs } => {
-                info!("Cleaning {dirs:#?}");
-                for dir in dirs {
-                    info!("Cleaning {dir:?}");
-                    tokio::fs::remove_dir_all(dir.as_path_buf()).await?;
+            Commands::Clean => {
+                for dir in AppDir::ok_to_clean() {
+                    info!("Cleaning {dir}...");
+                    if let Err(e) = remove_dir_all(dir.as_path_buf()).await {
+                        warn!("Ignoring error encountered cleaning {dir}: {e:?}");
+                    }
                 }
+            }
+            Commands::WriteAllImports => {
+                write_imports_for_all_resource_groups().await?;
+            }
+            Commands::PerformCodeGenerationFromImports => {
+                perform_import().await?;
+                process_generated().await?;
+            }
+            Commands::GetPath { dir } => {
+                let mut out = stdout();
+                out.write_all(dir.as_path_buf().as_os_str().as_encoded_bytes()).await?;
+                out.flush().await?;
             }
         },
     }
     Ok(())
-}
-
-fn print_subcommands<T: CommandFactory>() {
-    let cmd = T::command();
-    print_subcommands_recursively(&cmd, 0);
-}
-
-fn print_subcommands_recursively(cmd: &clap::Command, indent: usize) {
-    let indent_str = " ".repeat(indent);
-    let cmd_name = cmd.get_name();
-    let mut cmd_param_variants = Vec::new();
-    let cmd_params = {
-        let mut arguments = cmd.get_arguments().peekable();
-        if arguments.peek().is_none() {
-            String::new()
-        } else {
-            format!(
-                "({})",
-                arguments
-                    .map(|arg| {
-                        let arg_ident = arg.get_id().as_str();
-                        let arg_parser = arg.get_value_parser();
-                        if let Some(variants) = arg_parser.possible_values() {
-                            for v in variants {
-                                cmd_param_variants.push(format!(
-                                    "{} - {}",
-                                    arg_ident,
-                                    v.get_name()
-                                ));
-                            }
-                        }
-                        format!("{}: {:?}", arg_ident, arg_parser)
-                    })
-                    .collect_vec()
-                    .into_iter()
-                    .join(", ")
-            )
-        }
-    };
-    println!(
-        "{}{}{}\n{:#?}",
-        indent_str, cmd_name, cmd_params, cmd_param_variants
-    );
-
-    // interactive mode - match against ID to prompt for arg values before invoking the normal command
-
-    for subcmd in cmd.get_subcommands() {
-        print_subcommands_recursively(subcmd, indent + 2);
-    }
 }
