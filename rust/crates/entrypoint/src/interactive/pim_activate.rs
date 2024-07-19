@@ -80,6 +80,8 @@ pub async fn pim_activate_entra() -> Result<()> {
         .collect::<HashSet<_>>();
 
     info!("Building role to activate choice list");
+    // TODO: filter out duplicate roles so that they don't get activated twice
+    // rename already_activated -> ineligible
     let activatable_assignments = role_assignments
         .values()
         .filter_map(|ra| {
