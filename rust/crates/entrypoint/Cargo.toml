@@ -21,6 +21,7 @@ pathing = { workspace = true }
 clap = { workspace = true }
 humantime = { workspace = true }
 opener = { workspace = true }
+async-recursion = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }

@@ -1,6 +1,7 @@
 # v0.3.0
 
 - Fix policy remediation not providing scope leading to 0 resources being remediated
+- Add `cloud_terrastodon copy-results ./whatever` command
 
 # v0.2.0
 

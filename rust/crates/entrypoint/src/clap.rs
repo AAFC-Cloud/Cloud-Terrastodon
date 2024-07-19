@@ -1,10 +1,13 @@
 use std::fmt::Debug;
+use std::path::Path;
+use std::path::PathBuf;
 
 use crate::menu::menu_loop;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::prelude::Version;
+use anyhow::Result;
 use clap::CommandFactory;
 use clap::FromArgMatches;
 use clap::Parser;
@@ -27,12 +30,11 @@ enum Commands {
     Clean,
     WriteAllImports,
     PerformCodeGenerationFromImports,
-    GetPath {
-        dir: AppDir
-    }
+    GetPath { dir: AppDir },
+    CopyResults { dest: PathBuf },
 }
 
-pub async fn main(version: Version) -> anyhow::Result<()> {
+pub async fn main(version: Version) -> Result<()> {
     // Set the version
     let mut cmd = Cli::command();
     cmd = cmd.version(version.to_string());
@@ -62,8 +64,33 @@ pub async fn main(version: Version) -> anyhow::Result<()> {
             }
             Commands::GetPath { dir } => {
                 let mut out = stdout();
-                out.write_all(dir.as_path_buf().as_os_str().as_encoded_bytes()).await?;
+                out.write_all(dir.as_path_buf().as_os_str().as_encoded_bytes())
+                    .await?;
                 out.flush().await?;
+            }
+            Commands::CopyResults { dest } => {
+                // from https://stackoverflow.com/a/78769977/11141271
+                #[async_recursion::async_recursion]
+                async fn copy_dir_all<S, D>(src: S, dst: D) -> Result<(), std::io::Error>
+                where
+                    S: AsRef<Path> + Send + Sync,
+                    D: AsRef<Path> + Send + Sync,	
+                {
+                    tokio::fs::create_dir_all(&dst).await?;
+                    let mut entries = tokio::fs::read_dir(src).await?;
+                    while let Some(entry) = entries.next_entry().await? {
+                        let ty = entry.file_type().await?;
+                        if ty.is_dir() {
+                            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))
+                                .await?;
+                        } else {
+                            tokio::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))
+                                .await?;
+                        }
+                    }
+                    Ok(())
+                }
+                copy_dir_all(AppDir::Processed.as_path_buf(), dest).await?;
             }
         },
     }
