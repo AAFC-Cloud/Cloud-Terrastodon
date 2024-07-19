@@ -14,9 +14,9 @@ use crate::interactive::prelude::init_processed;
 use crate::interactive::prelude::jump_to_block;
 use crate::interactive::prelude::list_imports;
 use crate::interactive::prelude::open_dir;
-use crate::noninteractive::prelude::perform_import;
 use crate::interactive::prelude::pim_activate;
 use crate::interactive::prelude::populate_cache;
+use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use anyhow::Result;
 use azure::prelude::evaluate_policy_assignment_compliance;
@@ -62,11 +62,15 @@ impl MenuAction {
     pub fn name(&self) -> &str {
         match self {
             MenuAction::BuildPolicyImports => "build imports - create policy_imports.tf",
-            MenuAction::BuildResourceGroupImports => "build imports - create resource_group_imports.tf",
+            MenuAction::BuildResourceGroupImports => {
+                "build imports - create resource_group_imports.tf"
+            }
             MenuAction::BuildGroupImports => "build imports - create group_imports.tf",
             MenuAction::BuildRoleAssignmentImports => "build imports - create role_assignments.tf",
             MenuAction::BuildImportsFromExisting => "build imports - build from existing",
-            MenuAction::PerformImport => "perform import - tf plan -generate-config-out generated.tf",
+            MenuAction::PerformImport => {
+                "perform import - tf plan -generate-config-out generated.tf"
+            }
             MenuAction::ProcessGenerated => "processed - create from generated.tf",
             MenuAction::Clean => "clean all",
             MenuAction::CleanImports => "clean imports",
@@ -76,7 +80,9 @@ impl MenuAction {
             MenuAction::JumpToBlock => "jump to block",
             MenuAction::ListImports => "list imports",
             MenuAction::RemediatePolicyAssignment => "remediate policy assignment",
-            MenuAction::EvaluatePolicyAssignmentCompliance => "evaluate policy assignment complaince",
+            MenuAction::EvaluatePolicyAssignmentCompliance => {
+                "evaluate policy assignment complaince"
+            }
             MenuAction::UseTerraform => "use terraform",
             MenuAction::UseTofu => "use tofu",
             MenuAction::PopulateCache => "populate cache",

@@ -74,7 +74,7 @@ pub async fn main(version: Version) -> Result<()> {
                 async fn copy_dir_all<S, D>(src: S, dst: D) -> Result<(), std::io::Error>
                 where
                     S: AsRef<Path> + Send + Sync,
-                    D: AsRef<Path> + Send + Sync,	
+                    D: AsRef<Path> + Send + Sync,
                 {
                     tokio::fs::create_dir_all(&dst).await?;
                     let mut entries = tokio::fs::read_dir(src).await?;
