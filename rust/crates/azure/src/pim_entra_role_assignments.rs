@@ -45,8 +45,12 @@ pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<PimEntraRoleAss
         value: Vec<PimEntraRoleAssignment>,
     }
 
-    let resp: Response = cmd.run().await?;
-    Ok(resp.value)
+    let mut result: Result<Response, _> = cmd.run().await;
+    if result.is_err() {
+        // single retry - sometimes this returns a gateway error
+        result = cmd.run().await;
+    }
+    Ok(result?.value)
 }
 
 #[cfg(test)]

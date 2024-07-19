@@ -650,8 +650,9 @@ impl CommandBuilder {
 /// You have been warned.
 #[cfg(test)]
 mod tests {
-    use tokio::task::spawn_blocking;
-    use tokio::time::sleep;
+    use std::thread;
+    use tokio::time::sleep_until;
+    use tokio::time::Instant;
 
     use super::*;
 
@@ -729,25 +730,44 @@ Resources
 "#
             .to_string(),
         );
+        let period = Duration::from_secs(5);
         cmd.use_cache_behaviour(CacheBehaviour::Some {
-            path: PathBuf::from_iter(["az graph query", "--graph-query count-resource-containers"]),
-            valid_for: Duration::from_secs(5),
+            path: PathBuf::from_iter(["az graph query", "--graph-query current-time"]),
+            valid_for: period,
         });
 
         // we don't want anything between our `await` calls that could mess with the timing
-        spawn_blocking(move || {
-            tokio::runtime::Handle::current().block_on(async {
-                let result1 = cmd.run_raw().await?;
-                let result2 = cmd.run_raw().await?;
-                sleep(Duration::from_secs(10)).await;
-                let result3 = cmd.run_raw().await?;
-                println!("result1: {result1:?}\nresult2: {result2:?}\nresult3: {result3:?}");
-                assert_eq!(result1, result2);
-                assert_ne!(result1, result3);
-                Ok::<(), anyhow::Error>(())
-            })
-        })
-        .await??;
+        thread::Builder::new().spawn(move || {
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(async {
+                    // fetch and cache
+                    let t1 = Instant::now();
+                    let result1 = cmd.run_raw().await?;
+
+                    // ensure there is at least 1 second remaining before cache expiry
+                    let t2 = Instant::now();
+                    assert!(t2 + Duration::from_secs(1) < t1 + period);
+
+                    // fetch using cache
+                    let result2 = cmd.run_raw().await?;
+
+                    // sleep until cache expired
+                    sleep_until(t2 + period + Duration::from_secs(1)).await;
+                    let t3 = Instant::now();
+                    assert!(t3 > t2 + period);
+
+                    // fetch new results without using cache
+                    let result3 = cmd.run_raw().await?;
+
+                    // ensure first two match and don't match third
+                    println!("result1: {result1:?}\nresult2: {result2:?}\nresult3: {result3:?}");
+                    assert_eq!(result1, result2);
+                    assert_ne!(result1, result3);
+                    Ok::<(), anyhow::Error>(())
+                })
+                .unwrap();
+        })?;
         Ok(())
     }
 
