@@ -2,9 +2,11 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use azure_types::prelude::DistinctByScope;
+use azure_types::prelude::ManagementGroupId;
 use azure_types::prelude::PolicyAssignment;
 use azure_types::prelude::PolicyDefinitionId;
 use azure_types::prelude::PolicySetDefinitionId;
+use azure_types::prelude::ResourceGroupId;
 use azure_types::prelude::Scope;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
@@ -91,6 +93,14 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                     "--definition-reference-id",
                     choice.inner.policy_definition_reference_id.as_ref(),
                 ]);
+                let scope = &policy_assignment.scope;
+                if let Ok(management_group_id) = ManagementGroupId::try_from_expanded(&scope) {
+                    cmd.args(["--management-group", management_group_id.short_form()]);
+                } else if let Ok(resource_group_id) = ResourceGroupId::try_from_expanded(&scope) {
+                    cmd.args(["--resource-group",resource_group_id.short_form()]);
+                } else {
+                    bail!("Could not identify kind of scope (management group, resource group) for scope {scope}");
+                }
                 cmd.should_announce(true);
                 cmd.run_raw().await?;
             }
@@ -104,6 +114,15 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                 format!("myRemediation{:x}", rand::thread_rng().next_u32()).as_ref(),
             ]);
             cmd.args(["--policy-assignment", policy_assignment.id.expanded_form()]);
+            
+            let scope = &policy_assignment.scope;
+            if let Ok(management_group_id) = ManagementGroupId::try_from_expanded(&scope) {
+                cmd.args(["--management-group", management_group_id.short_form()]);
+            } else if let Ok(resource_group_id) = ResourceGroupId::try_from_expanded(&scope) {
+                cmd.args(["--resource-group",resource_group_id.short_form()]);
+            } else {
+                bail!("Could not identify kind of scope (management group, resource group) for scope {scope}");
+            }
             cmd.should_announce(true);
             cmd.run_raw().await?;
         }

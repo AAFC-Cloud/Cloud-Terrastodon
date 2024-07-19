@@ -1,3 +1,7 @@
+# v0.3.0
+
+- Fix policy remediation not providing scope leading to 0 resources being remediated
+
 # v0.2.0
 
 - Fix terminal colours in default terminal opened when double clicking the exe
