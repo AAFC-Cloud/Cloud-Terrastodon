@@ -2,6 +2,7 @@ use std::env;
 use std::path::PathBuf;
 
 use crate::interactive::prelude::apply_processed;
+use crate::interactive::prelude::browse_resource_groups;
 use crate::interactive::prelude::build_group_imports;
 use crate::interactive::prelude::build_imports_from_existing;
 use crate::interactive::prelude::build_policy_imports;
@@ -32,6 +33,7 @@ pub enum MenuAction {
     BuildResourceGroupImports,
     BuildRoleAssignmentImports,
     BuildImportsFromExisting,
+    BrowseResourceGroups,
     PerformImport,
     ProcessGenerated,
     Clean,
@@ -61,6 +63,7 @@ pub enum MenuActionResult {
 impl MenuAction {
     pub fn name(&self) -> &str {
         match self {
+            MenuAction::BrowseResourceGroups => "browse resource groups",
             MenuAction::BuildPolicyImports => "build imports - create policy_imports.tf",
             MenuAction::BuildResourceGroupImports => {
                 "build imports - create resource_group_imports.tf"
@@ -94,6 +97,7 @@ impl MenuAction {
 
     pub async fn invoke(&self) -> Result<MenuActionResult> {
         match self {
+            MenuAction::BrowseResourceGroups => browse_resource_groups().await?,
             MenuAction::BuildPolicyImports => build_policy_imports().await?,
             MenuAction::BuildGroupImports => build_group_imports().await?,
             MenuAction::BuildResourceGroupImports => build_resource_group_imports().await?,
@@ -137,6 +141,7 @@ impl MenuAction {
             MenuAction::Quit,
             MenuAction::OpenDir,
             MenuAction::PopulateCache,
+            MenuAction::BrowseResourceGroups,
             MenuAction::PimActivate,
             MenuAction::RemediatePolicyAssignment,
             MenuAction::EvaluatePolicyAssignmentCompliance,
