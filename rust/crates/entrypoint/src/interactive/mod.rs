@@ -14,6 +14,8 @@ mod open_dir;
 mod pim_activate;
 mod populate_cache;
 mod browse_resource_groups;
+mod create_role_assignment_menu;
+mod browse_users;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
@@ -32,4 +34,6 @@ pub mod prelude {
     pub use crate::interactive::pim_activate::*;
     pub use crate::interactive::populate_cache::*;
     pub use crate::interactive::browse_resource_groups::*;
+    pub use crate::interactive::create_role_assignment_menu::*;
+    pub use crate::interactive::browse_users::*;
 }

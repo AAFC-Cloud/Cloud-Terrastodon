@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::interactive::prelude::apply_processed;
 use crate::interactive::prelude::browse_resource_groups;
+use crate::interactive::prelude::browse_users;
 use crate::interactive::prelude::build_group_imports;
 use crate::interactive::prelude::build_imports_from_existing;
 use crate::interactive::prelude::build_policy_imports;
@@ -11,6 +12,7 @@ use crate::interactive::prelude::build_role_assignment_imports;
 use crate::interactive::prelude::clean_all;
 use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
+use crate::interactive::prelude::create_role_assignment_menu;
 use crate::interactive::prelude::init_processed;
 use crate::interactive::prelude::jump_to_block;
 use crate::interactive::prelude::list_imports;
@@ -34,11 +36,13 @@ pub enum MenuAction {
     BuildRoleAssignmentImports,
     BuildImportsFromExisting,
     BrowseResourceGroups,
+    BrowseUsers,
     PerformImport,
     ProcessGenerated,
     Clean,
     CleanImports,
     CleanProcessed,
+    CreateRoleAssignment,
     InitProcessed,
     ApplyProcessed,
     JumpToBlock,
@@ -64,6 +68,7 @@ impl MenuAction {
     pub fn name(&self) -> &str {
         match self {
             MenuAction::BrowseResourceGroups => "browse resource groups",
+            MenuAction::BrowseUsers => "browse users",
             MenuAction::BuildPolicyImports => "build imports - create policy_imports.tf",
             MenuAction::BuildResourceGroupImports => {
                 "build imports - create resource_group_imports.tf"
@@ -86,6 +91,7 @@ impl MenuAction {
             MenuAction::EvaluatePolicyAssignmentCompliance => {
                 "evaluate policy assignment complaince"
             }
+            MenuAction::CreateRoleAssignment => "create role assignment",
             MenuAction::UseTerraform => "use terraform",
             MenuAction::UseTofu => "use tofu",
             MenuAction::PopulateCache => "populate cache",
@@ -98,6 +104,7 @@ impl MenuAction {
     pub async fn invoke(&self) -> Result<MenuActionResult> {
         match self {
             MenuAction::BrowseResourceGroups => browse_resource_groups().await?,
+            MenuAction::BrowseUsers => browse_users().await?,
             MenuAction::BuildPolicyImports => build_policy_imports().await?,
             MenuAction::BuildGroupImports => build_group_imports().await?,
             MenuAction::BuildResourceGroupImports => build_resource_group_imports().await?,
@@ -106,6 +113,7 @@ impl MenuAction {
             MenuAction::PerformImport => perform_import().await?,
             MenuAction::ProcessGenerated => process_generated().await?,
             MenuAction::Clean => clean_all().await?,
+            MenuAction::CreateRoleAssignment => create_role_assignment_menu().await?,
             MenuAction::CleanImports => clean_imports().await?,
             MenuAction::CleanProcessed => clean_processed().await?,
             MenuAction::InitProcessed => init_processed().await?,
@@ -142,7 +150,9 @@ impl MenuAction {
             MenuAction::OpenDir,
             MenuAction::PopulateCache,
             MenuAction::BrowseResourceGroups,
+            MenuAction::BrowseUsers,
             MenuAction::PimActivate,
+            MenuAction::CreateRoleAssignment,
             MenuAction::RemediatePolicyAssignment,
             MenuAction::EvaluatePolicyAssignmentCompliance,
             MenuAction::BuildResourceGroupImports,

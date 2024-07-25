@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-use anyhow::bail;
 use anyhow::Result;
 use azure::prelude::fetch_all_resource_groups;
 use azure::prelude::fetch_all_subscriptions;
