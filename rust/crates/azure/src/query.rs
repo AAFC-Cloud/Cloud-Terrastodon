@@ -1,3 +1,4 @@
+use anyhow::bail;
 use anyhow::Result;
 use azure_types::prelude::QueryResponse;
 use command::prelude::CacheBehaviour;
@@ -6,21 +7,25 @@ use command::prelude::CommandKind;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashSet;
 use std::ffi::OsString;
 use std::path::PathBuf;
+use tracing::debug;
 
 pub struct QueryBuilder {
     query: String,
     cache_behaviour: CacheBehaviour,
-    skip_token: Option<String>,
+    skip: Option<(u64, String)>,
     index: usize,
+    #[cfg(debug_assertions)]
+    seen_skip_tokens: HashSet<String>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct QueryRestOptions {
     #[serde(rename = "$skip")]
-    skip: u32,
+    skip: u64,
     #[serde(rename = "$top")]
-    top: u32,
+    top: u64,
     #[serde(rename = "$skipToken")]
     skip_token: Option<String>,
     #[serde(rename = "authorizationScopeFilter")]
@@ -57,13 +62,21 @@ impl QueryBuilder {
         Self {
             query,
             cache_behaviour,
-            skip_token: None,
+            skip: None,
             index: 0,
+            #[cfg(debug_assertions)]
+            seen_skip_tokens: Default::default(),
         }
     }
 
     pub async fn fetch<T: DeserializeOwned>(&mut self) -> Result<Option<QueryResponse<T>>> {
-        // Assemble command
+        #[cfg(debug_assertions)]
+        if let Some((_, token)) = &self.skip {
+            if !self.seen_skip_tokens.insert(token.to_owned()) {
+                bail!("Saw the same skip token twice, infinite loop detected");
+            }
+        }
+
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         // Previously tried using `az graph query` but hit issues with scopes
         // we want the results to be identical to the resource graph explorer in the portal
@@ -80,18 +93,18 @@ impl QueryBuilder {
 
         cmd.args(["rest","--method","POST","--url","https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01", "--body"]);
         let batch_size = 1000;
+        let (skip, skip_token) = match &self.skip {
+            Some((skip, token)) => (*skip, Some(token.to_owned())),
+            None => (0u64, None),
+        };
         cmd.file_arg(
             "body.json",
             serde_json::to_string_pretty(&QueryRestBody {
                 query: self.query.to_string(),
                 options: QueryRestOptions {
-                    skip: if self.skip_token.is_some() {
-                        batch_size
-                    } else {
-                        0
-                    },
+                    skip,
                     top: batch_size,
-                    skip_token: self.skip_token.to_owned(),
+                    skip_token,
                     authorization_scope_filter: QueryRestScopeFilterOption::AtScopeAboveAndBelow,
                     result_format: QueryRestResultFormat::Table,
                 },
@@ -117,7 +130,11 @@ impl QueryBuilder {
         let results = cmd.run::<QueryResponse<T>>().await?;
 
         // Update skip token
-        self.skip_token.clone_from(&results.skip_token);
+        if let Some(skip_token) = &results.skip_token {
+            self.skip.replace((skip + results.count, skip_token.to_owned()));
+        } else {
+            self.skip.clone_from(&None);
+        }
 
         // // Transform results
         // let results: QueryResponse<T> = results.try_into()?;
@@ -127,13 +144,14 @@ impl QueryBuilder {
 
     pub async fn collect_all<T: DeserializeOwned>(&mut self) -> Result<Vec<T>> {
         let mut all_data = Vec::new();
-
+        debug!("Fetching first batch");
         while let Some(response) = self.fetch().await? {
             all_data.extend(response.data);
 
-            if self.skip_token.is_none() {
+            if self.skip.is_none() {
                 break;
             }
+            debug!("Fetching next batch");
         }
 
         Ok(all_data)
