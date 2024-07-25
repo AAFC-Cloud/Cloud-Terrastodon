@@ -52,3 +52,11 @@
     - conflict detection on rg/env mismatch
     - persist in json file
     - CLI for creating or modifying assignments
+
+
+- PIM deactivation
+    - list active assignments (audit log?)
+    - pick many, deactivate
+
+- devops git repo last modified date aggregator
+    - identify repos that are candidates for deletion/archival
