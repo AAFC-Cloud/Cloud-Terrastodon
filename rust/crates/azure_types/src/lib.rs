@@ -25,6 +25,7 @@ mod subscriptions;
 mod tenants;
 mod test_resource;
 mod users;
+mod resources;
 
 pub mod prelude {
     pub use crate::duration::*;
@@ -53,5 +54,6 @@ pub mod prelude {
     pub use crate::tenants::*;
     pub(crate) use crate::test_resource::*;
     pub use crate::users::*;
+    pub use crate::resources::*;
     pub use uuid;
 }
