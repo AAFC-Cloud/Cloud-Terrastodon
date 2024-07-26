@@ -154,14 +154,14 @@ mod tests {
                     .await?
                     .into_iter()
                     .map(|x| Choice {
-                        display: x.name.to_owned(),
-                        inner: x,
+                        key: x.name.to_owned(),
+                        value: x,
                     })
                     .collect_vec(),
                 prompt: None,
                 header: Some("Choose a scope".to_string()),
             })?;
-            scope = next_scope.inner.id;
+            scope = next_scope.value.id;
         }
     }
     #[test_log::test(tokio::test)]
@@ -172,8 +172,8 @@ mod tests {
                 .await?
                 .into_iter()
                 .map(|x| Choice {
-                    display: x.to_string(),
-                    inner: x,
+                    key: x.to_string(),
+                    value: x,
                 })
                 .collect(),
             prompt: None,

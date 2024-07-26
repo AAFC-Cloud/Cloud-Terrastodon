@@ -21,7 +21,7 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
     let policy_assignments = fetch_all_policy_assignments().await?;
 
     let Choice {
-        inner: policy_assignment,
+        value: policy_assignment,
         ..
     } = pick(FzfArgs {
         choices: policy_assignments
@@ -29,8 +29,8 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
             .flatten()
             .distinct_by_scope()
             .map(|ass| Choice::<PolicyAssignment> {
-                display: format!("{} {:?}", ass.name, ass.display_name),
-                inner: ass,
+                key: format!("{} {:?}", ass.name, ass.display_name),
+                value: ass,
             })
             .collect(),
         prompt: None,
@@ -75,17 +75,17 @@ policyResources
     .await?;
 
     let Choice {
-        inner: chosen_reference_id,
+        value: chosen_reference_id,
         ..
     } = pick(FzfArgs {
         choices: reference_ids
             .into_iter()
             .map(|row| Choice {
-                display: format!(
+                key: format!(
                     "{:64} - {:64} - {} non-compliant resources",
                     row.policy_definition_reference_id, row.resource_type, row.found
                 ),
-                inner: row,
+                value: row,
             })
             .collect_vec(),
         prompt: None,
@@ -144,13 +144,13 @@ policyResources
     .await?;
 
     let Choice {
-        inner: chosen_resource_id,
+        value: chosen_resource_id,
         ..
     } = pick(FzfArgs {
         choices: resource_ids
             .into_iter()
             .map(|row| Choice {
-                display: format!(
+                key: format!(
                     "{:16} - {:64} - {}",
                     row.subscription_name,
                     row.resource_group_name,
@@ -159,7 +159,7 @@ policyResources
                         .map(|x| x.1)
                         .unwrap_or(row.resource_id.as_str())
                 ),
-                inner: row,
+                value: row,
             })
             .collect_vec(),
         prompt: Some("Choose an inner policy to review> ".to_string()),

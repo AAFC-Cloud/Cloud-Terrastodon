@@ -13,8 +13,8 @@ pub async fn browse_users() -> Result<()> {
         choices: users
             .into_iter()
             .map(|u| Choice {
-                display: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
-                inner: u,
+                key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
+                value: u,
             })
             .collect_vec(),
         prompt: Some("Users: ".to_string()),
@@ -22,7 +22,7 @@ pub async fn browse_users() -> Result<()> {
     })?;
     info!("You chose:");
     for user in users {
-        info!("- {}", user.display);
+        info!("- {}", user.key);
     }
     Ok(())
 }

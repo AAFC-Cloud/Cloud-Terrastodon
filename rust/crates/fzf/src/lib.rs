@@ -11,12 +11,12 @@ use std::process::Stdio;
 
 #[derive(Debug)]
 pub struct Choice<T> {
-    pub display: String,
-    pub inner: T,
+    pub key: String,
+    pub value: T,
 }
 impl<T> std::fmt::Display for Choice<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.display)
+        f.write_str(&self.key)
     }
 }
 
@@ -26,8 +26,8 @@ where
 {
     fn from(value: T) -> Self {
         Choice {
-            display: value.to_string(),
-            inner: value,
+            key: value.to_string(),
+            value,
         }
     }
 }
@@ -36,7 +36,7 @@ impl<T> Deref for Choice<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.value
     }
 }
 
@@ -47,7 +47,7 @@ pub struct FzfArgs<T> {
 }
 
 /// Prompt the user to pick from a predetermined list of options.
-pub fn pick_many<T>(args: FzfArgs<T>) -> Result<Vec<T>>
+pub fn 	pick_many<T>(args: FzfArgs<T>) -> Result<Vec<T>>
 where
     T: Into<Choice<T>>,
 {
@@ -88,8 +88,8 @@ where
         let chosen_set = response_string.lines().collect::<IndexSet<&str>>();
         let chosen = choices
             .into_iter()
-            .filter(|c| chosen_set.contains(c.display.as_str()))
-            .map(|c| c.inner)
+            .filter(|c| chosen_set.contains(c.key.as_str()))
+            .map(|c| c.value)
             .collect_vec();
         Ok(chosen)
     } else {
@@ -142,8 +142,8 @@ where
         let chosen_set = response_string.lines().collect::<IndexSet<&str>>();
         let chosen = choices
             .into_iter()
-            .filter(|c| chosen_set.contains(c.display.as_str()))
-            .map(|c| c.inner)
+            .filter(|c| chosen_set.contains(c.key.as_str()))
+            .map(|c| c.value)
             .next()
             .ok_or(anyhow::anyhow!("No choice present"))?;
         Ok(chosen)

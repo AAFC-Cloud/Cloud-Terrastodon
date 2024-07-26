@@ -59,7 +59,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
     info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();
     let mut imports = Vec::with_capacity(chosen.len());
-    for Choice { inner: pair, .. } in chosen {
+    for Choice { value: pair, .. } in chosen {
         let mut block: TofuImportBlock = pair.resource_group.into();
         block.provider = TofuProviderReference::Alias {
             kind: TofuProviderKind::AzureRM,

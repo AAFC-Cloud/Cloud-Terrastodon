@@ -80,8 +80,6 @@ pub async fn pim_activate_entra() -> Result<()> {
         .collect::<HashSet<_>>();
 
     info!("Building role to activate choice list");
-    // TODO: filter out duplicate roles so that they don't get activated twice
-    // rename already_activated -> ineligible
     let activatable_assignments = role_assignments
         .values()
         .filter_map(|ra| {
@@ -98,10 +96,11 @@ pub async fn pim_activate_entra() -> Result<()> {
                 role_definitions.get(&eligible.role_definition_id)?;
 
             Some(Choice {
-                display: display_name.clone(),
-                inner: eligible,
+                key: display_name.to_owned(),
+                value: eligible,
             })
         })
+        .unique_by(|c| c.key.to_owned())
         .collect_vec();
 
     info!("Prompting user choice");
@@ -127,8 +126,8 @@ pub async fn pim_activate_entra() -> Result<()> {
         choices: build_duration_choices(&max_duration)
             .into_iter()
             .map(|d| Choice {
-                display: format_duration(d).to_string(),
-                inner: d,
+                key: format_duration(d).to_string(),
+                value: d,
             })
             .collect(),
         prompt: None,
@@ -158,8 +157,8 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         choices: possible_roles
             .into_iter()
             .map(|x| Choice {
-                display: x.to_string(),
-                inner: x,
+                key: x.to_string(),
+                value: x,
             })
             .collect_vec(),
         prompt: None,
@@ -183,8 +182,8 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         choices: possible_scopes
             .into_iter()
             .map(|x| Choice {
-                display: x.to_string(),
-                inner: x,
+                key: x.to_string(),
+                value: x,
             })
             .collect(),
         prompt: None,
@@ -195,7 +194,7 @@ pub async fn pim_activate_azurerm() -> Result<()> {
     let mut maximum_duration = Duration::MAX;
     for (role, scope) in chosen_roles.iter().zip(chosen_scopes.iter()) {
         let policies = fetch_role_management_policy_assignments(
-            scope.inner.id.clone(),
+            scope.value.id.clone(),
             role.properties.role_definition_id.clone(),
         )
         .await?;
@@ -213,8 +212,8 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         choices: build_duration_choices(&maximum_duration)
             .into_iter()
             .map(|d| Choice {
-                display: format_duration(d).to_string(),
-                inner: d,
+                key: format_duration(d).to_string(),
+                value: d,
             })
             .collect(),
         prompt: None,
@@ -234,7 +233,7 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         for scope in &chosen_scopes {
             info!("- {scope}");
             activate_pim_role(
-                &scope.inner.id,
+                &scope.value.id,
                 principal_id,
                 role.properties.role_definition_id.clone(),
                 role.id.clone(),

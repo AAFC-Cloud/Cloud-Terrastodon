@@ -31,14 +31,14 @@ pub async fn remediate_policy_assignment() -> Result<()> {
         .flatten()
         .distinct_by_scope()
         .map(|ass| Choice::<PolicyAssignment> {
-            display: format!("{} {:?}", ass.name, ass.display_name),
-            inner: ass,
+            key: format!("{} {:?}", ass.name, ass.display_name),
+            value: ass,
         })
         .collect();
 
     info!("Prompting for user choice");
     let Choice {
-        inner: policy_assignment,
+        value: policy_assignment,
         ..
     } = pick(FzfArgs {
         choices,
@@ -70,8 +70,8 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                 ))?
                 .into_iter()
                 .map(|x| Choice {
-                    display: x.policy_definition_reference_id.to_owned(),
-                    inner: x,
+                    key: x.policy_definition_reference_id.to_owned(),
+                    value: x,
                 })
                 .collect_vec();
             let chosen = pick_many(FzfArgs {
@@ -91,7 +91,7 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                 cmd.args(["--policy-assignment", policy_assignment.id.expanded_form()]);
                 cmd.args([
                     "--definition-reference-id",
-                    choice.inner.policy_definition_reference_id.as_ref(),
+                    choice.value.policy_definition_reference_id.as_ref(),
                 ]);
                 let scope = &policy_assignment.scope;
                 if let Ok(management_group_id) = ManagementGroupId::try_from_expanded(scope) {

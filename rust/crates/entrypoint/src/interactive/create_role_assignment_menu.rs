@@ -15,8 +15,8 @@ pub async fn create_role_assignment_menu() -> Result<()> {
         choices: role_definitions
             .into_iter()
             .map(|r| Choice {
-                display: r.display_name.to_owned(),
-                inner: r,
+                key: r.display_name.to_owned(),
+                value: r,
             })
             .collect_vec(),
         prompt: Some("Roles to assign: ".to_string()),
@@ -29,8 +29,8 @@ pub async fn create_role_assignment_menu() -> Result<()> {
         choices: users
             .into_iter()
             .map(|u| Choice {
-                display: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
-                inner: u,
+                key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
+                value: u,
             })
             .collect_vec(),
         prompt: Some("Users: ".to_string()),
@@ -49,8 +49,8 @@ pub async fn create_role_assignment_menu() -> Result<()> {
         choices: resources
             .into_iter()
             .map(|r| Choice {
-                display: r.name().to_owned(),
-                inner: r,
+                key: r.name().to_owned(),
+                value: r,
             })
             .collect_vec(),
         prompt: Some("Resources to assign to: ".to_string()),

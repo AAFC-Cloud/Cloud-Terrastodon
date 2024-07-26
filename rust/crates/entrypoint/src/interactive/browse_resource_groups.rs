@@ -31,13 +31,13 @@ pub async fn browse_resource_groups() -> Result<()> {
             })?
             .name;
         choices.push(Choice {
-            display: format!(
+            key: format!(
                 "{:90} - {:16} - {}",
                 rg.name.to_owned(),
                 subscription_name,
                 rg.id
             ),
-            inner: (rg, subscription_name),
+            value: (rg, subscription_name),
         });
     }
     // sort by subscription id

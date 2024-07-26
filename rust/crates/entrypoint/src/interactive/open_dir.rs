@@ -17,8 +17,8 @@ pub async fn open_dir() -> Result<()> {
             format!("{} (does not exist yet)", dir)
         };
         choices.push(Choice {
-            display,
-            inner: (dir, exists),
+            key: display,
+            value: (dir, exists),
         });
     }
     let dirs_to_open = pick_many(FzfArgs {
@@ -27,7 +27,7 @@ pub async fn open_dir() -> Result<()> {
         header: Some("Choose directories to open".to_string()),
     })?;
     for v in dirs_to_open {
-        let (dir, exists) = v.inner;
+        let (dir, exists) = v.value;
         if !exists {
             dir.as_path_buf().ensure_dir_exists().await?;
         }
