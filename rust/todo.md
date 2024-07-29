@@ -1,3 +1,5 @@
+- replace 0-second cache expiry usage with a default command inspection/history mechanism
+
 - non-interactive invocation for pipeline usage
 
 
