@@ -50,12 +50,7 @@ impl Scope for RoleEligibilityScheduleId {
         }
     }
 
-    fn short_form(&self) -> &str {
-        self.expanded_form()
-            .rsplit_once('/')
-            .expect("no slash found, structure should have been validated at construction")
-            .1
-    }
+
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         RoleEligibilityScheduleId::try_from_expanded_management_group_scoped(expanded)

@@ -42,12 +42,6 @@ impl Scope for ManagementGroupId {
         &self.expanded
     }
 
-    fn short_form(&self) -> &str {
-        self.expanded_form()
-            .strip_prefix(MANAGEMENT_GROUP_ID_PREFIX)
-            .unwrap_or_else(|| unreachable!("structure should have been validated at construction"))
-    }
-
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::ManagementGroup
     }

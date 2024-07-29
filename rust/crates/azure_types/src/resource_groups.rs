@@ -66,10 +66,6 @@ impl Scope for ResourceGroupId {
         &self.expanded
     }
 
-    fn short_form(&self) -> &str {
-        self.expanded_form().rsplit_once('/').map(|x| x.1).unwrap_or_else(|| self.expanded_form())
-    }
-
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         ResourceGroupId::try_from_expanded_subscription_scoped(expanded)
     }

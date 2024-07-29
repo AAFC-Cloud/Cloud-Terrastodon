@@ -2,6 +2,7 @@ use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
+use anyhow::bail;
 use anyhow::Result;
 use serde::de::Error;
 use serde::Deserialize;
@@ -31,12 +32,12 @@ impl Scope for TestResourceId {
         &self.expanded
     }
 
-    fn short_form(&self) -> &str {
-        self.expanded_form().strip_prefix(TEST_ID_PREFIX).unwrap()
-    }
-
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        expanded.parse()
+        let parsed: TestResourceId = expanded.parse()?;
+        if parsed.short_form().contains('/') {
+            bail!("Illegal character: /");
+        }
+        Ok(parsed)
     }
 
     fn kind(&self) -> ScopeImplKind {

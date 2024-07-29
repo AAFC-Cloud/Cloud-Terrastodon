@@ -87,12 +87,7 @@ impl Scope for PolicySetDefinitionId {
         }
     }
 
-    fn short_form(&self) -> &str {
-        self.expanded_form()
-            .rsplit_once('/')
-            .expect("no slash found, structure should have been validated at construction")
-            .1
-    }
+
 
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::PolicySetDefinition

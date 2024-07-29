@@ -374,7 +374,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleDefinition(id) => id.expanded_form(),
             ScopeImpl::Subscription(id) => id.expanded_form(),
             ScopeImpl::TestResource(id) => id.expanded_form(),
-            ScopeImpl::RoleEligibilitySchedule(id) => id.expanded_form(),
+            ScopeImpl::RoleEligibilitySchedule(id) => id.expanded_form(),	
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),

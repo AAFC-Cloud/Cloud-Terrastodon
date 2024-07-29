@@ -39,12 +39,6 @@ impl Scope for SubscriptionId {
         &self.expanded
     }
 
-    fn short_form(&self) -> &str {
-        self.expanded_form()
-            .strip_prefix(SUBSCRIPTION_ID_PREFIX)
-            .unwrap()
-    }
-
     fn try_from_expanded(expanded: &str) -> anyhow::Result<Self> {
         expanded.parse()
     }
