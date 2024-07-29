@@ -4,6 +4,7 @@ use crate::policy_assignments::PolicyAssignmentId;
 use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
 use crate::prelude::ResourceGroupId;
+use crate::prelude::ResourceId;
 use crate::prelude::RoleAssignmentId;
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleManagementPolicyAssignmentId;
@@ -35,7 +36,9 @@ pub trait HasName {
 
 pub trait Scope: Sized {
     fn expanded_form(&self) -> &str;
-    fn short_form(&self) -> &str;
+    fn short_form(&self) -> &str {
+        self.expanded_form().rsplit_once('/').map(|x| x.1).unwrap_or_else(|| self.expanded_form())
+    }
     fn try_from_expanded(expanded: &str) -> Result<Self>;
     fn as_scope(&self) -> ScopeImpl;
     fn kind(&self) -> ScopeImplKind;
@@ -337,6 +340,7 @@ pub enum ScopeImplKind {
     RoleEligibilitySchedule,
     Subscription,
     Test,
+    Other,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
@@ -353,6 +357,7 @@ pub enum ScopeImpl {
     TestResource(TestResourceId),
     RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId),
     RoleManagementPolicy(RoleManagementPolicyId),
+    Other(ResourceId),
 }
 impl Scope for ScopeImpl {
     fn expanded_form(&self) -> &str {
@@ -369,6 +374,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleEligibilitySchedule(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
+            ScopeImpl::Other(id) => id.expanded_form(),
         }
     }
 
@@ -386,6 +392,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleEligibilitySchedule(id) => id.short_form(),
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.short_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
+            ScopeImpl::Other(id) => id.short_form(),
         }
     }
 
@@ -449,6 +456,7 @@ impl Scope for ScopeImpl {
                 ScopeImplKind::RoleManagementPolicyAssignment
             }
             ScopeImpl::RoleManagementPolicy(_) => ScopeImplKind::RoleManagementPolicyAssignment,
+            ScopeImpl::Other(_) => ScopeImplKind::Other,
         }
     }
 
@@ -504,6 +512,9 @@ impl std::fmt::Display for ScopeImpl {
             )),
             ScopeImpl::RoleManagementPolicy(x) => {
                 f.write_fmt(format_args!("RoleManagementPolicy({})", x.short_form()))
+            }
+            ScopeImpl::Other(x) => {
+                f.write_fmt(format_args!("Other({})", x))
             }
         }
     }
