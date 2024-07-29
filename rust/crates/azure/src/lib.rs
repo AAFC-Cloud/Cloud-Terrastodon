@@ -24,6 +24,7 @@ mod subscriptions;
 mod users;
 mod resources;
 mod create_role_assignment;
+mod storage_accounts;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::eligible_child_resources::*;
@@ -50,5 +51,6 @@ pub mod prelude {
     pub use crate::users::*;
     pub use crate::resources::*;
     pub use crate::create_role_assignment::*;
+    pub use crate::storage_accounts::*;
     pub use azure_types::prelude::*;
 }

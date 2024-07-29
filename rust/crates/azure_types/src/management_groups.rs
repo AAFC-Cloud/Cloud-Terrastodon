@@ -1,4 +1,4 @@
-use crate::resource_name_rules::validate_management_group_name;
+use crate::naming::validate_management_group_name;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeError;

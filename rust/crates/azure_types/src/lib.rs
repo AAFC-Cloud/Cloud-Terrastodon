@@ -13,7 +13,7 @@ mod policy_definitions;
 mod policy_set_definitions;
 mod query_response;
 mod resource_groups;
-mod resource_name_rules;
+mod naming;
 mod role_assignments;
 mod role_definitions;
 mod role_eligibility_schedules;
@@ -26,6 +26,7 @@ mod tenants;
 mod test_resource;
 mod users;
 mod resources;
+mod storage_accounts;
 
 pub mod prelude {
     pub use crate::duration::*;
@@ -42,7 +43,7 @@ pub mod prelude {
     pub use crate::policy_set_definitions::*;
     pub use crate::query_response::*;
     pub use crate::resource_groups::*;
-    pub use crate::resource_name_rules::*;
+    pub use crate::naming::*;
     pub use crate::role_assignments::*;
     pub use crate::role_definitions::*;
     pub use crate::role_eligibility_schedules::*;
@@ -51,6 +52,7 @@ pub mod prelude {
     pub use crate::scope_itertools::*;
     pub use crate::scopes::*;
     pub use crate::subscriptions::*;
+    pub use crate::storage_accounts::*;
     pub use crate::tenants::*;
     pub(crate) use crate::test_resource::*;
     pub use crate::users::*;

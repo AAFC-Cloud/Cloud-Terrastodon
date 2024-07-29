@@ -16,6 +16,7 @@ mod populate_cache;
 mod browse_resource_groups;
 mod create_role_assignment_menu;
 mod browse_users;
+mod copy_azurerm_backend_menu;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
@@ -36,4 +37,5 @@ pub mod prelude {
     pub use crate::interactive::browse_resource_groups::*;
     pub use crate::interactive::create_role_assignment_menu::*;
     pub use crate::interactive::browse_users::*;
+    pub use crate::interactive::copy_azurerm_backend_menu::*;
 }

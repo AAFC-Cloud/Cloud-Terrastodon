@@ -12,6 +12,7 @@ use crate::interactive::prelude::build_role_assignment_imports;
 use crate::interactive::prelude::clean_all;
 use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
+use crate::interactive::prelude::copy_azurerm_backend_menu;
 use crate::interactive::prelude::create_role_assignment_menu;
 use crate::interactive::prelude::init_processed;
 use crate::interactive::prelude::jump_to_block;
@@ -42,6 +43,7 @@ pub enum MenuAction {
     Clean,
     CleanImports,
     CleanProcessed,
+    CopyAzureRMBackend,
     CreateRoleAssignment,
     InitProcessed,
     ApplyProcessed,
@@ -67,6 +69,7 @@ pub enum MenuActionResult {
 impl MenuAction {
     pub fn name(&self) -> &str {
         match self {
+            MenuAction::CopyAzureRMBackend => "copy azurerm backend",
             MenuAction::BrowseResourceGroups => "browse resource groups",
             MenuAction::BrowseUsers => "browse users",
             MenuAction::BuildPolicyImports => "build imports - create policy_imports.tf",
@@ -103,6 +106,7 @@ impl MenuAction {
 
     pub async fn invoke(&self) -> Result<MenuActionResult> {
         match self {
+            MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu().await?,
             MenuAction::BrowseResourceGroups => browse_resource_groups().await?,
             MenuAction::BrowseUsers => browse_users().await?,
             MenuAction::BuildPolicyImports => build_policy_imports().await?,
@@ -150,6 +154,7 @@ impl MenuAction {
             MenuAction::OpenDir,
             MenuAction::PopulateCache,
             MenuAction::BrowseResourceGroups,
+            MenuAction::CopyAzureRMBackend,
             MenuAction::BrowseUsers,
             MenuAction::PimActivate,
             MenuAction::CreateRoleAssignment,

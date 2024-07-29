@@ -9,6 +9,7 @@ use crate::prelude::RoleAssignmentId;
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleManagementPolicyAssignmentId;
 use crate::prelude::RoleManagementPolicyId;
+use crate::prelude::StorageAccountId;
 use crate::prelude::TestResourceId;
 use crate::resource_groups::RESOURCE_GROUP_ID_PREFIX;
 use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
@@ -338,6 +339,7 @@ pub enum ScopeImplKind {
     RoleAssignment,
     RoleDefinition,
     RoleEligibilitySchedule,
+    StorageAccount,
     Subscription,
     Test,
     Other,
@@ -357,6 +359,7 @@ pub enum ScopeImpl {
     TestResource(TestResourceId),
     RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId),
     RoleManagementPolicy(RoleManagementPolicyId),
+    StorageAccount(StorageAccountId),
     Other(ResourceId),
 }
 impl Scope for ScopeImpl {
@@ -374,6 +377,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleEligibilitySchedule(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
+            ScopeImpl::StorageAccount(id) => id.expanded_form(),
             ScopeImpl::Other(id) => id.expanded_form(),
         }
     }
@@ -392,13 +396,23 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleEligibilitySchedule(id) => id.short_form(),
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.short_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
+            ScopeImpl::StorageAccount(id) => id.short_form(),
             ScopeImpl::Other(id) => id.short_form(),
         }
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
+        if let Ok(id) = ResourceGroupId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::ResourceGroup(id));
+        }
+        if let Ok(id) = SubscriptionId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::Subscription(id));
+        }
         if let Ok(id) = ManagementGroupId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::ManagementGroup(id));
+        }
+        if let Ok(id) = StorageAccountId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::StorageAccount(id));
         }
         if let Ok(id) = PolicyDefinitionId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::PolicyDefinition(id));
@@ -409,23 +423,11 @@ impl Scope for ScopeImpl {
         if let Ok(id) = PolicyAssignmentId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::PolicyAssignment(id));
         }
-        if let Ok(id) = SubscriptionId::try_from_expanded(expanded) {
-            return Ok(ScopeImpl::Subscription(id));
-        }
-        if let Ok(id) = ResourceGroupId::try_from_expanded(expanded) {
-            return Ok(ScopeImpl::ResourceGroup(id));
-        }
         if let Ok(id) = RoleAssignmentId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RoleAssignment(id));
         }
         if let Ok(id) = RoleDefinitionId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RoleDefinition(id));
-        }
-        if let Ok(id) = SubscriptionId::try_from_expanded(expanded) {
-            return Ok(ScopeImpl::Subscription(id));
-        }
-        if let Ok(id) = TestResourceId::try_from_expanded(expanded) {
-            return Ok(ScopeImpl::TestResource(id));
         }
         if let Ok(id) = RoleEligibilityScheduleId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RoleEligibilitySchedule(id));
@@ -436,7 +438,9 @@ impl Scope for ScopeImpl {
         if let Ok(id) = RoleManagementPolicyId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RoleManagementPolicy(id));
         }
-
+        if let Ok(id) = TestResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::TestResource(id));
+        }
         Err(ScopeError::Unrecognized.into())
     }
 
@@ -451,6 +455,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleDefinition(_) => ScopeImplKind::RoleDefinition,
             ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
+            ScopeImpl::StorageAccount(_) => ScopeImplKind::StorageAccount,
             ScopeImpl::RoleEligibilitySchedule(_) => ScopeImplKind::RoleEligibilitySchedule,
             ScopeImpl::RoleManagementPolicyAssignment(_) => {
                 ScopeImplKind::RoleManagementPolicyAssignment
@@ -505,6 +510,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::RoleEligibilitySchedule(x) => {
                 f.write_fmt(format_args!("RoleEligibilitySchedule({})", x.short_form()))
+            }
+            ScopeImpl::StorageAccount(x) => {
+                f.write_fmt(format_args!("StorageAccount({})", x.short_form()))
             }
             ScopeImpl::RoleManagementPolicyAssignment(x) => f.write_fmt(format_args!(
                 "RoleManagementPolicyAssignment({})",

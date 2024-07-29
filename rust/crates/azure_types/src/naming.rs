@@ -86,3 +86,19 @@ pub fn validate_resource_group_name(name: &str) -> Result<()> {
 
     Ok(())
 }
+
+pub fn validate_storage_account_name(name: &str) -> Result<()> {
+    if name.len() < 3 || name.len() > 24 {
+        bail!(
+            "Name {name:?} must be 3-24 characters long (was {})",
+            name.len()
+        );
+    }
+    for char in name.chars() {
+        if !char.is_ascii_alphanumeric() {
+            bail!("Name {name:?} must be lowercase letters and numbers, the character {char:?} is not allowed");
+        }
+    }
+
+    Ok(())
+}

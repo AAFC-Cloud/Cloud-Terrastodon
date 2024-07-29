@@ -1,4 +1,4 @@
-use crate::resource_name_rules::validate_policy_name;
+use crate::naming::validate_policy_name;
 use crate::scopes::try_from_expanded_resource_container_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
