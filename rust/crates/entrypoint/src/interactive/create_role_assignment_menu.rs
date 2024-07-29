@@ -1,7 +1,9 @@
 use anyhow::Result;
+use azure::prelude::create_role_assignment;
 use azure::prelude::fetch_all_resources;
 use azure::prelude::fetch_all_role_definitions;
 use azure::prelude::fetch_all_users;
+use azure::prelude::Scope;
 use fzf::pick_many;
 use fzf::Choice;
 use fzf::FzfArgs;
@@ -48,9 +50,9 @@ pub async fn create_role_assignment_menu() -> Result<()> {
     let resources = pick_many(FzfArgs {
         choices: resources
             .into_iter()
-            .map(|r| Choice {
-                key: r.name().to_owned(),
-                value: r,
+            .map(|resource| Choice {
+                key: resource.id.short_form().to_owned(),
+                value: resource,
             })
             .collect_vec(),
         prompt: Some("Resources to assign to: ".to_string()),
@@ -61,6 +63,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
         )),
     })?;
 
+    let mut total = 0;
     for res in resources {
         for role in &role_definitions {
             for principal in &principals {
@@ -68,11 +71,15 @@ pub async fn create_role_assignment_menu() -> Result<()> {
                     "Assigning {} to {} on {}",
                     role.display_name,
                     principal.user_principal_name,
-                    res.name()
+                    res.id.short_form()
                 );
+                create_role_assignment(&res.id, &role.id, &principal.id).await?;
+                total+=1;
             }
         }
     }
+
+    info!("Successfully created {total} role assignments.");
 
     Ok(())
 }
