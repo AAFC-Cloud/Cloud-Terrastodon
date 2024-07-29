@@ -59,8 +59,6 @@ impl Scope for RoleDefinitionId {
         &self.expanded
     }
 
-
-
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         expanded.parse()
     }

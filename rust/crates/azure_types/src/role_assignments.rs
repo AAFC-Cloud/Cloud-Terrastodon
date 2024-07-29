@@ -99,8 +99,6 @@ impl Scope for RoleAssignmentId {
         }
     }
 
-
-
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::RoleAssignment
     }

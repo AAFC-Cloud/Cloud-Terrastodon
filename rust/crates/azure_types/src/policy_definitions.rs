@@ -89,8 +89,6 @@ impl Scope for PolicyDefinitionId {
         }
     }
 
-
-
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::PolicyDefinition
     }

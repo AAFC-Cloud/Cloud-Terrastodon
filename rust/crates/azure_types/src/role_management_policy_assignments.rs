@@ -101,8 +101,6 @@ impl Scope for RoleManagementPolicyAssignmentId {
         }
     }
 
-
-
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::RoleManagementPolicyAssignment
     }

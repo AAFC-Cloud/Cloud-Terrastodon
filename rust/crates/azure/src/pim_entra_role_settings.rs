@@ -36,11 +36,10 @@ pub async fn fetch_entra_pim_role_settings(
         value: Vec<PimEntraRoleSettings>,
     }
 
-    
     let mut result: Result<Response, _> = cmd.run().await;
     if result.is_err() {
         // single retry - sometimes this returns a gateway error
-        result = cmd.run().await;	
+        result = cmd.run().await;
     }
     let mut resp = result?;
 

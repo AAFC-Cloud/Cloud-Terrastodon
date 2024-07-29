@@ -47,7 +47,7 @@ pub struct FzfArgs<T> {
 }
 
 /// Prompt the user to pick from a predetermined list of options.
-pub fn 	pick_many<T>(args: FzfArgs<T>) -> Result<Vec<T>>
+pub fn pick_many<T>(args: FzfArgs<T>) -> Result<Vec<T>>
 where
     T: Into<Choice<T>>,
 {

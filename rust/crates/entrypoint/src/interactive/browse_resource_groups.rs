@@ -56,6 +56,6 @@ pub async fn browse_resource_groups() -> Result<()> {
     for rg in chosen {
         info!("{} - {} - {}", rg.0.name.to_owned(), rg.1, rg.0.id);
     }
-	
+
     Ok(())
 }

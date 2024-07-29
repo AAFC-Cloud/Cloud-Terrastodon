@@ -45,10 +45,7 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
         header: Some("Picking the storage account for the state file".to_string()),
     })?;
 
-    info!(
-        "Fetching blob containers for {}",
-        chosen_storage_account.1
-    );
+    info!("Fetching blob containers for {}", chosen_storage_account.1);
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["storage", "container", "list", "--account-name"]);
     cmd.arg(&chosen_storage_account.0.name);

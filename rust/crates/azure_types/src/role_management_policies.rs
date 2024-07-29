@@ -82,8 +82,6 @@ impl Scope for RoleManagementPolicyId {
         }
     }
 
-
-
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::RoleManagementPolicy
     }

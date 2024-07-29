@@ -74,7 +74,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
                     res.id.short_form()
                 );
                 create_role_assignment(&res.id, &role.id, &principal.id).await?;
-                total+=1;
+                total += 1;
             }
         }
     }

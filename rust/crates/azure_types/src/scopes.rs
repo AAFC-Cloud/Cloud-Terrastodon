@@ -38,7 +38,10 @@ pub trait HasName {
 pub trait Scope: Sized {
     fn expanded_form(&self) -> &str;
     fn short_form(&self) -> &str {
-        self.expanded_form().rsplit_once('/').map(|x| x.1).unwrap_or_else(|| self.expanded_form())
+        self.expanded_form()
+            .rsplit_once('/')
+            .map(|x| x.1)
+            .unwrap_or_else(|| self.expanded_form())
     }
     fn try_from_expanded(expanded: &str) -> Result<Self>;
     fn as_scope(&self) -> ScopeImpl;
@@ -374,7 +377,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleDefinition(id) => id.expanded_form(),
             ScopeImpl::Subscription(id) => id.expanded_form(),
             ScopeImpl::TestResource(id) => id.expanded_form(),
-            ScopeImpl::RoleEligibilitySchedule(id) => id.expanded_form(),	
+            ScopeImpl::RoleEligibilitySchedule(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),
@@ -521,9 +524,7 @@ impl std::fmt::Display for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(x) => {
                 f.write_fmt(format_args!("RoleManagementPolicy({})", x.short_form()))
             }
-            ScopeImpl::Other(x) => {
-                f.write_fmt(format_args!("Other({})", x))
-            }
+            ScopeImpl::Other(x) => f.write_fmt(format_args!("Other({})", x)),
         }
     }
 }

@@ -50,8 +50,6 @@ impl Scope for RoleEligibilityScheduleId {
         }
     }
 
-
-
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         RoleEligibilityScheduleId::try_from_expanded_management_group_scoped(expanded)
     }

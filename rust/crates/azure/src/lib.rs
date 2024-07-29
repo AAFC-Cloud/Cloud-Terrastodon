@@ -1,5 +1,6 @@
 #![feature(async_closure, impl_trait_in_assoc_type, duration_constructors)]
 mod auth;
+mod create_role_assignment;
 mod eligible_child_resources;
 mod evaluate_policy_assignment_compliance;
 mod groups;
@@ -16,17 +17,17 @@ mod policy_set_definitions;
 mod query;
 mod remediate_policy_assignment;
 mod resource_groups;
+mod resources;
 mod role_assignments;
 mod role_definitions;
 mod role_eligibility_schedules;
 mod role_management_policy_assignments;
+mod storage_accounts;
 mod subscriptions;
 mod users;
-mod resources;
-mod create_role_assignment;
-mod storage_accounts;
 pub mod prelude {
     pub use crate::auth::*;
+    pub use crate::create_role_assignment::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
     pub use crate::groups::*;
@@ -43,14 +44,13 @@ pub mod prelude {
     pub use crate::query::*;
     pub use crate::remediate_policy_assignment::*;
     pub use crate::resource_groups::*;
+    pub use crate::resources::*;
     pub use crate::role_assignments::*;
     pub use crate::role_definitions::*;
     pub use crate::role_eligibility_schedules::*;
     pub use crate::role_management_policy_assignments::*;
+    pub use crate::storage_accounts::*;
     pub use crate::subscriptions::*;
     pub use crate::users::*;
-    pub use crate::resources::*;
-    pub use crate::create_role_assignment::*;
-    pub use crate::storage_accounts::*;
     pub use azure_types::prelude::*;
 }

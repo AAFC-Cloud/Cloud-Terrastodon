@@ -20,7 +20,6 @@ pub async fn fetch_all_entra_pim_role_definitions() -> Result<Vec<PimEntraRoleDe
         value: Vec<PimEntraRoleDefinition>,
     }
 
-
     let mut result: Result<Response, _> = cmd.run().await;
     if result.is_err() {
         // single retry - sometimes this returns a gateway error

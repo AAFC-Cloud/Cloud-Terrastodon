@@ -65,7 +65,7 @@ where
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:30.cyan/blue} {pos:>7}/{len:7} {msg}")?,
     );
-    #[cfg(test)]	
+    #[cfg(test)]
     pb_sub.set_draw_target(indicatif::ProgressDrawTarget::hidden());
 
     let fetcher = Arc::new(fetcher);

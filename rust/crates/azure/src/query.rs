@@ -131,7 +131,8 @@ impl QueryBuilder {
 
         // Update skip token
         if let Some(skip_token) = &results.skip_token {
-            self.skip.replace((skip + results.count, skip_token.to_owned()));
+            self.skip
+                .replace((skip + results.count, skip_token.to_owned()));
         } else {
             self.skip.clone_from(&None);
         }

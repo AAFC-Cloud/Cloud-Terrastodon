@@ -34,10 +34,10 @@ impl Scope for ResourceId {
         &self.expanded
     }
 
-
-
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        Ok(ResourceId { expanded: expanded.to_owned() })
+        Ok(ResourceId {
+            expanded: expanded.to_owned(),
+        })
     }
 
     fn as_scope(&self) -> crate::scopes::ScopeImpl {

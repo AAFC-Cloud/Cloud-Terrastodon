@@ -87,8 +87,6 @@ impl Scope for PolicyAssignmentId {
         }
     }
 
-
-
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::PolicyAssignment
     }
