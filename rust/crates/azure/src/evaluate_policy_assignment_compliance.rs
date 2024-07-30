@@ -1,5 +1,5 @@
 use crate::prelude::fetch_all_policy_assignments;
-use crate::prelude::QueryBuilder;
+use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
 use azure_types::prelude::DistinctByScope;
 use azure_types::prelude::PolicyAssignment;
@@ -61,7 +61,7 @@ policyResources
         resource_type: String,
         found: u32,
     }
-    let reference_ids = QueryBuilder::new(
+    let reference_ids = ResourceGraphHelper::new(
         query.to_string(),
         CacheBehaviour::Some {
             path: PathBuf::from(format!(
@@ -127,7 +127,7 @@ policyResources
         subscription_name: String,
         resource_id: String,
     }
-    let resource_ids = QueryBuilder::new(
+    let resource_ids = ResourceGraphHelper::new(
         query.to_string(),
         CacheBehaviour::Some {
             path: PathBuf::from(format!(

@@ -27,6 +27,7 @@ mod subscriptions;
 mod tenants;
 mod test_resource;
 mod users;
+mod security_groups;
 
 pub mod prelude {
     pub use crate::duration::*;
@@ -42,6 +43,7 @@ pub mod prelude {
     pub use crate::policy_assignments::*;
     pub use crate::policy_definitions::*;
     pub use crate::policy_set_definitions::*;
+    pub use crate::security_groups::*;
     pub use crate::query_response::*;
     pub use crate::resource_groups::*;
     pub use crate::resources::*;

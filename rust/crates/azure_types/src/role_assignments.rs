@@ -1,3 +1,4 @@
+use crate::prelude::RoleDefinitionId;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
@@ -146,6 +147,14 @@ where
     }
 }
 
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct ThinRoleAssignment {
+    pub id: RoleAssignmentId,
+    pub scope: String,
+    pub role_definition_id: RoleDefinitionId,
+    pub principal_id: Uuid,
+}
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct RoleAssignment {
     pub condition: Option<Value>,
@@ -189,6 +198,16 @@ impl HasScope for &RoleAssignment {
         &self.id
     }
 }
+impl HasScope for ThinRoleAssignment {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
+impl HasScope for &ThinRoleAssignment {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
+}
 
 impl std::fmt::Display for RoleAssignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -202,22 +221,23 @@ impl std::fmt::Display for RoleAssignment {
     }
 }
 impl From<RoleAssignment> for TofuImportBlock {
-    fn from(resource_group: RoleAssignment) -> Self {
+    fn from(role_assignment: RoleAssignment) -> Self {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
-            id: resource_group.id.expanded_form().to_owned(),
+            id: role_assignment.id.expanded_form().to_owned(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleAssignment,
                 name: format!(
                     "{}__{}",
-                    resource_group.name,
-                    resource_group.id.expanded_form()
+                    role_assignment.name,
+                    role_assignment.id.expanded_form()
                 )
                 .sanitize(),
             },
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

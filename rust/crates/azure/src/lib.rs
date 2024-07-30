@@ -14,7 +14,7 @@ mod pim_entra_role_settings;
 mod policy_assignments;
 mod policy_definitions;
 mod policy_set_definitions;
-mod query;
+mod resource_graph;
 mod remediate_policy_assignment;
 mod resource_groups;
 mod resources;
@@ -25,6 +25,8 @@ mod role_management_policy_assignments;
 mod storage_accounts;
 mod subscriptions;
 mod users;
+mod microsoft_graph;
+mod security_groups;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::create_role_assignment::*;
@@ -41,7 +43,7 @@ pub mod prelude {
     pub use crate::policy_assignments::*;
     pub use crate::policy_definitions::*;
     pub use crate::policy_set_definitions::*;
-    pub use crate::query::*;
+    pub use crate::resource_graph::*;
     pub use crate::remediate_policy_assignment::*;
     pub use crate::resource_groups::*;
     pub use crate::resources::*;
@@ -52,5 +54,7 @@ pub mod prelude {
     pub use crate::storage_accounts::*;
     pub use crate::subscriptions::*;
     pub use crate::users::*;
+    pub use crate::microsoft_graph::*;
+    pub use crate::security_groups::*;
     pub use azure_types::prelude::*;
 }

@@ -194,13 +194,13 @@ impl std::fmt::Display for RoleEligibilitySchedule {
     }
 }
 // impl From<RoleEligibilitySchedule> for TofuImportBlock {
-//     fn from(resource_group: RoleEligibilitySchedule) -> Self {
+//     fn from(role_eligibility_schedule: RoleEligibilitySchedule) -> Self {
 //         TofuImportBlock {
 //             provider: TofuProviderReference::Inherited,
-//             id: resource_group.id.to_string(),
+//             id: role_eligibility_schedule.id.to_string(),
 //             to: TofuResourceReference::AzureRM {
 //                 kind: TofuAzureRMResourceKind::RoleEligibilitySchedule,
-//                 name: format!("{}__{}", resource_group.name, resource_group.id).sanitize(),
+//                 name: format!("{}__{}", role_eligibility_schedule.name, role_eligibility_schedule.id).sanitize(),
 //             },
 //         }
 //     }

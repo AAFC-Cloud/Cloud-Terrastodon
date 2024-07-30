@@ -8,10 +8,10 @@ use anyhow::Result;
 use azure_types::prelude::Resource;
 use command::prelude::CacheBehaviour;
 
-use crate::prelude::QueryBuilder;
+use crate::prelude::ResourceGraphHelper;
 
 pub async fn fetch_all_resources() -> Result<Vec<Resource>> {
-    let resources = QueryBuilder::new(
+    let resources = ResourceGraphHelper::new(
         r#"
 resources 
 | union resourcecontainers

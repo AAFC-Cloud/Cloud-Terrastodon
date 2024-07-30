@@ -1,6 +1,6 @@
 use anyhow::bail;
 use anyhow::Result;
-use azure_types::prelude::QueryResponse;
+use azure_types::prelude::ResourceGraphQueryResponse;
 use command::prelude::CacheBehaviour;
 use command::prelude::CommandBuilder;
 use command::prelude::CommandKind;
@@ -12,7 +12,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use tracing::debug;
 
-pub struct QueryBuilder {
+pub struct ResourceGraphHelper {
     query: String,
     cache_behaviour: CacheBehaviour,
     skip: Option<(u64, String)>,
@@ -21,7 +21,7 @@ pub struct QueryBuilder {
     seen_skip_tokens: HashSet<String>,
 }
 #[derive(Debug, Serialize, Deserialize)]
-pub struct QueryRestOptions {
+pub struct ResourceGraphQueryRestOptions {
     #[serde(rename = "$skip")]
     skip: u64,
     #[serde(rename = "$top")]
@@ -29,13 +29,13 @@ pub struct QueryRestOptions {
     #[serde(rename = "$skipToken")]
     skip_token: Option<String>,
     #[serde(rename = "authorizationScopeFilter")]
-    authorization_scope_filter: QueryRestScopeFilterOption,
+    authorization_scope_filter: ResourceGraphQueryRestScopeFilterOption,
     #[serde(rename = "resultFormat")]
     result_format: QueryRestResultFormat,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum QueryRestScopeFilterOption {
+pub enum ResourceGraphQueryRestScopeFilterOption {
     AtScopeAboveAndBelow,
 }
 
@@ -46,12 +46,12 @@ pub enum QueryRestResultFormat {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct QueryRestBody {
+pub struct ResourceGraphQueryRestBody {
     query: String,
-    options: QueryRestOptions,
+    options: ResourceGraphQueryRestOptions,
 }
 
-impl QueryBuilder {
+impl ResourceGraphHelper {
     pub fn new(query: String, mut cache_behaviour: CacheBehaviour) -> Self {
         if let CacheBehaviour::Some { ref mut path, .. } = cache_behaviour {
             let mut segment = OsString::new();
@@ -69,7 +69,7 @@ impl QueryBuilder {
         }
     }
 
-    pub async fn fetch<T: DeserializeOwned>(&mut self) -> Result<Option<QueryResponse<T>>> {
+    pub async fn fetch<T: DeserializeOwned>(&mut self) -> Result<Option<ResourceGraphQueryResponse<T>>> {
         #[cfg(debug_assertions)]
         if let Some((_, token)) = &self.skip {
             if !self.seen_skip_tokens.insert(token.to_owned()) {
@@ -99,13 +99,13 @@ impl QueryBuilder {
         };
         cmd.file_arg(
             "body.json",
-            serde_json::to_string_pretty(&QueryRestBody {
+            serde_json::to_string_pretty(&ResourceGraphQueryRestBody {
                 query: self.query.to_string(),
-                options: QueryRestOptions {
+                options: ResourceGraphQueryRestOptions {
                     skip,
                     top: batch_size,
                     skip_token,
-                    authorization_scope_filter: QueryRestScopeFilterOption::AtScopeAboveAndBelow,
+                    authorization_scope_filter: ResourceGraphQueryRestScopeFilterOption::AtScopeAboveAndBelow,
                     result_format: QueryRestResultFormat::Table,
                 },
             })?,
@@ -113,7 +113,7 @@ impl QueryBuilder {
 
         // Set up caching
         if let CacheBehaviour::Some {
-            ref mut path,
+            ref path,
             ref valid_for,
         } = self.cache_behaviour
         {
@@ -127,7 +127,7 @@ impl QueryBuilder {
         self.index += 1;
 
         // Run command
-        let results = cmd.run::<QueryResponse<T>>().await?;
+        let results = cmd.run::<ResourceGraphQueryResponse<T>>().await?;
 
         // Update skip token
         if let Some(skip_token) = &results.skip_token {
@@ -177,7 +177,7 @@ resourcecontainers
         struct Row {
             name: String,
         }
-        let data = QueryBuilder::new(
+        let data = ResourceGraphHelper::new(
             query.to_string(),
             CacheBehaviour::Some {
                 path: PathBuf::from("resource-container-names"),

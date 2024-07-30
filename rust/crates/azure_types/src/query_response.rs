@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 #[derive(Debug, Serialize)]
-pub struct QueryResponse<T> {
+pub struct ResourceGraphQueryResponse<T> {
     pub count: u64,
     pub data: Vec<T>,
     pub skip_token: Option<String>,
@@ -16,9 +16,9 @@ pub struct QueryResponse<T> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RawQueryResponse {
+pub struct RawResourceGraphQueryResponse {
     pub count: u64,
-    pub data: Data,
+    pub data: ResourceGraphData,
     #[serde(rename = "$skipToken")]
     pub skip_token: Option<String>,
     #[serde(rename = "resultTruncated")]
@@ -28,19 +28,19 @@ pub struct RawQueryResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Data {
-    pub columns: Vec<Column>,
+pub struct ResourceGraphData {
+    pub columns: Vec<ResourceGraphColumn>,
     pub rows: Vec<Vec<Value>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Column {
+pub struct ResourceGraphColumn {
     pub name: String,
     #[serde(rename = "type")]
     pub kind: String,
 }
 
-impl<'de, T> Deserialize<'de> for QueryResponse<T>
+impl<'de, T> Deserialize<'de> for ResourceGraphQueryResponse<T>
 where
     T: for<'de2> Deserialize<'de2>,
 {
@@ -48,22 +48,22 @@ where
     where
         D: Deserializer<'de>,
     {
-        let raw = RawQueryResponse::deserialize(deserializer)?;
-        let good: QueryResponse<T> = raw
+        let raw = RawResourceGraphQueryResponse::deserialize(deserializer)?;
+        let good: ResourceGraphQueryResponse<T> = raw
             .try_into()
             .map_err(|e| D::Error::custom(format!("{e:#}")))?;
         Ok(good)
     }
 }
 
-impl<T> TryFrom<RawQueryResponse> for QueryResponse<T>
+impl<T> TryFrom<RawResourceGraphQueryResponse> for ResourceGraphQueryResponse<T>
 where
     T: for<'de> Deserialize<'de>,
 {
     type Error = anyhow::Error;
 
-    fn try_from(value: RawQueryResponse) -> Result<Self> {
-        Ok(QueryResponse {
+    fn try_from(value: RawResourceGraphQueryResponse) -> Result<Self> {
+        Ok(ResourceGraphQueryResponse {
             count: value.count,
             data: transform(value.data).context("transforming data")?,
             skip_token: value.skip_token,
@@ -76,7 +76,7 @@ where
     }
 }
 
-fn transform<T>(data: Data) -> Result<Vec<T>>
+fn transform<T>(data: ResourceGraphData) -> Result<Vec<T>>
 where
     T: for<'de> Deserialize<'de>,
 {
@@ -130,7 +130,7 @@ mod tests {
             name: String,
         }
 
-        let query_response: RawQueryResponse = serde_json::from_str(json_data).unwrap();
+        let query_response: RawResourceGraphQueryResponse = serde_json::from_str(json_data).unwrap();
         let records: Vec<MyRecord> = transform(query_response.data).unwrap();
         assert_eq!(records.len(), 3);
 

@@ -1,4 +1,4 @@
-use crate::prelude::QueryBuilder;
+use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
 use azure_types::prelude::RoleDefinition;
 use command::prelude::CacheBehaviour;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
-    let role_assignments = QueryBuilder::new(
+    let role_assignments = ResourceGraphHelper::new(
         r#"authorizationresources
 | where type =~ "microsoft.authorization/roledefinitions"
 | project id, properties

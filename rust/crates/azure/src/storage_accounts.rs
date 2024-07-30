@@ -5,10 +5,10 @@ use anyhow::Result;
 use azure_types::prelude::StorageAccount;
 use command::prelude::CacheBehaviour;
 
-use crate::prelude::QueryBuilder;
+use crate::prelude::ResourceGraphHelper;
 
 pub async fn fetch_all_storage_accounts() -> Result<Vec<StorageAccount>> {
-    let mut query = QueryBuilder::new(
+    let mut query = ResourceGraphHelper::new(
         r#"
 Resources
 | where type == "microsoft.storage/storageaccounts"

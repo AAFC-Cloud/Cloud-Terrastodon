@@ -9,11 +9,12 @@ use crate::interactive::prelude::build_imports_from_existing;
 use crate::interactive::prelude::build_policy_imports;
 use crate::interactive::prelude::build_resource_group_imports;
 use crate::interactive::prelude::build_role_assignment_imports;
-use crate::interactive::prelude::clean_all;
+use crate::interactive::prelude::clean_all_menu;
 use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
 use crate::interactive::prelude::copy_azurerm_backend_menu;
 use crate::interactive::prelude::create_role_assignment_menu;
+use crate::interactive::prelude::resource_group_import_wizard_menu;
 use crate::interactive::prelude::init_processed;
 use crate::interactive::prelude::jump_to_block;
 use crate::interactive::prelude::list_imports;
@@ -36,6 +37,7 @@ pub enum MenuAction {
     BuildResourceGroupImports,
     BuildRoleAssignmentImports,
     BuildImportsFromExisting,
+    BuildImportsWizard,
     BrowseResourceGroups,
     BrowseUsers,
     PerformImport,
@@ -69,6 +71,7 @@ pub enum MenuActionResult {
 impl MenuAction {
     pub fn name(&self) -> &str {
         match self {
+            MenuAction::BuildImportsWizard => "build imports - import wizard",
             MenuAction::CopyAzureRMBackend => "copy azurerm backend",
             MenuAction::BrowseResourceGroups => "browse resource groups",
             MenuAction::BrowseUsers => "browse users",
@@ -106,6 +109,7 @@ impl MenuAction {
 
     pub async fn invoke(&self) -> Result<MenuActionResult> {
         match self {
+            MenuAction::BuildImportsWizard => resource_group_import_wizard_menu().await?,
             MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu().await?,
             MenuAction::BrowseResourceGroups => browse_resource_groups().await?,
             MenuAction::BrowseUsers => browse_users().await?,
@@ -116,7 +120,7 @@ impl MenuAction {
             MenuAction::BuildImportsFromExisting => build_imports_from_existing().await?,
             MenuAction::PerformImport => perform_import().await?,
             MenuAction::ProcessGenerated => process_generated().await?,
-            MenuAction::Clean => clean_all().await?,
+            MenuAction::Clean => clean_all_menu().await?,
             MenuAction::CreateRoleAssignment => create_role_assignment_menu().await?,
             MenuAction::CleanImports => clean_imports().await?,
             MenuAction::CleanProcessed => clean_processed().await?,
@@ -165,6 +169,7 @@ impl MenuAction {
             MenuAction::BuildGroupImports,
             MenuAction::BuildPolicyImports,
             MenuAction::BuildImportsFromExisting,
+            MenuAction::BuildImportsWizard,
             MenuAction::ListImports,
             MenuAction::PerformImport,
             MenuAction::ProcessGenerated,

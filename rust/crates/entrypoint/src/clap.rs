@@ -3,6 +3,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use crate::menu::menu_loop;
+use crate::noninteractive::prelude::clean;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
@@ -13,11 +14,8 @@ use clap::FromArgMatches;
 use clap::Parser;
 use clap::Subcommand;
 use pathing::AppDir;
-use tokio::fs::remove_dir_all;
 use tokio::io::stdout;
 use tokio::io::AsyncWriteExt;
-use tracing::info;
-use tracing::warn;
 #[derive(Parser, Debug)]
 #[command(name = "cloud_terrastodon", about, long_about = None)]
 struct Cli {
@@ -48,12 +46,7 @@ pub async fn main(version: Version) -> Result<()> {
         }
         Some(command) => match command {
             Commands::Clean => {
-                for dir in AppDir::ok_to_clean() {
-                    info!("Cleaning {dir}...");
-                    if let Err(e) = remove_dir_all(dir.as_path_buf()).await {
-                        warn!("Ignoring error encountered cleaning {dir}: {e:?}");
-                    }
-                }
+                clean().await?;
             }
             Commands::WriteAllImports => {
                 write_imports_for_all_resource_groups().await?;

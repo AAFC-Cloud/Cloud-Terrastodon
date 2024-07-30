@@ -145,16 +145,16 @@ impl std::fmt::Display for RoleDefinition {
     }
 }
 impl From<RoleDefinition> for TofuImportBlock {
-    fn from(resource_group: RoleDefinition) -> Self {
+    fn from(role_definition: RoleDefinition) -> Self {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
-            id: resource_group.id.to_string(),
+            id: role_definition.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleDefinition,
                 name: format!(
                     "{}__{}",
-                    resource_group.display_name,
-                    resource_group.id.short_form()
+                    role_definition.display_name,
+                    role_definition.id.short_form()
                 )
                 .sanitize(),
             },

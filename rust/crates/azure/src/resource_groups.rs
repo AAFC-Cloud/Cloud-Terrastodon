@@ -1,4 +1,4 @@
-use crate::prelude::QueryBuilder;
+use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
 use azure_types::prelude::ResourceGroup;
 use indoc::indoc;
@@ -20,7 +20,7 @@ pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
     "#}
     .to_owned();
 
-    let rgs = QueryBuilder::new(
+    let rgs = ResourceGraphHelper::new(
         query,
         command::prelude::CacheBehaviour::Some {
             path: PathBuf::from("resource_groups"),

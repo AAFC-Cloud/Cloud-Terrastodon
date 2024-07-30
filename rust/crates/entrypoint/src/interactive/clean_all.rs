@@ -4,7 +4,7 @@ use fzf::FzfArgs;
 use pathing::AppDir;
 use tokio::fs;
 use tracing::info;
-pub async fn clean_all() -> Result<()> {
+pub async fn clean_all_menu() -> Result<()> {
     let choices = vec!["keep command cache (recommended)", "purge command cache"];
     let chosen = fzf::pick(FzfArgs {
         choices,
