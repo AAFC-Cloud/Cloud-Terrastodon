@@ -1,10 +1,11 @@
 use crate::naming::validate_management_group_name;
+use crate::prelude::strip_prefix_case_insensitive;
+use crate::prelude::HasPrefix;
+use crate::prelude::NameValidatable;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
-use crate::scopes::ScopeError;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
-use anyhow::Context;
 use anyhow::Result;
 use serde::de::Error;
 use serde::Deserialize;
@@ -26,14 +27,22 @@ impl ManagementGroupId {
         Self { expanded }
     }
 }
-
+impl HasPrefix for ManagementGroupId {
+    fn get_prefix() -> &'static str {
+        &MANAGEMENT_GROUP_ID_PREFIX
+    }
+}
+impl NameValidatable for ManagementGroupId {
+    fn validate_name(name: &str) -> Result<()> {
+        validate_management_group_name(name)
+    }
+}
 impl Scope for ManagementGroupId {
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        let Some(name) = expanded.strip_prefix(MANAGEMENT_GROUP_ID_PREFIX) else {
-            return Err(ScopeError::Malformed).context("missing prefix");
-        };
+        // this doesn't use TryFromManagementGroupScoped because it itself is the scope, the management group isn't a prefix
+        let name = strip_prefix_case_insensitive(expanded, MANAGEMENT_GROUP_ID_PREFIX)?;
         validate_management_group_name(name)?;
-        Ok(ManagementGroupId {
+        Ok(ManagementGroupId {	
             expanded: expanded.to_string(),
         })
     }

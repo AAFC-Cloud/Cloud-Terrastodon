@@ -1,3 +1,5 @@
+use crate::prelude::strip_prefix_case_insensitive;
+use crate::prelude::SubscriptionScoped;
 use crate::prelude::TenantId;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
@@ -19,14 +21,19 @@ pub const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SubscriptionId {
     expanded: String,
-    uuid: Uuid,
 }
 impl SubscriptionId {
     pub fn new(uuid: Uuid) -> SubscriptionId {
         let expanded = format!("{}{}", SUBSCRIPTION_ID_PREFIX, uuid);
-        SubscriptionId { uuid, expanded }
+        SubscriptionId { expanded }
+    }
+    pub fn uuid(&self) -> Uuid {
+        self.short_form()
+            .parse()
+            .expect("subscription slug should be valid UUID")
     }
 }
+impl SubscriptionScoped for SubscriptionId {}
 
 impl std::fmt::Display for SubscriptionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -56,7 +63,7 @@ impl FromStr for SubscriptionId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let uuid = uuid::Uuid::parse_str(s.strip_prefix(SUBSCRIPTION_ID_PREFIX).unwrap_or(s))?;
+        let uuid = uuid::Uuid::parse_str(strip_prefix_case_insensitive(s,SUBSCRIPTION_ID_PREFIX).unwrap_or(s))?;
         Ok(SubscriptionId::new(uuid))
     }
 }
@@ -66,7 +73,7 @@ impl Serialize for SubscriptionId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.uuid.to_string().as_str())
+        serializer.serialize_str(self.uuid().to_string().as_str())
     }
 }
 

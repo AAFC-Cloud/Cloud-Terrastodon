@@ -66,38 +66,39 @@ pub trait HasPrefix {
     fn get_prefix() -> &'static str;
 }
 
-pub trait TryFromUnscoped
-where
-    Self: Sized + NameValidatable + HasPrefix,
-{
-    fn try_from_expanded_unscoped(expanded_unscoped: &str) -> Result<Self> {
-        // Get name without prefix
-        let prefix = Self::get_prefix();
-        let name = match expanded_unscoped.strip_prefix(prefix) {
-            None => {
-                return Err(ScopeError::Malformed).context(format!(
-                "Unscoped expanded form {expanded_unscoped:?} must begin with prefix {prefix:?}"
-            ))
-            }
-            Some(name) => name,
-        };
-        Self::validate_name(name).context("validating name")?;
-
-        unsafe { Ok(Self::new_unscoped_unchecked(expanded_unscoped)) }
-    }
-    /// # Safety
-    ///
-    /// The try_from methods should be used instead
-    unsafe fn new_unscoped_unchecked(expanded: &str) -> Self;
-}
-
 pub fn strip_prefix_case_insensitive<'a>(expanded: &'a str, prefix: &str) -> Result<&'a str> {
     if !prefix.to_lowercase().is_prefix_of(&expanded.to_lowercase()) {
         return Err(ScopeError::Malformed)
-            .context(format!("String {expanded:?} must begin with {prefix:?}"));
+            .context(format!("String {expanded:?} must begin with {prefix:?} (case insensitive)"));
     }
     let remaining = &expanded[prefix.len()..];
     Ok(remaining)
+}
+
+pub fn strip_prefix_get_slug_and_leading_slashed_remains<'a>(
+    expanded: &'a str,
+    prefix: &str,
+) -> Result<(&'a str, Option<&'a str>)> {
+    // /subscription/abc/resourceGroups/def
+    // /subscription/abc
+    // Remove prefix
+    let remaining = strip_prefix_case_insensitive(expanded, prefix)?;
+
+    // abc/resourceGroups/def
+    // abc
+    // Capture slug and remains
+    if !remaining.contains('/') {
+        // abc, None
+        return Ok((remaining, None));
+    }
+
+    // abc, resourceGroups/def
+    let (slug, remaining) = remaining.split_once('/').unwrap();
+    // Unstrip leading slash
+    let remaining = &expanded[expanded.len() - remaining.len() - 1..];
+
+    // abc, /resourceGroups/def
+    Ok((slug, Some(remaining)))
 }
 
 fn strip_prefix_and_slug_leaving_slash<'a>(expanded: &'a str, prefix: &str) -> Result<&'a str> {
@@ -148,6 +149,24 @@ fn strip_provider_and_resource(expanded: &str) -> Result<&str> {
     Ok(remaining)
 }
 
+pub trait TryFromUnscoped
+where
+    Self: Sized + NameValidatable + HasPrefix,
+{
+    fn try_from_expanded_unscoped(expanded_unscoped: &str) -> Result<Self> {
+        // Get name without prefix
+        let prefix = Self::get_prefix();
+        let name = strip_prefix_case_insensitive(expanded_unscoped, prefix)?;
+        Self::validate_name(name).context("validating name")?;
+
+        unsafe { Ok(Self::new_unscoped_unchecked(expanded_unscoped)) }
+    }
+    /// # Safety
+    ///
+    /// The try_from methods should be used instead
+    unsafe fn new_unscoped_unchecked(expanded: &str) -> Self;
+}
+
 pub trait TryFromResourceGroupScoped
 where
     Self: Sized + NameValidatable + HasPrefix,
@@ -177,9 +196,9 @@ where
         // the resource could have a subresource, like a subnet on a vnet
         // now we search from the right
         let prefix = Self::get_prefix();
-        let prefix_pos = remaining
-            .rfind(prefix)
-            .ok_or_else(|| anyhow!("String {remaining:?} must contain {prefix}"))?;
+        let prefix_pos = remaining.to_lowercase()
+            .rfind(&prefix.to_lowercase())
+            .ok_or_else(|| anyhow!("String {remaining:?} must contain {prefix} (case insensitive)"))?;
         let name = &remaining[prefix_pos + prefix.len()..];
         Self::validate_name(name).context("validating name")?;
         unsafe { Ok(Self::new_resource_scoped_unchecked(expanded)) }
@@ -311,6 +330,69 @@ where
                 }
             }
         }
+    }
+}
+
+pub trait Unscoped {}
+pub trait ManagementGroupScoped: Scope {
+    fn management_group_id(&self) -> ManagementGroupId {
+        ManagementGroupId::from_name(
+            strip_prefix_get_slug_and_leading_slashed_remains(
+                self.expanded_form(),
+                MANAGEMENT_GROUP_ID_PREFIX,
+            )
+            .expect("management group prefix should have been validated before construction")
+            .0,
+        )
+    }
+}
+pub trait SubscriptionScoped: Scope {
+    fn subscription_id(&self) -> SubscriptionId {
+        SubscriptionId::new(
+            strip_prefix_get_slug_and_leading_slashed_remains(
+                self.expanded_form(),
+                SUBSCRIPTION_ID_PREFIX,
+            )
+            .expect("subscription prefix should have been validated before construction")
+            .0
+            .parse()
+            .expect("subscription scoped should have valid uuid as subscription slug"),
+        )
+    }
+}
+pub trait ResourceGroupScoped: SubscriptionScoped {
+    fn resource_group_id(&self) -> ResourceGroupId {
+        let remaining =
+            strip_prefix_and_slug_leaving_slash(self.expanded_form(), SUBSCRIPTION_ID_PREFIX)
+                .expect("subscription prefix should have been validated before construction");
+        let rg_name =
+            strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)
+                .expect("resource group prefix should have been validated before construction")
+                .0;
+        ResourceGroupId::from_name(rg_name.to_owned())
+    }
+}
+pub trait ResourceScoped: ResourceGroupScoped {
+    fn resource_id(&self) -> ResourceId {
+        // /subscriptions/000/resourceGroups/abc/providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
+        let expanded = self.expanded_form();
+        let remaining =
+            strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)
+                .expect("subscription id prefix should have been validated before construction");
+        // /resourceGroups/abc/providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
+        let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)
+            .expect("resource group id prefix should have been validated before construction");
+        // /providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
+        let remaining = strip_prefix_and_slug_leaving_slash(remaining, "/providers/")
+            .expect("resources should be prefixed with /providers/ after resource group stuff");
+        // Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
+        let remaining = remaining.split_once('/').expect("resources should have a subtype, /providers/Microsoft.Whatever/something_was_expected_here").1;
+        // storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
+        let remaining = remaining.split_once('/').expect("resources should have a subtype, /providers/Microsoft.Whatever/something_was_expected_here").1;
+        // mystorage/providers/Microsoft.Authorization/roleAssignments/111
+        let (_name, tail_len) = remaining.split_once('/').map(|x| (x.0, x.1.len())).unwrap_or((remaining,0));
+        // mystorage
+        ResourceId::from_str(&expanded[0..expanded.len()-tail_len]).expect("should be able to construct expanded resource id")
     }
 }
 

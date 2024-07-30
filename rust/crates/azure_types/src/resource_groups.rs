@@ -26,6 +26,12 @@ pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";
 pub struct ResourceGroupId {
     expanded: String,
 }
+impl ResourceGroupId {
+    pub fn from_name(name: String) -> ResourceGroupId {
+        let expanded = format!("{}{}", RESOURCE_GROUP_ID_PREFIX, name);
+        ResourceGroupId { expanded }
+    }
+}
 
 impl std::fmt::Display for ResourceGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -100,7 +106,7 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ResourceGroup {
     pub id: ResourceGroupId,
     pub subscription_id: SubscriptionId,

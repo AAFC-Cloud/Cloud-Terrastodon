@@ -12,7 +12,6 @@ use std::str::FromStr;
 pub struct ResourceId {
     expanded: String,
 }
-
 impl std::fmt::Display for ResourceId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.expanded.to_string().as_str())

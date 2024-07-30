@@ -1,4 +1,9 @@
+use crate::prelude::ManagementGroupScoped;
+use crate::prelude::ResourceGroupScoped;
+use crate::prelude::ResourceScoped;
 use crate::prelude::RoleDefinitionId;
+use crate::prelude::SubscriptionScoped;
+use crate::prelude::Unscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
@@ -29,13 +34,229 @@ use uuid::Uuid;
 
 pub const ROLE_ASSIGNMENT_ID_PREFIX: &str = "/providers/Microsoft.Authorization/roleAssignments/";
 
+
+// TODO: learn how to make a derive or other macro to simplify this, cause this isn't going to scale well lol
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct UnscopedRoleAssignmentId {
+    expanded: String,
+}
+impl Unscoped for UnscopedRoleAssignmentId {}
+impl NameValidatable for UnscopedRoleAssignmentId {
+    fn validate_name(name: &str) -> Result<()> {
+        Uuid::parse_str(name)?;
+        Ok(())
+    }
+}
+impl HasPrefix for UnscopedRoleAssignmentId {
+    fn get_prefix() -> &'static str {
+        &ROLE_ASSIGNMENT_ID_PREFIX
+    }
+}
+impl TryFromUnscoped for UnscopedRoleAssignmentId {
+    unsafe fn new_unscoped_unchecked(expanded: &str) -> Self {
+        UnscopedRoleAssignmentId {
+            expanded: expanded.to_string(),
+        }
+    }
+}
+impl Scope for UnscopedRoleAssignmentId {
+    fn expanded_form(&self) -> &str {
+        &self.expanded
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        UnscopedRoleAssignmentId::try_from_expanded_unscoped(expanded)
+    }
+
+    fn as_scope(&self) -> ScopeImpl {
+        ScopeImpl::RoleAssignment(RoleAssignmentId::Unscoped(self.clone()))
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::RoleAssignment
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ManagementGroupScopedRoleAssignmentId {
+    expanded: String,
+}
+impl NameValidatable for ManagementGroupScopedRoleAssignmentId {
+    fn validate_name(name: &str) -> Result<()> {
+        Uuid::parse_str(name)?;
+        Ok(())
+    }
+}
+impl HasPrefix for ManagementGroupScopedRoleAssignmentId {
+    fn get_prefix() -> &'static str {
+        &ROLE_ASSIGNMENT_ID_PREFIX
+    }
+}
+impl TryFromManagementGroupScoped for ManagementGroupScopedRoleAssignmentId {
+    unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self {
+        ManagementGroupScopedRoleAssignmentId {
+            expanded: expanded.to_owned(),
+        }
+    }
+}
+impl Scope for ManagementGroupScopedRoleAssignmentId {
+    fn expanded_form(&self) -> &str {
+        &self.expanded
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        ManagementGroupScopedRoleAssignmentId::try_from_expanded_management_group_scoped(expanded)
+    }
+
+    fn as_scope(&self) -> ScopeImpl {
+        ScopeImpl::RoleAssignment(RoleAssignmentId::ManagementGroupScoped(self.clone()))
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::RoleAssignment
+    }
+}
+impl ManagementGroupScoped for ManagementGroupScopedRoleAssignmentId {}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct SubscriptionScopedRoleAssignmentId {
+    expanded: String,
+}
+impl NameValidatable for SubscriptionScopedRoleAssignmentId {
+    fn validate_name(name: &str) -> Result<()> {
+        Uuid::parse_str(name)?;
+        Ok(())
+    }
+}
+impl HasPrefix for SubscriptionScopedRoleAssignmentId {
+    fn get_prefix() -> &'static str {
+        &ROLE_ASSIGNMENT_ID_PREFIX
+    }
+}
+impl TryFromSubscriptionScoped for SubscriptionScopedRoleAssignmentId {
+    unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
+        SubscriptionScopedRoleAssignmentId {
+            expanded: expanded.to_owned(),
+        }
+    }
+}
+impl Scope for SubscriptionScopedRoleAssignmentId {
+    fn expanded_form(&self) -> &str {
+        &self.expanded
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        SubscriptionScopedRoleAssignmentId::try_from_expanded_subscription_scoped(expanded)
+    }
+
+    fn as_scope(&self) -> ScopeImpl {
+        ScopeImpl::RoleAssignment(RoleAssignmentId::SubscriptionScoped(self.clone()))
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::RoleAssignment
+    }
+}
+impl SubscriptionScoped for SubscriptionScopedRoleAssignmentId {}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ResourceGroupScopedRoleAssignmentId {
+    expanded: String,
+    // subscription_id: &'a str,
+    // resource_group_name: &'a str,
+}
+
+impl NameValidatable for ResourceGroupScopedRoleAssignmentId {
+    fn validate_name(name: &str) -> Result<()> {
+        Uuid::parse_str(name)?;
+        Ok(())
+    }
+}
+impl HasPrefix for ResourceGroupScopedRoleAssignmentId {
+    fn get_prefix() -> &'static str {
+        &ROLE_ASSIGNMENT_ID_PREFIX
+    }
+}
+impl TryFromResourceGroupScoped for ResourceGroupScopedRoleAssignmentId {
+    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
+        ResourceGroupScopedRoleAssignmentId {
+            expanded: expanded.to_owned(),
+        }
+    }
+}
+impl Scope for ResourceGroupScopedRoleAssignmentId {
+    fn expanded_form(&self) -> &str {
+        &self.expanded
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        ResourceGroupScopedRoleAssignmentId::try_from_expanded_resource_group_scoped(expanded)
+    }
+
+    fn as_scope(&self) -> ScopeImpl {
+        ScopeImpl::RoleAssignment(RoleAssignmentId::ResourceGroupScoped(self.clone()))
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::RoleAssignment
+    }
+}
+impl SubscriptionScoped for ResourceGroupScopedRoleAssignmentId {}
+impl ResourceGroupScoped for ResourceGroupScopedRoleAssignmentId {}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ResourceScopedRoleAssignmentId {
+    expanded: String,
+    // resource_id: &'a str
+}
+
+impl NameValidatable for ResourceScopedRoleAssignmentId {
+    fn validate_name(name: &str) -> Result<()> {
+        Uuid::parse_str(name)?;
+        Ok(())
+    }
+}
+impl HasPrefix for ResourceScopedRoleAssignmentId {
+    fn get_prefix() -> &'static str {
+        &ROLE_ASSIGNMENT_ID_PREFIX
+    }
+}
+impl TryFromResourceScoped for ResourceScopedRoleAssignmentId {
+    unsafe fn new_resource_scoped_unchecked(expanded: &str) -> Self {
+        ResourceScopedRoleAssignmentId {
+            expanded: expanded.to_owned(),
+        }
+    }
+}
+impl Scope for ResourceScopedRoleAssignmentId {
+    fn expanded_form(&self) -> &str {
+        &self.expanded
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        ResourceScopedRoleAssignmentId::try_from_expanded_resource_scoped(expanded)
+    }
+
+    fn as_scope(&self) -> ScopeImpl {
+        ScopeImpl::RoleAssignment(RoleAssignmentId::ResourceScoped(self.clone()))
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::RoleAssignment
+    }
+}
+impl SubscriptionScoped for ResourceScopedRoleAssignmentId {}
+impl ResourceGroupScoped for ResourceScopedRoleAssignmentId {}
+impl ResourceScoped for ResourceScopedRoleAssignmentId {}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum RoleAssignmentId {
-    Unscoped { expanded: String },
-    ManagementGroupScoped { expanded: String },
-    SubscriptionScoped { expanded: String },
-    ResourceGroupScoped { expanded: String },
-    ResourceScoped { expanded: String },
+    Unscoped(UnscopedRoleAssignmentId),
+    ManagementGroupScoped(ManagementGroupScopedRoleAssignmentId),
+    SubscriptionScoped(SubscriptionScopedRoleAssignmentId),
+    ResourceGroupScoped(ResourceGroupScopedRoleAssignmentId),
+    ResourceScoped(ResourceScopedRoleAssignmentId),
 }
 
 impl NameValidatable for RoleAssignmentId {
@@ -51,37 +272,37 @@ impl HasPrefix for RoleAssignmentId {
 }
 impl TryFromUnscoped for RoleAssignmentId {
     unsafe fn new_unscoped_unchecked(expanded: &str) -> Self {
-        RoleAssignmentId::Unscoped {
+        RoleAssignmentId::Unscoped(UnscopedRoleAssignmentId {
             expanded: expanded.to_string(),
-        }
+        })
     }
 }
 impl TryFromResourceGroupScoped for RoleAssignmentId {
     unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
-        RoleAssignmentId::ResourceGroupScoped {
+        RoleAssignmentId::ResourceGroupScoped(ResourceGroupScopedRoleAssignmentId {
             expanded: expanded.to_string(),
-        }
+        })
     }
 }
 impl TryFromResourceScoped for RoleAssignmentId {
     unsafe fn new_resource_scoped_unchecked(expanded: &str) -> Self {
-        RoleAssignmentId::ResourceScoped {
+        RoleAssignmentId::ResourceScoped(ResourceScopedRoleAssignmentId {
             expanded: expanded.to_string(),
-        }
+        })
     }
 }
 impl TryFromSubscriptionScoped for RoleAssignmentId {
     unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
-        RoleAssignmentId::SubscriptionScoped {
+        RoleAssignmentId::SubscriptionScoped(SubscriptionScopedRoleAssignmentId {
             expanded: expanded.to_string(),
-        }
+        })
     }
 }
 impl TryFromManagementGroupScoped for RoleAssignmentId {
     unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self {
-        RoleAssignmentId::ManagementGroupScoped {
+        RoleAssignmentId::ManagementGroupScoped(ManagementGroupScopedRoleAssignmentId {
             expanded: expanded.to_string(),
-        }
+        })
     }
 }
 
@@ -92,11 +313,13 @@ impl Scope for RoleAssignmentId {
 
     fn expanded_form(&self) -> &str {
         match self {
-            Self::Unscoped { expanded } => expanded,
-            Self::ResourceGroupScoped { expanded } => expanded,
-            Self::SubscriptionScoped { expanded } => expanded,
-            Self::ManagementGroupScoped { expanded } => expanded,
-            Self::ResourceScoped { expanded } => expanded,
+            Self::Unscoped(UnscopedRoleAssignmentId { expanded }) => expanded,
+            Self::ResourceGroupScoped(ResourceGroupScopedRoleAssignmentId { expanded }) => expanded,
+            Self::SubscriptionScoped(SubscriptionScopedRoleAssignmentId { expanded }) => expanded,
+            Self::ManagementGroupScoped(ManagementGroupScopedRoleAssignmentId { expanded }) => {
+                expanded
+            }
+            Self::ResourceScoped(ResourceScopedRoleAssignmentId { expanded }) => expanded,
         }
     }
 
@@ -146,7 +369,6 @@ where
         Ok(None)
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ThinRoleAssignment {
@@ -237,6 +459,18 @@ impl From<RoleAssignment> for TofuImportBlock {
         }
     }
 }
+impl From<ThinRoleAssignment> for TofuImportBlock {
+    fn from(role_assignment: ThinRoleAssignment) -> Self {
+        TofuImportBlock {
+            provider: TofuProviderReference::Inherited,
+            id: role_assignment.id.expanded_form().to_owned(),
+            to: TofuResourceReference::AzureRM {
+                kind: TofuAzureRMResourceKind::RoleAssignment,
+                name: role_assignment.id.short_form().sanitize(),
+            },
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -245,12 +479,12 @@ mod tests {
 
     #[test]
     fn deserializes() -> Result<()> {
-        let expanded = RoleAssignmentId::Unscoped {
+        let expanded = RoleAssignmentId::Unscoped(UnscopedRoleAssignmentId {
             expanded: format!(
                 "{}{}",
                 ROLE_ASSIGNMENT_ID_PREFIX, "55555555-5555-5555-5555-555555555555"
             ),
-        };
+        });
         let id: RoleAssignmentId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(id, expanded);
@@ -259,11 +493,11 @@ mod tests {
     #[test]
     fn deserializes2() -> Result<()> {
         let nil = Uuid::nil();
-        let expanded = RoleAssignmentId::ResourceScoped {
+        let expanded = RoleAssignmentId::ResourceScoped(ResourceScopedRoleAssignmentId {
             expanded: format!(
                 "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Network/virtualNetworks/MY-VNET/subnets/MY-Subnet/providers/Microsoft.Authorization/roleAssignments/{nil}",
             ),
-        };
+        });
         let id: RoleAssignmentId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(id, expanded);
