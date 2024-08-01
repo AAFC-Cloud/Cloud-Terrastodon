@@ -1,10 +1,28 @@
 use serde::Deserialize;
 use serde::Serialize;
+use tofu_types::prelude::Sanitizable;
+use tofu_types::prelude::TofuAzureADResourceKind;
+use tofu_types::prelude::TofuImportBlock;
+use tofu_types::prelude::TofuProviderReference;
+use tofu_types::prelude::TofuResourceReference;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SecurityGroup {
-    id: Uuid,
+    pub id: Uuid,
     #[serde(rename = "displayName")]
-    display_name: String
+    pub display_name: String,
+}
+
+impl From<SecurityGroup> for TofuImportBlock {
+    fn from(security_group: SecurityGroup) -> Self {
+        TofuImportBlock {
+            provider: TofuProviderReference::Inherited,
+            id: security_group.id.to_string(),
+            to: TofuResourceReference::AzureAD {
+                kind: TofuAzureADResourceKind::Group,
+                name: format!("{}__{}", security_group.display_name, security_group.id).sanitize(),
+            },
+        }
+    }
 }

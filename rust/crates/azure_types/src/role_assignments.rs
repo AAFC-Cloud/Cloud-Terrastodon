@@ -446,7 +446,8 @@ impl From<RoleAssignment> for TofuImportBlock {
     fn from(role_assignment: RoleAssignment) -> Self {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
-            id: role_assignment.id.expanded_form().to_owned(),
+            // Tofu doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
+            id: role_assignment.id.expanded_form().replace("/RoleAssignments/","/roleAssignments/"),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleAssignment,
                 name: format!(
@@ -463,7 +464,8 @@ impl From<ThinRoleAssignment> for TofuImportBlock {
     fn from(role_assignment: ThinRoleAssignment) -> Self {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
-            id: role_assignment.id.expanded_form().to_owned(),
+            // Tofu doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
+            id: role_assignment.id.expanded_form().replace("/RoleAssignments/","/roleAssignments/"),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleAssignment,
                 name: role_assignment.id.short_form().sanitize(),

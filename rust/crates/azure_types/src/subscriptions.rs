@@ -11,6 +11,7 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use std::hash::Hash;
+use std::hash::Hasher;
 use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuProviderBlock;
@@ -18,9 +19,23 @@ use uuid::Uuid;
 
 pub const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone)]
 pub struct SubscriptionId {
     expanded: String,
+}
+
+impl PartialEq for SubscriptionId {
+    fn eq(&self, other: &Self) -> bool {
+        self.expanded.to_lowercase() == other.expanded.to_lowercase()
+    }
+}
+
+impl Eq for SubscriptionId {}
+
+impl Hash for SubscriptionId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.expanded.to_lowercase().hash(state);
+    }
 }
 impl SubscriptionId {
     pub fn new(uuid: Uuid) -> SubscriptionId {

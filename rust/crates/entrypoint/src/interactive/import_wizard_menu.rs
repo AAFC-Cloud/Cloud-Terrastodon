@@ -3,18 +3,19 @@ use std::collections::HashSet;
 
 use anyhow::bail;
 use anyhow::Result;
+use azure::prelude::ensure_logged_in;
 use azure::prelude::fetch_all_resource_groups;
 use azure::prelude::fetch_all_role_assignments_v2;
-use azure::prelude::fetch_all_role_definitions;
 use azure::prelude::fetch_all_security_groups;
 use azure::prelude::fetch_all_subscriptions;
-use azure::prelude::fetch_all_users;
+use azure::prelude::ResourceGroupScoped;
+use azure::prelude::RoleAssignmentId;
 use azure::prelude::Scope;
+use azure::prelude::SubscriptionScoped;
 use fzf::pick;
 use fzf::pick_many;
 use fzf::Choice;
 use fzf::FzfArgs;
-use itertools::Itertools;
 use pathing::AppDir;
 use tofu::prelude::Sanitizable;
 use tofu::prelude::TofuImportBlock;
@@ -27,36 +28,41 @@ use tracing::info;
 
 pub async fn resource_group_import_wizard_menu() -> Result<()> {
     info!("Confirming remove existing imports");
+    let start_from_scratch = "start from scratch";
+    let keep_existing_imports = "keep existing imports";
     match pick(FzfArgs {
-        choices: vec!["start from scratch", "keep existing imports"],
+        choices: vec![start_from_scratch, keep_existing_imports],
         prompt: None,
         header: Some("This will wipe any existing imports from the Cloud Terrastodon work directory. Proceed?".to_string()),
     })? {
-        "Yes" => {
+        x if x == start_from_scratch => {
             info!("Removing existing imports");
             let _ = remove_dir_all(AppDir::Imports.as_path_buf()).await;
         }
-        "No" => {
-            bail!("User said no");
+        x if x == keep_existing_imports => {
+            info!("Keeping existing imports");
         }
         _ => unreachable!(),
     }
 
-    info!("Fetching subscriptions, resource groups, role assignments, role definitions, security groups, users");
+    info!("Ensuring CLI is authenticated");
+    ensure_logged_in().await?;
+
+    info!("Fetching a bunch of data");
     let (
         subscriptions,
         resource_groups,
         role_assignments,
-        role_definitions,
+        // role_definitions,
         security_groups,
-        users,
+        // users,
     ) = join!(
         fetch_all_subscriptions(),
         fetch_all_resource_groups(),
         fetch_all_role_assignments_v2(),
-        fetch_all_role_definitions(),
+        // fetch_all_role_definitions(),
         fetch_all_security_groups(),
-        fetch_all_users()
+        // fetch_all_users()
     );
     let subscriptions = subscriptions?
         .into_iter()
@@ -64,9 +70,9 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         .collect::<HashMap<_, _>>();
     let resource_groups = resource_groups?;
     let role_assignments = role_assignments?;
-    let role_definitions = role_definitions?;
+    // let role_definitions = role_definitions?;
     let security_groups = security_groups?;
-    let users = users?;
+    // let users = users?;
 
     info!("Building pick list");
     let mut resource_group_choices = Vec::new();
@@ -88,61 +94,127 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     info!("Picking resource groups");
     let resource_groups = pick_many(FzfArgs {
         choices: resource_group_choices,
-        prompt: Some("Pick which to import".to_string()),
-        header: None,
+        prompt: None,
+        header: Some("Pick which to import".to_string()),
     })?;
     info!("You chose {} resource groups", resource_groups.len());
 
+    let mut used_resource_groups = HashSet::new();
+    let mut used_subscriptions = HashSet::new();
+    
+    info!("Building resource group imports");
+    let mut rg_imports = Vec::new();
+    for entry in resource_groups {
+        let (rg, sub) = entry.value;
+
+        // Track the RG id for filtering role assignments later
+        used_resource_groups.insert(rg.id.to_owned());
+
+        // Create the import block
+        let mut import_block: TofuImportBlock = rg.into();
+
+        // Update the provider to use the subscription alias
+        import_block.provider = TofuProviderReference::Alias {
+            kind: TofuProviderKind::AzureRM,
+            name: sub.name.sanitize(),
+        };
+
+        // Track the subscription for writing the provider blocks later
+        used_subscriptions.insert(sub);
+
+        // Add to results
+        rg_imports.push(import_block);
+    }
+
+
     info!("Writing resource group imports");
     TofuWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
-        .overwrite(
-            resource_groups
-                .iter()
-                .map(|x| &x.value)
-                .map(|(rg, sub)| {
-                    let mut block: TofuImportBlock = rg.clone().into();
-                    block.provider = TofuProviderReference::Alias {
-                        kind: TofuProviderKind::AzureRM,
-                        name: sub.name.sanitize(),
-                    };
-                    block
-                })
-                .collect_vec(),
-        )
+        .overwrite(rg_imports)
         .await?
         .format()
         .await?;
 
-    info!("Identifying relevant role assignments");
-    // Convert to lower because I don't trust Azure IDs to match case everywhere
-    let resource_group_ids = resource_groups
-        .iter()
-        .map(|rg| rg.value.0.id.expanded_form().to_lowercase())
-        .collect::<HashSet<_>>();
-    let role_assignments = role_assignments
-        .into_iter()
-        .filter(|ra| resource_group_ids.contains(&ra.scope.to_lowercase()))
-        .collect_vec();
+    let mut used_principals = HashSet::new();
 
-    // info!("Writing role assignment imports");
-    // TofuWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
-    //     .overwrite(
-    //         role_assignments
-    //             .iter()
-    //             .map(|ra| {
-    //                 let mut block: TofuImportBlock = (*ra.clone()).into();
-    //                 let sub = subscriptions.get(ra.id)
-    //                 block.provider = TofuProviderReference::Alias {
-    //                     kind: TofuProviderKind::AzureRM,
-    //                     name: sub.name.sanitize(),
-    //                 };
-    //                 block
-    //             })
-    //             .collect_vec(),
-    //     )
-    //     .await?
-    //     .format()
-    //     .await?;
+    info!("Building role assignment imports");
+    let mut ra_imports = Vec::new();
+    for ra in role_assignments {
+        // Only import resource group level role assignments
+        let RoleAssignmentId::ResourceGroupScoped(ra_id) = &ra.id else {
+            continue;
+        };
 
+        // Only import role assignments targetting a resource group being imported
+        if !used_resource_groups.contains(&ra_id.resource_group_id()) {
+            continue;
+        }
+
+        // Identify subscription
+        let Some(sub) = subscriptions.get(&ra_id.subscription_id()) else {
+            bail!(
+                "Could not find subscription for role assignment {}",
+                ra_id.expanded_form()
+            );
+        };
+
+        // Track the principal
+        used_principals.insert(ra.principal_id);
+
+        // Create the import block
+        let mut import_block: TofuImportBlock = ra.into();
+
+        // Update the provider to use the subscription alias
+        import_block.provider = TofuProviderReference::Alias {
+            kind: TofuProviderKind::AzureRM,
+            name: sub.name.sanitize(),
+        };
+
+        // Add to results
+        ra_imports.push(import_block);
+    }
+
+    info!("Writing role assignment imports");
+    TofuWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
+        .overwrite(ra_imports)
+        .await?
+        .format()
+        .await?;
+
+    info!("Building security group imports");
+    let mut sg_imports = Vec::new();
+    for sg in security_groups {
+        // Only import security groups which have role assignments
+        if !used_principals.contains(&sg.id) {
+            continue;
+        }
+
+        // Create the import block
+        let import_block: TofuImportBlock = sg.into();
+        
+        // Add to results
+        sg_imports.push(import_block);
+    }
+
+    info!("Writing security group imports");
+    TofuWriter::new(AppDir::Imports.join("security_groups.tf"))
+        .overwrite(sg_imports)
+        .await?
+        .format()
+        .await?;
+
+    info!("Building provider blocks");
+    let mut providers = Vec::new();
+    for sub in used_subscriptions {
+        let provider = sub.clone().into_provider_block();
+        providers.push(provider);
+    }
+
+    info!("Writing provider blocks");
+    TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
+        .merge(providers)
+        .await?
+        .format()
+        .await?;
+    
     Ok(())
 }

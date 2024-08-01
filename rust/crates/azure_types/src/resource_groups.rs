@@ -1,4 +1,6 @@
 use crate::naming::validate_resource_group_name;
+use crate::prelude::strip_prefix_get_slug_and_leading_slashed_remains;
+use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
 use crate::scopes::NameValidatable;
@@ -7,6 +9,8 @@ use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::subscriptions::SubscriptionId;
+use anyhow::bail;
+use anyhow::Context;
 use anyhow::Result;
 use serde::de::Error;
 use serde::Deserialize;
@@ -14,25 +18,46 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::str::FromStr;
 use tofu_types::prelude::Sanitizable;
 use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuProviderReference;
 use tofu_types::prelude::TofuResourceReference;
+use uuid::Uuid;
 
 pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone)]
 pub struct ResourceGroupId {
     expanded: String,
 }
 impl ResourceGroupId {
-    pub fn from_name(name: String) -> ResourceGroupId {
-        let expanded = format!("{}{}", RESOURCE_GROUP_ID_PREFIX, name);
+    pub fn new(subscription_id: SubscriptionId, resource_group_name: String) -> ResourceGroupId {
+        let expanded = format!(
+            "{}{}{}",
+            subscription_id.expanded_form(),
+            RESOURCE_GROUP_ID_PREFIX,
+            resource_group_name
+        );
         ResourceGroupId { expanded }
     }
 }
 
+impl PartialEq for ResourceGroupId {
+    fn eq(&self, other: &Self) -> bool {
+        self.expanded.to_lowercase() == other.expanded.to_lowercase()
+    }
+}
+
+impl Eq for ResourceGroupId {}
+
+impl Hash for ResourceGroupId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.expanded.to_lowercase().hash(state);
+    }
+}
 impl std::fmt::Display for ResourceGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.expanded.to_string().as_str())
@@ -60,10 +85,37 @@ impl TryFromSubscriptionScoped for ResourceGroupId {
 impl FromStr for ResourceGroupId {
     type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(ResourceGroupId {
-            expanded: s.to_string(),
-        })
+    fn from_str(expanded_form: &str) -> Result<Self, Self::Err> {
+        // /subscriptions/0000-000-00000/resourceGroups/My-Resource-Group/optional/other/stuff
+
+        // "0000-000-0000", maybe "/resourceGroups/My-Resource-Group/optional/other/stuff"
+        let (sub_id, remaining) = strip_prefix_get_slug_and_leading_slashed_remains(
+            expanded_form,
+            SUBSCRIPTION_ID_PREFIX,
+        )
+        .context(format!(
+            "Tried to parse {:?} as resource group id, but prefix {} was missing",
+            expanded_form, SUBSCRIPTION_ID_PREFIX
+        ))?;
+
+        // "0000-000-0000" => Uuid{0000-000-0000}
+        let sub_id = sub_id.parse::<Uuid>().context(format!("Tried to parse {:?} as a resource group id, but the subscription id {:?} isn't a valid guid", expanded_form, sub_id))?;
+        let sub_id = SubscriptionId::new(sub_id);
+
+        // maybe "/resourceGroups/..." => Some("/resourceGroups/...")
+        let Some(remaining) = remaining else {
+            bail!("Tried to parse {:?} as resource group id, but the stuff after the subscription id was missing", expanded_form)
+        };
+
+        // "My-Resource-Group", "optional/other/stuff"
+        let (rg_name, _remaining) =
+            strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)
+                .context(format!(
+            "Tried to parse {:?} as a resource group id, but chunk {:?} was missing prefix {:?}",
+            expanded_form, remaining, RESOURCE_GROUP_ID_PREFIX
+        ))?;
+
+        Ok(ResourceGroupId::new(sub_id, rg_name.to_owned()))
     }
 }
 
