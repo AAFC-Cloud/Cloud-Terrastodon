@@ -1,3 +1,4 @@
+#[cfg(debug_assertions)]
 use anyhow::bail;
 use anyhow::Result;
 use azure_types::prelude::ResourceGraphQueryResponse;
@@ -7,6 +8,7 @@ use command::prelude::CommandKind;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
+#[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::path::PathBuf;
