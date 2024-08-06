@@ -54,7 +54,7 @@ impl FromStr for TestResourceId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let slug = strip_prefix_case_insensitive(s,TEST_ID_PREFIX).unwrap_or(s);
+        let slug = strip_prefix_case_insensitive(s, TEST_ID_PREFIX).unwrap_or(s);
         Ok(TestResourceId::new(slug))
     }
 }

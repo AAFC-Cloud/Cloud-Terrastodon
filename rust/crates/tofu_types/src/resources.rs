@@ -78,7 +78,10 @@ impl FromStr for TofuAzureRMResourceKind {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let provider_prefix = TofuProviderKind::AzureRM.provider_prefix();
-        let Some(seeking) = s.strip_prefix(provider_prefix).and_then(|s| s.strip_prefix("_")) else {
+        let Some(seeking) = s
+            .strip_prefix(provider_prefix)
+            .and_then(|s| s.strip_prefix("_"))
+        else {
             bail!(format!(
                 "String {s:?} is missing prefix {}",
                 provider_prefix
@@ -128,7 +131,10 @@ impl FromStr for TofuAzureADResourceKind {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let provider_prefix = TofuProviderKind::AzureAD.provider_prefix();
-        let Some(seeking) = s.strip_prefix(provider_prefix).and_then(|s| s.strip_prefix("_")) else {
+        let Some(seeking) = s
+            .strip_prefix(provider_prefix)
+            .and_then(|s| s.strip_prefix("_"))
+        else {
             bail!(format!(
                 "String {s:?} is missing prefix {}",
                 provider_prefix
@@ -255,27 +261,41 @@ mod tests {
     #[test]
     fn parse_azurerm_role_assignment() -> anyhow::Result<()> {
         let kind: TofuResourceKind = "azurerm_role_assignment".parse()?;
-        assert_eq!(kind, TofuResourceKind::AzureRM(TofuAzureRMResourceKind::RoleAssignment));
+        assert_eq!(
+            kind,
+            TofuResourceKind::AzureRM(TofuAzureRMResourceKind::RoleAssignment)
+        );
         Ok(())
     }
 
     #[test]
     fn parse_azurerm_other() -> anyhow::Result<()> {
         let kind: TofuResourceKind = "azurerm_synapse_workspace".parse()?;
-        assert_eq!(kind, TofuResourceKind::AzureRM(TofuAzureRMResourceKind::Other("synapse_workspace".to_owned())));
+        assert_eq!(
+            kind,
+            TofuResourceKind::AzureRM(TofuAzureRMResourceKind::Other(
+                "synapse_workspace".to_owned()
+            ))
+        );
         Ok(())
     }
-    
+
     #[test]
     fn parse_azuread_group() -> anyhow::Result<()> {
         let kind: TofuResourceKind = "azuread_group".parse()?;
-        assert_eq!(kind, TofuResourceKind::AzureAD(TofuAzureADResourceKind::Group));
+        assert_eq!(
+            kind,
+            TofuResourceKind::AzureAD(TofuAzureADResourceKind::Group)
+        );
         Ok(())
     }
     #[test]
     fn parse_azuread_other() -> anyhow::Result<()> {
         let kind: TofuResourceKind = "azuread_thingy".parse()?;
-        assert_eq!(kind, TofuResourceKind::AzureAD(TofuAzureADResourceKind::Other("thingy".to_owned())));
+        assert_eq!(
+            kind,
+            TofuResourceKind::AzureAD(TofuAzureADResourceKind::Other("thingy".to_owned()))
+        );
         Ok(())
     }
 }

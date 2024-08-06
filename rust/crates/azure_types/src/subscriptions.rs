@@ -78,7 +78,9 @@ impl FromStr for SubscriptionId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let uuid = uuid::Uuid::parse_str(strip_prefix_case_insensitive(s,SUBSCRIPTION_ID_PREFIX).unwrap_or(s))?;
+        let uuid = uuid::Uuid::parse_str(
+            strip_prefix_case_insensitive(s, SUBSCRIPTION_ID_PREFIX).unwrap_or(s),
+        )?;
         Ok(SubscriptionId::new(uuid))
     }
 }

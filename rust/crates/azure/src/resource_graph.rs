@@ -69,7 +69,9 @@ impl ResourceGraphHelper {
         }
     }
 
-    pub async fn fetch<T: DeserializeOwned>(&mut self) -> Result<Option<ResourceGraphQueryResponse<T>>> {
+    pub async fn fetch<T: DeserializeOwned>(
+        &mut self,
+    ) -> Result<Option<ResourceGraphQueryResponse<T>>> {
         #[cfg(debug_assertions)]
         if let Some((_, token)) = &self.skip {
             if !self.seen_skip_tokens.insert(token.to_owned()) {
@@ -105,7 +107,8 @@ impl ResourceGraphHelper {
                     skip,
                     top: batch_size,
                     skip_token,
-                    authorization_scope_filter: ResourceGraphQueryRestScopeFilterOption::AtScopeAboveAndBelow,
+                    authorization_scope_filter:
+                        ResourceGraphQueryRestScopeFilterOption::AtScopeAboveAndBelow,
                     result_format: QueryRestResultFormat::Table,
                 },
             })?,

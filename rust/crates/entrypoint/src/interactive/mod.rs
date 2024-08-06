@@ -11,18 +11,17 @@ mod clean_imports;
 mod clean_processed;
 mod copy_azurerm_backend_menu;
 mod create_role_assignment_menu;
+mod import_wizard_menu;
 mod init_processed;
 mod jump_to_block;
 mod list_imports;
 mod open_dir;
 mod pim_activate;
-mod populate_cache;
-mod import_wizard_menu;
 mod plan_processed;
+mod populate_cache;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
-    pub use crate::interactive::plan_processed::*;
     pub use crate::interactive::browse_resource_groups::*;
     pub use crate::interactive::browse_users::*;
     pub use crate::interactive::build_group_imports::*;
@@ -35,11 +34,12 @@ pub mod prelude {
     pub use crate::interactive::clean_processed::*;
     pub use crate::interactive::copy_azurerm_backend_menu::*;
     pub use crate::interactive::create_role_assignment_menu::*;
+    pub use crate::interactive::import_wizard_menu::*;
     pub use crate::interactive::init_processed::*;
     pub use crate::interactive::jump_to_block::*;
     pub use crate::interactive::list_imports::*;
     pub use crate::interactive::open_dir::*;
     pub use crate::interactive::pim_activate::*;
-    pub use crate::interactive::import_wizard_menu::*;
+    pub use crate::interactive::plan_processed::*;
     pub use crate::interactive::populate_cache::*;
 }

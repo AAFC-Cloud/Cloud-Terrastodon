@@ -5,7 +5,7 @@ use anyhow::Result;
 use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
-use hcl::edit::structure::Structure;	
+use hcl::edit::structure::Structure;
 use hcl::edit::Decorate;
 use indoc::formatdoc;
 use itertools::Itertools;
@@ -44,15 +44,24 @@ impl TryFrom<Body> for BodyFormatter {
                             let id = block
                                 .body
                                 .get_attribute("id")
-                                .ok_or(anyhow!("import block missing attribute \"id\" ").context(block.as_tofu_string()))?
+                                .ok_or(
+                                    anyhow!("import block missing attribute \"id\" ")
+                                        .context(block.as_tofu_string()),
+                                )?
                                 .value
                                 .as_str()
-                                .ok_or(anyhow!("import block attribute \"id\" not a string").context(block.as_tofu_string()))?
+                                .ok_or(
+                                    anyhow!("import block attribute \"id\" not a string")
+                                        .context(block.as_tofu_string()),
+                                )?
                                 .to_string();
                             let key = block
                                 .body
                                 .get_attribute("to")
-                                .ok_or(anyhow!("import block missing attribute \"to\"").context(block.as_tofu_string()))?
+                                .ok_or(
+                                    anyhow!("import block missing attribute \"to\"")
+                                        .context(block.as_tofu_string()),
+                                )?
                                 .value
                                 .to_string();
                             rtn.resource_keys_by_id.insert(id, key);

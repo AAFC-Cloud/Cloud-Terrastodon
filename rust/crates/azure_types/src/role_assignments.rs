@@ -34,7 +34,6 @@ use uuid::Uuid;
 
 pub const ROLE_ASSIGNMENT_ID_PREFIX: &str = "/providers/Microsoft.Authorization/roleAssignments/";
 
-
 // TODO: learn how to make a derive or other macro to simplify this, cause this isn't going to scale well lol
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -447,7 +446,10 @@ impl From<RoleAssignment> for TofuImportBlock {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
             // Tofu doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
-            id: role_assignment.id.expanded_form().replace("/RoleAssignments/","/roleAssignments/"),
+            id: role_assignment
+                .id
+                .expanded_form()
+                .replace("/RoleAssignments/", "/roleAssignments/"),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleAssignment,
                 name: format!(
@@ -465,7 +467,10 @@ impl From<ThinRoleAssignment> for TofuImportBlock {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
             // Tofu doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
-            id: role_assignment.id.expanded_form().replace("/RoleAssignments/","/roleAssignments/"),
+            id: role_assignment
+                .id
+                .expanded_form()
+                .replace("/RoleAssignments/", "/roleAssignments/"),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::RoleAssignment,
                 name: role_assignment.id.short_form().sanitize(),

@@ -57,7 +57,12 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                 }
 
                 // Remove null attributes
-                for key in ["description", "theme", "visibility","onpremises_group_type"] {
+                for key in [
+                    "description",
+                    "theme",
+                    "visibility",
+                    "onpremises_group_type",
+                ] {
                     if let Some(attrib) = node.body.get_attribute(key) {
                         if attrib.value.is_null() {
                             node.body.remove_attribute(key).unwrap();
@@ -111,8 +116,10 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                     }
                     let first_part = parts[0];
                     let second_part = parts[1];
-                    first_part.len() == 8 && first_part.chars().all(|c| c.is_digit(16)) &&
-                    second_part.len() == 1 && second_part.chars().all(|c| c.is_digit(16))
+                    first_part.len() == 8
+                        && first_part.chars().all(|c| c.is_digit(16))
+                        && second_part.len() == 1
+                        && second_part.chars().all(|c| c.is_digit(16))
                 }
                 if let Some(attrib) = node.body.get_attribute("mail_nickname") {
                     if let Some(nick) = attrib.value.as_str() {
@@ -130,7 +137,7 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                             node.body.remove_attribute(key).unwrap();
                         }
                     }
-                } 
+                }
             }
             _ => {}
         }

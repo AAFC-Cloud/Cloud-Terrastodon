@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use azure::prelude::ScopeImpl;
 use hcl::edit::structure::Block;
 use hcl::edit::visit::visit_block;
 use hcl::edit::visit::Visit;
+use std::collections::HashMap;
 use tracing::warn;
 
 #[derive(Default)]

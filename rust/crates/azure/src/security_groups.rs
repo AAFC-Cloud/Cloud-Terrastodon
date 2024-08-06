@@ -21,8 +21,8 @@ pub async fn fetch_all_security_groups() -> Result<Vec<SecurityGroup>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::fetch_all_security_groups;
     use super::*;
+    use crate::prelude::fetch_all_security_groups;
     use azure_types::prelude::SecurityGroup;
 
     #[tokio::test]

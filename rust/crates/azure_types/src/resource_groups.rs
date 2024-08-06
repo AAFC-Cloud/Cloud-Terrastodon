@@ -45,8 +45,7 @@ impl ResourceGroupId {
         ResourceGroupId { expanded }
     }
 }
-impl SubscriptionScoped for ResourceGroupId {
-}
+impl SubscriptionScoped for ResourceGroupId {}
 
 impl PartialEq for ResourceGroupId {
     fn eq(&self, other: &Self) -> bool {
@@ -195,7 +194,12 @@ impl From<ResourceGroup> for TofuImportBlock {
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::ResourceGroup,
-                name: format!("{}__{}", resource_group.name, resource_group.id.subscription_id().short_form()).sanitize(),
+                name: format!(
+                    "{}__{}",
+                    resource_group.name,
+                    resource_group.id.subscription_id().short_form()
+                )
+                .sanitize(),
             },
         }
     }

@@ -130,7 +130,8 @@ mod tests {
             name: String,
         }
 
-        let query_response: RawResourceGraphQueryResponse = serde_json::from_str(json_data).unwrap();
+        let query_response: RawResourceGraphQueryResponse =
+            serde_json::from_str(json_data).unwrap();
         let records: Vec<MyRecord> = transform(query_response.data).unwrap();
         assert_eq!(records.len(), 3);
 

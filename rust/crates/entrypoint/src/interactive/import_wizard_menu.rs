@@ -102,7 +102,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
 
     let mut used_resource_groups = HashSet::new();
     let mut used_subscriptions = HashSet::new();
-    
+
     info!("Building resource group imports");
     let mut rg_imports = Vec::new();
     for entry in resource_groups {
@@ -126,7 +126,6 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         // Add to results
         rg_imports.push(import_block);
     }
-
 
     info!("Writing resource group imports");
     TofuWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
@@ -191,7 +190,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
 
         // Create the import block
         let import_block: TofuImportBlock = sg.into();
-        
+
         // Add to results
         sg_imports.push(import_block);
     }
@@ -216,6 +215,6 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         .await?
         .format()
         .await?;
-    
+
     Ok(())
 }

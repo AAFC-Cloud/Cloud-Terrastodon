@@ -42,7 +42,7 @@ impl Scope for ManagementGroupId {
         // this doesn't use TryFromManagementGroupScoped because it itself is the scope, the management group isn't a prefix
         let name = strip_prefix_case_insensitive(expanded, MANAGEMENT_GROUP_ID_PREFIX)?;
         validate_management_group_name(name)?;
-        Ok(ManagementGroupId {	
+        Ok(ManagementGroupId {
             expanded: expanded.to_string(),
         })
     }
