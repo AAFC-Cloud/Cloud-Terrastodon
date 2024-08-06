@@ -1,3 +1,9 @@
+# v0.4.0
+
+- Fix PIM role activation happening twice when two role assignments present for the same role
+- Add `tf plan` for processed folder action
+- Add default attribute remover during reflow when processing generated HCL
+
 # v0.3.0
 
 - Fix policy remediation not providing scope leading to 0 resources being remediated
