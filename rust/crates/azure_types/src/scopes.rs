@@ -366,7 +366,9 @@ pub trait SubscriptionScoped: Scope {
 }
 pub trait ResourceGroupScoped: SubscriptionScoped {
     fn resource_group_id(&self) -> ResourceGroupId {
-        self.expanded_form().parse().expect("resource group id should be well formed")
+        self.expanded_form()
+            .parse()
+            .expect("resource group id should be well formed")
     }
 }
 pub trait ResourceScoped: ResourceGroupScoped {
@@ -648,6 +650,7 @@ impl<'de> Deserialize<'de> for ScopeImpl {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
     use uuid::Uuid;
 
     use super::*;
@@ -664,6 +667,53 @@ mod tests {
         let scope = ScopeImpl::Subscription(SubscriptionId::new(Uuid::nil()));
         let expected = format!("{:?}", scope.expanded_form());
         assert_eq!(serde_json::to_string(&scope)?, expected);
+        Ok(())
+    }
+    #[test]
+    fn rg_id_equality_case_silly() -> Result<()> {
+        // Azure cannot be relied upon for consistency in resource group IDs
+        let zero = Uuid::nil();
+        let ids = [
+            format!("/subscriptions/{zero}/resourceGroups/abc"),
+            format!("/subscriptions/{zero}/ResourceGroups/abc"),
+            format!("/subscriptions/{zero}/resourceGroups/Abc"),
+            format!("/subscriptions/{zero}/ResourceGroups/Abc"),
+            format!("/subscriptions/{zero}/resourceGroups/aBc"),
+            format!("/subscriptions/{zero}/ResourceGroups/aBc"),
+            format!("/subscriptions/{zero}/resourceGroups/abC"),
+            format!("/subscriptions/{zero}/ResourceGroups/abC"),
+        ];
+        let mut parsed_ids = Vec::new();
+        for id in ids {
+            let x = id.parse::<ScopeImpl>()?;
+            parsed_ids.push(x);
+        }
+        for x in parsed_ids.iter().combinations(2) {
+            let left: &ScopeImpl = x[0];
+            let right: &ScopeImpl = x[1];
+            assert_eq!(left, right);
+        }
+        Ok(())
+    }
+    #[test]
+    fn rg_id_equality_negative() -> Result<()> {
+        // Azure cannot be relied upon for consistency in resource group IDs
+        let zero = Uuid::nil();
+        let ids = [
+            format!("/subscriptions/{zero}/resourceGroups/abc"),
+            format!("/subscriptions/{zero}/ResourceGroups/xyz"),
+            format!("/subscriptions/{zero}/ResourceGroups/def"),
+        ];
+        let mut parsed_ids = Vec::new();
+        for id in ids {
+            let x = id.parse::<ScopeImpl>()?;
+            parsed_ids.push(x);
+        }
+        for x in parsed_ids.iter().combinations(2) {
+            let left: &ScopeImpl = x[0];
+            let right: &ScopeImpl = x[1];
+            assert_ne!(left, right);
+        }
         Ok(())
     }
 }

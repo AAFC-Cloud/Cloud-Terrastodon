@@ -146,6 +146,7 @@ dependencies = [
  "command",
  "fzf",
  "iso8601-duration",
+ "itertools",
  "serde",
  "serde_json",
  "tempfile",

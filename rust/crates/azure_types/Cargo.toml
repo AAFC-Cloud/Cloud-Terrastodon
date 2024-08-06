@@ -18,3 +18,4 @@ uuid = { workspace = true }
 chrono = { workspace = true } 
 clap = { workspace = true } 
 iso8601-duration = { workspace = true }
+itertools = { workspace = true }

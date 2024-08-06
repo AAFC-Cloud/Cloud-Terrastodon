@@ -5,19 +5,17 @@ use anyhow::Result;
 use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
-use hcl::edit::structure::Structure;
+use hcl::edit::structure::Structure;	
 use hcl::edit::Decorate;
 use indoc::formatdoc;
 use itertools::Itertools;
+use tofu_types::prelude::AsTofuString;
 use tracing::error;
-
-use crate::import_lookup_holder::ResourceId;
-use crate::import_lookup_holder::ResourceReference;
 
 #[derive(Default, Clone)]
 pub struct BodyFormatter {
-    resource_blocks: HashMap<ResourceReference, Block>,
-    resource_keys_by_id: HashMap<ResourceId, ResourceReference>,
+    resource_blocks: HashMap<String, Block>,
+    resource_keys_by_id: HashMap<String, String>,
     import_blocks: Vec<Block>,
     provider_blocks: Vec<Block>,
     other_blocks: Vec<Block>,
@@ -46,15 +44,15 @@ impl TryFrom<Body> for BodyFormatter {
                             let id = block
                                 .body
                                 .get_attribute("id")
-                                .ok_or(anyhow!("import block missing property").context("id"))?
+                                .ok_or(anyhow!("import block missing attribute \"id\" ").context(block.as_tofu_string()))?
                                 .value
                                 .as_str()
-                                .ok_or(anyhow!("import block property not a string").context("id"))?
+                                .ok_or(anyhow!("import block attribute \"id\" not a string").context(block.as_tofu_string()))?
                                 .to_string();
                             let key = block
                                 .body
                                 .get_attribute("to")
-                                .ok_or(anyhow!("import block missing property").context("key"))?
+                                .ok_or(anyhow!("import block missing attribute \"to\"").context(block.as_tofu_string()))?
                                 .value
                                 .to_string();
                             rtn.resource_keys_by_id.insert(id, key);

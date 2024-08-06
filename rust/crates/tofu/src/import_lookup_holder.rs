@@ -1,14 +1,21 @@
 use std::collections::HashMap;
-
+use azure::prelude::ScopeImpl;
 use hcl::edit::structure::Block;
 use hcl::edit::visit::visit_block;
 use hcl::edit::visit::Visit;
+use tracing::warn;
 
-pub type ResourceReference = String;
-pub type ResourceId = String;
 #[derive(Default)]
 pub struct ImportLookupHolder {
-    pub resource_references_by_id: HashMap<ResourceId, ResourceReference>,
+    resource_references_by_id: HashMap<ScopeImpl, String>,
+}
+impl ImportLookupHolder {
+    pub fn track(&mut self, id: ScopeImpl, to: String) {
+        self.resource_references_by_id.insert(id, to);
+    }
+    pub fn get_import_to_from_id(&self, id: &ScopeImpl) -> Option<&String> {
+        self.resource_references_by_id.get(id)
+    }
 }
 impl Visit for ImportLookupHolder {
     fn visit_block(&mut self, block: &Block) {
@@ -31,6 +38,10 @@ impl Visit for ImportLookupHolder {
         };
 
         // Add to lookup table
-        self.resource_references_by_id.insert(id.to_string(), to);
+        let Ok(scope) = id.parse() else {
+            warn!("Failed to interpret id as scope: {id:?}");
+            return;
+        };
+        self.track(scope, to);
     }
 }

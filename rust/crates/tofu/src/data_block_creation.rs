@@ -1,31 +1,26 @@
 use crate::data_lookup_holder::DataLookupHolder;
-use crate::import_lookup_holder::ResourceId;
 use anyhow::bail;
 use anyhow::Result;
 use azure::prelude::NameLookupHelper;
 use azure::prelude::ScopeImpl;
 use hcl::edit::structure::Body;
 use std::collections::HashSet;
-use std::str::FromStr;
 use tofu_types::prelude::TofuAzureRMDataKind;
 use tofu_types::prelude::TofuDataBlock;
 use tofu_types::prelude::TofuDataReference;
 use tofu_types::prelude::TryAsTofuBlocks;
 
 pub async fn create_data_blocks_for_ids(
-    ids: &HashSet<ResourceId>,
+    ids: &HashSet<ScopeImpl>,
 ) -> Result<(Body, DataLookupHolder)> {
     let mut body = Body::new();
     let mut name_helper = NameLookupHelper::default();
     let mut lookup_holder = DataLookupHolder::default();
 
-    for id in ids {
-        // Convert ID string to scope
-        let scope = ScopeImpl::from_str(id)?;
-
+    for scope in ids {
         // Look up the name for the scope
         let Some(name) = name_helper.get_name_for_scope(&scope).await? else {
-            bail!("Failed to find name for {id}");
+            bail!("Failed to find name for {scope}");
         };
 
         // Create the data reference
@@ -38,13 +33,17 @@ pub async fn create_data_blocks_for_ids(
                 kind: TofuAzureRMDataKind::PolicySetDefinition,
                 name: name.to_owned(),
             },
-            _ => todo!(),
+            ScopeImpl::ResourceGroup(_) => TofuDataReference::AzureRM {
+                kind: TofuAzureRMDataKind::ResourceGroup,
+                name: name.to_owned(),
+            },
+            x => todo!("Data reference block creation missing impl for {x:?}"),
         };
 
         // Add the reference to the lookup
         lookup_holder
             .data_references_by_id
-            .insert(scope, reference.clone());
+            .insert(scope.to_owned(), reference.clone());
 
         // Create the data block
         let data_block = TofuDataBlock::LookupByName {

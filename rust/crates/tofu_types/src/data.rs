@@ -11,6 +11,7 @@ use itertools::Itertools;
 pub enum TofuAzureRMDataKind {
     PolicyDefinition,
     PolicySetDefinition,
+    ResourceGroup,
     Other(String),
 }
 impl TofuAzureRMDataKind {
@@ -18,6 +19,7 @@ impl TofuAzureRMDataKind {
         vec![
             TofuAzureRMDataKind::PolicyDefinition,
             TofuAzureRMDataKind::PolicySetDefinition,
+            TofuAzureRMDataKind::ResourceGroup,
         ]
     }
 }
@@ -26,6 +28,7 @@ impl AsRef<str> for TofuAzureRMDataKind {
         match self {
             Self::PolicyDefinition => "policy_definition",
             Self::PolicySetDefinition => "policy_set_definition",
+            Self::ResourceGroup => "resource_group",
             Self::Other(s) => s.as_ref(),
         }
     }

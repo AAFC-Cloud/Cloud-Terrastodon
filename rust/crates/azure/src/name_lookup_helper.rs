@@ -9,6 +9,7 @@ use tracing::info;
 use crate::prelude::fetch_all_policy_assignments;
 use crate::prelude::fetch_all_policy_definitions;
 use crate::prelude::fetch_all_policy_set_definitions;
+use crate::prelude::fetch_all_resource_groups;
 
 #[derive(Default)]
 pub struct NameLookupHelper {
@@ -46,6 +47,11 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
             .flatten()
             .map(|v| (v.id.as_scope(), v.name))
             .collect(),
-        _ => todo!(),
+        ScopeImplKind::ResourceGroup => fetch_all_resource_groups()
+            .await?
+            .into_iter()
+            .map(|rg| (rg.id.as_scope(), rg.name))
+            .collect(),
+        x => todo!("Name lookup for data block generation missing impl for {x:?}"),
     })
 }

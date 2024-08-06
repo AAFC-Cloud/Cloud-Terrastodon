@@ -1,30 +1,37 @@
-use std::collections::HashSet;
-
 use crate::import_lookup_holder::ImportLookupHolder;
-use crate::import_lookup_holder::ResourceId;
+use azure::prelude::ScopeImpl;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
 use hcl::edit::visit_mut::visit_attr_mut;
+use hcl::edit::visit_mut::visit_block_mut;
 use hcl::edit::visit_mut::VisitMut;
+use std::collections::HashSet;
+use tracing::warn;
 
 pub struct ImportedResourceReferencePatcher {
     pub lookups: ImportLookupHolder,
-    pub missing_entries: HashSet<ResourceId>,
-    pub keys: HashSet<String>,
+    pub missing_entries: HashSet<ScopeImpl>,
+    pub allowed_to_patch_keys: HashSet<String>,
 }
 impl ImportedResourceReferencePatcher {
-    pub fn new(lookup: ImportLookupHolder, keys: HashSet<String>) -> Self {
+    pub fn new(lookup: ImportLookupHolder, allowed_to_patch_keys: HashSet<String>) -> Self {
         ImportedResourceReferencePatcher {
             lookups: lookup,
             missing_entries: Default::default(),
-            keys,
+            allowed_to_patch_keys,
         }
     }
 }
 impl VisitMut for ImportedResourceReferencePatcher {
+    fn visit_block_mut(&mut self, node: &mut hcl::edit::structure::Block) {
+        // Do not transform hardcoded strings in import blocks lol
+        if node.ident.as_str() != "import" {
+            visit_block_mut(self, node)
+        }
+    }
     fn visit_attr_mut(&mut self, mut node: AttributeMut) {
-        // Only process policy_definition_id attributes
-        if !self.keys.contains(&node.key.to_string()) {
+        // Only process allowed keys
+        if !self.allowed_to_patch_keys.contains(&node.key.to_string()) {
             visit_attr_mut(self, node);
             return;
         }
@@ -36,10 +43,14 @@ impl VisitMut for ImportedResourceReferencePatcher {
         };
 
         // Lookup the key by the id
-        let reference = match self.lookups.resource_references_by_id.get(id) {
+        let Ok(scope) = id.parse() else {
+            warn!("Failed to interpret id as scope: {id:?}");
+            return;
+        };
+        let reference = match self.lookups.get_import_to_from_id(&scope) {
             Some(x) => x,
             None => {
-                self.missing_entries.insert(id.to_string());
+                self.missing_entries.insert(scope);
                 return;
             }
         };

@@ -2,6 +2,7 @@ use crate::data_lookup_holder::DataLookupHolder;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
 use hcl::edit::visit_mut::visit_attr_mut;
+use hcl::edit::visit_mut::visit_block_mut;
 use hcl::edit::visit_mut::VisitMut;
 
 pub struct DataReferencePatcher {
@@ -14,6 +15,12 @@ impl From<DataLookupHolder> for DataReferencePatcher {
     }
 }
 impl VisitMut for DataReferencePatcher {
+    fn visit_block_mut(&mut self, node: &mut hcl::edit::structure::Block) {
+        // Do not transform hardcoded strings in import blocks lol
+        if node.ident.as_str() != "import" {
+            visit_block_mut(self, node)
+        }
+    }
     fn visit_attr_mut(&mut self, mut node: AttributeMut) {
         // Only process string literals
         let Some(resource_id) = node.value.as_str() else {
