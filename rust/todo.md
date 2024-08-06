@@ -62,3 +62,15 @@
 
 - devops git repo last modified date aggregator
     - identify repos that are candidates for deletion/archival
+
+
+- log integration
+    - Entra audit log
+        - [Activity reports API overview - Microsoft Graph v1.0 | Microsoft Learn](https://learn.microsoft.com/en-us/graph/api/resources/azure-ad-auditlog-overview?view=graph-rest-1.0)
+        - [How to analyze activity logs with Microsoft Graph - Microsoft Entra ID | Microsoft Learn](https://learn.microsoft.com/en-us/entra/identity/monitoring-health/howto-analyze-activity-logs-with-microsoft-graph)
+        - GET `/auditLogs/directoryAudits?$filter=(activityDateTime ge 2024-07-06T18:29:40.171Z and activityDateTime le 2024-08-06T18:29:40.171Z and (startswith(initiatedBy/user/id, 'admin.john.doe') or startswith(initiatedBy/user/displayName, 'admin.john.doe') or startswith(initiatedBy/user/userPrincipalName, 'admin.john.doe') or startswith(initiatedBy/app/appId, 'admin.john.doe') or startswith(initiatedBy/app/displayName, 'admin.john.doe')))&$top=50&$orderby=activityDateTime desc`
+    - AzureRM activity log
+        - [az monitor activity-log | Microsoft Learn](https://learn.microsoft.com/en-us/cli/azure/monitor/activity-log?view=azure-cli-latest#az-monitor-activity-log-list)
+    - What changes have recently happened to the (security group, resource group, etc) I'm currently looking at
+    - What changes have recently been made by the (user, security group, service principal, etc) I'm currently looking at
+	
