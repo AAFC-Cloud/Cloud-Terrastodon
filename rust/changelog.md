@@ -1,8 +1,8 @@
 # v0.4.0
 
 - Fix PIM role activation happening twice when two role assignments present for the same role
-- Add `tf plan` for processed folder action
 - Add wizard for generating import blocks
+- Add `tf plan` action
 - Remove default attributes when processing generated HCL
 
 # v0.3.0
