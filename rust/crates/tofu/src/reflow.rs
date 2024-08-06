@@ -43,7 +43,7 @@ pub async fn reflow_workspace(
         info!("Updating strings from hardcoded IDs to reference resource blocks instead");
         let mut import_reference_patcher = ImportedResourceReferencePatcher::new(
             lookups,
-            ["policy_definition_id"]
+            ["policy_definition_id", "scope"]
                 .into_iter()
                 .map(|x| x.to_string())
                 .collect(),
