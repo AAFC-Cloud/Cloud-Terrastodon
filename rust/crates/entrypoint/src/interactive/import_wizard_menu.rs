@@ -38,6 +38,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         x if x == start_from_scratch => {
             info!("Removing existing imports");
             let _ = remove_dir_all(AppDir::Imports.as_path_buf()).await;
+            let _ = remove_dir_all(AppDir::Processed.as_path_buf()).await;
         }
         x if x == keep_existing_imports => {
             info!("Keeping existing imports");
