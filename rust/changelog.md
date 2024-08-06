@@ -2,10 +2,8 @@
 
 - Fix PIM role activation happening twice when two role assignments present for the same role
 - Add `tf plan` for processed folder action
-- Add default attribute remover during reflow when processing generated HCL
-- Add import wizard
-- Remove role_definition_id when role_definition_name present
-- Remove default azuread_group attributes
+- Add wizard for generating import blocks
+- Remove default attributes when processing generated HCL
 
 # v0.3.0
 

@@ -29,6 +29,24 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                 {
                     node.body.remove_attribute("role_definition_id").unwrap();
                 }
+
+                // Remove null attributes
+                for key in [
+                    "condition",
+                    "condition_version",
+                    "delegated_managed_identity_resource_id",
+                    "description",
+                    "skip_service_principal_aad_check",
+                ] {
+                    if let Some(attrib) = node.body.get_attribute(key) {
+                        if attrib.value.is_null() {
+                            node.body.remove_attribute(key).unwrap();
+                        }
+                    }
+                }
+
+                // Don't both repeating the name, which is part of the ID
+                let _ = node.body.remove_attribute("name");
             }
             TofuResourceKind::AzureAD(TofuAzureADResourceKind::Group) => {
                 // Remove mail_enabled when security_enabled specified
@@ -103,6 +121,16 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                         }
                     }
                 }
+            }
+            TofuResourceKind::AzureRM(TofuAzureRMResourceKind::ResourceGroup) => {
+                // Remove null attributes
+                for key in ["managed_by"] {
+                    if let Some(attrib) = node.body.get_attribute(key) {
+                        if attrib.value.is_null() {
+                            node.body.remove_attribute(key).unwrap();
+                        }
+                    }
+                } 
             }
             _ => {}
         }
