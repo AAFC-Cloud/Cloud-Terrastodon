@@ -1,5 +1,6 @@
 use crate::naming::validate_resource_group_name;
 use crate::prelude::strip_prefix_get_slug_and_leading_slashed_remains;
+use crate::prelude::SubscriptionScoped;
 use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
@@ -43,6 +44,8 @@ impl ResourceGroupId {
         );
         ResourceGroupId { expanded }
     }
+}
+impl SubscriptionScoped for ResourceGroupId {
 }
 
 impl PartialEq for ResourceGroupId {
@@ -192,7 +195,7 @@ impl From<ResourceGroup> for TofuImportBlock {
             id: resource_group.id.to_string(),
             to: TofuResourceReference::AzureRM {
                 kind: TofuAzureRMResourceKind::ResourceGroup,
-                name: format!("{}__{}", resource_group.name, resource_group.id).sanitize(),
+                name: format!("{}__{}", resource_group.name, resource_group.id.subscription_id().short_form()).sanitize(),
             },
         }
     }
