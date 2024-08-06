@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use tofu_types::prelude::AsTofuString;
 use tofu_types::prelude::TofuDataBlock;
+use tofu_types::prelude::TofuResourceKind;
 use tofu_types::prelude::TryAsTofuBlocks;
 
 pub struct UserIdReferencePatcher {
@@ -60,7 +61,15 @@ impl VisitMut for UserIdReferencePatcher {
     fn visit_block_mut(&mut self, node: &mut hcl::edit::structure::Block) {
         visit_block_mut(self, node);
         // Comment out empty owners/members attributes to satisfy terraform validate
-        if node.labels.first().map(|x| x.as_str()) == Some("azuread_group") {
+        if node
+            .labels
+            .first()
+            .map(|x| x.as_str())
+            .and_then(|x| x.parse::<TofuResourceKind>().ok())
+            == Some(TofuResourceKind::AzureAD(
+                tofu_types::prelude::TofuAzureADResourceKind::Group,
+            ))
+        {
             for key in ["owners", "members"] {
                 if let Some(ref mut attr) = node.body.get_attribute_mut(key)
                     && let Some(ref mut array) = attr.value_mut().as_array_mut()

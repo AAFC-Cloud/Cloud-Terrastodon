@@ -1,10 +1,37 @@
-use std::str::FromStr;
-
-use anyhow::anyhow;
+use crate::providers::TofuProviderKind;
+use anyhow::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::parser;
+use std::str::FromStr;
 
-use crate::providers::TofuProviderKind;
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum TofuResourceKind {
+    AzureAD(TofuAzureADResourceKind),
+    AzureRM(TofuAzureRMResourceKind),
+    Other(String),
+}
+impl std::fmt::Display for TofuResourceKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TofuResourceKind::AzureAD(res) => res.fmt(f),
+            TofuResourceKind::AzureRM(res) => res.fmt(f),
+            TofuResourceKind::Other(res) => f.write_str(res),
+        }
+    }
+}
+impl FromStr for TofuResourceKind {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(azurerm) = s.parse::<TofuAzureRMResourceKind>() {
+            return Ok(TofuResourceKind::AzureRM(azurerm));
+        }
+        if let Ok(azuread) = s.parse::<TofuAzureADResourceKind>() {
+            return Ok(TofuResourceKind::AzureAD(azuread));
+        }
+        Ok(TofuResourceKind::Other(s.to_owned()))
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TofuAzureRMResourceKind {
@@ -19,7 +46,7 @@ pub enum TofuAzureRMResourceKind {
     Other(String),
 }
 impl TofuAzureRMResourceKind {
-    pub fn supported_variants() -> Vec<TofuAzureRMResourceKind> {
+    pub fn known_variants() -> Vec<TofuAzureRMResourceKind> {
         vec![
             TofuAzureRMResourceKind::ManagementGroupPolicyAssignment,
             TofuAzureRMResourceKind::ResourceGroup,
@@ -50,11 +77,26 @@ impl FromStr for TofuAzureRMResourceKind {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let seeking = s.trim_start_matches(TofuProviderKind::AzureRM.provider_prefix());
-        Self::supported_variants()
-            .into_iter()
-            .find(|x| x.as_ref() == seeking)
-            .ok_or(anyhow!("no variant matches"))
+        let provider_prefix = TofuProviderKind::AzureRM.provider_prefix();
+        let Some(seeking) = s.strip_prefix(provider_prefix).and_then(|s| s.strip_prefix("_")) else {
+            bail!(format!(
+                "String {s:?} is missing prefix {}",
+                provider_prefix
+            ));
+        };
+        for variant in Self::known_variants() {
+            if variant.as_ref() == seeking {
+                return Ok(variant);
+            }
+        }
+        Ok(Self::Other(seeking.to_owned()))
+    }
+}
+impl std::fmt::Display for TofuAzureRMResourceKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(TofuProviderKind::AzureRM.provider_prefix())?;
+        f.write_str("_")?;
+        f.write_str(self.as_ref())
     }
 }
 
@@ -65,7 +107,7 @@ pub enum TofuAzureADResourceKind {
     Other(String),
 }
 impl TofuAzureADResourceKind {
-    pub fn supported_variants() -> Vec<TofuAzureADResourceKind> {
+    pub fn known_variants() -> Vec<TofuAzureADResourceKind> {
         vec![
             TofuAzureADResourceKind::Group,
             TofuAzureADResourceKind::User,
@@ -85,11 +127,27 @@ impl FromStr for TofuAzureADResourceKind {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let seeking = s.trim_start_matches(TofuProviderKind::AzureAD.provider_prefix());
-        Self::supported_variants()
-            .into_iter()
-            .find(|x| x.as_ref() == seeking)
-            .ok_or(anyhow!("no variant matches"))
+        let provider_prefix = TofuProviderKind::AzureAD.provider_prefix();
+        let Some(seeking) = s.strip_prefix(provider_prefix).and_then(|s| s.strip_prefix("_")) else {
+            bail!(format!(
+                "String {s:?} is missing prefix {}",
+                provider_prefix
+            ));
+        };
+        for variant in Self::known_variants() {
+            if variant.as_ref() == seeking {
+                return Ok(variant);
+            }
+        }
+        Ok(Self::Other(seeking.to_owned()))
+    }
+}
+
+impl std::fmt::Display for TofuAzureADResourceKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(TofuProviderKind::AzureAD.provider_prefix())?;
+        f.write_str("_")?;
+        f.write_str(self.as_ref())
     }
 }
 
@@ -191,6 +249,33 @@ mod tests {
         };
         let y: Expression = x.try_into()?;
         println!("{y:?}");
+        Ok(())
+    }
+
+    #[test]
+    fn parse_azurerm_role_assignment() -> anyhow::Result<()> {
+        let kind: TofuResourceKind = "azurerm_role_assignment".parse()?;
+        assert_eq!(kind, TofuResourceKind::AzureRM(TofuAzureRMResourceKind::RoleAssignment));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_azurerm_other() -> anyhow::Result<()> {
+        let kind: TofuResourceKind = "azurerm_synapse_workspace".parse()?;
+        assert_eq!(kind, TofuResourceKind::AzureRM(TofuAzureRMResourceKind::Other("synapse_workspace".to_owned())));
+        Ok(())
+    }
+    
+    #[test]
+    fn parse_azuread_group() -> anyhow::Result<()> {
+        let kind: TofuResourceKind = "azuread_group".parse()?;
+        assert_eq!(kind, TofuResourceKind::AzureAD(TofuAzureADResourceKind::Group));
+        Ok(())
+    }
+    #[test]
+    fn parse_azuread_other() -> anyhow::Result<()> {
+        let kind: TofuResourceKind = "azuread_thingy".parse()?;
+        assert_eq!(kind, TofuResourceKind::AzureAD(TofuAzureADResourceKind::Other("thingy".to_owned())));
         Ok(())
     }
 }
