@@ -14,6 +14,7 @@ use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
 use crate::interactive::prelude::copy_azurerm_backend_menu;
 use crate::interactive::prelude::create_role_assignment_menu;
+use crate::interactive::prelude::plan_processed;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
 use crate::interactive::prelude::init_processed;
 use crate::interactive::prelude::jump_to_block;
@@ -49,6 +50,7 @@ pub enum MenuAction {
     CreateRoleAssignment,
     InitProcessed,
     ApplyProcessed,
+    PlanProcessed,
     JumpToBlock,
     ListImports,
     RemediatePolicyAssignment,
@@ -91,6 +93,7 @@ impl MenuAction {
             MenuAction::CleanProcessed => "clean processed",
             MenuAction::InitProcessed => "processed - tf init",
             MenuAction::ApplyProcessed => "processed - tf apply",
+            MenuAction::PlanProcessed => "processed - tf plan",
             MenuAction::JumpToBlock => "jump to block",
             MenuAction::ListImports => "list imports",
             MenuAction::RemediatePolicyAssignment => "remediate policy assignment",
@@ -126,6 +129,7 @@ impl MenuAction {
             MenuAction::CleanProcessed => clean_processed().await?,
             MenuAction::InitProcessed => init_processed().await?,
             MenuAction::ApplyProcessed => apply_processed().await?,
+            MenuAction::PlanProcessed => plan_processed().await?,
             MenuAction::PimActivate => pim_activate().await?,
             MenuAction::JumpToBlock => {
                 jump_to_block(AppDir::Processed.into()).await?;
@@ -175,6 +179,7 @@ impl MenuAction {
             MenuAction::ProcessGenerated,
             MenuAction::InitProcessed,
             MenuAction::ApplyProcessed,
+            MenuAction::PlanProcessed,
             MenuAction::JumpToBlock,
         ]
     }
@@ -224,7 +229,7 @@ impl MenuAction {
             MenuAction::CleanImports => all_exist([AppDir::Imports.into()]).await,
             MenuAction::CleanProcessed => all_exist([AppDir::Processed.into()]).await,
             MenuAction::InitProcessed => all_exist([AppDir::Processed.join("generated.tf")]).await,
-            MenuAction::ApplyProcessed => {
+            MenuAction::ApplyProcessed | MenuAction::PlanProcessed => {
                 all_exist([AppDir::Processed.join(".terraform.lock.hcl")]).await
             }
             MenuAction::JumpToBlock => all_exist([AppDir::Processed.join("generated.tf")]).await,

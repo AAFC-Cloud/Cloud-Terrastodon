@@ -18,9 +18,11 @@ mod open_dir;
 mod pim_activate;
 mod populate_cache;
 mod import_wizard_menu;
+mod plan_processed;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
+    pub use crate::interactive::plan_processed::*;
     pub use crate::interactive::browse_resource_groups::*;
     pub use crate::interactive::browse_users::*;
     pub use crate::interactive::build_group_imports::*;
