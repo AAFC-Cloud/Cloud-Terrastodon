@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::interactive::prelude::apply_processed;
 use crate::interactive::prelude::browse_resource_groups;
+use crate::interactive::prelude::browse_security_groups;
 use crate::interactive::prelude::browse_users;
 use crate::interactive::prelude::build_group_imports;
 use crate::interactive::prelude::build_imports_from_existing;
@@ -41,6 +42,7 @@ pub enum MenuAction {
     BuildImportsWizard,
     BrowseResourceGroups,
     BrowseUsers,
+    BrowseSecurityGroups,
     PerformImport,
     ProcessGenerated,
     Clean,
@@ -77,6 +79,7 @@ impl MenuAction {
             MenuAction::CopyAzureRMBackend => "copy azurerm backend",
             MenuAction::BrowseResourceGroups => "browse resource groups",
             MenuAction::BrowseUsers => "browse users",
+            MenuAction::BrowseSecurityGroups => "browse security groups",
             MenuAction::BuildPolicyImports => "build imports - create policy_imports.tf",
             MenuAction::BuildResourceGroupImports => {
                 "build imports - create resource_group_imports.tf"
@@ -116,6 +119,7 @@ impl MenuAction {
             MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu().await?,
             MenuAction::BrowseResourceGroups => browse_resource_groups().await?,
             MenuAction::BrowseUsers => browse_users().await?,
+            MenuAction::BrowseSecurityGroups => browse_security_groups().await?,
             MenuAction::BuildPolicyImports => build_policy_imports().await?,
             MenuAction::BuildGroupImports => build_group_imports().await?,
             MenuAction::BuildResourceGroupImports => build_resource_group_imports().await?,
@@ -162,6 +166,7 @@ impl MenuAction {
             MenuAction::OpenDir,
             MenuAction::PopulateCache,
             MenuAction::BrowseResourceGroups,
+            MenuAction::BrowseSecurityGroups,
             MenuAction::CopyAzureRMBackend,
             MenuAction::BrowseUsers,
             MenuAction::PimActivate,
