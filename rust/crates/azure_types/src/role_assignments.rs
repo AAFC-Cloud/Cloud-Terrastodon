@@ -49,7 +49,7 @@ impl NameValidatable for UnscopedRoleAssignmentId {
 }
 impl HasPrefix for UnscopedRoleAssignmentId {
     fn get_prefix() -> &'static str {
-        &ROLE_ASSIGNMENT_ID_PREFIX
+        ROLE_ASSIGNMENT_ID_PREFIX
     }
 }
 impl TryFromUnscoped for UnscopedRoleAssignmentId {
@@ -89,7 +89,7 @@ impl NameValidatable for ManagementGroupScopedRoleAssignmentId {
 }
 impl HasPrefix for ManagementGroupScopedRoleAssignmentId {
     fn get_prefix() -> &'static str {
-        &ROLE_ASSIGNMENT_ID_PREFIX
+        ROLE_ASSIGNMENT_ID_PREFIX
     }
 }
 impl TryFromManagementGroupScoped for ManagementGroupScopedRoleAssignmentId {
@@ -130,7 +130,7 @@ impl NameValidatable for SubscriptionScopedRoleAssignmentId {
 }
 impl HasPrefix for SubscriptionScopedRoleAssignmentId {
     fn get_prefix() -> &'static str {
-        &ROLE_ASSIGNMENT_ID_PREFIX
+        ROLE_ASSIGNMENT_ID_PREFIX
     }
 }
 impl TryFromSubscriptionScoped for SubscriptionScopedRoleAssignmentId {
@@ -174,7 +174,7 @@ impl NameValidatable for ResourceGroupScopedRoleAssignmentId {
 }
 impl HasPrefix for ResourceGroupScopedRoleAssignmentId {
     fn get_prefix() -> &'static str {
-        &ROLE_ASSIGNMENT_ID_PREFIX
+        ROLE_ASSIGNMENT_ID_PREFIX
     }
 }
 impl TryFromResourceGroupScoped for ResourceGroupScopedRoleAssignmentId {
@@ -218,7 +218,7 @@ impl NameValidatable for ResourceScopedRoleAssignmentId {
 }
 impl HasPrefix for ResourceScopedRoleAssignmentId {
     fn get_prefix() -> &'static str {
-        &ROLE_ASSIGNMENT_ID_PREFIX
+        ROLE_ASSIGNMENT_ID_PREFIX
     }
 }
 impl TryFromResourceScoped for ResourceScopedRoleAssignmentId {

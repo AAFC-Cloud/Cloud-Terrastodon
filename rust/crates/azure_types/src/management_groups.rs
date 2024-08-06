@@ -29,7 +29,7 @@ impl ManagementGroupId {
 }
 impl HasPrefix for ManagementGroupId {
     fn get_prefix() -> &'static str {
-        &MANAGEMENT_GROUP_ID_PREFIX
+        MANAGEMENT_GROUP_ID_PREFIX
     }
 }
 impl NameValidatable for ManagementGroupId {

@@ -19,7 +19,7 @@ pub async fn create_data_blocks_for_ids(
 
     for scope in ids {
         // Look up the name for the scope
-        let Some(name) = name_helper.get_name_for_scope(&scope).await? else {
+        let Some(name) = name_helper.get_name_for_scope(scope).await? else {
             bail!("Failed to find name for {scope}");
         };
 

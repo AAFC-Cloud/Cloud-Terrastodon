@@ -53,7 +53,7 @@ authorizationresources
             valid_for: Duration::from_hours(4),
         },
     );
-    Ok(query.collect_all().await?)
+    query.collect_all().await
 }
 
 #[cfg(test)]
