@@ -1,5 +1,6 @@
 mod apply_processed;
 mod browse_resource_groups;
+mod browse_security_groups;
 mod browse_users;
 mod build_group_imports;
 mod build_imports_from_existing;
@@ -19,11 +20,11 @@ mod open_dir;
 mod pim_activate;
 mod plan_processed;
 mod populate_cache;
-mod browse_security_groups;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
     pub use crate::interactive::browse_resource_groups::*;
+    pub use crate::interactive::browse_security_groups::*;
     pub use crate::interactive::browse_users::*;
     pub use crate::interactive::build_group_imports::*;
     pub use crate::interactive::build_imports_from_existing::*;
@@ -43,5 +44,4 @@ pub mod prelude {
     pub use crate::interactive::pim_activate::*;
     pub use crate::interactive::plan_processed::*;
     pub use crate::interactive::populate_cache::*;
-    pub use crate::interactive::browse_security_groups::*;
 }
