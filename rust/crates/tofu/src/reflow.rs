@@ -15,6 +15,7 @@ use tracing::instrument;
 use crate::body_formatter::PrettyBody;
 use crate::data_block_creation::create_data_blocks_for_ids;
 use crate::data_reference_patcher::DataReferencePatcher;
+use crate::default_attribute_removal_patcher::DefaultAttributeRemovalPatcher;
 use crate::import_lookup_holder::ImportLookupHolder;
 use crate::imported_resource_reference_patcher::ImportedResourceReferencePatcher;
 use crate::json_patcher::JsonPatcher;
@@ -86,6 +87,11 @@ pub async fn reflow_workspace(
         } else {
             info!("No users referenced, lookup not needed");
         }
+    }
+    {
+        info!("Pruning default/conflicting properties");
+        let mut patcher = DefaultAttributeRemovalPatcher {};
+        patcher.visit_body_mut(&mut body);
     }
 
     info!("Appending generated.tf to output");
