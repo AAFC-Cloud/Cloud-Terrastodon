@@ -1,3 +1,7 @@
+# v0.5.0
+
+- Add security group and role assignment imports to `write-all-imports` noninteractive invocation
+
 # v0.4.0
 
 - Fix PIM role activation happening twice when two role assignments present for the same role
