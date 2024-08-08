@@ -1,4 +1,5 @@
 #![feature(let_chains)]
+mod block;
 mod code_reference;
 mod data;
 mod imports;
@@ -7,6 +8,7 @@ mod resources;
 mod strings;
 
 pub mod prelude {
+    pub use crate::block::*;
     pub use crate::code_reference::*;
     pub use crate::data::*;
     pub use crate::imports::*;

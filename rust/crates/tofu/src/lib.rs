@@ -1,5 +1,4 @@
 #![feature(let_chains)]
-mod block;
 mod block_lister;
 mod body_formatter;
 mod data_block_creation;
@@ -15,7 +14,6 @@ mod reflow;
 mod user_id_reference_patcher;
 mod writer;
 pub mod prelude {
-    pub use crate::block::*;
     pub use crate::block_lister::*;
     pub use crate::import_builder::*;
     pub use crate::importer::*;

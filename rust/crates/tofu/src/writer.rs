@@ -62,7 +62,8 @@ impl TofuWriter {
         let mut file = OpenOptions::new()
             .create(true)
             .read(true)
-            .append(true)
+            .write(true)
+            .truncate(true)
             .open(&self.path)
             .await
             .context(format!("opening file {}", self.path.display()))?;
@@ -128,5 +129,43 @@ impl TofuWriter {
             .await
             .context("appending content")?;
         Ok(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_works() -> Result<()> {
+        // Create provider blocks
+        let mut providers = HashSet::new();
+        providers.insert(TofuProviderBlock::AzureRM {
+            alias: None,
+            subscription_id: None,
+        });
+        providers.insert(TofuProviderBlock::AzureRM {
+            alias: Some("bruh".to_owned()),
+            subscription_id: None,
+        });
+
+        // Write some content
+        let path = tempfile::Builder::new().tempfile()?.into_temp_path();
+        let writer = TofuWriter::new(path);
+        writer.merge(providers.clone()).await?;
+        writer.merge(providers.clone()).await?;
+        writer.merge(providers.clone()).await?;
+
+        // Read back the content
+        let mut file = OpenOptions::new().read(true).open(&writer.path).await?;
+        let mut content = String::new();
+        file.read_to_string(&mut content).await?;
+        let body : Body = content.parse()?;
+
+        // Assert that the merging successfully deduplicated
+        let num_blocks = body.into_blocks().count();
+        assert_eq!(num_blocks, providers.len()); 
+        
+        Ok(())
     }
 }

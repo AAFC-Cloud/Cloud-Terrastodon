@@ -246,8 +246,8 @@ impl TryFrom<Block> for TofuProviderBlock {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use crate::prelude::AsTofuString;
-
     use super::*;
 
     #[test]
@@ -281,5 +281,27 @@ mod tests {
         let back: TofuProviderBlock = block.try_into()?;
         assert_eq!(provider, back);
         Ok(())
+    }
+    #[test]
+    fn dedup() {
+        let mut providers = HashSet::new();
+        providers.insert(TofuProviderBlock::AzureRM {
+            alias: None,
+            subscription_id: None,
+        });
+        providers.insert(TofuProviderBlock::AzureRM {
+            alias: None,
+            subscription_id: None,
+        });
+        providers.insert(TofuProviderBlock::AzureRM {
+            alias: None,
+            subscription_id: None,
+        });
+        assert_eq!(providers.len(), 1);
+        providers.insert(TofuProviderBlock::AzureRM {
+            alias: Some("bruh".to_owned()),
+            subscription_id: None,
+        });
+        assert_eq!(providers.len(), 2);
     }
 }

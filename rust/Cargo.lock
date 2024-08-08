@@ -1234,6 +1234,7 @@ dependencies = [
  "itertools",
  "pathing",
  "serde_json",
+ "tempfile",
  "tofu_types",
  "tokio",
  "tracing",
