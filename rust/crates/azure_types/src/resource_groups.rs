@@ -62,7 +62,7 @@ impl Hash for ResourceGroupId {
 }
 impl std::fmt::Display for ResourceGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.expanded.to_string().as_str())
+        f.write_str(self.expanded.as_str())
     }
 }
 
@@ -212,9 +212,12 @@ mod tests {
 
     #[test]
     fn deserializes() -> Result<()> {
-        let expanded = "55555555-5555-5555-5555-555555555555";
-        let id: ResourceGroupId = serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
-        assert_eq!(id.to_string(), expanded);
+        let id = ResourceGroupId::new(SubscriptionId::new(Uuid::nil()), "bruh".to_string());
+        let expanded = id.expanded_form();
+        let x: ResourceGroupId = serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        assert_eq!(x, id);
+        assert_eq!(x.expanded_form(), expanded);
+        assert_eq!(x.to_string(), expanded);
 
         Ok(())
     }
