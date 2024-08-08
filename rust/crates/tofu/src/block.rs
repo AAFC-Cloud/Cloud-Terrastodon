@@ -1,3 +1,4 @@
+use anyhow::Result;
 use hcl::edit::structure::Block;
 use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuProviderBlock;
@@ -18,8 +19,19 @@ impl From<TofuImportBlock> for TofuBlock {
         TofuBlock::Import(value)
     }
 }
-impl From<Block> for TofuBlock {
-    fn from(value: Block) -> Self {
-        TofuBlock::Other(value)
+impl TryFrom<Block> for TofuBlock {
+    type Error = anyhow::Error;
+    fn try_from(block: Block) -> Result<Self> {
+        Ok(match block.ident.as_str() {
+            "import" => {
+                let block = TofuImportBlock::try_from(block)?;
+                TofuBlock::Import(block)
+            }
+            "provider" => {
+                let block = TofuProviderBlock::try_from(block)?;
+                TofuBlock::Provider(block)
+            }
+            _ => TofuBlock::Other(block),
+        })
     }
 }

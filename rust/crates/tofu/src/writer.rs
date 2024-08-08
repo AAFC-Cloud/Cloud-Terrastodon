@@ -54,7 +54,10 @@ impl TofuWriter {
             .context("writing content")?;
         Ok(self)
     }
-    pub async fn merge(&self, to_merge: impl IntoIterator<Item = impl Into<TofuBlock>>) -> Result<&Self> {
+    pub async fn merge(
+        &self,
+        to_merge: impl IntoIterator<Item = impl Into<TofuBlock>>,
+    ) -> Result<&Self> {
         self.path.ensure_parent_dir_exists().await?;
         let mut file = OpenOptions::new()
             .create(true)
@@ -78,12 +81,16 @@ impl TofuWriter {
 
         // Track existing blocks
         for block in existing_body.into_blocks() {
-            if let Ok(block) = TofuProviderBlock::try_from(block.clone()) {
-                provider_blocks.insert(block);
-            } else if let Ok(block) = TofuImportBlock::try_from(block.clone()) {
-                import_blocks.insert(block);
-            } else {
-                other_blocks.push(block);
+            match TofuBlock::try_from(block)? {
+                TofuBlock::Provider(block) => {
+                    provider_blocks.insert(block);
+                }
+                TofuBlock::Import(block) => {
+                    import_blocks.insert(block);
+                }
+                TofuBlock::Other(block) => {
+                    other_blocks.push(block);
+                }
             }
         }
 
