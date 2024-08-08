@@ -9,11 +9,14 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 use tofu_types::prelude::AsTofuString;
+use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuProviderBlock;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
+
+use crate::prelude::TofuBlock;
 
 pub struct TofuWriter {
     path: PathBuf,
@@ -51,7 +54,7 @@ impl TofuWriter {
             .context("writing content")?;
         Ok(self)
     }
-    pub async fn merge(&self, providers: Vec<TofuProviderBlock>) -> Result<&Self> {
+    pub async fn merge(&self, to_merge: impl IntoIterator<Item = impl Into<TofuBlock>>) -> Result<&Self> {
         self.path.ensure_parent_dir_exists().await?;
         let mut file = OpenOptions::new()
             .create(true)
@@ -66,27 +69,55 @@ impl TofuWriter {
         file.read_to_string(&mut existing_content)
             .await
             .context("reading content")?;
-
-        // Determine existing provider blocks
         let existing_body = existing_content.parse::<Body>()?;
-        let existing_providers: HashSet<TofuProviderBlock> = existing_body
-            .into_blocks()
-            .filter_map(|block| TofuProviderBlock::try_from(block).ok())
-            .collect();
 
-        // Add provider blocks not already present
-        let mut append_body = Body::builder();
-        for provider in providers {
-            if existing_providers.contains(&provider) {
-                continue;
+        // Create holders for deduplicating data
+        let mut provider_blocks: HashSet<TofuProviderBlock> = Default::default();
+        let mut import_blocks: HashSet<TofuImportBlock> = Default::default();
+        let mut other_blocks: Vec<Block> = Default::default();
+
+        // Track existing blocks
+        for block in existing_body.into_blocks() {
+            if let Ok(block) = TofuProviderBlock::try_from(block.clone()) {
+                provider_blocks.insert(block);
+            } else if let Ok(block) = TofuImportBlock::try_from(block.clone()) {
+                import_blocks.insert(block);
+            } else {
+                other_blocks.push(block);
             }
-            let block: Block = provider.try_into()?;
-            append_body = append_body.block(block);
         }
-        let append_body = append_body.build();
+
+        // Add blocks we want to merge
+        for block in to_merge {
+            match block.into() {
+                TofuBlock::Provider(block) => {
+                    provider_blocks.insert(block);
+                }
+                TofuBlock::Import(block) => {
+                    import_blocks.insert(block);
+                }
+                TofuBlock::Other(block) => {
+                    other_blocks.push(block);
+                }
+            }
+        }
+
+        // Build result body
+        let mut result_body = Body::builder();
+        for block in provider_blocks {
+            result_body = result_body.block(block);
+        }
+        for block in import_blocks {
+            let block: Block = block.try_into()?;
+            result_body = result_body.block(block);
+        }
+        for block in other_blocks {
+            result_body = result_body.block(block);
+        }
+        let result_body = result_body.build();
 
         // Write content
-        file.write_all(append_body.as_tofu_string().as_bytes())
+        file.write_all(result_body.as_tofu_string().as_bytes())
             .await
             .context("appending content")?;
         Ok(self)

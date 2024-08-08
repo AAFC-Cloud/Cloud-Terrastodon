@@ -162,9 +162,8 @@ impl TofuProviderBlock {
         }
     }
 }
-impl TryFrom<TofuProviderBlock> for Block {
-    type Error = parser::Error;
-    fn try_from(provider: TofuProviderBlock) -> Result<Self, Self::Error> {
+impl From<TofuProviderBlock> for Block {
+    fn from(provider: TofuProviderBlock) -> Self {
         // Create block with label
         let mut builder = Block::builder(Ident::new("provider"))
             .label(provider.provider_kind().provider_prefix());
@@ -194,7 +193,7 @@ impl TryFrom<TofuProviderBlock> for Block {
         }
 
         // Return
-        Ok(builder.build())
+        builder.build()
     }
 }
 impl TryFrom<Block> for TofuProviderBlock {
