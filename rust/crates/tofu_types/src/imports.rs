@@ -109,7 +109,10 @@ impl TryFrom<Block> for TofuImportBlock {
 
         // Get ID attrib
         let Some(id) = block.body.get_attribute("id") else {
-            bail!("Missing attribute \"id\" interpreting block as an import block: {:?}", block);
+            bail!(
+                "Missing attribute \"id\" interpreting block as an import block: {:?}",
+                block
+            );
         };
         let Some(id) = id.value.as_str() else {
             bail!("Failed to interpret id={id:?} as a string literal");
@@ -118,16 +121,14 @@ impl TryFrom<Block> for TofuImportBlock {
 
         // Get TO attrib
         let Some(to) = block.body.remove_attribute("to") else {
-            bail!("Missing attribute \"to\" interpreting block as an import block: {:?}", block);
+            bail!(
+                "Missing attribute \"to\" interpreting block as an import block: {:?}",
+                block
+            );
         };
         let to: TofuResourceReference = TofuResourceReference::try_from(to.value)?;
-       
 
-        Ok(TofuImportBlock {
-            provider,
-            id,
-            to,
-        })
+        Ok(TofuImportBlock { provider, id, to })
     }
 }
 

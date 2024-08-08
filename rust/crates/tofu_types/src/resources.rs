@@ -315,7 +315,7 @@ impl TryFrom<Box<Traversal>> for TofuResourceReference {
             let content = Expression::Traversal(traversal.to_owned()).to_string();
             return Ok(TofuResourceReference::Raw(content));
         }
-        
+
         let kind = TofuResourceKind::from_str(first).context(format!(
             "tried to parse {:?} from {:?} as a {:?}",
             first,

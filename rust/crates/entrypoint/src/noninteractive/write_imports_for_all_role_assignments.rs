@@ -68,7 +68,7 @@ pub async fn write_imports_for_all_role_assignments() -> Result<()> {
             });
         }
     }
-    
+
     info!("Writing imports to file");
     TofuWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
         .overwrite(imports)
