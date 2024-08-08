@@ -53,6 +53,7 @@ pub async fn write_imports_for_all_resource_groups() -> Result<()> {
         .format()
         .await?;
 
+    info!("Writing provider blocks");
     let mut providers = Vec::new();
     for sub in used_subscriptions {
         let provider = sub.clone().into_provider_block();

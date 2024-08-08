@@ -1,10 +1,14 @@
 mod clean;
 mod perform_import;
 mod process_generated;
-mod resource_group_imports;
+mod write_imports_for_all_resource_groups;
+mod write_imports_for_all_security_groups;
+mod write_imports_for_all_role_assignments;
 pub mod prelude {
     pub use crate::noninteractive::clean::*;
     pub use crate::noninteractive::perform_import::*;
     pub use crate::noninteractive::process_generated::*;
-    pub use crate::noninteractive::resource_group_imports::*;
+    pub use crate::noninteractive::write_imports_for_all_resource_groups::*;
+    pub use crate::noninteractive::write_imports_for_all_security_groups::*;
+    pub use crate::noninteractive::write_imports_for_all_role_assignments::*;
 }

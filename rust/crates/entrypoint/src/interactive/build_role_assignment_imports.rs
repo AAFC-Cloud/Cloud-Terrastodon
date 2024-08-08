@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use azure::prelude::fetch_all_role_assignments;
+use itertools::Itertools;
 use pathing::AppDir;
 use std::collections::HashSet;
 use tofu::prelude::Sanitizable;
@@ -48,7 +49,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     let providers = used_subscriptions
         .into_iter()
         .map(|sub| sub.into_provider_block())
-        .collect();
+        .collect_vec();
     TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?

@@ -7,6 +7,8 @@ use crate::noninteractive::prelude::clean;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
+use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
+use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use crate::prelude::Version;
 use anyhow::Result;
 use clap::CommandFactory;
@@ -50,6 +52,8 @@ pub async fn main(version: Version) -> Result<()> {
             }
             Commands::WriteAllImports => {
                 write_imports_for_all_resource_groups().await?;
+                write_imports_for_all_security_groups().await?;
+                write_imports_for_all_role_assignments().await?;
             }
             Commands::PerformCodeGenerationFromImports => {
                 perform_import().await?;
