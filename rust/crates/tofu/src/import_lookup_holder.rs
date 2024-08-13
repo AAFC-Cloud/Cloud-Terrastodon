@@ -13,7 +13,7 @@ impl ImportLookupHolder {
     pub fn track(&mut self, id: ScopeImpl, to: String) {
         self.resource_references_by_id.insert(id, to);
     }
-    pub fn get_import_to_from_id(&self, id: &ScopeImpl) -> Option<&String> {
+    pub fn get_import_to_attribute_from_id(&self, id: &ScopeImpl) -> Option<&String> {
         self.resource_references_by_id.get(id)
     }
 }

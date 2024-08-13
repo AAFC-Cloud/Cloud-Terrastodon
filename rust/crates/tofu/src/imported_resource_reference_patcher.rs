@@ -47,7 +47,7 @@ impl VisitMut for ImportedResourceReferencePatcher {
             warn!("Failed to interpret id as scope: {id:?}");
             return;
         };
-        let reference = match self.lookups.get_import_to_from_id(&scope) {
+        let reference = match self.lookups.get_import_to_attribute_from_id(&scope) {
             Some(x) => x,
             None => {
                 self.missing_entries.insert(scope);
