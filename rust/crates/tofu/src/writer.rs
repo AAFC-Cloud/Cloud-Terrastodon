@@ -5,6 +5,7 @@ use command::prelude::CommandKind;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use pathing::Existy;
+use tokio::io::AsyncSeekExt;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
@@ -63,7 +64,6 @@ impl TofuWriter {
             .create(true)
             .read(true)
             .write(true)
-            .truncate(true)
             .open(&self.path)
             .await
             .context(format!("opening file {}", self.path.display()))?;
@@ -73,7 +73,7 @@ impl TofuWriter {
         file.read_to_string(&mut existing_content)
             .await
             .context("reading content")?;
-        let existing_body = existing_content.parse::<Body>()?;
+        let existing_body = existing_content.parse::<Body>().context(format!("Failed to parse HCL from body: \n```\n{existing_content:?}\n```"))?;
 
         // Create holders for deduplicating data
         let mut provider_blocks: HashSet<TofuProviderBlock> = Default::default();
@@ -124,7 +124,9 @@ impl TofuWriter {
         }
         let result_body = result_body.build();
 
-        // Write content
+        // Truncate and write merged content
+        file.set_len(0).await?;
+        file.seek(std::io::SeekFrom::Start(0)).await?;
         file.write_all(result_body.as_tofu_string().as_bytes())
             .await
             .context("appending content")?;
@@ -134,6 +136,8 @@ impl TofuWriter {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use super::*;
 
     #[tokio::test]
@@ -152,9 +156,13 @@ mod tests {
         // Write some content
         let path = tempfile::Builder::new().tempfile()?.into_temp_path();
         let writer = TofuWriter::new(path);
+
+        // ensure deduplication
         writer.merge(providers.clone()).await?;
         writer.merge(providers.clone()).await?;
-        writer.merge(providers.clone()).await?;
+        // ensure old entries are kept
+        writer.merge(providers.iter().take(1).cloned().collect_vec()).await?;
+        writer.merge(providers.iter().skip(1).take(1).cloned().collect_vec()).await?;
 
         // Read back the content
         let mut file = OpenOptions::new().read(true).open(&writer.path).await?;
