@@ -1,5 +1,6 @@
 mod apply_processed;
 mod browse_resource_groups;
+mod browse_role_assignments;
 mod browse_security_groups;
 mod browse_users;
 mod build_group_imports;
@@ -24,6 +25,7 @@ mod populate_cache;
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
     pub use crate::interactive::browse_resource_groups::*;
+    pub use crate::interactive::browse_role_assignments::*;
     pub use crate::interactive::browse_security_groups::*;
     pub use crate::interactive::browse_users::*;
     pub use crate::interactive::build_group_imports::*;

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::interactive::prelude::apply_processed;
 use crate::interactive::prelude::browse_resource_groups;
+use crate::interactive::prelude::browse_role_assignments;
 use crate::interactive::prelude::browse_security_groups;
 use crate::interactive::prelude::browse_users;
 use crate::interactive::prelude::build_group_imports;
@@ -25,6 +26,9 @@ use crate::interactive::prelude::populate_cache;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
+use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
+use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
+use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use anyhow::Result;
 use azure::prelude::evaluate_policy_assignment_compliance;
 use azure::prelude::remediate_policy_assignment;
@@ -41,11 +45,13 @@ pub enum MenuAction {
     BuildImportsFromExisting,
     BuildImportsWizard,
     BrowseResourceGroups,
+    BrowseRoleAssignments,
     BrowseUsers,
     BrowseSecurityGroups,
     PerformImport,
     ProcessGenerated,
     Clean,
+    BuildAllImports,
     CleanImports,
     CleanProcessed,
     CopyAzureRMBackend,
@@ -76,9 +82,11 @@ impl MenuAction {
     pub fn name(&self) -> &str {
         match self {
             MenuAction::BuildImportsWizard => "build imports - import wizard",
+            MenuAction::BuildAllImports => "build imports - import all",
             MenuAction::CopyAzureRMBackend => "copy azurerm backend",
             MenuAction::BrowseResourceGroups => "browse resource groups",
             MenuAction::BrowseUsers => "browse users",
+            MenuAction::BrowseRoleAssignments => "browse role assignments",
             MenuAction::BrowseSecurityGroups => "browse security groups",
             MenuAction::BuildPolicyImports => "build imports - create policy_imports.tf",
             MenuAction::BuildResourceGroupImports => {
@@ -118,6 +126,12 @@ impl MenuAction {
             MenuAction::BuildImportsWizard => resource_group_import_wizard_menu().await?,
             MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu().await?,
             MenuAction::BrowseResourceGroups => browse_resource_groups().await?,
+            MenuAction::BrowseRoleAssignments => browse_role_assignments().await?,
+            MenuAction::BuildAllImports => {
+                write_imports_for_all_resource_groups().await?;
+                write_imports_for_all_security_groups().await?;
+                write_imports_for_all_role_assignments().await?;
+            },
             MenuAction::BrowseUsers => browse_users().await?,
             MenuAction::BrowseSecurityGroups => browse_security_groups().await?,
             MenuAction::BuildPolicyImports => build_policy_imports().await?,
@@ -167,6 +181,7 @@ impl MenuAction {
             MenuAction::PopulateCache,
             MenuAction::BrowseResourceGroups,
             MenuAction::BrowseSecurityGroups,
+            MenuAction::BrowseRoleAssignments,
             MenuAction::CopyAzureRMBackend,
             MenuAction::BrowseUsers,
             MenuAction::PimActivate,
@@ -179,6 +194,7 @@ impl MenuAction {
             MenuAction::BuildPolicyImports,
             MenuAction::BuildImportsFromExisting,
             MenuAction::BuildImportsWizard,
+            MenuAction::BuildAllImports,
             MenuAction::ListImports,
             MenuAction::PerformImport,
             MenuAction::ProcessGenerated,
