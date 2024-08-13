@@ -1,9 +1,9 @@
 use crate::data_lookup_holder::DataLookupHolder;
-use anyhow::bail;
 use anyhow::Result;
 use azure::prelude::NameLookupHelper;
 use azure::prelude::ScopeImpl;
 use hcl::edit::structure::Body;
+use tracing::warn;
 use std::collections::HashSet;
 use tofu_types::prelude::TofuAzureRMDataKind;
 use tofu_types::prelude::TofuDataBlock;
@@ -20,7 +20,8 @@ pub async fn create_data_blocks_for_ids(
     for scope in ids {
         // Look up the name for the scope
         let Some(name) = name_helper.get_name_for_scope(scope).await? else {
-            bail!("Failed to find name for {scope}");
+            warn!("Failed to find name for {scope}");
+            continue;
         };
 
         // Create the data reference
@@ -37,7 +38,15 @@ pub async fn create_data_blocks_for_ids(
                 kind: TofuAzureRMDataKind::ResourceGroup,
                 name: name.to_owned(),
             },
-            x => todo!("Data reference block creation missing impl for {x:?}"),
+            x => {
+                warn!(
+                    "Data reference block creation missing impl for {x:?} in {} {}:{}",
+                    file!(),
+                    line!(),
+                    column!()
+                );
+                continue;
+            }
         };
 
         // Add the reference to the lookup
