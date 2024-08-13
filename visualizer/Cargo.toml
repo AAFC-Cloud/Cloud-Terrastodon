@@ -7,18 +7,20 @@ edition = "2021"
 members = ["plugins/*"]
 
 [workspace.dependencies]
+camera_plugin = { path = "./plugins/camera" }
+resource_groups_plugin = { path = "./plugins/resource_groups" }
 bevy = "0.14.1"
 bevy-inspector-egui = "0.25.2"
 bevy_svg = { version = "0.14.0", default-features = false, features = ["2d"] }
-camera_plugin = { path = "./plugins/camera" }
 leafwing-input-manager = "0.15.0"
 azure = { path = "../rust/crates/azure" }
 crossbeam-channel = "0.5.13"
 tokio = { version = "1.39.2", features = ["full"] }
 
 [dependencies]
+camera_plugin = { workspace = true }
+resource_groups_plugin = { workspace = true }
 bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_svg = { workspace = true }
-camera_plugin = { workspace = true }
 azure = { workspace = true }

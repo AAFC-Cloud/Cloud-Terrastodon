@@ -1654,6 +1654,7 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_svg",
  "camera_plugin",
+ "resource_groups_plugin",
 ]
 
 [[package]]

@@ -1,3 +1,4 @@
+use azure::prelude::fetch_all_resource_groups;
 use azure::prelude::ResourceGroup;
 use bevy::color::palettes::css::BLACK;
 use bevy::prelude::*;
@@ -15,8 +16,8 @@ pub struct ResourceGroupsPlugin;
 
 impl Plugin for ResourceGroupsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, create_worker_thread);
-        app.add_systems(Startup, setup);
+        info!("Building ResourceGroupsPlugin");
+        app.add_systems(Startup, (create_worker_thread, setup).chain());
         app.add_systems(Update, receive_results);
         app.init_resource::<ResourceGroupIconData>();
     }
@@ -47,10 +48,11 @@ fn create_worker_thread(mut commands: Commands) {
     });
 
     let game_tx_clone = game_tx.clone();
+    info!("Spawning worker thread");
     thread::Builder::new()
-        .name("Voice2Text status thread".to_string())
+        .name("Azure Worker Thread".to_string())
         .spawn(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
             rt.block_on(async {
                 let game_tx = game_tx_clone;
                 loop {
@@ -61,13 +63,13 @@ fn create_worker_thread(mut commands: Commands) {
                             break;
                         }
                     };
+                    debug!("Received {msg:?}");
                     match msg {
                         ThreadboundMessage::List => {
-                            if let Err(e) = game_tx.send(GameboundMessage::List(vec![
-                                ResourceGroup {
-                                    
-                                }
-                            ])) {
+                            info!("Fetching resource groups");
+                            let resource_groups = fetch_all_resource_groups().await.unwrap();
+                            let resp = GameboundMessage::List(resource_groups);
+                            if let Err(e) = game_tx.send(resp) {
                                 error!("Gamebound channel failure, exiting: {}", e);
                                 break;
                             }
@@ -77,7 +79,7 @@ fn create_worker_thread(mut commands: Commands) {
                 }
             });
         })
-        .expect("Failed to spawn thread");
+        .unwrap();
 }
 
 #[derive(Debug, Resource, Default)]
@@ -114,10 +116,11 @@ fn receive_results(
 ) {
     for msg in bridge.receiver.try_iter() {
         let GameboundMessage::List(resource_groups) = msg;
+        info!("Received {} resource groups", resource_groups.len());
         for (i, rg) in resource_groups.into_iter().enumerate() {
             commands
                 .spawn((
-                    Name::new("Resource Group"),
+                    Name::new(format!("Resource Group - {}", rg.name)),
                     SpatialBundle {
                         transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
                         ..default()
