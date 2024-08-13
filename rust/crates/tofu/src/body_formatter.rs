@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::anyhow;
 use anyhow::Result;
 use hcl::edit::structure::Attribute;
@@ -9,6 +7,7 @@ use hcl::edit::structure::Structure;
 use hcl::edit::Decorate;
 use indoc::formatdoc;
 use itertools::Itertools;
+use std::collections::HashMap;
 use tofu_types::prelude::AsTofuString;
 use tracing::error;
 
@@ -117,8 +116,8 @@ impl From<BodyFormatter> for Body {
             // Find resource block
             let found = value.resource_blocks.remove(key);
             let Some(mut resource_block) = found else {
-                output.push(import_block);
-                error!("Couldn't find resource for import block targetting {key}");
+                error!("Couldn't find resource block for import to {key}, this import will be omitted!");
+                // output.push(import_block);
                 continue;
             };
 
