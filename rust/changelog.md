@@ -1,6 +1,10 @@
 # v0.5.0
 
-- Add security group and role assignment imports to `write-all-imports` noninteractive invocation
+- Add security group and role assignment imports to `write-all-imports`
+- Add interactive option for running `write-all-imports`
+- Fix deduplication logic when writing tf files
+- Fix unknown scopes getting interpreted as my test type
+- Fix group imports dynamic_membership conflicting with generated member list
 
 # v0.4.0
 
