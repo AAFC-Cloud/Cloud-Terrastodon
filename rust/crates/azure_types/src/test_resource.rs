@@ -3,7 +3,6 @@ use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
-use anyhow::bail;
 use anyhow::Result;
 use serde::de::Error;
 use serde::Deserialize;
@@ -34,11 +33,7 @@ impl Scope for TestResourceId {
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        let parsed: TestResourceId = expanded.parse()?;
-        if parsed.short_form().contains('/') {
-            bail!("Illegal character: /");
-        }
-        Ok(parsed)
+        expanded.parse()
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -54,7 +49,7 @@ impl FromStr for TestResourceId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let slug = strip_prefix_case_insensitive(s, TEST_ID_PREFIX).unwrap_or(s);
+        let slug = strip_prefix_case_insensitive(s, TEST_ID_PREFIX)?;
         Ok(TestResourceId::new(slug))
     }
 }
