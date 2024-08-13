@@ -1,6 +1,9 @@
 use azure::prelude::uuid::Uuid;
+use hcl::edit::expr::Array;
+use hcl::edit::expr::Expression;
 use hcl::edit::visit_mut::visit_block_mut;
 use hcl::edit::visit_mut::VisitMut;
+use hcl::edit::Decorate;
 use tofu_types::prelude::TofuAzureADResourceKind;
 use tofu_types::prelude::TofuAzureRMResourceKind;
 use tofu_types::prelude::TofuResourceKind;
@@ -9,6 +12,9 @@ use tracing::warn;
 pub struct DefaultAttributeRemovalPatcher;
 impl VisitMut for DefaultAttributeRemovalPatcher {
     fn visit_block_mut(&mut self, node: &mut hcl::edit::structure::Block) {
+        if node.ident.as_str() != "resource" {
+            return;
+        }
         visit_block_mut(self, node);
         let Some(resource_kind_str) = node.labels.first().map(|x| x.as_str()) else {
             return;
@@ -54,6 +60,17 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                     && node.body.has_attribute("mail_enabled")
                 {
                     node.body.remove_attribute("mail_enabled").unwrap();
+                }
+
+                // Remove members (empty and comment) when dynamic_membership specified
+                if node.body.has_attribute("members")
+                    && node.body.has_blocks("dynamic_membership")
+                {
+                    let mut members = node.body.get_attribute_mut("members").unwrap();
+                    let mut array = Array::new();
+                    array.set_trailing("");
+                    members.decor_mut().set_prefix("#");
+                    *members.value_mut() = Expression::Array(array);
                 }
 
                 // Remove null attributes
