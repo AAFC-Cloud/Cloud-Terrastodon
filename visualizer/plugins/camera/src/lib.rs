@@ -2,7 +2,8 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 use leafwing_input_manager::prelude::InputManagerPlugin;
 use leafwing_input_manager::prelude::InputMap;
-use leafwing_input_manager::prelude::MouseScroll;
+use leafwing_input_manager::prelude::KeyboardVirtualDPad;
+use leafwing_input_manager::prelude::MouseScrollAxis;
 use leafwing_input_manager::Actionlike;
 use leafwing_input_manager::InputControlKind;
 use leafwing_input_manager::InputManagerBundle;
@@ -15,62 +16,97 @@ impl Plugin for MyCameraPlugin {
         app.register_type::<CameraAction>();
         app.add_plugins(InputManagerPlugin::<CameraAction>::default());
         app.add_systems(Startup, setup);
-        app.add_systems(Update, handle_camera_input);
+        app.add_systems(Update, zoom_camera);
+        app.add_systems(Update, pan_camera);
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct CameraMotion {
+    zoom_speed: f32,
+    zoom_speed_default: f32,
+    zoom_speed_when_sprinting: f32,
+    movement_speed: f32,
+    movement_speed_default: f32,
+    movement_speed_when_sprinting: f32,
+}
+impl Default for CameraMotion {
+    fn default() -> Self {
+        Self {
+            zoom_speed: 0.05,
+            zoom_speed_default: 0.05,
+            zoom_speed_when_sprinting: 0.2,
+            movement_speed: 10.,
+            movement_speed_default: 10.,
+            movement_speed_when_sprinting: 50.,
+        }
     }
 }
 
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug, Reflect)]
 pub enum CameraAction {
-    Wheel,
-    Control,
-    Shift,
+    Zoom,
+    Pan,
+    Sprint,
 }
 impl Actionlike for CameraAction {
     fn input_control_kind(&self) -> InputControlKind {
         match self {
-            CameraAction::Wheel => InputControlKind::DualAxis,
-            CameraAction::Control => InputControlKind::Button,
-            CameraAction::Shift => InputControlKind::Button,
+            CameraAction::Zoom => InputControlKind::Axis,
+            CameraAction::Pan => InputControlKind::DualAxis,
+            CameraAction::Sprint => InputControlKind::Button,
         }
     }
 }
 
 fn setup(mut commands: Commands) {
     let input_map = InputMap::default()
-        .with_dual_axis(CameraAction::Wheel, MouseScroll::default())
-        .with(CameraAction::Control, KeyCode::ControlLeft)
-        .with(CameraAction::Shift, KeyCode::ShiftLeft);
+        .with_axis(CameraAction::Zoom, MouseScrollAxis::Y)
+        .with_dual_axis(CameraAction::Pan, KeyboardVirtualDPad::WASD)
+        .with(CameraAction::Sprint, KeyCode::ShiftLeft);
     commands
-        .spawn(Camera2dBundle::default())
+        .spawn((Camera2dBundle::default(), CameraMotion::default()))
         .insert(InputManagerBundle::with_map(input_map));
 }
 
-fn handle_camera_input(
+fn zoom_camera(
     mut query: Query<
         (
-            &mut Transform,
             &mut OrthographicProjection,
             &ActionState<CameraAction>,
+            &mut CameraMotion,
         ),
         With<Camera2d>,
     >,
 ) {
-    const CAMERA_ZOOM_RATE: f32 = 0.05;
-    const CAMERA_PAN_RATE: f32 = 10.;
-
     let camera = query.single_mut();
-    let (mut camera_transform, mut camera_projection, action_state) = camera;
+    let (mut camera_projection, action_state, mut camera_motion) = camera;
+    if action_state.just_pressed(&CameraAction::Sprint) {
+        camera_motion.zoom_speed = camera_motion.zoom_speed_when_sprinting;
+    } else if action_state.just_released(&CameraAction::Sprint) {
+        camera_motion.zoom_speed = camera_motion.zoom_speed_default;
+    }
+    let zoom_delta = action_state.value(&CameraAction::Zoom);
+    camera_projection.scale *= 1. - zoom_delta * camera_motion.zoom_speed;
+}
 
-    let control = action_state.pressed(&CameraAction::Control);
-    let shift = action_state.pressed(&CameraAction::Shift);
-    let wheel: Vec2 = action_state.axis_pair(&CameraAction::Wheel);
-
-    let (zoom_delta, pan): (f32, Vec2) = match (control, shift) {
-        (true, _) => (wheel.y, Vec2::ZERO),
-        (_, true) => (0., wheel.yx()),
-        (false, false) => (0., wheel),
-    };
-
-    camera_projection.scale *= 1. - zoom_delta * CAMERA_ZOOM_RATE;
-    camera_transform.translation += (pan * CAMERA_PAN_RATE).extend(0.);
+fn pan_camera(
+    mut query: Query<
+        (
+            &mut Transform,
+            &ActionState<CameraAction>,
+            &mut CameraMotion,
+        ),
+        With<Camera2d>,
+    >,
+) {
+    let camera = query.single_mut();
+    let (mut camera_transform, action_state, mut camera_motion) = camera;
+    if action_state.just_pressed(&CameraAction::Sprint) {
+        camera_motion.movement_speed = camera_motion.movement_speed_when_sprinting;
+    } else if action_state.just_released(&CameraAction::Sprint) {
+        camera_motion.movement_speed = camera_motion.movement_speed_default;
+    }
+    let dir: Vec2 = action_state.axis_pair(&CameraAction::Pan);
+    camera_transform.translation += dir.extend(0.) * camera_motion.movement_speed;
 }
