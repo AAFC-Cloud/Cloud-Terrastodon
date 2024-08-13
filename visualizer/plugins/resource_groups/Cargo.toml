@@ -1,0 +1,11 @@
+[package]
+name = "resource_groups_plugin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { workspace = true }
+crossbeam-channel = { workspace = true }
+azure = { workspace = true }
+tokio = { workspace = true }
+bevy_svg = { workspace = true }
