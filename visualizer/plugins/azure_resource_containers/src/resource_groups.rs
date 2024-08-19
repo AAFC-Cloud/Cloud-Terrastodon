@@ -50,7 +50,7 @@ fn receive_results(
         let AzureCliEvent::ListResourceGroups(resource_groups) = msg;
         info!("icon data: {icon_data:#?}");
         info!("Received {} resource groups", resource_groups.len());
-        for (i, rg) in resource_groups.into_iter().enumerate() {
+        for (i, rg) in resource_groups.iter().enumerate() {
             commands
                 .spawn((
                     Name::new(format!("Resource Group - {}", rg.name)),
