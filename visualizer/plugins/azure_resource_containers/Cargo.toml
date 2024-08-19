@@ -1,5 +1,5 @@
 [package]
-name = "resource_groups_plugin"
+name = "azure_resource_containers_plugin"
 version = "0.1.0"
 edition = "2021"
 

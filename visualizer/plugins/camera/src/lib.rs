@@ -1,4 +1,7 @@
+use avian2d::prelude::LinearVelocity;
+use avian2d::prelude::RigidBody;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use leafwing_input_manager::prelude::ActionState;
 use leafwing_input_manager::prelude::InputManagerPlugin;
 use leafwing_input_manager::prelude::InputMap;
@@ -7,6 +10,7 @@ use leafwing_input_manager::prelude::MouseScrollAxis;
 use leafwing_input_manager::Actionlike;
 use leafwing_input_manager::InputControlKind;
 use leafwing_input_manager::InputManagerBundle;
+use bevy_egui::EguiContext;
 
 // https://github.com/Leafwing-Studios/leafwing-input-manager/blob/9f9c3f3accac70f66e4160f00619add359d4311b/examples/mouse_wheel.rs
 pub struct MyCameraPlugin;
@@ -35,10 +39,10 @@ impl Default for CameraMotion {
         Self {
             zoom_speed: 0.05,
             zoom_speed_default: 0.05,
-            zoom_speed_when_sprinting: 0.2,
-            movement_speed: 10.,
-            movement_speed_default: 10.,
-            movement_speed_when_sprinting: 50.,
+            zoom_speed_when_sprinting: 0.5,
+            movement_speed: 250.,
+            movement_speed_default: 250.,
+            movement_speed_when_sprinting: 1000.,
         }
     }
 }
@@ -65,7 +69,12 @@ fn setup(mut commands: Commands) {
         .with_dual_axis(CameraAction::Pan, KeyboardVirtualDPad::WASD)
         .with(CameraAction::Sprint, KeyCode::ShiftLeft);
     commands
-        .spawn((Camera2dBundle::default(), CameraMotion::default()))
+        .spawn((
+            Camera2dBundle::default(),
+            CameraMotion::default(),
+            RigidBody::Kinematic,
+            LinearVelocity::default(),
+        ))
         .insert(InputManagerBundle::with_map(input_map));
 }
 
@@ -78,7 +87,21 @@ fn zoom_camera(
         ),
         With<Camera2d>,
     >,
+    egui_context_query: Query<&EguiContext, With<PrimaryWindow>>,
 ) {
+    let egui_wants_pointer = egui_context_query
+        .get_single()
+        .ok()
+        .map(|ctx| {
+            let mut ctx = ctx.clone();
+            let ctx = ctx.get_mut();
+            ctx.is_using_pointer() || ctx.is_pointer_over_area()
+        })
+        .unwrap_or(false);
+    if egui_wants_pointer {
+        return;
+    }
+
     let camera = query.single_mut();
     let (mut camera_projection, action_state, mut camera_motion) = camera;
     if action_state.just_pressed(&CameraAction::Sprint) {
@@ -93,20 +116,42 @@ fn zoom_camera(
 fn pan_camera(
     mut query: Query<
         (
-            &mut Transform,
             &ActionState<CameraAction>,
             &mut CameraMotion,
+            &mut LinearVelocity,
         ),
         With<Camera2d>,
     >,
 ) {
-    let camera = query.single_mut();
-    let (mut camera_transform, action_state, mut camera_motion) = camera;
+    let Ok(camera) = query.get_single_mut() else {
+        warn!("Camera not found");
+        return;
+    };
+    let (action_state, mut camera_motion, mut camera_velocity) = camera;
     if action_state.just_pressed(&CameraAction::Sprint) {
         camera_motion.movement_speed = camera_motion.movement_speed_when_sprinting;
     } else if action_state.just_released(&CameraAction::Sprint) {
         camera_motion.movement_speed = camera_motion.movement_speed_default;
     }
     let dir: Vec2 = action_state.axis_pair(&CameraAction::Pan);
-    camera_transform.translation += dir.extend(0.) * camera_motion.movement_speed;
+    let mut changed = false;
+
+    if dir.x != 0.0 {
+        camera_velocity.x = dir.x * camera_motion.movement_speed;
+        changed = true;
+    }
+    if dir.y != 0.0 {
+        camera_velocity.y = dir.y * camera_motion.movement_speed;
+        changed = true;
+    }
+    if !changed {
+        camera_velocity.x *= 0.97;
+        camera_velocity.y *= 0.97;
+        if camera_velocity.x < 5. {
+            camera_velocity.x = 0.0;
+        }
+        if camera_velocity.y < 5. {
+            camera_velocity.y = 0.0;
+        }
+    }
 }

@@ -8,7 +8,7 @@ members = ["plugins/*"]
 
 [workspace.dependencies]
 camera_plugin = { path = "./plugins/camera" }
-resource_groups_plugin = { path = "./plugins/resource_groups" }
+azure_resource_containers_plugin = { path = "./plugins/azure_resource_containers" }
 bevy = "0.14.1"
 bevy-inspector-egui = "0.25.2"
 bevy_svg = { version = "0.14.0", default-features = false, features = ["2d"] }
@@ -16,11 +16,20 @@ leafwing-input-manager = "0.15.0"
 azure = { path = "../rust/crates/azure" }
 crossbeam-channel = "0.5.13"
 tokio = { version = "1.39.2", features = ["full"] }
+avian2d = "0.1.2"
+bevy_egui = { version = "0.28", default-features = false }
 
 [dependencies]
 camera_plugin = { workspace = true }
-resource_groups_plugin = { workspace = true }
+azure_resource_containers_plugin = { workspace = true }
 bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_svg = { workspace = true }
 azure = { workspace = true }
+avian2d = { workspace = true }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

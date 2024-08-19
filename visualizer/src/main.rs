@@ -1,9 +1,10 @@
+use avian2d::PhysicsPlugins;
+use azure_resource_containers_plugin::AzureResourceContainersPlugin;
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_svg::prelude::*;
 use camera_plugin::MyCameraPlugin;
-use resource_groups_plugin::ResourceGroupsPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -13,7 +14,8 @@ fn main() {
     app.add_plugins(DefaultPlugins);
     app.add_plugins(SvgPlugin);
     app.add_plugins(MyCameraPlugin);
-    app.add_plugins(ResourceGroupsPlugin);
+    app.add_plugins(AzureResourceContainersPlugin);
+    app.add_plugins(PhysicsPlugins::default().with_length_unit(100.0));
 
     // must be after the default plugins
     app.add_plugins(
