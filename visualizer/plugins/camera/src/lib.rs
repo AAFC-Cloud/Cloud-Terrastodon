@@ -145,12 +145,12 @@ fn pan_camera(
         changed = true;
     }
     if !changed {
-        camera_velocity.x *= 0.97;
-        camera_velocity.y *= 0.97;
-        if camera_velocity.x < 5. {
+        camera_velocity.x *= 0.95;
+        camera_velocity.y *= 0.95;
+        if camera_velocity.x.abs() < 5. {
             camera_velocity.x = 0.0;
         }
-        if camera_velocity.y < 5. {
+        if camera_velocity.y.abs() < 5. {
             camera_velocity.y = 0.0;
         }
     }

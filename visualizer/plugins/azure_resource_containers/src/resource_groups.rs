@@ -1,3 +1,4 @@
+use crate::az_cli::AzureCliEvent;
 use bevy::color::palettes::css::BLACK;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -7,10 +8,7 @@ use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
 
-use crate::az_cli::AzureCliBridge;
-use crate::az_cli::AzureCliEvent;
 pub struct ResourceGroupsPlugin;
-
 impl Plugin for ResourceGroupsPlugin {
     fn build(&self, app: &mut App) {
         info!("Building ResourceGroupsPlugin");
@@ -110,4 +108,3 @@ fn receive_results(
         }
     }
 }
-	
