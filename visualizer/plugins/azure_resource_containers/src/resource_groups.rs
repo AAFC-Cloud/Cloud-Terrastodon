@@ -14,7 +14,7 @@ pub struct ResourceGroupsPlugin;
 impl Plugin for ResourceGroupsPlugin {
     fn build(&self, app: &mut App) {
         info!("Building ResourceGroupsPlugin");
-        app.add_systems(Startup, setup.run_if(resource_exists::<AzureCliBridge>));
+        app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
         app.register_type::<ResourceGroupIconData>();
         app.init_resource::<ResourceGroupIconData>();
@@ -22,6 +22,7 @@ impl Plugin for ResourceGroupsPlugin {
 }
 
 #[derive(Debug, Resource, Default, Reflect)]
+#[reflect(Resource)]
 struct ResourceGroupIconData {
     pub scale: f32,
     pub circle_icon: Handle<Svg>,
@@ -35,6 +36,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    info!("Setting up resource group icon data");
     handles.circle_icon = asset_server.load("textures/ResourceGroups.svg");
     handles.circle_material = materials.add(Color::from(BLACK));
     handles.circle_mesh = meshes.add(Circle::default()).into();
@@ -48,6 +50,7 @@ fn receive_results(
 ) {
     for msg in cli_events.read() {
         let AzureCliEvent::ListResourceGroups(resource_groups) = msg;
+        info!("icon data: {icon_data:#?}");
         info!("Received {} resource groups", resource_groups.len());
         for (i, rg) in resource_groups.into_iter().enumerate() {
             commands
