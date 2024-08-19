@@ -2,6 +2,7 @@ use avian2d::prelude::LinearVelocity;
 use avian2d::prelude::RigidBody;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use bevy_egui::EguiContext;
 use leafwing_input_manager::prelude::ActionState;
 use leafwing_input_manager::prelude::InputManagerPlugin;
 use leafwing_input_manager::prelude::InputMap;
@@ -10,7 +11,6 @@ use leafwing_input_manager::prelude::MouseScrollAxis;
 use leafwing_input_manager::Actionlike;
 use leafwing_input_manager::InputControlKind;
 use leafwing_input_manager::InputManagerBundle;
-use bevy_egui::EguiContext;
 
 // https://github.com/Leafwing-Studios/leafwing-input-manager/blob/9f9c3f3accac70f66e4160f00619add359d4311b/examples/mouse_wheel.rs
 pub struct MyCameraPlugin;
