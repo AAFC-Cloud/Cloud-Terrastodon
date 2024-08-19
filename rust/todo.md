@@ -74,3 +74,9 @@
     - What changes have recently happened to the (security group, resource group, etc) I'm currently looking at
     - What changes have recently been made by the (user, security group, service principal, etc) I'm currently looking at
 	
+
+
+- resource movement helper
+    1. get tf resources | fzf --multi | az resource move
+    2. write import blocks for new destinations
+    3. tf apply
