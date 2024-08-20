@@ -1,5 +1,5 @@
 use crate::az_cli::AzureCliEvent;
-use bevy::color::palettes::css::BLACK;
+use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::sprite::MaterialMesh2dBundle;
@@ -8,20 +8,20 @@ use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
 
-pub struct ResourceGroupsPlugin;
-impl Plugin for ResourceGroupsPlugin {
+pub struct SubscriptionsPlugin;
+impl Plugin for SubscriptionsPlugin {
     fn build(&self, app: &mut App) {
-        info!("Building ResourceGroupsPlugin");
+        info!("Building SubscriptionsPlugin");
         app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
-        app.register_type::<ResourceGroupIconData>();
-        app.init_resource::<ResourceGroupIconData>();
+        app.register_type::<SubscriptionIconData>();
+        app.init_resource::<SubscriptionIconData>();
     }
 }
 
 #[derive(Debug, Resource, Default, Reflect)]
 #[reflect(Resource)]
-struct ResourceGroupIconData {
+struct SubscriptionIconData {
     pub scale: f32,
     pub circle_icon: Handle<Svg>,
     pub circle_mesh: Mesh2dHandle,
@@ -29,35 +29,37 @@ struct ResourceGroupIconData {
 }
 
 fn setup(
-    mut handles: ResMut<ResourceGroupIconData>,
+    mut handles: ResMut<SubscriptionIconData>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     info!("Setting up resource group icon data");
-    handles.circle_icon = asset_server.load("textures/ResourceGroups.svg");
-    handles.circle_material = materials.add(Color::from(BLACK));
+    // The Subscription.svg file has been modified to remove a path element that causes problems
+    // https://github.com/Weasy666/bevy_svg/issues/42
+    handles.circle_icon = asset_server.load("textures/Subscription.svg");
+    handles.circle_material = materials.add(Color::from(YELLOW));
     handles.circle_mesh = meshes.add(Circle::default()).into();
-    handles.scale = 100. / 18.;
+    handles.scale = 150. / 18.;
 }
 
 fn receive_results(
     mut cli_events: EventReader<AzureCliEvent>,
     mut commands: Commands,
-    icon_data: Res<ResourceGroupIconData>,
+    icon_data: Res<SubscriptionIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliEvent::ListResourceGroups(resource_groups) = msg else {
+        let AzureCliEvent::ListSubscriptions(subscriptions) = msg else {
             continue;
         };
         info!("icon data: {icon_data:#?}");
-        info!("Received {} resource groups", resource_groups.len());
-        for (i, rg) in resource_groups.iter().enumerate() {
+        info!("Received {} subscriptions", subscriptions.len());
+        for (i, sub) in subscriptions.iter().enumerate() {
             commands
                 .spawn((
-                    Name::new(format!("Resource Group - {}", rg.name)),
+                    Name::new(format!("Subscription - {}", sub.name)),
                     SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
+                        transform: Transform::from_translation(Vec3::new(-1000., i as f32 * 250., 0.)),
                         ..default()
                     },
                 ))
@@ -90,7 +92,7 @@ fn receive_results(
                         Name::new("Text"),
                         Text2dBundle {
                             text: Text::from_section(
-                                rg.name.to_owned(),
+                                sub.name.to_owned(),
                                 TextStyle {
                                     font_size: 60.,
                                     ..default()

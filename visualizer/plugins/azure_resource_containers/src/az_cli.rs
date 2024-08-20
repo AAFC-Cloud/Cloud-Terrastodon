@@ -1,5 +1,7 @@
 use azure::prelude::fetch_all_resource_groups;
+use azure::prelude::fetch_all_subscriptions;
 use azure::prelude::ResourceGroup;
+use azure::prelude::Subscription;
 use bevy::prelude::*;
 use crossbeam_channel::bounded;
 use crossbeam_channel::Receiver;
@@ -17,12 +19,14 @@ impl Plugin for AzureCliPlugin {
 
 #[derive(Debug)]
 enum GameboundMessage {
-    List(Vec<ResourceGroup>),
+    ListResourceGroups(Vec<ResourceGroup>),
+    ListSubscriptions(Vec<Subscription>),
 }
 
 #[derive(Debug)]
 enum ThreadboundMessage {
-    List,
+    ListResourceGroups,
+    ListSubscriptions,
 }
 
 #[derive(Resource)]
@@ -34,6 +38,7 @@ pub struct AzureCliBridge {
 #[derive(Event)]
 pub enum AzureCliEvent {
     ListResourceGroups(Vec<ResourceGroup>),
+    ListSubscriptions(Vec<Subscription>),
 }
 
 fn create_worker_thread(mut commands: Commands) {
@@ -66,15 +71,24 @@ fn create_worker_thread(mut commands: Commands) {
                     };
                     debug!("Received {msg:?}");
                     match msg {
-                        ThreadboundMessage::List => {
+                        ThreadboundMessage::ListResourceGroups => {
                             info!("Fetching resource groups");
                             let resource_groups = fetch_all_resource_groups().await.unwrap();
-                            let resp = GameboundMessage::List(resource_groups);
+                            let resp = GameboundMessage::ListResourceGroups(resource_groups);
                             if let Err(e) = game_tx.send(resp) {
                                 error!("Gamebound channel failure, exiting: {}", e);
                                 break;
                             }
                         }
+                        ThreadboundMessage::ListSubscriptions => {
+                            info!("Fetching subscriptions");
+                            let subscriptions = fetch_all_subscriptions().await.unwrap();
+                            let resp = GameboundMessage::ListSubscriptions(subscriptions);
+                            if let Err(e) = game_tx.send(resp) {
+                                error!("Gamebound channel failure, exiting: {}", e);
+                                break;
+                            }                            
+                        },
                     }
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }
@@ -84,17 +98,27 @@ fn create_worker_thread(mut commands: Commands) {
 }
 
 fn initial_fetch(bridge: ResMut<AzureCliBridge>) {
-    let msg = ThreadboundMessage::List;
-    debug!("Sending bridge message: {:?}", msg);
-    if let Err(e) = bridge.sender.send(msg) {
-        error!("Threadbound channel failure: {}", e);
+    for msg in [
+        ThreadboundMessage::ListResourceGroups,
+        ThreadboundMessage::ListSubscriptions,
+    ] {
+        debug!("Sending bridge message: {:?}", msg);
+        if let Err(e) = bridge.sender.send(msg) {
+            error!("Threadbound channel failure: {}", e);
+        }
     }
 }
 
 fn receive_results(bridge: ResMut<AzureCliBridge>, mut cli_events: EventWriter<AzureCliEvent>) {
     for msg in bridge.receiver.try_iter() {
-        let GameboundMessage::List(resource_groups) = msg;
-        let to_send = AzureCliEvent::ListResourceGroups(resource_groups);
+        let to_send: AzureCliEvent = match msg {
+            GameboundMessage::ListResourceGroups(resource_groups) => {
+                AzureCliEvent::ListResourceGroups(resource_groups)
+            }
+            GameboundMessage::ListSubscriptions(subscriptions) => {
+                AzureCliEvent::ListSubscriptions(subscriptions)
+            }
+        };
         cli_events.send(to_send);
     }
 }
