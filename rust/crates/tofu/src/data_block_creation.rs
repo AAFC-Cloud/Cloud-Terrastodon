@@ -3,12 +3,12 @@ use anyhow::Result;
 use azure::prelude::NameLookupHelper;
 use azure::prelude::ScopeImpl;
 use hcl::edit::structure::Body;
-use tracing::warn;
 use std::collections::HashSet;
 use tofu_types::prelude::TofuAzureRMDataKind;
 use tofu_types::prelude::TofuDataBlock;
 use tofu_types::prelude::TofuDataReference;
 use tofu_types::prelude::TryAsTofuBlocks;
+use tracing::warn;
 
 pub async fn create_data_blocks_for_ids(
     ids: &HashSet<ScopeImpl>,

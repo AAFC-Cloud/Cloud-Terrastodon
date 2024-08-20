@@ -35,7 +35,7 @@ pub struct ResourceGroupId {
     expanded: String,
 }
 impl ResourceGroupId {
-    pub fn new(subscription_id: SubscriptionId, resource_group_name: String) -> ResourceGroupId {
+    pub fn new(subscription_id: &SubscriptionId, resource_group_name: String) -> ResourceGroupId {
         let expanded = format!(
             "{}{}{}",
             subscription_id.expanded_form(),
@@ -117,7 +117,7 @@ impl FromStr for ResourceGroupId {
             expanded_form, remaining, RESOURCE_GROUP_ID_PREFIX
         ))?;
 
-        Ok(ResourceGroupId::new(sub_id, rg_name.to_owned()))
+        Ok(ResourceGroupId::new(&sub_id, rg_name.to_owned()))
     }
 }
 
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn deserializes() -> Result<()> {
-        let id = ResourceGroupId::new(SubscriptionId::new(Uuid::nil()), "bruh".to_string());
+        let id = ResourceGroupId::new(&SubscriptionId::new(Uuid::nil()), "bruh".to_string());
         let expanded = id.expanded_form();
         let x: ResourceGroupId = serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(x, id);

@@ -1,7 +1,7 @@
-use anyhow::Result;
-use hcl::edit::structure::Block;
 use crate::prelude::TofuImportBlock;
 use crate::prelude::TofuProviderBlock;
+use anyhow::Result;
+use hcl::edit::structure::Block;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TofuBlock {

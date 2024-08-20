@@ -246,9 +246,9 @@ impl TryFrom<Block> for TofuProviderBlock {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-    use crate::prelude::AsTofuString;
     use super::*;
+    use crate::prelude::AsTofuString;
+    use std::collections::HashSet;
 
     #[test]
     fn it_works1() -> anyhow::Result<()> {

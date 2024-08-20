@@ -63,8 +63,7 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                 }
 
                 // Remove members (empty and comment) when dynamic_membership specified
-                if node.body.has_attribute("members")
-                    && node.body.has_blocks("dynamic_membership")
+                if node.body.has_attribute("members") && node.body.has_blocks("dynamic_membership")
                 {
                     let mut members = node.body.get_attribute_mut("members").unwrap();
                     let mut array = Array::new();

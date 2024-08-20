@@ -5,7 +5,6 @@ use command::prelude::CommandKind;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use pathing::Existy;
-use tokio::io::AsyncSeekExt;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
@@ -14,6 +13,7 @@ use tofu_types::prelude::TofuImportBlock;
 use tofu_types::prelude::TofuProviderBlock;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
+use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
 
@@ -73,7 +73,9 @@ impl TofuWriter {
         file.read_to_string(&mut existing_content)
             .await
             .context("reading content")?;
-        let existing_body = existing_content.parse::<Body>().context(format!("Failed to parse HCL from body: \n```\n{existing_content:?}\n```"))?;
+        let existing_body = existing_content.parse::<Body>().context(format!(
+            "Failed to parse HCL from body: \n```\n{existing_content:?}\n```"
+        ))?;
 
         // Create holders for deduplicating data
         let mut provider_blocks: HashSet<TofuProviderBlock> = Default::default();
@@ -161,19 +163,23 @@ mod tests {
         writer.merge(providers.clone()).await?;
         writer.merge(providers.clone()).await?;
         // ensure old entries are kept
-        writer.merge(providers.iter().take(1).cloned().collect_vec()).await?;
-        writer.merge(providers.iter().skip(1).take(1).cloned().collect_vec()).await?;
+        writer
+            .merge(providers.iter().take(1).cloned().collect_vec())
+            .await?;
+        writer
+            .merge(providers.iter().skip(1).take(1).cloned().collect_vec())
+            .await?;
 
         // Read back the content
         let mut file = OpenOptions::new().read(true).open(&writer.path).await?;
         let mut content = String::new();
         file.read_to_string(&mut content).await?;
-        let body : Body = content.parse()?;
+        let body: Body = content.parse()?;
 
         // Assert that the merging successfully deduplicated
         let num_blocks = body.into_blocks().count();
-        assert_eq!(num_blocks, providers.len()); 
-        
+        assert_eq!(num_blocks, providers.len());
+
         Ok(())
     }
 }

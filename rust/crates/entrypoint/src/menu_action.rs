@@ -131,7 +131,7 @@ impl MenuAction {
                 write_imports_for_all_resource_groups().await?;
                 write_imports_for_all_security_groups().await?;
                 write_imports_for_all_role_assignments().await?;
-            },
+            }
             MenuAction::BrowseUsers => browse_users().await?,
             MenuAction::BrowseSecurityGroups => browse_security_groups().await?,
             MenuAction::BuildPolicyImports => build_policy_imports().await?,

@@ -1,4 +1,4 @@
-use 	anyhow::Result;
+use anyhow::Result;
 use azure::prelude::fetch_all_role_assignments_v2;
 use azure::prelude::fetch_all_role_definitions;
 use azure::prelude::fetch_all_users;
