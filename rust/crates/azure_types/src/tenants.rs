@@ -10,6 +10,12 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct TenantId(Uuid);
 
+impl TenantId {
+    pub fn new(uuid: Uuid) -> Self {
+        TenantId(uuid)
+    }
+}
+
 impl std::fmt::Display for TenantId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.0.to_string().as_str())

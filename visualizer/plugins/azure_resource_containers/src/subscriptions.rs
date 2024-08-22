@@ -1,4 +1,10 @@
 use crate::az_cli::AzureCliEvent;
+use azure::prelude::uuid::Uuid;
+use azure::prelude::Scope;
+use azure::prelude::Subscription;
+use azure::prelude::SubscriptionId;
+use azure::prelude::SubscriptionUser;
+use azure::prelude::TenantId;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -7,6 +13,7 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
+use cloud_terrastodon_visualizer_relationships_plugin::prelude::AzureScope;
 
 pub struct SubscriptionsPlugin;
 impl Plugin for SubscriptionsPlugin {
@@ -26,6 +33,31 @@ struct SubscriptionIconData {
     pub circle_icon: Handle<Svg>,
     pub circle_mesh: Mesh2dHandle,
     pub circle_material: Handle<ColorMaterial>,
+}
+
+#[derive(Debug, Reflect, Component)]
+#[reflect(Default)]
+pub struct AzureSubscription {
+    #[reflect(ignore)]
+    pub subscription: Subscription,
+}
+impl Default for AzureSubscription {
+    fn default() -> Self {
+        Self {
+            subscription: Subscription {
+                cloud_name: azure::prelude::AzureCloudKind::AzureCloud,
+                id: SubscriptionId::new(Uuid::nil()),
+                is_default: false,
+                name: "FakeSubscription".to_owned(),
+                state: azure::prelude::SubscriptionState::Enabled,
+                tenant_id: TenantId::new(Uuid::nil()),
+                user: SubscriptionUser {
+                    name: "Fake".to_owned(),
+                    kind: "Fake user in default constructor".to_owned(),
+                },
+            },
+        }
+    }
 }
 
 fn setup(
@@ -59,8 +91,18 @@ fn receive_results(
                 .spawn((
                     Name::new(format!("Subscription - {}", sub.name)),
                     SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(-1000., i as f32 * 250., 0.)),
+                        transform: Transform::from_translation(Vec3::new(
+                            -1000.,
+                            i as f32 * 250.,
+                            0.,
+                        )),
                         ..default()
+                    },
+                    AzureSubscription {
+                        subscription: sub.to_owned(),
+                    },
+                    AzureScope {
+                        scope: sub.id.as_scope(),
                     },
                 ))
                 .with_children(|parent| {

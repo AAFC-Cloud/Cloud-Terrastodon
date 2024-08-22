@@ -42,13 +42,19 @@ impl InspectorPrimitive for AzureScope {
     fn ui_readonly(
         &self,
         ui: &mut bevy_inspector_egui::egui::Ui,
-        options: &dyn std::any::Any,
-        id: bevy_inspector_egui::egui::Id,
-        env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+        _options: &dyn std::any::Any,
+        _id: bevy_inspector_egui::egui::Id,
+        _env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
     ) {
         ui.add_enabled_ui(false, |ui| {
-            ui.label(format!("{:?}", self.scope.kind()));
+            // ui.label(format!("{:?}", self.scope.kind()));
             ui.label(self.scope.expanded_form());
         });
+        if ui.button("copy").clicked() {
+            ui.output_mut(|out| {
+                out.copied_text = self.scope.expanded_form().to_owned();
+            });
+            info!("Copied to clipboard: {}", self.scope.expanded_form());
+        }
     }
 }
