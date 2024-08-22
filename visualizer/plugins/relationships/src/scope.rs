@@ -1,4 +1,5 @@
 
+use azure::prelude::Scope;
 use azure::prelude::ScopeImpl;
 use azure::prelude::TestResourceId;
 use bevy::prelude::*;
@@ -34,7 +35,8 @@ impl InspectorPrimitive for AzureScope {
         id: bevy_inspector_egui::egui::Id,
         env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
     ) -> bool {
-        todo!()
+        self.ui_readonly(ui, options, id, env);
+        false
     }
 
     fn ui_readonly(
@@ -44,6 +46,9 @@ impl InspectorPrimitive for AzureScope {
         id: bevy_inspector_egui::egui::Id,
         env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
     ) {
-        todo!()
+        ui.add_enabled_ui(false, |ui| {
+            ui.label(format!("{:?}", self.scope.kind()));
+            ui.label(self.scope.expanded_form());
+        });
     }
 }
