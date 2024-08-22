@@ -1,7 +1,11 @@
+use azure::prelude::Scope;
 use azure::prelude::ScopeImpl;
+use azure::prelude::ScopeImplKind;
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy::utils::HashSet;
+use bevy_inspector_egui::inspector_egui_impls::InspectorEguiImpl;
+use bevy_inspector_egui::inspector_egui_impls::InspectorPrimitive;
 
 use crate::prelude::AzureScope;
 
@@ -10,6 +14,7 @@ impl Plugin for ScopeTrackingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<AzureEntities>();
         app.register_type::<AzureEntities>();
+        app.register_type_data::<AzureEntities, InspectorEguiImpl>();
         app.observe(on_scope_added);
         app.observe(on_scope_removed);
     }
@@ -23,6 +28,43 @@ pub struct AzureEntities {
     #[reflect(ignore)]
     entity_to_scopes: HashMap<Entity, HashSet<ScopeImpl>>,
 }
+
+impl InspectorPrimitive for AzureEntities {
+    fn ui(
+        &mut self,
+        ui: &mut bevy_inspector_egui::egui::Ui,
+        options: &dyn std::any::Any,
+        id: bevy_inspector_egui::egui::Id,
+        env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) -> bool {
+        self.ui_readonly(ui, options, id, env);
+        false
+    }
+
+    fn ui_readonly(
+        &self,
+        ui: &mut bevy_inspector_egui::egui::Ui,
+        _options: &dyn std::any::Any,
+        _id: bevy_inspector_egui::egui::Id,
+        _env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
+    ) {
+        let mut counts: HashMap<ScopeImplKind, HashSet<&ScopeImpl>> = Default::default();
+        for scope in self.scope_to_entities.keys() {
+            counts
+                .entry(scope.kind())
+                .or_insert_with(HashSet::default)
+                .insert(scope);
+        }
+        for (kind, values) in counts {
+            ui.collapsing(format!("{:?} ({})", kind, values.len()), |ui| {
+                for value in values {
+                    ui.label(value.short_form());
+                }
+            });
+        }
+    }
+}
+
 impl AzureEntities {
     pub fn get_entities_for_scope(&self, scope: &ScopeImpl) -> Option<&HashSet<Entity>> {
         self.scope_to_entities.get(scope)
