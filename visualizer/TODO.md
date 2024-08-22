@@ -1,0 +1,5 @@
+- Copy selected nodes
+    - Ctrl+c => copy azure ids
+    - Ctrl+c+c => copy terraform ids
+    - Hitting "c" additional times before releasing control changes the mode
+    - Popup GUI like MC gamemode f3+f4 switcher

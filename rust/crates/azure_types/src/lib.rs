@@ -8,7 +8,7 @@ mod pim_azurerm_role_assignment_schedule_requests;
 mod pim_entra_role_assignment_requests;
 mod pim_entra_role_assignments;
 mod pim_entra_role_definitions;
-pub mod pim_entra_role_settings;
+mod pim_entra_role_settings;
 mod policy_assignments;
 mod policy_definitions;
 mod policy_set_definitions;
@@ -57,7 +57,7 @@ pub mod prelude {
     pub use crate::storage_accounts::*;
     pub use crate::subscriptions::*;
     pub use crate::tenants::*;
-    pub(crate) use crate::test_resource::*;
+    pub use crate::test_resource::*;
     pub use crate::users::*;
     pub use uuid;
 }

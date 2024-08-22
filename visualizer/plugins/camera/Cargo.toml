@@ -1,5 +1,5 @@
 [package]
-name = "camera_plugin"
+name = "cloud_terrastodon_visualizer_camera_plugin"
 version = "0.1.0"
 edition = "2021"
 

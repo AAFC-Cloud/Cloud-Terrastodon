@@ -52,8 +52,8 @@ fn receive_results(
         let AzureCliEvent::ListSubscriptions(subscriptions) = msg else {
             continue;
         };
-        info!("icon data: {icon_data:#?}");
-        info!("Received {} subscriptions", subscriptions.len());
+        debug!("icon data: {icon_data:#?}");
+        debug!("Received {} subscriptions", subscriptions.len());
         for (i, sub) in subscriptions.iter().enumerate() {
             commands
                 .spawn((

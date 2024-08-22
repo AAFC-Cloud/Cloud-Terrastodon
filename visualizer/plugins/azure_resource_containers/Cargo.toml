@@ -1,9 +1,10 @@
 [package]
-name = "azure_resource_containers_plugin"
+name = "cloud_terrastodon_visualizer_azure_resource_containers_plugin"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cloud_terrastodon_visualizer_relationships_plugin = { workspace = true }
 bevy = { workspace = true }
 crossbeam-channel = { workspace = true }
 azure = { workspace = true }

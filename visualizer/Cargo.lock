@@ -434,17 +434,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "azure_resource_containers_plugin"
-version = "0.1.0"
-dependencies = [
- "azure",
- "bevy",
- "bevy_svg",
- "crossbeam-channel",
- "tokio",
-]
-
-[[package]]
 name = "azure_types"
 version = "0.1.0"
 dependencies = [
@@ -1561,16 +1550,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "camera_plugin"
-version = "0.1.0"
-dependencies = [
- "avian2d",
- "bevy",
- "bevy_egui",
- "leafwing-input-manager",
-]
-
-[[package]]
 name = "cc"
 version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1694,11 +1673,45 @@ version = "0.1.0"
 dependencies = [
  "avian2d",
  "azure",
- "azure_resource_containers_plugin",
  "bevy",
  "bevy-inspector-egui",
  "bevy_svg",
- "camera_plugin",
+ "cloud_terrastodon_visualizer_azure_resource_containers_plugin",
+ "cloud_terrastodon_visualizer_camera_plugin",
+ "cloud_terrastodon_visualizer_relationships_plugin",
+ "itertools 0.12.1",
+]
+
+[[package]]
+name = "cloud_terrastodon_visualizer_azure_resource_containers_plugin"
+version = "0.1.0"
+dependencies = [
+ "azure",
+ "bevy",
+ "bevy_svg",
+ "cloud_terrastodon_visualizer_relationships_plugin",
+ "crossbeam-channel",
+ "tokio",
+]
+
+[[package]]
+name = "cloud_terrastodon_visualizer_camera_plugin"
+version = "0.1.0"
+dependencies = [
+ "avian2d",
+ "bevy",
+ "bevy_egui",
+ "leafwing-input-manager",
+]
+
+[[package]]
+name = "cloud_terrastodon_visualizer_relationships_plugin"
+version = "0.1.0"
+dependencies = [
+ "avian2d",
+ "azure",
+ "bevy",
+ "bevy-inspector-egui",
 ]
 
 [[package]]

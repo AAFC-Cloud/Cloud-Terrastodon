@@ -1,4 +1,9 @@
 use crate::az_cli::AzureCliEvent;
+use azure::prelude::uuid::Uuid;
+use azure::prelude::ResourceGroup;
+use azure::prelude::ResourceGroupId;
+use azure::prelude::Scope;
+use azure::prelude::SubscriptionId;
 use bevy::color::palettes::css::BLACK;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -7,6 +12,7 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
+use cloud_terrastodon_visualizer_relationships_plugin::prelude::AzureScope;
 
 pub struct ResourceGroupsPlugin;
 impl Plugin for ResourceGroupsPlugin {
@@ -14,6 +20,8 @@ impl Plugin for ResourceGroupsPlugin {
         info!("Building ResourceGroupsPlugin");
         app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
+        app.add_systems(Update, rg_added);
+        app.register_type::<AzureResourceGroup>();
         app.register_type::<ResourceGroupIconData>();
         app.init_resource::<ResourceGroupIconData>();
     }
@@ -26,6 +34,31 @@ struct ResourceGroupIconData {
     pub circle_icon: Handle<Svg>,
     pub circle_mesh: Mesh2dHandle,
     pub circle_material: Handle<ColorMaterial>,
+}
+
+#[derive(Debug, Reflect, Component)]
+#[reflect(Default)]
+pub struct AzureResourceGroup {
+    #[reflect(ignore)]
+    pub resource_group: ResourceGroup,
+}
+impl Default for AzureResourceGroup {
+    fn default() -> Self {
+        let name = "FakeResourceGroup";
+        let subscription_id = SubscriptionId::new(Uuid::nil());
+        let id = ResourceGroupId::new(&subscription_id, name.to_string());
+        Self {
+            resource_group: ResourceGroup {
+                id,
+                subscription_id,
+                location: "canadacentral".to_owned(),
+                managed_by: None,
+                name: name.to_owned(),
+                properties: Default::default(),
+                tags: Default::default(),
+            },
+        }
+    }
 }
 
 fn setup(
@@ -50,8 +83,8 @@ fn receive_results(
         let AzureCliEvent::ListResourceGroups(resource_groups) = msg else {
             continue;
         };
-        info!("icon data: {icon_data:#?}");
-        info!("Received {} resource groups", resource_groups.len());
+        debug!("icon data: {icon_data:#?}");
+        debug!("Received {} resource groups", resource_groups.len());
         for (i, rg) in resource_groups.iter().enumerate() {
             commands
                 .spawn((
@@ -60,6 +93,12 @@ fn receive_results(
                         transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
                         ..default()
                     },
+                    AzureResourceGroup {
+                        resource_group: rg.to_owned(),
+                    },
+                    AzureScope {
+                        scope: rg.id.as_scope(),
+                    }
                 ))
                 .with_children(|parent| {
                     parent.spawn((
@@ -108,5 +147,11 @@ fn receive_results(
                     ));
                 });
         }
+    }
+}
+
+fn rg_added(added_resource_groups: Query<(Entity, &AzureResourceGroup), Added<AzureResourceGroup>>) {
+    for (entity, rg) in added_resource_groups.iter() {
+        debug!("NEW RESOURCE GROUP DETECTED {:?} {:?}", entity, rg);
     }
 }

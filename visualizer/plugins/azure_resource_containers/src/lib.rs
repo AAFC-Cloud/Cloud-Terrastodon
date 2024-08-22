@@ -1,3 +1,4 @@
+#![feature(trivial_bounds)]
 mod az_cli;
 mod resource_groups;
 mod subscriptions;

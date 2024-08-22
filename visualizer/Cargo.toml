@@ -7,8 +7,9 @@ edition = "2021"
 members = ["plugins/*"]
 
 [workspace.dependencies]
-camera_plugin = { path = "./plugins/camera" }
-azure_resource_containers_plugin = { path = "./plugins/azure_resource_containers" }
+cloud_terrastodon_visualizer_camera_plugin = { path = "./plugins/camera" }
+cloud_terrastodon_visualizer_relationships_plugin = { path = "./plugins/relationships" }
+cloud_terrastodon_visualizer_azure_resource_containers_plugin = { path = "./plugins/azure_resource_containers" }
 bevy = "0.14.1"
 bevy-inspector-egui = "0.25.2"
 bevy_svg = { version = "0.14.0", default-features = false, features = ["2d"] }
@@ -18,15 +19,18 @@ crossbeam-channel = "0.5.13"
 tokio = { version = "1.39.2", features = ["full"] }
 avian2d = "0.1.2"
 bevy_egui = { version = "0.28", default-features = false }
+itertools = "0.12.1"
 
 [dependencies]
-camera_plugin = { workspace = true }
-azure_resource_containers_plugin = { workspace = true }
+cloud_terrastodon_visualizer_camera_plugin = { workspace = true }
+cloud_terrastodon_visualizer_relationships_plugin = { workspace = true }
+cloud_terrastodon_visualizer_azure_resource_containers_plugin = { workspace = true }
 bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_svg = { workspace = true }
 azure = { workspace = true }
 avian2d = { workspace = true }
+itertools = { workspace = true }
 
 [profile.dev]
 opt-level = 1
