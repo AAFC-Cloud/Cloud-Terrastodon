@@ -47,7 +47,6 @@ impl InspectorPrimitive for AzureScope {
         _env: bevy_inspector_egui::reflect_inspector::InspectorUi<'_, '_>,
     ) {
         ui.add_enabled_ui(false, |ui| {
-            // ui.label(format!("{:?}", self.scope.kind()));
             ui.label(self.scope.expanded_form());
         });
         if ui.button("copy").clicked() {

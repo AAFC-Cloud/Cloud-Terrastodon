@@ -1,12 +1,12 @@
+use avian2d::prelude::Gravity;
 use avian2d::PhysicsPlugins;
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_svg::prelude::*;
-use cloud_terrastodon_visualizer_azure_resource_containers_plugin::AzureResourceContainersPlugin;
+use cloud_terrastodon_visualizer_azure_plugin::AzurePlugin;
 use cloud_terrastodon_visualizer_camera_plugin::MyCameraPlugin;
-use cloud_terrastodon_visualizer_relationships_plugin::RelationshipsPlugin;
 use itertools::Itertools;
 
 fn main() {
@@ -33,9 +33,9 @@ fn main() {
     app.add_plugins(DefaultPlugins.set(log_plugin));
     app.add_plugins(SvgPlugin);
     app.add_plugins(MyCameraPlugin);
-    app.add_plugins(RelationshipsPlugin);
-    app.add_plugins(AzureResourceContainersPlugin);
+    app.add_plugins(AzurePlugin);
     app.add_plugins(PhysicsPlugins::default().with_length_unit(100.0));
+    app.insert_resource(Gravity(Vec2::ZERO));
 
     // must be after the default plugins
     app.add_plugins(

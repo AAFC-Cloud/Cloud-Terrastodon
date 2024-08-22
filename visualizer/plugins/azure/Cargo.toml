@@ -1,12 +1,13 @@
 [package]
-name = "cloud_terrastodon_visualizer_azure_resource_containers_plugin"
+name = "cloud_terrastodon_visualizer_azure_plugin"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cloud_terrastodon_visualizer_relationships_plugin = { workspace = true }
 bevy = { workspace = true }
 crossbeam-channel = { workspace = true }
 azure = { workspace = true }
 tokio = { workspace = true }
 bevy_svg = { workspace = true }
+bevy-inspector-egui = { workspace = true }
+avian2d = { workspace = true }

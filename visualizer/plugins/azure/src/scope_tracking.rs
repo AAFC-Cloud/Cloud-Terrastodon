@@ -1,13 +1,14 @@
+use crate::scope::AzureScope;
 use azure::prelude::Scope;
 use azure::prelude::ScopeImpl;
 use azure::prelude::ScopeImplKind;
+use azure::prelude::SubscriptionId;
+use azure::prelude::SubscriptionScoped;
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy::utils::HashSet;
 use bevy_inspector_egui::inspector_egui_impls::InspectorEguiImpl;
 use bevy_inspector_egui::inspector_egui_impls::InspectorPrimitive;
-
-use crate::prelude::AzureScope;
 
 pub struct ScopeTrackingPlugin;
 impl Plugin for ScopeTrackingPlugin {
@@ -20,13 +21,16 @@ impl Plugin for ScopeTrackingPlugin {
     }
 }
 
+/// The same scope may be represented by multiple entities.
+///
+/// One entity can only represent one scope.
 #[derive(Resource, Reflect, Default)]
 #[reflect(Resource)]
 pub struct AzureEntities {
     #[reflect(ignore)]
     scope_to_entities: HashMap<ScopeImpl, HashSet<Entity>>,
     #[reflect(ignore)]
-    entity_to_scopes: HashMap<Entity, HashSet<ScopeImpl>>,
+    entity_to_scope: HashMap<Entity, ScopeImpl>,
 }
 
 impl InspectorPrimitive for AzureEntities {
@@ -66,11 +70,14 @@ impl InspectorPrimitive for AzureEntities {
 }
 
 impl AzureEntities {
-    pub fn get_entities_for_scope(&self, scope: &ScopeImpl) -> Option<&HashSet<Entity>> {
-        self.scope_to_entities.get(scope)
+    pub fn get_entities_for_scope(&self, scope: &ScopeImpl) -> HashSet<Entity> {
+        self.scope_to_entities
+            .get(scope)
+            .cloned()
+            .unwrap_or_default()
     }
-    pub fn get_scopes_for_entity(&self, entity: Entity) -> Option<&HashSet<ScopeImpl>> {
-        self.entity_to_scopes.get(&entity)
+    pub fn get_scope_for_entity(&self, entity: Entity) -> Option<&ScopeImpl> {
+        self.entity_to_scope.get(&entity)
     }
     pub fn track_scope_entity(&mut self, scope: &ScopeImpl, entity: Entity) {
         // Update scope_to_entities map
@@ -79,11 +86,8 @@ impl AzureEntities {
             .or_insert_with(Default::default)
             .insert(entity);
 
-        // Update entity_to_scopes map
-        self.entity_to_scopes
-            .entry(entity)
-            .or_insert_with(Default::default)
-            .insert(scope.to_owned());
+        // Update entity_to_scope map
+        self.entity_to_scope.entry(entity).insert(scope.to_owned());
 
         debug!("Tracking {entity:?} with scope {scope:?}");
     }
@@ -96,14 +100,27 @@ impl AzureEntities {
             }
         }
 
-        // Update entity_to_scopes map
-        if let Some(scopes) = self.entity_to_scopes.get_mut(&entity) {
-            scopes.retain(|s| s != scope);
-            if scopes.is_empty() {
-                self.entity_to_scopes.remove(&entity);
-            }
-        }
+        // Update entity_to_scope map
+        self.entity_to_scope.remove(&entity);
         debug!("No longer tracking {entity:?} with scope {scope:?}");
+    }
+    pub fn get_resource_group_entities_for_subscription(
+        &self,
+        subscription_id: &SubscriptionId,
+    ) -> Vec<Entity> {
+        self.scope_to_entities
+            .iter()
+            .filter_map(|(k, v)| match k {
+                ScopeImpl::ResourceGroup(resource_group_id)
+                    if resource_group_id.subscription_id() == *subscription_id =>
+                {
+                    Some(v)
+                }
+                _ => None,
+            })
+            .flatten()
+            .cloned()
+            .collect()
     }
 }
 

@@ -1,10 +1,13 @@
 use crate::az_cli::AzureCliEvent;
+use avian2d::prelude::Collider;
+use avian2d::prelude::RigidBody;
 use azure::prelude::uuid::Uuid;
-use azure::prelude::ResourceGroup;
-use azure::prelude::ResourceGroupId;
 use azure::prelude::Scope;
+use azure::prelude::Subscription;
 use azure::prelude::SubscriptionId;
-use bevy::color::palettes::css::BLACK;
+use azure::prelude::SubscriptionUser;
+use azure::prelude::TenantId;
+use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::sprite::MaterialMesh2dBundle;
@@ -12,25 +15,24 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
-use cloud_terrastodon_visualizer_relationships_plugin::prelude::AzureScope;
+use crate::scope::AzureScope;
 
-pub struct ResourceGroupsPlugin;
-impl Plugin for ResourceGroupsPlugin {
+pub struct SubscriptionsPlugin;
+impl Plugin for SubscriptionsPlugin {
     fn build(&self, app: &mut App) {
-        info!("Building ResourceGroupsPlugin");
+        info!("Building SubscriptionsPlugin");
         app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
-        app.add_systems(Update, rg_added);
-        app.register_type::<AzureResourceGroup>();
-        app.register_type::<ResourceGroupIconData>();
-        app.init_resource::<ResourceGroupIconData>();
+        app.register_type::<SubscriptionIconData>();
+        app.init_resource::<SubscriptionIconData>();
     }
 }
 
 #[derive(Debug, Resource, Default, Reflect)]
 #[reflect(Resource)]
-struct ResourceGroupIconData {
+struct SubscriptionIconData {
     pub scale: f32,
+    pub circle_radius: f32,
     pub circle_icon: Handle<Svg>,
     pub circle_mesh: Mesh2dHandle,
     pub circle_material: Handle<ColorMaterial>,
@@ -38,67 +40,76 @@ struct ResourceGroupIconData {
 
 #[derive(Debug, Reflect, Component)]
 #[reflect(Default)]
-pub struct AzureResourceGroup {
+pub struct AzureSubscription {
     #[reflect(ignore)]
-    pub resource_group: ResourceGroup,
+    pub subscription: Subscription,
 }
-impl Default for AzureResourceGroup {
+impl Default for AzureSubscription {
     fn default() -> Self {
-        let name = "FakeResourceGroup";
-        let subscription_id = SubscriptionId::new(Uuid::nil());
-        let id = ResourceGroupId::new(&subscription_id, name.to_string());
         Self {
-            resource_group: ResourceGroup {
-                id,
-                subscription_id,
-                location: "canadacentral".to_owned(),
-                managed_by: None,
-                name: name.to_owned(),
-                properties: Default::default(),
-                tags: Default::default(),
+            subscription: Subscription {
+                cloud_name: azure::prelude::AzureCloudKind::AzureCloud,
+                id: SubscriptionId::new(Uuid::nil()),
+                is_default: false,
+                name: "FakeSubscription".to_owned(),
+                state: azure::prelude::SubscriptionState::Enabled,
+                tenant_id: TenantId::new(Uuid::nil()),
+                user: SubscriptionUser {
+                    name: "Fake".to_owned(),
+                    kind: "Fake user in default constructor".to_owned(),
+                },
             },
         }
     }
 }
 
 fn setup(
-    mut handles: ResMut<ResourceGroupIconData>,
+    mut handles: ResMut<SubscriptionIconData>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     info!("Setting up resource group icon data");
-    handles.circle_icon = asset_server.load("textures/ResourceGroups.svg");
-    handles.circle_material = materials.add(Color::from(BLACK));
+    // The Subscription.svg file has been modified to remove a path element that causes problems
+    // https://github.com/Weasy666/bevy_svg/issues/42
+    handles.circle_icon = asset_server.load("textures/Subscription.svg");
+    handles.circle_material = materials.add(Color::from(YELLOW));
     handles.circle_mesh = meshes.add(Circle::default()).into();
-    handles.scale = 100. / 18.;
+    handles.circle_radius = 150.0 / 2.;
+    handles.scale = handles.circle_radius * 2. / 18.;
 }
 
 fn receive_results(
     mut cli_events: EventReader<AzureCliEvent>,
     mut commands: Commands,
-    icon_data: Res<ResourceGroupIconData>,
+    icon_data: Res<SubscriptionIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliEvent::ListResourceGroups(resource_groups) = msg else {
+        let AzureCliEvent::ListSubscriptions(subscriptions) = msg else {
             continue;
         };
         debug!("icon data: {icon_data:#?}");
-        debug!("Received {} resource groups", resource_groups.len());
-        for (i, rg) in resource_groups.iter().enumerate() {
+        debug!("Received {} subscriptions", subscriptions.len());
+        for (i, sub) in subscriptions.iter().enumerate() {
             commands
                 .spawn((
-                    Name::new(format!("Resource Group - {}", rg.name)),
+                    Name::new(format!("Subscription - {}", sub.name)),
                     SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
+                        transform: Transform::from_translation(Vec3::new(
+                            -1000.,
+                            i as f32 * 250.,
+                            0.,
+                        )),
                         ..default()
                     },
-                    AzureResourceGroup {
-                        resource_group: rg.to_owned(),
+                    AzureSubscription {
+                        subscription: sub.to_owned(),
                     },
                     AzureScope {
-                        scope: rg.id.as_scope(),
-                    }
+                        scope: sub.id.as_scope(),
+                    },
+                    RigidBody::Dynamic,
+                    Collider::circle(icon_data.circle_radius),
                 ))
                 .with_children(|parent| {
                     parent.spawn((
@@ -129,7 +140,7 @@ fn receive_results(
                         Name::new("Text"),
                         Text2dBundle {
                             text: Text::from_section(
-                                rg.name.to_owned(),
+                                sub.name.to_owned(),
                                 TextStyle {
                                     font_size: 60.,
                                     ..default()
@@ -147,11 +158,5 @@ fn receive_results(
                     ));
                 });
         }
-    }
-}
-
-fn rg_added(added_resource_groups: Query<(Entity, &AzureResourceGroup), Added<AzureResourceGroup>>) {
-    for (entity, rg) in added_resource_groups.iter() {
-        debug!("NEW RESOURCE GROUP DETECTED {:?} {:?}", entity, rg);
     }
 }
