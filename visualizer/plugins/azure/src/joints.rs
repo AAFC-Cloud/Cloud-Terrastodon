@@ -1,13 +1,10 @@
-use azure::prelude::Scope;
-use bevy::color::palettes::css::RED;
-use bevy::prelude::*;
-
 use crate::resource_groups::AzureResourceGroup;
-use crate::scope_tracking::AzureEntities;
 use crate::subscriptions::AzureSubscription;
 use avian2d::math::Vector;
 use avian2d::prelude::DistanceJoint;
 use avian2d::prelude::Joint;
+use bevy::color::palettes::css::RED;
+use bevy::prelude::*;
 
 pub struct JointsPlugin;
 impl Plugin for JointsPlugin {
@@ -21,7 +18,7 @@ impl Plugin for JointsPlugin {
 fn on_resource_group_added(
     trigger: Trigger<OnAdd, AzureResourceGroup>,
     resource_group_query: Query<&AzureResourceGroup>,
-    azure: Res<AzureEntities>,
+    subscription_query: Query<(Entity, &AzureSubscription)>,
     mut commands: Commands,
 ) {
     let resource_group_entity = trigger.entity();
@@ -29,19 +26,20 @@ fn on_resource_group_added(
         warn!("Failed to find resource group {resource_group_entity:?}");
         return;
     };
-    let subscription_id = &resource_group.resource_group.subscription_id;
-    let subscription_entities = azure.get_entities_for_scope(&subscription_id.as_scope());
+    let subscription_id = &resource_group.subscription_id;
     // the same subscription can be represented by multiple entities in the world
     // for now lets just connect to all of them
-    for subscription_entity in subscription_entities {
-        create_joint(&mut commands, subscription_entity, resource_group_entity);
+    for (subscription_entity, subscription) in subscription_query.iter() {
+        if subscription.subscription.id == *subscription_id {
+            create_joint(&mut commands, subscription_entity, resource_group_entity);
+        }
     }
 }
 
 fn on_subscription_added(
     trigger: Trigger<OnAdd, AzureSubscription>,
     subscription_query: Query<&AzureSubscription>,
-    azure: Res<AzureEntities>,
+    resource_group_query: Query<(Entity, &AzureResourceGroup)>,
     mut commands: Commands,
 ) {
     let subscription_entity = trigger.entity();
@@ -50,11 +48,13 @@ fn on_subscription_added(
         return;
     };
 
-    let subscription_id = &subscription.subscription.id;
-    let resource_group_entities =
-        azure.get_resource_group_entities_for_subscription(subscription_id);
-    for resource_group_entity in resource_group_entities {
-        create_joint(&mut commands, subscription_entity, resource_group_entity);
+    let subscription_id = &subscription.id;
+    // let resource_group_entities =
+    //     azure.get_resource_group_entities_for_subscription(subscription_id);
+    for (resource_group_entity, resource_group) in resource_group_query.iter() {
+        if resource_group.subscription_id == *subscription_id {
+            create_joint(&mut commands, subscription_entity, resource_group_entity);
+        }
     }
 }
 
@@ -83,7 +83,8 @@ fn draw_joints(
         let subscription_entity = joint.entity1;
         let resource_group_entity = joint.entity2;
         if !(resource_group_query.contains(resource_group_entity)
-                    && subscription_query.contains(subscription_entity)) {
+            && subscription_query.contains(subscription_entity))
+        {
             continue;
         }
         let Ok([subscription_transform, resource_group_transform]) =

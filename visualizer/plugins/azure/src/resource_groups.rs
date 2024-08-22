@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::az_cli::AzureCliEvent;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
@@ -44,6 +46,13 @@ struct ResourceGroupIconData {
 pub struct AzureResourceGroup {
     #[reflect(ignore)]
     pub resource_group: ResourceGroup,
+}
+impl Deref for AzureResourceGroup {
+    type Target=ResourceGroup;
+
+    fn deref(&self) -> &Self::Target {
+        &self.resource_group
+    }
 }
 impl Default for AzureResourceGroup {
     fn default() -> Self {

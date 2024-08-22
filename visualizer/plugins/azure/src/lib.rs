@@ -3,7 +3,6 @@ mod az_cli;
 mod resource_groups;
 mod subscriptions;
 mod scope;
-mod scope_tracking;
 mod joints;
 
 use az_cli::AzureCliPlugin;
@@ -12,7 +11,6 @@ use joints::JointsPlugin;
 use resource_groups::ResourceGroupsPlugin;
 use subscriptions::SubscriptionsPlugin;
 use scope::ScopePlugin;
-use scope_tracking::ScopeTrackingPlugin;
 
 pub struct AzurePlugin;
 impl Plugin for AzurePlugin {
@@ -21,7 +19,6 @@ impl Plugin for AzurePlugin {
         app.add_plugins(SubscriptionsPlugin);
         app.add_plugins(AzureCliPlugin);
         app.add_plugins(ScopePlugin);
-        app.add_plugins(ScopeTrackingPlugin);
         app.add_plugins(JointsPlugin);
     }
 }

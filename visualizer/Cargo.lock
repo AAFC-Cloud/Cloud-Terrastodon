@@ -1691,6 +1691,7 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_svg",
  "crossbeam-channel",
+ "itertools 0.12.1",
  "tokio",
 ]
 

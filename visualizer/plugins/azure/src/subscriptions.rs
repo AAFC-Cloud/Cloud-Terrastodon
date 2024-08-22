@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::az_cli::AzureCliEvent;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
@@ -43,6 +45,13 @@ struct SubscriptionIconData {
 pub struct AzureSubscription {
     #[reflect(ignore)]
     pub subscription: Subscription,
+}
+impl Deref for AzureSubscription {
+    type Target=Subscription;
+
+    fn deref(&self) -> &Self::Target {
+        &self.subscription
+    }
 }
 impl Default for AzureSubscription {
     fn default() -> Self {
