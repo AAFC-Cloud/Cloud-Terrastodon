@@ -17,6 +17,7 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
+use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
 
 pub struct ResourceGroupsPlugin;
 impl Plugin for ResourceGroupsPlugin {
@@ -113,6 +114,7 @@ fn receive_results(
                         scope: rg.id.as_scope(),
                     },
                     RigidBody::Dynamic,
+                    CustomLinearDamping::default(),
                     Collider::circle(icon_data.circle_radius),
                 ))
                 .with_children(|parent| {

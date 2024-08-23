@@ -1678,6 +1678,8 @@ dependencies = [
  "bevy_svg",
  "cloud_terrastodon_visualizer_azure_plugin",
  "cloud_terrastodon_visualizer_camera_plugin",
+ "cloud_terrastodon_visualizer_cursor_plugin",
+ "cloud_terrastodon_visualizer_damping_plugin",
  "itertools 0.12.1",
 ]
 
@@ -1690,6 +1692,7 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_svg",
+ "cloud_terrastodon_visualizer_damping_plugin",
  "crossbeam-channel",
  "itertools 0.12.1",
  "tokio",
@@ -1702,7 +1705,25 @@ dependencies = [
  "avian2d",
  "bevy",
  "bevy_egui",
+ "cloud_terrastodon_visualizer_damping_plugin",
  "leafwing-input-manager",
+]
+
+[[package]]
+name = "cloud_terrastodon_visualizer_cursor_plugin"
+version = "0.1.0"
+dependencies = [
+ "avian2d",
+ "bevy",
+ "leafwing-input-manager",
+]
+
+[[package]]
+name = "cloud_terrastodon_visualizer_damping_plugin"
+version = "0.1.0"
+dependencies = [
+ "avian2d",
+ "bevy",
 ]
 
 [[package]]

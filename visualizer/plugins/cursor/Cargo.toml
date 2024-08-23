@@ -1,0 +1,9 @@
+[package]
+name = "cloud_terrastodon_visualizer_cursor_plugin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { workspace = true }
+leafwing-input-manager = { workspace = true }
+avian2d = { workspace = true }

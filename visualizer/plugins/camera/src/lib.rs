@@ -3,6 +3,7 @@ use avian2d::prelude::RigidBody;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::EguiContext;
+use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
 use leafwing_input_manager::prelude::ActionState;
 use leafwing_input_manager::prelude::InputManagerPlugin;
 use leafwing_input_manager::prelude::InputMap;
@@ -39,10 +40,10 @@ impl Default for CameraMotion {
         Self {
             zoom_speed: 0.05,
             zoom_speed_default: 0.05,
-            zoom_speed_when_sprinting: 0.5,
+            zoom_speed_when_sprinting: 0.2,
             movement_speed: 250.,
             movement_speed_default: 250.,
-            movement_speed_when_sprinting: 1000.,
+            movement_speed_when_sprinting: 5000.,
         }
     }
 }
@@ -74,6 +75,7 @@ fn setup(mut commands: Commands) {
             CameraMotion::default(),
             RigidBody::Kinematic,
             LinearVelocity::default(),
+            CustomLinearDamping::default(),
         ))
         .insert(InputManagerBundle::with_map(input_map));
 }
@@ -133,25 +135,6 @@ fn pan_camera(
     } else if action_state.just_released(&CameraAction::Sprint) {
         camera_motion.movement_speed = camera_motion.movement_speed_default;
     }
-    let dir: Vec2 = action_state.axis_pair(&CameraAction::Pan);
-    let mut changed = false;
-
-    if dir.x != 0.0 {
-        camera_velocity.x = dir.x * camera_motion.movement_speed;
-        changed = true;
-    }
-    if dir.y != 0.0 {
-        camera_velocity.y = dir.y * camera_motion.movement_speed;
-        changed = true;
-    }
-    if !changed {
-        camera_velocity.x *= 0.95;
-        camera_velocity.y *= 0.95;
-        if camera_velocity.x.abs() < 5. {
-            camera_velocity.x = 0.0;
-        }
-        if camera_velocity.y.abs() < 5. {
-            camera_velocity.y = 0.0;
-        }
-    }
+    let direction: Vec2 = action_state.axis_pair(&CameraAction::Pan);
+    camera_velocity.0 = direction * camera_motion.movement_speed;
 }

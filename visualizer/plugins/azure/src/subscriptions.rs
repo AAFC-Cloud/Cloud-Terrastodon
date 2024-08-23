@@ -18,6 +18,7 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
+use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
 
 pub struct SubscriptionsPlugin;
 impl Plugin for SubscriptionsPlugin {
@@ -117,6 +118,7 @@ fn receive_results(
                     AzureScope {
                         scope: sub.id.as_scope(),
                     },
+                    CustomLinearDamping::default(),
                     RigidBody::Dynamic,
                     Collider::circle(icon_data.circle_radius),
                 ))
