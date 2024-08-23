@@ -1,4 +1,3 @@
-
 use azure::prelude::Scope;
 use azure::prelude::ScopeImpl;
 use azure::prelude::TestResourceId;
@@ -14,7 +13,6 @@ impl Plugin for ScopePlugin {
     }
 }
 
-
 #[derive(Component, Reflect, Debug)]
 #[reflect(Default)]
 pub struct AzureScope {
@@ -23,7 +21,9 @@ pub struct AzureScope {
 }
 impl Default for AzureScope {
     fn default() -> Self {
-        Self { scope: ScopeImpl::TestResource(TestResourceId::new("bruh"))}
+        Self {
+            scope: ScopeImpl::TestResource(TestResourceId::new("bruh")),
+        }
     }
 }
 

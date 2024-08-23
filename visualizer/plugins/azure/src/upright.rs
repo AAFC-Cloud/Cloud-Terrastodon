@@ -17,9 +17,7 @@ impl Plugin for UprightPlugin {
 }
 
 // we want scopey things to always remain upright
-fn fix_rotation(
-    mut query: Query<(&mut AngularVelocity, &mut Rotation), With<AzureScope>>,
-) {
+fn fix_rotation(mut query: Query<(&mut AngularVelocity, &mut Rotation), With<AzureScope>>) {
     for thing in query.iter_mut() {
         let (mut angular_velocity, mut rotation) = thing;
         angular_velocity.0 = 0.0;

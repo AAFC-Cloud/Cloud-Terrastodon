@@ -87,8 +87,8 @@ fn create_worker_thread(mut commands: Commands) {
                             if let Err(e) = game_tx.send(resp) {
                                 error!("Gamebound channel failure, exiting: {}", e);
                                 break;
-                            }                            
-                        },
+                            }
+                        }
                     }
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }

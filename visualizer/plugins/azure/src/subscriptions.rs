@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use crate::az_cli::AzureCliEvent;
+use crate::scope::AzureScope;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
 use azure::prelude::uuid::Uuid;
@@ -17,7 +18,6 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
-use crate::scope::AzureScope;
 
 pub struct SubscriptionsPlugin;
 impl Plugin for SubscriptionsPlugin {
@@ -47,7 +47,7 @@ pub struct AzureSubscription {
     pub subscription: Subscription,
 }
 impl Deref for AzureSubscription {
-    type Target=Subscription;
+    type Target = Subscription;
 
     fn deref(&self) -> &Self::Target {
         &self.subscription

@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use crate::az_cli::AzureCliEvent;
+use crate::scope::AzureScope;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
 use azure::prelude::uuid::Uuid;
@@ -16,7 +17,6 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
-use crate::scope::AzureScope;
 
 pub struct ResourceGroupsPlugin;
 impl Plugin for ResourceGroupsPlugin {
@@ -48,7 +48,7 @@ pub struct AzureResourceGroup {
     pub resource_group: ResourceGroup,
 }
 impl Deref for AzureResourceGroup {
-    type Target=ResourceGroup;
+    type Target = ResourceGroup;
 
     fn deref(&self) -> &Self::Target {
         &self.resource_group
@@ -165,7 +165,9 @@ fn receive_results(
     }
 }
 
-fn rg_added(added_resource_groups: Query<(Entity, &AzureResourceGroup), Added<AzureResourceGroup>>) {
+fn rg_added(
+    added_resource_groups: Query<(Entity, &AzureResourceGroup), Added<AzureResourceGroup>>,
+) {
     for (entity, rg) in added_resource_groups.iter() {
         debug!("NEW RESOURCE GROUP DETECTED {:?} {:?}", entity, rg);
     }

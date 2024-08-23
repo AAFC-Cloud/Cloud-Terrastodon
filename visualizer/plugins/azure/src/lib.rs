@@ -1,17 +1,17 @@
 #![feature(trivial_bounds)]
 mod az_cli;
-mod resource_groups;
-mod subscriptions;
-mod scope;
 mod joints;
+mod resource_groups;
+mod scope;
+mod subscriptions;
 mod upright;
 
 use az_cli::AzureCliPlugin;
 use bevy::prelude::*;
 use joints::JointsPlugin;
 use resource_groups::ResourceGroupsPlugin;
-use subscriptions::SubscriptionsPlugin;
 use scope::ScopePlugin;
+use subscriptions::SubscriptionsPlugin;
 use upright::UprightPlugin;
 
 pub struct AzurePlugin;
