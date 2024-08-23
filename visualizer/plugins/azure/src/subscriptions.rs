@@ -34,8 +34,10 @@ impl Plugin for SubscriptionsPlugin {
 #[derive(Debug, Resource, Default, Reflect)]
 #[reflect(Resource)]
 struct SubscriptionIconData {
-    pub scale: f32,
+    pub icon_width: i32,
     pub circle_radius: f32,
+    pub circle_icon_padding: f32,
+    pub circle_text_margin: f32,
     pub circle_icon: Handle<Svg>,
     pub circle_mesh: Mesh2dHandle,
     pub circle_material: Handle<ColorMaterial>,
@@ -84,9 +86,11 @@ fn setup(
     // https://github.com/Weasy666/bevy_svg/issues/42
     handles.circle_icon = asset_server.load("textures/Subscription.svg");
     handles.circle_material = materials.add(Color::from(YELLOW));
-    handles.circle_mesh = meshes.add(Circle::default()).into();
-    handles.circle_radius = 150.0 / 2.;
-    handles.scale = handles.circle_radius * 2. / 18.;
+    handles.circle_mesh = meshes.add(Circle { radius: 1. }).into();
+    handles.icon_width = 18;
+    handles.circle_icon_padding = 4.;
+    handles.circle_text_margin = 4.;
+    handles.circle_radius = 75.;
 }
 
 fn receive_results(
@@ -123,21 +127,8 @@ fn receive_results(
                     Collider::circle(icon_data.circle_radius),
                 ))
                 .with_children(|parent| {
-                    parent.spawn((
-                        Name::new("Icon"),
-                        Svg2dBundle {
-                            svg: icon_data.circle_icon.clone(),
-                            transform: Transform::from_translation(
-                                ((Vec2::new(-18., 18.) / 2.) * icon_data.scale).extend(1.),
-                            )
-                            .with_scale(Vec2::splat(icon_data.scale).extend(1.)),
-                            // origin: Origin::Center, // Origin::TopLeft is the default
-                            origin: Origin::TopLeft,
-                            ..default()
-                        },
-                    ));
-                    let circle_transform =
-                        Transform::from_scale((Vec2::splat(18. + 4.) * icon_data.scale).extend(1.));
+                    let circle_scale = Vec2::splat(icon_data.circle_radius).extend(1.);
+                    let circle_transform = Transform::from_scale(circle_scale);
                     parent.spawn((
                         Name::new("Circle"),
                         MaterialMesh2dBundle {
@@ -147,6 +138,32 @@ fn receive_results(
                             ..default()
                         },
                     ));
+
+                    let icon_scale = Vec2::splat(
+                        (1. / icon_data.icon_width as f32)
+                            * ((icon_data.circle_radius * 2.) - icon_data.circle_icon_padding),
+                    )
+                    .extend(1.);
+                    let icon_translation =
+                        (Vec2::new(-icon_scale.x, icon_scale.y) * icon_data.icon_width as f32 / 2.)
+                            .extend(1.);
+                    let icon_transform =
+                        Transform::from_translation(icon_translation).with_scale(icon_scale);
+                    parent.spawn((
+                        Name::new("Icon"),
+                        Svg2dBundle {
+                            svg: icon_data.circle_icon.clone(),
+                            transform: icon_transform,
+                            origin: Origin::TopLeft,
+                            ..default()
+                        },
+                    ));
+
+                    let text_translation = Vec3::new(
+                        icon_data.circle_radius + icon_data.circle_text_margin,
+                        0.,
+                        0.,
+                    );
                     parent.spawn((
                         Name::new("Text"),
                         Text2dBundle {
@@ -159,11 +176,7 @@ fn receive_results(
                             )
                             .with_justify(JustifyText::Left),
                             text_anchor: Anchor::CenterLeft,
-                            transform: Transform::from_translation(Vec3::new(
-                                circle_transform.scale.x / 2. + 5.,
-                                0.,
-                                0.,
-                            )),
+                            transform: Transform::from_translation(text_translation),
                             ..default()
                         },
                     ));
