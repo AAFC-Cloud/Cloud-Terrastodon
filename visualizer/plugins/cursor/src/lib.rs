@@ -52,7 +52,7 @@ fn setup(mut commands: Commands) {
         .spawn((
             Cursor,
             RigidBody::Kinematic,
-            Collider::circle(1.0),
+            Collider::circle(25.0),
             Sensor,
             Name::new("Cursor"),
             SpatialBundle::default(),
