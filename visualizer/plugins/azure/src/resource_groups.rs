@@ -17,6 +17,7 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
+use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
 
 pub struct ResourceGroupsPlugin;
@@ -25,7 +26,6 @@ impl Plugin for ResourceGroupsPlugin {
         info!("Building ResourceGroupsPlugin");
         app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
-        app.add_systems(Update, rg_added);
         app.register_type::<AzureResourceGroup>();
         app.register_type::<ResourceGroupIconData>();
         app.init_resource::<ResourceGroupIconData>();
@@ -157,7 +157,7 @@ fn receive_results(
                     let text_translation = Vec3::new(
                         icon_data.circle_radius + icon_data.circle_text_margin,
                         0.,
-                        0.,
+                        5.,
                     );
                     parent.spawn((
                         Name::new("Text"),
@@ -174,16 +174,9 @@ fn receive_results(
                             transform: Transform::from_translation(text_translation),
                             ..default()
                         },
+                        OnlyShowWhenHovered,
                     ));
                 });
         }
-    }
-}
-
-fn rg_added(
-    added_resource_groups: Query<(Entity, &AzureResourceGroup), Added<AzureResourceGroup>>,
-) {
-    for (entity, rg) in added_resource_groups.iter() {
-        debug!("NEW RESOURCE GROUP DETECTED {:?} {:?}", entity, rg);
     }
 }

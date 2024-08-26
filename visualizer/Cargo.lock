@@ -1692,6 +1692,7 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_svg",
+ "cloud_terrastodon_visualizer_cursor_plugin",
  "cloud_terrastodon_visualizer_damping_plugin",
  "crossbeam-channel",
  "itertools 0.12.1",

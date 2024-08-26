@@ -162,7 +162,7 @@ fn receive_results(
                     let text_translation = Vec3::new(
                         icon_data.circle_radius + icon_data.circle_text_margin,
                         0.,
-                        0.,
+                        5.,
                     );
                     parent.spawn((
                         Name::new("Text"),
