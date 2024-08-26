@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use crate::az_cli::AzureCliEvent;
+use crate::bais_towards_origin::BiasTowardsOrigin;
 use crate::scope::AzureScope;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
@@ -125,6 +126,7 @@ fn receive_results(
                     CustomLinearDamping::default(),
                     RigidBody::Dynamic,
                     Collider::circle(icon_data.circle_radius),
+                    BiasTowardsOrigin,
                 ))
                 .with_children(|parent| {
                     let circle_scale = Vec2::splat(icon_data.circle_radius).extend(1.);

@@ -54,6 +54,6 @@ fn attract(
         let (mut grabbed_velocity, grabbed_position) = grabbed;
         // attract towards cursor position
         let error = cursor_position.0 - grabbed_position.0;
-        grabbed_velocity.0 = error * 2.;
+        grabbed_velocity.0 = error * 5.;
     }
 }

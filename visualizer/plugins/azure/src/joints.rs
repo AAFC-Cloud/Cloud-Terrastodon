@@ -5,14 +5,34 @@ use avian2d::prelude::DistanceJoint;
 use avian2d::prelude::Joint;
 use bevy::color::palettes::css::RED;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 
 pub struct JointsPlugin;
 impl Plugin for JointsPlugin {
     fn build(&self, app: &mut App) {
         app.observe(on_resource_group_added);
+        app.init_gizmo_group::<MyJointGizmos>();
         app.observe(on_subscription_added);
+        app.add_systems(Startup, configure_gizmos);
         app.add_systems(Update, draw_joints);
     }
+}
+
+// We can create our own gizmo config group!
+#[derive(Default, Reflect, GizmoConfigGroup)]
+struct MyJointGizmos {}
+
+fn configure_gizmos(
+    mut config_store: ResMut<GizmoConfigStore>,
+) {
+    // Gizmos and sprites: How can I draw a SpriteBundle on top of a Gizmo?
+    // https://github.com/bevyengine/bevy/discussions/11601
+
+    // Gizmos always draw on 2d sprites, z value and depth_bias neither works 
+    // https://github.com/bevyengine/bevy/issues/13027
+    
+    let (config, _) = config_store.config_mut::<MyJointGizmos>();
+    config.render_layers = RenderLayers::layer(1);
 }
 
 fn on_resource_group_added(
@@ -73,7 +93,7 @@ fn create_joint(commands: &mut Commands, subscription: Entity, resource_group: E
 }
 
 fn draw_joints(
-    mut gizmos: Gizmos,
+    mut gizmos: Gizmos<MyJointGizmos>,
     transform_query: Query<&Transform>,
     joint_query: Query<&DistanceJoint>,
     resource_group_query: Query<&AzureResourceGroup>,

@@ -24,6 +24,7 @@ fn main() {
             wgpu=error
             cloud_terrastodon=debug
             cloud_terrastodon_visualizer=debug
+            cloud_terrastodon_visualizer_cursor_plugin::cursor_hover_plugin=error
         "
         .lines()
         .map(|line| line.trim())

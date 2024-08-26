@@ -5,6 +5,7 @@ mod resource_groups;
 mod scope;
 mod subscriptions;
 mod upright;
+mod bais_towards_origin;
 
 use az_cli::AzureCliPlugin;
 use bevy::prelude::*;
@@ -13,6 +14,7 @@ use resource_groups::ResourceGroupsPlugin;
 use scope::ScopePlugin;
 use subscriptions::SubscriptionsPlugin;
 use upright::UprightPlugin;
+use bais_towards_origin::BiasPlugin;
 
 pub struct AzurePlugin;
 impl Plugin for AzurePlugin {
@@ -23,5 +25,6 @@ impl Plugin for AzurePlugin {
         app.add_plugins(ScopePlugin);
         app.add_plugins(JointsPlugin);
         app.add_plugins(UprightPlugin);
+        app.add_plugins(BiasPlugin);
     }
 }

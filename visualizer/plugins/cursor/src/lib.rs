@@ -1,5 +1,5 @@
-mod cursor_hover_plugin;
 mod cursor_grab_plugin;
+mod cursor_hover_plugin;
 
 use avian2d::prelude::Collider;
 use avian2d::prelude::Position;
@@ -7,6 +7,7 @@ use avian2d::prelude::RigidBody;
 use avian2d::prelude::Sensor;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use cloud_terrastodon_visualizer_camera_plugin::PrimaryCamera;
 use cursor_grab_plugin::CursorGrabPlugin;
 use cursor_hover_plugin::CursorHoverPlugin;
 use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -16,9 +17,9 @@ use leafwing_input_manager::InputControlKind;
 use leafwing_input_manager::InputManagerBundle;
 
 pub mod prelude {
-    pub use crate::*;
     pub use crate::cursor_grab_plugin::*;
     pub use crate::cursor_hover_plugin::*;
+    pub use crate::*;
 }
 
 pub struct CursorPlugin;
@@ -40,17 +41,21 @@ pub struct Cursor;
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug, Reflect)]
 pub enum CursorAction {
     Grab,
+    ToggleAltInfo,
 }
 impl Actionlike for CursorAction {
     fn input_control_kind(&self) -> InputControlKind {
         match self {
             CursorAction::Grab => InputControlKind::Button,
+            CursorAction::ToggleAltInfo => InputControlKind::Button,
         }
     }
 }
 
 fn setup(mut commands: Commands) {
-    let input_map = InputMap::default().with(CursorAction::Grab, MouseButton::Left);
+    let input_map = InputMap::default()
+        .with(CursorAction::Grab, MouseButton::Left)
+        .with(CursorAction::ToggleAltInfo, KeyCode::AltLeft);
 
     commands
         .spawn((
@@ -67,7 +72,7 @@ fn setup(mut commands: Commands) {
 fn update_cursor(
     mut cursor_query: Query<&mut Position, With<Cursor>>,
     window: Query<&Window, With<PrimaryWindow>>,
-    camera: Query<(&Camera, &GlobalTransform)>,
+    camera: Query<(&Camera, &GlobalTransform), With<PrimaryCamera>>,
 ) {
     let Ok((camera, camera_transform)) = camera.get_single() else {
         warn!("There wasn't exactly 1 camera found!");

@@ -1,6 +1,11 @@
+use avian2d::prelude::Collider;
+use avian2d::prelude::FixedJoint;
+use avian2d::prelude::Joint;
 use avian2d::prelude::LinearVelocity;
+use avian2d::prelude::MassPropertiesBundle;
 use avian2d::prelude::RigidBody;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 use bevy::window::PrimaryWindow;
 use bevy_egui::EguiContext;
 use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
@@ -25,6 +30,11 @@ impl Plugin for MyCameraPlugin {
         app.add_systems(Update, pan_camera);
     }
 }
+
+#[derive(Component, Debug)]
+pub struct PrimaryCamera;
+#[derive(Component, Debug)]
+pub struct JointGizmosCamera;
 
 #[derive(Component, Debug)]
 pub struct CameraMotion {
@@ -64,31 +74,82 @@ impl Actionlike for CameraAction {
     }
 }
 
+pub enum MyRenderLayers {
+    Primary,
+    JointGizmos
+}
+impl MyRenderLayers {
+    pub fn layer(self) -> RenderLayers {
+        self.into()
+    } 
+}
+impl From<MyRenderLayers> for RenderLayers {
+    fn from(value: MyRenderLayers) -> Self {
+        match value {
+            MyRenderLayers::Primary => RenderLayers::layer(1),
+            MyRenderLayers::JointGizmos => RenderLayers::layer(0),
+        }
+    }
+}
+
 fn setup(mut commands: Commands) {
     let input_map = InputMap::default()
         .with_axis(CameraAction::Zoom, MouseScrollAxis::Y)
         .with_dual_axis(CameraAction::Pan, KeyboardVirtualDPad::WASD)
         .with(CameraAction::Sprint, KeyCode::ShiftLeft);
-    commands
+    
+    let primary_camera_id = commands
         .spawn((
-            Camera2dBundle::default(),
+            Camera2dBundle {
+                camera: Camera {
+                    order: 0,
+                    ..default()
+                },
+                ..default()
+            },
             CameraMotion::default(),
             RigidBody::Kinematic,
             LinearVelocity::default(),
             CustomLinearDamping::default(),
+            PrimaryCamera,
+            MyRenderLayers::Primary.layer(),
+            Name::new("Primary Camera"),
         ))
-        .insert(InputManagerBundle::with_map(input_map));
+        .insert(InputManagerBundle::with_map(input_map))
+        .id();
+
+    let joint_gizmos_camera_id = commands.spawn((
+        Camera2dBundle {
+            camera: Camera {
+                order: 1,
+                ..default()
+            },
+            ..default()
+        },
+        JointGizmosCamera,
+        MyRenderLayers::JointGizmos.layer(),
+        RigidBody::Dynamic,
+        MassPropertiesBundle::new_computed(&Collider::rectangle(1.,1.), 1.0),
+        Name::new("Joint Gizmos Camera"),
+    )).id();
+    
+    commands.spawn(FixedJoint::new(
+        primary_camera_id,
+        joint_gizmos_camera_id
+    ));
+
 }
 
 fn zoom_camera(
-    mut query: Query<
+    mut primary_camera_query: Query<
         (
             &mut OrthographicProjection,
             &ActionState<CameraAction>,
             &mut CameraMotion,
         ),
-        With<Camera2d>,
+        With<PrimaryCamera>,
     >,
+    mut other_camera_query: Query<&mut OrthographicProjection, (With<Camera>, Without<PrimaryCamera>)>,
     egui_context_query: Query<&EguiContext, With<PrimaryWindow>>,
 ) {
     let egui_wants_pointer = egui_context_query
@@ -104,15 +165,21 @@ fn zoom_camera(
         return;
     }
 
-    let camera = query.single_mut();
-    let (mut camera_projection, action_state, mut camera_motion) = camera;
+    // update primary camera
+    let camera = primary_camera_query.single_mut();
+    let (mut primary_camera_projection, action_state, mut camera_motion) = camera;
     if action_state.just_pressed(&CameraAction::Sprint) {
         camera_motion.zoom_speed = camera_motion.zoom_speed_when_sprinting;
     } else if action_state.just_released(&CameraAction::Sprint) {
         camera_motion.zoom_speed = camera_motion.zoom_speed_default;
     }
     let zoom_delta = action_state.value(&CameraAction::Zoom);
-    camera_projection.scale *= 1. - zoom_delta * camera_motion.zoom_speed;
+    primary_camera_projection.scale *= 1. - zoom_delta * camera_motion.zoom_speed;
+
+    // update other cameras to match
+    for mut other_camera_projection in other_camera_query.iter_mut() {
+        other_camera_projection.scale = primary_camera_projection.scale;
+    }
 }
 
 fn pan_camera(
@@ -122,7 +189,7 @@ fn pan_camera(
             &mut CameraMotion,
             &mut LinearVelocity,
         ),
-        With<Camera2d>,
+        With<PrimaryCamera>,
     >,
 ) {
     let Ok(camera) = query.get_single_mut() else {

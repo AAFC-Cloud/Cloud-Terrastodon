@@ -1,8 +1,10 @@
 use avian2d::prelude::CollidingEntities;
 use bevy::prelude::*;
+use leafwing_input_manager::prelude::ActionState;
 use std::collections::HashSet;
 
 use crate::Cursor;
+use crate::CursorAction;
 
 pub struct CursorHoverPlugin;
 
@@ -12,6 +14,7 @@ impl Plugin for CursorHoverPlugin {
         app.register_type::<DirectHovered>();
         app.add_systems(Update, hover);
         app.add_systems(Update, unhover);
+        app.add_systems(Update, show_alt_info);
         app.observe(hover_insert_propagate);
         app.observe(hover_remove_propagate);
         app.observe(show_when_hovered);
@@ -136,4 +139,25 @@ fn hide_when_not_hovered_init(
     let mut visibility = thing;
     *visibility = Visibility::Hidden;
     info!("Set initial {} to {:?}",trigger.entity(), visibility);
+}
+
+fn show_alt_info(
+    action_query: Query<&ActionState<CursorAction>>,
+    mut query: Query<&mut Visibility, With<OnlyShowWhenHovered>>,
+    mut toggle: Local<bool>,
+) {
+    let Ok(action_state) = action_query.get_single() else {
+        warn!("Could not find action state for alt info");
+        return;
+    };
+    if action_state.just_pressed(&CursorAction::ToggleAltInfo) {
+        *toggle ^= true;
+        let new_visibility = match *toggle {
+            false => Visibility::Hidden,
+            true => Visibility::Inherited,
+        };
+        for mut thing in query.iter_mut() {
+            *thing = new_visibility;
+        }
+    }
 }
