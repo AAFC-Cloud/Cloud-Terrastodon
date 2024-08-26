@@ -65,10 +65,10 @@ fn create_joint(commands: &mut Commands, subscription: Entity, resource_group: E
         DistanceJoint::new(anchor, object)
             .with_local_anchor_1(Vector::ZERO)
             .with_local_anchor_2(Vector::ZERO)
-            .with_rest_length(1000.0)
-            .with_linear_velocity_damping(0.1)
-            .with_angular_velocity_damping(1.0)
-            .with_compliance(0.00000001),
+            .with_rest_length(500.0)
+            .with_linear_velocity_damping(0.05) // Reduced damping for more springiness
+            .with_angular_velocity_damping(0.5) // Reduced angular damping
+            .with_compliance(0.00001), // Increased compliance for more flexibility
     );
 }
 
