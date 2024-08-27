@@ -22,6 +22,7 @@ clap = { workspace = true }
 humantime = { workspace = true }
 opener = { workspace = true }
 async-recursion = { workspace = true }
+config = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }

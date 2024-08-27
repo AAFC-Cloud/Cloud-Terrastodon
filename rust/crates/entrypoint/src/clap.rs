@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::fs::canonicalize;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -10,11 +11,13 @@ use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use crate::prelude::Version;
+use anyhow::Context;
 use anyhow::Result;
 use clap::CommandFactory;
 use clap::FromArgMatches;
 use clap::Parser;
 use clap::Subcommand;
+use config::Config;
 use pathing::AppDir;
 use tokio::io::stdout;
 use tokio::io::AsyncWriteExt;
@@ -32,6 +35,7 @@ enum Commands {
     PerformCodeGenerationFromImports,
     GetPath { dir: AppDir },
     CopyResults { dest: PathBuf },
+    AddScanDir { dir: PathBuf },
 }
 
 pub async fn main(version: Version) -> Result<()> {
@@ -64,6 +68,15 @@ pub async fn main(version: Version) -> Result<()> {
                 out.write_all(dir.as_path_buf().as_os_str().as_encoded_bytes())
                     .await?;
                 out.flush().await?;
+            }
+            Commands::AddScanDir { mut dir } => {
+                if !dir.is_absolute() {
+                    dir = canonicalize(&dir)
+                        .context(format!("failed to make path absolute: {}", dir.display()))?;
+                }
+                Config::modify_and_save_active_config(|config| {
+                    config.scan_dirs.insert(dir);
+                })?;
             }
             Commands::CopyResults { dest } => {
                 // from https://stackoverflow.com/a/78769977/11141271

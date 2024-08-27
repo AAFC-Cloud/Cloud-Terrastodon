@@ -48,14 +48,14 @@ pub enum CommandKind {
 pub const USE_TERRAFORM_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TERRAFORM";
 
 impl CommandKind {
-    fn program(&self) -> &str {
+    fn program(&self) -> String {
         match self {
-            CommandKind::AzureCLI => Config::get_active_config().commands.azure_cli.as_ref(),
+            CommandKind::AzureCLI => Config::get_active_config().commands.azure_cli.to_owned(),
             CommandKind::Tofu => match env::var(USE_TERRAFORM_FLAG_KEY) {
-                Err(_) => Config::get_active_config().commands.tofu.as_ref(),
-                Ok(_) => Config::get_active_config().commands.terraform.as_ref(),
+                Err(_) => Config::get_active_config().commands.tofu.to_owned(),
+                Ok(_) => Config::get_active_config().commands.terraform.to_owned(),
             },
-            CommandKind::VSCode => Config::get_active_config().commands.vscode.as_ref(),
+            CommandKind::VSCode => Config::get_active_config().commands.vscode.to_owned(),
         }
     }
     async fn apply_args_and_envs(

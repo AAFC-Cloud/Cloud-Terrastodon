@@ -5,28 +5,58 @@ use once_cell::sync::Lazy;
 use pathing::AppDir;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tracing::debug;
 use tracing::error;
 use tracing::warn;
 
-static CONFIG: Lazy<Config> = Lazy::new(get_or_create_config);
+static CONFIG: Lazy<Mutex<Config>> = Lazy::new(|| Mutex::new(get_or_create_config()));
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, Eq, PartialEq)]
 pub struct Config {
     pub commands: CommandsConfig,
-    pub scan_folders: Vec<PathBuf>,
+    pub scan_dirs: HashSet<PathBuf>,
 }
 impl Config {
-    pub fn get_active_config() -> &'static Self {
-        &CONFIG
+    pub fn get_config_path() -> PathBuf {
+        let config_dir = AppDir::Config.as_path_buf();
+        let config_path = config_dir.join("config.json");
+        config_path
+    }
+    pub fn get_active_config() -> std::sync::MutexGuard<'static, Config> {
+        CONFIG.lock().expect("Failed to lock the CONFIG mutex")
+    }
+    pub fn modify_and_save_active_config<F>(modifier: F) -> Result<()>
+    where
+        F: FnOnce(&mut Config),
+    {
+        let mut config = Config::get_active_config();
+
+        // Capture the original state to compare later
+        let original_config = (*config).clone();
+
+        // Apply the modification closure
+        modifier(&mut config);
+
+        // Check if the config was modified
+        if *config != original_config {
+            // Save the modified config to disk
+            write_config_to_disk(&config, &Config::get_config_path())?;
+            debug!("Config was modified and saved to disk.");
+        } else {
+            debug!("Config was not modified, no need to save.");
+        }
+
+        Ok(())
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq, Clone)]
 pub struct CommandsConfig {
     pub azure_cli: String,
     pub tofu: String,
@@ -44,7 +74,7 @@ impl Default for Config {
                 terraform: "terraform.exe".to_string(),
                 vscode: "code.cmd".to_string(),
             },
-            scan_folders: Default::default(),
+            scan_dirs: [AppDir::Processed.as_path_buf()].into(),
         }
     }
     #[cfg(not(windows))]
@@ -56,14 +86,13 @@ impl Default for Config {
                 terraform: "terraform".to_string(),
                 vscode: "code".to_string(),
             },
-            scan_folders: Default::default(),
+            scan_folders: [AppDir::Processed.as_path_buf()].into(),
         }
     }
 }
 
 fn get_or_create_config() -> Config {
-    let config_dir = AppDir::Config.as_path_buf();
-    let config_path = config_dir.join("config.json");
+    let config_path = Config::get_config_path();
     match load_config_from_disk(&config_path) {
         Ok(config) => config,
         Err(e) => {
@@ -77,7 +106,7 @@ fn get_or_create_config() -> Config {
                     error!("Failed to backup existing config! {:?}", e);
                 }
             }
-        
+
             let config = Config::default();
             if let Err(e) = write_config_to_disk(&config, &config_path) {
                 error!("Failed to write default config to disk! {:?}", e);
