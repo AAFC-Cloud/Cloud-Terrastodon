@@ -76,12 +76,12 @@ impl Actionlike for CameraAction {
 
 pub enum MyRenderLayers {
     Primary,
-    JointGizmos
+    JointGizmos,
 }
 impl MyRenderLayers {
     pub fn layer(self) -> RenderLayers {
         self.into()
-    } 
+    }
 }
 impl From<MyRenderLayers> for RenderLayers {
     fn from(value: MyRenderLayers) -> Self {
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands) {
         .with_axis(CameraAction::Zoom, MouseScrollAxis::Y)
         .with_dual_axis(CameraAction::Pan, KeyboardVirtualDPad::WASD)
         .with(CameraAction::Sprint, KeyCode::ShiftLeft);
-    
+
     let primary_camera_id = commands
         .spawn((
             Camera2dBundle {
@@ -118,26 +118,24 @@ fn setup(mut commands: Commands) {
         .insert(InputManagerBundle::with_map(input_map))
         .id();
 
-    let joint_gizmos_camera_id = commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                order: 1,
+    let joint_gizmos_camera_id = commands
+        .spawn((
+            Camera2dBundle {
+                camera: Camera {
+                    order: 1,
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        },
-        JointGizmosCamera,
-        MyRenderLayers::JointGizmos.layer(),
-        RigidBody::Dynamic,
-        MassPropertiesBundle::new_computed(&Collider::rectangle(1.,1.), 1.0),
-        Name::new("Joint Gizmos Camera"),
-    )).id();
-    
-    commands.spawn(FixedJoint::new(
-        primary_camera_id,
-        joint_gizmos_camera_id
-    ));
+            JointGizmosCamera,
+            MyRenderLayers::JointGizmos.layer(),
+            RigidBody::Dynamic,
+            MassPropertiesBundle::new_computed(&Collider::rectangle(1., 1.), 1.0),
+            Name::new("Joint Gizmos Camera"),
+        ))
+        .id();
 
+    commands.spawn(FixedJoint::new(primary_camera_id, joint_gizmos_camera_id));
 }
 
 fn zoom_camera(
@@ -149,7 +147,10 @@ fn zoom_camera(
         ),
         With<PrimaryCamera>,
     >,
-    mut other_camera_query: Query<&mut OrthographicProjection, (With<Camera>, Without<PrimaryCamera>)>,
+    mut other_camera_query: Query<
+        &mut OrthographicProjection,
+        (With<Camera>, Without<PrimaryCamera>),
+    >,
     egui_context_query: Query<&EguiContext, With<PrimaryWindow>>,
 ) {
     let egui_wants_pointer = egui_context_query

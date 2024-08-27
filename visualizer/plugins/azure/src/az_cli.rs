@@ -1,8 +1,8 @@
+use bevy::prelude::*;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_core_azure::prelude::ResourceGroup;
 use cloud_terrastodon_core_azure::prelude::Subscription;
-use bevy::prelude::*;
 use crossbeam_channel::bounded;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;

@@ -22,15 +22,13 @@ impl Plugin for JointsPlugin {
 #[derive(Default, Reflect, GizmoConfigGroup)]
 struct MyJointGizmos {}
 
-fn configure_gizmos(
-    mut config_store: ResMut<GizmoConfigStore>,
-) {
+fn configure_gizmos(mut config_store: ResMut<GizmoConfigStore>) {
     // Gizmos and sprites: How can I draw a SpriteBundle on top of a Gizmo?
     // https://github.com/bevyengine/bevy/discussions/11601
 
-    // Gizmos always draw on 2d sprites, z value and depth_bias neither works 
+    // Gizmos always draw on 2d sprites, z value and depth_bias neither works
     // https://github.com/bevyengine/bevy/issues/13027
-    
+
     let (config, _) = config_store.config_mut::<MyJointGizmos>();
     config.render_layers = RenderLayers::layer(1);
 }

@@ -1,9 +1,9 @@
-use cloud_terrastodon_core_azure::prelude::Scope;
-use cloud_terrastodon_core_azure::prelude::ScopeImpl;
-use cloud_terrastodon_core_azure::prelude::TestResourceId;
 use bevy::prelude::*;
 use bevy_inspector_egui::inspector_egui_impls::InspectorEguiImpl;
 use bevy_inspector_egui::inspector_egui_impls::InspectorPrimitive;
+use cloud_terrastodon_core_azure::prelude::Scope;
+use cloud_terrastodon_core_azure::prelude::ScopeImpl;
+use cloud_terrastodon_core_azure::prelude::TestResourceId;
 
 pub struct ScopePlugin;
 impl Plugin for ScopePlugin {

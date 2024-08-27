@@ -23,7 +23,6 @@ impl Plugin for CursorHoverPlugin {
     }
 }
 
-
 #[derive(Component, Debug, Reflect)]
 pub struct DirectHovered;
 #[derive(Component, Debug, Reflect)]
@@ -76,11 +75,14 @@ fn hover_insert_propagate(
     query: Query<&Children>,
 ) {
     let Ok(thing) = query.get(trigger.entity()) else {
-        warn!("Could not find entity {} for system hover_insert_propagate", trigger.entity());
+        warn!(
+            "Could not find entity {} for system hover_insert_propagate",
+            trigger.entity()
+        );
         return;
     };
     let children = thing;
-    for child in children {	
+    for child in children {
         commands.entity(*child).insert(Hovered);
         info!("Propagated hover to {child}");
     }
@@ -92,7 +94,10 @@ fn hover_remove_propagate(
     query: Query<&Children>,
 ) {
     let Ok(thing) = query.get(trigger.entity()) else {
-        warn!("Could not find entity {} for system hover_remove_propagate", trigger.entity());
+        warn!(
+            "Could not find entity {} for system hover_remove_propagate",
+            trigger.entity()
+        );
         return;
     };
     let children = thing;
@@ -107,12 +112,15 @@ fn show_when_hovered(
     mut query: Query<&mut Visibility, With<OnlyShowWhenHovered>>,
 ) {
     let Ok(thing) = query.get_mut(trigger.entity()) else {
-        warn!("Could not find entity {} for system show_when_hovered", trigger.entity());
+        warn!(
+            "Could not find entity {} for system show_when_hovered",
+            trigger.entity()
+        );
         return;
     };
     let mut visibility = thing;
     *visibility = Visibility::Inherited;
-    info!("Set {} to {:?}",trigger.entity(), visibility);
+    info!("Set {} to {:?}", trigger.entity(), visibility);
 }
 
 fn hide_when_not_hovered(
@@ -120,12 +128,15 @@ fn hide_when_not_hovered(
     mut query: Query<&mut Visibility, With<OnlyShowWhenHovered>>,
 ) {
     let Ok(thing) = query.get_mut(trigger.entity()) else {
-        warn!("Could not find entity {} for system hide_when_not_hovered", trigger.entity());
+        warn!(
+            "Could not find entity {} for system hide_when_not_hovered",
+            trigger.entity()
+        );
         return;
     };
     let mut visibility = thing;
     *visibility = Visibility::Hidden;
-    info!("Set {} to {:?}",trigger.entity(), visibility);
+    info!("Set {} to {:?}", trigger.entity(), visibility);
 }
 
 fn hide_when_not_hovered_init(
@@ -133,12 +144,15 @@ fn hide_when_not_hovered_init(
     mut query: Query<&mut Visibility>,
 ) {
     let Ok(thing) = query.get_mut(trigger.entity()) else {
-        warn!("Could not find entity {} for system hide_when_not_hovered_init", trigger.entity());
+        warn!(
+            "Could not find entity {} for system hide_when_not_hovered_init",
+            trigger.entity()
+        );
         return;
     };
     let mut visibility = thing;
     *visibility = Visibility::Hidden;
-    info!("Set initial {} to {:?}",trigger.entity(), visibility);
+    info!("Set initial {} to {:?}", trigger.entity(), visibility);
 }
 
 fn show_alt_info(

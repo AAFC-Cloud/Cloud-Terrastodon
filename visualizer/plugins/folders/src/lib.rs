@@ -12,8 +12,6 @@ impl Plugin for FoldersPlugin {
 #[derive(Component, Reflect, Debug)]
 pub struct Folder;
 
-fn setup(
-    mut commands: Commands,
-) {
+fn setup(mut commands: Commands) {
     // get
 }

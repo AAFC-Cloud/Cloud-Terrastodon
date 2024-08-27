@@ -1,6 +1,6 @@
 use avian2d::prelude::LinearVelocity;
-use bevy::prelude::*;
 use avian2d::prelude::Sleeping;
+use bevy::prelude::*;
 
 pub struct DampingPlugin;
 
@@ -29,7 +29,12 @@ fn apply(mut damping_query: Query<(&mut LinearVelocity, &CustomLinearDamping), W
     for thing in damping_query.iter_mut() {
         let (mut thing_velocity, thing_damping) = thing;
         thing_velocity.0 *= thing_damping.retention_factor;
-        if thing_velocity.0.abs().cmple(Vec2::splat(thing_damping.rest_threshold)).all() {
+        if thing_velocity
+            .0
+            .abs()
+            .cmple(Vec2::splat(thing_damping.rest_threshold))
+            .all()
+        {
             thing_velocity.0 = Vec2::ZERO;
         }
     }

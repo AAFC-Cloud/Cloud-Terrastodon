@@ -1,22 +1,22 @@
 #![feature(trivial_bounds)]
 mod az_cli;
+mod bias_towards_origin;
 mod joints;
+mod layout;
 mod resource_groups;
 mod scope;
 mod subscriptions;
 mod upright;
-mod bias_towards_origin;
-mod layout;
 
 use az_cli::AzureCliPlugin;
 use bevy::prelude::*;
+use bias_towards_origin::BiasPlugin;
 use joints::JointsPlugin;
+use layout::LayoutPlugin;
 use resource_groups::ResourceGroupsPlugin;
 use scope::ScopePlugin;
 use subscriptions::SubscriptionsPlugin;
 use upright::UprightPlugin;
-use bias_towards_origin::BiasPlugin;
-use layout::LayoutPlugin;
 
 pub struct AzurePlugin;
 impl Plugin for AzurePlugin {

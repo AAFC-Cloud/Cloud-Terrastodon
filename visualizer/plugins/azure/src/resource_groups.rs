@@ -1,14 +1,8 @@
-use std::ops::Deref;
 use crate::az_cli::AzureCliEvent;
 use crate::bias_towards_origin::BiasTowardsOrigin;
 use crate::scope::AzureScope;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
-use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
-use cloud_terrastodon_core_azure::prelude::ResourceGroup;
-use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
-use cloud_terrastodon_core_azure::prelude::Scope;
-use cloud_terrastodon_core_azure::prelude::SubscriptionId;
 use bevy::color::palettes::css::BLACK;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -17,8 +11,14 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
+use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
+use cloud_terrastodon_core_azure::prelude::ResourceGroup;
+use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
+use cloud_terrastodon_core_azure::prelude::Scope;
+use cloud_terrastodon_core_azure::prelude::SubscriptionId;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
+use std::ops::Deref;
 
 pub struct ResourceGroupsPlugin;
 impl Plugin for ResourceGroupsPlugin {
