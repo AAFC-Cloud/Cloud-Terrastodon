@@ -8,17 +8,17 @@ use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromResourceGroupScoped;
 use anyhow::Result;
+use cloud_terrasotodon_core_tofu_types::prelude::Sanitizable;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuImportBlock;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuProviderReference;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceReference;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;
-use cloud_terrasotodon_core_tofu_types::prelude::Sanitizable;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuImportBlock;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuProviderReference;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceReference;
 
 pub const STORAGE_ACCOUNT_ID_PREFIX: &str = "/providers/Microsoft.Storage/storageAccounts/";
 

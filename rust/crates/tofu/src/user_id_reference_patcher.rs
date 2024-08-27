@@ -1,6 +1,10 @@
 use anyhow::Result;
 use cloud_terrasotodon_core_azure::prelude::uuid::Uuid;
+use cloud_terrasotodon_core_tofu_types::prelude::AsTofuString;
 use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureADResourceKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuDataBlock;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TryAsTofuBlocks;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
 use hcl::edit::structure::Body;
@@ -10,10 +14,6 @@ use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::Decorate;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use cloud_terrasotodon_core_tofu_types::prelude::AsTofuString;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuDataBlock;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceKind;
-use cloud_terrasotodon_core_tofu_types::prelude::TryAsTofuBlocks;
 
 pub struct UserIdReferencePatcher {
     pub user_principal_name_by_user_id: HashMap<Uuid, String>,
@@ -67,9 +67,7 @@ impl VisitMut for UserIdReferencePatcher {
             .first()
             .map(|x| x.as_str())
             .and_then(|x| x.parse::<TofuResourceKind>().ok())
-            == Some(TofuResourceKind::AzureAD(
-                TofuAzureADResourceKind::Group,
-            ))
+            == Some(TofuResourceKind::AzureAD(TofuAzureADResourceKind::Group))
         {
             for key in ["owners", "members"] {
                 if let Some(ref mut attr) = node.body.get_attribute_mut(key)

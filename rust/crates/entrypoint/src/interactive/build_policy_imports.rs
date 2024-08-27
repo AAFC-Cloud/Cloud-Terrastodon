@@ -5,10 +5,10 @@ use cloud_terrasotodon_core_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrasotodon_core_azure::prelude::fetch_all_policy_set_definitions;
 use cloud_terrasotodon_core_azure::prelude::PolicyAssignment;
 use cloud_terrasotodon_core_pathing::AppDir;
-use std::collections::HashSet;
 use cloud_terrasotodon_core_tofu::prelude::Sanitizable;
 use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
+use std::collections::HashSet;
 
 pub async fn build_policy_imports() -> Result<()> {
     let policy_definitions = fetch_all_policy_definitions().await?;

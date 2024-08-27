@@ -8,14 +8,14 @@ use cloud_terrasotodon_core_azure::prelude::Subscription;
 use cloud_terrasotodon_core_azure::prelude::SubscriptionId;
 use cloud_terrasotodon_core_azure::prelude::SubscriptionScoped;
 use cloud_terrasotodon_core_pathing::AppDir;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use cloud_terrasotodon_core_tofu::prelude::Sanitizable;
 use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrasotodon_core_tofu::prelude::TofuProviderBlock;
 use cloud_terrasotodon_core_tofu::prelude::TofuProviderKind;
 use cloud_terrasotodon_core_tofu::prelude::TofuProviderReference;
 use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use tracing::info;
 
 pub async fn write_imports_for_all_role_assignments() -> Result<()> {
@@ -34,15 +34,9 @@ pub async fn write_imports_for_all_role_assignments() -> Result<()> {
         let subscription_id = match &ra.id {
             RoleAssignmentId::Unscoped(_) => None,
             RoleAssignmentId::ManagementGroupScoped(_) => None,
-            RoleAssignmentId::SubscriptionScoped(id) => {
-                Some(id.subscription_id().to_owned())
-            }
-            RoleAssignmentId::ResourceGroupScoped(id) => {
-                Some(id.subscription_id().to_owned())
-            }
-            RoleAssignmentId::ResourceScoped(id) => {
-                Some(id.subscription_id().to_owned())
-            }
+            RoleAssignmentId::SubscriptionScoped(id) => Some(id.subscription_id().to_owned()),
+            RoleAssignmentId::ResourceGroupScoped(id) => Some(id.subscription_id().to_owned()),
+            RoleAssignmentId::ResourceScoped(id) => Some(id.subscription_id().to_owned()),
         };
 
         if let Some(subscription_id) = subscription_id {

@@ -3,10 +3,10 @@ use anyhow::Result;
 use cloud_terrasotodon_core_azure::prelude::fetch_groups;
 use cloud_terrasotodon_core_fzf::pick_many;
 use cloud_terrasotodon_core_fzf::FzfArgs;
-use itertools::Itertools;
 use cloud_terrasotodon_core_pathing::AppDir;
 use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
+use itertools::Itertools;
 use tracing::info;
 
 pub async fn build_group_imports() -> Result<()> {

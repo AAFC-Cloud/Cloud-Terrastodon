@@ -8,12 +8,12 @@ use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
 use cloud_terrasotodon_core_fzf::pick;
 use cloud_terrasotodon_core_fzf::Choice;
 use cloud_terrasotodon_core_fzf::FzfArgs;
+use cloud_terrasotodon_core_tofu_types::prelude::Sanitizable;
 use indoc::formatdoc;
 use itertools::Itertools;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::time::Duration;
-use cloud_terrasotodon_core_tofu_types::prelude::Sanitizable;
 use tracing::info;
 
 pub async fn evaluate_policy_assignment_compliance() -> Result<()> {

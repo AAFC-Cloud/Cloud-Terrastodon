@@ -5,13 +5,13 @@ use cloud_terrasotodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrasotodon_core_azure::prelude::Subscription;
 use cloud_terrasotodon_core_azure::prelude::SubscriptionId;
 use cloud_terrasotodon_core_pathing::AppDir;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use cloud_terrasotodon_core_tofu::prelude::Sanitizable;
 use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrasotodon_core_tofu::prelude::TofuProviderKind;
 use cloud_terrasotodon_core_tofu::prelude::TofuProviderReference;
 use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use tracing::info;
 
 pub async fn write_imports_for_all_resource_groups() -> Result<()> {

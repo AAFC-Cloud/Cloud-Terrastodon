@@ -1,14 +1,14 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use cloud_terrasotodon_core_azure::prelude::fetch_all_role_assignments;
-use itertools::Itertools;
 use cloud_terrasotodon_core_pathing::AppDir;
-use std::collections::HashSet;
 use cloud_terrasotodon_core_tofu::prelude::Sanitizable;
 use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrasotodon_core_tofu::prelude::TofuProviderKind;
 use cloud_terrasotodon_core_tofu::prelude::TofuProviderReference;
 use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
+use itertools::Itertools;
+use std::collections::HashSet;
 use tracing::info;
 
 pub async fn build_role_assignment_imports() -> Result<()> {

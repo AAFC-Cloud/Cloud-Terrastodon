@@ -33,8 +33,8 @@ use anyhow::Result;
 use cloud_terrasotodon_core_azure::prelude::evaluate_policy_assignment_compliance;
 use cloud_terrasotodon_core_azure::prelude::remediate_policy_assignment;
 use cloud_terrasotodon_core_command::prelude::USE_TERRAFORM_FLAG_KEY;
-use itertools::Itertools;
 use cloud_terrasotodon_core_pathing::AppDir;
+use itertools::Itertools;
 use tokio::fs;
 #[derive(Debug)]
 pub enum MenuAction {

@@ -4,10 +4,10 @@ use anyhow::Result;
 use cloud_terrasotodon_core_command::prelude::CommandBuilder;
 use cloud_terrasotodon_core_command::prelude::CommandKind;
 use cloud_terrasotodon_core_command::prelude::OutputBehaviour;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuProviderBlock;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuProviderBlock;
 use tokio::fs;
 use tracing::info;
 

@@ -11,6 +11,11 @@ use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use anyhow::Result;
+use cloud_terrasotodon_core_tofu_types::prelude::Sanitizable;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuImportBlock;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuProviderReference;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceReference;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -18,11 +23,6 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;
 use std::collections::HashMap;
-use cloud_terrasotodon_core_tofu_types::prelude::Sanitizable;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuImportBlock;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuProviderReference;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceReference;
 
 pub const POLICY_DEFINITION_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyDefinitions/";

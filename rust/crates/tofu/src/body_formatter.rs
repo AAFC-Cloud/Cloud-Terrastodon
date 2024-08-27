@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use anyhow::Result;
+use cloud_terrasotodon_core_tofu_types::prelude::AsTofuString;
 use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
@@ -8,7 +9,6 @@ use hcl::edit::Decorate;
 use indoc::formatdoc;
 use itertools::Itertools;
 use std::collections::HashMap;
-use cloud_terrasotodon_core_tofu_types::prelude::AsTofuString;
 use tracing::error;
 
 #[derive(Default, Clone)]
