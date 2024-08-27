@@ -1,11 +1,13 @@
 [package]
-name = "command"
+name = "cloud_terrasotodon_core_command"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cloud_terrasotodon_core_pathing = { workspace = true }
+cloud_terrasotodon_core_config = { workspace = true }
 tokio = { workspace = true } 
 anyhow = { workspace = true } 
 serde = { workspace = true }
@@ -13,9 +15,4 @@ serde_json = { workspace = true }
 tempfile = { workspace = true }
 async-recursion = { workspace = true }
 tracing = { workspace = true }
-pathing = { workspace = true }
 chrono = { workspace = true }
-config = { workspace = true }
-
-[dev-dependencies]
-pathing = { workspace = true} 

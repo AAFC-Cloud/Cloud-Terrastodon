@@ -1,23 +1,23 @@
 [package]
-name = "tofu"
+name = "cloud_terrasotodon_core_tofu"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tofu_types = { workspace = true }
-azure = { workspace = true }
+cloud_terrasotodon_core_tofu_types = { workspace = true }
+cloud_terrasotodon_core_azure = { workspace = true }
+cloud_terrasotodon_core_command = { workspace = true }
+cloud_terrasotodon_core_pathing = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
-command = { workspace = true }
 itertools = { workspace = true }
 indoc = { workspace = true }
 hcl-rs = { workspace = true }
 serde_json = { workspace = true }
 indicatif = { workspace = true }
 tracing = { workspace = true }
-pathing = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

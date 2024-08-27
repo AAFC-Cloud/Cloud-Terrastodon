@@ -1,5 +1,5 @@
 use crate::import_lookup_holder::ImportLookupHolder;
-use azure::prelude::ScopeImpl;
+use cloud_terrasotodon_core_azure::prelude::ScopeImpl;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
 use hcl::edit::visit_mut::visit_attr_mut;

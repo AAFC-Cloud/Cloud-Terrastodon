@@ -1,12 +1,13 @@
 use crate::management_groups::fetch_root_management_group;
 use crate::resource_groups::fetch_all_resource_groups;
 use anyhow::Result;
-use azure_types::prelude::EligibleChildResource;
-use azure_types::prelude::HasScope;
-use azure_types::prelude::Scope;
-use command::prelude::CacheBehaviour;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
+use cloud_terrasotodon_core_azure_types::prelude::EligibleChildResource;
+use cloud_terrasotodon_core_azure_types::prelude::EligibleChildResourceKind;
+use cloud_terrasotodon_core_azure_types::prelude::HasScope;
+use cloud_terrasotodon_core_azure_types::prelude::Scope;
+use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -66,7 +67,7 @@ pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChil
         .into_iter()
         .map(|x| EligibleChildResource {
             name: x.name.to_owned(),
-            kind: azure_types::prelude::EligibleChildResourceKind::ResourceGroup,
+            kind: EligibleChildResourceKind::ResourceGroup,
             id: x.scope().as_scope(),
         });
     resource_containers.extend(rgs);
@@ -80,12 +81,12 @@ mod tests {
     use super::*;
     use crate::management_groups::fetch_root_management_group;
     use crate::subscriptions::fetch_all_subscriptions;
-    use azure_types::prelude::HasScope;
-    use azure_types::prelude::Scope;
-    use fzf::pick;
-    use fzf::pick_many;
-    use fzf::Choice;
-    use fzf::FzfArgs;
+    use cloud_terrasotodon_core_azure_types::prelude::HasScope;
+    use cloud_terrasotodon_core_azure_types::prelude::Scope;
+    use cloud_terrasotodon_core_fzf::pick;
+    use cloud_terrasotodon_core_fzf::pick_many;
+    use cloud_terrasotodon_core_fzf::Choice;
+    use cloud_terrasotodon_core_fzf::FzfArgs;
     use itertools::Itertools;
 
     #[test_log::test(tokio::test)]

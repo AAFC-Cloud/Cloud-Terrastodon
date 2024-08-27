@@ -1,13 +1,13 @@
 use crate::prelude::gather_from_subscriptions;
 use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
-use azure_types::prelude::RoleAssignment;
-use azure_types::prelude::Scope;
-use azure_types::prelude::Subscription;
-use azure_types::prelude::ThinRoleAssignment;
-use command::prelude::CacheBehaviour;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
+use cloud_terrasotodon_core_azure_types::prelude::RoleAssignment;
+use cloud_terrasotodon_core_azure_types::prelude::Scope;
+use cloud_terrasotodon_core_azure_types::prelude::Subscription;
+use cloud_terrasotodon_core_azure_types::prelude::ThinRoleAssignment;
+use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -61,9 +61,9 @@ mod tests {
     use std::any::type_name;
 
     use anyhow::bail;
-    use azure_types::prelude::RoleAssignmentId;
-    use azure_types::prelude::SubscriptionScoped;
-    use azure_types::prelude::SubscriptionScopedRoleAssignmentId;
+    use cloud_terrasotodon_core_azure_types::prelude::RoleAssignmentId;
+    use cloud_terrasotodon_core_azure_types::prelude::SubscriptionScoped;
+    use cloud_terrasotodon_core_azure_types::prelude::SubscriptionScopedRoleAssignmentId;
     use itertools::Itertools;
 
     use super::*;

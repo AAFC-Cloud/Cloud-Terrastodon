@@ -1,10 +1,10 @@
 use anyhow::Result;
-use fzf::pick_many;
-use fzf::Choice;
-use fzf::FzfArgs;
+use cloud_terrasotodon_core_fzf::pick_many;
+use cloud_terrasotodon_core_fzf::Choice;
+use cloud_terrasotodon_core_fzf::FzfArgs;
 use opener::open;
-use pathing::AppDir;
-use pathing::Existy;
+use cloud_terrasotodon_core_pathing::AppDir;
+use cloud_terrasotodon_core_pathing::Existy;
 use tokio::fs::try_exists;
 
 pub async fn open_dir() -> Result<()> {

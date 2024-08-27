@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::Result;
-use azure_types::prelude::StorageAccount;
-use command::prelude::CacheBehaviour;
+use cloud_terrasotodon_core_azure_types::prelude::StorageAccount;
+use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
 
 use crate::prelude::ResourceGraphHelper;
 

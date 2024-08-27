@@ -13,8 +13,8 @@ use serde::Serializer;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::str::FromStr;
-use tofu_types::prelude::Sanitizable;
-use tofu_types::prelude::TofuProviderBlock;
+use cloud_terrasotodon_core_tofu_types::prelude::Sanitizable;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuProviderBlock;
 use uuid::Uuid;
 
 pub const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";

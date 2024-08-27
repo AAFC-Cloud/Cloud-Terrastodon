@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pathing::AppDir;
+use cloud_terrasotodon_core_pathing::AppDir;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::info;

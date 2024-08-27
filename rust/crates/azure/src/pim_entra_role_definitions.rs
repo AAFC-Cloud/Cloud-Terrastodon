@@ -1,8 +1,8 @@
 use crate::management_groups::fetch_root_management_group;
 use anyhow::Result;
-use azure_types::prelude::PimEntraRoleDefinition;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
+use cloud_terrasotodon_core_azure_types::prelude::PimEntraRoleDefinition;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
 use serde::Deserialize;
 use std::path::PathBuf;
 

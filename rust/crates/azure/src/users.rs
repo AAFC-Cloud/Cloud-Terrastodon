@@ -1,7 +1,7 @@
 use anyhow::Result;
-use azure_types::prelude::User;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
+use cloud_terrasotodon_core_azure_types::prelude::User;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
 
 pub async fn fetch_all_users() -> Result<Vec<User>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);

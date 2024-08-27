@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use anyhow::Result;
-use azure_types::prelude::ManagementGroup;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
+use cloud_terrasotodon_core_azure_types::prelude::ManagementGroup;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;

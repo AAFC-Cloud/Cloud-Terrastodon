@@ -1,12 +1,12 @@
-use azure::prelude::uuid::Uuid;
+use cloud_terrasotodon_core_azure::prelude::uuid::Uuid;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;
 use hcl::edit::visit_mut::visit_block_mut;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::Decorate;
-use tofu_types::prelude::TofuAzureADResourceKind;
-use tofu_types::prelude::TofuAzureRMResourceKind;
-use tofu_types::prelude::TofuResourceKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureADResourceKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceKind;
 use tracing::warn;
 
 pub struct DefaultAttributeRemovalPatcher;

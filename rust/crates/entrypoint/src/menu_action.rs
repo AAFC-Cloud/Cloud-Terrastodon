@@ -30,11 +30,11 @@ use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use anyhow::Result;
-use azure::prelude::evaluate_policy_assignment_compliance;
-use azure::prelude::remediate_policy_assignment;
-use command::prelude::USE_TERRAFORM_FLAG_KEY;
+use cloud_terrasotodon_core_azure::prelude::evaluate_policy_assignment_compliance;
+use cloud_terrasotodon_core_azure::prelude::remediate_policy_assignment;
+use cloud_terrasotodon_core_command::prelude::USE_TERRAFORM_FLAG_KEY;
 use itertools::Itertools;
-use pathing::AppDir;
+use cloud_terrasotodon_core_pathing::AppDir;
 use tokio::fs;
 #[derive(Debug)]
 pub enum MenuAction {

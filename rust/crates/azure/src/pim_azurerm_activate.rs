@@ -1,12 +1,12 @@
 use anyhow::Result;
-use azure_types::prelude::uuid::Uuid;
-use azure_types::prelude::RoleAssignmentScheduleRequest;
-use azure_types::prelude::RoleDefinitionId;
-use azure_types::prelude::RoleEligibilityScheduleId;
-use azure_types::prelude::Scope;
-use command::prelude::CacheBehaviour;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
+use cloud_terrasotodon_core_azure_types::prelude::uuid::Uuid;
+use cloud_terrasotodon_core_azure_types::prelude::RoleAssignmentScheduleRequest;
+use cloud_terrasotodon_core_azure_types::prelude::RoleDefinitionId;
+use cloud_terrasotodon_core_azure_types::prelude::RoleEligibilityScheduleId;
+use cloud_terrasotodon_core_azure_types::prelude::Scope;
+use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
 use std::path::PathBuf;
 use std::time::Duration;
 

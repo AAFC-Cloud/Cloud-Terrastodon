@@ -1,26 +1,26 @@
 [package]
-name = "azure"
+name = "cloud_terrasotodon_core_azure"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cloud_terrasotodon_core_azure_types = { workspace = true }
+cloud_terrasotodon_core_command = { workspace = true }
+cloud_terrasotodon_core_fzf = { workspace = true }
+cloud_terrasotodon_core_tofu_types = { workspace = true }
+cloud_terrasotodon_core_pathing = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-fzf = { workspace = true }
 tempfile = { workspace = true }
-command = { workspace = true }
-tofu_types = { workspace = true }
-azure_types = { workspace = true }
 tracing = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
 rand = { workspace = true }
 indoc = { workspace = true }
-pathing = { workspace = true }
 humantime = { workspace = true }
 
 [dev-dependencies]

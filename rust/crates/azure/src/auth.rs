@@ -1,8 +1,8 @@
 use anyhow::Result;
-use azure_types::prelude::User;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
-use command::prelude::RetryBehaviour;
+use cloud_terrasotodon_core_azure_types::prelude::User;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
+use cloud_terrasotodon_core_command::prelude::RetryBehaviour;
 use tracing::warn;
 
 pub async fn fetch_current_user() -> Result<User> {

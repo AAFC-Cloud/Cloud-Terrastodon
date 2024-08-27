@@ -1,9 +1,9 @@
 use crate::read_line::read_line;
 use anyhow::anyhow;
 use anyhow::Result;
-use pathing::AppDir;
-use tofu::prelude::get_imports_from_existing;
-use tofu::prelude::TofuWriter;
+use cloud_terrasotodon_core_pathing::AppDir;
+use cloud_terrasotodon_core_tofu::prelude::get_imports_from_existing;
+use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
 
 pub async fn build_imports_from_existing() -> Result<()> {
     println!("Enter the path to the existing workspace:");

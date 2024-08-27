@@ -1,14 +1,15 @@
 use anyhow::Result;
-use command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
 use hcl::edit::structure::Body;
 use hcl::edit::Decorate;
 use std::path::Path;
-use tofu_types::prelude::TofuImportBlock;
-use tofu_types::prelude::TofuProviderReference;
-use tofu_types::prelude::TofuResourceReference;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuImportBlock;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuProviderReference;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceReference;
 
 pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<TofuImportBlock>> {
-    let body = CommandBuilder::new(command::prelude::CommandKind::Tofu)
+    let body = CommandBuilder::new(CommandKind::Tofu)
         .should_announce(true)
         .arg("show")
         .use_run_dir(path)

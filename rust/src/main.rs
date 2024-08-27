@@ -1,6 +1,7 @@
 #![feature(let_chains)]
 use anyhow::Result;
-use entrypoint::prelude::Version;
+use cloud_terrasotodon_core_entrypoint::prelude::main as entrypoint_main;
+use cloud_terrasotodon_core_entrypoint::prelude::Version;
 
 #[cfg(windows)]
 mod windows_ansi {
@@ -38,6 +39,6 @@ async fn main() -> Result<()> {
     let _ = windows_ansi::enable_ansi_support();
 
     // go to menu
-    entrypoint::prelude::main(Version::new(env!("CARGO_PKG_VERSION").to_string())).await?;
+    entrypoint_main(Version::new(env!("CARGO_PKG_VERSION").to_string())).await?;
     Ok(())
 }

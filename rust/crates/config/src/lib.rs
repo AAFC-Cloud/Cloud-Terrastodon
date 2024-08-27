@@ -2,7 +2,7 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use once_cell::sync::Lazy;
-use pathing::AppDir;
+use cloud_terrasotodon_core_pathing::AppDir;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;

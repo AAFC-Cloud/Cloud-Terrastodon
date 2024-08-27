@@ -1,13 +1,13 @@
 use crate::data_lookup_holder::DataLookupHolder;
 use anyhow::Result;
-use azure::prelude::NameLookupHelper;
-use azure::prelude::ScopeImpl;
+use cloud_terrasotodon_core_azure::prelude::NameLookupHelper;
+use cloud_terrasotodon_core_azure::prelude::ScopeImpl;
 use hcl::edit::structure::Body;
 use std::collections::HashSet;
-use tofu_types::prelude::TofuAzureRMDataKind;
-use tofu_types::prelude::TofuDataBlock;
-use tofu_types::prelude::TofuDataReference;
-use tofu_types::prelude::TryAsTofuBlocks;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureRMDataKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuDataBlock;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuDataReference;
+use cloud_terrasotodon_core_tofu_types::prelude::TryAsTofuBlocks;
 use tracing::warn;
 
 pub async fn create_data_blocks_for_ids(

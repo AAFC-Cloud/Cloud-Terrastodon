@@ -1,6 +1,6 @@
 use anyhow::Context;
 use anyhow::Result;
-use azure::prelude::fetch_all_users;
+use cloud_terrasotodon_core_azure::prelude::fetch_all_users;
 use hcl::edit::structure::Body;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit_mut::VisitMut;

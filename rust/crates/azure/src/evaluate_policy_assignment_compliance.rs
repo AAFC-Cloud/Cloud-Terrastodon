@@ -1,19 +1,19 @@
 use crate::prelude::fetch_all_policy_assignments;
 use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
-use azure_types::prelude::DistinctByScope;
-use azure_types::prelude::PolicyAssignment;
-use azure_types::prelude::Scope;
-use command::prelude::CacheBehaviour;
-use fzf::pick;
-use fzf::Choice;
-use fzf::FzfArgs;
+use cloud_terrasotodon_core_azure_types::prelude::DistinctByScope;
+use cloud_terrasotodon_core_azure_types::prelude::PolicyAssignment;
+use cloud_terrasotodon_core_azure_types::prelude::Scope;
+use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
+use cloud_terrasotodon_core_fzf::pick;
+use cloud_terrasotodon_core_fzf::Choice;
+use cloud_terrasotodon_core_fzf::FzfArgs;
 use indoc::formatdoc;
 use itertools::Itertools;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::time::Duration;
-use tofu_types::prelude::Sanitizable;
+use cloud_terrasotodon_core_tofu_types::prelude::Sanitizable;
 use tracing::info;
 
 pub async fn evaluate_policy_assignment_compliance() -> Result<()> {

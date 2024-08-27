@@ -1,6 +1,7 @@
 use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
-use azure_types::prelude::ResourceGroup;
+use cloud_terrasotodon_core_azure_types::prelude::ResourceGroup;
+use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -22,7 +23,7 @@ pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
 
     let rgs = ResourceGraphHelper::new(
         query,
-        command::prelude::CacheBehaviour::Some {
+        CacheBehaviour::Some {
             path: PathBuf::from("resource_groups"),
             valid_for: Duration::from_hours(8),
         },

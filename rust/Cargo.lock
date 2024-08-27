@@ -114,48 +114,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1fdabc7756949593fe60f30ec81974b613357de856987752631dea1e3394c80"
 
 [[package]]
-name = "azure"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "azure_types",
- "command",
- "fzf",
- "humantime",
- "indicatif",
- "indoc",
- "itertools",
- "pathing",
- "rand",
- "serde",
- "serde_json",
- "tempfile",
- "test-log",
- "tofu_types",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "azure_types"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "command",
- "fzf",
- "iso8601-duration",
- "itertools",
- "serde",
- "serde_json",
- "tempfile",
- "tofu_types",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -273,12 +231,163 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 
 [[package]]
+name = "cloud_terrasotodon_core_azure"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cloud_terrasotodon_core_azure_types",
+ "cloud_terrasotodon_core_command",
+ "cloud_terrasotodon_core_fzf",
+ "cloud_terrasotodon_core_pathing",
+ "cloud_terrasotodon_core_tofu_types",
+ "humantime",
+ "indicatif",
+ "indoc",
+ "itertools",
+ "rand",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "test-log",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "cloud_terrasotodon_core_azure_types"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "cloud_terrasotodon_core_command",
+ "cloud_terrasotodon_core_fzf",
+ "cloud_terrasotodon_core_tofu_types",
+ "iso8601-duration",
+ "itertools",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "cloud_terrasotodon_core_command"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-recursion",
+ "chrono",
+ "cloud_terrasotodon_core_config",
+ "cloud_terrasotodon_core_pathing",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "cloud_terrasotodon_core_config"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cloud_terrasotodon_core_pathing",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "cloud_terrasotodon_core_entrypoint"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-recursion",
+ "clap",
+ "cloud_terrasotodon_core_azure",
+ "cloud_terrasotodon_core_command",
+ "cloud_terrasotodon_core_config",
+ "cloud_terrasotodon_core_fzf",
+ "cloud_terrasotodon_core_pathing",
+ "cloud_terrasotodon_core_tofu",
+ "humantime",
+ "indicatif",
+ "itertools",
+ "opener",
+ "serde",
+ "serde_json",
+ "test-log",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "cloud_terrasotodon_core_fzf"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "indexmap",
+ "itertools",
+]
+
+[[package]]
+name = "cloud_terrasotodon_core_pathing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "directories-next",
+ "once_cell",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "cloud_terrasotodon_core_tofu"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cloud_terrasotodon_core_azure",
+ "cloud_terrasotodon_core_command",
+ "cloud_terrasotodon_core_pathing",
+ "cloud_terrasotodon_core_tofu_types",
+ "hcl-rs",
+ "indicatif",
+ "indoc",
+ "itertools",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "cloud_terrasotodon_core_tofu_types"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cloud_terrasotodon_core_command",
+ "cloud_terrasotodon_core_fzf",
+ "hcl-primitives",
+ "hcl-rs",
+ "indoc",
+ "itertools",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "cloud_terrastodon"
 version = "0.5.0-pre"
 dependencies = [
  "anyhow",
+ "cloud_terrasotodon_core_entrypoint",
  "embed-resource",
- "entrypoint",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -290,35 +399,6 @@ name = "colorchoice"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
-
-[[package]]
-name = "command"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-recursion",
- "chrono",
- "config",
- "pathing",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "config"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "once_cell",
- "pathing",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "console"
@@ -397,30 +477,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
-name = "entrypoint"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-recursion",
- "azure",
- "clap",
- "command",
- "config",
- "fzf",
- "humantime",
- "indicatif",
- "itertools",
- "opener",
- "pathing",
- "serde",
- "serde_json",
- "test-log",
- "tofu",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "env_filter"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -468,15 +524,6 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
-
-[[package]]
-name = "fzf"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "indexmap",
- "itertools",
-]
 
 [[package]]
 name = "getrandom"
@@ -877,18 +924,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pathing"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "directories-next",
- "once_cell",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "pin-project-lite"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1220,41 +1255,6 @@ checksum = "8b9ef9bad013ada3808854ceac7b46812a6465ba368859a37e2100283d2d719c"
 dependencies = [
  "cfg-if",
  "once_cell",
-]
-
-[[package]]
-name = "tofu"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "azure",
- "command",
- "hcl-rs",
- "indicatif",
- "indoc",
- "itertools",
- "pathing",
- "serde_json",
- "tempfile",
- "tofu_types",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "tofu_types"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "command",
- "fzf",
- "hcl-primitives",
- "hcl-rs",
- "indoc",
- "itertools",
- "serde_json",
- "tokio",
- "tracing",
 ]
 
 [[package]]

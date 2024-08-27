@@ -1,11 +1,11 @@
 use anyhow::Result;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
-use pathing::AppDir;
-use pathing::Existy;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
+use cloud_terrasotodon_core_pathing::AppDir;
+use cloud_terrasotodon_core_pathing::Existy;
 use std::path::Path;
 use std::path::PathBuf;
-use tofu::prelude::reflow_workspace;
+use cloud_terrasotodon_core_tofu::prelude::reflow_workspace;
 use tokio::fs::OpenOptions;
 use tokio::fs::{self};
 use tokio::io::AsyncWriteExt;

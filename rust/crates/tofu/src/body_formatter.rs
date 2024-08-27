@@ -8,7 +8,7 @@ use hcl::edit::Decorate;
 use indoc::formatdoc;
 use itertools::Itertools;
 use std::collections::HashMap;
-use tofu_types::prelude::AsTofuString;
+use cloud_terrasotodon_core_tofu_types::prelude::AsTofuString;
 use tracing::error;
 
 #[derive(Default, Clone)]

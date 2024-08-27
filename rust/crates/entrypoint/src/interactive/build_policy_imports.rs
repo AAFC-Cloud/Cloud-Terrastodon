@@ -1,14 +1,14 @@
 use anyhow::anyhow;
 use anyhow::Result;
-use azure::prelude::fetch_all_policy_assignments;
-use azure::prelude::fetch_all_policy_definitions;
-use azure::prelude::fetch_all_policy_set_definitions;
-use azure::prelude::PolicyAssignment;
-use pathing::AppDir;
+use cloud_terrasotodon_core_azure::prelude::fetch_all_policy_assignments;
+use cloud_terrasotodon_core_azure::prelude::fetch_all_policy_definitions;
+use cloud_terrasotodon_core_azure::prelude::fetch_all_policy_set_definitions;
+use cloud_terrasotodon_core_azure::prelude::PolicyAssignment;
+use cloud_terrasotodon_core_pathing::AppDir;
 use std::collections::HashSet;
-use tofu::prelude::Sanitizable;
-use tofu::prelude::TofuImportBlock;
-use tofu::prelude::TofuWriter;
+use cloud_terrasotodon_core_tofu::prelude::Sanitizable;
+use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
+use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
 
 pub async fn build_policy_imports() -> Result<()> {
     let policy_definitions = fetch_all_policy_definitions().await?;

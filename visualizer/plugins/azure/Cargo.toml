@@ -6,9 +6,9 @@ edition = "2021"
 [dependencies]
 cloud_terrastodon_visualizer_damping_plugin = { workspace = true }
 cloud_terrastodon_visualizer_cursor_plugin = { workspace = true }
+cloud_terrasotodon_core_azure = { workspace = true }
 bevy = { workspace = true }
 crossbeam-channel = { workspace = true }
-azure = { workspace = true }
 tokio = { workspace = true }
 bevy_svg = { workspace = true }
 bevy-inspector-egui = { workspace = true }

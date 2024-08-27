@@ -1,5 +1,6 @@
 use anyhow::Result;
-use azure::prelude::uuid::Uuid;
+use cloud_terrasotodon_core_azure::prelude::uuid::Uuid;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureADResourceKind;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
 use hcl::edit::structure::Body;
@@ -9,10 +10,10 @@ use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::Decorate;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use tofu_types::prelude::AsTofuString;
-use tofu_types::prelude::TofuDataBlock;
-use tofu_types::prelude::TofuResourceKind;
-use tofu_types::prelude::TryAsTofuBlocks;
+use cloud_terrasotodon_core_tofu_types::prelude::AsTofuString;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuDataBlock;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TryAsTofuBlocks;
 
 pub struct UserIdReferencePatcher {
     pub user_principal_name_by_user_id: HashMap<Uuid, String>,
@@ -67,7 +68,7 @@ impl VisitMut for UserIdReferencePatcher {
             .map(|x| x.as_str())
             .and_then(|x| x.parse::<TofuResourceKind>().ok())
             == Some(TofuResourceKind::AzureAD(
-                tofu_types::prelude::TofuAzureADResourceKind::Group,
+                TofuAzureADResourceKind::Group,
             ))
         {
             for key in ["owners", "members"] {

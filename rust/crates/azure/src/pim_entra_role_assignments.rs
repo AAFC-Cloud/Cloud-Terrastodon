@@ -1,8 +1,8 @@
 use crate::prelude::fetch_current_user;
 use anyhow::Result;
-use azure_types::prelude::PimEntraRoleAssignment;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
+use cloud_terrasotodon_core_azure_types::prelude::PimEntraRoleAssignment;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
 use itertools::Itertools;
 use serde::Deserialize;
 use std::path::PathBuf;

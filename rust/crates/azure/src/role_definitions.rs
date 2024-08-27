@@ -1,7 +1,7 @@
 use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
-use azure_types::prelude::RoleDefinition;
-use command::prelude::CacheBehaviour;
+use cloud_terrasotodon_core_azure_types::prelude::RoleDefinition;
+use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -31,7 +31,7 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use azure_types::prelude::Scope;
+    use cloud_terrasotodon_core_azure_types::prelude::Scope;
 
     use super::*;
 

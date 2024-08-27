@@ -1,13 +1,13 @@
 [package]
-name = "config"
+name = "cloud_terrasotodon_core_config"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cloud_terrasotodon_core_pathing = {workspace = true}
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 once_cell = { workspace = true }
 serde = { workspace = true }
 serde_json = {workspace = true}
-pathing = {workspace = true}

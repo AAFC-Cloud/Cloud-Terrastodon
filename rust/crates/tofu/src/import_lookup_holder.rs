@@ -1,4 +1,4 @@
-use azure::prelude::ScopeImpl;
+use cloud_terrasotodon_core_azure::prelude::ScopeImpl;
 use hcl::edit::structure::Block;
 use hcl::edit::visit::visit_block;
 use hcl::edit::visit::Visit;

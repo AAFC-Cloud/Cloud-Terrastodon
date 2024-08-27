@@ -22,11 +22,11 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::str::FromStr;
-use tofu_types::prelude::Sanitizable;
-use tofu_types::prelude::TofuAzureRMResourceKind;
-use tofu_types::prelude::TofuImportBlock;
-use tofu_types::prelude::TofuProviderReference;
-use tofu_types::prelude::TofuResourceReference;
+use cloud_terrasotodon_core_tofu_types::prelude::Sanitizable;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuImportBlock;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuProviderReference;
+use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceReference;
 use uuid::Uuid;
 
 pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";

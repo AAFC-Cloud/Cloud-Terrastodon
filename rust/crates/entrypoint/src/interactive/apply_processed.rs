@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use command::prelude::CommandBuilder;
-use command::prelude::CommandKind;
-use command::prelude::OutputBehaviour;
-use pathing::AppDir;
+use cloud_terrasotodon_core_command::prelude::CommandBuilder;
+use cloud_terrasotodon_core_command::prelude::CommandKind;
+use cloud_terrasotodon_core_command::prelude::OutputBehaviour;
+use cloud_terrasotodon_core_pathing::AppDir;
 use tracing::warn;
 pub async fn apply_processed() -> Result<()> {
     let processed_dir: PathBuf = AppDir::Processed.into();

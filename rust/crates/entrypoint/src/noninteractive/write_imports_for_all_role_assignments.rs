@@ -1,20 +1,21 @@
 use anyhow::bail;
 use anyhow::Result;
-use azure::prelude::fetch_all_role_assignments_v2;
-use azure::prelude::fetch_all_subscriptions;
-use azure::prelude::Scope;
-use azure::prelude::Subscription;
-use azure::prelude::SubscriptionId;
-use azure::prelude::SubscriptionScoped;
-use pathing::AppDir;
+use cloud_terrasotodon_core_azure::prelude::fetch_all_role_assignments_v2;
+use cloud_terrasotodon_core_azure::prelude::fetch_all_subscriptions;
+use cloud_terrasotodon_core_azure::prelude::RoleAssignmentId;
+use cloud_terrasotodon_core_azure::prelude::Scope;
+use cloud_terrasotodon_core_azure::prelude::Subscription;
+use cloud_terrasotodon_core_azure::prelude::SubscriptionId;
+use cloud_terrasotodon_core_azure::prelude::SubscriptionScoped;
+use cloud_terrasotodon_core_pathing::AppDir;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use tofu::prelude::Sanitizable;
-use tofu::prelude::TofuImportBlock;
-use tofu::prelude::TofuProviderBlock;
-use tofu::prelude::TofuProviderKind;
-use tofu::prelude::TofuProviderReference;
-use tofu::prelude::TofuWriter;
+use cloud_terrasotodon_core_tofu::prelude::Sanitizable;
+use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
+use cloud_terrasotodon_core_tofu::prelude::TofuProviderBlock;
+use cloud_terrasotodon_core_tofu::prelude::TofuProviderKind;
+use cloud_terrasotodon_core_tofu::prelude::TofuProviderReference;
+use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
 use tracing::info;
 
 pub async fn write_imports_for_all_role_assignments() -> Result<()> {
@@ -31,15 +32,15 @@ pub async fn write_imports_for_all_role_assignments() -> Result<()> {
     let mut imports: Vec<TofuImportBlock> = Vec::with_capacity(role_assignments.len());
     for ra in role_assignments {
         let subscription_id = match &ra.id {
-            azure::prelude::RoleAssignmentId::Unscoped(_) => None,
-            azure::prelude::RoleAssignmentId::ManagementGroupScoped(_) => None,
-            azure::prelude::RoleAssignmentId::SubscriptionScoped(id) => {
+            RoleAssignmentId::Unscoped(_) => None,
+            RoleAssignmentId::ManagementGroupScoped(_) => None,
+            RoleAssignmentId::SubscriptionScoped(id) => {
                 Some(id.subscription_id().to_owned())
             }
-            azure::prelude::RoleAssignmentId::ResourceGroupScoped(id) => {
+            RoleAssignmentId::ResourceGroupScoped(id) => {
                 Some(id.subscription_id().to_owned())
             }
-            azure::prelude::RoleAssignmentId::ResourceScoped(id) => {
+            RoleAssignmentId::ResourceScoped(id) => {
                 Some(id.subscription_id().to_owned())
             }
         };
