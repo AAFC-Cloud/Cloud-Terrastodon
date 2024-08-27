@@ -1,9 +1,9 @@
 use anyhow::Result;
-use cloud_terrasotodon_core_azure::prelude::fetch_all_security_groups;
-use cloud_terrasotodon_core_pathing::AppDir;
-use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
-use cloud_terrasotodon_core_tofu::prelude::TofuProviderBlock;
-use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
+use cloud_terrastodon_core_azure::prelude::fetch_all_security_groups;
+use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
+use cloud_terrastodon_core_tofu::prelude::TofuProviderBlock;
+use cloud_terrastodon_core_tofu::prelude::TofuWriter;
 use tracing::info;
 
 pub async fn write_imports_for_all_security_groups() -> Result<()> {

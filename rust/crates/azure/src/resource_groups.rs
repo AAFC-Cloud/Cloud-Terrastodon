@@ -1,7 +1,7 @@
 use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure_types::prelude::ResourceGroup;
-use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
+use cloud_terrastodon_core_azure_types::prelude::ResourceGroup;
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::time::Duration;

@@ -1,9 +1,9 @@
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure_types::prelude::Subscription;
-use cloud_terrasotodon_core_command::prelude::CommandBuilder;
-use cloud_terrasotodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_azure_types::prelude::Subscription;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;

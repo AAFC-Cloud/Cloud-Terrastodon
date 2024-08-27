@@ -1,13 +1,13 @@
 use anyhow::anyhow;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure::prelude::fetch_all_policy_assignments;
-use cloud_terrasotodon_core_azure::prelude::fetch_all_policy_definitions;
-use cloud_terrasotodon_core_azure::prelude::fetch_all_policy_set_definitions;
-use cloud_terrasotodon_core_azure::prelude::PolicyAssignment;
-use cloud_terrasotodon_core_pathing::AppDir;
-use cloud_terrasotodon_core_tofu::prelude::Sanitizable;
-use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
-use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
+use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
+use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
+use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
+use cloud_terrastodon_core_azure::prelude::PolicyAssignment;
+use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_core_tofu::prelude::Sanitizable;
+use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
+use cloud_terrastodon_core_tofu::prelude::TofuWriter;
 use std::collections::HashSet;
 
 pub async fn build_policy_imports() -> Result<()> {

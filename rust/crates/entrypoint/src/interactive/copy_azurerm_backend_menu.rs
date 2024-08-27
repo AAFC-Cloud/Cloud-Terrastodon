@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use anyhow::bail;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure::prelude::fetch_all_storage_accounts;
-use cloud_terrasotodon_core_azure::prelude::fetch_all_subscriptions;
-use cloud_terrasotodon_core_azure::prelude::Scope;
-use cloud_terrasotodon_core_command::prelude::CommandBuilder;
-use cloud_terrasotodon_core_command::prelude::CommandKind;
-use cloud_terrasotodon_core_fzf::pick;
-use cloud_terrasotodon_core_fzf::Choice;
-use cloud_terrasotodon_core_fzf::FzfArgs;
+use cloud_terrastodon_core_azure::prelude::fetch_all_storage_accounts;
+use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_core_azure::prelude::Scope;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_fzf::pick;
+use cloud_terrastodon_core_fzf::Choice;
+use cloud_terrastodon_core_fzf::FzfArgs;
 use tokio::join;
 use tracing::info;
 

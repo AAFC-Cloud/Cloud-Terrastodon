@@ -1,8 +1,8 @@
 use anyhow::Context;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure_types::prelude::Scope;
-use cloud_terrasotodon_core_azure_types::prelude::ScopeImpl;
-use cloud_terrasotodon_core_azure_types::prelude::ScopeImplKind;
+use cloud_terrastodon_core_azure_types::prelude::Scope;
+use cloud_terrastodon_core_azure_types::prelude::ScopeImpl;
+use cloud_terrastodon_core_azure_types::prelude::ScopeImplKind;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use tracing::info;

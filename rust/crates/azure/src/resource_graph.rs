@@ -1,10 +1,10 @@
 #[cfg(debug_assertions)]
 use anyhow::bail;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure_types::prelude::ResourceGraphQueryResponse;
-use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
-use cloud_terrasotodon_core_command::prelude::CommandBuilder;
-use cloud_terrasotodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_azure_types::prelude::ResourceGraphQueryResponse;
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;

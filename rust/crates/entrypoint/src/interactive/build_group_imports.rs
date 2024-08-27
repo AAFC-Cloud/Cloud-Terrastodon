@@ -1,11 +1,11 @@
 use anyhow::anyhow;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure::prelude::fetch_groups;
-use cloud_terrasotodon_core_fzf::pick_many;
-use cloud_terrasotodon_core_fzf::FzfArgs;
-use cloud_terrasotodon_core_pathing::AppDir;
-use cloud_terrasotodon_core_tofu::prelude::TofuImportBlock;
-use cloud_terrasotodon_core_tofu::prelude::TofuWriter;
+use cloud_terrastodon_core_azure::prelude::fetch_groups;
+use cloud_terrastodon_core_fzf::pick_many;
+use cloud_terrastodon_core_fzf::FzfArgs;
+use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
+use cloud_terrastodon_core_tofu::prelude::TofuWriter;
 use itertools::Itertools;
 use tracing::info;
 

@@ -1,7 +1,7 @@
 use anyhow::Result;
-use cloud_terrasotodon_core_azure_types::prelude::Group;
-use cloud_terrasotodon_core_command::prelude::CommandBuilder;
-use cloud_terrasotodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_azure_types::prelude::Group;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
 
 pub async fn fetch_groups() -> Result<Vec<Group>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);

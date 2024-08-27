@@ -1,5 +1,5 @@
 [package]
-name = "cloud_terrasotodon_core_fzf"
+name = "cloud_terrastodon_core_fzf"
 version = "0.1.0"
 edition = "2021"
 

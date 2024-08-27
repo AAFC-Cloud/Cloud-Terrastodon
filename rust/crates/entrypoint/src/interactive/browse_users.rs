@@ -1,8 +1,8 @@
 use anyhow::Result;
-use cloud_terrasotodon_core_azure::prelude::fetch_all_users;
-use cloud_terrasotodon_core_fzf::pick_many;
-use cloud_terrasotodon_core_fzf::Choice;
-use cloud_terrasotodon_core_fzf::FzfArgs;
+use cloud_terrastodon_core_azure::prelude::fetch_all_users;
+use cloud_terrastodon_core_fzf::pick_many;
+use cloud_terrastodon_core_fzf::Choice;
+use cloud_terrastodon_core_fzf::FzfArgs;
 use itertools::Itertools;
 use tracing::info;
 

@@ -1,7 +1,7 @@
 use anyhow::Result;
-use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
-use cloud_terrasotodon_core_command::prelude::CommandBuilder;
-use cloud_terrasotodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::ffi::OsString;
@@ -89,7 +89,7 @@ struct Response<T> {
 mod tests {
     use super::*;
     use crate::prelude::fetch_all_security_groups;
-    use cloud_terrasotodon_core_azure_types::prelude::SecurityGroup;
+    use cloud_terrastodon_core_azure_types::prelude::SecurityGroup;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

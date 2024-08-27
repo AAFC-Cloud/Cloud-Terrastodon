@@ -231,15 +231,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 
 [[package]]
-name = "cloud_terrasotodon_core_azure"
+name = "cloud_terrastodon"
+version = "0.5.0-pre"
+dependencies = [
+ "anyhow",
+ "cloud_terrastodon_core_entrypoint",
+ "embed-resource",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "windows",
+]
+
+[[package]]
+name = "cloud_terrastodon_core_azure"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cloud_terrasotodon_core_azure_types",
- "cloud_terrasotodon_core_command",
- "cloud_terrasotodon_core_fzf",
- "cloud_terrasotodon_core_pathing",
- "cloud_terrasotodon_core_tofu_types",
+ "cloud_terrastodon_core_azure_types",
+ "cloud_terrastodon_core_command",
+ "cloud_terrastodon_core_fzf",
+ "cloud_terrastodon_core_pathing",
+ "cloud_terrastodon_core_tofu_types",
  "humantime",
  "indicatif",
  "indoc",
@@ -254,15 +267,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrasotodon_core_azure_types"
+name = "cloud_terrastodon_core_azure_types"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
  "clap",
- "cloud_terrasotodon_core_command",
- "cloud_terrasotodon_core_fzf",
- "cloud_terrasotodon_core_tofu_types",
+ "cloud_terrastodon_core_command",
+ "cloud_terrastodon_core_fzf",
+ "cloud_terrastodon_core_tofu_types",
  "iso8601-duration",
  "itertools",
  "serde",
@@ -273,14 +286,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrasotodon_core_command"
+name = "cloud_terrastodon_core_command"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-recursion",
  "chrono",
- "cloud_terrasotodon_core_config",
- "cloud_terrasotodon_core_pathing",
+ "cloud_terrastodon_core_config",
+ "cloud_terrastodon_core_pathing",
  "serde",
  "serde_json",
  "tempfile",
@@ -289,11 +302,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrasotodon_core_config"
+name = "cloud_terrastodon_core_config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cloud_terrasotodon_core_pathing",
+ "cloud_terrastodon_core_pathing",
  "once_cell",
  "serde",
  "serde_json",
@@ -302,18 +315,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrasotodon_core_entrypoint"
+name = "cloud_terrastodon_core_entrypoint"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-recursion",
  "clap",
- "cloud_terrasotodon_core_azure",
- "cloud_terrasotodon_core_command",
- "cloud_terrasotodon_core_config",
- "cloud_terrasotodon_core_fzf",
- "cloud_terrasotodon_core_pathing",
- "cloud_terrasotodon_core_tofu",
+ "cloud_terrastodon_core_azure",
+ "cloud_terrastodon_core_command",
+ "cloud_terrastodon_core_config",
+ "cloud_terrastodon_core_fzf",
+ "cloud_terrastodon_core_pathing",
+ "cloud_terrastodon_core_tofu",
  "humantime",
  "indicatif",
  "itertools",
@@ -326,7 +339,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrasotodon_core_fzf"
+name = "cloud_terrastodon_core_fzf"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -335,7 +348,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrasotodon_core_pathing"
+name = "cloud_terrastodon_core_pathing"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -347,14 +360,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrasotodon_core_tofu"
+name = "cloud_terrastodon_core_tofu"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cloud_terrasotodon_core_azure",
- "cloud_terrasotodon_core_command",
- "cloud_terrasotodon_core_pathing",
- "cloud_terrasotodon_core_tofu_types",
+ "cloud_terrastodon_core_azure",
+ "cloud_terrastodon_core_command",
+ "cloud_terrastodon_core_pathing",
+ "cloud_terrastodon_core_tofu_types",
  "hcl-rs",
  "indicatif",
  "indoc",
@@ -366,12 +379,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrasotodon_core_tofu_types"
+name = "cloud_terrastodon_core_tofu_types"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cloud_terrasotodon_core_command",
- "cloud_terrasotodon_core_fzf",
+ "cloud_terrastodon_core_command",
+ "cloud_terrastodon_core_fzf",
  "hcl-primitives",
  "hcl-rs",
  "indoc",
@@ -379,19 +392,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "cloud_terrastodon"
-version = "0.5.0-pre"
-dependencies = [
- "anyhow",
- "cloud_terrasotodon_core_entrypoint",
- "embed-resource",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "windows",
 ]
 
 [[package]]

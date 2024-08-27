@@ -30,10 +30,10 @@ use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure::prelude::evaluate_policy_assignment_compliance;
-use cloud_terrasotodon_core_azure::prelude::remediate_policy_assignment;
-use cloud_terrasotodon_core_command::prelude::USE_TERRAFORM_FLAG_KEY;
-use cloud_terrasotodon_core_pathing::AppDir;
+use cloud_terrastodon_core_azure::prelude::evaluate_policy_assignment_compliance;
+use cloud_terrastodon_core_azure::prelude::remediate_policy_assignment;
+use cloud_terrastodon_core_command::prelude::USE_TERRAFORM_FLAG_KEY;
+use cloud_terrastodon_core_pathing::AppDir;
 use itertools::Itertools;
 use tokio::fs;
 #[derive(Debug)]

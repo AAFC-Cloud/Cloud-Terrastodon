@@ -1,13 +1,13 @@
 [package]
-name = "cloud_terrasotodon_core_tofu_types"
+name = "cloud_terrastodon_core_tofu_types"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cloud_terrasotodon_core_command = { workspace = true }
-cloud_terrasotodon_core_fzf = { workspace = true }
+cloud_terrastodon_core_command = { workspace = true }
+cloud_terrastodon_core_fzf = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 itertools = { workspace = true }

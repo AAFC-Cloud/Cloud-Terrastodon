@@ -1,15 +1,14 @@
 use std::ops::Deref;
-
 use crate::az_cli::AzureCliEvent;
-use crate::bais_towards_origin::BiasTowardsOrigin;
+use crate::bias_towards_origin::BiasTowardsOrigin;
 use crate::scope::AzureScope;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
-use azure::prelude::uuid::Uuid;
-use azure::prelude::ResourceGroup;
-use azure::prelude::ResourceGroupId;
-use azure::prelude::Scope;
-use azure::prelude::SubscriptionId;
+use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
+use cloud_terrastodon_core_azure::prelude::ResourceGroup;
+use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
+use cloud_terrastodon_core_azure::prelude::Scope;
+use cloud_terrastodon_core_azure::prelude::SubscriptionId;
 use bevy::color::palettes::css::BLACK;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;

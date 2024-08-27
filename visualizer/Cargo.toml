@@ -12,11 +12,12 @@ cloud_terrastodon_visualizer_azure_plugin = { path = "./plugins/azure" }
 cloud_terrastodon_visualizer_cursor_plugin = { path = "./plugins/cursor" }
 cloud_terrastodon_visualizer_damping_plugin = { path = "./plugins/damping" }
 cloud_terrastodon_visualizer_folders_plugin = { path = "./plugins/folders" }
+cloud_terrastodon_core_azure = { path = "../rust/crates/azure" }
+cloud_terrastodon_core_config = { path = "../rust/crates/config" }
 bevy = "0.14.1"
 bevy-inspector-egui = "0.25.2"
 bevy_svg = { version = "0.14.0", default-features = false, features = ["2d"] }
 leafwing-input-manager = "0.15.0"
-azure = { path = "../rust/crates/azure" }
 crossbeam-channel = "0.5.13"
 tokio = { version = "1.39.2", features = ["full"] }
 avian2d = "0.1.2"
@@ -32,7 +33,6 @@ cloud_terrastodon_visualizer_folders_plugin = { workspace = true }
 bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_svg = { workspace = true }
-azure = { workspace = true }
 avian2d = { workspace = true }
 itertools = { workspace = true }
 

@@ -1,13 +1,13 @@
 use crate::management_groups::fetch_root_management_group;
 use crate::resource_groups::fetch_all_resource_groups;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure_types::prelude::EligibleChildResource;
-use cloud_terrasotodon_core_azure_types::prelude::EligibleChildResourceKind;
-use cloud_terrasotodon_core_azure_types::prelude::HasScope;
-use cloud_terrasotodon_core_azure_types::prelude::Scope;
-use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
-use cloud_terrasotodon_core_command::prelude::CommandBuilder;
-use cloud_terrasotodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_azure_types::prelude::EligibleChildResource;
+use cloud_terrastodon_core_azure_types::prelude::EligibleChildResourceKind;
+use cloud_terrastodon_core_azure_types::prelude::HasScope;
+use cloud_terrastodon_core_azure_types::prelude::Scope;
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -81,12 +81,12 @@ mod tests {
     use super::*;
     use crate::management_groups::fetch_root_management_group;
     use crate::subscriptions::fetch_all_subscriptions;
-    use cloud_terrasotodon_core_azure_types::prelude::HasScope;
-    use cloud_terrasotodon_core_azure_types::prelude::Scope;
-    use cloud_terrasotodon_core_fzf::pick;
-    use cloud_terrasotodon_core_fzf::pick_many;
-    use cloud_terrasotodon_core_fzf::Choice;
-    use cloud_terrasotodon_core_fzf::FzfArgs;
+    use cloud_terrastodon_core_azure_types::prelude::HasScope;
+    use cloud_terrastodon_core_azure_types::prelude::Scope;
+    use cloud_terrastodon_core_fzf::pick;
+    use cloud_terrastodon_core_fzf::pick_many;
+    use cloud_terrastodon_core_fzf::Choice;
+    use cloud_terrastodon_core_fzf::FzfArgs;
     use itertools::Itertools;
 
     #[test_log::test(tokio::test)]

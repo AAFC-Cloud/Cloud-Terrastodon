@@ -1,12 +1,12 @@
 use crate::prelude::gather_from_management_groups;
 use anyhow::Result;
-use cloud_terrasotodon_core_azure_types::prelude::ManagementGroup;
-use cloud_terrasotodon_core_azure_types::prelude::ManagementGroupId;
-use cloud_terrasotodon_core_azure_types::prelude::PolicySetDefinition;
-use cloud_terrasotodon_core_azure_types::prelude::Scope;
-use cloud_terrasotodon_core_azure_types::prelude::SubscriptionId;
-use cloud_terrasotodon_core_command::prelude::CommandBuilder;
-use cloud_terrasotodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_azure_types::prelude::ManagementGroup;
+use cloud_terrastodon_core_azure_types::prelude::ManagementGroupId;
+use cloud_terrastodon_core_azure_types::prelude::PolicySetDefinition;
+use cloud_terrastodon_core_azure_types::prelude::Scope;
+use cloud_terrastodon_core_azure_types::prelude::SubscriptionId;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
 use std::collections::HashMap;
 use std::path::PathBuf;
 

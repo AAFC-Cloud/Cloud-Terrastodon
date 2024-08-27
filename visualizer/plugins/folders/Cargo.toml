@@ -6,5 +6,6 @@ edition = "2021"
 [dependencies]
 cloud_terrastodon_visualizer_azure_plugin = { workspace = true }
 cloud_terrastodon_visualizer_cursor_plugin = { workspace = true }
+cloud_terrastodon_core_azure = { workspace = true }
 bevy = { workspace = true }
 avian2d = { workspace = true }

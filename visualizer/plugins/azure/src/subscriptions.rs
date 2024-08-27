@@ -1,16 +1,18 @@
 use std::ops::Deref;
 
 use crate::az_cli::AzureCliEvent;
-use crate::bais_towards_origin::BiasTowardsOrigin;
+use crate::bias_towards_origin::BiasTowardsOrigin;
 use crate::scope::AzureScope;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
-use azure::prelude::uuid::Uuid;
-use azure::prelude::Scope;
-use azure::prelude::Subscription;
-use azure::prelude::SubscriptionId;
-use azure::prelude::SubscriptionUser;
-use azure::prelude::TenantId;
+use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
+use cloud_terrastodon_core_azure::prelude::AzureCloudKind;
+use cloud_terrastodon_core_azure::prelude::Scope;
+use cloud_terrastodon_core_azure::prelude::Subscription;
+use cloud_terrastodon_core_azure::prelude::SubscriptionId;
+use cloud_terrastodon_core_azure::prelude::SubscriptionState;
+use cloud_terrastodon_core_azure::prelude::SubscriptionUser;
+use cloud_terrastodon_core_azure::prelude::TenantId;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -61,11 +63,11 @@ impl Default for AzureSubscription {
     fn default() -> Self {
         Self {
             subscription: Subscription {
-                cloud_name: azure::prelude::AzureCloudKind::AzureCloud,
+                cloud_name: AzureCloudKind::AzureCloud,
                 id: SubscriptionId::new(Uuid::nil()),
                 is_default: false,
                 name: "FakeSubscription".to_owned(),
-                state: azure::prelude::SubscriptionState::Enabled,
+                state: SubscriptionState::Enabled,
                 tenant_id: TenantId::new(Uuid::nil()),
                 user: SubscriptionUser {
                     name: "Fake".to_owned(),

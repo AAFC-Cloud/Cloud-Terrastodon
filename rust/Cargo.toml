@@ -9,15 +9,15 @@ members = ["crates/*"]
 
 
 [workspace.dependencies]
-cloud_terrasotodon_core_pathing = { version = "0.1.0", path = "./crates/pathing" }
-cloud_terrasotodon_core_config = { version = "0.1.0", path = "./crates/config" }
-cloud_terrasotodon_core_azure = { version = "0.1.0", path = "./crates/azure" }
-cloud_terrasotodon_core_azure_types = { version = "0.1.0", path = "./crates/azure_types" }
-cloud_terrasotodon_core_tofu = { version = "0.1.0", path = "./crates/tofu" }
-cloud_terrasotodon_core_tofu_types = { version = "0.1.0", path = "./crates/tofu_types" }
-cloud_terrasotodon_core_fzf = { version = "0.1.0", path = "./crates/fzf" }
-cloud_terrasotodon_core_command = { version = "0.1.0", path = "./crates/command" }
-cloud_terrasotodon_core_entrypoint = { version = "0.1.0", path = "./crates/entrypoint" }
+cloud_terrastodon_core_pathing = { version = "0.1.0", path = "./crates/pathing" }
+cloud_terrastodon_core_config = { version = "0.1.0", path = "./crates/config" }
+cloud_terrastodon_core_azure = { version = "0.1.0", path = "./crates/azure" }
+cloud_terrastodon_core_azure_types = { version = "0.1.0", path = "./crates/azure_types" }
+cloud_terrastodon_core_tofu = { version = "0.1.0", path = "./crates/tofu" }
+cloud_terrastodon_core_tofu_types = { version = "0.1.0", path = "./crates/tofu_types" }
+cloud_terrastodon_core_fzf = { version = "0.1.0", path = "./crates/fzf" }
+cloud_terrastodon_core_command = { version = "0.1.0", path = "./crates/command" }
+cloud_terrastodon_core_entrypoint = { version = "0.1.0", path = "./crates/entrypoint" }
 anyhow = "1.0.82"
 itertools = "0.12.1"
 serde = { version = "1.0.197", features = ["derive"] }
@@ -55,7 +55,7 @@ windows = { version = "0.58.0", features = [
 embed-resource = "1.6.3"
 
 [dependencies]
-cloud_terrasotodon_core_entrypoint = { workspace = true }
+cloud_terrastodon_core_entrypoint = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }

@@ -1,8 +1,8 @@
 use anyhow::bail;
 use anyhow::Result;
-use cloud_terrasotodon_core_fzf::pick;
-use cloud_terrasotodon_core_fzf::FzfArgs;
-use cloud_terrasotodon_core_pathing::AppDir;
+use cloud_terrastodon_core_fzf::pick;
+use cloud_terrastodon_core_fzf::FzfArgs;
+use cloud_terrastodon_core_pathing::AppDir;
 use tokio::fs;
 use tracing::info;
 pub async fn clean_all_menu() -> Result<()> {

@@ -56,5 +56,5 @@ pub mod prelude {
     pub use crate::storage_accounts::*;
     pub use crate::subscriptions::*;
     pub use crate::users::*;
-    pub use cloud_terrasotodon_core_azure_types::prelude::*;
+    pub use cloud_terrastodon_core_azure_types::prelude::*;
 }

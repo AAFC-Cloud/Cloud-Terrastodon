@@ -1,7 +1,7 @@
 #![feature(let_chains)]
 use anyhow::Result;
-use cloud_terrasotodon_core_entrypoint::prelude::main as entrypoint_main;
-use cloud_terrasotodon_core_entrypoint::prelude::Version;
+use cloud_terrastodon_core_entrypoint::prelude::main as entrypoint_main;
+use cloud_terrastodon_core_entrypoint::prelude::Version;
 
 #[cfg(windows)]
 mod windows_ansi {

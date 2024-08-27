@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use cloud_terrasotodon_core_tofu_types::prelude::CodeReference;
+use cloud_terrastodon_core_tofu_types::prelude::CodeReference;
 use hcl::edit::structure::Body;
 use itertools::Itertools;
 use tokio::fs;

@@ -1,10 +1,10 @@
 use anyhow::Result;
-use cloud_terrasotodon_core_azure::prelude::uuid::Uuid;
-use cloud_terrasotodon_core_tofu_types::prelude::AsTofuString;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuAzureADResourceKind;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuDataBlock;
-use cloud_terrasotodon_core_tofu_types::prelude::TofuResourceKind;
-use cloud_terrasotodon_core_tofu_types::prelude::TryAsTofuBlocks;
+use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
+use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
+use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;
+use cloud_terrastodon_core_tofu_types::prelude::TofuDataBlock;
+use cloud_terrastodon_core_tofu_types::prelude::TofuResourceKind;
+use cloud_terrastodon_core_tofu_types::prelude::TryAsTofuBlocks;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
 use hcl::edit::structure::Body;

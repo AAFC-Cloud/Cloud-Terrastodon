@@ -17,8 +17,8 @@ use clap::CommandFactory;
 use clap::FromArgMatches;
 use clap::Parser;
 use clap::Subcommand;
-use cloud_terrasotodon_core_config::Config;
-use cloud_terrasotodon_core_pathing::AppDir;
+use cloud_terrastodon_core_config::Config;
+use cloud_terrastodon_core_pathing::AppDir;
 use tokio::io::stdout;
 use tokio::io::AsyncWriteExt;
 #[derive(Parser, Debug)]

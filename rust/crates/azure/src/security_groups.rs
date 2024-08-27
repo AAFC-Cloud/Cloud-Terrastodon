@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::Result;
-use cloud_terrasotodon_core_azure_types::prelude::SecurityGroup;
-use cloud_terrasotodon_core_command::prelude::CacheBehaviour;
+use cloud_terrastodon_core_azure_types::prelude::SecurityGroup;
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 
 use crate::prelude::MicrosoftGraphHelper;
 
@@ -23,7 +23,7 @@ pub async fn fetch_all_security_groups() -> Result<Vec<SecurityGroup>> {
 mod tests {
     use super::*;
     use crate::prelude::fetch_all_security_groups;
-    use cloud_terrasotodon_core_azure_types::prelude::SecurityGroup;
+    use cloud_terrastodon_core_azure_types::prelude::SecurityGroup;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

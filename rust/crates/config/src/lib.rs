@@ -1,7 +1,7 @@
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
-use cloud_terrasotodon_core_pathing::AppDir;
+use cloud_terrastodon_core_pathing::AppDir;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde::Serialize;

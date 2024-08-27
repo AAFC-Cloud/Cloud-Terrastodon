@@ -1,9 +1,9 @@
 use anyhow::Result;
-use cloud_terrasotodon_core_command::prelude::CommandBuilder;
-use cloud_terrasotodon_core_command::prelude::CommandKind;
-use cloud_terrasotodon_core_pathing::AppDir;
-use cloud_terrasotodon_core_pathing::Existy;
-use cloud_terrasotodon_core_tofu::prelude::reflow_workspace;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_core_pathing::Existy;
+use cloud_terrastodon_core_tofu::prelude::reflow_workspace;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;

@@ -1,11 +1,11 @@
 use anyhow::Context;
 use anyhow::Result;
-use cloud_terrasotodon_core_command::prelude::CommandBuilder;
-use cloud_terrasotodon_core_command::prelude::CommandKind;
-use cloud_terrasotodon_core_command::prelude::OutputBehaviour;
-use cloud_terrasotodon_core_fzf::pick;
-use cloud_terrasotodon_core_fzf::FzfArgs;
-use cloud_terrasotodon_core_tofu::prelude::list_blocks;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_command::prelude::OutputBehaviour;
+use cloud_terrastodon_core_fzf::pick;
+use cloud_terrastodon_core_fzf::FzfArgs;
+use cloud_terrastodon_core_tofu::prelude::list_blocks;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::info;
