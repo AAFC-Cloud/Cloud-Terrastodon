@@ -18,6 +18,7 @@ static CONFIG: Lazy<Config> = Lazy::new(get_or_create_config);
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     pub commands: CommandsConfig,
+    pub scan_folders: Vec<PathBuf>,
 }
 impl Config {
     pub fn get_active_config() -> &'static Self {
@@ -43,6 +44,7 @@ impl Default for Config {
                 terraform: "terraform.exe".to_string(),
                 vscode: "code.cmd".to_string(),
             },
+            scan_folders: Default::default(),
         }
     }
     #[cfg(not(windows))]
@@ -54,6 +56,7 @@ impl Default for Config {
                 terraform: "terraform".to_string(),
                 vscode: "code".to_string(),
             },
+            scan_folders: Default::default(),
         }
     }
 }
@@ -68,6 +71,13 @@ fn get_or_create_config() -> Config {
                 "Failed to load config, using default and writing it to disk. Error: {:?}",
                 e
             );
+
+            if config_path.exists() {
+                if let Err(e) = backup_config(&config_path) {
+                    error!("Failed to backup existing config! {:?}", e);
+                }
+            }
+        
             let config = Config::default();
             if let Err(e) = write_config_to_disk(&config, &config_path) {
                 error!("Failed to write default config to disk! {:?}", e);
@@ -94,6 +104,24 @@ fn load_config_from_disk(config_path: &PathBuf) -> Result<Config> {
     let config = serde_json::from_str::<Config>(&contents).context("parsing contents as config")?;
     debug!("Successfully loaded config from {}", config_path.display());
     Ok(config)
+}
+
+fn backup_config(config_path: &PathBuf) -> Result<()> {
+    let mut backup_path = config_path.with_extension("bad");
+    let mut counter = 1;
+
+    while backup_path.exists() {
+        backup_path = config_path.with_extension(format!("{}{}", counter, ".bad"));
+        counter += 1;
+    }
+
+    std::fs::rename(config_path, &backup_path).context(format!(
+        "renaming config file \"{}\" to \"{}\"",
+        config_path.display(),
+        backup_path.display()
+    ))?;
+
+    Ok(())
 }
 
 fn write_config_to_disk(config: &Config, config_path: &PathBuf) -> Result<()> {
