@@ -11,6 +11,7 @@ cloud_terrastodon_visualizer_camera_plugin = { path = "./plugins/camera" }
 cloud_terrastodon_visualizer_azure_plugin = { path = "./plugins/azure" }
 cloud_terrastodon_visualizer_cursor_plugin = { path = "./plugins/cursor" }
 cloud_terrastodon_visualizer_damping_plugin = { path = "./plugins/damping" }
+cloud_terrastodon_visualizer_folders_plugin = { path = "./plugins/folders" }
 bevy = "0.14.1"
 bevy-inspector-egui = "0.25.2"
 bevy_svg = { version = "0.14.0", default-features = false, features = ["2d"] }
@@ -27,6 +28,7 @@ cloud_terrastodon_visualizer_camera_plugin = { workspace = true }
 cloud_terrastodon_visualizer_azure_plugin = { workspace = true }
 cloud_terrastodon_visualizer_cursor_plugin = { workspace = true }
 cloud_terrastodon_visualizer_damping_plugin = { workspace = true }
+cloud_terrastodon_visualizer_folders_plugin = { workspace = true }
 bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_svg = { workspace = true }

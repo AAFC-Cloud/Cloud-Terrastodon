@@ -1680,6 +1680,7 @@ dependencies = [
  "cloud_terrastodon_visualizer_camera_plugin",
  "cloud_terrastodon_visualizer_cursor_plugin",
  "cloud_terrastodon_visualizer_damping_plugin",
+ "cloud_terrastodon_visualizer_folders_plugin",
  "itertools 0.12.1",
 ]
 
@@ -1692,7 +1693,6 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_svg",
- "cloud_terrastodon_visualizer_camera_plugin",
  "cloud_terrastodon_visualizer_cursor_plugin",
  "cloud_terrastodon_visualizer_damping_plugin",
  "crossbeam-channel",
@@ -1728,6 +1728,16 @@ version = "0.1.0"
 dependencies = [
  "avian2d",
  "bevy",
+]
+
+[[package]]
+name = "cloud_terrastodon_visualizer_folders_plugin"
+version = "0.1.0"
+dependencies = [
+ "avian2d",
+ "bevy",
+ "cloud_terrastodon_visualizer_azure_plugin",
+ "cloud_terrastodon_visualizer_cursor_plugin",
 ]
 
 [[package]]
