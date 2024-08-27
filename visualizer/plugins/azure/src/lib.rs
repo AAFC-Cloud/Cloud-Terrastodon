@@ -6,6 +6,7 @@ mod scope;
 mod subscriptions;
 mod upright;
 mod bais_towards_origin;
+mod layout;
 
 use az_cli::AzureCliPlugin;
 use bevy::prelude::*;
@@ -15,6 +16,7 @@ use scope::ScopePlugin;
 use subscriptions::SubscriptionsPlugin;
 use upright::UprightPlugin;
 use bais_towards_origin::BiasPlugin;
+use layout::LayoutPlugin;
 
 pub struct AzurePlugin;
 impl Plugin for AzurePlugin {
@@ -26,5 +28,6 @@ impl Plugin for AzurePlugin {
         app.add_plugins(JointsPlugin);
         app.add_plugins(UprightPlugin);
         app.add_plugins(BiasPlugin);
+        app.add_plugins(LayoutPlugin);
     }
 }

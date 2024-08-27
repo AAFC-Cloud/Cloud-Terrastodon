@@ -1,3 +1,10 @@
+- Initial layout
+    - Allow nodes to phase through each other, apply repulsion force until things settle
+- Terraform ndoes
+    - Connect RG to Import and Resource blocks
+    - Connect Import and Resource blocks to File blocks
+    - Connect File blocks to Folder blocks
+
 - Copy selected nodes
     - Ctrl+c => copy azure ids
     - Ctrl+c+c => copy terraform ids

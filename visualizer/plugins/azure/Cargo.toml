@@ -15,3 +15,4 @@ bevy_svg = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 avian2d = { workspace = true }
 itertools = { workspace = true }
+leafwing-input-manager = { workspace = true }

@@ -1,9 +1,7 @@
 use avian2d::prelude::DistanceJoint;
 use avian2d::prelude::Joint;
-use avian2d::prelude::LinearVelocity;
 use avian2d::prelude::RigidBody;
 use avian2d::prelude::Sensor;
-use bevy::math::VectorSpace;
 use bevy::prelude::*;
 
 pub struct BiasPlugin;

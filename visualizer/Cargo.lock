@@ -1697,6 +1697,7 @@ dependencies = [
  "cloud_terrastodon_visualizer_damping_plugin",
  "crossbeam-channel",
  "itertools 0.12.1",
+ "leafwing-input-manager",
  "tokio",
 ]
 
