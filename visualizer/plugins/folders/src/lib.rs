@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use cloud_terrastodon_core_config::Config;
 
 pub struct FoldersPlugin;
 
@@ -13,5 +14,11 @@ impl Plugin for FoldersPlugin {
 pub struct Folder;
 
 fn setup(mut commands: Commands) {
-    // get
+    let scan_dirs = &Config::get_active_config().scan_dirs;
+    for dir in scan_dirs.iter() {
+        commands.spawn((
+            Name::new(format!("Folder - {}", dir.display())),
+            Folder,
+        ));
+    }
 }

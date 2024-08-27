@@ -1801,7 +1801,7 @@ version = "0.1.0"
 dependencies = [
  "avian2d",
  "bevy",
- "cloud_terrastodon_core_azure",
+ "cloud_terrastodon_core_config",
  "cloud_terrastodon_visualizer_azure_plugin",
  "cloud_terrastodon_visualizer_cursor_plugin",
 ]
