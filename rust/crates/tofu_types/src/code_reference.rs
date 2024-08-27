@@ -59,10 +59,10 @@ impl CodeReference {
             {
                 format!(
                     "{} {} - {} = {}",
-                    block.ident.to_string(),
+                    block.ident,
                     block.labels.iter().map(|x| x.to_string()).join(" "),
-                    name.key.to_string(),
-                    name.value.to_string()
+                    name.key,
+                    name.value
                 )
             } else {
                 format!(

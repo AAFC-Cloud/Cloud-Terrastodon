@@ -38,10 +38,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
         prompt: Some("Users: ".to_string()),
         header: Some(format!(
             "Assigning {}",
-            format!(
-                "Assigning: {}",
-                role_definitions.iter().map(|r| &r.display_name).join(", ")
-            )
+            role_definitions.iter().map(|r| &r.display_name).join(", ")
         )),
     })?;
 

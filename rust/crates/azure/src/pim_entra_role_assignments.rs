@@ -13,11 +13,11 @@ pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<PimEntraRoleAss
         "{}{}{}{}",
         "https://graph.microsoft.com/beta/",
         "privilegedAccess/aadroles/roleAssignments",
-        format!(
+        format_args!(
             "?$filter=(subject/id eq '{}') and (assignmentState in ('Eligible', 'Active'))",
             my_object_id
         ),
-        format!(
+        format_args!(
             "&$select={}",
             [
                 "assignmentState",

@@ -24,9 +24,7 @@ pub struct Config {
 }
 impl Config {
     pub fn get_config_path() -> PathBuf {
-        let config_dir = AppDir::Config.as_path_buf();
-        let config_path = config_dir.join("config.json");
-        config_path
+        AppDir::Config.as_path_buf().join("config.json")
     }
     pub fn get_active_config() -> std::sync::MutexGuard<'static, Config> {
         CONFIG.lock().expect("Failed to lock the CONFIG mutex")

@@ -14,10 +14,10 @@ pub async fn fetch_entra_pim_role_settings(
     let tenant_id = fetch_root_management_group().await?.tenant_id;
     let url = format!(
         "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleSettings?{}",
-        format!(
+        format_args!(
             "$select={}&$filter={}",
             "id,roleDefinitionId,userMemberSettings",
-            format!(
+            format_args!(
                 "(roleDefinition/id eq '{}')",
                 role_definition_id,
             ),
