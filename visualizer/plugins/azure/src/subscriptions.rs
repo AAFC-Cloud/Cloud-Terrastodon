@@ -25,6 +25,7 @@ use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
 
 pub struct SubscriptionsPlugin;
 impl Plugin for SubscriptionsPlugin {
@@ -134,6 +135,7 @@ fn receive_results(
                     Collider::circle(icon_data.circle_radius),
                     BiasTowardsOrigin,
                     KeepUpright,
+                    OrganizablePrimary,
                 ))
                 .with_children(|parent| {
                     let circle_scale = Vec2::splat(icon_data.circle_radius).extend(1.);

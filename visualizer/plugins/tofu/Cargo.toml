@@ -1,5 +1,5 @@
 [package]
-name = "cloud_terrastodon_visualizer_folders_plugin"
+name = "cloud_terrastodon_visualizer_tofu_plugin"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,3 +12,5 @@ cloud_terrastodon_core_config = { workspace = true }
 bevy = { workspace = true }
 avian2d = { workspace = true }
 bevy_svg = { workspace = true }
+crossbeam-channel = { workspace = true }
+tokio = { workspace = true }

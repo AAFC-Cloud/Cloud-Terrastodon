@@ -8,11 +8,13 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
-use cloud_terrastodon_core_config::Config;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
+
+use crate::tofu_worker_plugin::TofuEvent;
 pub struct FoldersPlugin;
 
 impl Plugin for FoldersPlugin {
@@ -20,7 +22,8 @@ impl Plugin for FoldersPlugin {
         app.register_type::<Folder>();
         app.register_type::<FolderRenderInfo>();
         app.init_resource::<FolderRenderInfo>();
-        app.add_systems(Startup, (setup, spawn_folders).chain());
+        app.add_systems(Startup, setup);
+        app.add_systems(Update, spawn_folders);
     }
 }
 
@@ -84,61 +87,68 @@ fn setup(
     }
 }
 
-fn spawn_folders(mut commands: Commands, render_info: Res<FolderRenderInfo>) {
-    let scan_dirs = &Config::get_active_config().scan_dirs;
-    for (i, dir) in scan_dirs.iter().enumerate() {
-        commands
-            .spawn((
-                Name::new(format!("Folder - {}", dir.display())),
-                SpatialBundle {
-                    transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
-                    ..default()
-                },
-                Folder,
-                RigidBody::Dynamic,
-                CustomLinearDamping::default(),
-                render_info.collider.clone(),
-                BiasTowardsOrigin,
-                KeepUpright,
-            ))
-            .with_children(|parent| {
-                parent.spawn((
-                    Name::new("Shape"),
-                    MaterialMesh2dBundle {
-                        mesh: render_info.mesh.clone(),
-                        transform: render_info.shape_transform.clone(),
-                        material: render_info.material.clone(),
+fn spawn_folders(
+    mut commands: Commands,
+    render_info: Res<FolderRenderInfo>,
+    mut events: EventReader<TofuEvent>,
+) {
+    for msg in events.read() {
+        let TofuEvent::ListFolders(scan_dirs) = msg;
+        for (i, dir) in scan_dirs.iter().enumerate() {
+            commands
+                .spawn((
+                    Name::new(format!("Folder - {}", dir.display())),
+                    SpatialBundle {
+                        transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
                         ..default()
                     },
-                ));
+                    Folder,
+                    RigidBody::Dynamic,
+                    CustomLinearDamping::default(),
+                    render_info.collider.clone(),
+                    BiasTowardsOrigin,
+                    KeepUpright,
+                    OrganizablePrimary,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Name::new("Shape"),
+                        MaterialMesh2dBundle {
+                            mesh: render_info.mesh.clone(),
+                            transform: render_info.shape_transform.clone(),
+                            material: render_info.material.clone(),
+                            ..default()
+                        },
+                    ));
 
-                parent.spawn((
-                    Name::new("Icon"),
-                    Svg2dBundle {
-                        svg: render_info.icon.clone(),
-                        transform: render_info.icon_transform.clone(),
-                        origin: Origin::TopLeft,
-                        ..default()
-                    },
-                ));
+                    parent.spawn((
+                        Name::new("Icon"),
+                        Svg2dBundle {
+                            svg: render_info.icon.clone(),
+                            transform: render_info.icon_transform.clone(),
+                            origin: Origin::TopLeft,
+                            ..default()
+                        },
+                    ));
 
-                parent.spawn((
-                    Name::new("Text"),
-                    Text2dBundle {
-                        text: Text::from_section(
-                            dir.display().to_string(),
-                            TextStyle {
-                                font_size: 60.,
-                                ..default()
-                            },
-                        )
-                        .with_justify(JustifyText::Left),
-                        text_anchor: Anchor::CenterLeft,
-                        transform: render_info.text_transform.clone(),
-                        ..default()
-                    },
-                    OnlyShowWhenHovered,
-                ));
-            });
+                    parent.spawn((
+                        Name::new("Text"),
+                        Text2dBundle {
+                            text: Text::from_section(
+                                dir.display().to_string(),
+                                TextStyle {
+                                    font_size: 60.,
+                                    ..default()
+                                },
+                            )
+                            .with_justify(JustifyText::Left),
+                            text_anchor: Anchor::CenterLeft,
+                            transform: render_info.text_transform.clone(),
+                            ..default()
+                        },
+                        OnlyShowWhenHovered,
+                    ));
+                });
+        }
     }
 }

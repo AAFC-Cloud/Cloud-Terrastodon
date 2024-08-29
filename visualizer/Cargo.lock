@@ -1745,8 +1745,8 @@ dependencies = [
  "cloud_terrastodon_visualizer_camera_plugin",
  "cloud_terrastodon_visualizer_cursor_plugin",
  "cloud_terrastodon_visualizer_damping_plugin",
- "cloud_terrastodon_visualizer_folders_plugin",
  "cloud_terrastodon_visualizer_layout_plugin",
+ "cloud_terrastodon_visualizer_tofu_plugin",
  "itertools 0.12.1",
 ]
 
@@ -1798,7 +1798,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrastodon_visualizer_folders_plugin"
+name = "cloud_terrastodon_visualizer_layout_plugin"
+version = "0.1.0"
+dependencies = [
+ "avian2d",
+ "bevy",
+ "leafwing-input-manager",
+]
+
+[[package]]
+name = "cloud_terrastodon_visualizer_tofu_plugin"
 version = "0.1.0"
 dependencies = [
  "avian2d",
@@ -1809,15 +1818,8 @@ dependencies = [
  "cloud_terrastodon_visualizer_cursor_plugin",
  "cloud_terrastodon_visualizer_damping_plugin",
  "cloud_terrastodon_visualizer_layout_plugin",
-]
-
-[[package]]
-name = "cloud_terrastodon_visualizer_layout_plugin"
-version = "0.1.0"
-dependencies = [
- "avian2d",
- "bevy",
- "leafwing-input-manager",
+ "crossbeam-channel",
+ "tokio",
 ]
 
 [[package]]
