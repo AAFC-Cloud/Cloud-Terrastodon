@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use crate::az_cli::AzureCliEvent;
-use crate::bias_towards_origin::BiasTowardsOrigin;
+use crate::resource_groups::AzureResourceGroup;
 use crate::scope::AzureScope;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
@@ -22,6 +22,9 @@ use cloud_terrastodon_core_azure::prelude::SubscriptionState;
 use cloud_terrastodon_core_azure::prelude::SubscriptionUser;
 use cloud_terrastodon_core_azure::prelude::TenantId;
 use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 
 pub struct SubscriptionsPlugin;
 impl Plugin for SubscriptionsPlugin {
@@ -31,6 +34,7 @@ impl Plugin for SubscriptionsPlugin {
         app.add_systems(Update, receive_results);
         app.register_type::<SubscriptionIconData>();
         app.init_resource::<SubscriptionIconData>();
+        app.observe(join_on_thing_added(|sub: &AzureSubscription, rg: &AzureResourceGroup| sub.id == rg.subscription_id));
     }
 }
 
@@ -87,7 +91,7 @@ fn setup(
     info!("Setting up resource group icon data");
     // The Subscription.svg file has been modified to remove a path element that causes problems
     // https://github.com/Weasy666/bevy_svg/issues/42
-    handles.circle_icon = asset_server.load("textures/Subscription.svg");
+    handles.circle_icon = asset_server.load("textures/azure/Subscription.svg");
     handles.circle_material = materials.add(Color::from(YELLOW));
     handles.circle_mesh = meshes.add(Circle { radius: 1. }).into();
     handles.icon_width = 18;
@@ -129,6 +133,7 @@ fn receive_results(
                     RigidBody::Dynamic,
                     Collider::circle(icon_data.circle_radius),
                     BiasTowardsOrigin,
+                    KeepUpright,
                 ))
                 .with_children(|parent| {
                     let circle_scale = Vec2::splat(icon_data.circle_radius).extend(1.);

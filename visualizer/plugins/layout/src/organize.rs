@@ -11,36 +11,39 @@ use leafwing_input_manager::Actionlike;
 use leafwing_input_manager::InputControlKind;
 use leafwing_input_manager::InputManagerBundle;
 
-use crate::resource_groups::AzureResourceGroup;
-use crate::subscriptions::AzureSubscription;
-
-pub struct LayoutPlugin;
-impl Plugin for LayoutPlugin {
+pub struct OrganizerPlugin;
+impl Plugin for OrganizerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(InputManagerPlugin::<LayoutAction>::default());
+        app.add_plugins(InputManagerPlugin::<OrganizerAction>::default());
         app.add_systems(Startup, setup);
         app.add_systems(Update, begin_organize);
         app.add_systems(Update, end_organize);
         app.add_systems(PostProcessCollisions, disable_collisions);
         app.register_type::<DisableCollisions>();
-        app.register_type::<LayoutJoint>();
+        app.register_type::<OrganizationJoint>();
     }
 }
 
 #[derive(Component, Debug, Reflect)]
-pub struct LayoutJoint;
+pub struct OrganizablePrimary;
+
+#[derive(Component, Debug, Reflect)]
+pub struct OrganizableSecondary;
+
+#[derive(Component, Debug, Reflect)]
+pub struct OrganizationJoint;
 
 #[derive(Component, Debug, Reflect)]
 pub struct DisableCollisions;
 
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug, Reflect)]
-pub enum LayoutAction {
+pub enum OrganizerAction {
     Organize,
 }
-impl Actionlike for LayoutAction {
+impl Actionlike for OrganizerAction {
     fn input_control_kind(&self) -> InputControlKind {
         match self {
-            LayoutAction::Organize => InputControlKind::Button,
+            OrganizerAction::Organize => InputControlKind::Button,
         }
     }
 }
@@ -49,33 +52,33 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         Name::new("Layout Actions"),
         InputManagerBundle::with_map(
-            InputMap::default().with(LayoutAction::Organize, KeyCode::Space),
+            InputMap::default().with(OrganizerAction::Organize, KeyCode::Space),
         ),
     ));
 }
 
 fn begin_organize(
     mut commands: Commands,
-    actions_query: Query<&ActionState<LayoutAction>>,
-    subscription_query: Query<Entity, With<AzureSubscription>>,
-    resource_group_query: Query<Entity, With<AzureResourceGroup>>,
+    actions_query: Query<&ActionState<OrganizerAction>>,
+    primary_query: Query<Entity, With<OrganizablePrimary>>,
+    secondary_query: Query<Entity, With<OrganizableSecondary>>,
 ) {
     let Ok(actions) = actions_query.get_single() else {
         warn!("Could not find actions");
         return;
     };
-    if actions.just_pressed(&LayoutAction::Organize) {
+    if actions.just_pressed(&OrganizerAction::Organize) {
         info!("Beginning organization");
         // Add DisableCollisions tag
-        for sub in subscription_query.iter().chain(resource_group_query.iter()) {
-            commands.entity(sub).insert(DisableCollisions);
+        for primary in primary_query.iter().chain(secondary_query.iter()) {
+            commands.entity(primary).insert(DisableCollisions);
         }
         // Create joints
-        for [s1, s2] in subscription_query.iter_combinations() {
+        for [e1, e2] in primary_query.iter_combinations() {
             commands.spawn((
-                LayoutJoint,
-                Name::new("Layout Joint"),
-                DistanceJoint::new(s1, s2)
+                OrganizationJoint,
+                Name::new("Organization Joint"),
+                DistanceJoint::new(e1, e2)
                     .with_rest_length(2500.0)
                     .with_linear_velocity_damping(0.05)
                     .with_angular_velocity_damping(0.5)
@@ -88,15 +91,15 @@ fn begin_organize(
 
 fn end_organize(
     mut commands: Commands,
-    actions_query: Query<&ActionState<LayoutAction>>,
+    actions_query: Query<&ActionState<OrganizerAction>>,
     collider_fix_query: Query<Entity, With<DisableCollisions>>,
-    joint_query: Query<Entity, With<LayoutJoint>>,
+    joint_query: Query<Entity, With<OrganizationJoint>>,
 ) {
     let Ok(actions) = actions_query.get_single() else {
         warn!("Could not find actions");
         return;
     };
-    if actions.just_released(&LayoutAction::Organize) {
+    if actions.just_released(&OrganizerAction::Organize) {
         info!("Ending organization");
         for joint in joint_query.iter() {
             commands.entity(joint).despawn();

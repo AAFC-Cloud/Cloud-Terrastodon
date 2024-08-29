@@ -12,6 +12,7 @@ cloud_terrastodon_visualizer_azure_plugin = { path = "./plugins/azure" }
 cloud_terrastodon_visualizer_cursor_plugin = { path = "./plugins/cursor" }
 cloud_terrastodon_visualizer_damping_plugin = { path = "./plugins/damping" }
 cloud_terrastodon_visualizer_folders_plugin = { path = "./plugins/folders" }
+cloud_terrastodon_visualizer_layout_plugin = { path = "./plugins/layout" }
 cloud_terrastodon_core_azure = { path = "../rust/crates/azure" }
 cloud_terrastodon_core_config = { path = "../rust/crates/config" }
 bevy = "0.14.1"
@@ -30,6 +31,7 @@ cloud_terrastodon_visualizer_azure_plugin = { workspace = true }
 cloud_terrastodon_visualizer_cursor_plugin = { workspace = true }
 cloud_terrastodon_visualizer_damping_plugin = { workspace = true }
 cloud_terrastodon_visualizer_folders_plugin = { workspace = true }
+cloud_terrastodon_visualizer_layout_plugin = { workspace = true }
 bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_svg = { workspace = true }

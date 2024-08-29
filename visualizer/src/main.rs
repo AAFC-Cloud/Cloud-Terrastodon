@@ -12,6 +12,7 @@ use cloud_terrastodon_visualizer_camera_plugin::MyCameraPlugin;
 use cloud_terrastodon_visualizer_cursor_plugin::CursorPlugin;
 use cloud_terrastodon_visualizer_damping_plugin::DampingPlugin;
 use cloud_terrastodon_visualizer_folders_plugin::FoldersPlugin;
+use cloud_terrastodon_visualizer_layout_plugin::LayoutPlugin;
 use itertools::Itertools;
 
 fn main() {
@@ -43,6 +44,7 @@ fn main() {
     app.add_plugins(CursorPlugin);
     app.add_plugins(DampingPlugin);
     app.add_plugins(FoldersPlugin);
+    app.add_plugins(LayoutPlugin);
     #[cfg(debug_assertions)]
     {
         app.add_plugins(PhysicsDebugPlugin::default());
