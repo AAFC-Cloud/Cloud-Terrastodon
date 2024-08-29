@@ -1718,6 +1718,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_core_tofu"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cloud_terrastodon_core_azure",
+ "cloud_terrastodon_core_command",
+ "cloud_terrastodon_core_pathing",
+ "cloud_terrastodon_core_tofu_types",
+ "hcl-rs",
+ "indicatif",
+ "indoc",
+ "itertools 0.12.1",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "cloud_terrastodon_core_tofu_types"
 version = "0.1.0"
 dependencies = [
@@ -1810,10 +1828,13 @@ dependencies = [
 name = "cloud_terrastodon_visualizer_tofu_plugin"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "avian2d",
  "bevy",
  "bevy_svg",
+ "cloud_terrastodon_core_azure",
  "cloud_terrastodon_core_config",
+ "cloud_terrastodon_core_tofu",
  "cloud_terrastodon_visualizer_azure_plugin",
  "cloud_terrastodon_visualizer_cursor_plugin",
  "cloud_terrastodon_visualizer_damping_plugin",

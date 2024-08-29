@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use bevy::prelude::*;
 use bevy_inspector_egui::inspector_egui_impls::InspectorEguiImpl;
 use bevy_inspector_egui::inspector_egui_impls::InspectorPrimitive;
@@ -26,7 +28,13 @@ impl Default for AzureScope {
         }
     }
 }
+impl Deref for AzureScope {
+    type Target = ScopeImpl;
 
+    fn deref(&self) -> &Self::Target {
+        &self.scope
+    }
+}
 impl InspectorPrimitive for AzureScope {
     fn ui(
         &mut self,

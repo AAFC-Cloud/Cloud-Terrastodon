@@ -19,3 +19,11 @@ impl Plugin for AzurePlugin {
         app.add_plugins(ScopePlugin);
     }
 }
+
+pub mod prelude {
+    pub use crate::*;
+    pub use scope::*;
+    pub use resource_groups::*;
+    pub use subscriptions::*;
+    pub use az_cli::*;
+}

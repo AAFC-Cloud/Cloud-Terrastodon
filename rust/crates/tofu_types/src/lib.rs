@@ -15,4 +15,5 @@ pub mod prelude {
     pub use crate::providers::*;
     pub use crate::resources::*;
     pub use crate::strings::*;
+    pub use hcl::*;
 }

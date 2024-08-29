@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
 use bevy::color::palettes::css::PURPLE;
@@ -10,10 +12,12 @@ use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
 
+use crate::import_blocks_plugin::TofuImportBlock;
 use crate::tofu_worker_plugin::TofuEvent;
 pub struct FoldersPlugin;
 
@@ -24,11 +28,14 @@ impl Plugin for FoldersPlugin {
         app.init_resource::<FolderRenderInfo>();
         app.add_systems(Startup, setup);
         app.add_systems(Update, spawn_folders);
+        app.observe(join_on_thing_added(|folder: &Folder, block: &TofuImportBlock| folder.path == block.source));
     }
 }
 
 #[derive(Component, Reflect, Debug)]
-pub struct Folder;
+pub struct Folder {
+    pub path: PathBuf,
+}
 
 #[derive(Debug, Resource, Default, Reflect)]
 #[reflect(Resource)]
@@ -93,8 +100,9 @@ fn spawn_folders(
     mut events: EventReader<TofuEvent>,
 ) {
     for msg in events.read() {
-        let TofuEvent::ListFolders(scan_dirs) = msg;
-        for (i, dir) in scan_dirs.iter().enumerate() {
+        let TofuEvent::Refresh(data) = msg;
+        let scan_dirs = data.keys();
+        for (i, dir) in scan_dirs.enumerate() {
             commands
                 .spawn((
                     Name::new(format!("Folder - {}", dir.display())),
@@ -102,7 +110,9 @@ fn spawn_folders(
                         transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
                         ..default()
                     },
-                    Folder,
+                    Folder {
+                        path: dir.to_owned(),
+                    },
                     RigidBody::Dynamic,
                     CustomLinearDamping::default(),
                     render_info.collider.clone(),

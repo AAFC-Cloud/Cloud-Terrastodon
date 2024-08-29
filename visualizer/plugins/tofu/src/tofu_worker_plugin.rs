@@ -1,10 +1,13 @@
 use bevy::prelude::*;
-use bevy::utils::HashSet as BevyHashSet;
+use bevy::utils::HashMap;
 use cloud_terrastodon_core_config::Config;
+use cloud_terrastodon_core_tofu::prelude::as_single_body;
+use cloud_terrastodon_core_tofu::prelude::IntoTofuBlocks;
+use cloud_terrastodon_core_tofu::prelude::TofuBlock;
 use crossbeam_channel::bounded;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
-use std::collections::HashSet;
+use anyhow::Result;
 use std::path::PathBuf;
 use std::thread;
 
@@ -19,12 +22,12 @@ impl Plugin for TofuWorkerPlugin {
 
 #[derive(Debug)]
 enum GameboundMessage {
-    ListFolders(HashSet<PathBuf>),
+    Refresh(HashMap<PathBuf, Vec<TofuBlock>>),
 }
 
 #[derive(Debug)]
 enum ThreadboundMessage {
-    ListFolders,
+    Refresh,
 }
 
 #[derive(Resource)]
@@ -35,7 +38,7 @@ pub struct TofuBridge {
 
 #[derive(Event)]
 pub enum TofuEvent {
-    ListFolders(BevyHashSet<PathBuf>),
+    Refresh(HashMap<PathBuf, Vec<TofuBlock>>),
 }
 
 fn create_worker_thread(mut commands: Commands) {
@@ -59,24 +62,30 @@ fn create_worker_thread(mut commands: Commands) {
             rt.block_on(async {
                 let game_tx = game_tx_clone;
                 loop {
-                    let msg = match thread_rx.recv() {
-                        Ok(msg) => msg,
-                        Err(_) => {
-                            error!("Threadbound channel failure, exiting");
-                            break;
-                        }
-                    };
-                    debug!("Received {msg:?}");
-                    match msg {
-                        ThreadboundMessage::ListFolders => {
-                            info!("List Folders");
-                            let folders = Config::get_active_config().scan_dirs.clone();
-                            let resp = GameboundMessage::ListFolders(folders);
-                            if let Err(e) = game_tx.send(resp) {
-                                error!("Gamebound channel failure, exiting: {}", e);
-                                break;
+                    let result: Result<()> = try {
+                        let msg = thread_rx.recv()?;
+                        debug!("Received {msg:?}");
+                        match msg {
+                            ThreadboundMessage::Refresh => {
+                                info!("Refresh");
+                                // get the dirs to scan
+                                let folders = &Config::get_active_config().scan_dirs;
+
+                                // build the mapping
+                                let mut data = HashMap::new();
+                                for folder in folders {
+                                    let body = as_single_body(folder).await?;
+                                    let blocks = body.try_into_tofu_blocks()?;
+                                    data.insert(folder.to_owned(), blocks);
+                                }
+                                let resp = GameboundMessage::Refresh(data);
+                                game_tx.send(resp)?;
                             }
                         }
+                    };
+                    if let Err(e) = result {
+                        error!("Worker error: {}", e);
+                        break;
                     }
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }
@@ -86,7 +95,7 @@ fn create_worker_thread(mut commands: Commands) {
 }
 
 fn initial_fetch(bridge: ResMut<TofuBridge>) {
-    for msg in [ThreadboundMessage::ListFolders] {
+    for msg in [ThreadboundMessage::Refresh] {
         debug!("Sending bridge message: {:?}", msg);
         if let Err(e) = bridge.sender.send(msg) {
             error!("Threadbound channel failure: {}", e);
@@ -97,8 +106,8 @@ fn initial_fetch(bridge: ResMut<TofuBridge>) {
 fn receive_results(bridge: ResMut<TofuBridge>, mut cli_events: EventWriter<TofuEvent>) {
     for msg in bridge.receiver.try_iter() {
         let to_send: TofuEvent = match msg {
-            GameboundMessage::ListFolders(folders) => {
-                TofuEvent::ListFolders(folders.iter().cloned().collect())
+            GameboundMessage::Refresh(data) => {
+                TofuEvent::Refresh(data.clone())
             }
         };
         cli_events.send(to_send);

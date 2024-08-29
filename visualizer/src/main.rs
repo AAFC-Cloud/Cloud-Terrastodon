@@ -7,7 +7,7 @@ use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_svg::prelude::*;
-use cloud_terrastodon_visualizer_azure_plugin::AzurePlugin;
+use cloud_terrastodon_visualizer_azure_plugin::prelude::AzurePlugin;
 use cloud_terrastodon_visualizer_camera_plugin::MyCameraPlugin;
 use cloud_terrastodon_visualizer_cursor_plugin::CursorPlugin;
 use cloud_terrastodon_visualizer_damping_plugin::DampingPlugin;
