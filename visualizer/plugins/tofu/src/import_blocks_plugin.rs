@@ -12,6 +12,7 @@ use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
 use cloud_terrastodon_core_azure::prelude::Scope;
+use cloud_terrastodon_core_tofu::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu::prelude::TofuBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock as InnerTofuImportBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuProviderReference;
@@ -36,7 +37,7 @@ impl Plugin for TofuImportBlocksPlugin {
         app.add_systems(Startup, setup);
         app.add_systems(Update, spawn_folders);
         app.observe(join_on_thing_added(
-            |block: &TofuImportBlock, folder: &Folder| block.source == folder.path,
+            |block: &TofuImportBlock, folder: &Folder| block.dir_path == folder.path,
         ));
         app.observe(join_on_thing_added(
             |block: &TofuImportBlock, scope: &AzureScope| block.id == scope.scope.expanded_form(),
@@ -50,9 +51,11 @@ impl Plugin for TofuImportBlocksPlugin {
 #[derive(Component, Reflect, Debug)]
 #[reflect(Default)]
 pub struct TofuImportBlock {
-    pub source: PathBuf,
+    pub dir_path: PathBuf,
+    pub file_path: PathBuf,
     #[reflect(ignore)]
     pub block: InnerTofuImportBlock,
+    pub line_col: (usize, usize)
 }
 impl Deref for TofuImportBlock {
     type Target = InnerTofuImportBlock;
@@ -64,7 +67,9 @@ impl Deref for TofuImportBlock {
 impl Default for TofuImportBlock {
     fn default() -> Self {
         Self {
-            source: PathBuf::from("example source"),
+            file_path: PathBuf::from("example dir"),
+            dir_path: PathBuf::from("example dir/example file"),
+            line_col: (0,0),
             block: InnerTofuImportBlock {
                 provider: TofuProviderReference::Inherited,
                 id: "example id".to_string(),
@@ -83,6 +88,7 @@ impl Default for TofuImportBlock {
 struct TofuImportBlockRenderInfo {
     pub icon_transform: Transform,
     pub icon: Handle<Svg>,
+    pub inner_icon_transform: Transform,
     pub material: Handle<ColorMaterial>,
     pub mesh: Mesh2dHandle,
     pub padding: f32,
@@ -112,6 +118,7 @@ fn setup(
     render_info.collider = Collider::rectangle(render_info.shape_width, render_info.shape_width);
 
     // icon
+    render_info.padding = 4.;
     render_info.icon = asset_server.load("textures/fluent_emoji/page_facing_up_color.svg");
     {
         let raw_icon_width = 32;
@@ -123,6 +130,16 @@ fn setup(
         render_info.icon_transform =
             Transform::from_translation(icon_translation).with_scale(icon_scale);
     }
+
+    // inner icon
+    render_info.inner_icon_transform = {
+        let raw_icon_width = 18;
+        let desired_icon_width = 50.;
+        let icon_scale = (1. / raw_icon_width as f32) * desired_icon_width;
+        let icon_scale = Vec2::splat(icon_scale).extend(1.);
+        let icon_translation = Vec3::new(-desired_icon_width / 2., desired_icon_width / 2., 2.);
+        Transform::from_translation(icon_translation).with_scale(icon_scale)
+    };
 
     // material
     render_info.material = materials.add(Color::from(PURPLE));
@@ -139,19 +156,21 @@ fn spawn_folders(
     mut commands: Commands,
     render_info: Res<TofuImportBlockRenderInfo>,
     mut events: EventReader<TofuEvent>,
+    asset_server: Res<AssetServer>,
 ) {
     for msg in events.read() {
-        let TofuEvent::Refresh(data) = msg;
+        let TofuEvent::Refresh(data) = msg else {
+            continue;
+        };
         let mut i = 0;
         for (dir, blocks) in data {
-            for block in blocks {
-                let TofuBlock::Import(import_block) = block else {
+            for reference in blocks {
+                let TofuBlock::Import(import_block) = &reference.block else {
                     continue;
                 };
-                let display = import_block.to.expression_str();
                 commands
                     .spawn((
-                        Name::new(format!("TofuImportBlock - {}", display)),
+                        Name::new(format!("TofuImportBlock - {}", import_block.to.expression_str())),
                         SpatialBundle {
                             transform: Transform::from_translation(Vec3::new(
                                 0.,
@@ -161,13 +180,14 @@ fn spawn_folders(
                             ..default()
                         },
                         TofuImportBlock {
-                            source: dir.to_owned(),
+                            file_path: reference.path.to_owned(),
+                            dir_path: dir.to_owned(),
                             block: import_block.to_owned(),
+                            line_col: reference.line_col,
                         },
                         RigidBody::Dynamic,
                         CustomLinearDamping::default(),
                         render_info.collider.clone(),
-                        BiasTowardsOrigin,
                         KeepUpright,
                         OrganizableSecondary,
                     ))
@@ -192,11 +212,33 @@ fn spawn_folders(
                             },
                         ));
 
+                        let inner_icon_path = match &import_block.to {
+                            TofuResourceReference::AzureRM {
+                                kind: TofuAzureRMResourceKind::ResourceGroup,
+                                ..
+                            } => "textures/azure/ResourceGroups.svg",
+                            x => {
+                                warn!("No icon available for import block of resource kind {x:?}");
+                                ""
+                            }
+                        };
+                        if !inner_icon_path.is_empty() {
+                            parent.spawn((
+                                Name::new("Inner Icon"),
+                                Svg2dBundle {
+                                    svg: asset_server.load(inner_icon_path),
+                                    transform: render_info.inner_icon_transform.clone(),
+                                    origin: Origin::TopLeft,
+                                    ..default()
+                                },
+                            ));
+                        }
+
                         parent.spawn((
                             Name::new("Text"),
                             Text2dBundle {
                                 text: Text::from_section(
-                                    display,
+                                    import_block.to.name_label(),
                                     TextStyle {
                                         font_size: 60.,
                                         ..default()

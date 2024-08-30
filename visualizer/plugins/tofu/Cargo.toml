@@ -11,9 +11,11 @@ cloud_terrastodon_visualizer_damping_plugin = { workspace = true }
 cloud_terrastodon_core_tofu = { workspace = true }
 cloud_terrastodon_core_azure = { workspace = true }
 cloud_terrastodon_core_config = { workspace = true }
+cloud_terrastodon_core_command = { workspace = true } 
 bevy = { workspace = true }
 avian2d = { workspace = true }
 bevy_svg = { workspace = true }
 crossbeam-channel = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
+leafwing-input-manager = { workspace = true }

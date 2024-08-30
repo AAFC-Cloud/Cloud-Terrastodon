@@ -1,82 +1,33 @@
-use std::path::PathBuf;
-
+use anyhow::Result;
 use hcl::edit::prelude::Span;
 use hcl::edit::structure::Block;
-use itertools::Itertools;
+use std::path::PathBuf;
 
+use crate::prelude::TofuBlock;
+
+#[derive(Debug, Clone)]
 pub struct CodeReference {
-    pub display: String,
-    pub line_number: usize,
+    pub block: TofuBlock,
+    pub line_col: (usize, usize),
     pub path: PathBuf,
 }
 impl std::fmt::Display for CodeReference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{} | {}", self.path.display(), self.display))
+        f.write_fmt(format_args!("{} {:?} | {}", self.path.display(), self.line_col, self.block))
     }
 }
 impl CodeReference {
-    pub fn from_block(content: &str, block: &Block, path: &PathBuf) -> Self {
-        CodeReference {
+    pub fn try_from_block(content: &str, block: Block, path: &PathBuf) -> Result<Self> {
+        let span = block
+            .span()
+            .and_then(|span| find_line_column(content, span.start))
+            .unwrap_or((0, 0));
+        let tofu_block: TofuBlock = block.try_into()?;
+        Ok(CodeReference {
             path: path.to_owned(),
-            display: if block.ident.to_string() == "import" {
-                format!(
-                    "{} - to = {}",
-                    block.ident,
-                    block
-                        .body
-                        .get_attribute("to")
-                        .map(|x| x.value.to_string())
-                        .unwrap_or_default()
-                        .trim()
-                )
-            } else if block.ident.to_string() == "provider" {
-                match block
-                    .body
-                    .get_attribute("alias")
-                    .map(|x| x.value.to_string())
-                {
-                    Some(alias) => format!(
-                        "provider {} - alias={}",
-                        block.labels.iter().map(|x| x.to_string()).join(" "),
-                        alias
-                    ),
-                    None => format!(
-                        "provider {}",
-                        block.labels.iter().map(|x| x.to_string()).join(" ")
-                    ),
-                }
-            } else if (block.ident.to_string() == "data" || block.ident.to_string() == "resource")
-                && let Some(name) = block
-                    .body
-                    .get_attribute("display_name")
-                    .or_else(|| block.body.get_attribute("name"))
-                && block
-                    .labels
-                    .get(1)
-                    .map(|label| label.to_string())
-                    .filter(|label| Some(label.as_str()) != name.value.as_str())
-                    .is_some()
-            {
-                format!(
-                    "{} {} - {} = {}",
-                    block.ident,
-                    block.labels.iter().map(|x| x.to_string()).join(" "),
-                    name.key,
-                    name.value
-                )
-            } else {
-                format!(
-                    "{} {}",
-                    block.ident,
-                    block.labels.iter().map(|x| x.to_string()).join(".")
-                )
-            },
-            line_number: block
-                .span()
-                .and_then(|span| find_line_column(content, span.start))
-                .map(|pos| pos.0)
-                .unwrap_or_default(),
-        }
+            block: tofu_block,
+            line_col: span,
+        })
     }
 }
 

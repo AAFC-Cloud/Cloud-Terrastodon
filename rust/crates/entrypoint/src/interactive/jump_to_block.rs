@@ -5,7 +5,7 @@ use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::OutputBehaviour;
 use cloud_terrastodon_core_fzf::pick;
 use cloud_terrastodon_core_fzf::FzfArgs;
-use cloud_terrastodon_core_tofu::prelude::list_blocks;
+use cloud_terrastodon_core_tofu::prelude::list_blocks_for_file;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::info;
@@ -32,7 +32,7 @@ pub async fn jump_to_block(dir: PathBuf) -> Result<()> {
         num_files += 1;
         info!("Gathering blocks from {}", path.display());
 
-        let mut blocks = list_blocks(path).await.context("listing blocks")?;
+        let mut blocks = list_blocks_for_file(path).await.context("listing blocks")?;
         choices.append(&mut blocks);
     }
 
@@ -47,7 +47,7 @@ pub async fn jump_to_block(dir: PathBuf) -> Result<()> {
     CommandBuilder::new(CommandKind::VSCode)
         .args([
             "--goto",
-            format!("{}:{}", chosen.path.display(), chosen.line_number).as_str(),
+            format!("{}:{}", chosen.path.display(), chosen.line_col.0).as_str(),
         ])
         .use_output_behaviour(OutputBehaviour::Display)
         .run_raw()

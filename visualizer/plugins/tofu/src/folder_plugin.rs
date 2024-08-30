@@ -28,7 +28,7 @@ impl Plugin for FoldersPlugin {
         app.init_resource::<FolderRenderInfo>();
         app.add_systems(Startup, setup);
         app.add_systems(Update, spawn_folders);
-        app.observe(join_on_thing_added(|folder: &Folder, block: &TofuImportBlock| folder.path == block.source));
+        app.observe(join_on_thing_added(|folder: &Folder, block: &TofuImportBlock| folder.path == block.dir_path));
     }
 }
 
@@ -100,7 +100,9 @@ fn spawn_folders(
     mut events: EventReader<TofuEvent>,
 ) {
     for msg in events.read() {
-        let TofuEvent::Refresh(data) = msg;
+        let TofuEvent::Refresh(data) = msg else {
+            continue;
+        };
         let scan_dirs = data.keys();
         for (i, dir) in scan_dirs.enumerate() {
             commands

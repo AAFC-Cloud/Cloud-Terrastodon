@@ -1833,6 +1833,7 @@ dependencies = [
  "bevy",
  "bevy_svg",
  "cloud_terrastodon_core_azure",
+ "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_config",
  "cloud_terrastodon_core_tofu",
  "cloud_terrastodon_visualizer_azure_plugin",
@@ -1840,6 +1841,7 @@ dependencies = [
  "cloud_terrastodon_visualizer_damping_plugin",
  "cloud_terrastodon_visualizer_layout_plugin",
  "crossbeam-channel",
+ "leafwing-input-manager",
  "tokio",
 ]
 

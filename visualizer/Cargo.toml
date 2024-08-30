@@ -15,6 +15,7 @@ cloud_terrastodon_visualizer_tofu_plugin = { path = "./plugins/tofu" }
 cloud_terrastodon_visualizer_layout_plugin = { path = "./plugins/layout" }
 cloud_terrastodon_core_azure = { path = "../rust/crates/azure" }
 cloud_terrastodon_core_config = { path = "../rust/crates/config" }
+cloud_terrastodon_core_command = { path = "../rust/crates/command" }
 cloud_terrastodon_core_tofu = { path = "../rust/crates/tofu" }
 bevy = "0.14.1"
 bevy-inspector-egui = "0.25.2"
