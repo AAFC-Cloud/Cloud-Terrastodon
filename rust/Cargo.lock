@@ -267,6 +267,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_core_azure_devops"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cloud_terrastodon_core_azure_devops_types",
+ "cloud_terrastodon_core_command",
+ "cloud_terrastodon_core_fzf",
+ "cloud_terrastodon_core_pathing",
+ "cloud_terrastodon_core_tofu_types",
+ "humantime",
+ "indicatif",
+ "indoc",
+ "itertools",
+ "rand",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "test-log",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "cloud_terrastodon_core_azure_devops_types"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "cloud_terrastodon_core_command",
+ "cloud_terrastodon_core_fzf",
+ "cloud_terrastodon_core_tofu_types",
+ "iso8601-duration",
+ "itertools",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "cloud_terrastodon_core_azure_types"
 version = "0.1.0"
 dependencies = [

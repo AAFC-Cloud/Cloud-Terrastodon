@@ -1,0 +1,21 @@
+[package]
+name = "cloud_terrastodon_core_azure_devops_types"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cloud_terrastodon_core_fzf = { workspace = true }
+cloud_terrastodon_core_command = { workspace = true }
+cloud_terrastodon_core_tofu_types = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true } 
+clap = { workspace = true } 
+iso8601-duration = { workspace = true }
+itertools = { workspace = true }
