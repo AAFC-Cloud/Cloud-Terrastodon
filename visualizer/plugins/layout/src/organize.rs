@@ -79,10 +79,10 @@ fn begin_organize(
                 OrganizationJoint,
                 Name::new("Organization Joint"),
                 DistanceJoint::new(e1, e2)
-                    .with_rest_length(2500.0)
+                    .with_rest_length(4000.0)
                     .with_linear_velocity_damping(0.05)
                     .with_angular_velocity_damping(0.5)
-                    .with_limits(1200.0, 5000.0)
+                    .with_limits(2500.0, 8000.0)
                     .with_compliance(0.000001),
             ));
         }

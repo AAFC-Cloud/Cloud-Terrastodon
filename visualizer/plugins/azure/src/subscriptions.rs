@@ -1,6 +1,4 @@
-use std::ops::Deref;
-
-use crate::az_cli::AzureCliEvent;
+use crate::prelude::AzureCliResponse;
 use crate::resource_groups::AzureResourceGroup;
 use crate::scope::AzureScope;
 use avian2d::prelude::Collider;
@@ -26,6 +24,7 @@ use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
+use std::ops::Deref;
 
 pub struct SubscriptionsPlugin;
 impl Plugin for SubscriptionsPlugin {
@@ -35,7 +34,9 @@ impl Plugin for SubscriptionsPlugin {
         app.add_systems(Update, receive_results);
         app.register_type::<SubscriptionIconData>();
         app.init_resource::<SubscriptionIconData>();
-        app.observe(join_on_thing_added(|sub: &AzureSubscription, rg: &AzureResourceGroup| sub.id == rg.subscription_id));
+        app.observe(join_on_thing_added(
+            |sub: &AzureSubscription, rg: &AzureResourceGroup| sub.id == rg.subscription_id,
+        ));
     }
 }
 
@@ -102,12 +103,12 @@ fn setup(
 }
 
 fn receive_results(
-    mut cli_events: EventReader<AzureCliEvent>,
+    mut cli_events: EventReader<AzureCliResponse>,
     mut commands: Commands,
     icon_data: Res<SubscriptionIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliEvent::ListSubscriptions(subscriptions) = msg else {
+        let AzureCliResponse::ListSubscriptions(subscriptions) = msg else {
             continue;
         };
         debug!("icon data: {icon_data:#?}");

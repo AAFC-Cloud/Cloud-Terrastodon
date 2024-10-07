@@ -46,10 +46,10 @@ fn apply_bias(
     };
     commands.spawn(
         DistanceJoint::new(anchor_id, target_id)
-            .with_rest_length(2000.0)
+            .with_rest_length(5000.0)
             .with_linear_velocity_damping(0.05)
             .with_angular_velocity_damping(0.5)
-            .with_limits(0.0, 3000.0)
+            .with_limits(0.0, 8000.0)
             .with_compliance(0.000001),
     );
     debug!("Created a tether to the origin for {target_id}");

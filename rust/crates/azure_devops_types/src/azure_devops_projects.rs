@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::str::FromStr;
 
 use chrono::DateTime;
@@ -6,19 +7,20 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub struct AzureDevopsProjectId(Uuid);
+impl Deref for AzureDevopsProjectId {
+    type Target = Uuid;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl AzureDevopsProjectId {
     pub fn new(uuid: Uuid) -> AzureDevopsProjectId {
         AzureDevopsProjectId(uuid)
     }
-}
-
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum AzureDevopsProjectState {
-    #[serde(rename = "wellFormed")]
-    WellFormed,
 }
 impl FromStr for AzureDevopsProjectId {
     type Err = anyhow::Error;
@@ -29,7 +31,13 @@ impl FromStr for AzureDevopsProjectId {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+pub enum AzureDevopsProjectState {
+    #[serde(rename = "wellFormed")]
+    WellFormed,
+}
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub enum AzureDevopsProjectVisibility {
     #[serde(rename = "private")]
     Private,
@@ -37,7 +45,7 @@ pub enum AzureDevopsProjectVisibility {
     Public, // just assuming this exists
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub struct AzureDevopsProject {
     pub abbreviation: Option<String>,
     #[serde(rename = "defaultTeamImageUrl")]

@@ -10,7 +10,7 @@ use cloud_terrastodon_core_tofu::prelude::list_blocks_for_dir;
 use cloud_terrastodon_core_tofu::prelude::CodeReference;
 use cloud_terrastodon_core_tofu::prelude::IntoTofuBlocks;
 use cloud_terrastodon_core_tofu::prelude::TofuBlock;
-use crossbeam_channel::bounded;
+use crossbeam_channel::unbounded;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use std::path::PathBuf;
@@ -50,8 +50,8 @@ pub enum TofuEvent {
 }
 
 fn create_worker_thread(mut commands: Commands) {
-    let (game_tx, game_rx) = bounded::<_>(10);
-    let (thread_tx, thread_rx) = bounded::<_>(10);
+    let (game_tx, game_rx) = unbounded::<_>();
+    let (thread_tx, thread_rx) = unbounded::<_>();
     let bridge = TofuBridge {
         sender: thread_tx,
         receiver: game_rx,

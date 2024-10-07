@@ -1,4 +1,4 @@
-use crate::az_cli::AzureCliEvent;
+use crate::az_cli::AzureCliResponse;
 use crate::scope::AzureScope;
 use crate::subscriptions::AzureSubscription;
 use avian2d::prelude::Collider;
@@ -98,12 +98,12 @@ fn setup(
 }
 
 fn receive_results(
-    mut cli_events: EventReader<AzureCliEvent>,
+    mut cli_events: EventReader<AzureCliResponse>,
     mut commands: Commands,
     icon_data: Res<ResourceGroupIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliEvent::ListResourceGroups(resource_groups) = msg else {
+        let AzureCliResponse::ListResourceGroups(resource_groups) = msg else {
             continue;
         };
         debug!("icon data: {icon_data:#?}");
