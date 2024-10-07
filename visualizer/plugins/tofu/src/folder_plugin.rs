@@ -28,7 +28,9 @@ impl Plugin for FoldersPlugin {
         app.init_resource::<FolderRenderInfo>();
         app.add_systems(Startup, setup);
         app.add_systems(Update, spawn_folders);
-        app.observe(join_on_thing_added(|folder: &Folder, block: &TofuImportBlock| folder.path == block.dir_path));
+        app.observe(join_on_thing_added(
+            |folder: &Folder, block: &TofuImportBlock| folder.path == block.dir_path,
+        ));
     }
 }
 

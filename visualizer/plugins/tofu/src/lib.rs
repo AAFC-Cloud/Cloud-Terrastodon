@@ -1,8 +1,8 @@
 #![feature(try_blocks)]
-mod folder_plugin;
-mod tofu_worker_plugin;
-mod import_blocks_plugin;
 mod edit;
+mod folder_plugin;
+mod import_blocks_plugin;
+mod tofu_worker_plugin;
 
 use bevy::prelude::*;
 use edit::EditPlugin;

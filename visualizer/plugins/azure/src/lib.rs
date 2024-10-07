@@ -1,10 +1,10 @@
 #![feature(trivial_bounds, try_blocks)]
 mod az_cli;
+mod azure_devops_projects;
+mod azure_devops_repos;
 mod resource_groups;
 mod scope;
 mod subscriptions;
-mod azure_devops_projects;
-mod azure_devops_repos;
 
 use az_cli::AzureCliPlugin;
 use azure_devops_projects::AzureDevopsProjectsPlugin;
@@ -28,10 +28,10 @@ impl Plugin for AzurePlugin {
 
 pub mod prelude {
     pub use crate::*;
-    pub use scope::*;
-    pub use resource_groups::*;
+    pub use az_cli::*;
     pub use azure_devops_projects::*;
     pub use azure_devops_repos::*;
+    pub use resource_groups::*;
+    pub use scope::*;
     pub use subscriptions::*;
-    pub use az_cli::*;
 }

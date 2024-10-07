@@ -20,7 +20,6 @@ impl Plugin for EditPlugin {
     }
 }
 
-
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug, Reflect)]
 pub enum EditAction {
     JumpToDefinition,
@@ -45,7 +44,7 @@ fn setup(mut commands: Commands) {
 fn handle_edit_action(
     actions_query: Query<&ActionState<EditAction>>,
     hovered_query: Query<&TofuImportBlock, With<Hovered>>,
-    mut events: EventWriter<TofuEvent>
+    mut events: EventWriter<TofuEvent>,
 ) {
     let Ok(actions) = actions_query.get_single() else {
         warn!("Could not find actions");

@@ -54,7 +54,7 @@ pub struct TofuImportBlock {
     pub file_path: PathBuf,
     #[reflect(ignore)]
     pub block: InnerTofuImportBlock,
-    pub line_col: (usize, usize)
+    pub line_col: (usize, usize),
 }
 impl Deref for TofuImportBlock {
     type Target = InnerTofuImportBlock;
@@ -68,7 +68,7 @@ impl Default for TofuImportBlock {
         Self {
             file_path: PathBuf::from("example dir"),
             dir_path: PathBuf::from("example dir/example file"),
-            line_col: (0,0),
+            line_col: (0, 0),
             block: InnerTofuImportBlock {
                 provider: TofuProviderReference::Inherited,
                 id: "example id".to_string(),
@@ -169,7 +169,10 @@ fn spawn_folders(
                 };
                 commands
                     .spawn((
-                        Name::new(format!("TofuImportBlock - {}", import_block.to.expression_str())),
+                        Name::new(format!(
+                            "TofuImportBlock - {}",
+                            import_block.to.expression_str()
+                        )),
                         SpatialBundle {
                             transform: Transform::from_translation(Vec3::new(
                                 0.,

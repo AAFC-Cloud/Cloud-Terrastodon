@@ -23,7 +23,11 @@ impl Plugin for AzureDevopsReposPlugin {
         app.add_systems(Update, receive_results);
         app.register_type::<AzureDevopsRepoIconData>();
         app.init_resource::<AzureDevopsRepoIconData>();
-        app.observe(join_on_thing_added(|repo: &AzureDevopsRepoComponent, project: &AzureDevopsProjectComponent| repo.project.id == project.id));
+        app.observe(join_on_thing_added(
+            |repo: &AzureDevopsRepoComponent, project: &AzureDevopsProjectComponent| {
+                repo.project.id == project.id
+            },
+        ));
     }
 }
 
@@ -58,8 +62,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     info!("Setting up azure devops Repo icon data");
-    handles.circle_icon =
-        asset_server.load("textures/azure_devops/repos.png");
+    handles.circle_icon = asset_server.load("textures/azure_devops/repos.png");
     handles.circle_material = materials.add(Color::from(ORANGE));
     handles.circle_mesh = meshes.add(Circle { radius: 1. }).into();
     handles.icon_width = 96;
@@ -129,7 +132,7 @@ fn receive_results(
                             texture: icon_data.circle_icon.clone(),
                             transform: icon_transform,
                             ..default()
-                        }
+                        },
                     ));
 
                     let text_translation = Vec3::new(

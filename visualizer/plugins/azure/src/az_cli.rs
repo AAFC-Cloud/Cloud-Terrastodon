@@ -96,7 +96,8 @@ fn create_worker_thread(mut commands: Commands) {
                             }
                             AzureCliRequest::ListAzureDevopsRepos(project_id) => {
                                 info!("Fetching AzureDevopsRepos");
-                                let repos = fetch_all_azure_devops_repos_for_project(&project_id).await?;
+                                let repos =
+                                    fetch_all_azure_devops_repos_for_project(&project_id).await?;
                                 info!("Found {} repos", repos.len());
                                 AzureCliResponse::ListAzureDevopsRepos(repos)
                             }
@@ -133,7 +134,10 @@ fn initial_fetch(bridge: ResMut<AzureCliBridge>) {
     }
 }
 
-fn receive_requests(bridge: ResMut<AzureCliBridge>, mut cli_requests: EventReader<AzureCliRequest>) {
+fn receive_requests(
+    bridge: ResMut<AzureCliBridge>,
+    mut cli_requests: EventReader<AzureCliRequest>,
+) {
     for msg in cli_requests.read() {
         debug!("Sending bridge message: {:?}", msg);
         if let Err(e) = bridge.sender.send(msg.to_owned()) {
@@ -142,20 +146,29 @@ fn receive_requests(bridge: ResMut<AzureCliBridge>, mut cli_requests: EventReade
     }
 }
 
-fn receive_responses(bridge: ResMut<AzureCliBridge>, mut cli_responses: EventWriter<AzureCliResponse>) {
+fn receive_responses(
+    bridge: ResMut<AzureCliBridge>,
+    mut cli_responses: EventWriter<AzureCliResponse>,
+) {
     for msg in bridge.receiver.try_iter() {
         cli_responses.send(msg);
     }
 }
 
-fn refresh_repos(mut cli_responses: EventReader<AzureCliResponse>, mut cli_requests: EventWriter<AzureCliRequest>) {
+fn refresh_repos(
+    mut cli_responses: EventReader<AzureCliResponse>,
+    mut cli_requests: EventWriter<AzureCliRequest>,
+) {
     // debug!("refresh repos firing");
     for msg in cli_responses.read() {
         debug!("refresh repos checking {msg:?}");
         if let AzureCliResponse::ListAzureDevopsProjects(projects) = msg {
             debug!("found list of {} projects to get repos for", projects.len());
             for project in projects.iter().take(30) {
-                debug!("Requesting repos refresh for Azure DevOps project {}", project.name);
+                debug!(
+                    "Requesting repos refresh for Azure DevOps project {}",
+                    project.name
+                );
                 cli_requests.send(AzureCliRequest::ListAzureDevopsRepos(project.id.to_owned()));
             }
         }

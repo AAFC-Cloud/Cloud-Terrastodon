@@ -26,7 +26,11 @@ impl Plugin for AzureDevopsProjectsPlugin {
         app.add_systems(Update, receive_results);
         app.register_type::<AzureDevopsProjectIconData>();
         app.init_resource::<AzureDevopsProjectIconData>();
-        app.observe(join_on_thing_added(|project: &AzureDevopsProjectComponent, repo: &AzureDevopsRepoComponent| repo.project.id == project.id));
+        app.observe(join_on_thing_added(
+            |project: &AzureDevopsProjectComponent, repo: &AzureDevopsRepoComponent| {
+                repo.project.id == project.id
+            },
+        ));
     }
 }
 

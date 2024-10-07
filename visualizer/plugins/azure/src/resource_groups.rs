@@ -33,7 +33,9 @@ impl Plugin for ResourceGroupsPlugin {
         app.register_type::<AzureResourceGroup>();
         app.register_type::<ResourceGroupIconData>();
         app.init_resource::<ResourceGroupIconData>();
-        app.observe(join_on_thing_added(|rg: &AzureResourceGroup, sub: &AzureSubscription| rg.subscription_id == sub.id));
+        app.observe(join_on_thing_added(
+            |rg: &AzureResourceGroup, sub: &AzureSubscription| rg.subscription_id == sub.id,
+        ));
     }
 }
 
@@ -127,7 +129,7 @@ fn receive_results(
                     Collider::circle(icon_data.circle_radius),
                     BiasTowardsOrigin,
                     KeepUpright,
-                    OrganizableSecondary
+                    OrganizableSecondary,
                 ))
                 .with_children(|parent| {
                     let circle_scale = Vec2::splat(icon_data.circle_radius).extend(1.);
