@@ -1,12 +1,3 @@
-- Initial layout
-    - Allow nodes to phase through each other, apply repulsion force until things settle
-- Terraform ndoes
-    - Connect RG to Import and Resource blocks
-    - Connect Import and Resource blocks to File blocks
-    - Connect File blocks to Folder blocks
+- Management Groups
+- Hierarchy layout manual impl
 
-- Copy selected nodes
-    - Ctrl+c => copy azure ids
-    - Ctrl+c+c => copy terraform ids
-    - Hitting "c" additional times before releasing control changes the mode
-    - Popup GUI like MC gamemode f3+f4 switcher

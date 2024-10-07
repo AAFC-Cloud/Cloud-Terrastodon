@@ -1,8 +1,12 @@
 use bevy::prelude::*;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
+use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_core_azure::prelude::fetch_all_users;
 use cloud_terrastodon_core_azure::prelude::ResourceGroup;
 use cloud_terrastodon_core_azure::prelude::Subscription;
+use cloud_terrastodon_core_azure::prelude::ThinRoleAssignment;
+use cloud_terrastodon_core_azure::prelude::User;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_all_azure_devops_repos_for_project;
 use cloud_terrastodon_core_azure_devops::prelude::AzureDevopsProject;
@@ -38,6 +42,8 @@ pub enum AzureCliRequest {
     ListSubscriptions,
     ListAzureDevopsProjects,
     ListAzureDevopsRepos(AzureDevopsProjectId),
+    ListAzureUsers,
+    ListAzureRoleAssignments,
 }
 
 #[derive(Debug, Event, Clone)]
@@ -46,6 +52,8 @@ pub enum AzureCliResponse {
     ListSubscriptions(Vec<Subscription>),
     ListAzureDevopsProjects(Vec<AzureDevopsProject>),
     ListAzureDevopsRepos(Vec<AzureDevopsRepo>),
+    ListAzureRoleAssignments(Vec<ThinRoleAssignment>),
+    ListAzureUsers(Vec<User>),
 }
 
 fn create_worker_thread(mut commands: Commands) {
@@ -101,6 +109,18 @@ fn create_worker_thread(mut commands: Commands) {
                                 info!("Found {} repos", repos.len());
                                 AzureCliResponse::ListAzureDevopsRepos(repos)
                             }
+                            AzureCliRequest::ListAzureUsers => {
+                                info!("Fetching AzureUsers");
+                                let users = fetch_all_users().await?;
+                                info!("Found {} users", users.len());
+                                AzureCliResponse::ListAzureUsers(users)
+                            }
+                            AzureCliRequest::ListAzureRoleAssignments => {
+                                info!("Fetching role assignments");
+                                let role_assignments = fetch_all_role_assignments_v2().await?;
+                                info!("Found {} role assignments", role_assignments.len());
+                                AzureCliResponse::ListAzureRoleAssignments(role_assignments)
+                            }
                         }
                     };
                     let response = match response {
@@ -125,7 +145,8 @@ fn initial_fetch(bridge: ResMut<AzureCliBridge>) {
     for msg in [
         AzureCliRequest::ListResourceGroups,
         AzureCliRequest::ListSubscriptions,
-        AzureCliRequest::ListAzureDevopsProjects,
+        // AzureCliRequest::ListAzureDevopsProjects,
+        // AzureCliRequest::ListAzureUsers,
     ] {
         debug!("Sending bridge message: {:?}", msg);
         if let Err(e) = bridge.sender.send(msg) {
@@ -159,9 +180,7 @@ fn refresh_repos(
     mut cli_responses: EventReader<AzureCliResponse>,
     mut cli_requests: EventWriter<AzureCliRequest>,
 ) {
-    // debug!("refresh repos firing");
     for msg in cli_responses.read() {
-        debug!("refresh repos checking {msg:?}");
         if let AzureCliResponse::ListAzureDevopsProjects(projects) = msg {
             debug!("found list of {} projects to get repos for", projects.len());
             for project in projects.iter().take(30) {

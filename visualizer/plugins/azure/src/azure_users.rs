@@ -1,8 +1,9 @@
 use crate::az_cli::AzureCliResponse;
-use crate::prelude::AzureDevopsRepoComponent;
 use avian2d::prelude::Collider;
+use avian2d::prelude::MassPropertiesBundle;
 use avian2d::prelude::RigidBody;
-use bevy::color::palettes::css::BLUE;
+use avian2d::prelude::Sensor;
+use bevy::color::palettes::tailwind::CYAN_400;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::sprite::MaterialMesh2dBundle;
@@ -10,33 +11,28 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
-use cloud_terrastodon_core_azure_devops::prelude::AzureDevopsProject;
+use cloud_terrastodon_core_azure::prelude::User;
 use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
 use std::ops::Deref;
 
-pub struct AzureDevopsProjectsPlugin;
-impl Plugin for AzureDevopsProjectsPlugin {
+pub struct AzureUsersPlugin;
+impl Plugin for AzureUsersPlugin {
     fn build(&self, app: &mut App) {
-        info!("Building AzureDevopsProjectsPlugin");
+        info!("Building AzureUsersPlugin");
         app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
-        app.register_type::<AzureDevopsProjectIconData>();
-        app.init_resource::<AzureDevopsProjectIconData>();
-        app.observe(join_on_thing_added(
-            |project: &AzureDevopsProjectComponent, repo: &AzureDevopsRepoComponent| {
-                repo.project.id == project.id
-            },
-        ));
+        app.register_type::<AzureUserIconData>();
+        app.init_resource::<AzureUserIconData>();
     }
 }
 
 #[derive(Debug, Resource, Default, Reflect)]
 #[reflect(Resource)]
-struct AzureDevopsProjectIconData {
+struct AzureUserIconData {
     pub icon_width: i32,
     pub circle_radius: f32,
     pub circle_icon_padding: f32,
@@ -47,11 +43,11 @@ struct AzureDevopsProjectIconData {
 }
 
 #[derive(Debug, Component)]
-pub struct AzureDevopsProjectComponent {
-    pub inner: AzureDevopsProject,
+pub struct AzureUserComponent {
+    pub inner: User,
 }
-impl Deref for AzureDevopsProjectComponent {
-    type Target = AzureDevopsProject;
+impl Deref for AzureUserComponent {
+    type Target = User;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -59,15 +55,13 @@ impl Deref for AzureDevopsProjectComponent {
 }
 
 fn setup(
-    mut handles: ResMut<AzureDevopsProjectIconData>,
+    mut handles: ResMut<AzureUserIconData>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    info!("Setting up azure devops project icon data");
-    handles.circle_icon =
-        asset_server.load("textures/azure_devops/10261-icon-service-Azure-DevOps.svg");
-    handles.circle_material = materials.add(Color::from(BLUE));
+    handles.circle_icon = asset_server.load("textures/azure/User.svg");
+    handles.circle_material = materials.add(Color::from(CYAN_400));
     handles.circle_mesh = meshes.add(Circle { radius: 1. }).into();
     handles.icon_width = 18;
     handles.circle_icon_padding = 32.;
@@ -78,29 +72,31 @@ fn setup(
 fn receive_results(
     mut cli_events: EventReader<AzureCliResponse>,
     mut commands: Commands,
-    icon_data: Res<AzureDevopsProjectIconData>,
+    icon_data: Res<AzureUserIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliResponse::ListAzureDevopsProjects(projects) = msg else {
+        let AzureCliResponse::ListAzureUsers(users) = msg else {
             continue;
         };
-        debug!("Received {} azure devops projects", projects.len());
-        for (i, project) in projects.iter().enumerate() {
+        for (i, user) in users.iter().enumerate() {
             commands
                 .spawn((
-                    Name::new(format!("Azure DevOps Project - {}", project.name)),
+                    Name::new(format!("Azure User - {}", user.display_name)),
                     SpatialBundle {
                         transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
                         ..default()
                     },
-                    AzureDevopsProjectComponent {
-                        inner: project.to_owned(),
+                    AzureUserComponent {
+                        inner: user.to_owned(),
                     },
                     RigidBody::Dynamic,
                     CustomLinearDamping::default(),
                     Collider::circle(icon_data.circle_radius),
+                    Sensor,
+                    // MassPropertiesBundle::new_computed(&Collider::circle(icon_data.circle_radius), 1.0),
                     BiasTowardsOrigin,
                     KeepUpright,
+                    // OrganizableSecondary,
                     OrganizablePrimary,
                 ))
                 .with_children(|parent| {
@@ -145,7 +141,7 @@ fn receive_results(
                         Name::new("Text"),
                         Text2dBundle {
                             text: Text::from_section(
-                                project.name.to_owned(),
+                                user.display_name.to_owned(),
                                 TextStyle {
                                     font_size: 60.,
                                     ..default()

@@ -369,7 +369,7 @@ where
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ThinRoleAssignment {
     pub id: RoleAssignmentId,
     pub scope: String,

@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct User {
     #[serde(rename = "businessPhones")]
     pub business_phones: Vec<String>,
