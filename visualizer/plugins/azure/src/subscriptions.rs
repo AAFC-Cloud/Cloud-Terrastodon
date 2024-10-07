@@ -111,7 +111,6 @@ fn receive_results(
         let AzureCliResponse::ListSubscriptions(subscriptions) = msg else {
             continue;
         };
-        debug!("icon data: {icon_data:#?}");
         debug!("Received {} subscriptions", subscriptions.len());
         for (i, sub) in subscriptions.iter().enumerate() {
             commands

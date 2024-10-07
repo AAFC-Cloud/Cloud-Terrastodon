@@ -1,39 +1,66 @@
-use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::ManagementGroup;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
+use indoc::indoc;
 use std::collections::HashMap;
 use std::future::Future;
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::task::JoinSet;
 use tracing::debug;
+use tracing::error;
+use tracing::info;
+
+use crate::prelude::ResourceGraphHelper;
 
 pub async fn fetch_root_management_group() -> Result<ManagementGroup> {
-    fetch_all_management_groups()
+    info!("Fetching root management group");
+    let found = fetch_all_management_groups()
         .await?
         .into_iter()
-        .find(|mg| mg.name == mg.tenant_id.to_string())
-        .ok_or_else(|| {
-            anyhow!("Failed to find a management group with name matching the tenant ID")
-        })
+        .find(|mg| mg.name() == mg.tenant_id.to_string());
+    match found {
+        Some(management_group) => {
+            info!("Found root management group");
+            Ok(management_group)
+        }
+        None => {
+            let msg = "Failed to find a management group with name matching the tenant ID";
+            error!(msg);
+            bail!(msg);
+        }
+    }
 }
 
 pub async fn fetch_all_management_groups() -> Result<Vec<ManagementGroup>> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.use_cache_dir("az account management-group list");
-    cmd.args([
-        "account",
-        "management-group",
-        "list",
-        "--no-register",
-        "--output",
-        "json",
-    ]);
-    cmd.run().await
+    info!("Fetching management groups");
+    let query = indoc! {r#"
+        resourcecontainers
+        | where type =~ "Microsoft.Management/managementGroups"
+        | project 
+            tenant_id=tenantId,
+            id,
+            display_name=properties.displayName,
+            parent_id=properties.details.parent.id
+    "#}
+    .to_owned();
+
+    let management_groups = ResourceGraphHelper::new(
+        query,
+        CacheBehaviour::Some {
+            path: PathBuf::from("management_groups"),
+            valid_for: Duration::from_hours(8),
+        },
+    )
+    .collect_all::<ManagementGroup>()
+    .await?;
+    info!("Found {} management groups", management_groups.len());
+    Ok(management_groups)
 }
 
 pub async fn gather_from_management_groups<T, F, Fut>(
@@ -78,7 +105,7 @@ where
         pb_mg.set_message(format!(
             "Found {} things from management group {}",
             res.len(),
-            mg.name
+            mg.name()
         ));
 
         rtn.insert(mg, res);
@@ -102,7 +129,7 @@ mod tests {
         let result = fetch_all_management_groups().await?;
         println!("Found {} management groups:", result.len());
         for mg in result {
-            println!("- {} ({})", mg.display_name, mg.name);
+            println!("- {} ({})", mg.display_name, mg.name());
         }
         Ok(())
     }

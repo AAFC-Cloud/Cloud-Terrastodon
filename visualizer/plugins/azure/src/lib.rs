@@ -6,12 +6,14 @@ mod resource_groups;
 mod scope;
 mod subscriptions;
 mod azure_users;
+mod management_groups;
 
 use az_cli::AzureCliPlugin;
 use azure_devops_projects::AzureDevopsProjectsPlugin;
 use bevy::prelude::*;
 use prelude::AzureDevopsReposPlugin;
 use prelude::AzureUsersPlugin;
+use prelude::ManagementGroupsPlugin;
 use resource_groups::ResourceGroupsPlugin;
 use scope::ScopePlugin;
 use subscriptions::SubscriptionsPlugin;
@@ -26,6 +28,7 @@ impl Plugin for AzurePlugin {
         app.add_plugins(AzureDevopsProjectsPlugin);
         app.add_plugins(AzureDevopsReposPlugin);
         app.add_plugins(AzureUsersPlugin);
+        app.add_plugins(ManagementGroupsPlugin);
     }
 }
 
@@ -38,4 +41,5 @@ pub mod prelude {
     pub use scope::*;
     pub use subscriptions::*;
     pub use azure_users::*;
+    pub use management_groups::*;
 }

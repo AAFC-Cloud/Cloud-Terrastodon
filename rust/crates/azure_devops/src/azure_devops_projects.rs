@@ -8,8 +8,11 @@ use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use serde::Deserialize;
 use serde::Serialize;
+use tracing::field::debug;
+use tracing::info;
 
 pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevopsProject>> {
+    info!("Fetching Azure DevOps projects");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "project", "list", "--output", "json"]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
@@ -24,19 +27,21 @@ pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevopsProject>
         value: Vec<AzureDevopsProject>,
     }
 
-    let mut rtn = Vec::new();
+    let mut projects = Vec::new();
     let mut response = cmd.run::<Response>().await?;
-    rtn.extend(response.value);
+    projects.extend(response.value);
 
     while let Some(continuation) = &response.continuation_token {
+        debug("Fetching the next page of projects");
         let mut next_page_cmd = cmd.clone();
         next_page_cmd.args(["--continuation-token", continuation.as_ref()]);
 
         response = next_page_cmd.run::<Response>().await?;
-        rtn.extend(response.value);
+        projects.extend(response.value);
     }
 
-    Ok(rtn)
+    info!("Found {} Azure DevOps projects", projects.len());
+    Ok(projects)
 }
 
 

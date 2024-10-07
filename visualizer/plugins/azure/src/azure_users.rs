@@ -1,6 +1,5 @@
 use crate::az_cli::AzureCliResponse;
 use avian2d::prelude::Collider;
-use avian2d::prelude::MassPropertiesBundle;
 use avian2d::prelude::RigidBody;
 use avian2d::prelude::Sensor;
 use bevy::color::palettes::tailwind::CYAN_400;
@@ -16,7 +15,6 @@ use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
 use std::ops::Deref;
 
 pub struct AzureUsersPlugin;

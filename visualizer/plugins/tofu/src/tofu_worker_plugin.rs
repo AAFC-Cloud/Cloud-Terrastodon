@@ -79,11 +79,16 @@ fn create_worker_thread(mut commands: Commands) {
                                 // build the mapping
                                 let mut data = HashMap::new();
                                 for folder in folders {
+                                    if !folder.exists() {
+                                        continue;
+                                    }
                                     let blocks = list_blocks_for_dir(folder).await?;
                                     data.insert(folder.to_owned(), blocks);
                                 }
-                                let resp = GameboundMessage::Refresh(data);
-                                game_tx.send(resp)?;
+                                if !data.is_empty() {
+                                    let resp = GameboundMessage::Refresh(data);
+                                    game_tx.send(resp)?;
+                                }
                             }
                             ThreadboundMessage::Open(path, line) => {
                                 CommandBuilder::new(CommandKind::VSCode)

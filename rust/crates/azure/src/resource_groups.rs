@@ -3,10 +3,12 @@ use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::ResourceGroup;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use indoc::indoc;
+use tracing::info;
 use std::path::PathBuf;
 use std::time::Duration;
 
 pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
+    info!("Fetching resource groups");
     let query = indoc! {r#"
         resourcecontainers
         | where type =~ "microsoft.resources/subscriptions/resourcegroups"
@@ -21,7 +23,7 @@ pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
     "#}
     .to_owned();
 
-    let rgs = ResourceGraphHelper::new(
+    let resource_groups = ResourceGraphHelper::new(
         query,
         CacheBehaviour::Some {
             path: PathBuf::from("resource_groups"),
@@ -30,8 +32,8 @@ pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
     )
     .collect_all::<ResourceGroup>()
     .await?;
-
-    Ok(rgs)
+    info!("Found {} resource groups", resource_groups.len());
+    Ok(resource_groups)
 }
 
 #[cfg(test)]

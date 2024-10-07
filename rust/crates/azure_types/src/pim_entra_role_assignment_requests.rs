@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::prelude::to_iso8601;
 use crate::prelude::EligiblePimEntraRoleAssignment;
+use crate::prelude::TenantId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoleAssignmentRequest {
@@ -56,14 +57,14 @@ pub enum RoleAssignmentRequestScheduleKind {
 impl RoleAssignmentRequest {
     pub fn new_self_activation(
         principal_id: Uuid,
-        tenant_id: Uuid,
+        tenant_id: TenantId,
         role_assignment: &EligiblePimEntraRoleAssignment,
         justification: String,
         duration: Duration,
     ) -> Self {
         Self {
             role_definition_id: role_assignment.role_definition_id,
-            resource_id: tenant_id,
+            resource_id: *tenant_id,
             subject_id: principal_id,
             assignment_state: RoleAssignmentRequestAssignmentState::Active,
             kind: RoleAssignmentRequestKind::UserAdd,

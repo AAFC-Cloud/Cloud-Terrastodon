@@ -11,8 +11,10 @@ use cloud_terrastodon_core_command::prelude::CommandKind;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
+use tracing::info;
 
 pub async fn fetch_all_role_assignments() -> Result<HashMap<Subscription, Vec<RoleAssignment>>> {
+    info!("Fetching role assignments");
     let role_assignments = gather_from_subscriptions(async |sub: Subscription, _pb| {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args([
@@ -33,10 +35,18 @@ pub async fn fetch_all_role_assignments() -> Result<HashMap<Subscription, Vec<Ro
         cmd.run().await
     })
     .await?;
+
+    let ra_count = role_assignments.values().map(|x| x.len()).sum::<usize>();
+    let sub_count = role_assignments.keys().len();
+    info!(
+        "Found {} role assignments across {} subscriptions",
+        ra_count, sub_count
+    );
     Ok(role_assignments)
 }
 
 pub async fn fetch_all_role_assignments_v2() -> Result<Vec<ThinRoleAssignment>> {
+    info!("Fetching role assignments (v2)");
     let mut query = ResourceGraphHelper::new(
         r#"
 authorizationresources
@@ -53,7 +63,9 @@ authorizationresources
             valid_for: Duration::from_hours(4),
         },
     );
-    query.collect_all().await
+    let role_assignments: Vec<ThinRoleAssignment> = query.collect_all().await?;
+    info!("Found {} role assignments", role_assignments.len());
+    Ok(role_assignments)
 }
 
 #[cfg(test)]

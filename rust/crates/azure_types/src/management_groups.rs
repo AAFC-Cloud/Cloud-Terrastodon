@@ -2,6 +2,7 @@ use crate::naming::validate_management_group_name;
 use crate::prelude::strip_prefix_case_insensitive;
 use crate::prelude::HasPrefix;
 use crate::prelude::NameValidatable;
+use crate::prelude::TenantId;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
@@ -13,7 +14,6 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use std::hash::Hash;
-use uuid::Uuid;
 
 pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
 
@@ -25,6 +25,9 @@ impl ManagementGroupId {
     pub fn from_name(name: &str) -> Self {
         let expanded = format!("{}{}", MANAGEMENT_GROUP_ID_PREFIX, name);
         Self { expanded }
+    }
+    pub fn name(&self) -> &str {
+        &self.expanded[MANAGEMENT_GROUP_ID_PREFIX.len()..]
     }
 }
 impl HasPrefix for ManagementGroupId {
@@ -82,14 +85,15 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ManagementGroup {
-    #[serde(rename = "displayName")]
     pub display_name: String,
     pub id: ManagementGroupId,
-    pub name: String,
-    #[serde(rename = "tenantId")]
-    pub tenant_id: Uuid,
-    #[serde(rename = "type")]
-    pub kind: String,
+    pub tenant_id: TenantId,
+    pub parent_id: Option<ManagementGroupId>,
+}
+impl ManagementGroup {
+    pub fn name(&self) -> &str {
+        self.id.name()
+    }
 }
 impl HasScope for ManagementGroup {
     fn scope(&self) -> &impl Scope {
@@ -103,7 +107,7 @@ impl HasScope for &ManagementGroup {
 }
 impl std::fmt::Display for ManagementGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.name)?;
+        f.write_str(&self.name())?;
         f.write_str(" (")?;
         f.write_str(&self.display_name)?;
         f.write_str(")")?;
@@ -122,3 +126,16 @@ impl PartialEq for ManagementGroup {
     }
 }
 impl Eq for ManagementGroup {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn name_test() -> Result<()> {
+        let id = ManagementGroupId::from_name("bruh");
+        let name = id.name();
+        assert_eq!(name, "bruh");
+        Ok(())
+    }
+}

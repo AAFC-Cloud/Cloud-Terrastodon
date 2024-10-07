@@ -1,4 +1,5 @@
 use serde::de::Error;
+use std::ops::Deref;
 use std::str::FromStr;
 
 use serde::Deserialize;
@@ -13,6 +14,13 @@ pub struct TenantId(Uuid);
 impl TenantId {
     pub fn new(uuid: Uuid) -> Self {
         TenantId(uuid)
+    }
+}
+impl Deref for TenantId {
+    type Target = Uuid;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

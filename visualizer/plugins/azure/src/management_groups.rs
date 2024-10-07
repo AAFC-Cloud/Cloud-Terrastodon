@@ -1,9 +1,8 @@
-use crate::az_cli::AzureCliResponse;
+use crate::prelude::AzureCliResponse;
 use crate::scope::AzureScope;
-use crate::subscriptions::AzureSubscription;
 use avian2d::prelude::Collider;
 use avian2d::prelude::RigidBody;
-use bevy::color::palettes::css::BLACK;
+use bevy::color::palettes::css::MAGENTA;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::sprite::MaterialMesh2dBundle;
@@ -12,36 +11,34 @@ use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
 use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
-use cloud_terrastodon_core_azure::prelude::ResourceGroup;
-use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
 use cloud_terrastodon_core_azure::prelude::Scope;
-use cloud_terrastodon_core_azure::prelude::SubscriptionId;
-use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
+use cloud_terrastodon_core_azure::prelude::ManagementGroup;
+use cloud_terrastodon_core_azure::prelude::ManagementGroupId;
+use cloud_terrastodon_core_azure::prelude::TenantId;
 use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
 use std::ops::Deref;
 
-pub struct ResourceGroupsPlugin;
-impl Plugin for ResourceGroupsPlugin {
+pub struct ManagementGroupsPlugin;
+impl Plugin for ManagementGroupsPlugin {
     fn build(&self, app: &mut App) {
-        info!("Building ResourceGroupsPlugin");
+        info!("Building ManagementGroupsPlugin");
         app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
-        app.register_type::<AzureResourceGroup>();
-        app.register_type::<ResourceGroupIconData>();
-        app.init_resource::<ResourceGroupIconData>();
+        app.register_type::<ManagementGroupIconData>();
+        app.init_resource::<ManagementGroupIconData>();
         app.observe(join_on_thing_added(
-            |rg: &AzureResourceGroup, sub: &AzureSubscription| rg.subscription_id == sub.id,
+            |new: &AzureManagementGroup, exists: &AzureManagementGroup| new.parent_id.as_ref() == Some(&exists.id) || Some(&new.id) == exists.parent_id.as_ref(),
         ));
     }
 }
 
 #[derive(Debug, Resource, Default, Reflect)]
 #[reflect(Resource)]
-struct ResourceGroupIconData {
+struct ManagementGroupIconData {
     pub icon_width: i32,
     pub circle_radius: f32,
     pub circle_icon_padding: f32,
@@ -53,82 +50,83 @@ struct ResourceGroupIconData {
 
 #[derive(Debug, Reflect, Component)]
 #[reflect(Default)]
-pub struct AzureResourceGroup {
+pub struct AzureManagementGroup {
     #[reflect(ignore)]
-    pub resource_group: ResourceGroup,
+    pub inner: ManagementGroup,
 }
-impl Deref for AzureResourceGroup {
-    type Target = ResourceGroup;
+impl Deref for AzureManagementGroup {
+    type Target = ManagementGroup;
 
     fn deref(&self) -> &Self::Target {
-        &self.resource_group
+        &self.inner
     }
 }
-impl Default for AzureResourceGroup {
+impl Default for AzureManagementGroup {
     fn default() -> Self {
-        let name = "FakeResourceGroup";
-        let subscription_id = SubscriptionId::new(Uuid::nil());
-        let id = ResourceGroupId::new(&subscription_id, name.to_string());
         Self {
-            resource_group: ResourceGroup {
-                id,
-                subscription_id,
-                location: "canadacentral".to_owned(),
-                managed_by: None,
-                name: name.to_owned(),
-                properties: Default::default(),
-                tags: Default::default(),
+            inner: ManagementGroup {
+                id: ManagementGroupId::from_name("FakeManagementGroup"),
+                display_name: "FakeManagementGroup".to_owned(),
+                tenant_id: TenantId::new(Uuid::nil()),
+                parent_id: None,
             },
         }
     }
 }
 
 fn setup(
-    mut handles: ResMut<ResourceGroupIconData>,
+    mut handles: ResMut<ManagementGroupIconData>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     info!("Setting up resource group icon data");
-    handles.circle_icon = asset_server.load("textures/azure/ResourceGroups.svg");
-    handles.circle_material = materials.add(Color::from(BLACK));
+    // The ManagementGroup.svg file has been modified to remove a path element that causes problems
+    // https://github.com/Weasy666/bevy_svg/issues/42
+    handles.circle_icon = asset_server.load("textures/azure/ManagementGroup.svg");
+    handles.circle_material = materials.add(Color::from(MAGENTA));
     handles.circle_mesh = meshes.add(Circle { radius: 1. }).into();
     handles.icon_width = 18;
-    handles.circle_icon_padding = 32.;
+    handles.circle_icon_padding = 4.;
     handles.circle_text_margin = 4.;
-    handles.circle_radius = 50.;
+    handles.circle_radius = 90.;
 }
 
 fn receive_results(
     mut cli_events: EventReader<AzureCliResponse>,
     mut commands: Commands,
-    icon_data: Res<ResourceGroupIconData>,
+    icon_data: Res<ManagementGroupIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliResponse::ListResourceGroups(resource_groups) = msg else {
+        let AzureCliResponse::ListManagementGroups(management_group) = msg else {
             continue;
         };
-        debug!("Received {} resource groups", resource_groups.len());
-        for (i, rg) in resource_groups.iter().enumerate() {
+        debug!("icon data: {icon_data:#?}");
+        debug!("Received {} ManagementGroups", management_group.len());
+        for (i, management_group) in management_group.iter().enumerate() {
             commands
                 .spawn((
-                    Name::new(format!("Resource Group - {}", rg.name)),
+                    Name::new(format!("ManagementGroup - {}", management_group.name())),
                     SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
+                        transform: Transform::from_translation(Vec3::new(
+                            -1000.,
+                            i as f32 * 250.,
+                            0.,
+                        )),
                         ..default()
                     },
-                    AzureResourceGroup {
-                        resource_group: rg.to_owned(),
+                    AzureManagementGroup {
+                        inner: management_group.to_owned(),
                     },
                     AzureScope {
-                        scope: rg.id.as_scope(),
+                        scope: management_group.id.as_scope(),
                     },
-                    RigidBody::Dynamic,
                     CustomLinearDamping::default(),
+                    RigidBody::Dynamic,
                     Collider::circle(icon_data.circle_radius),
                     BiasTowardsOrigin,
                     KeepUpright,
-                    OrganizableSecondary,
+                    OrganizablePrimary,
                 ))
                 .with_children(|parent| {
                     let circle_scale = Vec2::splat(icon_data.circle_radius).extend(1.);
@@ -172,7 +170,7 @@ fn receive_results(
                         Name::new("Text"),
                         Text2dBundle {
                             text: Text::from_section(
-                                rg.name.to_owned(),
+                                management_group.display_name.to_owned(),
                                 TextStyle {
                                     font_size: 60.,
                                     ..default()
@@ -183,7 +181,6 @@ fn receive_results(
                             transform: Transform::from_translation(text_translation),
                             ..default()
                         },
-                        OnlyShowWhenHovered,
                     ));
                 });
         }

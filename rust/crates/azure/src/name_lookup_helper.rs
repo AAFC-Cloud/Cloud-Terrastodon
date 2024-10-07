@@ -61,7 +61,7 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
         ScopeImplKind::ManagementGroup => fetch_all_management_groups()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope(), x.name))
+            .map(|x| (x.id.as_scope(), x.name().to_owned()))
             .collect(),
         ScopeImplKind::Subscription => fetch_all_subscriptions()
             .await?

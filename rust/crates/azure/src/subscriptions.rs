@@ -13,8 +13,10 @@ use std::future::Future;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::debug;
+use tracing::info;
 
 pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
+    info!("Fetching subscriptions");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["account", "list", "--output", "json"]);
     cmd.use_cache_dir("az account list");
@@ -39,10 +41,12 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
             bail!("No subscription active, can't determine filter");
         }
     };
-    Ok(subs
+    let subs = subs
         .into_iter()
         .filter(|sub| sub.tenant_id == tenant_id)
-        .collect_vec())
+        .collect_vec();
+    info!("Found {} subscriptions", subs.len());
+    Ok(subs)
 }
 
 pub async fn gather_from_subscriptions<T, F, Fut>(

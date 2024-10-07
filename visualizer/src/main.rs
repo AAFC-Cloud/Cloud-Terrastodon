@@ -27,6 +27,7 @@ fn main() {
             cloud_terrastodon=debug
             cloud_terrastodon_visualizer=debug
             cloud_terrastodon_visualizer_cursor_plugin::cursor_hover_plugin=error
+            cloud_terrastodon_visualizer_layout_plugin::bias_towards_origin=info
             avian2d::collision::narrow_phase=error
         "
         .lines()
