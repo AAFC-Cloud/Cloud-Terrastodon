@@ -5,11 +5,8 @@ use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::OutputBehaviour;
 use cloud_terrastodon_core_config::Config;
-use cloud_terrastodon_core_tofu::prelude::as_single_body;
 use cloud_terrastodon_core_tofu::prelude::list_blocks_for_dir;
 use cloud_terrastodon_core_tofu::prelude::CodeReference;
-use cloud_terrastodon_core_tofu::prelude::IntoTofuBlocks;
-use cloud_terrastodon_core_tofu::prelude::TofuBlock;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
@@ -77,7 +74,7 @@ fn create_worker_thread(mut commands: Commands) {
                             ThreadboundMessage::Refresh => {
                                 info!("Refresh");
                                 // get the dirs to scan
-                                let folders = &Config::get_active_config().scan_dirs;
+                                let folders = &Config::get_active_config().scan_dirs.clone();
 
                                 // build the mapping
                                 let mut data = HashMap::new();
@@ -113,7 +110,8 @@ fn create_worker_thread(mut commands: Commands) {
 }
 
 fn initial_fetch(bridge: ResMut<TofuBridge>) {
-    for msg in [ThreadboundMessage::Refresh] {
+    {
+        let msg = ThreadboundMessage::Refresh;
         debug!("Sending bridge message: {:?}", msg);
         if let Err(e) = bridge.sender.send(msg) {
             error!("Threadbound channel failure: {}", e);

@@ -21,7 +21,6 @@ use cloud_terrastodon_visualizer_azure_plugin::prelude::AzureScope;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
 
@@ -196,7 +195,7 @@ fn spawn_folders(
                             Name::new("Shape"),
                             MaterialMesh2dBundle {
                                 mesh: render_info.mesh.clone(),
-                                transform: render_info.shape_transform.clone(),
+                                transform: render_info.shape_transform,
                                 material: render_info.material.clone(),
                                 ..default()
                             },
@@ -206,7 +205,7 @@ fn spawn_folders(
                             Name::new("Icon"),
                             Svg2dBundle {
                                 svg: render_info.icon.clone(),
-                                transform: render_info.icon_transform.clone(),
+                                transform: render_info.icon_transform,
                                 origin: Origin::TopLeft,
                                 ..default()
                             },
@@ -227,7 +226,7 @@ fn spawn_folders(
                                 Name::new("Inner Icon"),
                                 Svg2dBundle {
                                     svg: asset_server.load(inner_icon_path),
-                                    transform: render_info.inner_icon_transform.clone(),
+                                    transform: render_info.inner_icon_transform,
                                     origin: Origin::TopLeft,
                                     ..default()
                                 },
@@ -246,7 +245,7 @@ fn spawn_folders(
                                 )
                                 .with_justify(JustifyText::Left),
                                 text_anchor: Anchor::CenterLeft,
-                                transform: render_info.text_transform.clone(),
+                                transform: render_info.text_transform,
                                 ..default()
                             },
                             OnlyShowWhenHovered,

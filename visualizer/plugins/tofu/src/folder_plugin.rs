@@ -127,7 +127,7 @@ fn spawn_folders(
                         Name::new("Shape"),
                         MaterialMesh2dBundle {
                             mesh: render_info.mesh.clone(),
-                            transform: render_info.shape_transform.clone(),
+                            transform: render_info.shape_transform,
                             material: render_info.material.clone(),
                             ..default()
                         },
@@ -137,7 +137,7 @@ fn spawn_folders(
                         Name::new("Icon"),
                         Svg2dBundle {
                             svg: render_info.icon.clone(),
-                            transform: render_info.icon_transform.clone(),
+                            transform: render_info.icon_transform,
                             origin: Origin::TopLeft,
                             ..default()
                         },
@@ -155,7 +155,7 @@ fn spawn_folders(
                             )
                             .with_justify(JustifyText::Left),
                             text_anchor: Anchor::CenterLeft,
-                            transform: render_info.text_transform.clone(),
+                            transform: render_info.text_transform,
                             ..default()
                         },
                         OnlyShowWhenHovered,
