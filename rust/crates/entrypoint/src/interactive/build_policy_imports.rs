@@ -51,7 +51,7 @@ pub async fn build_policy_imports() -> Result<()> {
                 let provider = import_block.provider;
                 let id = import_block.id;
                 let mut to = import_block.to;
-                to.use_name(|name| format!("{}_{}", name, management_group.name).sanitize());
+                to.use_name(|name| format!("{}_{}", name, management_group.name()).sanitize());
                 TofuImportBlock { provider, id, to }
             })
             .for_each(|block: TofuImportBlock| {
