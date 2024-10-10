@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::PrimaryWindow;
 use bevy_egui::EguiContext;
-use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
+use cloud_terrastodon_visualizer_physics_plugin::prelude::CustomLinearDamping;
 use leafwing_input_manager::prelude::ActionState;
 use leafwing_input_manager::prelude::InputManagerPlugin;
 use leafwing_input_manager::prelude::InputMap;
@@ -105,6 +105,12 @@ fn setup(mut commands: Commands) {
                     order: 0,
                     ..default()
                 },
+                projection: OrthographicProjection {
+                    scale: 10.0,
+                    far: 1000.,
+                    near: -1000.,
+                    ..default()
+                },
                 ..default()
             },
             CameraMotion::default(),
@@ -123,6 +129,12 @@ fn setup(mut commands: Commands) {
             Camera2dBundle {
                 camera: Camera {
                     order: 1,
+                    ..default()
+                },
+                projection: OrthographicProjection {
+                    scale: 10.0,
+                    far: 1000.,
+                    near: -1000.,
                     ..default()
                 },
                 ..default()

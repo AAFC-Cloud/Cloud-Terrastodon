@@ -9,7 +9,7 @@ use bevy::sprite::MaterialMesh2dBundle;
 use bevy::sprite::Mesh2dHandle;
 use cloud_terrastodon_core_azure_devops::prelude::AzureDevopsRepo;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
-use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
+use cloud_terrastodon_visualizer_physics_plugin::prelude::CustomLinearDamping;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;

@@ -1,26 +1,22 @@
 use crate::az_cli::AzureCliResponse;
-use crate::scope::AzureScope;
+use crate::prelude::AzureScope;
 use crate::subscriptions::AzureSubscription;
-use avian2d::prelude::Collider;
-use avian2d::prelude::RigidBody;
 use bevy::color::palettes::css::BLACK;
 use bevy::prelude::*;
-use bevy::sprite::Anchor;
-use bevy::sprite::MaterialMesh2dBundle;
 use bevy::sprite::Mesh2dHandle;
-use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
-use bevy_svg::prelude::Svg2dBundle;
 use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_core_azure::prelude::ResourceGroup;
 use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::SubscriptionId;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
-use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
+use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::IconHandle;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::SpawnGraphNodeEvent;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
 use std::ops::Deref;
 
@@ -39,14 +35,13 @@ impl Plugin for ResourceGroupsPlugin {
     }
 }
 
-#[derive(Debug, Resource, Default, Reflect)]
-#[reflect(Resource)]
+#[derive_graph_node_icon_data]
 struct ResourceGroupIconData {
     pub icon_width: i32,
     pub circle_radius: f32,
     pub circle_icon_padding: f32,
     pub circle_text_margin: f32,
-    pub circle_icon: Handle<Svg>,
+    pub circle_icon: IconHandle,
     pub circle_mesh: Mesh2dHandle,
     pub circle_material: Handle<ColorMaterial>,
 }
@@ -90,7 +85,9 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     info!("Setting up resource group icon data");
-    handles.circle_icon = asset_server.load("textures/azure/ResourceGroups.svg");
+    handles.circle_icon = asset_server
+        .load::<Svg>("textures/azure/ResourceGroups.svg")
+        .into();
     handles.circle_material = materials.add(Color::from(BLACK));
     handles.circle_mesh = meshes.add(Circle { radius: 1. }).into();
     handles.icon_width = 18;
@@ -110,82 +107,27 @@ fn receive_results(
         };
         debug!("Received {} resource groups", resource_groups.len());
         for (i, rg) in resource_groups.iter().enumerate() {
-            commands
-                .spawn((
-                    Name::new(format!("Resource Group - {}", rg.name)),
-                    SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(0., i as f32 * 150., 0.)),
-                        ..default()
-                    },
-                    AzureResourceGroup {
-                        resource_group: rg.to_owned(),
-                    },
-                    AzureScope {
-                        scope: rg.id.as_scope(),
-                    },
-                    RigidBody::Dynamic,
-                    CustomLinearDamping::default(),
-                    Collider::circle(icon_data.circle_radius),
-                    BiasTowardsOrigin,
-                    KeepUpright,
-                    OrganizableSecondary,
-                ))
-                .with_children(|parent| {
-                    let circle_scale = Vec2::splat(icon_data.circle_radius).extend(1.);
-                    let circle_transform = Transform::from_scale(circle_scale);
-                    parent.spawn((
-                        Name::new("Circle"),
-                        MaterialMesh2dBundle {
-                            mesh: icon_data.circle_mesh.clone(),
-                            transform: circle_transform,
-                            material: icon_data.circle_material.clone(),
-                            ..default()
+            spawn_graph_node(
+                SpawnGraphNodeEvent {
+                    name: Name::new(format!("Resource Group - {}", rg.name)),
+                    text: rg.name.to_owned(),
+                    translation: Vec3::new(0., i as f32 * 150., 0.),
+                    top_extras: (
+                        AzureResourceGroup {
+                            resource_group: rg.to_owned(),
                         },
-                    ));
-
-                    let icon_scale = Vec2::splat(
-                        (1. / icon_data.icon_width as f32)
-                            * ((icon_data.circle_radius * 2.) - icon_data.circle_icon_padding),
-                    )
-                    .extend(1.);
-                    let icon_translation =
-                        (Vec2::new(-icon_scale.x, icon_scale.y) * icon_data.icon_width as f32 / 2.)
-                            .extend(1.);
-                    let icon_transform =
-                        Transform::from_translation(icon_translation).with_scale(icon_scale);
-                    parent.spawn((
-                        Name::new("Icon"),
-                        Svg2dBundle {
-                            svg: icon_data.circle_icon.clone(),
-                            transform: icon_transform,
-                            origin: Origin::TopLeft,
-                            ..default()
+                        AzureScope {
+                            scope: rg.id.as_scope(),
                         },
-                    ));
-
-                    let text_translation = Vec3::new(
-                        icon_data.circle_radius + icon_data.circle_text_margin,
-                        0.,
-                        5.,
-                    );
-                    parent.spawn((
-                        Name::new("Text"),
-                        Text2dBundle {
-                            text: Text::from_section(
-                                rg.name.to_owned(),
-                                TextStyle {
-                                    font_size: 60.,
-                                    ..default()
-                                },
-                            )
-                            .with_justify(JustifyText::Left),
-                            text_anchor: Anchor::CenterLeft,
-                            transform: Transform::from_translation(text_translation),
-                            ..default()
-                        },
-                        OnlyShowWhenHovered,
-                    ));
-                });
+                        OrganizableSecondary,
+                    ),
+                    text_extras: (OnlyShowWhenHovered,),
+                    circle_extras: (),
+                    icon_extras: (),
+                },
+                icon_data.as_ref(),
+                &mut commands,
+            );
         }
     }
 }

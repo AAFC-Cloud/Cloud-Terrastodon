@@ -2,12 +2,15 @@ mod cursor_grab_plugin;
 mod cursor_hover_plugin;
 
 use avian2d::prelude::Collider;
+use avian2d::prelude::CollisionLayers;
+use avian2d::prelude::LayerMask;
 use avian2d::prelude::Position;
 use avian2d::prelude::RigidBody;
 use avian2d::prelude::Sensor;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use cloud_terrastodon_visualizer_camera_plugin::PrimaryCamera;
+use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use cursor_grab_plugin::CursorGrabPlugin;
 use cursor_hover_plugin::CursorHoverPlugin;
 use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -65,6 +68,7 @@ fn setup(mut commands: Commands) {
             Sensor,
             Name::new("Cursor"),
             SpatialBundle::default(),
+            CollisionLayers::new(PhysLayer::Cursor, LayerMask::ALL)
         ))
         .insert(InputManagerBundle::with_map(input_map));
 }

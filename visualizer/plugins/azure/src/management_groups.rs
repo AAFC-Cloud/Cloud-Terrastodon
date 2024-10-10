@@ -1,24 +1,21 @@
 use crate::prelude::AzureCliResponse;
+use crate::prelude::AzureSubscription;
 use crate::scope::AzureScope;
-use avian2d::prelude::Collider;
-use avian2d::prelude::RigidBody;
-use bevy::color::palettes::css::MAGENTA;
+use bevy::color::palettes::tailwind::GRAY_700;
 use bevy::prelude::*;
-use bevy::sprite::Anchor;
-use bevy::sprite::MaterialMesh2dBundle;
 use bevy::sprite::Mesh2dHandle;
-use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
-use bevy_svg::prelude::Svg2dBundle;
 use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
-use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::ManagementGroup;
 use cloud_terrastodon_core_azure::prelude::ManagementGroupId;
+use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::TenantId;
-use cloud_terrastodon_visualizer_damping_plugin::CustomLinearDamping;
+use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::IconHandle;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::SpawnGraphNodeEvent;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
 use std::ops::Deref;
 
@@ -31,19 +28,26 @@ impl Plugin for ManagementGroupsPlugin {
         app.register_type::<ManagementGroupIconData>();
         app.init_resource::<ManagementGroupIconData>();
         app.observe(join_on_thing_added(
-            |new: &AzureManagementGroup, exists: &AzureManagementGroup| new.parent_id.as_ref() == Some(&exists.id) || Some(&new.id) == exists.parent_id.as_ref(),
+            |new: &AzureManagementGroup, exists: &AzureManagementGroup| {
+                new.parent_id.as_ref() == Some(&exists.id)
+                    || Some(&new.id) == exists.parent_id.as_ref()
+            },
+        ));
+        app.observe(join_on_thing_added(
+            |mg: &AzureManagementGroup, sub: &AzureSubscription| {
+                mg.id == sub.parent_management_group_id
+            },
         ));
     }
 }
 
-#[derive(Debug, Resource, Default, Reflect)]
-#[reflect(Resource)]
+#[derive_graph_node_icon_data]
 struct ManagementGroupIconData {
     pub icon_width: i32,
     pub circle_radius: f32,
     pub circle_icon_padding: f32,
     pub circle_text_margin: f32,
-    pub circle_icon: Handle<Svg>,
+    pub circle_icon: IconHandle,
     pub circle_mesh: Mesh2dHandle,
     pub circle_material: Handle<ColorMaterial>,
 }
@@ -83,11 +87,13 @@ fn setup(
     info!("Setting up resource group icon data");
     // The ManagementGroup.svg file has been modified to remove a path element that causes problems
     // https://github.com/Weasy666/bevy_svg/issues/42
-    handles.circle_icon = asset_server.load("textures/azure/ManagementGroup.svg");
-    handles.circle_material = materials.add(Color::from(MAGENTA));
+    handles.circle_icon = asset_server
+        .load::<Svg>("textures/azure/ManagementGroup.svg")
+        .into();
+    handles.circle_material = materials.add(Color::from(GRAY_700));
     handles.circle_mesh = meshes.add(Circle { radius: 1. }).into();
     handles.icon_width = 18;
-    handles.circle_icon_padding = 4.;
+    handles.circle_icon_padding = 24.;
     handles.circle_text_margin = 4.;
     handles.circle_radius = 90.;
 }
@@ -104,85 +110,27 @@ fn receive_results(
         debug!("icon data: {icon_data:#?}");
         debug!("Received {} ManagementGroups", management_group.len());
         for (i, management_group) in management_group.iter().enumerate() {
-            commands
-                .spawn((
-                    Name::new(format!("ManagementGroup - {}", management_group.name())),
-                    SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(
-                            -1000.,
-                            i as f32 * 250.,
-                            0.,
-                        )),
-                        ..default()
-                    },
-                    AzureManagementGroup {
-                        inner: management_group.to_owned(),
-                    },
-                    AzureScope {
-                        scope: management_group.id.as_scope(),
-                    },
-                    CustomLinearDamping::default(),
-                    RigidBody::Dynamic,
-                    Collider::circle(icon_data.circle_radius),
-                    BiasTowardsOrigin,
-                    KeepUpright,
-                    OrganizablePrimary,
-                ))
-                .with_children(|parent| {
-                    let circle_scale = Vec2::splat(icon_data.circle_radius).extend(1.);
-                    let circle_transform = Transform::from_scale(circle_scale);
-                    parent.spawn((
-                        Name::new("Circle"),
-                        MaterialMesh2dBundle {
-                            mesh: icon_data.circle_mesh.clone(),
-                            transform: circle_transform,
-                            material: icon_data.circle_material.clone(),
-                            ..default()
+            spawn_graph_node(
+                SpawnGraphNodeEvent {
+                    name: Name::new(format!("ManagementGroup - {}", management_group.name())),
+                    text: management_group.display_name.to_owned(),
+                    translation: Vec3::new(-1000., i as f32 * 250., 0.),
+                    top_extras: (
+                        AzureManagementGroup {
+                            inner: management_group.to_owned(),
                         },
-                    ));
-
-                    let icon_scale = Vec2::splat(
-                        (1. / icon_data.icon_width as f32)
-                            * ((icon_data.circle_radius * 2.) - icon_data.circle_icon_padding),
-                    )
-                    .extend(1.);
-                    let icon_translation =
-                        (Vec2::new(-icon_scale.x, icon_scale.y) * icon_data.icon_width as f32 / 2.)
-                            .extend(1.);
-                    let icon_transform =
-                        Transform::from_translation(icon_translation).with_scale(icon_scale);
-                    parent.spawn((
-                        Name::new("Icon"),
-                        Svg2dBundle {
-                            svg: icon_data.circle_icon.clone(),
-                            transform: icon_transform,
-                            origin: Origin::TopLeft,
-                            ..default()
+                        AzureScope {
+                            scope: management_group.id.as_scope(),
                         },
-                    ));
-
-                    let text_translation = Vec3::new(
-                        icon_data.circle_radius + icon_data.circle_text_margin,
-                        0.,
-                        5.,
-                    );
-                    parent.spawn((
-                        Name::new("Text"),
-                        Text2dBundle {
-                            text: Text::from_section(
-                                management_group.display_name.to_owned(),
-                                TextStyle {
-                                    font_size: 60.,
-                                    ..default()
-                                },
-                            )
-                            .with_justify(JustifyText::Left),
-                            text_anchor: Anchor::CenterLeft,
-                            transform: Transform::from_translation(text_translation),
-                            ..default()
-                        },
-                    ));
-                });
+                        OrganizablePrimary,
+                    ),
+                    text_extras: (),
+                    circle_extras: (),
+                    icon_extras: (),
+                },
+                icon_data.as_ref(),
+                &mut commands,
+            );
         }
     }
 }

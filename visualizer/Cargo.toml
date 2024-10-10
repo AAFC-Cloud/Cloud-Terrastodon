@@ -8,11 +8,13 @@ members = ["plugins/*"]
 
 [workspace.dependencies]
 cloud_terrastodon_visualizer_camera_plugin = { path = "./plugins/camera" }
+cloud_terrastodon_visualizer_physics_plugin = { path = "./plugins/physics" }
 cloud_terrastodon_visualizer_azure_plugin = { path = "./plugins/azure" }
 cloud_terrastodon_visualizer_cursor_plugin = { path = "./plugins/cursor" }
-cloud_terrastodon_visualizer_damping_plugin = { path = "./plugins/damping" }
 cloud_terrastodon_visualizer_tofu_plugin = { path = "./plugins/tofu" }
 cloud_terrastodon_visualizer_layout_plugin = { path = "./plugins/layout" }
+cloud_terrastodon_visualizer_graph_nodes_plugin = { path = "./plugins/graph_nodes" }
+cloud_terrastodon_visualizer_graph_nodes_derive = { path = "./plugins/graph_nodes_derive" }
 cloud_terrastodon_core_azure = { path = "../rust/crates/azure" }
 cloud_terrastodon_core_azure_devops = { path = "../rust/crates/azure_devops" }
 cloud_terrastodon_core_config = { path = "../rust/crates/config" }
@@ -33,13 +35,13 @@ anyhow = "1.0.82"
 cloud_terrastodon_visualizer_camera_plugin = { workspace = true }
 cloud_terrastodon_visualizer_azure_plugin = { workspace = true }
 cloud_terrastodon_visualizer_cursor_plugin = { workspace = true }
-cloud_terrastodon_visualizer_damping_plugin = { workspace = true }
 cloud_terrastodon_visualizer_tofu_plugin = { workspace = true }
 cloud_terrastodon_visualizer_layout_plugin = { workspace = true }
+cloud_terrastodon_visualizer_physics_plugin = { workspace = true }
+cloud_terrastodon_visualizer_graph_nodes_plugin = { workspace = true }
 bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_svg = { workspace = true }
-avian2d = { workspace = true }
 itertools = { workspace = true }
 
 [profile.dev]

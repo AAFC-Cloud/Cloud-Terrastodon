@@ -1,52 +1,46 @@
-use anyhow::bail;
-use anyhow::Context;
 use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::Subscription;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
-use itertools::Itertools;
+use indoc::indoc;
 use std::collections::HashMap;
 use std::future::Future;
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::task::JoinSet;
 use tracing::debug;
 use tracing::info;
 
+use crate::prelude::ResourceGraphHelper;
+
 pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
     info!("Fetching subscriptions");
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["account", "list", "--output", "json"]);
-    cmd.use_cache_dir("az account list");
+    let query = indoc! {r#"
+        resourcecontainers
+        | where type =~ "Microsoft.Resources/subscriptions"
+        | extend parent_management_group_id = strcat("/providers/Microsoft.Management/managementGroups/", properties.managementGroupAncestorsChain[0].name)
+        | project 
+            name,
+            id,
+            tenant_id=tenantId,
+            parent_management_group_id
+    "#}
+    .to_owned();
 
-    let subs = cmd.run::<Vec<Subscription>>().await?;
-    if subs.is_empty() {
-        cmd.bust_cache()
-            .await
-            .context("Busting cache because we expect more subscriptions once logged in")?;
-        bail!("no subscriptions found, are you logged in?");
-    }
-    let tenant_id = subs
-        .iter()
-        .filter(|s| s.is_default)
-        .map(|s| s.tenant_id.clone())
-        .next();
-
-    let tenant_id = match tenant_id {
-        Some(tenant_id) => tenant_id,
-        None => {
-            cmd.bust_cache().await.context("Busting cache because 	subscription list details will change once user activates a subscription")?;
-            bail!("No subscription active, can't determine filter");
-        }
-    };
-    let subs = subs
-        .into_iter()
-        .filter(|sub| sub.tenant_id == tenant_id)
-        .collect_vec();
-    info!("Found {} subscriptions", subs.len());
-    Ok(subs)
+    let subscriptions = ResourceGraphHelper::new(
+        query,
+        CacheBehaviour::Some {
+            path: PathBuf::from("subscriptions"),
+            valid_for: Duration::from_hours(8),
+        },
+    )
+    .collect_all::<Subscription>()
+    .await?;
+    info!("Found {} subscriptions", subscriptions.len());
+    Ok(subscriptions)
 }
 
 pub async fn gather_from_subscriptions<T, F, Fut>(
@@ -121,7 +115,7 @@ mod tests {
         let result = fetch_all_subscriptions().await?;
         println!("Found {} subscriptions:", result.len());
         for sub in result {
-            println!("- {} ({})", sub.name, sub.id);
+            println!("- {} ({}) under {}", sub.name, sub.id, sub.parent_management_group_id.name());
         }
         Ok(())
     }

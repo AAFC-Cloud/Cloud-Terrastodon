@@ -1,4 +1,5 @@
 use crate::prelude::strip_prefix_case_insensitive;
+use crate::prelude::ManagementGroupId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::TenantId;
 use crate::scopes::HasScope;
@@ -107,45 +108,12 @@ impl<'de> Deserialize<'de> for SubscriptionId {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum SubscriptionUserKind {
-    #[serde(rename = "user")]
-    User,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct SubscriptionUser {
-    pub name: String,
-    #[serde(rename = "type")]
-    pub kind: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum SubscriptionState {
-    Enabled,
-}
-
-/// `az cloud list --output table`
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum AzureCloudKind {
-    AzureCloud,
-    AzureChinaCloud,
-    AzureUSGovernment,
-    AzureGermanCloud,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subscription {
-    #[serde(rename = "cloudName")]
-    pub cloud_name: AzureCloudKind,
     pub id: SubscriptionId,
-    #[serde(rename = "isDefault")]
-    pub is_default: bool,
     pub name: String,
-    pub state: SubscriptionState,
-    #[serde(rename = "tenantId")]
     pub tenant_id: TenantId,
-    pub user: SubscriptionUser,
+    pub parent_management_group_id: ManagementGroupId,
 }
 
 impl HasScope for Subscription {
