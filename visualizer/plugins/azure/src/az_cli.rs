@@ -145,7 +145,7 @@ fn initial_fetch(bridge: ResMut<AzureCliBridge>) {
         AzureCliRequest::ListManagementGroups,
         AzureCliRequest::ListResourceGroups,
         AzureCliRequest::ListSubscriptions,
-        AzureCliRequest::ListAzureDevopsProjects,
+        // AzureCliRequest::ListAzureDevopsProjects,
         // AzureCliRequest::ListAzureUsers,
     ] {
         debug!("Sending bridge message: {:?}", msg);
