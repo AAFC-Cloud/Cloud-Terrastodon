@@ -11,13 +11,14 @@ use cloud_terrastodon_core_azure::prelude::ManagementGroup;
 use cloud_terrastodon_core_azure::prelude::ManagementGroupId;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::TenantId;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_follower_added;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::IconHandle;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::SpawnGraphNodeEvent;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_leader_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
 use std::ops::Deref;
 
@@ -29,15 +30,19 @@ impl Plugin for ManagementGroupsPlugin {
         app.add_systems(Update, receive_results);
         app.register_type::<ManagementGroupIconData>();
         app.init_resource::<ManagementGroupIconData>();
-        app.observe(join_on_thing_added(
-            |new: &AzureManagementGroup, exists: &AzureManagementGroup| {
-                new.parent_id.as_ref() == Some(&exists.id)
-                    || Some(&new.id) == exists.parent_id.as_ref()
+        app.observe(join_on_leader_added(
+            |added_mg: &AzureManagementGroup, exists_mg: &AzureManagementGroup| {
+                Some(&added_mg.id) == exists_mg.parent_id.as_ref()
             },
         ));
-        app.observe(join_on_thing_added(
-            |mg: &AzureManagementGroup, sub: &AzureSubscription| {
-                mg.id == sub.parent_management_group_id
+        app.observe(join_on_follower_added(
+            |added_mg: &AzureManagementGroup, exists_mg: &AzureManagementGroup| {
+                added_mg.parent_id.as_ref() == Some(&exists_mg.id)
+            },
+        ));
+        app.observe(join_on_leader_added(
+            |added_mg: &AzureManagementGroup, exists_sub: &AzureSubscription| {
+                added_mg.id == exists_sub.parent_management_group_id
             },
         ));
     }

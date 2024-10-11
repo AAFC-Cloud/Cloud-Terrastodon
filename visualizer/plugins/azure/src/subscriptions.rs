@@ -13,13 +13,14 @@ use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::Subscription;
 use cloud_terrastodon_core_azure::prelude::SubscriptionId;
 use cloud_terrastodon_core_azure::prelude::TenantId;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_follower_added;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::IconHandle;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::SpawnGraphNodeEvent;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_leader_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
 use std::ops::Deref;
 
@@ -31,10 +32,10 @@ impl Plugin for SubscriptionsPlugin {
         app.add_systems(Update, receive_results);
         app.register_type::<SubscriptionIconData>();
         app.init_resource::<SubscriptionIconData>();
-        app.observe(join_on_thing_added(
+        app.observe(join_on_leader_added(
             |sub: &AzureSubscription, rg: &AzureResourceGroup| sub.id == rg.subscription_id,
         ));
-        app.observe(join_on_thing_added(
+        app.observe(join_on_follower_added(
             |sub: &AzureSubscription, mg: &AzureManagementGroup| {
                 sub.parent_management_group_id == mg.id
             },

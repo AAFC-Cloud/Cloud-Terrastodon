@@ -12,7 +12,7 @@ use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::CustomLinearDamping;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_leader_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
@@ -28,7 +28,7 @@ impl Plugin for FoldersPlugin {
         app.init_resource::<FolderRenderInfo>();
         app.add_systems(Startup, setup);
         app.add_systems(Update, spawn_folders);
-        app.observe(join_on_thing_added(
+        app.observe(join_on_leader_added(
             |folder: &Folder, block: &TofuImportBlock| folder.path == block.dir_path,
         ));
     }

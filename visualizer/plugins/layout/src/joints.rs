@@ -32,7 +32,7 @@ fn configure_gizmos(mut config_store: ResMut<GizmoConfigStore>) {
     config.render_layers = RenderLayers::layer(1);
 }
 
-pub fn join_on_thing_added<THIS, OTHER, MATCHER>(
+pub fn join_on_leader_added<THIS, OTHER, MATCHER>(
     matcher: MATCHER,
 ) -> impl FnMut(Trigger<OnAdd, THIS>, Query<&THIS>, Query<(Entity, &OTHER)>, Commands)
 where
@@ -40,77 +40,67 @@ where
     OTHER: Component + Sized,
     MATCHER: Fn(&THIS, &OTHER) -> bool,
 {
+    join_on_thing_added(matcher, AddedRole::AddedLeader)
+}
+
+pub fn join_on_follower_added<THIS, OTHER, MATCHER>(
+    matcher: MATCHER,
+) -> impl FnMut(Trigger<OnAdd, THIS>, Query<&THIS>, Query<(Entity, &OTHER)>, Commands)
+where
+    THIS: Component + Sized,
+    OTHER: Component + Sized,
+    MATCHER: Fn(&THIS, &OTHER) -> bool,
+{
+    join_on_thing_added(matcher, AddedRole::AddedFollower)
+}
+
+pub enum AddedRole {
+    AddedLeader,
+    AddedFollower,
+}
+
+pub fn join_on_thing_added<THIS, OTHER, MATCHER>(
+    matcher: MATCHER,
+    role: AddedRole,
+) -> impl FnMut(Trigger<OnAdd, THIS>, Query<&THIS>, Query<(Entity, &OTHER)>, Commands)
+where
+    THIS: Component + Sized,
+    OTHER: Component + Sized,
+    MATCHER: Fn(&THIS, &OTHER) -> bool,
+{
     move |trigger: Trigger<OnAdd, THIS>,
-          this_query: Query<&THIS>,
-          other_query: Query<(Entity, &OTHER)>,
+          added_query: Query<&THIS>,
+          existing_query: Query<(Entity, &OTHER)>,
           mut commands: Commands| {
-        let this_entity = trigger.entity();
-        let Ok(this) = this_query.get(this_entity) else {
+        let added_entity = trigger.entity();
+        let Ok(added) = added_query.get(added_entity) else {
             warn!(
-                "Failed to find this {} {this_entity:?}",
+                "Failed to find this {} {added_entity:?}",
                 std::any::type_name::<THIS>()
             );
             return;
         };
-        // the same subscription can be represented by multiple entities in the world
-        // for now lets just connect to all of them
-        for (other_entity, other) in other_query.iter() {
-            if matcher(this, other) {
-                create_joint(&mut commands, other_entity, this_entity);
+        let make_joint: fn(&mut Commands, Entity, Entity) = match role {
+            AddedRole::AddedLeader => |commands, added_entity, existing_entity| {
+                create_joint(commands, added_entity, existing_entity)
+            },
+            AddedRole::AddedFollower => |commands, added_entity, existing_entity| {
+                create_joint(commands, existing_entity, added_entity)
+            },
+        };
+        for (existing_entity, existing) in existing_query.iter() {
+            if matcher(added, existing) {
+                make_joint(&mut commands, added_entity, existing_entity);
             }
         }
     }
 }
-// fn on_resource_group_added(
-//     trigger: Trigger<OnAdd, AzureResourceGroup>,
-//     resource_group_query: Query<&AzureResourceGroup>,
-//     subscription_query: Query<(Entity, &AzureSubscription)>,
-//     mut commands: Commands,
-// ) {
-//     let resource_group_entity = trigger.entity();
-//     let Ok(resource_group) = resource_group_query.get(resource_group_entity) else {
-//         warn!("Failed to find resource group {resource_group_entity:?}");
-//         return;
-//     };
-//     let subscription_id = &resource_group.subscription_id;
-//     // the same subscription can be represented by multiple entities in the world
-//     // for now lets just connect to all of them
-//     for (subscription_entity, subscription) in subscription_query.iter() {
-//         if subscription.subscription.id == *subscription_id {
-//             create_joint(&mut commands, subscription_entity, resource_group_entity);
-//         }
-//     }
-// }
 
-// fn on_subscription_added(
-//     trigger: Trigger<OnAdd, AzureSubscription>,
-//     subscription_query: Query<&AzureSubscription>,
-//     resource_group_query: Query<(Entity, &AzureResourceGroup)>,
-//     mut commands: Commands,
-// ) {
-//     let subscription_entity = trigger.entity();
-//     let Ok(subscription) = subscription_query.get(subscription_entity) else {
-//         warn!("Failed to find subscription {subscription_entity:?}");
-//         return;
-//     };
-
-//     let subscription_id = &subscription.id;
-//     // let resource_group_entities =
-//     //     azure.get_resource_group_entities_for_subscription(subscription_id);
-//     for (resource_group_entity, resource_group) in resource_group_query.iter() {
-//         if resource_group.subscription_id == *subscription_id {
-//             create_joint(&mut commands, subscription_entity, resource_group_entity);
-//         }
-//     }
-// }
-
-fn create_joint(commands: &mut Commands, subscription: Entity, resource_group: Entity) {
-    let anchor = subscription;
-    let object = resource_group;
+fn create_joint(commands: &mut Commands, leader: Entity, follower: Entity) {
     commands.spawn((
         Name::new("Drawable Joint"),
         DrawThisJoint,
-        DistanceJoint::new(anchor, object)
+        DistanceJoint::new(leader, follower)
             .with_local_anchor_1(Vector::ZERO)
             .with_local_anchor_2(Vector::ZERO)
             .with_rest_length(500.0)

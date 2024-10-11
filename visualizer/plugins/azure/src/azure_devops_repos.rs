@@ -11,7 +11,7 @@ use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::IconHandle;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::SpawnGraphNodeEvent;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_thing_added;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_follower_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use std::ops::Deref;
@@ -23,7 +23,7 @@ impl Plugin for AzureDevopsReposPlugin {
         app.add_systems(Update, receive_results);
         app.register_type::<AzureDevopsRepoIconData>();
         app.init_resource::<AzureDevopsRepoIconData>();
-        app.observe(join_on_thing_added(
+        app.observe(join_on_follower_added(
             |repo: &AzureDevopsRepoComponent, project: &AzureDevopsProjectComponent| {
                 repo.project.id == project.id
             },
