@@ -22,7 +22,8 @@ use leafwing_input_manager::InputManagerBundle;
 pub mod prelude {
     pub use crate::cursor_grab_plugin::*;
     pub use crate::cursor_hover_plugin::*;
-    pub use crate::*;
+    pub use crate::CursorPlugin;
+    pub use crate::CursorAction;
 }
 
 pub struct CursorPlugin;

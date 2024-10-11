@@ -1,6 +1,7 @@
 use crate::prelude::AzureCliResponse;
 use crate::prelude::AzureSubscription;
 use crate::scope::AzureScope;
+use avian2d::prelude::CollisionLayers;
 use bevy::color::palettes::tailwind::GRAY_700;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
@@ -10,6 +11,7 @@ use cloud_terrastodon_core_azure::prelude::ManagementGroup;
 use cloud_terrastodon_core_azure::prelude::ManagementGroupId;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::TenantId;
+use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
@@ -123,6 +125,7 @@ fn receive_results(
                             scope: management_group.id.as_scope(),
                         },
                         OrganizablePrimary,
+                        CollisionLayers::new(PhysLayer::Node, PhysLayer::Cursor)
                     ),
                     text_extras: (),
                     circle_extras: (),

@@ -1,6 +1,8 @@
 use proc_macro::TokenStream;
-use quote::{quote, format_ident};
-use syn::{parse_macro_input, DeriveInput, Data, Fields};
+use quote::quote;
+use syn::parse_macro_input;
+use syn::Data;
+use syn::DeriveInput;
 
 /// Attribute macro to derive GraphNodeIconData and add necessary attributes.
 #[proc_macro_attribute]
