@@ -1,4 +1,3 @@
-use avian2d::prelude::DistanceJoint;
 use avian2d::prelude::Joint;
 use avian2d::prelude::RigidBody;
 use avian2d::prelude::Sensor;
@@ -36,7 +35,7 @@ fn spawn_anchor(mut commands: Commands) {
 
 fn apply_bias(
     trigger: Trigger<OnAdd, BiasTowardsOrigin>,
-    mut commands: Commands,
+    commands: Commands,
     anchor_query: Query<Entity, With<OriginAnchor>>,
 ) {
     let target_id = trigger.entity();
