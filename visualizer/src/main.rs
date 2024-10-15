@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_svg::prelude::*;
 use cloud_terrastodon_visualizer_azure_plugin::prelude::AzurePlugin;
-use cloud_terrastodon_visualizer_camera_plugin::MyCameraPlugin;
+use cloud_terrastodon_visualizer_camera_plugin::CameraLibPlugin;
 use cloud_terrastodon_visualizer_cursor_plugin::CursorPlugin;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::GraphNodesPlugin;
 use cloud_terrastodon_visualizer_layout_plugin::LayoutPlugin;
@@ -38,7 +38,7 @@ fn main() {
     };
     app.add_plugins(DefaultPlugins.set(log_plugin));
     app.add_plugins(SvgPlugin);
-    app.add_plugins(MyCameraPlugin);
+    app.add_plugins(CameraLibPlugin);
     app.add_plugins(AzurePlugin);
     app.add_plugins(CursorPlugin);
     app.add_plugins(TofuPlugin);

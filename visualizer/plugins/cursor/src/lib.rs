@@ -9,7 +9,7 @@ use avian2d::prelude::RigidBody;
 use avian2d::prelude::Sensor;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use cloud_terrastodon_visualizer_camera_plugin::PrimaryCamera;
+use cloud_terrastodon_visualizer_camera_plugin::prelude::PrimaryCamera;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use cursor_grab_plugin::CursorGrabPlugin;
 use cursor_hover_plugin::CursorHoverPlugin;

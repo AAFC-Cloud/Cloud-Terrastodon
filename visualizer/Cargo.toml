@@ -30,6 +30,7 @@ avian2d = "0.1.2"
 bevy_egui = { version = "0.28", default-features = false }
 itertools = "0.12.1"
 anyhow = "1.0.82"
+indexmap = "2.6.0"
 
 [dependencies]
 cloud_terrastodon_visualizer_camera_plugin = { workspace = true }

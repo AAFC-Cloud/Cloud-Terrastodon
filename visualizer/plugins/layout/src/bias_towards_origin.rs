@@ -44,13 +44,13 @@ fn apply_bias(
         warn!("Failed to get the origin anchor to create joint for {target_id}");
         return;
     };
-    commands.spawn(
-        DistanceJoint::new(anchor_id, target_id)
-            .with_rest_length(5000.0)
-            .with_linear_velocity_damping(0.05)
-            .with_angular_velocity_damping(0.5)
-            .with_limits(0.0, 8000.0)
-            .with_compliance(0.000001),
-    );
-    debug!("Created a tether to the origin for {target_id}");
+    // commands.spawn(
+    //     DistanceJoint::new(anchor_id, target_id)
+    //         .with_rest_length(5000.0)
+    //         .with_linear_velocity_damping(0.05)
+    //         .with_angular_velocity_damping(0.5)
+    //         .with_limits(0.0, 8000.0)
+    //         .with_compliance(0.000001),
+    // );
+    // debug!("Created a tether to the origin for {target_id}");
 }

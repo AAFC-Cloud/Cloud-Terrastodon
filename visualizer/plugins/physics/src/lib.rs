@@ -4,9 +4,11 @@ use avian2d::prelude::PhysicsGizmos;
 use avian2d::PhysicsPlugins;
 use bevy::prelude::*;
 use damping::DampingPlugin;
+use pause::PhysicsPausePlugin;
 
 mod layers;
 mod damping;
+mod pause;
 
 pub struct PhysicsPlugin;
 impl Plugin for PhysicsPlugin {
@@ -34,6 +36,7 @@ impl Plugin for PhysicsPlugin {
 
         // Add our plugins
         app.add_plugins(DampingPlugin);
+        app.add_plugins(PhysicsPausePlugin);
     }
 }
 

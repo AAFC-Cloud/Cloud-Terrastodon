@@ -143,8 +143,8 @@ fn create_worker_thread(mut commands: Commands) {
 fn initial_fetch(bridge: ResMut<AzureCliBridge>) {
     for msg in [
         AzureCliRequest::ListManagementGroups,
-        AzureCliRequest::ListResourceGroups,
         AzureCliRequest::ListSubscriptions,
+        AzureCliRequest::ListResourceGroups,
         // AzureCliRequest::ListAzureDevopsProjects,
         // AzureCliRequest::ListAzureUsers,
     ] {

@@ -1,9 +1,11 @@
-use avian2d::math::Vector;
 use avian2d::prelude::DistanceJoint;
 use avian2d::prelude::Joint;
 use bevy::color::palettes::css::RED;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
+use bevy::utils::hashbrown::HashSet;
+use core::f32;
+use itertools::Itertools;
 
 pub struct JointsPlugin;
 impl Plugin for JointsPlugin {
@@ -11,6 +13,7 @@ impl Plugin for JointsPlugin {
         app.init_gizmo_group::<MyJointGizmos>();
         app.add_systems(Startup, configure_gizmos);
         app.add_systems(Update, draw_joints);
+        app.observe(on_leader_follower_joint_added);
     }
 }
 
@@ -19,7 +22,9 @@ impl Plugin for JointsPlugin {
 struct MyJointGizmos {}
 
 #[derive(Component, Reflect, Debug)]
-pub struct DrawThisJoint;
+pub struct LeaderFollowerJoint;
+#[derive(Component, Reflect, Debug)]
+pub struct FollowerFollowerJoint;
 
 fn configure_gizmos(mut config_store: ResMut<GizmoConfigStore>) {
     // Gizmos and sprites: How can I draw a SpriteBundle on top of a Gizmo?
@@ -82,10 +87,10 @@ where
         };
         let make_joint: fn(&mut Commands, Entity, Entity) = match role {
             AddedRole::AddedLeader => |commands, added_entity, existing_entity| {
-                create_joint(commands, added_entity, existing_entity)
+                create_leader_follower_joint(commands, added_entity, existing_entity)
             },
             AddedRole::AddedFollower => |commands, added_entity, existing_entity| {
-                create_joint(commands, existing_entity, added_entity)
+                create_leader_follower_joint(commands, existing_entity, added_entity)
             },
         };
         for (existing_entity, existing) in existing_query.iter() {
@@ -96,24 +101,88 @@ where
     }
 }
 
-fn create_joint(commands: &mut Commands, leader: Entity, follower: Entity) {
+fn create_leader_follower_joint(commands: &mut Commands, leader: Entity, follower: Entity) {
     commands.spawn((
-        Name::new("Drawable Joint"),
-        DrawThisJoint,
+        Name::new("Leader-Follower Joint"),
+        LeaderFollowerJoint,
         DistanceJoint::new(leader, follower)
-            .with_local_anchor_1(Vector::ZERO)
-            .with_local_anchor_2(Vector::ZERO)
-            .with_rest_length(500.0)
-            .with_linear_velocity_damping(0.05) // Reduced damping for more springiness
-            .with_angular_velocity_damping(0.5) // Reduced angular damping
-            .with_compliance(0.00001), // Increased compliance for more flexibility
+            .with_rest_length(2000.0)
+            .with_limits(500.0, 8000.0)
+            .with_linear_velocity_damping(0.05)
+            .with_angular_velocity_damping(0.5)
+            .with_compliance(0.00001),
     ));
+}
+
+fn create_follower_follower_joint(commands: &mut Commands, follower1: Entity, follower2: Entity) {
+    commands.spawn((
+        Name::new("Follower-Follower Joint"),
+        FollowerFollowerJoint,
+        DistanceJoint::new(follower1, follower2)
+            .with_limits(500.0, f32::MAX)
+            .with_linear_velocity_damping(0.05)
+            .with_angular_velocity_damping(0.5)
+            .with_compliance(0.00001),
+    ));
+}
+
+fn on_leader_follower_joint_added(
+    trigger: Trigger<OnAdd, LeaderFollowerJoint>,
+    lf_joint_query: Query<
+        &DistanceJoint,
+        (With<LeaderFollowerJoint>, Without<FollowerFollowerJoint>),
+    >,
+    ff_joint_query: Query<
+        &DistanceJoint,
+        (With<FollowerFollowerJoint>, Without<LeaderFollowerJoint>),
+    >,
+    mut commands: Commands,
+) {
+    let added_entity = trigger.entity();
+    let Ok(added_joint) = lf_joint_query.get(added_entity) else {
+        warn!(
+            "Failed to find new {} {added_entity:?}",
+            std::any::type_name::<DistanceJoint>()
+        );
+        return;
+    };
+
+    // We want to find the other followers of this leader
+    let leader_entity = added_joint.entity1;
+    let mut followers = HashSet::new();
+    for joint in lf_joint_query.iter() {
+        if joint.entity1 == leader_entity {
+            let follower_entity = joint.entity2;
+            followers.insert(follower_entity);
+        }
+    }
+
+    let mut existing_ff_joints = HashSet::new();
+    for joint in ff_joint_query.iter() {
+        if followers.contains(&joint.entity1) || followers.contains(&joint.entity2) {
+            existing_ff_joints.insert((joint.entity1, joint.entity2));
+        }
+    }
+
+    // We want to create joints between the follower pairs where no joint exists
+    let need_ff_joint = followers
+        .into_iter()
+        .permutations(2)
+        .map(|x| (x[0], x[1]))
+        .filter(|(a, b)| a != b)
+        .filter(|(a, b)| {
+            !existing_ff_joints.contains(&(*a, *b)) && !existing_ff_joints.contains(&(*b, *a))
+        })
+        .dedup_by(|a, b| a == b || a == &(b.1, b.0));
+    for pair in need_ff_joint {
+        create_follower_follower_joint(&mut commands, pair.0, pair.1);
+    }
 }
 
 fn draw_joints(
     mut gizmos: Gizmos<MyJointGizmos>,
     transform_query: Query<&Transform>,
-    joint_query: Query<&DistanceJoint, With<DrawThisJoint>>,
+    joint_query: Query<&DistanceJoint, With<LeaderFollowerJoint>>,
 ) {
     for joint in joint_query.iter() {
         let subscription_entity = joint.entity1;
