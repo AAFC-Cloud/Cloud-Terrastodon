@@ -6,15 +6,15 @@ use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Svg;
 use cloud_terrastodon_core_azure_devops::prelude::AzureDevopsProject;
-use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
+use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::IconHandle;
+use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::SpawnGraphNodeEvent;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_leader_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
+use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use std::ops::Deref;
-use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
-use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::SpawnGraphNodeEvent;
-use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
 
 pub struct AzureDevopsProjectsPlugin;
 impl Plugin for AzureDevopsProjectsPlugin {
@@ -62,8 +62,9 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     info!("Setting up azure devops project icon data");
-    handles.circle_icon =
-        asset_server.load::<Svg>("textures/azure_devops/10261-icon-service-Azure-DevOps.svg").into();
+    handles.circle_icon = asset_server
+        .load::<Svg>("textures/azure_devops/10261-icon-service-Azure-DevOps.svg")
+        .into();
     handles.circle_material = materials.add(Color::from(BLUE));
     handles.circle_mesh = meshes.add(Circle { radius: 1. }).into();
     handles.icon_width = 18;
@@ -93,7 +94,7 @@ fn receive_results(
                             inner: project.to_owned(),
                         },
                         OrganizablePrimary,
-                        CollisionLayers::new(PhysLayer::Node, PhysLayer::Cursor)
+                        CollisionLayers::new(PhysLayer::Node, PhysLayer::Cursor),
                     ),
                     text_extras: (),
                     circle_extras: (),

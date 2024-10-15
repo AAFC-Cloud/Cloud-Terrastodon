@@ -20,10 +20,10 @@ use cloud_terrastodon_core_tofu::prelude::TofuResourceReference;
 use cloud_terrastodon_visualizer_azure_plugin::prelude::AzureScope;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_follower_added;
-use cloud_terrastodon_visualizer_physics_plugin::prelude::CustomLinearDamping;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_leader_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
+use cloud_terrastodon_visualizer_physics_plugin::prelude::CustomLinearDamping;
 
 use crate::folder_plugin::Folder;
 use crate::tofu_worker_plugin::TofuEvent;

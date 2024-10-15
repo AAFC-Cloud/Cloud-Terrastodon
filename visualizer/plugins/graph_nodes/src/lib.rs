@@ -11,6 +11,6 @@ impl Plugin for GraphNodesPlugin {
 }
 
 pub mod prelude {
-    pub use crate::*;
     pub use crate::node_spawning::*;
+    pub use crate::*;
 }

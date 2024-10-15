@@ -2,11 +2,11 @@
 mod az_cli;
 mod azure_devops_projects;
 mod azure_devops_repos;
+mod azure_users;
+mod management_groups;
 mod resource_groups;
 mod scope;
 mod subscriptions;
-mod azure_users;
-mod management_groups;
 
 use az_cli::AzureCliPlugin;
 use azure_devops_projects::AzureDevopsProjectsPlugin;
@@ -37,9 +37,9 @@ pub mod prelude {
     pub use az_cli::*;
     pub use azure_devops_projects::*;
     pub use azure_devops_repos::*;
+    pub use azure_users::*;
+    pub use management_groups::*;
     pub use resource_groups::*;
     pub use scope::*;
     pub use subscriptions::*;
-    pub use azure_users::*;
-    pub use management_groups::*;
 }

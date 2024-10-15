@@ -11,11 +11,11 @@ use bevy_svg::prelude::Origin;
 use bevy_svg::prelude::Svg;
 use bevy_svg::prelude::Svg2dBundle;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
-use cloud_terrastodon_visualizer_physics_plugin::prelude::CustomLinearDamping;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_leader_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::BiasTowardsOrigin;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::KeepUpright;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
+use cloud_terrastodon_visualizer_physics_plugin::prelude::CustomLinearDamping;
 
 use crate::import_blocks_plugin::TofuImportBlock;
 use crate::tofu_worker_plugin::TofuEvent;

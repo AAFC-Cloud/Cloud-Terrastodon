@@ -84,7 +84,7 @@ fn receive_results(
                             inner: user.to_owned(),
                         },
                         OrganizableSecondary,
-                        CollisionLayers::new(PhysLayer::Node, PhysLayer::Cursor)
+                        CollisionLayers::new(PhysLayer::Node, PhysLayer::Cursor),
                     ),
                     text_extras: (OnlyShowWhenHovered,),
                     circle_extras: (),

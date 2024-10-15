@@ -1,9 +1,8 @@
+mod camera_types;
 mod drag_pan;
 mod scroll_zoom;
-mod wasd_movement;
 mod spawn_camera_plugin;
-mod camera_types;
-
+mod wasd_movement;
 
 use bevy::prelude::*;
 use camera_types::CameraTypesPlugin;

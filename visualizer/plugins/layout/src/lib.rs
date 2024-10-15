@@ -1,12 +1,12 @@
+mod alignment_plugin;
 mod bias_towards_origin;
 mod joints;
 mod organize;
 mod upright;
-mod alignment_plugin;
 
+use alignment_plugin::AlignmentPlugin;
 use bevy::prelude::*;
 use bias_towards_origin::BiasPlugin;
-use alignment_plugin::AlignmentPlugin;
 use joints::JointsPlugin;
 use organize::OrganizerPlugin;
 use upright::UprightPlugin;
@@ -25,9 +25,9 @@ impl Plugin for LayoutPlugin {
 
 pub mod prelude {
     pub use crate::*;
+    pub use alignment_plugin::*;
     pub use bias_towards_origin::*;
     pub use joints::*;
     pub use organize::*;
     pub use upright::*;
-    pub use alignment_plugin::*;
 }

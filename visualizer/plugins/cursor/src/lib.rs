@@ -22,8 +22,8 @@ use leafwing_input_manager::InputManagerBundle;
 pub mod prelude {
     pub use crate::cursor_grab_plugin::*;
     pub use crate::cursor_hover_plugin::*;
-    pub use crate::CursorPlugin;
     pub use crate::CursorAction;
+    pub use crate::CursorPlugin;
 }
 
 pub struct CursorPlugin;
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands) {
             Sensor,
             Name::new("Cursor"),
             SpatialBundle::default(),
-            CollisionLayers::new(PhysLayer::Cursor, LayerMask::ALL)
+            CollisionLayers::new(PhysLayer::Cursor, LayerMask::ALL),
         ))
         .insert(InputManagerBundle::with_map(input_map));
 }

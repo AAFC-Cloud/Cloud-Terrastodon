@@ -1,6 +1,3 @@
-
-
-
 use avian2d::prelude::Collider;
 use avian2d::prelude::FixedJoint;
 use avian2d::prelude::Joint;
@@ -24,7 +21,6 @@ pub struct SpawnCameraPlugin;
 impl Plugin for SpawnCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
-
     }
 }
 
@@ -85,4 +81,3 @@ fn setup(mut commands: Commands) {
 
     commands.spawn(FixedJoint::new(primary_camera_id, joint_gizmos_camera_id));
 }
-

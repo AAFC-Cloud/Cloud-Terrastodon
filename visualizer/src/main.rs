@@ -45,7 +45,7 @@ fn main() {
     app.add_plugins(LayoutPlugin);
     app.add_plugins(PhysicsPlugin);
     app.add_plugins(GraphNodesPlugin);
-   
+
     // must be after the default plugins
     app.add_plugins(
         WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::Backquote)),

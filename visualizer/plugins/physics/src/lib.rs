@@ -6,8 +6,8 @@ use bevy::prelude::*;
 use damping::DampingPlugin;
 use pause::PhysicsPausePlugin;
 
-mod layers;
 mod damping;
+mod layers;
 mod pause;
 
 pub struct PhysicsPlugin;
@@ -41,7 +41,7 @@ impl Plugin for PhysicsPlugin {
 }
 
 pub mod prelude {
-    pub use crate::layers::*;
     pub use crate::damping::*;
+    pub use crate::layers::*;
     pub use crate::*;
 }

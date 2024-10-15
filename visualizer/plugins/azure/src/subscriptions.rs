@@ -13,15 +13,15 @@ use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::Subscription;
 use cloud_terrastodon_core_azure::prelude::SubscriptionId;
 use cloud_terrastodon_core_azure::prelude::TenantId;
-use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_follower_added;
-use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::IconHandle;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::SpawnGraphNodeEvent;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_follower_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_leader_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
+use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use std::ops::Deref;
 
 pub struct SubscriptionsPlugin;
@@ -124,7 +124,7 @@ fn receive_results(
                             scope: sub.id.as_scope(),
                         },
                         OrganizablePrimary,
-                        CollisionLayers::new(PhysLayer::Node, PhysLayer::Cursor)
+                        CollisionLayers::new(PhysLayer::Node, PhysLayer::Cursor),
                     ),
                     text_extras: (),
                     circle_extras: (),
