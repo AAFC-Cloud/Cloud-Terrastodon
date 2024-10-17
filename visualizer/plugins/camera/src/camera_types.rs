@@ -34,9 +34,9 @@ impl Default for CameraMotion {
             zoom_speed: 0.05,
             zoom_speed_default: 0.05,
             zoom_speed_when_sprinting: 0.2,
-            movement_speed: 250.,
+            movement_speed: 1000.,
             movement_speed_default: 250.,
-            movement_speed_when_sprinting: 5000.,
+            movement_speed_when_sprinting: 10000.,
         }
     }
 }
