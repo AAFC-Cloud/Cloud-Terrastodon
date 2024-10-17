@@ -144,7 +144,7 @@ fn initial_fetch(bridge: ResMut<AzureCliBridge>) {
     for msg in [
         AzureCliRequest::ListManagementGroups,
         AzureCliRequest::ListSubscriptions,
-        AzureCliRequest::ListResourceGroups,
+        // AzureCliRequest::ListResourceGroups,
         // AzureCliRequest::ListAzureDevopsProjects,
         // AzureCliRequest::ListAzureUsers,
     ] {

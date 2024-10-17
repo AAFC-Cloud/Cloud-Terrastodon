@@ -6,6 +6,7 @@ mod wasd_movement;
 
 use bevy::prelude::*;
 use camera_types::CameraTypesPlugin;
+use drag_pan::CameraDragPanMovementPlugin;
 use scroll_zoom::ScrollZoomCameraPlugin;
 use spawn_camera_plugin::SpawnCameraPlugin;
 use wasd_movement::WasdCameraMovementPlugin;
@@ -18,6 +19,7 @@ impl Plugin for CameraLibPlugin {
         app.add_plugins(SpawnCameraPlugin);
         app.add_plugins(ScrollZoomCameraPlugin);
         app.add_plugins(WasdCameraMovementPlugin);
+        app.add_plugins(CameraDragPanMovementPlugin);
     }
 }
 
