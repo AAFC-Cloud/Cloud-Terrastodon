@@ -1,4 +1,5 @@
 use crate::prelude::LeaderFollowerJoint;
+use crate::prelude::OrganizerAction;
 use avian2d::dynamics::solver::xpbd::XpbdConstraint;
 use avian2d::prelude::DistanceJoint;
 use avian2d::prelude::LinearVelocity;
@@ -10,6 +11,7 @@ use bevy::utils::HashSet;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use leafwing_input_manager::prelude::ActionState;
 use std::cmp::max;
 use std::cmp::min;
 use std::ops::RangeInclusive;
@@ -18,9 +20,17 @@ pub struct AlignmentPlugin;
 
 impl Plugin for AlignmentPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, left_to_right_flow);
-        app.add_systems(Update, vertical_alignment);
-        app.add_systems(Update, vertical_placement);
+        app.add_systems(
+            Update,
+            (left_to_right_flow, vertical_alignment, vertical_placement).run_if(
+                |actions_query: Query<&ActionState<OrganizerAction>>| {
+                    actions_query
+                        .get_single()
+                        .map(|a| a.pressed(&OrganizerAction::Horizontal))
+                        .unwrap_or_default()
+                },
+            ),
+        );
     }
 }
 
@@ -175,8 +185,8 @@ fn vertical_placement(
         }
 
         // apply a contractive force between children
-        for (_parent,_span,children) in vertical_spans.iter() {
-            let desired_dist = 150.0; // todo: adjust based on the size of the child
+        for (_parent, _span, children) in vertical_spans.iter() {
+            let desired_dist = 80.0; // todo: adjust based on the size of the child
             for (c1, c2) in children.iter().tuple_windows() {
                 let c1y = y_values.get(c1).unwrap();
                 let c2y = y_values.get(c2).unwrap();
@@ -213,7 +223,7 @@ fn vertical_placement(
                 }
                 debug!("Found overlap!");
             }
-            
+
             // distance the parents based on the span sizes
             let above_y = y_values.get(above).unwrap();
             let below_y = y_values.get(below).unwrap();
@@ -221,7 +231,7 @@ fn vertical_placement(
             // between the parents there should be half of each span
             let expected = range_width(&above_span) / 2 + range_width(&below_span) / 2;
             // plus a bit more
-            let expected=  expected as f32 + 50.0;
+            let expected = expected as f32 + 50.0;
             let error = expected - distance;
             if error > 0.0 {
                 // apply a separating force to the parents

@@ -106,8 +106,10 @@ fn create_leader_follower_joint(commands: &mut Commands, leader: Entity, followe
         Name::new("Leader-Follower Joint"),
         LeaderFollowerJoint,
         DistanceJoint::new(leader, follower)
-            .with_rest_length(2000.0)
-            .with_limits(500.0, 8000.0)
+            .with_rest_length(500.0)
+            // .with_rest_length(2000.0)
+            // .with_limits(500.0, 8000.0)
+            // .with_limits(500.0, f32::MAX)
             .with_linear_velocity_damping(0.05)
             .with_angular_velocity_damping(0.5)
             .with_compliance(0.00001),
@@ -119,8 +121,9 @@ fn create_follower_follower_joint(commands: &mut Commands, follower1: Entity, fo
         Name::new("Follower-Follower Joint"),
         FollowerFollowerJoint,
         DistanceJoint::new(follower1, follower2)
-            .with_limits(500.0, 10000.0)
-            .with_rest_length(2000.0)
+            .with_limits(500.0, f32::MAX)
+            // .with_limits(500.0, 10000.0)
+            // .with_rest_length(2000.0)
             .with_linear_velocity_damping(0.05)
             .with_angular_velocity_damping(0.5)
             .with_compliance(0.00001),

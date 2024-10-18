@@ -39,11 +39,13 @@ pub struct DisableCollisions;
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug, Reflect)]
 pub enum OrganizerAction {
     Organize,
+    Horizontal,
 }
 impl Actionlike for OrganizerAction {
     fn input_control_kind(&self) -> InputControlKind {
         match self {
             OrganizerAction::Organize => InputControlKind::Button,
+            OrganizerAction::Horizontal => InputControlKind::Button,
         }
     }
 }
@@ -52,7 +54,10 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         Name::new("Layout Actions"),
         InputManagerBundle::with_map(
-            InputMap::default().with(OrganizerAction::Organize, KeyCode::Space),
+            InputMap::default()
+            .with(OrganizerAction::Organize, KeyCode::Space)
+            .with(OrganizerAction::Horizontal, KeyCode::KeyH)
+            ,
         ),
     ));
 }
