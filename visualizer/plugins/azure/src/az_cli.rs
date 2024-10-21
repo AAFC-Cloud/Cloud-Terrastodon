@@ -2,10 +2,12 @@ use bevy::prelude::*;
 use cloud_terrastodon_core_azure::prelude::fetch_all_management_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
+use cloud_terrastodon_core_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_users;
 use cloud_terrastodon_core_azure::prelude::ManagementGroup;
 use cloud_terrastodon_core_azure::prelude::ResourceGroup;
+use cloud_terrastodon_core_azure::prelude::RoleDefinition;
 use cloud_terrastodon_core_azure::prelude::Subscription;
 use cloud_terrastodon_core_azure::prelude::ThinRoleAssignment;
 use cloud_terrastodon_core_azure::prelude::User;
@@ -40,24 +42,27 @@ pub struct AzureCliBridge {
 
 #[derive(Debug, Event, Clone)]
 pub enum AzureCliRequest {
-    ListResourceGroups,
-    ListSubscriptions,
+    ListAzureResourceGroups,
+    ListAzureSubscriptions,
     ListAzureDevopsProjects,
     ListAzureDevopsRepos(AzureDevopsProjectId),
     ListAzureUsers,
     ListAzureRoleAssignments,
-    ListManagementGroups,
+    ListAzureManagementGroups,
 }
 
 #[derive(Debug, Event, Clone)]
 pub enum AzureCliResponse {
-    ListResourceGroups(Vec<ResourceGroup>),
-    ListSubscriptions(Vec<Subscription>),
+    ListAzureResourceGroups(Vec<ResourceGroup>),
+    ListAzureSubscriptions(Vec<Subscription>),
     ListAzureDevopsProjects(Vec<AzureDevopsProject>),
     ListAzureDevopsRepos(Vec<AzureDevopsRepo>),
-    ListAzureRoleAssignments(Vec<ThinRoleAssignment>),
+    ListAzureRoleAssignments {
+        role_assignments: Vec<ThinRoleAssignment>,
+        role_definitions: Vec<RoleDefinition>,
+    },
     ListAzureUsers(Vec<User>),
-    ListManagementGroups(Vec<ManagementGroup>),
+    ListAzureManagementGroups(Vec<ManagementGroup>),
 }
 
 fn create_worker_thread(mut commands: Commands) {
@@ -91,13 +96,13 @@ fn create_worker_thread(mut commands: Commands) {
                     debug!("Received threadbound message: {msg:?}");
                     let response: Result<AzureCliResponse, Box<dyn Error>> = try {
                         match msg {
-                            AzureCliRequest::ListResourceGroups => {
+                            AzureCliRequest::ListAzureResourceGroups => {
                                 let resource_groups = fetch_all_resource_groups().await?;
-                                AzureCliResponse::ListResourceGroups(resource_groups)
+                                AzureCliResponse::ListAzureResourceGroups(resource_groups)
                             }
-                            AzureCliRequest::ListSubscriptions => {
+                            AzureCliRequest::ListAzureSubscriptions => {
                                 let subscriptions = fetch_all_subscriptions().await?;
-                                AzureCliResponse::ListSubscriptions(subscriptions)
+                                AzureCliResponse::ListAzureSubscriptions(subscriptions)
                             }
                             AzureCliRequest::ListAzureDevopsProjects => {
                                 let projects = fetch_all_azure_devops_projects().await?;
@@ -113,12 +118,18 @@ fn create_worker_thread(mut commands: Commands) {
                                 AzureCliResponse::ListAzureUsers(users)
                             }
                             AzureCliRequest::ListAzureRoleAssignments => {
-                                let role_assignments = fetch_all_role_assignments_v2().await?;
-                                AzureCliResponse::ListAzureRoleAssignments(role_assignments)
+                                let (role_assignments, role_definitions) = tokio::join!(
+                                    fetch_all_role_assignments_v2(),
+                                    fetch_all_role_definitions(),
+                                );
+                                AzureCliResponse::ListAzureRoleAssignments {
+                                    role_assignments: role_assignments?,
+                                    role_definitions: role_definitions?,
+                                }
                             }
-                            AzureCliRequest::ListManagementGroups => {
+                            AzureCliRequest::ListAzureManagementGroups => {
                                 let management_groups = fetch_all_management_groups().await?;
-                                AzureCliResponse::ListManagementGroups(management_groups)
+                                AzureCliResponse::ListAzureManagementGroups(management_groups)
                             }
                         }
                     };
@@ -142,11 +153,12 @@ fn create_worker_thread(mut commands: Commands) {
 
 fn initial_fetch(bridge: ResMut<AzureCliBridge>) {
     for msg in [
-        AzureCliRequest::ListManagementGroups,
-        AzureCliRequest::ListSubscriptions,
-        AzureCliRequest::ListResourceGroups,
+        AzureCliRequest::ListAzureManagementGroups,
+        AzureCliRequest::ListAzureSubscriptions,
+        AzureCliRequest::ListAzureResourceGroups,
         // AzureCliRequest::ListAzureDevopsProjects,
         // AzureCliRequest::ListAzureUsers,
+        AzureCliRequest::ListAzureRoleAssignments,
     ] {
         debug!("Sending bridge message: {:?}", msg);
         if let Err(e) = bridge.sender.send(msg) {

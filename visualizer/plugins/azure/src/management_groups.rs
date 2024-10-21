@@ -111,7 +111,7 @@ fn receive_results(
     icon_data: Res<ManagementGroupIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliResponse::ListManagementGroups(management_group) = msg else {
+        let AzureCliResponse::ListAzureManagementGroups(management_group) = msg else {
             continue;
         };
         debug!("icon data: {icon_data:#?}");

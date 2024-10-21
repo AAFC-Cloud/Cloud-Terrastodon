@@ -106,7 +106,7 @@ fn receive_results(
     icon_data: Res<SubscriptionIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliResponse::ListSubscriptions(subscriptions) = msg else {
+        let AzureCliResponse::ListAzureSubscriptions(subscriptions) = msg else {
             continue;
         };
         debug!("Received {} subscriptions", subscriptions.len());

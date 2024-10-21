@@ -1,3 +1,4 @@
+use crate::prelude::Fake;
 use crate::scopes::strip_prefix_case_insensitive;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
@@ -16,6 +17,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use uuid::Uuid;
 use std::str::FromStr;
 
 pub const ROLE_DEFINITION_ID_PREFIX: &str = "/providers/Microsoft.Authorization/RoleDefinitions/";
@@ -23,6 +25,18 @@ pub const ROLE_DEFINITION_ID_PREFIX: &str = "/providers/Microsoft.Authorization/
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct RoleDefinitionId {
     expanded: String,
+}
+
+// TODO: shouldn't this be NameValidatable as a guid?
+impl RoleDefinitionId {
+    pub fn new(uuid: &Uuid) -> Self {
+        RoleDefinitionId { expanded: format!("{ROLE_DEFINITION_ID_PREFIX}{}", uuid.as_hyphenated()) }
+    }
+}
+impl Fake for RoleDefinitionId {
+    fn fake() -> Self {
+        RoleDefinitionId::new(&Uuid::nil())
+    }
 }
 
 impl HasPrefix for RoleDefinitionId {
@@ -93,7 +107,7 @@ impl<'de> Deserialize<'de> for RoleDefinitionId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct RolePermission {
     #[serde(rename = "notDataActions")]
     #[serde(alias = "NotDataActions")]
@@ -108,13 +122,13 @@ pub struct RolePermission {
     #[serde(alias = "Actions")]
     actions: Vec<String>,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum RoleDefinitionKind {
     BuiltInRole,
     CustomRole,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct RoleDefinition {
     pub id: RoleDefinitionId,
     pub display_name: String,
@@ -122,6 +136,19 @@ pub struct RoleDefinition {
     pub assignable_scopes: Vec<String>,
     pub permissions: Vec<RolePermission>,
     pub kind: RoleDefinitionKind,
+}
+
+impl Fake for RoleDefinition {
+    fn fake() -> Self {
+        RoleDefinition {
+            id: Fake::fake(),
+            display_name: "Fake Role".to_owned(),
+            description: "Fake role description".to_owned(),
+            assignable_scopes: vec![],
+            permissions: vec![],
+            kind: RoleDefinitionKind::CustomRole,
+        }
+    }
 }
 
 impl HasScope for RoleDefinition {

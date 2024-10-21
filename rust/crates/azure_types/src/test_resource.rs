@@ -1,4 +1,5 @@
 use crate::prelude::strip_prefix_case_insensitive;
+use crate::prelude::Fake;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
@@ -24,6 +25,12 @@ impl TestResourceId {
         Self {
             expanded: format!("{}{}", TEST_ID_PREFIX, slug),
         }
+    }
+}
+
+impl Fake for TestResourceId {
+    fn fake() -> Self {
+        TestResourceId::new("MyFakeTestResource")
     }
 }
 

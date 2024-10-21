@@ -28,6 +28,7 @@ mod subscriptions;
 mod tenants;
 mod test_resource;
 mod users;
+mod fake;
 
 pub mod prelude {
     pub use crate::duration::*;
@@ -59,5 +60,6 @@ pub mod prelude {
     pub use crate::tenants::*;
     pub use crate::test_resource::*;
     pub use crate::users::*;
+    pub use crate::fake::*;
     pub use uuid;
 }

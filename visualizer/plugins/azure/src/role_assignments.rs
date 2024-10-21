@@ -1,16 +1,23 @@
 use crate::az_cli::AzureCliResponse;
+use crate::prelude::AzureResourceGroup;
 use crate::prelude::AzureScope;
 use crate::subscriptions::AzureSubscription;
 use avian2d::prelude::CollisionLayers;
 use bevy::color::palettes::css::BLACK;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
+use bevy::utils::hashbrown::HashMap;
 use bevy_svg::prelude::Svg;
 use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
-use cloud_terrastodon_core_azure::prelude::ResourceGroup;
-use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
+use cloud_terrastodon_core_azure::prelude::Fake;
+use cloud_terrastodon_core_azure::prelude::RoleAssignment;
+use cloud_terrastodon_core_azure::prelude::RoleAssignmentId;
+use cloud_terrastodon_core_azure::prelude::RoleDefinition;
+use cloud_terrastodon_core_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::SubscriptionId;
+use cloud_terrastodon_core_azure::prelude::ThinRoleAssignment;
+use cloud_terrastodon_core_azure::prelude::TryFromUnscoped;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
@@ -22,23 +29,23 @@ use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use std::ops::Deref;
 
-pub struct ResourceGroupsPlugin;
-impl Plugin for ResourceGroupsPlugin {
+pub struct RoleAssignmentsPlugin;
+impl Plugin for RoleAssignmentsPlugin {
     fn build(&self, app: &mut App) {
-        info!("Building ResourceGroupsPlugin");
+        info!("Building RoleAssignmentsPlugin");
         app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
-        app.register_type::<AzureResourceGroup>();
-        app.register_type::<ResourceGroupIconData>();
-        app.init_resource::<ResourceGroupIconData>();
+        app.register_type::<AzureRoleAssignment>();
+        app.register_type::<RoleAssignmentIconData>();
+        app.init_resource::<RoleAssignmentIconData>();
         app.observe(join_on_follower_added(
-            |rg: &AzureResourceGroup, sub: &AzureSubscription| rg.subscription_id == sub.id,
+            |ra: &AzureRoleAssignment, rg: &AzureResourceGroup| ra.role_assignment.scope == rg.id.expanded_form(),
         ));
     }
 }
 
 #[derive_graph_node_icon_data]
-struct ResourceGroupIconData {
+struct RoleAssignmentIconData {
     pub icon_width: i32,
     pub circle_radius: f32,
     pub circle_icon_padding: f32,
@@ -50,45 +57,30 @@ struct ResourceGroupIconData {
 
 #[derive(Debug, Reflect, Component)]
 #[reflect(Default)]
-pub struct AzureResourceGroup {
+pub struct AzureRoleAssignment {
     #[reflect(ignore)]
-    pub resource_group: ResourceGroup,
+    pub role_assignment: ThinRoleAssignment,
+    #[reflect(ignore)]
+    pub role_definition: RoleDefinition,
 }
-impl Deref for AzureResourceGroup {
-    type Target = ResourceGroup;
-
-    fn deref(&self) -> &Self::Target {
-        &self.resource_group
-    }
-}
-impl Default for AzureResourceGroup {
+impl Default for AzureRoleAssignment {
     fn default() -> Self {
-        let name = "FakeResourceGroup";
-        let subscription_id = SubscriptionId::new(Uuid::nil());
-        let id = ResourceGroupId::new(&subscription_id, name.to_string());
-        Self {
-            resource_group: ResourceGroup {
-                id,
-                subscription_id,
-                location: "canadacentral".to_owned(),
-                managed_by: None,
-                name: name.to_owned(),
-                properties: Default::default(),
-                tags: Default::default(),
-            },
+        AzureRoleAssignment {
+            role_assignment: Fake::fake(),
+            role_definition: Fake::fake(),
         }
     }
 }
 
 fn setup(
-    mut handles: ResMut<ResourceGroupIconData>,
+    mut handles: ResMut<RoleAssignmentIconData>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     info!("Setting up resource group icon data");
     handles.circle_icon = asset_server
-        .load::<Svg>("textures/azure/ResourceGroups.svg")
+        .load::<Svg>("textures/azure/RoleAssignments.svg")
         .into();
     handles.circle_material = materials.add(Color::from(BLACK));
     handles.circle_mesh = meshes.add(Circle { radius: 1. }).into();
@@ -101,25 +93,41 @@ fn setup(
 fn receive_results(
     mut cli_events: EventReader<AzureCliResponse>,
     mut commands: Commands,
-    icon_data: Res<ResourceGroupIconData>,
+    icon_data: Res<RoleAssignmentIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliResponse::ListAzureResourceGroups(resource_groups) = msg else {
+        let AzureCliResponse::ListAzureRoleAssignments {
+            role_assignments,
+            role_definitions,
+        } = msg
+        else {
             continue;
         };
-        debug!("Received {} resource groups", resource_groups.len());
-        for (i, rg) in resource_groups.iter().enumerate() {
+        let role_definitions = role_definitions
+            .iter()
+            .map(|x| (&x.id, x))
+            .collect::<HashMap<_,_>>();
+        debug!("Received {} role assignments", role_assignments.len());
+        for (i, role_assignment) in role_assignments.iter().enumerate() {
+            let Some(role_definition) = role_definitions.get(&role_assignment.role_definition_id) else {
+               warn!("No role definition found for {role_assignment:?}");
+               continue; 
+            };
             spawn_graph_node(
                 SpawnGraphNodeEvent {
-                    name: Name::new(format!("Resource Group - {}", rg.name)),
-                    text: rg.name.to_owned(),
+                    name: Name::new(format!(
+                        "Role Assignment - {}",
+                        role_assignment.id.short_form()
+                    )),
+                    text: role_definition.display_name.to_owned(),
                     translation: Vec3::new(0., i as f32 * 150., 0.),
                     top_extras: (
-                        AzureResourceGroup {
-                            resource_group: rg.to_owned(),
+                        AzureRoleAssignment {
+                            role_assignment: role_assignment.to_owned(),
+                            role_definition: (**role_definition).to_owned(),
                         },
                         AzureScope {
-                            scope: rg.id.as_scope(),
+                            scope: role_assignment.id.as_scope(),
                         },
                         OrganizableSecondary,
                         CollisionLayers::new(PhysLayer::Node, PhysLayer::Cursor),

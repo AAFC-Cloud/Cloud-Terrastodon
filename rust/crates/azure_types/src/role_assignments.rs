@@ -1,8 +1,12 @@
+use std::fmt::format;
+
+use crate::prelude::Fake;
 use crate::prelude::ManagementGroupScoped;
 use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceScoped;
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::SubscriptionScoped;
+use crate::prelude::TestResourceId;
 use crate::prelude::Unscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
@@ -40,6 +44,13 @@ pub const ROLE_ASSIGNMENT_ID_PREFIX: &str = "/providers/Microsoft.Authorization/
 pub struct UnscopedRoleAssignmentId {
     expanded: String,
 }
+impl UnscopedRoleAssignmentId {
+    pub fn new(uuid: &Uuid) -> Self {
+        UnscopedRoleAssignmentId {
+            expanded: format!("{ROLE_ASSIGNMENT_ID_PREFIX}{}", uuid.as_hyphenated()),
+        }
+    }
+}
 impl Unscoped for UnscopedRoleAssignmentId {}
 impl NameValidatable for UnscopedRoleAssignmentId {
     fn validate_name(name: &str) -> Result<()> {
@@ -57,6 +68,11 @@ impl TryFromUnscoped for UnscopedRoleAssignmentId {
         UnscopedRoleAssignmentId {
             expanded: expanded.to_string(),
         }
+    }
+}
+impl Fake for UnscopedRoleAssignmentId {
+    fn fake() -> Self {
+        UnscopedRoleAssignmentId::new(&Uuid::nil())
     }
 }
 impl Scope for UnscopedRoleAssignmentId {
@@ -269,6 +285,12 @@ impl HasPrefix for RoleAssignmentId {
         ROLE_ASSIGNMENT_ID_PREFIX
     }
 }
+impl Fake for RoleAssignmentId {
+    fn fake() -> Self {
+        RoleAssignmentId::Unscoped(UnscopedRoleAssignmentId::fake())
+    }
+}
+
 impl TryFromUnscoped for RoleAssignmentId {
     unsafe fn new_unscoped_unchecked(expanded: &str) -> Self {
         RoleAssignmentId::Unscoped(UnscopedRoleAssignmentId {
@@ -376,6 +398,18 @@ pub struct ThinRoleAssignment {
     pub role_definition_id: RoleDefinitionId,
     pub principal_id: Uuid,
 }
+
+impl Fake for ThinRoleAssignment {
+    fn fake() -> Self {
+        ThinRoleAssignment {
+            id: RoleAssignmentId::fake(),
+            scope: "".to_owned(), 
+            role_definition_id: RoleDefinitionId::fake(),
+            principal_id: Uuid::nil(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct RoleAssignment {
     pub condition: Option<Value>,
@@ -441,6 +475,7 @@ impl std::fmt::Display for RoleAssignment {
         Ok(())
     }
 }
+
 impl From<RoleAssignment> for TofuImportBlock {
     fn from(role_assignment: RoleAssignment) -> Self {
         TofuImportBlock {
