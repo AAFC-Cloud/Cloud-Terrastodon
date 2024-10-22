@@ -1,12 +1,9 @@
-use std::fmt::format;
-
 use crate::prelude::Fake;
 use crate::prelude::ManagementGroupScoped;
 use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceScoped;
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::SubscriptionScoped;
-use crate::prelude::TestResourceId;
 use crate::prelude::Unscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;

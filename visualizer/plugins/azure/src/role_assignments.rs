@@ -1,4 +1,5 @@
 use crate::az_cli::AzureCliResponse;
+use crate::prelude::AzureManagementGroup;
 use crate::prelude::AzureResourceGroup;
 use crate::prelude::AzureScope;
 use crate::subscriptions::AzureSubscription;
@@ -10,6 +11,8 @@ use bevy::utils::hashbrown::HashMap;
 use bevy_svg::prelude::Svg;
 use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_core_azure::prelude::Fake;
+use cloud_terrastodon_core_azure::prelude::ManagementGroupId;
+use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
 use cloud_terrastodon_core_azure::prelude::RoleAssignment;
 use cloud_terrastodon_core_azure::prelude::RoleAssignmentId;
 use cloud_terrastodon_core_azure::prelude::RoleDefinition;
@@ -25,6 +28,7 @@ use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::IconHandle;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::SpawnGraphNodeEvent;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_follower_added;
+use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_leader_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use std::ops::Deref;
@@ -39,7 +43,34 @@ impl Plugin for RoleAssignmentsPlugin {
         app.register_type::<RoleAssignmentIconData>();
         app.init_resource::<RoleAssignmentIconData>();
         app.observe(join_on_follower_added(
-            |ra: &AzureRoleAssignment, rg: &AzureResourceGroup| ra.role_assignment.scope == rg.id.expanded_form(),
+            |ra: &AzureRoleAssignment, rg: &AzureResourceGroup| {
+                ra.role_assignment.scope == rg.id.expanded_form()
+            },
+        ));
+        app.observe(join_on_follower_added(
+            |ra: &AzureRoleAssignment, sub: &AzureSubscription| {
+                ra.role_assignment.scope == sub.id.expanded_form()
+            },
+        ));
+        app.observe(join_on_follower_added(
+            |ra: &AzureRoleAssignment, mg: &AzureManagementGroup| {
+                ra.role_assignment.scope == mg.id.expanded_form()
+            },
+        ));
+        app.observe(join_on_leader_added(
+            |rg: &AzureResourceGroup, ra: &AzureRoleAssignment| {
+                ra.role_assignment.scope == rg.id.expanded_form()
+            },
+        ));
+        app.observe(join_on_leader_added(
+            |sub: &AzureSubscription, ra: &AzureRoleAssignment| {
+                ra.role_assignment.scope == sub.id.expanded_form()
+            },
+        ));
+        app.observe(join_on_leader_added(
+            |mg: &AzureManagementGroup, ra: &AzureRoleAssignment| {
+                ra.role_assignment.scope == mg.id.expanded_form()
+            },
         ));
     }
 }
@@ -78,7 +109,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    info!("Setting up resource group icon data");
+    info!("Setting up resource group icon data lllll");
     handles.circle_icon = asset_server
         .load::<Svg>("textures/azure/RoleAssignments.svg")
         .into();
@@ -106,12 +137,20 @@ fn receive_results(
         let role_definitions = role_definitions
             .iter()
             .map(|x| (&x.id, x))
-            .collect::<HashMap<_,_>>();
+            .collect::<HashMap<_, _>>();
         debug!("Received {} role assignments", role_assignments.len());
         for (i, role_assignment) in role_assignments.iter().enumerate() {
-            let Some(role_definition) = role_definitions.get(&role_assignment.role_definition_id) else {
-               warn!("No role definition found for {role_assignment:?}");
-               continue; 
+            // only display role assignments for ManagementGroups, Subscriptions, and ResourceGroups
+            let should_show = ResourceGroupId::try_from_expanded(&role_assignment.scope).is_ok()
+                || SubscriptionId::try_from_expanded(&role_assignment.scope).is_ok()
+                || ManagementGroupId::try_from_expanded(&role_assignment.scope).is_ok();
+            if !should_show {
+                continue;
+            }
+            let Some(role_definition) = role_definitions.get(&role_assignment.role_definition_id)
+            else {
+                warn!("No role definition found for {role_assignment:?}");
+                continue;
             };
             spawn_graph_node(
                 SpawnGraphNodeEvent {
