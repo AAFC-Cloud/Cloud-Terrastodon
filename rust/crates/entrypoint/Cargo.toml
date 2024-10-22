@@ -12,6 +12,7 @@ cloud_terrastodon_core_azure = { workspace = true }
 cloud_terrastodon_core_command = { workspace = true } 
 cloud_terrastodon_core_pathing = { workspace = true }
 cloud_terrastodon_core_config = { workspace = true }
+cloud_terrastodon_ui = { workspace = true }
 anyhow = { workspace = true }
 itertools = { workspace = true }
 serde = { workspace = true }

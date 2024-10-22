@@ -19,6 +19,7 @@ use clap::Parser;
 use clap::Subcommand;
 use cloud_terrastodon_core_config::Config;
 use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_ui::prelude::ui_main;
 use tokio::io::stdout;
 use tokio::io::AsyncWriteExt;
 #[derive(Parser, Debug)]
@@ -30,6 +31,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    V2,
     Clean,
     WriteAllImports,
     PerformCodeGenerationFromImports,
@@ -51,6 +53,9 @@ pub async fn main(version: Version) -> Result<()> {
             menu_loop().await?;
         }
         Some(command) => match command {
+            Commands::V2 => {
+                ui_main().await?;
+            }
             Commands::Clean => {
                 clean().await?;
             }
