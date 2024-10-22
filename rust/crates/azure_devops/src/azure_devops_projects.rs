@@ -22,7 +22,7 @@ pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevopsProject>
 
     #[derive(Serialize, Deserialize)]
     pub struct Response {
-        #[serde(rename="continuationToken")]
+        #[serde(rename = "continuationToken")]
         continuation_token: Option<String>,
         value: Vec<AzureDevopsProject>,
     }
@@ -44,7 +44,6 @@ pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevopsProject>
     Ok(projects)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -58,4 +57,4 @@ mod tests {
         }
         Ok(())
     }
-}	
+}

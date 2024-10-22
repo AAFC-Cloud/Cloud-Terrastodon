@@ -400,7 +400,7 @@ impl Fake for ThinRoleAssignment {
     fn fake() -> Self {
         ThinRoleAssignment {
             id: RoleAssignmentId::fake(),
-            scope: "".to_owned(), 
+            scope: "".to_owned(),
             role_definition_id: RoleDefinitionId::fake(),
             principal_id: Uuid::nil(),
         }

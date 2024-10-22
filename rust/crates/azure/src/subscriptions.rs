@@ -115,7 +115,12 @@ mod tests {
         let result = fetch_all_subscriptions().await?;
         println!("Found {} subscriptions:", result.len());
         for sub in result {
-            println!("- {} ({}) under {}", sub.name, sub.id, sub.parent_management_group_id.name());
+            println!(
+                "- {} ({}) under {}",
+                sub.name,
+                sub.id,
+                sub.parent_management_group_id.name()
+            );
         }
         Ok(())
     }

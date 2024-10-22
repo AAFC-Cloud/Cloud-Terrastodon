@@ -3,9 +3,9 @@ use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::ResourceGroup;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use indoc::indoc;
-use tracing::info;
 use std::path::PathBuf;
 use std::time::Duration;
+use tracing::info;
 
 pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
     info!("Fetching resource groups");

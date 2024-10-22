@@ -1,8 +1,8 @@
-use std::ops::Deref;
-use std::str::FromStr;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use std::ops::Deref;
+use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::prelude::AzureDevopsProject;
@@ -30,7 +30,6 @@ impl FromStr for AzureDevopsRepoId {
         Ok(AzureDevopsRepoId::new(uuid))
     }
 }
-
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub struct AzureDevopsRepo {

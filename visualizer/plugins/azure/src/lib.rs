@@ -5,9 +5,9 @@ mod azure_devops_repos;
 mod azure_users;
 mod management_groups;
 mod resource_groups;
+mod role_assignments;
 mod scope;
 mod subscriptions;
-mod role_assignments;
 
 use az_cli::AzureCliPlugin;
 use azure_devops_projects::AzureDevopsProjectsPlugin;
@@ -32,7 +32,7 @@ impl Plugin for AzurePlugin {
         app.add_plugins(AzureUsersPlugin);
         app.add_plugins(ManagementGroupsPlugin);
         app.add_plugins(RoleAssignmentsPlugin);
-     }
+    }
 }
 
 pub mod prelude {
@@ -43,7 +43,7 @@ pub mod prelude {
     pub use azure_users::*;
     pub use management_groups::*;
     pub use resource_groups::*;
+    pub use role_assignments::*;
     pub use scope::*;
     pub use subscriptions::*;
-    pub use role_assignments::*;
 }

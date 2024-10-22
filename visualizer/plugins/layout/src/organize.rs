@@ -55,9 +55,8 @@ fn setup(mut commands: Commands) {
         Name::new("Layout Actions"),
         InputManagerBundle::with_map(
             InputMap::default()
-            .with(OrganizerAction::Organize, KeyCode::Space)
-            .with(OrganizerAction::Horizontal, KeyCode::KeyH)
-            ,
+                .with(OrganizerAction::Organize, KeyCode::Space)
+                .with(OrganizerAction::Horizontal, KeyCode::KeyH),
         ),
     ));
 }

@@ -4,6 +4,7 @@ use anyhow::Result;
 use crossterm::event::EventStream;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEventKind;
+use futures::StreamExt;
 use ratatui::crossterm::event::Event;
 use ratatui::prelude::Constraint;
 use ratatui::prelude::Layout;
@@ -12,7 +13,6 @@ use ratatui::prelude::Stylize;
 use ratatui::DefaultTerminal;
 use ratatui::Frame;
 use tracing::info;
-use futures::StreamExt;
 
 pub async fn ui_main() -> Result<()> {
     info!("Hi there!");

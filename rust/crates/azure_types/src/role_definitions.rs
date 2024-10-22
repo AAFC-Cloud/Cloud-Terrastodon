@@ -17,8 +17,8 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use uuid::Uuid;
 use std::str::FromStr;
+use uuid::Uuid;
 
 pub const ROLE_DEFINITION_ID_PREFIX: &str = "/providers/Microsoft.Authorization/RoleDefinitions/";
 
@@ -30,7 +30,9 @@ pub struct RoleDefinitionId {
 // TODO: shouldn't this be NameValidatable as a guid?
 impl RoleDefinitionId {
     pub fn new(uuid: &Uuid) -> Self {
-        RoleDefinitionId { expanded: format!("{ROLE_DEFINITION_ID_PREFIX}{}", uuid.as_hyphenated()) }
+        RoleDefinitionId {
+            expanded: format!("{ROLE_DEFINITION_ID_PREFIX}{}", uuid.as_hyphenated()),
+        }
     }
 }
 impl Fake for RoleDefinitionId {

@@ -1,9 +1,9 @@
-use std::path::Path;
-use std::path::PathBuf;
 use anyhow::Context;
 use anyhow::Result;
 use cloud_terrastodon_core_tofu_types::prelude::CodeReference;
 use hcl::edit::structure::Body;
+use std::path::Path;
+use std::path::PathBuf;
 use tokio::fs;
 use tracing::debug;
 use tracing::info;
@@ -19,8 +19,7 @@ pub async fn list_blocks_for_file(path: PathBuf) -> Result<Vec<CodeReference>> {
     let body: Body = content
         .parse()
         .context(format!("parsing {} content as body", path.display()))?;
-    body
-        .into_blocks()
+    body.into_blocks()
         .map(|block| CodeReference::try_from_block(&content, block, &path))
         .collect()
 }

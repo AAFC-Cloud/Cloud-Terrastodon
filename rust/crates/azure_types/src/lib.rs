@@ -1,6 +1,7 @@
 #![feature(pattern, duration_constructors)]
 mod duration;
 mod eligible_child_resources;
+mod fake;
 mod groups;
 mod management_groups;
 mod naming;
@@ -28,11 +29,11 @@ mod subscriptions;
 mod tenants;
 mod test_resource;
 mod users;
-mod fake;
 
 pub mod prelude {
     pub use crate::duration::*;
     pub use crate::eligible_child_resources::*;
+    pub use crate::fake::*;
     pub use crate::groups::*;
     pub use crate::management_groups::*;
     pub use crate::naming::*;
@@ -60,6 +61,5 @@ pub mod prelude {
     pub use crate::tenants::*;
     pub use crate::test_resource::*;
     pub use crate::users::*;
-    pub use crate::fake::*;
     pub use uuid;
 }

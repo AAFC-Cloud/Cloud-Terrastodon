@@ -31,7 +31,6 @@ impl FromStr for AzureDevopsProjectId {
     }
 }
 
-
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub enum AzureDevopsProjectState {
     #[serde(rename = "wellFormed")]

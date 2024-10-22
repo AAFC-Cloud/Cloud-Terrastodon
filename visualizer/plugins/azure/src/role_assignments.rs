@@ -9,18 +9,13 @@ use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
 use bevy::utils::hashbrown::HashMap;
 use bevy_svg::prelude::Svg;
-use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_core_azure::prelude::Fake;
 use cloud_terrastodon_core_azure::prelude::ManagementGroupId;
 use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
-use cloud_terrastodon_core_azure::prelude::RoleAssignment;
-use cloud_terrastodon_core_azure::prelude::RoleAssignmentId;
 use cloud_terrastodon_core_azure::prelude::RoleDefinition;
-use cloud_terrastodon_core_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::SubscriptionId;
 use cloud_terrastodon_core_azure::prelude::ThinRoleAssignment;
-use cloud_terrastodon_core_azure::prelude::TryFromUnscoped;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
@@ -31,7 +26,6 @@ use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_follower_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_leader_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
-use std::ops::Deref;
 
 pub struct RoleAssignmentsPlugin;
 impl Plugin for RoleAssignmentsPlugin {
