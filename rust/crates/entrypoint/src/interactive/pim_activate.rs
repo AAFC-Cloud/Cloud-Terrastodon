@@ -4,6 +4,7 @@ use cloud_terrastodon_core_azure::prelude::activate_pim_entra_role;
 use cloud_terrastodon_core_azure::prelude::activate_pim_role;
 use cloud_terrastodon_core_azure::prelude::fetch_all_eligible_resource_containers;
 use cloud_terrastodon_core_azure::prelude::fetch_all_entra_pim_role_definitions;
+use cloud_terrastodon_core_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_core_azure::prelude::fetch_current_user;
 use cloud_terrastodon_core_azure::prelude::fetch_entra_pim_role_settings;
 use cloud_terrastodon_core_azure::prelude::fetch_my_entra_pim_role_assignments;
@@ -11,6 +12,7 @@ use cloud_terrastodon_core_azure::prelude::fetch_my_role_eligibility_schedules;
 use cloud_terrastodon_core_azure::prelude::fetch_role_management_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::PimEntraRoleAssignment;
 use cloud_terrastodon_core_azure::prelude::PimEntraRoleDefinition;
+use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_fzf::pick;
 use cloud_terrastodon_core_fzf::pick_many;
 use cloud_terrastodon_core_fzf::Choice;
@@ -133,6 +135,7 @@ pub async fn pim_activate_entra() -> Result<()> {
         prompt: None,
         header: Some("Duration to activate PIM for".to_string()),
     })?;
+    info!("Chosen duration is {}", format_duration(*chosen_duration));
 
     print!("Justification: ");
     std::io::stdout().flush()?;
@@ -177,15 +180,23 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         .join(", ");
 
     info!("Fetching eligible scopes");
-    let possible_scopes = fetch_all_eligible_resource_containers().await?;
+    let possible_scopes = fetch_all_resources()
+        .await?
+        .into_iter()
+        .map(|r| {
+            let key = format!(
+                "{} \"{}\"",
+                r.display_name
+                    .as_ref()
+                    .map(|display_name| format!("{} ({})", display_name, r.name))
+                    .unwrap_or_else(|| r.name.clone()),
+                r.id.expanded_form()
+            );
+            Choice { key: key, value: r }
+        })
+        .collect_vec();
     let chosen_scopes = pick_many(FzfArgs {
-        choices: possible_scopes
-            .into_iter()
-            .map(|x| Choice {
-                key: x.to_string(),
-                value: x,
-            })
-            .collect(),
+        choices: possible_scopes,
         prompt: None,
         header: Some(format!("Activating {chosen_roles_display}")),
     })?;
@@ -219,6 +230,7 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         prompt: None,
         header: Some("Duration to activate PIM for".to_string()),
     })?;
+    info!("Chosen duration is {}", format_duration(*chosen_duration));
 
     print!("Justification: ");
     std::io::stdout().flush()?;
