@@ -1,6 +1,8 @@
+use crate::prelude::try_from_expanded_hierarchy_scoped;
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleDefinitionKind;
 use crate::prelude::RoleManagementPolicyId;
+use crate::prelude::TryFromResourceScoped;
 use crate::scopes::try_from_expanded_resource_container_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
@@ -36,6 +38,7 @@ pub enum RoleManagementPolicyAssignmentId {
     ManagementGroupScoped { expanded: String },
     SubscriptionScoped { expanded: String },
     ResourceGroupScoped { expanded: String },
+    ResourceScoped { expanded: String },
 }
 impl NameValidatable for RoleManagementPolicyAssignmentId {
     fn validate_name(name: &str) -> Result<()> {
@@ -71,6 +74,13 @@ impl TryFromResourceGroupScoped for RoleManagementPolicyAssignmentId {
     }
 }
 
+impl TryFromResourceScoped for RoleManagementPolicyAssignmentId {
+    unsafe fn new_resource_scoped_unchecked(expanded: &str) -> Self {
+        RoleManagementPolicyAssignmentId::ResourceScoped {
+            expanded: expanded.to_string(),
+        }
+    }
+}
 impl TryFromSubscriptionScoped for RoleManagementPolicyAssignmentId {
     unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
         RoleManagementPolicyAssignmentId::SubscriptionScoped {
@@ -89,7 +99,7 @@ impl TryFromManagementGroupScoped for RoleManagementPolicyAssignmentId {
 
 impl Scope for RoleManagementPolicyAssignmentId {
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        try_from_expanded_resource_container_scoped(expanded)
+        try_from_expanded_hierarchy_scoped(expanded)
     }
 
     fn expanded_form(&self) -> &str {
@@ -98,6 +108,7 @@ impl Scope for RoleManagementPolicyAssignmentId {
             Self::ResourceGroupScoped { expanded } => expanded,
             Self::SubscriptionScoped { expanded } => expanded,
             Self::ManagementGroupScoped { expanded } => expanded,
+            Self::ResourceScoped { expanded } => expanded,
         }
     }
 
