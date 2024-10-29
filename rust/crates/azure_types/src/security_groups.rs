@@ -18,7 +18,7 @@ impl From<SecurityGroup> for TofuImportBlock {
     fn from(security_group: SecurityGroup) -> Self {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
-            id: security_group.id.to_string(),
+            id: format!("/groups/{}", security_group.id.as_hyphenated()),
             to: TofuResourceReference::AzureAD {
                 kind: TofuAzureADResourceKind::Group,
                 name: format!("{}__{}", security_group.display_name, security_group.id).sanitize(),
