@@ -15,9 +15,12 @@ pub async fn fetch_all_resources() -> Result<Vec<Resource>> {
         r#"
 resources 
 | union resourcecontainers
-| project id, ['kind'] = type
-"#
-        .to_string(),
+| project
+    id,
+    ['kind'] = type,
+    name,
+    display_name=properties.displayName
+"#,
         CacheBehaviour::Some {
             path: PathBuf::from("resources"),
             valid_for: Duration::from_mins(5),

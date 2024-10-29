@@ -73,4 +73,6 @@ impl<'de> Deserialize<'de> for ResourceId {
 pub struct Resource {
     pub id: ResourceId,
     pub kind: String,
+    pub name: String,
+    pub display_name: Option<String>,
 }
