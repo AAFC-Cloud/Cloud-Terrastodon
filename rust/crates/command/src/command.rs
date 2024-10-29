@@ -610,7 +610,6 @@ impl CommandBuilder {
         Ok(output)
     }
 
-    // #[async_recursion]
     pub async fn run<T>(&self) -> Result<T>
     where
         T: DeserializeOwned,
@@ -621,6 +620,37 @@ impl CommandBuilder {
         // Parse
         match serde_json::from_str(&output.stdout) {
             Ok(results) => Ok(results),
+            Err(e) => {
+                let dir = self.write_failure(&output).await?;
+                Err(anyhow::Error::new(e).context(format!(
+                    "deserializing {} failed, dumped to {:?}",
+                    self.summarize(),
+                    dir
+                )))
+            }
+        }
+    }
+
+    pub async fn run_with_validator<T, F>(&self, validator: F) -> Result<T>
+    where
+        T: DeserializeOwned,
+        F: FnOnce(T) -> Result<T>,
+    {
+        // Get stdout
+        let output = self.run_raw().await?;
+
+        // Parse
+        match serde_json::from_str(&output.stdout) {
+            Ok(results) => match validator(results) {
+                Ok(results) => Ok(results),
+                Err(e) => {
+                    let dir = self.write_failure(&output).await?;
+                    Err(e).context(format!("Encountered validation error after successful invocation of {}, dumped to {:?}",
+                            self.summarize(),
+                            dir
+                        ))
+                }
+            },
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
                 Err(anyhow::Error::new(e).context(format!(
