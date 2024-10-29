@@ -27,7 +27,10 @@ mod security_groups;
 mod storage_accounts;
 mod subscriptions;
 mod users;
+mod batch_api;
+mod tags;
 pub mod prelude {
+    pub use crate::tags::*;
     pub use crate::auth::*;
     pub use crate::create_role_assignment::*;
     pub use crate::eligible_child_resources::*;
@@ -56,5 +59,6 @@ pub mod prelude {
     pub use crate::storage_accounts::*;
     pub use crate::subscriptions::*;
     pub use crate::users::*;
+    pub use crate::batch_api::*;
     pub use cloud_terrastodon_core_azure_types::prelude::*;
 }
