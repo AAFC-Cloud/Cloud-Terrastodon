@@ -47,18 +47,10 @@ impl TofuImporter {
         init_cmd.should_announce(true);
         init_cmd.use_run_dir(imports_dir);
         init_cmd.use_output_behaviour(OutputBehaviour::Display);
-        init_cmd.use_timeout(Duration::from_secs(30));
+        init_cmd.use_timeout(Duration::from_secs(120));
         init_cmd.arg("init");
         init_cmd.run_raw().await?;
         info!("Tofu init successful!");
-
-        let mut validate_cmd = CommandBuilder::new(CommandKind::Tofu);
-        validate_cmd.should_announce(true);
-        validate_cmd.use_run_dir(imports_dir);
-        validate_cmd.use_output_behaviour(OutputBehaviour::Display);
-        validate_cmd.use_timeout(Duration::from_secs(30));
-        validate_cmd.arg("validate");
-        validate_cmd.run_raw().await?;
 
         // remove old plan outputs
         let generated_path = imports_dir.join("generated.tf");
@@ -69,6 +61,14 @@ impl TofuImporter {
             }
             fs::remove_file(generated_path).await?;
         }
+
+        let mut validate_cmd = CommandBuilder::new(CommandKind::Tofu);
+        validate_cmd.should_announce(true);
+        validate_cmd.use_run_dir(imports_dir);
+        validate_cmd.use_output_behaviour(OutputBehaviour::Display);
+        validate_cmd.use_timeout(Duration::from_secs(30));
+        validate_cmd.arg("validate");
+        validate_cmd.run_raw().await?;
 
         // tf plan
         let mut plan_cmd = CommandBuilder::new(CommandKind::Tofu);
