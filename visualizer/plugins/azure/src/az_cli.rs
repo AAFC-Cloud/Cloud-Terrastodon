@@ -158,7 +158,7 @@ fn initial_fetch(bridge: ResMut<AzureCliBridge>) {
         AzureCliRequest::ListAzureResourceGroups,
         // AzureCliRequest::ListAzureDevopsProjects,
         // AzureCliRequest::ListAzureUsers,
-        AzureCliRequest::ListAzureRoleAssignments,
+        // AzureCliRequest::ListAzureRoleAssignments,
     ] {
         debug!("Sending bridge message: {:?}", msg);
         if let Err(e) = bridge.sender.send(msg) {
