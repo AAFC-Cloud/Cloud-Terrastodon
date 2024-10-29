@@ -2,6 +2,9 @@
 use anyhow::Result;
 use cloud_terrastodon_core_entrypoint::prelude::main as entrypoint_main;
 use cloud_terrastodon_core_entrypoint::prelude::Version;
+use itertools::Itertools;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::EnvFilter;
 
 #[cfg(windows)]
 mod windows_ansi {
@@ -31,7 +34,27 @@ mod windows_ansi {
 #[tokio::main]
 async fn main() -> Result<()> {
     // start logging
-    tracing_subscriber::fmt::init();
+
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy()
+        .add_directive(
+            format!(
+                "
+                {}=debug
+                ",
+                env!("CARGO_PKG_NAME")
+            )
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.starts_with("//"))
+            .filter(|line| !line.is_empty())
+            .join(",")
+            .trim()
+            .parse()
+            .unwrap(),
+        );
+    tracing_subscriber::fmt().with_env_filter(env_filter).init();
 
     // fix colours in the default exe terminal
     // show no errors when colours unavailable (piping situations)

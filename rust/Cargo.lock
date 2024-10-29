@@ -258,6 +258,7 @@ dependencies = [
  "anyhow",
  "cloud_terrastodon_core_entrypoint",
  "embed-resource",
+ "itertools 0.12.1",
  "tokio",
  "tracing",
  "tracing-subscriber",
