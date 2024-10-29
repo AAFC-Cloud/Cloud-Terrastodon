@@ -16,8 +16,7 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     permissions = properties.permissions,
     display_name = properties.roleName,
     ['kind'] = properties.type
-| project-away properties"#
-            .to_string(),
+| project-away properties"#,
         CacheBehaviour::Some {
             path: PathBuf::from("role-definitions"),
             valid_for: Duration::from_days(1),

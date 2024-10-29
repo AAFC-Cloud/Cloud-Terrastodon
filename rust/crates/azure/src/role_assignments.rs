@@ -56,8 +56,7 @@ authorizationresources
     scope=properties.scope,
     role_definition_id=properties.roleDefinitionId,
     principal_id=properties.principalId
-"#
-        .to_string(),
+"#,
         CacheBehaviour::Some {
             path: PathBuf::from("role_assignments"),
             valid_for: Duration::from_hours(4),

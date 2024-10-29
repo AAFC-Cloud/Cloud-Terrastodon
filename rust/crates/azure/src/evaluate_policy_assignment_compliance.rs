@@ -62,7 +62,7 @@ policyResources
         found: u32,
     }
     let reference_ids = ResourceGraphHelper::new(
-        query.to_string(),
+        query,
         CacheBehaviour::Some {
             path: PathBuf::from(format!(
                 "policy-compliance-for-{}",
@@ -128,7 +128,7 @@ policyResources
         resource_id: String,
     }
     let resource_ids = ResourceGraphHelper::new(
-        query.to_string(),
+        query,
         CacheBehaviour::Some {
             path: PathBuf::from(format!(
                 "policy-compliance-for-{}-{}",

@@ -27,8 +27,7 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
             id,
             tenant_id=tenantId,
             parent_management_group_id
-    "#}
-    .to_owned();
+    "#};
 
     let subscriptions = ResourceGraphHelper::new(
         query,

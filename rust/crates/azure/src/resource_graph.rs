@@ -54,7 +54,7 @@ pub struct ResourceGraphQueryRestBody {
 }
 
 impl ResourceGraphHelper {
-    pub fn new(query: String, mut cache_behaviour: CacheBehaviour) -> Self {
+    pub fn new(query: impl AsRef<str>, mut cache_behaviour: CacheBehaviour) -> Self {
         if let CacheBehaviour::Some { ref mut path, .. } = cache_behaviour {
             let mut segment = OsString::new();
             segment.push("az graph query --graph-query ");
@@ -62,7 +62,7 @@ impl ResourceGraphHelper {
             *path = PathBuf::from(segment);
         }
         Self {
-            query,
+            query: query.as_ref().to_owned(),
             cache_behaviour,
             skip: None,
             index: 0,
@@ -183,7 +183,7 @@ resourcecontainers
             name: String,
         }
         let data = ResourceGraphHelper::new(
-            query.to_string(),
+            query,
             CacheBehaviour::Some {
                 path: PathBuf::from("resource-container-names"),
                 valid_for: Duration::from_mins(5),

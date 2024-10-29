@@ -47,8 +47,7 @@ pub async fn fetch_all_management_groups() -> Result<Vec<ManagementGroup>> {
             id,
             display_name=properties.displayName,
             parent_id=properties.details.parent.id
-    "#}
-    .to_owned();
+    "#};
 
     let management_groups = ResourceGraphHelper::new(
         query,
