@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 cloud_terrastodon_core_command = { workspace = true }
-cloud_terrastodon_core_fzf = { workspace = true }
+cloud_terrastodon_core_user_input = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 itertools = { workspace = true }

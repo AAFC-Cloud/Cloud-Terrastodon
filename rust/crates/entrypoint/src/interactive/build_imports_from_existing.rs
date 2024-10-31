@@ -1,13 +1,12 @@
-use crate::read_line::read_line;
 use anyhow::anyhow;
 use anyhow::Result;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::get_imports_from_existing;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
+use cloud_terrastodon_core_user_input::prelude::prompt_line;
 
 pub async fn build_imports_from_existing() -> Result<()> {
-    println!("Enter the path to the existing workspace:");
-    let tf_dir = read_line().await?;
+    let tf_dir = prompt_line("Enter the path to the existing workspace: ").await?;
 
     // println!("Enter the name for the output file [existing.tf]:");
     // let mut name = read_line().await.unwrap_or_default();

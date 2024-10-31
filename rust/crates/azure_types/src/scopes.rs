@@ -5,6 +5,7 @@ use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceId;
+use crate::prelude::ResourceTagsId;
 use crate::prelude::RoleAssignmentId;
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleManagementPolicyAssignmentId;
@@ -75,6 +76,17 @@ pub fn strip_prefix_case_insensitive<'a>(expanded: &'a str, prefix: &str) -> Res
     let remaining = &expanded[prefix.len()..];
     Ok(remaining)
 }
+
+pub fn strip_suffix_case_insensitive<'a>(expanded: &'a str, suffix: &str) -> Result<&'a str> {
+    if !suffix.to_lowercase().is_suffix_of(&expanded.to_lowercase()) {
+        return Err(ScopeError::Malformed).context(format!(
+            "String {expanded:?} must end with {suffix:?} (case insensitive)"
+        ));
+    }
+    let remaining = &expanded[..suffix.len() - 1];
+    Ok(remaining)
+}
+
 
 pub fn strip_prefix_get_slug_and_leading_slashed_remains<'a>(
     expanded: &'a str,
@@ -429,7 +441,8 @@ pub enum ScopeImplKind {
     StorageAccount,
     Subscription,
     Test,
-    Other,
+    ResourceTags,
+    Raw,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
@@ -447,7 +460,8 @@ pub enum ScopeImpl {
     RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId),
     RoleManagementPolicy(RoleManagementPolicyId),
     StorageAccount(StorageAccountId),
-    Other(ResourceId),
+    ResourceTags(ResourceTagsId),
+    Raw(ResourceId),
 }
 impl Scope for ScopeImpl {
     fn expanded_form(&self) -> &str {
@@ -465,7 +479,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),
-            ScopeImpl::Other(id) => id.expanded_form(),
+            ScopeImpl::ResourceTags(id) => id.expanded_form(),
+            ScopeImpl::Raw(id) => id.expanded_form(),
         }
     }
 
@@ -484,7 +499,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.short_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
             ScopeImpl::StorageAccount(id) => id.short_form(),
-            ScopeImpl::Other(id) => id.short_form(),
+            ScopeImpl::ResourceTags(id) => id.short_form(),
+            ScopeImpl::Raw(id) => id.short_form(),
         }
     }
 
@@ -548,7 +564,8 @@ impl Scope for ScopeImpl {
                 ScopeImplKind::RoleManagementPolicyAssignment
             }
             ScopeImpl::RoleManagementPolicy(_) => ScopeImplKind::RoleManagementPolicyAssignment,
-            ScopeImpl::Other(_) => ScopeImplKind::Other,
+            ScopeImpl::Raw(_) => ScopeImplKind::Raw,
+            ScopeImpl::ResourceTags(_) => ScopeImplKind::ResourceTags,
         }
     }
 
@@ -608,7 +625,10 @@ impl std::fmt::Display for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(x) => {
                 f.write_fmt(format_args!("RoleManagementPolicy({})", x.short_form()))
             }
-            ScopeImpl::Other(x) => f.write_fmt(format_args!("Other({})", x)),
+            ScopeImpl::ResourceTags(x) => {
+                f.write_fmt(format_args!("ResourceTags({})", x.short_form()))
+            }
+            ScopeImpl::Raw(x) => f.write_fmt(format_args!("Raw({})", x)),
         }
     }
 }
@@ -714,6 +734,14 @@ mod tests {
             let right: &ScopeImpl = x[1];
             assert_ne!(left, right);
         }
+        Ok(())
+    }
+    #[test]
+    fn test_strip_suffix() -> Result<()> {
+        let x = "abcde";
+        let suffix = "CDE";
+        let stripped = strip_suffix_case_insensitive(&x, suffix)?;
+        assert_eq!("ab", stripped);
         Ok(())
     }
 }

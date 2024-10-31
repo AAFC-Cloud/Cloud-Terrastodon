@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 cloud_terrastodon_core_azure_types = { workspace = true }
 cloud_terrastodon_core_command = { workspace = true }
-cloud_terrastodon_core_fzf = { workspace = true }
+cloud_terrastodon_core_user_input = { workspace = true }
 cloud_terrastodon_core_tofu_types = { workspace = true }
 cloud_terrastodon_core_pathing = { workspace = true }
 anyhow = { workspace = true }

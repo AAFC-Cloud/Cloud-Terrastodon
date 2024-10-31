@@ -1,5 +1,5 @@
 [package]
-name = "cloud_terrastodon_core_fzf"
+name = "cloud_terrastodon_core_user_input"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,3 +9,4 @@ edition = "2021"
 anyhow = { workspace = true}
 itertools = { workspace = true}
 indexmap = { workspace = true }
+tokio = { workspace = true }

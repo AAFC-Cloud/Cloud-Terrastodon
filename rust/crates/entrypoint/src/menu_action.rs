@@ -25,6 +25,7 @@ use crate::interactive::prelude::plan_processed;
 use crate::interactive::prelude::populate_cache;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
 use crate::interactive::prelude::tag_empty_resource_group_menu;
+use crate::interactive::prelude::tag_resources_menu;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
@@ -49,6 +50,7 @@ pub enum MenuAction {
     BrowseRoleAssignments,
     BrowseUsers,
     BrowseSecurityGroups,
+    TagResources,
     PerformImport,
     ProcessGenerated,
     Clean,
@@ -121,6 +123,7 @@ impl MenuAction {
             MenuAction::OpenDir => "open dir",
             MenuAction::Quit => "quit",
             MenuAction::TagEmptyResourceGroups => "tag empty resource groups",
+            MenuAction::TagResources => "tag resources",
         }
     }
 
@@ -170,6 +173,7 @@ impl MenuAction {
             MenuAction::OpenDir => open_dir().await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
             MenuAction::TagEmptyResourceGroups => tag_empty_resource_group_menu().await?,
+            MenuAction::TagResources => tag_resources_menu().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
@@ -195,6 +199,7 @@ impl MenuAction {
             MenuAction::BuildResourceGroupImports,
             MenuAction::BuildRoleAssignmentImports,
             MenuAction::BuildGroupImports,
+            MenuAction::TagResources,
             MenuAction::BuildPolicyImports,
             MenuAction::BuildImportsFromExisting,
             MenuAction::BuildImportsWizard,

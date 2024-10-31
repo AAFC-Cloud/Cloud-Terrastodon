@@ -4,7 +4,6 @@ mod interactive;
 mod menu;
 mod menu_action;
 mod noninteractive;
-mod read_line;
 mod version;
 pub mod prelude {
     pub use crate::clap::*;

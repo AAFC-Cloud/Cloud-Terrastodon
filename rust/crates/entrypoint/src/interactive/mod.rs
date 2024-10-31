@@ -22,6 +22,7 @@ mod pim_activate;
 mod plan_processed;
 mod populate_cache;
 mod tag_empty_resource_groups;
+mod tag_resources_menu;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
@@ -48,4 +49,5 @@ pub mod prelude {
     pub use crate::interactive::plan_processed::*;
     pub use crate::interactive::populate_cache::*;
     pub use crate::interactive::tag_empty_resource_groups::*;
+    pub use crate::interactive::tag_resources_menu::*;
 }

@@ -3,7 +3,6 @@ use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleDefinitionKind;
 use crate::prelude::RoleManagementPolicyId;
 use crate::prelude::TryFromResourceScoped;
-use crate::scopes::try_from_expanded_resource_container_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;

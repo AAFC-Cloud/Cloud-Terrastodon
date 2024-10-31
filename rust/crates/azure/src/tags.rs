@@ -1,29 +1,26 @@
-use std::collections::HashMap;
-
-use anyhow::bail;
-use anyhow::Result;
-use cloud_terrastodon_core_azure_types::prelude::ResourceId;
-use cloud_terrastodon_core_azure_types::prelude::Scope;
-use cloud_terrastodon_core_azure_types::prelude::ScopeImpl;
-use itertools::Itertools;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::json;
-
 use crate::prelude::invoke_batch_request;
 use crate::prelude::BatchRequest;
 use crate::prelude::BatchRequestEntry;
 use crate::prelude::BatchResponse;
 use crate::prelude::HttpMethod;
+use anyhow::Result;
+use cloud_terrastodon_core_azure_types::prelude::ResourceTagsId;
+use cloud_terrastodon_core_azure_types::prelude::Scope;
+use itertools::Itertools;
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::json;
+use std::collections::HashMap;
+
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TagContentProperties {
+struct TagContentProperties {
     tags: HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TagContent {
-    id: ResourceId,
+struct TagContent {
+    id: ResourceTagsId,
     name: String,
     #[serde(rename = "type")]
     kind: String,
@@ -37,9 +34,9 @@ impl TagContent {
 }
 
 pub async fn get_tags_for_resources(
-    resource_ids: Vec<ScopeImpl>,
-) -> Result<Vec<HashMap<String, String>>> {
-    let url_tail = "/providers/Microsoft.Resources/tags/default?api-version=2022-09-01";
+    resource_ids: Vec<ResourceTagsId>,
+) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
+    let url_tail = "?api-version=2022-09-01";
     let batch = BatchRequest {
         requests: resource_ids
             .into_iter()
@@ -51,19 +48,21 @@ pub async fn get_tags_for_resources(
     Ok(results)
 }
 
-fn extract_tags_from_response(resp: BatchResponse<TagContent>) -> Vec<HashMap<String, String>> {
-    let mut results = Vec::with_capacity(resp.responses.len());
+fn extract_tags_from_response(
+    resp: BatchResponse<TagContent>,
+) -> HashMap<ResourceTagsId, HashMap<String, String>> {
+    let mut results = HashMap::with_capacity(resp.responses.len());
     for response in resp.responses {
         response.content.validate();
-        results.push(response.content.properties.tags);
+        results.insert(response.content.id, response.content.properties.tags);
     }
     results
 }
 
 pub async fn set_tags_for_resources(
-    resource_tags: HashMap<ScopeImpl, HashMap<String, String>>,
-) -> Result<Vec<HashMap<String, String>>> {
-    let url_tail = "/providers/Microsoft.Resources/tags/default?api-version=2022-09-01";
+    resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
+) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
+    let url_tail = "?api-version=2022-09-01";
     let batch = BatchRequest {
         requests: resource_tags
             .into_iter()
@@ -88,16 +87,8 @@ pub async fn set_tags_for_resources(
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
-
-    use cloud_terrastodon_core_fzf::pick;
-    use cloud_terrastodon_core_fzf::Choice;
-    use cloud_terrastodon_core_fzf::FzfArgs;
-
-    use crate::prelude::fetch_all_resource_groups;
-    use crate::prelude::fetch_all_resources;
-
     use super::*;
+    use crate::prelude::fetch_all_resource_groups;
 
     #[tokio::test]
     async fn get_tags_test() -> Result<()> {
@@ -106,51 +97,12 @@ mod tests {
             resource_groups
                 .iter()
                 .take(5)
-                .map(|r| r.id.as_scope())
+                .map(|r| ResourceTagsId::from_scope(r))
                 .collect_vec(),
         )
         .await?;
         assert_eq!(tags.len(), 5);
-        assert!(tags.iter().any(|x| !x.is_empty()));
-        Ok(())
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn set_tags_test() -> Result<()> {
-        let resource_groups = fetch_all_resource_groups().await?;
-        let resource_group = pick(FzfArgs {
-            choices: resource_groups
-                .into_iter()
-                .map(|rg| Choice {
-                    key: rg.id.expanded_form().to_string(),
-                    value: rg,
-                })
-                .collect_vec(),
-            header: Some("Choose a resource group".to_string()),
-            prompt: None,
-        })?;
-        let resources = fetch_all_resources()
-            .await?
-            .into_iter()
-            .filter(|res| {
-                res.id
-                    .expanded_form()
-                    .starts_with(resource_group.id.expanded_form())
-            })
-            .collect_vec();
-        let resources = pick(FzfArgs {
-            choices: resources.into_iter().map(|r| Choice {
-                key: r.id.expanded_form().to_string(),
-                value: r
-            }).collect_vec(),
-            header: Some("Choose resources to tag".to_string()),
-            prompt: None,
-        })?;
-        print!("Tag key: ");
-        std::io::stdout().flush()?;
-        let tag_key = read_line()
-        // let resources = fetch_all_resources().await?.into_iter().filter(|res| res.id)
+        assert!(tags.values().any(|x| !x.is_empty()));
         Ok(())
     }
 }

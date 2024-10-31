@@ -1,8 +1,6 @@
-use crate::read_line::read_line;
 use anyhow::Result;
 use cloud_terrastodon_core_azure::prelude::activate_pim_entra_role;
 use cloud_terrastodon_core_azure::prelude::activate_pim_role;
-use cloud_terrastodon_core_azure::prelude::fetch_all_eligible_resource_containers;
 use cloud_terrastodon_core_azure::prelude::fetch_all_entra_pim_role_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_core_azure::prelude::fetch_current_user;
@@ -13,15 +11,15 @@ use cloud_terrastodon_core_azure::prelude::fetch_role_management_policy_assignme
 use cloud_terrastodon_core_azure::prelude::PimEntraRoleAssignment;
 use cloud_terrastodon_core_azure::prelude::PimEntraRoleDefinition;
 use cloud_terrastodon_core_azure::prelude::Scope;
-use cloud_terrastodon_core_fzf::pick;
-use cloud_terrastodon_core_fzf::pick_many;
-use cloud_terrastodon_core_fzf::Choice;
-use cloud_terrastodon_core_fzf::FzfArgs;
+use cloud_terrastodon_core_user_input::prelude::pick;
+use cloud_terrastodon_core_user_input::prelude::pick_many;
+use cloud_terrastodon_core_user_input::prelude::prompt_line;
+use cloud_terrastodon_core_user_input::prelude::Choice;
+use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use humantime::format_duration;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io::Write;
 use std::time::Duration;
 use tracing::info;
 
@@ -137,9 +135,7 @@ pub async fn pim_activate_entra() -> Result<()> {
     })?;
     info!("Chosen duration is {}", format_duration(*chosen_duration));
 
-    print!("Justification: ");
-    std::io::stdout().flush()?;
-    let justification = read_line().await?;
+    let justification = prompt_line("Justification: ").await?;
 
     let principal_id = fetch_current_user().await?.id;
     for role in &chosen_roles {
@@ -232,9 +228,7 @@ pub async fn pim_activate_azurerm() -> Result<()> {
     })?;
     info!("Chosen duration is {}", format_duration(*chosen_duration));
 
-    print!("Justification: ");
-    std::io::stdout().flush()?;
-    let justification = read_line().await?;
+    let justification = prompt_line("Justification: ").await?;
 
     let principal_id = fetch_current_user().await?.id;
     for role in &chosen_roles {

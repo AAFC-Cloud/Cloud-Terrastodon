@@ -1,7 +1,7 @@
 use anyhow::Result;
-use cloud_terrastodon_core_fzf::pick_many;
-use cloud_terrastodon_core_fzf::Choice;
-use cloud_terrastodon_core_fzf::FzfArgs;
+use cloud_terrastodon_core_user_input::prelude::pick_many;
+use cloud_terrastodon_core_user_input::prelude::Choice;
+use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_pathing::Existy;
 use opener::open;

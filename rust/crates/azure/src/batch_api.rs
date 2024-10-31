@@ -3,7 +3,6 @@ use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
-use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;

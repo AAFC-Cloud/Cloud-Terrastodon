@@ -1,3 +1,4 @@
+use crate::prelude::HasScope;
 use crate::prelude::Scope;
 use crate::prelude::ScopeImpl;
 use crate::prelude::ScopeImplKind;
@@ -40,10 +41,10 @@ impl Scope for ResourceId {
     }
 
     fn as_scope(&self) -> crate::scopes::ScopeImpl {
-        ScopeImpl::Other(self.clone())
+        ScopeImpl::Raw(self.clone())
     }
     fn kind(&self) -> ScopeImplKind {
-        ScopeImplKind::Other
+        ScopeImplKind::Raw
     }
 }
 
@@ -75,4 +76,9 @@ pub struct Resource {
     pub kind: String,
     pub name: String,
     pub display_name: Option<String>,
+}
+impl HasScope for Resource {
+    fn scope(&self) -> &impl Scope {
+        &self.id
+    }
 }

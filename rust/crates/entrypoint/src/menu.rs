@@ -1,11 +1,10 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
-use crate::read_line::read_line;
 use anyhow::Context;
 use anyhow::Result;
-use cloud_terrastodon_core_fzf::pick_many;
-use cloud_terrastodon_core_fzf::FzfArgs;
-use std::io::Write;
+use cloud_terrastodon_core_user_input::prelude::pick_many;
+use cloud_terrastodon_core_user_input::prelude::prompt_line;
+use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use tracing::error;
 use tracing::info;
 
@@ -70,9 +69,7 @@ pub async fn menu() -> Result<MenuActionResult> {
 }
 
 pub async fn press_enter_to_continue() -> Result<()> {
-    print!("Press Enter to continue...");
-    std::io::stdout().flush()?;
-    read_line().await?;
+    prompt_line("Press Enter to continue...").await?;
     Ok(())
 }
 

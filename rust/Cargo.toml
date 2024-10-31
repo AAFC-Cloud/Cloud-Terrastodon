@@ -17,7 +17,7 @@ cloud_terrastodon_core_azure_devops = { version = "0.1.0", path = "./crates/azur
 cloud_terrastodon_core_azure_devops_types = { version = "0.1.0", path = "./crates/azure_devops_types" }
 cloud_terrastodon_core_tofu = { version = "0.1.0", path = "./crates/tofu" }
 cloud_terrastodon_core_tofu_types = { version = "0.1.0", path = "./crates/tofu_types" }
-cloud_terrastodon_core_fzf = { version = "0.1.0", path = "./crates/fzf" }
+cloud_terrastodon_core_user_input = { version = "0.1.0", path = "./crates/user_input" }
 cloud_terrastodon_core_command = { version = "0.1.0", path = "./crates/command" }
 cloud_terrastodon_core_entrypoint = { version = "0.1.0", path = "./crates/entrypoint" }
 cloud_terrastodon_ui = { version = "0.1.0", path = "./crates/ui" }

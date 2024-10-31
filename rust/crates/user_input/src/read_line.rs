@@ -1,8 +1,17 @@
+use std::io::Write;
+
 use anyhow::Context;
 use anyhow::Result;
 use tokio::io;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
+
+pub async fn prompt_line(prompt: impl AsRef<str>) -> Result<String> {
+    print!("{}", prompt.as_ref());
+    std::io::stdout().flush()?;
+    read_line().await
+}
+
 pub async fn read_line() -> Result<String> {
     let stdin = io::stdin();
     let mut reader = BufReader::new(stdin);

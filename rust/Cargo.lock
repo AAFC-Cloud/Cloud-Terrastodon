@@ -272,9 +272,9 @@ dependencies = [
  "anyhow",
  "cloud_terrastodon_core_azure_types",
  "cloud_terrastodon_core_command",
- "cloud_terrastodon_core_fzf",
  "cloud_terrastodon_core_pathing",
  "cloud_terrastodon_core_tofu_types",
+ "cloud_terrastodon_core_user_input",
  "humantime",
  "indicatif",
  "indoc",
@@ -295,9 +295,9 @@ dependencies = [
  "anyhow",
  "cloud_terrastodon_core_azure_devops_types",
  "cloud_terrastodon_core_command",
- "cloud_terrastodon_core_fzf",
  "cloud_terrastodon_core_pathing",
  "cloud_terrastodon_core_tofu_types",
+ "cloud_terrastodon_core_user_input",
  "humantime",
  "indicatif",
  "indoc",
@@ -319,8 +319,8 @@ dependencies = [
  "chrono",
  "clap",
  "cloud_terrastodon_core_command",
- "cloud_terrastodon_core_fzf",
  "cloud_terrastodon_core_tofu_types",
+ "cloud_terrastodon_core_user_input",
  "iso8601-duration",
  "itertools 0.12.1",
  "serde",
@@ -338,8 +338,8 @@ dependencies = [
  "chrono",
  "clap",
  "cloud_terrastodon_core_command",
- "cloud_terrastodon_core_fzf",
  "cloud_terrastodon_core_tofu_types",
+ "cloud_terrastodon_core_user_input",
  "iso8601-duration",
  "itertools 0.12.1",
  "serde",
@@ -388,9 +388,9 @@ dependencies = [
  "cloud_terrastodon_core_azure",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_config",
- "cloud_terrastodon_core_fzf",
  "cloud_terrastodon_core_pathing",
  "cloud_terrastodon_core_tofu",
+ "cloud_terrastodon_core_user_input",
  "cloud_terrastodon_ui",
  "humantime",
  "indicatif",
@@ -401,15 +401,6 @@ dependencies = [
  "test-log",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "cloud_terrastodon_core_fzf"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "indexmap",
- "itertools 0.12.1",
 ]
 
 [[package]]
@@ -449,7 +440,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cloud_terrastodon_core_command",
- "cloud_terrastodon_core_fzf",
+ "cloud_terrastodon_core_user_input",
  "hcl-primitives",
  "hcl-rs",
  "indoc",
@@ -457,6 +448,16 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "cloud_terrastodon_core_user_input"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "indexmap",
+ "itertools 0.12.1",
+ "tokio",
 ]
 
 [[package]]

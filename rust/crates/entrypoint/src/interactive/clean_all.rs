@@ -1,7 +1,7 @@
 use anyhow::bail;
 use anyhow::Result;
-use cloud_terrastodon_core_fzf::pick;
-use cloud_terrastodon_core_fzf::FzfArgs;
+use cloud_terrastodon_core_user_input::prelude::pick;
+use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use cloud_terrastodon_core_pathing::AppDir;
 use tokio::fs;
 use tracing::info;

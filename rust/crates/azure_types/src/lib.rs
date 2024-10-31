@@ -29,8 +29,10 @@ mod subscriptions;
 mod tenants;
 mod test_resource;
 mod users;
+mod resource_tags;
 
 pub mod prelude {
+    pub use crate::resource_tags::*;
     pub use crate::duration::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::fake::*;
