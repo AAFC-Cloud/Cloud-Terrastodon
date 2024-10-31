@@ -24,6 +24,7 @@ use crate::interactive::prelude::pim_activate;
 use crate::interactive::prelude::plan_processed;
 use crate::interactive::prelude::populate_cache;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
+use crate::interactive::prelude::tag_empty_resource_group_menu;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
@@ -68,6 +69,7 @@ pub enum MenuAction {
     PopulateCache,
     PimActivate,
     OpenDir,
+    TagEmptyResourceGroups,
     Quit,
 }
 
@@ -118,6 +120,7 @@ impl MenuAction {
             MenuAction::PimActivate => "pim activate",
             MenuAction::OpenDir => "open dir",
             MenuAction::Quit => "quit",
+            MenuAction::TagEmptyResourceGroups => "tag empty resource groups",
         }
     }
 
@@ -166,6 +169,7 @@ impl MenuAction {
             MenuAction::PopulateCache => populate_cache().await?,
             MenuAction::OpenDir => open_dir().await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
+            MenuAction::TagEmptyResourceGroups => tag_empty_resource_group_menu().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
@@ -202,6 +206,7 @@ impl MenuAction {
             MenuAction::ApplyProcessed,
             MenuAction::PlanProcessed,
             MenuAction::JumpToBlock,
+            MenuAction::TagEmptyResourceGroups,
         ]
     }
 

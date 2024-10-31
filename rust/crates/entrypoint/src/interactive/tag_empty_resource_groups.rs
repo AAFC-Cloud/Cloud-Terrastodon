@@ -6,6 +6,7 @@ use anyhow::Result;
 use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
 use cloud_terrastodon_core_azure::prelude::ResourceId;
+use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use itertools::Itertools;
 use serde::Deserialize;
@@ -44,7 +45,9 @@ pub async fn tag_empty_resource_group_menu() -> Result<()> {
     .map(|x| x.id)
     .collect_vec();
     info!("Found {} empty resource groups", resource_group_ids.len());
-
+    for rg in resource_group_ids.iter() {
+        info!("- {}", rg.short_form());
+    }
     
 
     Ok(())
