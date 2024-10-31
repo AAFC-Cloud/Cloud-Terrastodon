@@ -432,9 +432,9 @@ impl CommandBuilder {
         let now = Local::now();
         if now > timestamp + *valid_for {
             bail!(
-                "Cache entry has expired (was from {}, was valid for {} hours)",
+                "Cache entry has expired (was from {}, was valid for {})",
                 timestamp,
-                valid_for.as_secs() / 60 / 60
+                humantime::format_duration(*valid_for),
             );
         }
 
