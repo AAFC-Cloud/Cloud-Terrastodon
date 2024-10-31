@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-use std::time::Duration;
 use anyhow::Result;
 use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
@@ -7,8 +5,9 @@ use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use itertools::Itertools;
 use serde::Deserialize;
+use std::path::PathBuf;
+use std::time::Duration;
 use tracing::info;
-
 
 pub async fn tag_empty_resource_group_menu() -> Result<()> {
     info!("Fetching empty resource groups");
@@ -44,7 +43,6 @@ pub async fn tag_empty_resource_group_menu() -> Result<()> {
     for rg in resource_group_ids.iter() {
         info!("- {}", rg.short_form());
     }
-    
 
     Ok(())
 }

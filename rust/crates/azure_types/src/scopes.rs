@@ -87,7 +87,6 @@ pub fn strip_suffix_case_insensitive<'a>(expanded: &'a str, suffix: &str) -> Res
     Ok(remaining)
 }
 
-
 pub fn strip_prefix_get_slug_and_leading_slashed_remains<'a>(
     expanded: &'a str,
     prefix: &str,

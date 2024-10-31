@@ -1,8 +1,8 @@
 use anyhow::bail;
 use anyhow::Result;
+use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_user_input::prelude::pick;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
-use cloud_terrastodon_core_pathing::AppDir;
 use tokio::fs;
 use tracing::info;
 pub async fn clean_all_menu() -> Result<()> {

@@ -15,6 +15,7 @@ mod policy_definitions;
 mod policy_set_definitions;
 mod query_response;
 mod resource_groups;
+mod resource_tags;
 mod resources;
 mod role_assignments;
 mod role_definitions;
@@ -29,10 +30,8 @@ mod subscriptions;
 mod tenants;
 mod test_resource;
 mod users;
-mod resource_tags;
 
 pub mod prelude {
-    pub use crate::resource_tags::*;
     pub use crate::duration::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::fake::*;
@@ -49,6 +48,7 @@ pub mod prelude {
     pub use crate::policy_set_definitions::*;
     pub use crate::query_response::*;
     pub use crate::resource_groups::*;
+    pub use crate::resource_tags::*;
     pub use crate::resources::*;
     pub use crate::role_assignments::*;
     pub use crate::role_definitions::*;

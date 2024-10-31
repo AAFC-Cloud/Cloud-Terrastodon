@@ -12,9 +12,9 @@ use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::visit_block_mut;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::Decorate;
-use tracing::debug;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use tracing::debug;
 
 pub struct UserIdReferencePatcher {
     pub user_principal_name_by_user_id: HashMap<Uuid, String>,

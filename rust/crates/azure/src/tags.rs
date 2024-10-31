@@ -12,7 +12,6 @@ use serde::Serialize;
 use serde_json::json;
 use std::collections::HashMap;
 
-
 #[derive(Debug, Serialize, Deserialize)]
 struct TagContentProperties {
     tags: HashMap<String, String>,

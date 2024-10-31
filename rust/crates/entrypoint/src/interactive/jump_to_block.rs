@@ -3,9 +3,9 @@ use anyhow::Result;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::OutputBehaviour;
+use cloud_terrastodon_core_tofu::prelude::list_blocks_for_dir;
 use cloud_terrastodon_core_user_input::prelude::pick;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
-use cloud_terrastodon_core_tofu::prelude::list_blocks_for_dir;
 use std::path::PathBuf;
 use tracing::info;
 

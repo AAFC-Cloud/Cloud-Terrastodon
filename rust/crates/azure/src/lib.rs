@@ -1,5 +1,6 @@
 #![feature(async_closure, impl_trait_in_assoc_type, duration_constructors)]
 mod auth;
+mod batch_api;
 mod create_role_assignment;
 mod eligible_child_resources;
 mod evaluate_policy_assignment_compliance;
@@ -26,12 +27,11 @@ mod role_management_policy_assignments;
 mod security_groups;
 mod storage_accounts;
 mod subscriptions;
-mod users;
-mod batch_api;
 mod tags;
+mod users;
 pub mod prelude {
-    pub use crate::tags::*;
     pub use crate::auth::*;
+    pub use crate::batch_api::*;
     pub use crate::create_role_assignment::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
@@ -58,7 +58,7 @@ pub mod prelude {
     pub use crate::security_groups::*;
     pub use crate::storage_accounts::*;
     pub use crate::subscriptions::*;
+    pub use crate::tags::*;
     pub use crate::users::*;
-    pub use crate::batch_api::*;
     pub use cloud_terrastodon_core_azure_types::prelude::*;
 }
