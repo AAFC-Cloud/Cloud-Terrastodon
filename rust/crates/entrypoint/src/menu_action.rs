@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::interactive::prelude::apply_processed;
 use crate::interactive::prelude::browse_resource_groups;
+use crate::interactive::prelude::browse_resources_menu;
 use crate::interactive::prelude::browse_role_assignments;
 use crate::interactive::prelude::browse_security_groups;
 use crate::interactive::prelude::browse_users;
@@ -50,6 +51,7 @@ pub enum MenuAction {
     BrowseRoleAssignments,
     BrowseUsers,
     BrowseSecurityGroups,
+    BrowseResources,
     TagResources,
     PerformImport,
     ProcessGenerated,
@@ -124,6 +126,7 @@ impl MenuAction {
             MenuAction::Quit => "quit",
             MenuAction::TagEmptyResourceGroups => "tag empty resource groups",
             MenuAction::TagResources => "tag resources",
+            MenuAction::BrowseResources => "browse resources",
         }
     }
 
@@ -174,6 +177,7 @@ impl MenuAction {
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
             MenuAction::TagEmptyResourceGroups => tag_empty_resource_group_menu().await?,
             MenuAction::TagResources => tag_resources_menu().await?,
+            MenuAction::BrowseResources => browse_resources_menu().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
@@ -192,6 +196,7 @@ impl MenuAction {
             MenuAction::BrowseRoleAssignments,
             MenuAction::CopyAzureRMBackend,
             MenuAction::BrowseUsers,
+            MenuAction::BrowseResources,
             MenuAction::PimActivate,
             MenuAction::CreateRoleAssignment,
             MenuAction::RemediatePolicyAssignment,

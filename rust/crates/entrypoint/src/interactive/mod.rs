@@ -23,9 +23,11 @@ mod plan_processed;
 mod populate_cache;
 mod tag_empty_resource_groups;
 mod tag_resources_menu;
+mod browse_resources;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
+    pub use crate::interactive::browse_resources::*;
     pub use crate::interactive::browse_resource_groups::*;
     pub use crate::interactive::browse_role_assignments::*;
     pub use crate::interactive::browse_security_groups::*;
