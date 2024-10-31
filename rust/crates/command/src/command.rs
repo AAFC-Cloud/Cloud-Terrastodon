@@ -378,6 +378,9 @@ impl CommandBuilder {
         else {
             return Ok(None);
         };
+        if valid_for.is_zero() {
+            return Ok(None);
+        }
         if !cache_dir.exists() {
             return Ok(None);
         }
@@ -663,15 +666,30 @@ impl CommandBuilder {
     }
 
     pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
-        let dir = match &self.cache_behaviour {
-            CacheBehaviour::None => AppDir::Commands.join("failed"),
+        let (dir, write_file_args) = match &self.cache_behaviour {
+            CacheBehaviour::None => (AppDir::Commands.join("failed"), true),
             CacheBehaviour::Some {
                 path: cache_dir, ..
-            } => cache_dir.join("failed"),
+            } => (cache_dir.join("failed"), false),
         };
         dir.ensure_dir_exists().await?;
-        let dir = Builder::new().prefix("temp_").tempdir_in(dir)?.into_path();
+        let dir = Builder::new().prefix(Local::now().format("%Y%m%d_%H%M%S_").to_string().as_str()).tempdir_in(dir)?.into_path();
         self.write_output(output, &dir).await?;
+        if write_file_args {
+            for arg in self.file_args.values() {
+                let path = dir.join(&arg.path);
+                let mut file = tokio::fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&path)
+                    .await
+                    .context(format!("Opening arg file {}", arg.path.display()))?;
+                file.write_all(arg.content.as_bytes())
+                    .await
+                    .context(format!("Writing arg file {}", arg.path.display()))?;
+            }
+        }
         Ok(dir)
     }
 }
