@@ -40,6 +40,13 @@ impl<T> Deref for Choice<T> {
     }
 }
 
+impl <T> PartialEq for Choice<T> where T: PartialEq {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key && self.value == other.value
+    }
+}
+impl <T> Eq for Choice<T> where T: Eq {}
+
 pub struct FzfArgs<T> {
     pub choices: Vec<T>,
     pub prompt: Option<String>,

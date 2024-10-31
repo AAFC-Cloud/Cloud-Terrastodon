@@ -27,6 +27,7 @@ use crate::interactive::prelude::populate_cache;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
 use crate::interactive::prelude::tag_empty_resource_group_menu;
 use crate::interactive::prelude::tag_resources_menu;
+use crate::interactive::prelude::dump_tags;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
@@ -52,6 +53,7 @@ pub enum MenuAction {
     BrowseUsers,
     BrowseSecurityGroups,
     BrowseResources,
+    DumpTags,
     TagResources,
     PerformImport,
     ProcessGenerated,
@@ -127,6 +129,7 @@ impl MenuAction {
             MenuAction::TagEmptyResourceGroups => "tag empty resource groups",
             MenuAction::TagResources => "tag resources",
             MenuAction::BrowseResources => "browse resources",
+            MenuAction::DumpTags => "dump tags",
         }
     }
 
@@ -178,6 +181,7 @@ impl MenuAction {
             MenuAction::TagEmptyResourceGroups => tag_empty_resource_group_menu().await?,
             MenuAction::TagResources => tag_resources_menu().await?,
             MenuAction::BrowseResources => browse_resources_menu().await?,
+            MenuAction::DumpTags => dump_tags().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
@@ -191,6 +195,7 @@ impl MenuAction {
             MenuAction::Quit,
             MenuAction::OpenDir,
             MenuAction::PopulateCache,
+            MenuAction::DumpTags,
             MenuAction::BrowseResourceGroups,
             MenuAction::BrowseSecurityGroups,
             MenuAction::BrowseRoleAssignments,

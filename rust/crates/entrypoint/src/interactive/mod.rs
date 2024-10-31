@@ -1,5 +1,6 @@
 mod apply_processed;
 mod browse_resource_groups;
+mod browse_resources;
 mod browse_role_assignments;
 mod browse_security_groups;
 mod browse_users;
@@ -13,6 +14,7 @@ mod clean_imports;
 mod clean_processed;
 mod copy_azurerm_backend_menu;
 mod create_role_assignment_menu;
+mod dump_tags;
 mod import_wizard_menu;
 mod init_processed;
 mod jump_to_block;
@@ -23,12 +25,11 @@ mod plan_processed;
 mod populate_cache;
 mod tag_empty_resource_groups;
 mod tag_resources_menu;
-mod browse_resources;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
-    pub use crate::interactive::browse_resources::*;
     pub use crate::interactive::browse_resource_groups::*;
+    pub use crate::interactive::browse_resources::*;
     pub use crate::interactive::browse_role_assignments::*;
     pub use crate::interactive::browse_security_groups::*;
     pub use crate::interactive::browse_users::*;
@@ -42,6 +43,7 @@ pub mod prelude {
     pub use crate::interactive::clean_processed::*;
     pub use crate::interactive::copy_azurerm_backend_menu::*;
     pub use crate::interactive::create_role_assignment_menu::*;
+    pub use crate::interactive::dump_tags::*;
     pub use crate::interactive::import_wizard_menu::*;
     pub use crate::interactive::init_processed::*;
     pub use crate::interactive::jump_to_block::*;
