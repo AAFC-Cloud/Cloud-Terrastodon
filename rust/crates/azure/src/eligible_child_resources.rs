@@ -117,7 +117,7 @@ mod tests {
         let rg = fetch_all_resource_groups()
             .await?
             .into_iter()
-            .find(|x| x.name == "OPSSc-Dom-Sandbox-RG")
+            .next()
             .unwrap();
         let found =
             fetch_eligible_child_resources(rg.scope(), FetchChildrenBehaviour::GetAllChildren)
