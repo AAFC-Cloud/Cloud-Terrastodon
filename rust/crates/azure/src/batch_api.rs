@@ -3,12 +3,14 @@ use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
+use tracing::info;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum HttpMethod {
     PATCH,
     POST,
@@ -24,7 +26,7 @@ impl std::fmt::Display for HttpMethod {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct BatchRequest<T> {
     pub requests: Vec<BatchRequestEntry<T>>,
 }
@@ -36,7 +38,7 @@ where
         BatchRequest::<T>::default()
     }
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BatchRequestEntry<T> {
     #[serde(rename = "httpMethod")]
     pub http_method: HttpMethod,
@@ -84,21 +86,16 @@ pub async fn invoke_batch_request<REQ, RESP>(
     request: &BatchRequest<REQ>,
 ) -> Result<BatchResponse<RESP>>
 where
-    REQ: Serialize,
+    REQ: Serialize + Clone,
     RESP: DeserializeOwned,
 {
+    // create the base command
     let url = "https://management.azure.com/batch?api-version=2020-06-01";
-
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["rest", "--method", "POST", "--url", url, "--body"]);
-    cmd.file_arg("body.json", serde_json::to_string_pretty(request)?);
-
+    let mut cmd_base = CommandBuilder::new(CommandKind::AzureCLI);
+    cmd_base.args(["rest", "--method", "POST", "--url", url, "--body"]);
+    
+    // create the status=200 validator
     let validator = |response: BatchResponse<RESP>| {
-        assert_eq!(request.requests.len(), response.responses.len());
-        for (a, b) in request.requests.iter().zip(response.responses.iter()) {
-            assert_eq!(a.name, b.name);
-        }
-
         let failures = response
             .responses
             .iter()
@@ -109,7 +106,28 @@ where
         }
         Ok(response)
     };
-    let response = cmd.run_with_validator(validator).await?;
 
-    Ok(response)
+    // create the results holder
+    let mut rtn = BatchResponse {
+        responses: Vec::new(),
+    };
+
+    // batch the batch requests into size=20 chunks
+    let chunks = request.requests.chunks(20);
+    let num_chunks = chunks.len();
+    for (i,chunk) in chunks.enumerate() {
+        let mut cmd = cmd_base.clone();
+        cmd.file_arg("body.json", serde_json::to_string_pretty(&BatchRequest {
+            requests: chunk.iter().cloned().collect_vec()
+        })?);
+
+        info!("Performing batch request {} of {}", i+1, num_chunks);
+        let response = cmd.run_with_validator(validator).await?;
+        rtn.responses.extend(response.responses);
+    }
+    assert_eq!(request.requests.len(), rtn.responses.len());
+    for (a, b) in request.requests.iter().zip(rtn.responses.iter()) {
+        assert_eq!(a.name, b.name);
+    }
+    Ok(rtn)
 }
