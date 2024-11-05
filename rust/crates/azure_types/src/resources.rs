@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::collections::HashMap;
 use std::str::FromStr;
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ResourceId {
@@ -76,6 +77,7 @@ pub struct Resource {
     pub kind: String,
     pub name: String,
     pub display_name: Option<String>,
+    pub tags: Option<HashMap<String, String>>,
 }
 impl HasScope for Resource {
     fn scope(&self) -> &impl Scope {

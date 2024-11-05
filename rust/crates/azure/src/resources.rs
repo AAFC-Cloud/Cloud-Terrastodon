@@ -19,7 +19,8 @@ resources
     id,
     ['kind'] = type,
     name,
-    display_name=properties.displayName
+    display_name=properties.displayName,
+    tags
 "#,
         CacheBehaviour::Some {
             path: PathBuf::from("resources"),
