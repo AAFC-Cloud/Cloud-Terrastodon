@@ -51,12 +51,12 @@ pub trait Scope: Sized {
 pub trait HasScope {
     fn scope(&self) -> &impl Scope;
 }
-impl<T> HasScope for &T
+impl<T> HasScope for T
 where
     T: Scope,
 {
     fn scope(&self) -> &impl Scope {
-        *self
+        self
     }
 }
 

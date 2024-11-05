@@ -399,6 +399,7 @@ dependencies = [
  "opener",
  "serde",
  "serde_json",
+ "tempfile",
  "test-log",
  "tokio",
  "tracing",

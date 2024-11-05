@@ -1,10 +1,12 @@
 use anyhow::Result;
+use cloud_terrastodon_core_azure::prelude::set_tags_for_resources;
 use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
+use cloud_terrastodon_core_azure::prelude::ResourceTagsId;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-use itertools::Itertools;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
@@ -12,7 +14,7 @@ use tracing::info;
 pub async fn tag_empty_resource_group_menu() -> Result<()> {
     info!("Fetching empty resource groups");
     let query = r#"
-   ResourceContainers  
+ResourceContainers  
 | where type == "microsoft.resources/subscriptions/resourcegroups"  
 | extend rgAndSub = strcat(resourceGroup, "--", subscriptionId)  
 | join kind=leftouter (  
@@ -21,13 +23,14 @@ pub async fn tag_empty_resource_group_menu() -> Result<()> {
 	| summarize count() by rgAndSub  
 ) on rgAndSub  
 | where isnull(count_)  
-| project id
+| project id, tags
    "#;
     #[derive(Deserialize)]
     struct Row {
         id: ResourceGroupId,
+        tags: HashMap<String, String>,
     }
-    let resource_group_ids = ResourceGraphHelper::new(
+    let empty_resource_groups = ResourceGraphHelper::new(
         query,
         CacheBehaviour::Some {
             path: PathBuf::from("empty-resource-groups"),
@@ -35,14 +38,30 @@ pub async fn tag_empty_resource_group_menu() -> Result<()> {
         },
     )
     .collect_all::<Row>()
-    .await?
-    .into_iter()
-    .map(|x| x.id)
-    .collect_vec();
-    info!("Found {} empty resource groups", resource_group_ids.len());
-    for rg in resource_group_ids.iter() {
-        info!("- {}", rg.short_form());
+    .await?;
+    info!(
+        "Found {} empty resource groups",
+        empty_resource_groups.len()
+    );
+    for rg in empty_resource_groups.iter() {
+        info!("- {}", rg.id.short_form());
     }
+
+    let tag_key = "CleanupAutomationFlag";
+    let tag_value = "ThisResourceContainerIsEmpty";
+    info!("Adding tag {}={} to each", tag_key, tag_value);
+    let result = set_tags_for_resources(
+        empty_resource_groups
+            .into_iter()
+            .map(|mut rg| {
+                rg.tags.insert(tag_key.to_owned(), tag_value.to_owned());
+                (ResourceTagsId::from_scope(&rg.id), rg.tags)
+            })
+            .collect(),
+    )
+    .await?;
+
+    info!("Tagged {} resource groups with {}={}", result.len(), tag_key, tag_value);
 
     Ok(())
 }

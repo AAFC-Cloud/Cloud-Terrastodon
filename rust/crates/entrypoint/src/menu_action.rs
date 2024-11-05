@@ -17,6 +17,7 @@ use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
 use crate::interactive::prelude::copy_azurerm_backend_menu;
 use crate::interactive::prelude::create_role_assignment_menu;
+use crate::interactive::prelude::dump_tags;
 use crate::interactive::prelude::init_processed;
 use crate::interactive::prelude::jump_to_block;
 use crate::interactive::prelude::list_imports;
@@ -25,9 +26,9 @@ use crate::interactive::prelude::pim_activate;
 use crate::interactive::prelude::plan_processed;
 use crate::interactive::prelude::populate_cache;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
+use crate::interactive::prelude::run_query_menu;
 use crate::interactive::prelude::tag_empty_resource_group_menu;
 use crate::interactive::prelude::tag_resources_menu;
-use crate::interactive::prelude::dump_tags;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
@@ -46,6 +47,7 @@ pub enum MenuAction {
     BuildGroupImports,
     BuildResourceGroupImports,
     BuildRoleAssignmentImports,
+    ResourceGraphQuery,
     BuildImportsFromExisting,
     BuildImportsWizard,
     BrowseResourceGroups,
@@ -130,6 +132,7 @@ impl MenuAction {
             MenuAction::TagResources => "tag resources",
             MenuAction::BrowseResources => "browse resources",
             MenuAction::DumpTags => "dump tags",
+            MenuAction::ResourceGraphQuery => "resource graph query",
         }
     }
 
@@ -182,12 +185,14 @@ impl MenuAction {
             MenuAction::TagResources => tag_resources_menu().await?,
             MenuAction::BrowseResources => browse_resources_menu().await?,
             MenuAction::DumpTags => dump_tags().await?,
+            MenuAction::ResourceGraphQuery => run_query_menu().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
     pub fn variants() -> Vec<MenuAction> {
         vec![
             MenuAction::UseTerraform,
+            MenuAction::ResourceGraphQuery,
             MenuAction::UseTofu,
             MenuAction::Clean,
             MenuAction::CleanImports,
