@@ -1,22 +1,24 @@
 #[macro_export]
 macro_rules! impl_uuid_traits {
     ($type:ty) => {
-        impl Serialize for $type {
+        impl serde::Serialize for $type {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
-                S: Serializer,
+                S: serde::Serializer,
             {
                 serializer.serialize_str(self.as_ref().to_string().as_str())
             }
         }
 
-        impl<'de> Deserialize<'de> for $type {
+        impl<'de> serde::Deserialize<'de> for $type {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where
-                D: Deserializer<'de>,
+                D: serde::Deserializer<'de>,
             {
                 let s = String::deserialize(deserializer)?;
-                let uuid = Uuid::from_str(&s).map_err(D::Error::custom)?;
+                use std::str::FromStr;
+                use serde::de::Error;
+                let uuid = uuid::Uuid::from_str(&s).map_err(D::Error::custom)?;
                 Ok(Self::new(uuid))
             }
         }
@@ -27,16 +29,16 @@ macro_rules! impl_uuid_traits {
             }
         }
 
-        impl FromStr for $type {
+        impl std::str::FromStr for $type {
             type Err = anyhow::Error;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                Ok(Self::new(Uuid::parse_str(s)?))
+                Ok(Self::new(uuid::Uuid::parse_str(s)?))
             }
         }
 
         impl std::ops::Deref for $type {
-            type Target = Uuid;
+            type Target = uuid::Uuid;
 
             fn deref(&self) -> &Self::Target {
                 self.as_ref()
