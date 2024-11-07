@@ -14,6 +14,11 @@ use std::str::FromStr;
 pub struct ResourceId {
     expanded: String,
 }
+impl ResourceId {
+    pub fn new(arg: impl Into<String>) -> Self {
+        Self { expanded: arg.into() }
+    }
+}
 impl std::fmt::Display for ResourceId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.expanded.to_string().as_str())

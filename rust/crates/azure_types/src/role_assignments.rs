@@ -1,6 +1,7 @@
 use crate::prelude::Fake;
 use crate::prelude::ManagementGroupScoped;
 use crate::prelude::ResourceGroupScoped;
+use crate::prelude::ResourceId;
 use crate::prelude::ResourceScoped;
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::SubscriptionScoped;
@@ -391,7 +392,7 @@ where
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ThinRoleAssignment {
     pub id: RoleAssignmentId,
-    pub scope: String,
+    pub scope: ResourceId,
     pub role_definition_id: RoleDefinitionId,
     pub principal_id: Uuid,
 }
@@ -400,7 +401,7 @@ impl Fake for ThinRoleAssignment {
     fn fake() -> Self {
         ThinRoleAssignment {
             id: RoleAssignmentId::fake(),
-            scope: "".to_owned(),
+            scope: ResourceId::new("SomeFakeResourceId"),
             role_definition_id: RoleDefinitionId::fake(),
             principal_id: Uuid::nil(),
         }
