@@ -71,9 +71,10 @@ mod tests {
         };
 
         // Combine all the generated variants into a full enum definition
+        // use serde::{Deserialize, Serialize};
+        // #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
         let generated_enum = quote! {
-            use serde::{Deserialize, Serialize};
-            #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
+            #[derive(Debug, Clone, Eq, PartialEq, Hash)]
             #[allow(non_camel_case_types)]
             pub enum ResourceType {
                 #(#enum_variants)*

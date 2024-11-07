@@ -32,6 +32,7 @@ mod subscriptions;
 mod tenants;
 mod test_resource;
 mod users;
+mod resource_types_serde;
 
 pub mod prelude {
     pub use crate::duration::*;
@@ -52,6 +53,7 @@ pub mod prelude {
     pub use crate::resource_groups::*;
     pub use crate::resource_tags::*;
     pub use crate::resource_types::*;
+    pub use crate::resource_types_serde::*;
     pub use crate::resources::*;
     pub use crate::role_assignments::*;
     pub use crate::role_definitions::*;
