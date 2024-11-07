@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
         .add_directive(
             format!(
                 "
-                {}=debug
+                {}=info
                 ",
                 env!("CARGO_PKG_NAME")
             )
