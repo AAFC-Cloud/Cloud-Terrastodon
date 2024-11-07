@@ -43,7 +43,7 @@ mod uuid_wrapper;
 pub mod prelude {
     pub use crate::duration::*;
     pub use crate::uuid_wrapper::*;
-    pub use crate::uuid_macros::*;
+    // pub use crate::uuid_macros::*;
     pub use crate::app::*;
     pub use crate::principals::*;
     pub use crate::service_principal::*;

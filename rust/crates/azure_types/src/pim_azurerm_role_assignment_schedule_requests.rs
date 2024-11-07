@@ -1,11 +1,8 @@
 use std::time::Duration;
-
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
-use uuid::Uuid;
-
 use crate::prelude::to_iso8601;
 use crate::prelude::PrincipalId;
 use crate::prelude::RoleDefinitionId;
