@@ -45,7 +45,7 @@ pub async fn menu() -> Result<MenuActionResult> {
     chosen.reverse();
 
     for action in &chosen {
-        info!("Invoking action {action}");
+        info!("Invoking action \"{action}\"");
         let result = action
             .invoke()
             .await
