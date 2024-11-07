@@ -34,6 +34,8 @@ resources
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use super::*;
 
     #[tokio::test]
@@ -43,6 +45,21 @@ mod tests {
             println!("{res:?}");
         }
         assert!(resources.len() > 2000);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn resource_groups() -> Result<()> {
+        let resources = fetch_all_resources()
+            .await?
+            .into_iter()
+            .filter(|res| res.kind.is_resource_group())
+            .collect_vec();
+
+        for res in resources.iter() {
+            println!("{res:?}");
+        }
+        assert!(resources.len() > 0);
         Ok(())
     }
 }
