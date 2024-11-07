@@ -1,9 +1,9 @@
-use std::path::PathBuf;
 use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_user_input::prelude::pick;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use serde_json::Value;
+use std::path::PathBuf;
 use tokio::fs::try_exists;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -52,7 +52,8 @@ resources
         .open(&path)
         .await?;
 
-    file.write_all(serde_json::to_string_pretty(&data)?.as_bytes()).await?;
+    file.write_all(serde_json::to_string_pretty(&data)?.as_bytes())
+        .await?;
     info!("Dumped resources to {}", path.display());
     warn!("YOU PROBABLY WANT TO GITIGNORE THIS!");
     Ok(())

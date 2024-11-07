@@ -15,6 +15,7 @@ mod clean_processed;
 mod copy_azurerm_backend_menu;
 mod create_role_assignment_menu;
 mod dump_tags;
+mod find_resource_owners;
 mod import_wizard_menu;
 mod init_processed;
 mod jump_to_block;
@@ -23,15 +24,12 @@ mod open_dir;
 mod pim_activate;
 mod plan_processed;
 mod populate_cache;
+mod run_query;
 mod tag_empty_resource_groups;
 mod tag_resources_menu;
-mod find_resource_owners;
-mod run_query;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
-    pub use crate::interactive::find_resource_owners::*;
-    pub use crate::interactive::run_query::*;
     pub use crate::interactive::browse_resource_groups::*;
     pub use crate::interactive::browse_resources::*;
     pub use crate::interactive::browse_role_assignments::*;
@@ -48,6 +46,7 @@ pub mod prelude {
     pub use crate::interactive::copy_azurerm_backend_menu::*;
     pub use crate::interactive::create_role_assignment_menu::*;
     pub use crate::interactive::dump_tags::*;
+    pub use crate::interactive::find_resource_owners::*;
     pub use crate::interactive::import_wizard_menu::*;
     pub use crate::interactive::init_processed::*;
     pub use crate::interactive::jump_to_block::*;
@@ -56,6 +55,7 @@ pub mod prelude {
     pub use crate::interactive::pim_activate::*;
     pub use crate::interactive::plan_processed::*;
     pub use crate::interactive::populate_cache::*;
+    pub use crate::interactive::run_query::*;
     pub use crate::interactive::tag_empty_resource_groups::*;
     pub use crate::interactive::tag_resources_menu::*;
 }

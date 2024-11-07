@@ -6,11 +6,13 @@ use cloud_terrastodon_core_azure::prelude::Resource;
 use cloud_terrastodon_core_azure::prelude::RoleDefinition;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::ThinRoleAssignment;
+use cloud_terrastodon_core_user_input::prelude::pick;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use itertools::Itertools;
 use std::collections::HashMap;
+use strum::VariantArray;
 use tokio::try_join;
 use tracing::info;
 use tracing::warn;
@@ -65,6 +67,7 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
         fetch_all_role_definitions(),
         fetch_all_users(),
     )?;
+
     let resource_map = resources
         .iter()
         .map(|r| (&r.id, r))
@@ -74,14 +77,38 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
         .map(|ra| (&ra.id, ra))
         .collect::<HashMap<_, _>>();
 
-    let chosen_resources = pick_many(FzfArgs {
-        choices: resources
-            .iter()
-            .map(|resource| Choice {
-                key: format!("{}", resource.id.expanded_form()),
-                value: resource,
+    #[derive(Debug, Clone, VariantArray)]
+    enum MyChoice {
+        ResourceGroups,
+        AllResources,
+    }
+    impl std::fmt::Display for MyChoice {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(match self {
+                MyChoice::ResourceGroups => "resource group",
+                MyChoice::AllResources => "all resources",
             })
-            .collect_vec(),
+        }
+    }
+
+    let beginning = pick(FzfArgs {
+        choices: MyChoice::VARIANTS.to_vec(),
+        prompt: None,
+        header: Some("What are looking for owners for?".to_string()),
+    })?;
+
+    let resource_choices = resources.iter().map(|resource| Choice {
+        key: format!("{}", resource.id.expanded_form()),
+        value: resource,
+    });
+    let resource_choices = match beginning {
+        // MyChoice::ResourceGroups => resource_choices.filter(|r| r.kind),
+        MyChoice::ResourceGroups => resource_choices,
+        MyChoice::AllResources => resource_choices,
+    }
+    .collect_vec();
+    let chosen_resources = pick_many(FzfArgs {
+        choices: resource_choices,
         prompt: None,
         header: Some("Pick the resources to find the owners for".to_string()),
     })?;

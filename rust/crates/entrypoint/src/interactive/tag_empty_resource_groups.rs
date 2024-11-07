@@ -61,7 +61,12 @@ ResourceContainers
     )
     .await?;
 
-    info!("Tagged {} resource groups with {}={}", result.len(), tag_key, tag_value);
+    info!(
+        "Tagged {} resource groups with {}={}",
+        result.len(),
+        tag_key,
+        tag_value
+    );
 
     Ok(())
 }

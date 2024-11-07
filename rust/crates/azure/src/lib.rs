@@ -19,6 +19,7 @@ mod policy_set_definitions;
 mod remediate_policy_assignment;
 mod resource_graph;
 mod resource_groups;
+mod resource_types_generator;
 mod resources;
 mod role_assignments;
 mod role_definitions;

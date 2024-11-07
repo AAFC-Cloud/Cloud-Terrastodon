@@ -49,6 +49,11 @@ ratatui = "0.29.0"
 opener = "0.7.1"
 crossterm = { version = "0.28.1", features = ["event-stream"] }
 futures = "0.3.31"
+strum = { version = "0.26.3", features = ["derive"] }
+quote = "1.0.37"
+proc-macro2 = "1.0.89"
+prettyplease = "0.2.25"
+syn = { version = "2.0.87", default-features = false, features = ["full", "parsing"] }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58.0", features = [

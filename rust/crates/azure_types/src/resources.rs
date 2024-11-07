@@ -16,7 +16,9 @@ pub struct ResourceId {
 }
 impl ResourceId {
     pub fn new(arg: impl Into<String>) -> Self {
-        Self { expanded: arg.into() }
+        Self {
+            expanded: arg.into(),
+        }
     }
 }
 impl std::fmt::Display for ResourceId {

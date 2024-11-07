@@ -1,1 +1,5 @@
 imports_granularity = "Item"
+
+# https://github.com/rust-lang/rustfmt/issues/4800#issuecomment-1728402376
+# the resource_types.rs auto-generated code fails to format without this lol
+version = "Two"

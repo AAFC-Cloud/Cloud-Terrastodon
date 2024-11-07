@@ -7,8 +7,8 @@ use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
-use tracing::info;
 use std::collections::HashMap;
+use tracing::info;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum HttpMethod {
@@ -93,7 +93,7 @@ where
     let url = "https://management.azure.com/batch?api-version=2020-06-01";
     let mut cmd_base = CommandBuilder::new(CommandKind::AzureCLI);
     cmd_base.args(["rest", "--method", "POST", "--url", url, "--body"]);
-    
+
     // create the status=200 validator
     let validator = |response: BatchResponse<RESP>| {
         let failures = response
@@ -115,13 +115,16 @@ where
     // batch the batch requests into size=20 chunks
     let chunks = request.requests.chunks(20);
     let num_chunks = chunks.len();
-    for (i,chunk) in chunks.enumerate() {
+    for (i, chunk) in chunks.enumerate() {
         let mut cmd = cmd_base.clone();
-        cmd.file_arg("body.json", serde_json::to_string_pretty(&BatchRequest {
-            requests: chunk.iter().cloned().collect_vec()
-        })?);
+        cmd.file_arg(
+            "body.json",
+            serde_json::to_string_pretty(&BatchRequest {
+                requests: chunk.iter().cloned().collect_vec(),
+            })?,
+        );
 
-        info!("Performing batch request {} of {}", i+1, num_chunks);
+        info!("Performing batch request {} of {}", i + 1, num_chunks);
         let response = cmd.run_with_validator(validator).await?;
         rtn.responses.extend(response.responses);
     }

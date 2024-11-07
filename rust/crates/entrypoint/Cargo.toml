@@ -25,6 +25,7 @@ humantime = { workspace = true }
 opener = { workspace = true }
 async-recursion = { workspace = true }
 tempfile = { workspace = true }
+strum = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }
