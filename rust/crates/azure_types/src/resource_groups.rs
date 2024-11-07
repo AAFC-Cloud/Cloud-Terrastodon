@@ -110,12 +110,16 @@ impl FromStr for ResourceGroupId {
         };
 
         // "My-Resource-Group", "optional/other/stuff"
-        let (rg_name, _remaining) =
+        let (rg_name, remaining) =
             strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)
                 .context(format!(
             "Tried to parse {:?} as a resource group id, but chunk {:?} was missing prefix {:?}",
             expanded_form, remaining, RESOURCE_GROUP_ID_PREFIX
         ))?;
+
+        if let Some(remaining) = remaining {
+            bail!("Tried to parse {:?} as a resource group id, but encountered unexpected trailing remains {:?}", expanded_form, remaining);
+        }
 
         Ok(ResourceGroupId::new(&sub_id, rg_name.to_owned()))
     }

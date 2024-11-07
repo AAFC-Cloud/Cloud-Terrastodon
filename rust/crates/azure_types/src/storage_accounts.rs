@@ -136,6 +136,8 @@ impl From<StorageAccount> for TofuImportBlock {
 }
 #[cfg(test)]
 mod tests {
+    use crate::prelude::ResourceGroupId;
+
     use super::*;
     use anyhow::Result;
     use uuid::Uuid;
@@ -151,6 +153,18 @@ mod tests {
         let id: StorageAccountId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(id, expanded);
+        Ok(())
+    }
+
+    #[test]
+    fn not_ambiguous() -> Result<()> {
+        let nil = Uuid::nil();
+        let expanded = StorageAccountId::ResourceGroupScoped {
+            expanded: format!(
+                "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Storage/storageAccounts/bruh",
+            ),
+        };
+        assert!(expanded.expanded_form().parse::<ResourceGroupId>().is_err());
         Ok(())
     }
 }
