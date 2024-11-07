@@ -5,11 +5,11 @@ use cloud_terrastodon_core_tofu_types::prelude::TofuProviderReference;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceReference;
 use serde::Deserialize;
 use serde::Serialize;
-use uuid::Uuid;
+use crate::prelude::GroupId;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SecurityGroup {
-    pub id: Uuid,
+    pub id: GroupId,
     #[serde(rename = "displayName")]
     pub display_name: String,
 }

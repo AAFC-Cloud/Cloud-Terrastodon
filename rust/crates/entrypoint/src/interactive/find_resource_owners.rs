@@ -102,11 +102,9 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
         value: resource,
     });
     let resource_choices = match beginning {
-        // MyChoice::ResourceGroups => resource_choices.filter(|r| r.kind),
-        MyChoice::ResourceGroups => resource_choices,
-        MyChoice::AllResources => resource_choices,
-    }
-    .collect_vec();
+        MyChoice::ResourceGroups => resource_choices.filter(|r| r.kind.is_resource_group()).collect_vec(),
+        MyChoice::AllResources => resource_choices.collect_vec(),
+    };
     let chosen_resources = pick_many(FzfArgs {
         choices: resource_choices,
         prompt: None,

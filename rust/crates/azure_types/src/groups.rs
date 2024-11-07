@@ -9,47 +9,25 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+use crate::impl_uuid_traits;
+use crate::prelude::UuidWrapper;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct GroupId(pub Uuid);
+impl UuidWrapper for GroupId {
+    fn new(uuid: Uuid) -> Self {
+        Self(uuid)
+    }
 
-impl std::fmt::Display for GroupId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0.to_string().as_str())
+    fn as_ref(&self) -> &Uuid {
+        &self.0
     }
 }
-
-impl FromStr for GroupId {
-    type Err = uuid::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(GroupId(uuid::Uuid::parse_str(s)?))
-    }
-}
-
-impl Serialize for GroupId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.0.to_string().as_str())
-    }
-}
-
-impl<'de> Deserialize<'de> for GroupId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
-        Ok(id)
-    }
-}
+impl_uuid_traits!(GroupId);
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Group {

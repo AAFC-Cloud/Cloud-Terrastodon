@@ -33,9 +33,20 @@ mod tenants;
 mod test_resource;
 mod users;
 mod resource_types_serde;
+mod resource_types_ext;
+mod app;
+mod service_principal;
+mod principals;
+mod uuid_macros;
+mod uuid_wrapper;
 
 pub mod prelude {
     pub use crate::duration::*;
+    pub use crate::uuid_wrapper::*;
+    pub use crate::uuid_macros::*;
+    pub use crate::app::*;
+    pub use crate::principals::*;
+    pub use crate::service_principal::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::fake::*;
     pub use crate::groups::*;
@@ -53,7 +64,8 @@ pub mod prelude {
     pub use crate::resource_groups::*;
     pub use crate::resource_tags::*;
     pub use crate::resource_types::*;
-    pub use crate::resource_types_serde::*;
+    // pub use crate::resource_types_ext::*;
+    // pub use crate::resource_types_serde::*;
     pub use crate::resources::*;
     pub use crate::role_assignments::*;
     pub use crate::role_definitions::*;

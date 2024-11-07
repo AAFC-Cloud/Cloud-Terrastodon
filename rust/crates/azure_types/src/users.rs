@@ -3,9 +3,30 @@ use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuProviderReference;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceReference;
+use serde::de::Error;
 use serde::Deserialize;
+use serde::Deserializer;
 use serde::Serialize;
+use serde::Serializer;
+use std::ops::Deref;
+use std::str::FromStr;
 use uuid::Uuid;
+
+use crate::impl_uuid_traits;
+use crate::prelude::UuidWrapper;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub struct UserId(Uuid);
+impl UuidWrapper for UserId {
+    fn new(uuid: Uuid) -> Self {
+        Self(uuid)
+    }
+
+    fn as_ref(&self) -> &Uuid {
+        &self.0
+    }
+}
+impl_uuid_traits!(UserId);
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct User {
@@ -15,7 +36,7 @@ pub struct User {
     pub display_name: String,
     #[serde(rename = "givenName")]
     pub given_name: Option<String>,
-    pub id: Uuid,
+    pub id: UserId,
     #[serde(rename = "jobTitle")]
     pub job_title: Option<String>,
     pub mail: Option<String>,

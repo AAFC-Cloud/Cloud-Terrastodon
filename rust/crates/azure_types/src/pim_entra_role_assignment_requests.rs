@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::prelude::to_iso8601;
 use crate::prelude::EligiblePimEntraRoleAssignment;
+use crate::prelude::PrincipalId;
 use crate::prelude::TenantId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,7 +16,7 @@ pub struct RoleAssignmentRequest {
     #[serde(rename = "resourceId")]
     resource_id: Uuid,
     #[serde(rename = "subjectId")]
-    subject_id: Uuid,
+    subject_id: PrincipalId,
     #[serde(rename = "assignmentState")]
     assignment_state: RoleAssignmentRequestAssignmentState,
     #[serde(rename = "type")]
@@ -56,7 +57,7 @@ pub enum RoleAssignmentRequestScheduleKind {
 
 impl RoleAssignmentRequest {
     pub fn new_self_activation(
-        principal_id: Uuid,
+        principal_id: PrincipalId,
         tenant_id: TenantId,
         role_assignment: &EligiblePimEntraRoleAssignment,
         justification: String,

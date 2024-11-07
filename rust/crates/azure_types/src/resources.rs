@@ -1,4 +1,5 @@
 use crate::prelude::HasScope;
+use crate::prelude::ResourceType;
 use crate::prelude::Scope;
 use crate::prelude::ScopeImpl;
 use crate::prelude::ScopeImplKind;
@@ -81,7 +82,7 @@ impl<'de> Deserialize<'de> for ResourceId {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Resource {
     pub id: ResourceId,
-    pub kind: String,
+    pub kind: ResourceType,
     pub name: String,
     pub display_name: Option<String>,
     pub tags: Option<HashMap<String, String>>,

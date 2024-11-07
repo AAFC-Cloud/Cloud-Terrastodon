@@ -7,6 +7,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::prelude::to_iso8601;
+use crate::prelude::PrincipalId;
 use crate::prelude::RoleDefinitionId;
 use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
 
@@ -17,7 +18,7 @@ pub struct RoleAssignmentScheduleRequest {
 }
 impl RoleAssignmentScheduleRequest {
     pub fn new_self_activation(
-        principal_id: Uuid,
+        principal_id: PrincipalId,
         role_definition_id: RoleDefinitionId,
         role_eligibility_schedule_id: RoleEligibilityScheduleId,
         justification: String,
@@ -49,7 +50,7 @@ impl RoleAssignmentScheduleRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RoleAssignmentScheduleRequestProperties {
     #[serde(rename = "PrincipalId")]
-    principal_id: Uuid,
+    principal_id: PrincipalId,
     #[serde(rename = "RoleDefinitionId")]
     role_definition_id: RoleDefinitionId,
     #[serde(rename = "RequestType")]

@@ -2,11 +2,10 @@ use anyhow::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_users;
-use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
+use cloud_terrastodon_core_azure::prelude::PrincipalId;
 use cloud_terrastodon_core_azure::prelude::RoleDefinition;
 use cloud_terrastodon_core_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_core_azure::prelude::ThinRoleAssignment;
-use cloud_terrastodon_core_azure::prelude::User;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
@@ -26,7 +25,7 @@ pub async fn browse_role_assignments() -> Result<()> {
     info!("Building lookup tables");
     let role_definition_lookup: HashMap<&RoleDefinitionId, &RoleDefinition> =
         role_definitions.iter().map(|ra| (&ra.id, ra)).collect();
-    let user_lookup: HashMap<&Uuid, &User> = users.iter().map(|u| (&u.id, u)).collect();
+    let user_lookup = users.iter().map(|u| (u.id.clone().into(), u)).collect::<HashMap<PrincipalId, _>>();
 
     info!("Building choices");
     let mut choices: Vec<Choice<ThinRoleAssignment>> = Vec::new();

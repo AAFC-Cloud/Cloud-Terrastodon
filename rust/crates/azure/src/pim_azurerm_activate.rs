@@ -1,5 +1,6 @@
 use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::uuid::Uuid;
+use cloud_terrastodon_core_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_core_azure_types::prelude::RoleAssignmentScheduleRequest;
 use cloud_terrastodon_core_azure_types::prelude::RoleDefinitionId;
 use cloud_terrastodon_core_azure_types::prelude::RoleEligibilityScheduleId;
@@ -12,7 +13,7 @@ use std::time::Duration;
 
 pub async fn activate_pim_role(
     scope: &impl Scope,
-    principal_id: Uuid,
+    principal_id: impl Into<PrincipalId>,
     role_definition_id: RoleDefinitionId,
     role_eligibility_schedule_id: RoleEligibilityScheduleId,
     justification: String,
@@ -26,7 +27,7 @@ pub async fn activate_pim_role(
     cmd.file_arg(
         "body.json",
         serde_json::to_string_pretty(&RoleAssignmentScheduleRequest::new_self_activation(
-            principal_id,
+            principal_id.into(),
             role_definition_id,
             role_eligibility_schedule_id,
             justification,

@@ -1,5 +1,6 @@
 use crate::prelude::Fake;
 use crate::prelude::ManagementGroupScoped;
+use crate::prelude::PrincipalId;
 use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceId;
 use crate::prelude::ResourceScoped;
@@ -394,7 +395,7 @@ pub struct ThinRoleAssignment {
     pub id: RoleAssignmentId,
     pub scope: ResourceId,
     pub role_definition_id: RoleDefinitionId,
-    pub principal_id: Uuid,
+    pub principal_id: PrincipalId,
 }
 
 impl Fake for ThinRoleAssignment {
@@ -403,7 +404,7 @@ impl Fake for ThinRoleAssignment {
             id: RoleAssignmentId::fake(),
             scope: ResourceId::new("SomeFakeResourceId"),
             role_definition_id: RoleDefinitionId::fake(),
-            principal_id: Uuid::nil(),
+            principal_id: PrincipalId::Unknown(Uuid::nil()),
         }
     }
 }

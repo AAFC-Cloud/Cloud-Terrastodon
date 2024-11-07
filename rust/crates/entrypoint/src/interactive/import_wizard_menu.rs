@@ -8,10 +8,12 @@ use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_security_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_core_azure::prelude::ResourceGroupScoped;
 use cloud_terrastodon_core_azure::prelude::RoleAssignmentId;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::SubscriptionScoped;
+use cloud_terrastodon_core_azure::prelude::UuidWrapper;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::Sanitizable;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
@@ -134,7 +136,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         .format()
         .await?;
 
-    let mut used_principals = HashSet::new();
+    let mut used_principals: HashSet<Uuid> = HashSet::new();
 
     info!("Building role assignment imports");
     let mut ra_imports = Vec::new();
@@ -158,7 +160,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         };
 
         // Track the principal
-        used_principals.insert(ra.principal_id);
+        used_principals.insert(*ra.principal_id);
 
         // Create the import block
         let mut import_block: TofuImportBlock = ra.into();
@@ -184,7 +186,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     let mut sg_imports = Vec::new();
     for sg in security_groups {
         // Only import security groups which have role assignments
-        if !used_principals.contains(&sg.id) {
+        if !used_principals.contains(sg.id.as_ref()) {
             continue;
         }
 

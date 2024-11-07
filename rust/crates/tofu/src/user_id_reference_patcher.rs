@@ -1,5 +1,5 @@
 use anyhow::Result;
-use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
+use cloud_terrastodon_core_azure::prelude::UserId;
 use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
@@ -17,8 +17,8 @@ use std::collections::HashSet;
 use tracing::debug;
 
 pub struct UserIdReferencePatcher {
-    pub user_principal_name_by_user_id: HashMap<Uuid, String>,
-    pub used: HashSet<Uuid>,
+    pub user_principal_name_by_user_id: HashMap<UserId, String>,
+    pub used: HashSet<UserId>,
 }
 impl UserIdReferencePatcher {
     /// Returns None if no user references were transformed.
@@ -72,7 +72,7 @@ impl UserIdReferencePatcher {
 
     fn convert_expr_if_user_id(&mut self, expr: &mut Expression) -> bool {
         if let Some(value) = expr.as_str()
-            && let Ok(id) = Uuid::parse_str(value)
+            && let Ok(id) = value.parse::<UserId>()
             && let Some(mail) = self.user_principal_name_by_user_id.get(&id)
             && let Ok(new_expr) = format!("local.users[\"{}\"]", mail).parse::<Expression>()
         {

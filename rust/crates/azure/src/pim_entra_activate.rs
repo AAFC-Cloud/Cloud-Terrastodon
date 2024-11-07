@@ -1,6 +1,6 @@
 use anyhow::Result;
-use cloud_terrastodon_core_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_core_azure_types::prelude::EligiblePimEntraRoleAssignment;
+use cloud_terrastodon_core_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_core_azure_types::prelude::RoleAssignmentRequest;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
@@ -11,7 +11,7 @@ use std::time::Duration;
 use crate::management_groups::fetch_root_management_group;
 
 pub async fn activate_pim_entra_role(
-    principal_id: Uuid,
+    principal_id: impl Into<PrincipalId>,
     role_assignment: &EligiblePimEntraRoleAssignment,
     justification: String,
     duration: Duration,
@@ -23,7 +23,7 @@ pub async fn activate_pim_entra_role(
     cmd.file_arg(
         "body.json",
         serde_json::to_string_pretty(&RoleAssignmentRequest::new_self_activation(
-            principal_id,
+            principal_id.into(),
             tenant_id,
             role_assignment,
             justification,
