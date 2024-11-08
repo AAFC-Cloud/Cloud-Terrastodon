@@ -17,6 +17,7 @@ pub async fn fetch_all_service_principals() -> anyhow::Result<Vec<ServicePrincip
         },
     );
     let entries: Vec<ServicePrincipal> = query.fetch_all().await?;
+    info!("Found {} service principals", entries.len());
     Ok(entries)
 }
 

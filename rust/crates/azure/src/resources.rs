@@ -7,6 +7,7 @@ use std::time::Duration;
 use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::Resource;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use tracing::info;
 
 use crate::prelude::ResourceGraphHelper;
 
@@ -24,11 +25,12 @@ resources
 "#,
         CacheBehaviour::Some {
             path: PathBuf::from("resources"),
-            valid_for: Duration::from_mins(5),
+            valid_for: Duration::from_mins(120),
         },
     )
     .collect_all()
     .await?;
+    info!("Found {} resources", resources.len());
     Ok(resources)
 }
 

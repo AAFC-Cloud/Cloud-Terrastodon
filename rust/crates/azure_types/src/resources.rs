@@ -92,3 +92,8 @@ impl HasScope for Resource {
         &self.id
     }
 }
+impl std::fmt::Display for Resource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("display_name={:64?}\tname={:64?}\tid={}", self.display_name, self.name, self.id))
+    }
+}
