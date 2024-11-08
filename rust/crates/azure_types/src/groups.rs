@@ -24,7 +24,7 @@ impl UuidWrapper for GroupId {
 }
 impl_uuid_traits!(GroupId);
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Group {
     description: Option<String>,
     #[serde(rename = "displayName")]

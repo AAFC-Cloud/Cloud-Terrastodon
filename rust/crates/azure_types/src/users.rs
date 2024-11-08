@@ -22,7 +22,7 @@ impl UuidWrapper for UserId {
 }
 impl_uuid_traits!(UserId);
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct User {
     #[serde(rename = "businessPhones")]
     pub business_phones: Vec<String>,

@@ -30,10 +30,14 @@ mod storage_accounts;
 mod subscriptions;
 mod tags;
 mod users;
+mod principals;
+mod service_principals;
 pub mod prelude {
     pub use crate::auth::*;
+    pub use crate::service_principals::*;
     pub use crate::batch_api::*;
     pub use crate::create_role_assignment::*;
+    pub use crate::principals::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
     pub use crate::groups::*;

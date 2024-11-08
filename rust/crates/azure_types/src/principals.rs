@@ -1,6 +1,9 @@
 use crate::impl_uuid_traits;
+use crate::prelude::Group;
 use crate::prelude::GroupId;
+use crate::prelude::ServicePrincipal;
 use crate::prelude::ServicePrincipalId;
+use crate::prelude::User;
 use crate::prelude::UserId;
 use crate::prelude::UuidWrapper;
 use uuid::Uuid;
@@ -46,5 +49,27 @@ impl From<GroupId> for PrincipalId {
 impl From<ServicePrincipalId> for PrincipalId {
     fn from(value: ServicePrincipalId) -> Self {
         Self::ServicePrincipalId(value)
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Principal {
+    User(User),
+    Group(Group),
+    ServicePrincipal(ServicePrincipal),
+}
+impl From<User> for Principal {
+    fn from(value: User) -> Self {
+        Self::User(value)
+    }
+}
+impl From<Group> for Principal {
+    fn from(value: Group) -> Self {
+        Self::Group(value)
+    }
+}
+impl From<ServicePrincipal> for Principal {
+    fn from(value: ServicePrincipal) -> Self {
+        Self::ServicePrincipal(value)
     }
 }

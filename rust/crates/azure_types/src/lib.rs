@@ -26,7 +26,6 @@ mod role_management_policies;
 mod role_management_policy_assignments;
 mod scope_itertools;
 mod scopes;
-mod security_groups;
 mod storage_accounts;
 mod subscriptions;
 mod tenants;
@@ -74,7 +73,6 @@ pub mod prelude {
     pub use crate::role_management_policy_assignments::*;
     pub use crate::scope_itertools::*;
     pub use crate::scopes::*;
-    pub use crate::security_groups::*;
     pub use crate::storage_accounts::*;
     pub use crate::subscriptions::*;
     pub use crate::tenants::*;

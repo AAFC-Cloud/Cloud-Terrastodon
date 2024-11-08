@@ -84,18 +84,3 @@ struct Response<T> {
     next_link: Option<String>,
     value: Vec<T>,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::prelude::fetch_all_security_groups;
-    use cloud_terrastodon_core_azure_types::prelude::SecurityGroup;
-
-    #[tokio::test]
-    async fn it_works() -> Result<()> {
-        let groups: Vec<SecurityGroup> = fetch_all_security_groups().await?;
-        println!("Found {} groups", groups.len());
-        assert!(groups.len() > 300);
-        Ok(())
-    }
-}

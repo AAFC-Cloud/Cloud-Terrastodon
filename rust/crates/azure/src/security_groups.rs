@@ -1,21 +1,22 @@
+use anyhow::Result;
+use cloud_terrastodon_core_azure_types::prelude::Group;
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use tracing::info;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::Result;
-use cloud_terrastodon_core_azure_types::prelude::SecurityGroup;
-use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-
 use crate::prelude::MicrosoftGraphHelper;
 
-pub async fn fetch_all_security_groups() -> Result<Vec<SecurityGroup>> {
+pub async fn fetch_all_security_groups() -> Result<Vec<Group>> {
+    info!("Fetching security groups");
     let query = MicrosoftGraphHelper::new(
-        "https://graph.microsoft.com/v1.0/groups?$select=id,displayName&$filter=securityEnabled eq true", 
-            CacheBehaviour::Some {
-                path: PathBuf::from("security_groups"),
-                valid_for: Duration::from_hours(2),
-            }
-        );
-    let groups: Vec<SecurityGroup> = query.fetch_all().await?;
+        "https://graph.microsoft.com/v1.0/groups?$select=id,displayName,description,securityEnabled,isAssignableToRole&$filter=securityEnabled eq true",
+        CacheBehaviour::Some {
+            path: PathBuf::from("security_groups"),
+            valid_for: Duration::from_hours(2),
+        },
+    );
+    let groups: Vec<Group> = query.fetch_all().await?;
     Ok(groups)
 }
 
@@ -23,12 +24,13 @@ pub async fn fetch_all_security_groups() -> Result<Vec<SecurityGroup>> {
 mod tests {
     use super::*;
     use crate::prelude::fetch_all_security_groups;
-    use cloud_terrastodon_core_azure_types::prelude::SecurityGroup;
+    use cloud_terrastodon_core_azure_types::prelude::Group;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let groups: Vec<SecurityGroup> = fetch_all_security_groups().await?;
+        let groups: Vec<Group> = fetch_all_security_groups().await?;
         println!("Found {} groups", groups.len());
+        // ensure pagination working
         assert!(groups.len() > 300);
         Ok(())
     }
