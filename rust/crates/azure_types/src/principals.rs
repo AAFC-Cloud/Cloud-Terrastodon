@@ -6,6 +6,8 @@ use crate::prelude::ServicePrincipalId;
 use crate::prelude::User;
 use crate::prelude::UserId;
 use crate::prelude::UuidWrapper;
+use serde::Deserialize;
+use serde::Serialize;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
@@ -52,10 +54,14 @@ impl From<ServicePrincipalId> for PrincipalId {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "@odata.type")]
 pub enum Principal {
+    #[serde(rename = "#microsoft.graph.user")]
     User(User),
+    #[serde(rename = "#microsoft.graph.group")]
     Group(Group),
+    #[serde(rename = "#microsoft.graph.servicePrincipal")]
     ServicePrincipal(ServicePrincipal),
 }
 impl From<User> for Principal {
@@ -97,5 +103,30 @@ impl Principal {
 impl std::fmt::Display for Principal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{} ({})", self.display_name(), self.id()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::Value;
+
+    use crate::prelude::Fake;
+
+    use super::*;
+
+    #[test]
+    fn it_works() -> anyhow::Result<()> {
+        let user = User::fake();
+        let principal = Principal::from(user);
+        let encoded = serde_json::to_string_pretty(&principal)?;
+        println!("Encoded:\n{encoded}");
+        let decoded: Value = serde_json::from_str(&encoded)?;
+        assert_eq!(
+            decoded.get("@odata.type").unwrap().as_str().unwrap(),
+            "#microsoft.graph.user"
+        );
+        let decoded_principal = serde_json::from_value::<Principal>(decoded)?;
+        assert_eq!(principal, decoded_principal);
+        Ok(())
     }
 }
