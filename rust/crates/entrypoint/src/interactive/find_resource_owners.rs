@@ -1,12 +1,14 @@
+use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_definitions;
+use cloud_terrastodon_core_azure::prelude::Group;
 use cloud_terrastodon_core_azure::prelude::Principal;
 use cloud_terrastodon_core_azure::prelude::Resource;
-use cloud_terrastodon_core_azure::prelude::ResourceId;
 use cloud_terrastodon_core_azure::prelude::RoleDefinition;
 use cloud_terrastodon_core_azure::prelude::Scope;
+use cloud_terrastodon_core_azure::prelude::ServicePrincipal;
 use cloud_terrastodon_core_azure::prelude::ThinRoleAssignment;
 use cloud_terrastodon_core_user_input::prelude::pick;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
@@ -34,6 +36,17 @@ enum OwnerClue<'a> {
         principal: Option<&'a Principal>,
         resource: &'a Resource,
     },
+    Principal {
+        principal: &'a Principal,
+    },
+    ServicePrincipalAlternativeName {
+        alternative_name: &'a str,
+        service_principal: &'a ServicePrincipal,
+    },
+    GroupMember {
+        group: &'a Group,
+        principal: &'a Principal,
+    }
 }
 impl<'a> std::fmt::Display for OwnerClue<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -68,6 +81,9 @@ impl<'a> std::fmt::Display for OwnerClue<'a> {
 }
 
 pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
+    info!("Ensuring CLI is authenticated");
+    ensure_logged_in().await?;
+
     info!("Fetching a bunch of data");
     let (resources, role_assignments, role_definitions, principals) = try_join!(
         fetch_all_resources(),
@@ -136,20 +152,78 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
 
     let mut clues = Vec::new();
 
+    info!("Gathering clues from tags");
+    for resource in chosen_resources.iter() {
+        if let Some(tags) = &resource.tags {
+            for (tag_key, tag_value) in tags.iter() {
+                clues.push(OwnerClue::ResourceTag {
+                    resource,
+                    tag_key,
+                    tag_value,
+                });
+            }
+        }
+    }
+
+    info!("Gathering clues from role assignments");
+    for role_assignment in role_assignments.iter() {
+        // Only show role assignments that target a chosen resource
+        let Some(resource) = chosen_resource_map.get(&role_assignment.scope) else {
+            continue;
+        };
+
+        // Only show role assignments we know the definition for
+        let Some(role_definition) = role_definition_map.get(&role_assignment.role_definition_id)
+        else {
+            warn!(
+                "Failed to find role definition for role assignment {:?}",
+                role_assignment
+            );
+            continue;
+        };
+
+        // Identify the principal
+        let principal = principal_map
+            .get(&*role_assignment.principal_id)
+            .map(|v| &**v);
+
+        // Build the choice
+        clues.push(OwnerClue::RoleAssignment {
+            resource,
+            role_assignment,
+            role_definition,
+            principal,
+        });
+        if let Some(principal) = principal {
+            clues.push(OwnerClue::Principal { principal });
+            match principal {
+                Principal::User(user) => todo!(),
+                Principal::Group(group) => {
+                },
+                Principal::ServicePrincipal(service_principal) => {
+                    service_principal
+                        .alternative_names
+                        .iter()
+                        .map(
+                            |alternative_name| OwnerClue::ServicePrincipalAlternativeName {
+                                alternative_name,
+                                service_principal,
+                            },
+                        )
+                        .collect_into(&mut clues);
+                }
+            }
+        }
+    }
+
     #[derive(Debug, Clone, VariantArray)]
     enum ClueAction {
-        PickTags,
-        PickRoleAssignments,
-        PickServicePrincipalLinks,
         Finish,
         PeekClueDetails,
     }
     impl std::fmt::Display for ClueAction {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(match self {
-                ClueAction::PickTags => "pick tags",
-                ClueAction::PickRoleAssignments => "pick role assignments",
-                ClueAction::PickServicePrincipalLinks => "pick service principal links",
                 ClueAction::PeekClueDetails => "peek clue details",
                 ClueAction::Finish => "finish",
             })
@@ -163,96 +237,6 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
             header: Some("What to search next?".to_string()),
         })?;
         match clue_source {
-            ClueAction::PickTags => {
-                info!("Gathering clues from tags");
-                let mut tag_choices = Vec::new();
-                for resource in chosen_resources.iter() {
-                    if let Some(tags) = &resource.tags {
-                        for (tag_key, tag_value) in tags.iter() {
-                            tag_choices.push(OwnerClue::ResourceTag {
-                                resource,
-                                tag_key,
-                                tag_value,
-                            });
-                        }
-                    }
-                }
-                pick_many(FzfArgs {
-                    choices: tag_choices,
-                    header: Some("Pick the tags that look like good clues".to_string()),
-                    prompt: None,
-                })?
-                .into_iter()
-                .collect_into(&mut clues);
-            }
-            ClueAction::PickRoleAssignments => {
-                info!("Gathering clues from role assignments");
-                let mut role_assignment_choices = Vec::new();
-                for role_assignment in role_assignments.iter() {
-                    // Only show role assignments that target a chosen resource
-                    let Some(resource) = chosen_resource_map.get(&role_assignment.scope) else {
-                        continue;
-                    };
-
-                    // Only show role assignments we know the definition for
-                    let Some(role_definition) =
-                        role_definition_map.get(&role_assignment.role_definition_id)
-                    else {
-                        warn!(
-                            "Failed to find role definition for role assignment {:?}",
-                            role_assignment
-                        );
-                        continue;
-                    };
-
-                    // Build the choice
-                    role_assignment_choices.push(OwnerClue::RoleAssignment {
-                        resource,
-                        role_assignment,
-                        role_definition,
-                        principal: principal_map
-                            .get(&*role_assignment.principal_id)
-                            .map(|v| &**v),
-                    });
-                }
-                pick_many(FzfArgs {
-                    choices: role_assignment_choices,
-                    prompt: None,
-                    header: Some("Pick the role assignments that look like good clues".to_string()),
-                })?
-                .into_iter()
-                .collect_into(&mut clues);
-            }
-            ClueAction::PickServicePrincipalLinks => {
-                // let mut service_principals = clues
-                //     .iter()
-                //     .filter_map(|clue| match clue {
-                //         OwnerClue::RoleAssignment { principal, .. } => match principal {
-                //             Some(Principal::ServicePrincipal(sp)) => Some(sp),
-                //             _ => None,
-                //         },
-                //         _ => None,
-                //     })
-                //     .peekable();
-                // if service_principals.peek().is_none() {
-                //     warn!("No service principals found in the clues so far");
-                //     continue;
-                // }
-
-                // let found = service_principals
-                //     .flat_map(|sp| {
-                //         sp.alternative_names
-                //             .iter()
-                //             .filter_map(|name| resource_map.get(&ResourceId::new(name)))
-                //     })
-                //     .map(|res| Choice {
-                //         key: res.to_string(),
-                //         value: res,
-                //     })
-                //     .collect_vec();
-                // info!("Found resources:\n{found:#?}");
-                todo!("use the alternative_names to find more info")
-            }
             ClueAction::PeekClueDetails => {
                 let clues = pick_many(FzfArgs {
                     choices: clues
