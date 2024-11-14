@@ -2,11 +2,12 @@ use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::RoleDefinition;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use tracing::info;
 use std::path::PathBuf;
 use std::time::Duration;
 
 pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
-    let role_assignments = ResourceGraphHelper::new(
+    let role_definitions = ResourceGraphHelper::new(
         r#"authorizationresources
 | where type =~ "microsoft.authorization/roledefinitions"
 | project id, properties
@@ -24,7 +25,8 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     )
     .collect_all()
     .await?;
-    Ok(role_assignments)
+    info!("Found {} role definitions", role_definitions.len());
+    Ok(role_definitions)
 }
 
 #[cfg(test)]

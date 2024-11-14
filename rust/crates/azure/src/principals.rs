@@ -14,12 +14,14 @@ pub async fn fetch_all_principals() -> anyhow::Result<Vec<Principal>> {
         fetch_all_security_groups(),
         fetch_all_service_principals()
     )?;
-    Ok(users
+    let principals: Vec<Principal> = users
         .into_iter()
         .map_into()
         .chain(security_groups.into_iter().map_into())
         .chain(service_principals.into_iter().map_into())
-        .collect())
+        .collect();
+    info!("Found {} principals", principals.len());
+    Ok(principals)
 }
 
 #[cfg(test)]
