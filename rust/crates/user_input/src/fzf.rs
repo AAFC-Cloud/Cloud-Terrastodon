@@ -69,7 +69,7 @@ where
     fzf.stdin(Stdio::piped());
     fzf.stdout(Stdio::piped());
     fzf.arg("--multi");
-    fzf.args(["--height", "90%"]);
+    fzf.args(["--height", "~100%"]);
     if let Some(prompt) = args.prompt {
         fzf.arg("--prompt");
         fzf.arg(prompt);
@@ -123,7 +123,7 @@ where
     let mut fzf = Command::new("fzf");
     fzf.stdin(Stdio::piped());
     fzf.stdout(Stdio::piped());
-    fzf.args(["--height", "90%"]);
+    fzf.args(["--height", "~100%"]);
     if let Some(prompt) = args.prompt {
         fzf.arg("--prompt");
         fzf.arg(prompt);
