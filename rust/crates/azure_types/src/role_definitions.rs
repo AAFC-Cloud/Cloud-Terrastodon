@@ -109,7 +109,7 @@ impl<'de> Deserialize<'de> for RoleDefinitionId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct RolePermission {
     #[serde(rename = "notDataActions")]
     #[serde(alias = "NotDataActions")]
@@ -124,13 +124,13 @@ pub struct RolePermission {
     #[serde(alias = "Actions")]
     actions: Vec<String>,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy)]
 pub enum RoleDefinitionKind {
     BuiltInRole,
     CustomRole,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct RoleDefinition {
     pub id: RoleDefinitionId,
     pub display_name: String,

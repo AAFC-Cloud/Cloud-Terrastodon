@@ -79,7 +79,7 @@ impl<'de> Deserialize<'de> for ResourceId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Resource {
     pub id: ResourceId,
     pub kind: ResourceType,

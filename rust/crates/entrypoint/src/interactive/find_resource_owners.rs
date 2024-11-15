@@ -1,13 +1,18 @@
+use anyhow::bail;
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_group_members;
+use cloud_terrastodon_core_azure::prelude::fetch_group_owners;
+use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_core_azure::prelude::Group;
 use cloud_terrastodon_core_azure::prelude::Principal;
 use cloud_terrastodon_core_azure::prelude::Resource;
+use cloud_terrastodon_core_azure::prelude::ResourceId;
 use cloud_terrastodon_core_azure::prelude::RoleDefinition;
+use cloud_terrastodon_core_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::ServicePrincipal;
 use cloud_terrastodon_core_azure::prelude::ThinRoleAssignment;
@@ -17,24 +22,16 @@ use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::ops::Deref;
 use std::rc::Rc;
 use strum::VariantArray;
 use tokio::try_join;
 use tracing::info;
-use tracing::warn;
 
 use crate::menu::press_enter_to_continue;
-// would be good to have a chain describing where the clues came from
-// resource group (human choice) => Owner role assignment for group ABC => "Jayce Talis" member of group ABC
-// currently missing clue for resource[group] starting spot and children resources
-// could do:
-// 1. human picks starting point (resource group, resource) vec
-// 2. fetch all child resources
-// 3. fetch all ancestor resources
-// 4. fetch all role assignments of all resources found so far
-// etc..
-#[derive(Debug)]
+
+#[derive(Debug, Eq, PartialEq)]
 enum Clue<'a> {
     Resource {
         resource: &'a Resource,
@@ -58,6 +55,10 @@ enum Clue<'a> {
         service_principal: &'a ServicePrincipal,
     },
     GroupMember {
+        group: &'a Group,
+        principal: &'a Principal,
+    },
+    GroupOwner {
         group: &'a Group,
         principal: &'a Principal,
     },
@@ -109,13 +110,19 @@ impl<'a> std::fmt::Display for Clue<'a> {
             Clue::GroupMember {
                 group, principal, ..
             } => f.write_fmt(format_args!(
-                "Group [{}] has member [{}]",
-                group.id, principal
+                "Group [{} ({})] has member [{}]",
+                group.display_name, group.id, principal
+            )),
+            Clue::GroupOwner {
+                group, principal, ..
+            } => f.write_fmt(format_args!(
+                "Group [{} ({})] has owner [{}]",
+                group.display_name, group.id, principal
             )),
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ClueChain<'a> {
     pub discovery_chain: Vec<Rc<Clue<'a>>>,
 }
@@ -152,6 +159,131 @@ impl<'a> AsRef<Clue<'a>> for ClueChain<'a> {
     }
 }
 
+struct TraversalContext<'a> {
+    pub clues: Vec<ClueChain<'a>>,
+    pub resource_map: HashMap<&'a ResourceId, &'a Resource>,
+    pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
+    pub principal_map: HashMap<&'a Uuid, &'a Principal>,
+    pub role_assignments_by_scope: HashMap<&'a ResourceId, &'a ThinRoleAssignment>,
+}
+#[derive(Debug, Clone, Copy, Eq, PartialEq, VariantArray)]
+enum Traversal {
+    Tags,
+    RoleAssignments,
+    GroupMembers,
+    GroupOwners,
+    ServicePrincipalAlternativeNames,
+    // Parents
+    // Children
+}
+impl Traversal {
+    pub async fn gather_clues<'a>(
+        &self,
+        clue: &ClueChain<'a>,
+        context: &TraversalContext<'a>,
+    ) -> anyhow::Result<Vec<ClueChain<'a>>> {
+        let mut rtn = Vec::new();
+        match self {
+            Traversal::Tags => {
+                if let Clue::Resource { resource } = clue.as_ref() {
+                    if let Some(tags) = &resource.tags {
+                        for (tag_key, tag_value) in tags.iter() {
+                            rtn.push(clue.join(Clue::ResourceTag {
+                                resource,
+                                tag_key,
+                                tag_value,
+                            }));
+                        }
+                    }
+                }
+            }
+            Traversal::RoleAssignments => {
+                if let Clue::Resource { resource } = clue.as_ref() {
+                    if let Some(role_assignment) =
+                        context.role_assignments_by_scope.get(&resource.id)
+                    {
+                        // Identify the role definition
+                        let Some(role_definition) = context
+                            .role_definition_map
+                            .get(&role_assignment.role_definition_id)
+                        else {
+                            bail!(
+                                "Failed to find role definition for role assignment {:?}",
+                                role_assignment
+                            );
+                        };
+
+                        // Identify the principal
+                        let principal = context
+                            .principal_map
+                            .get(&*role_assignment.principal_id)
+                            .map(|v| &**v);
+
+                        // Build the clue
+                        let role_assignment_clue = clue.join(Clue::RoleAssignment {
+                            resource,
+                            role_assignment,
+                            role_definition,
+                            principal,
+                        });
+                        if let Some(principal) = principal {
+                            rtn.push(role_assignment_clue.join(Clue::Principal { principal }));
+                        }
+                        rtn.push(role_assignment_clue);
+                    }
+                }
+            }
+            Traversal::GroupMembers => {
+                if let Clue::Principal { principal } = clue.as_ref() {
+                    if let Principal::Group(group) = principal {
+                        let members = fetch_group_members(group.id).await?;
+                        for member in members {
+                            let Some(principal) = context.principal_map.get(member.id()) else {
+                                bail!(
+                                    "Found a member {} for group {} but wasn't in the list of all principals?",
+                                    member,
+                                    group
+                                );
+                            };
+                            rtn.push(clue.join(Clue::GroupMember { group, principal }));
+                        }
+                    }
+                }
+            }
+            Traversal::GroupOwners => {
+                if let Clue::Principal { principal } = clue.as_ref() {
+                    if let Principal::Group(group) = principal {
+                        let owners = fetch_group_owners(group.id).await?;
+                        for member in owners {
+                            let Some(principal) = context.principal_map.get(member.id()) else {
+                                bail!(
+                                    "Found a owner {} for group {} but wasn't in the list of all principals?",
+                                    member,
+                                    group
+                                );
+                            };
+                            rtn.push(clue.join(Clue::GroupOwner { group, principal }));
+                        }
+                    }
+                }
+            }
+            Traversal::ServicePrincipalAlternativeNames => {
+                if let Clue::Principal { principal } = clue.as_ref() {
+                    if let Principal::ServicePrincipal(service_principal) = principal {
+                        for alternative_name in service_principal.alternative_names.iter() {
+                            rtn.push(clue.join(Clue::ServicePrincipalAlternativeName {
+                                alternative_name,
+                                service_principal,
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(rtn)
+    }
+}
+
 pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
     info!("Ensuring CLI is authenticated");
     ensure_logged_in().await?;
@@ -170,18 +302,25 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
         .iter()
         .map(|r| (&r.id, r))
         .collect::<HashMap<_, _>>();
-    let role_definition_map = role_definitions
+    let role_definition_map: HashMap<&RoleDefinitionId, &RoleDefinition> = role_definitions
         .iter()
         .map(|role_definition| (&role_definition.id, role_definition))
         .collect::<HashMap<_, _>>();
-    let principal_map = principals
+    let principal_map: HashMap<&Uuid, &Principal> = principals
         .iter()
         .map(|p| (p.as_ref(), p))
         .collect::<HashMap<_, _>>();
-    let role_assignments_by_scope = role_assignments
+    let role_assignments_by_scope: HashMap<&ResourceId, &ThinRoleAssignment> = role_assignments
         .iter()
         .map(|role_assignment| (&role_assignment.scope, role_assignment))
         .collect::<HashMap<_, _>>();
+    let mut traversal_context = TraversalContext {
+        clues: Vec::new(),
+        resource_map,
+        role_definition_map,
+        principal_map,
+        role_assignments_by_scope,
+    };
 
     #[derive(Debug, Clone, VariantArray)]
     enum MyChoice {
@@ -219,105 +358,33 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
         header: Some("Pick the resources to find the owners for".to_string()),
     })?;
 
-    let mut clues = Vec::new();
     info!("You chose:");
     for resource in chosen_resources.iter() {
         info!("- {}", resource.id.expanded_form());
-        clues.push(ClueChain::new(Clue::Resource { resource }));
+        traversal_context
+            .clues
+            .push(ClueChain::new(Clue::Resource { resource }));
     }
 
-    info!("Gathering clues from resource tags");
-    let mut new_clues = Vec::new();
-    for clue in clues.iter() {
-        if let Clue::Resource { resource } = clue.as_ref() {
-            if let Some(tags) = &resource.tags {
-                for (tag_key, tag_value) in tags.iter() {
-                    new_clues.push(clue.join(Clue::ResourceTag {
-                        resource,
-                        tag_key,
-                        tag_value,
-                    }));
-                }
+    let mut to_visit = traversal_context
+        .clues
+        .clone()
+        .into_iter()
+        .collect::<VecDeque<_>>();
+    while let Some(clue) = to_visit.pop_front() {
+        for traversal in Traversal::VARIANTS {
+            let found = traversal.gather_clues(&clue, &traversal_context).await?;
+            let found_count = found.len();
+            if found_count > 0 {
+                info!(
+                    "Found {found_count} new clues traversing {traversal:?} for {}",
+                    clue.clue()
+                );
+                traversal_context.clues.extend(found.clone());
+                to_visit.extend(found);
             }
         }
     }
-    clues.extend(new_clues.into_iter());
-
-    info!("Gathering clues from role assignments");
-    let mut new_clues = Vec::new();
-    for clue in clues.iter() {
-        if let Clue::Resource { resource } = clue.as_ref() {
-            if let Some(role_assignment) = role_assignments_by_scope.get(&resource.id) {
-                // Identify the role definition
-                let Some(role_definition) =
-                    role_definition_map.get(&role_assignment.role_definition_id)
-                else {
-                    warn!(
-                        "Failed to find role definition for role assignment {:?}",
-                        role_assignment
-                    );
-                    continue;
-                };
-
-                // Identify the principal
-                let principal = principal_map
-                    .get(&*role_assignment.principal_id)
-                    .map(|v| &**v);
-
-                // Build the clue
-                let role_assignment_clue = clue.join(Clue::RoleAssignment {
-                    resource,
-                    role_assignment,
-                    role_definition,
-                    principal,
-                });
-                if let Some(principal) = principal {
-                    new_clues.push(role_assignment_clue.join(Clue::Principal { principal }));
-                }
-                new_clues.push(role_assignment_clue);
-            }
-        }
-    }
-    clues.extend(new_clues.into_iter());
-
-    info!("Gathering clues from principal clues");
-    let mut new_clues = Vec::new();
-    // todo: recursively apply until no new clues found, e.g., group has a group as a member we want to find the members of the member group, need reentry prevention
-    for clue in clues.iter() {
-        if let Clue::Principal { principal } = clue.as_ref() {
-            match principal {
-                Principal::User(user) => {
-                    // todo: fetch managers or something lol
-                }
-                Principal::Group(group) => {
-                    let members = fetch_group_members(group.id).await?;
-                    for member in members {
-                        let Some(principal) = principal_map.get(member.id()) else {
-                            warn!(
-                                "Found a member {} for group {} but wasn't in the list of all principals?",
-                                member, group
-                            );
-                            continue;
-                        };
-                        new_clues.push(clue.join(Clue::GroupMember { group, principal }));
-                    }
-                }
-                Principal::ServicePrincipal(service_principal) => {
-                    service_principal
-                        .alternative_names
-                        .iter()
-                        .map(|alternative_name| {
-                            clue.join(Clue::ServicePrincipalAlternativeName {
-                                alternative_name,
-                                service_principal,
-                            })
-                        })
-                        .collect_into(&mut new_clues);
-                }
-            }
-        }
-    }
-    clues.extend(new_clues.into_iter());
 
     #[derive(Debug, Clone, VariantArray)]
     enum ClueAction {
@@ -342,7 +409,8 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
         match clue_source {
             ClueAction::PeekClueDetails => {
                 let clues = pick_many(FzfArgs {
-                    choices: clues
+                    choices: traversal_context
+                        .clues
                         .iter()
                         .map(|clue| Choice {
                             key: clue.to_string(),
@@ -356,7 +424,7 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
                 press_enter_to_continue().await?;
             }
             ClueAction::Finish => {
-                info!("Found clues:\n{clues:#?}");
+                info!("Found clues:\n{:#?}", traversal_context.clues);
                 break;
             }
         }

@@ -69,7 +69,7 @@ where
     fzf.stdin(Stdio::piped());
     fzf.stdout(Stdio::piped());
     fzf.arg("--multi");
-    fzf.args(["--height", "~100%"]);
+    fzf.args(["--height", "-3"]);
     if let Some(prompt) = args.prompt {
         fzf.arg("--prompt");
         fzf.arg(prompt);

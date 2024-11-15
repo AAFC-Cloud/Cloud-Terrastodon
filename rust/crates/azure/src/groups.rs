@@ -23,12 +23,33 @@ pub async fn fetch_group_members(group_id: GroupId) -> Result<Vec<Principal>> {
     let members = MicrosoftGraphHelper::new(
         format!("https://graph.microsoft.com/v1.0/groups/{group_id}/members"),
         CacheBehaviour::Some {
-            path: PathBuf::from_iter(["group members", group_id.as_hyphenated().to_string().as_ref()]),
+            path: PathBuf::from_iter([
+                "group members",
+                group_id.as_hyphenated().to_string().as_ref(),
+            ]),
             valid_for: Duration::from_hours(8),
         },
-    ).fetch_all::<Principal>().await?;
+    )
+    .fetch_all::<Principal>()
+    .await?;
     info!("Found {} members for group {}", members.len(), group_id);
     Ok(members)
+}
+pub async fn fetch_group_owners(group_id: GroupId) -> Result<Vec<Principal>> {
+    let owners = MicrosoftGraphHelper::new(
+        format!("https://graph.microsoft.com/v1.0/groups/{group_id}/owners"),
+        CacheBehaviour::Some {
+            path: PathBuf::from_iter([
+                "group owners",
+                group_id.as_hyphenated().to_string().as_ref(),
+            ]),
+            valid_for: Duration::from_hours(8),
+        },
+    )
+    .fetch_all::<Principal>()
+    .await?;
+    info!("Found {} owners for group {}", owners.len(), group_id);
+    Ok(owners)
 }
 
 #[cfg(test)]

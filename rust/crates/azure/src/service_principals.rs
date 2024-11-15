@@ -13,7 +13,7 @@ pub async fn fetch_all_service_principals() -> anyhow::Result<Vec<ServicePrincip
         "https://graph.microsoft.com/v1.0/servicePrincipals",
         CacheBehaviour::Some {
             path: PathBuf::from("service_principals"),
-            valid_for: Duration::from_hours(2),
+            valid_for: Duration::from_hours(8),
         },
     );
     let entries: Vec<ServicePrincipal> = query.fetch_all().await?;
