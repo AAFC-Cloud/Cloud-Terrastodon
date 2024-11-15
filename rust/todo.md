@@ -80,3 +80,59 @@
     1. get tf resources | fzf --multi | az resource move
     2. write import blocks for new destinations
     3. tf apply
+
+
+
+# Traversal
+
+- Azure DevOps repos
+- Resource
+    - Activity logs
+    - PIM assignments
+    - Deployments
+    - Role assignment
+        - Creator, modifier
+    - Parents
+    - Children
+- Group
+    - Audit logs
+    - Role assignments (entra, azurerm)
+- Service Principal
+    - Owners
+    - Application registration
+    - DevOps service connections
+- Application registration
+    - Custom role assignments
+    - API permissions
+    - Owners
+- DevOps service connections
+    - Projects
+    - Pipelines
+
+
+# IP Address
+
+- NICs
+- Public IPs
+- Private IPs
+- Vnets
+- Subnets
+- Ping
+- nmap
+- DNS rules
+
+# Unused principals
+
+Find principals with no role assignments
+- no owners
+- no role assignments
+- no OIDC configured
+- no API permissions
+- expired certs
+
+"Unknown" principal role assignments
+
+# Cleanup
+
+- Resource name contains "delete" or "temp"
+- Action groups containing emails outside of domain
