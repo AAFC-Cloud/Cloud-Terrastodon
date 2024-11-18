@@ -1,6 +1,7 @@
 use crate::menu_action;
 use cloud_terrastodon_core_user_input::prelude::prompt_line;
 use quote::quote;
+use tokio::process::Command;
 use std::path::PathBuf;
 use syn::parse_file;
 use syn::Item;
@@ -16,15 +17,13 @@ pub async fn create_new_action_variant() -> anyhow::Result<()> {
     let mut ast = parse_file(&content)?;
 
     let new_variant_decl = prompt_line("Enter the new variant declaration:").await?;
-    let new_variant_display = prompt_line("Enter the new variant display str:").await?;
+    // let new_variant_display = prompt_line("Enter the new variant display str:").await?;
     for item in &mut ast.items {
         if let Item::Enum(ItemEnum {
             ref mut variants, ..
         }) = item
         {
-            let new_variant: Variant = syn::parse_quote! {
-                {new_variant_decl}
-            };
+            let new_variant: Variant = syn::parse_str(&new_variant_decl)?;
             variants.push(new_variant);
         }
     }
@@ -32,6 +31,12 @@ pub async fn create_new_action_variant() -> anyhow::Result<()> {
         #ast
     };
 
-    tokio::fs::write(menu_action_file, modified_code.to_string()).await?;
+    let pretty_code = prettyplease::unparse(&syn::parse2(modified_code)?);
+    tokio::fs::write(&menu_action_file, pretty_code).await?;
+
+    Command::new("rustfmt")
+        .arg(menu_action_file.as_os_str())
+        .status().await?;
+
     Ok(())
 }

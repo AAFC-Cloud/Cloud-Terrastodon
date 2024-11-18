@@ -401,6 +401,7 @@ dependencies = [
  "indicatif",
  "itertools 0.12.1",
  "opener",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "serde",

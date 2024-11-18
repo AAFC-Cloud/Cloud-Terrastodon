@@ -43,9 +43,7 @@ use std::env;
 use std::path::PathBuf;
 use strum::VariantArray;
 use tokio::fs;
-
 pub const THIS_FILE: &'static str = file!();
-
 #[derive(Debug, VariantArray)]
 pub enum MenuAction {
     BuildPolicyImports,
@@ -87,14 +85,12 @@ pub enum MenuAction {
     Quit,
     CreateNewActionVariant,
 }
-
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
     QuitApplication,
     Continue,
     PauseAndContinue,
 }
-
 impl MenuAction {
     pub fn name(&self) -> &str {
         match self {
@@ -144,7 +140,6 @@ impl MenuAction {
             MenuAction::CreateNewActionVariant => "create new action variant",
         }
     }
-
     pub async fn invoke(&self) -> Result<MenuActionResult> {
         match self {
             MenuAction::BuildImportsWizard => resource_group_import_wizard_menu().await?,
@@ -200,7 +195,6 @@ impl MenuAction {
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
-
     /// Some actions don't make sense if files are missing from expected locations.
     pub async fn is_available(&self) -> bool {
         async fn all_exist(required_files: impl IntoIterator<Item = PathBuf>) -> bool {
@@ -211,7 +205,6 @@ impl MenuAction {
             }
             true
         }
-
         async fn any_exist(required_files: impl IntoIterator<Item = PathBuf>) -> bool {
             for path in required_files {
                 if fs::try_exists(path).await.unwrap_or(false) {
@@ -220,7 +213,6 @@ impl MenuAction {
             }
             false
         }
-
         match self {
             MenuAction::PerformImport => {
                 any_exist([

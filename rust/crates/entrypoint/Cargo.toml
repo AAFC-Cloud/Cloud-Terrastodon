@@ -29,6 +29,7 @@ strum = { workspace = true }
 syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }
+prettyplease = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }

@@ -8,7 +8,7 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
-    use std::process::Command;
+    use tokio::process::Command;
 
     // Helper function to sanitize a kind string into a valid Rust enum variant
     fn to_enum_variant(kind: &str) -> String {
@@ -134,10 +134,10 @@ mod tests {
         };
 
         // Format the generated code using prettyplease
-        let formatted_code = prettyplease::unparse(&syn::parse2(all_together).unwrap());
+        let formatted_code = prettyplease::unparse(&syn::parse2(all_together)?);
 
         // Write the generated code to a file
-        let target = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+        let target = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?)
             .join("../azure_types/src/resource_types.rs");
         println!("Writing to {}", target.display());
         let mut file = File::create(&target)?;
@@ -152,7 +152,7 @@ mod tests {
         Command::new("rustfmt")
             .arg(target.as_os_str())
             .status()
-            .expect("Failed to execute rustfmt");
+            .await?;
 
         Ok(())
     }
