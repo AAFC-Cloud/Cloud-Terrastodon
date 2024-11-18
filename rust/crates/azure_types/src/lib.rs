@@ -38,6 +38,7 @@ mod service_principal;
 mod principals;
 mod uuid_macros;
 mod uuid_wrapper;
+pub mod cost_management;
 
 pub mod prelude {
     pub use crate::duration::*;

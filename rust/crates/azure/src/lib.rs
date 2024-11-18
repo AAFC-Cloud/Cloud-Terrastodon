@@ -32,9 +32,11 @@ mod tags;
 mod users;
 mod principals;
 mod service_principals;
+mod cost_management;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::service_principals::*;
+    pub use crate::cost_management::*;
     pub use crate::batch_api::*;
     pub use crate::create_role_assignment::*;
     pub use crate::principals::*;
