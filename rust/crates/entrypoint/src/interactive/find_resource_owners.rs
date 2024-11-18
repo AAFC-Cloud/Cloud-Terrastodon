@@ -159,6 +159,7 @@ impl<'a> AsRef<Clue<'a>> for ClueChain<'a> {
     }
 }
 
+#[allow(dead_code)]
 struct TraversalContext<'a> {
     pub clues: Vec<ClueChain<'a>>,
     pub resource_map: HashMap<&'a ResourceId, &'a Resource>,
