@@ -5,6 +5,7 @@ use anyhow::Result;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::prompt_line;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use strum::VariantArray;
 use tracing::error;
 use tracing::info;
 
@@ -16,7 +17,7 @@ pub async fn menu() -> Result<MenuActionResult> {
     let mut some_unavailable = false;
 
     // Collect choices
-    for action in MenuAction::variants() {
+    for action in MenuAction::VARIANTS {
         if action.is_available().await {
             choices.push(action);
         } else {

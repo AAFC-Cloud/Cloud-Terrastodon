@@ -1,6 +1,3 @@
-use std::env;
-use std::path::PathBuf;
-
 use crate::interactive::prelude::apply_processed;
 use crate::interactive::prelude::browse_resource_groups;
 use crate::interactive::prelude::browse_resources_menu;
@@ -16,6 +13,7 @@ use crate::interactive::prelude::clean_all_menu;
 use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
 use crate::interactive::prelude::copy_azurerm_backend_menu;
+use crate::interactive::prelude::create_new_action_variant;
 use crate::interactive::prelude::create_role_assignment_menu;
 use crate::interactive::prelude::dump_tags;
 use crate::interactive::prelude::find_resource_owners_menu;
@@ -41,8 +39,14 @@ use cloud_terrastodon_core_azure::prelude::remediate_policy_assignment;
 use cloud_terrastodon_core_command::prelude::USE_TERRAFORM_FLAG_KEY;
 use cloud_terrastodon_core_pathing::AppDir;
 use itertools::Itertools;
+use std::env;
+use std::path::PathBuf;
+use strum::VariantArray;
 use tokio::fs;
-#[derive(Debug)]
+
+pub const THIS_FILE: &'static str = file!();
+
+#[derive(Debug, VariantArray)]
 pub enum MenuAction {
     BuildPolicyImports,
     BuildGroupImports,
@@ -81,6 +85,7 @@ pub enum MenuAction {
     OpenDir,
     TagEmptyResourceGroups,
     Quit,
+    CreateNewActionVariant,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -136,6 +141,7 @@ impl MenuAction {
             MenuAction::DumpTags => "dump tags",
             MenuAction::ResourceGraphQuery => "resource graph query",
             MenuAction::FindResourceOwners => "find resource owners",
+            MenuAction::CreateNewActionVariant => "create new action variant",
         }
     }
 
@@ -190,49 +196,9 @@ impl MenuAction {
             MenuAction::DumpTags => dump_tags().await?,
             MenuAction::ResourceGraphQuery => run_query_menu().await?,
             MenuAction::FindResourceOwners => find_resource_owners_menu().await?,
+            MenuAction::CreateNewActionVariant => create_new_action_variant().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
-    }
-    pub fn variants() -> Vec<MenuAction> {
-        vec![
-            MenuAction::UseTerraform,
-            MenuAction::FindResourceOwners,
-            MenuAction::ResourceGraphQuery,
-            MenuAction::UseTofu,
-            MenuAction::Clean,
-            MenuAction::CleanImports,
-            MenuAction::CleanProcessed,
-            MenuAction::Quit,
-            MenuAction::OpenDir,
-            MenuAction::PopulateCache,
-            MenuAction::DumpTags,
-            MenuAction::BrowseResourceGroups,
-            MenuAction::BrowseSecurityGroups,
-            MenuAction::BrowseRoleAssignments,
-            MenuAction::CopyAzureRMBackend,
-            MenuAction::BrowseUsers,
-            MenuAction::BrowseResources,
-            MenuAction::PimActivate,
-            MenuAction::CreateRoleAssignment,
-            MenuAction::RemediatePolicyAssignment,
-            MenuAction::EvaluatePolicyAssignmentCompliance,
-            MenuAction::BuildResourceGroupImports,
-            MenuAction::BuildRoleAssignmentImports,
-            MenuAction::BuildGroupImports,
-            MenuAction::TagResources,
-            MenuAction::BuildPolicyImports,
-            MenuAction::BuildImportsFromExisting,
-            MenuAction::BuildImportsWizard,
-            MenuAction::BuildAllImports,
-            MenuAction::ListImports,
-            MenuAction::PerformImport,
-            MenuAction::ProcessGenerated,
-            MenuAction::InitProcessed,
-            MenuAction::ApplyProcessed,
-            MenuAction::PlanProcessed,
-            MenuAction::JumpToBlock,
-            MenuAction::TagEmptyResourceGroups,
-        ]
     }
 
     /// Some actions don't make sense if files are missing from expected locations.
@@ -286,6 +252,8 @@ impl MenuAction {
             MenuAction::JumpToBlock => all_exist([AppDir::Processed.join("generated.tf")]).await,
             MenuAction::UseTerraform => env::var(USE_TERRAFORM_FLAG_KEY).is_err(),
             MenuAction::UseTofu => env::var(USE_TERRAFORM_FLAG_KEY).is_ok(),
+            #[cfg(not(debug_assertions))]
+            MenuAction::CreateNewActionVariant => false,
             _ => true,
         }
     }
