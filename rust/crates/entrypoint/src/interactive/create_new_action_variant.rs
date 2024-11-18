@@ -36,6 +36,7 @@ pub async fn create_new_action_variant() -> anyhow::Result<()> {
 
     Command::new("rustfmt")
         .arg(menu_action_file.as_os_str())
+        .args(&["--edition", "2021"])
         .status().await?;
 
     Ok(())
