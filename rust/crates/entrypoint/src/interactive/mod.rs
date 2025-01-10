@@ -28,6 +28,7 @@ mod run_query;
 mod tag_empty_resource_groups;
 mod tag_resources_menu;
 mod create_new_action_variant;
+mod search_assigned_policies;
 
 pub mod prelude {
     pub use crate::interactive::create_new_action_variant::*;
@@ -60,4 +61,5 @@ pub mod prelude {
     pub use crate::interactive::run_query::*;
     pub use crate::interactive::tag_empty_resource_groups::*;
     pub use crate::interactive::tag_resources_menu::*;
+    pub use crate::interactive::search_assigned_policies::*;
 }
