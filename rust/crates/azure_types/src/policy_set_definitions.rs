@@ -1,4 +1,5 @@
 use crate::naming::validate_policy_name;
+use crate::prelude::PolicyDefinitionId;
 use crate::scopes::try_from_expanded_resource_container_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
@@ -132,7 +133,7 @@ pub struct PolicySetDefinitionPolicyDefinition {
     pub group_names: Option<Vec<String>>,
     pub parameters: Value,
     #[serde(rename = "policyDefinitionId")]
-    pub policy_definition_id: String,
+    pub policy_definition_id: PolicyDefinitionId,
     #[serde(rename = "policyDefinitionReferenceId")]
     pub policy_definition_reference_id: String,
 }

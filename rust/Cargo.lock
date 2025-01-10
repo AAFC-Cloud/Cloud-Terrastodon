@@ -398,6 +398,7 @@ dependencies = [
  "cloud_terrastodon_core_user_input",
  "cloud_terrastodon_ui",
  "humantime",
+ "indexmap",
  "indicatif",
  "itertools 0.12.1",
  "opener",

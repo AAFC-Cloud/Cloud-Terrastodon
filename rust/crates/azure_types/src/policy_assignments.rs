@@ -1,4 +1,6 @@
 use crate::naming::validate_policy_name;
+use crate::prelude::PolicyDefinitionId;
+use crate::prelude::PolicySetDefinitionId;
 use crate::scopes::try_from_expanded_resource_container_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
@@ -10,6 +12,7 @@ use crate::scopes::TryFromManagementGroupScoped;
 use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
+use anyhow::bail;
 use anyhow::Result;
 use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
@@ -172,6 +175,32 @@ impl From<PolicyAssignment> for TofuImportBlock {
                 kind: TofuAzureRMResourceKind::ManagementGroupPolicyAssignment,
                 name: policy_assignment.name.sanitize(),
             },
+        }
+    }
+}
+
+pub enum SomePolicyDefinitionId {
+    PolicyDefinitionId(PolicyDefinitionId),
+    PolicySetDefinitionId(PolicySetDefinitionId),
+}
+impl PolicyAssignment {
+    pub fn policy_definition_id(&self) -> Result<SomePolicyDefinitionId> {
+        match (
+            PolicySetDefinitionId::try_from_expanded(&self.policy_definition_id),
+            PolicyDefinitionId::try_from_expanded(&self.policy_definition_id),
+        ) {
+            (Ok(a), Ok(b)) => {
+                bail!(
+                    "Matched both types of policy definition id, this shouldnt happen. Got {} and {}",
+                    a.expanded_form(),
+                    b.expanded_form()
+                );
+            }
+            (Ok(a), Err(_)) => Ok(SomePolicyDefinitionId::PolicySetDefinitionId(a)),
+            (Err(_), Ok(b)) => Ok(SomePolicyDefinitionId::PolicyDefinitionId(b)),
+            (Err(a), Err(b)) => {
+                bail!("Failed to determine policy definition id kind. a={a}, b={b}")
+            }
         }
     }
 }
