@@ -64,7 +64,7 @@ policyResources
 }
 
 /// This is a new function that merges “search assigned policies” with a compliance query.
-pub async fn search_assigned_policies_with_compliance() -> anyhow::Result<()> {
+pub async fn browse_policy_assignments() -> anyhow::Result<()> {
     ensure_logged_in().await?;
     info!("Fetching a bunch of data...");
     let (policy_assignments, policy_definitions, mut policy_set_definitions, mut policy_compliance) =

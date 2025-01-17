@@ -26,7 +26,7 @@ use crate::interactive::prelude::plan_processed;
 use crate::interactive::prelude::populate_cache;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
 use crate::interactive::prelude::run_query_menu;
-use crate::interactive::prelude::search_assigned_policies_with_compliance;
+use crate::interactive::prelude::browse_policy_assignments;
 use crate::interactive::prelude::tag_empty_resource_group_menu;
 use crate::interactive::prelude::tag_resources_menu;
 use crate::noninteractive::prelude::perform_import;
@@ -85,7 +85,7 @@ pub enum MenuAction {
     TagEmptyResourceGroups,
     Quit,
     CreateNewActionVariant,
-    SearchAssignedPolicies,
+    BrowsePolicyAssignments,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -140,7 +140,7 @@ impl MenuAction {
             MenuAction::ResourceGraphQuery => "resource graph query",
             MenuAction::FindResourceOwners => "find resource owners",
             MenuAction::CreateNewActionVariant => "create new action variant",
-            MenuAction::SearchAssignedPolicies => "Search assigned policies",
+            MenuAction::BrowsePolicyAssignments => "Search assigned policies",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -195,7 +195,7 @@ impl MenuAction {
             MenuAction::ResourceGraphQuery => run_query_menu().await?,
             MenuAction::FindResourceOwners => find_resource_owners_menu().await?,
             MenuAction::CreateNewActionVariant => create_new_action_variant().await?,
-            MenuAction::SearchAssignedPolicies => search_assigned_policies_with_compliance().await?,
+            MenuAction::BrowsePolicyAssignments => browse_policy_assignments().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
