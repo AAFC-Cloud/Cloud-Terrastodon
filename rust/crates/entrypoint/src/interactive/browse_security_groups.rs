@@ -12,6 +12,7 @@ pub async fn browse_security_groups() -> Result<()> {
     let security_groups = pick_many(FzfArgs {
         choices: security_groups
             .into_iter()
+            .sorted_by(|x,y| x.display_name.cmp(&y.display_name))
             .map(|u| Choice {
                 key: format!("{} {}", u.id, u.display_name),
                 value: u,
