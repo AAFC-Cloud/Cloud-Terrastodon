@@ -26,7 +26,7 @@ use crate::interactive::prelude::plan_processed;
 use crate::interactive::prelude::populate_cache;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
 use crate::interactive::prelude::run_query_menu;
-use crate::interactive::prelude::search_assigned_policies;
+use crate::interactive::prelude::search_assigned_policies_with_compliance;
 use crate::interactive::prelude::tag_empty_resource_group_menu;
 use crate::interactive::prelude::tag_resources_menu;
 use crate::noninteractive::prelude::perform_import;
@@ -195,7 +195,7 @@ impl MenuAction {
             MenuAction::ResourceGraphQuery => run_query_menu().await?,
             MenuAction::FindResourceOwners => find_resource_owners_menu().await?,
             MenuAction::CreateNewActionVariant => create_new_action_variant().await?,
-            MenuAction::SearchAssignedPolicies => search_assigned_policies().await?,
+            MenuAction::SearchAssignedPolicies => search_assigned_policies_with_compliance().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }

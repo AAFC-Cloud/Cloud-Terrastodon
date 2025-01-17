@@ -26,16 +26,36 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 pub const POLICY_ASSIGNMENT_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyAssignments/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone)]
 pub enum PolicyAssignmentId {
     Unscoped { expanded: String },
     SubscriptionScoped { expanded: String },
     ManagementGroupScoped { expanded: String },
     ResourceGroupScoped { expanded: String },
+}
+
+impl PartialEq for PolicyAssignmentId {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare ignoring case
+        self.expanded_form().eq_ignore_ascii_case(other.expanded_form())
+    }
+}
+
+impl Eq for PolicyAssignmentId {}
+
+impl Hash for PolicyAssignmentId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Feed lowercase bytes into the Hasher to ensure case-insensitive hashing
+        for byte in self.expanded_form().bytes() {
+            state.write_u8(byte.to_ascii_lowercase());
+        }
+    }
 }
 impl NameValidatable for PolicyAssignmentId {
     fn validate_name(name: &str) -> Result<()> {

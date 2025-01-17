@@ -1,30 +1,98 @@
 use anyhow::Context;
+use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
+use cloud_terrastodon_core_azure::prelude::PolicyAssignmentId;
+use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_azure::prelude::ScopeImpl;
 use cloud_terrastodon_core_azure::prelude::SomePolicyDefinitionId;
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use indexmap::IndexMap;
+use indoc::indoc;
 use itertools::Itertools;
+use serde::Deserialize;
+use tracing::trace;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::path::PathBuf;
+use std::time::Duration;
 use tokio::try_join;
 use tracing::info;
 use tracing::warn;
 
-pub async fn search_assigned_policies() -> anyhow::Result<()> {
-    info!("Fetching policy assignments and definitions");
-    let (policy_assignments, policy_definitions, policy_set_definitions) = match try_join!(
-        fetch_all_policy_assignments(),
-        fetch_all_policy_definitions(),
-        fetch_all_policy_set_definitions()
-    ) {
-        Ok(x) => x,
-        Err(e) => return Err(e).context("failed to fetch policy data"),
-    };
+#[derive(Debug, Deserialize)]
+struct PolicyComplianceRow {
+    policy_assignment_id: PolicyAssignmentId,
+    policy_definition_reference_id: Option<String>,
+    compliant_count: u32,
+    noncompliant_count: u32,
+}
+
+async fn fetch_all_policy_compliance() -> anyhow::Result<Vec<PolicyComplianceRow>> {
+    info!("Fetching all policy compliance information");
+    let query = indoc! {r#"
+policyResources
+| where type =~ 'Microsoft.PolicyInsights/PolicyStates'
+| where properties.complianceState !~ "Unknown"
+| summarize 
+    compliant_count = countif(tostring(properties.complianceState) == "Compliant"),
+    noncompliant_count = countif(tostring(properties.complianceState) == "NonCompliant")
+    by policy_assignment_id = tostring(properties.policyAssignmentId), 
+       policy_definition_reference_id = tostring(properties.policyDefinitionReferenceId)
+| project 
+    policy_assignment_id,
+    policy_definition_reference_id,
+    compliant_count,
+    noncompliant_count
+    "#};
+
+    let rtn = ResourceGraphHelper::new(
+        query,
+        CacheBehaviour::Some {
+            path: PathBuf::from("policy-compliance"),
+            valid_for: Duration::from_mins(15),
+        },
+    )
+    .collect_all::<PolicyComplianceRow>()
+    .await?;
+    info!("Found {} policy compliance records", rtn.len());
+    Ok(rtn)
+}
+
+/// This is a new function that merges “search assigned policies” with a compliance query.
+pub async fn search_assigned_policies_with_compliance() -> anyhow::Result<()> {
+    ensure_logged_in().await?;
+    info!("Fetching a bunch of data...");
+    let (policy_assignments, policy_definitions, mut policy_set_definitions, mut policy_compliance) =
+        match try_join!(
+            fetch_all_policy_assignments(),
+            fetch_all_policy_definitions(),
+            fetch_all_policy_set_definitions(),
+            fetch_all_policy_compliance(),
+        ) {
+            Ok(x) => x,
+            Err(e) => return Err(e).context("failed to fetch policy data"),
+        };
+
+    // make the policy definition reference IDs lowercase for equality sanity
+    for ele in policy_set_definitions
+        .values_mut()
+        .flatten()
+        .filter_map(|x| x.policy_definitions.as_mut())
+        .flatten()
+    {
+        ele.policy_definition_reference_id.make_ascii_lowercase();
+    }
+    for ele in policy_compliance
+        .iter_mut()
+        .filter_map(|x| x.policy_definition_reference_id.as_mut())
+    {
+        ele.make_ascii_lowercase();
+    }
 
     let policy_definition_map = policy_definitions
         .values()
@@ -36,6 +104,22 @@ pub async fn search_assigned_policies() -> anyhow::Result<()> {
         .flatten()
         .map(|v| (&v.id, v))
         .collect::<HashMap<_, _>>();
+    let policy_compliance_map: HashMap<
+        &PolicyAssignmentId,
+        HashMap<Option<&str>, &PolicyComplianceRow>,
+    > = policy_compliance
+        .iter()
+        .fold(HashMap::new(), |mut acc, elem| {
+            acc.entry(&elem.policy_assignment_id)
+                .or_default()
+                .entry(
+                    elem.policy_definition_reference_id
+                        .as_ref()
+                        .map(|x| x.as_str()),
+                )
+                .or_insert(&elem);
+            acc
+        });
 
     info!("Found {} policy assignments", policy_assignments.len());
     info!("Found {} policy definitions", policy_definitions.len());
@@ -54,7 +138,7 @@ pub async fn search_assigned_policies() -> anyhow::Result<()> {
         }
         row.insert(
             "ass name",
-            ass.display_name.as_ref().unwrap_or(&ass.name).to_owned()
+            ass.display_name.as_ref().unwrap_or(&ass.name).to_owned(),
         );
         row.insert(
             "ass scope",
@@ -87,11 +171,26 @@ pub async fn search_assigned_policies() -> anyhow::Result<()> {
                     }
                     _ => {}
                 }
+                if let Some(compliance) = policy_compliance_map.get(&ass.id) {
+                    if let Some(compliance) = compliance.get(&None) {
+                        row.insert(
+                            "pol compliance",
+                            format!(
+                                "good={}\tbad={}",
+                                compliance.compliant_count, compliance.noncompliant_count
+                            ),
+                        );
+                    } else {
+                        trace!("Failed to find compliance inside {}", ass.id.expanded_form());
+                    }
+                } else {
+                    trace!("Failed to find compliance for {}", ass.id.expanded_form());
+                }
 
                 choices.insert(
                     row.iter()
                         .map(|(label, value)| format!("({label}) {value}"))
-                        .join(" - "),
+                        .join("\n"),
                 );
             }
             SomePolicyDefinitionId::PolicySetDefinitionId(policy_set_definition_id) => {
@@ -147,11 +246,34 @@ pub async fn search_assigned_policies() -> anyhow::Result<()> {
                         }
                         _ => {}
                     }
-
+                    row.insert(
+                        "pol reference id",
+                        inner_definition.policy_definition_reference_id.to_owned(),
+                    );
+                    if let Some(compliance) = policy_compliance_map.get(&ass.id) {
+                        if let Some(compliance) = compliance.get(&Some(
+                            inner_definition.policy_definition_reference_id.as_str(),
+                        )) {
+                            row.insert(
+                                "pol compliance",
+                                format!(
+                                    "good={}\tbad={}",
+                                    compliance.compliant_count, compliance.noncompliant_count
+                                ),
+                            );
+                        } else {
+                            trace!(
+                                "Failed to find policy compliance for {} inside {}",
+                                &inner_definition.policy_definition_reference_id, ass.id.expanded_form()
+                            );
+                        }
+                    } else {
+                        trace!("Failed to find policy compliance for {}", ass.id.expanded_form());
+                    }
                     choices.insert(
                         row.iter()
                             .map(|(label, value)| format!("({label}) {value}"))
-                            .join(" - "),
+                            .join("\n"),
                     );
                 }
             }
@@ -162,12 +284,6 @@ pub async fn search_assigned_policies() -> anyhow::Result<()> {
         header: None,
         prompt: None,
     })?;
-    info!(
-        "You chose:\n{}",
-        chosen
-            .into_iter()
-            .map(|x| x.split(" - ").join("\n"))
-            .join("\n=====\n")
-    );
+    info!("You chose:\n{}", chosen.into_iter().join("\n=====\n"));
     Ok(())
 }
