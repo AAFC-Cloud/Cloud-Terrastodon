@@ -1,0 +1,273 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_azure'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_azure"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_azure",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_azure_types'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_azure_types"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_azure_types",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_command'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_command"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_command",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_config'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_config"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_config",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_pathing'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_pathing"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_pathing",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_tofu_types'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_tofu_types"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_tofu_types",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_user_input'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_user_input"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_user_input",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_azure_devops'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_azure_devops"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_azure_devops",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_azure_devops_types'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_azure_devops_types"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_azure_devops_types",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_entrypoint'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_entrypoint"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_entrypoint",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_core_tofu'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_core_tofu"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_core_tofu",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cloud_terrastodon_ui'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cloud_terrastodon_ui"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon_ui",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'cloud_terrastodon'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=cloud_terrastodon",
+                    "--package=cloud_terrastodon"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'cloud_terrastodon'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=cloud_terrastodon",
+                    "--package=cloud_terrastodon"
+                ],
+                "filter": {
+                    "name": "cloud_terrastodon",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
