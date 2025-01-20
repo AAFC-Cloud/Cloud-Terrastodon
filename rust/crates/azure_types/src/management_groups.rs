@@ -107,7 +107,7 @@ impl HasScope for &ManagementGroup {
 }
 impl std::fmt::Display for ManagementGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.name())?;
+        f.write_str(self.name())?;
         f.write_str(" (")?;
         f.write_str(&self.display_name)?;
         f.write_str(")")?;

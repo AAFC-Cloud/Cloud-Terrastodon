@@ -80,16 +80,28 @@ impl TryFrom<Block> for TofuImportBlock {
                     Expression::Traversal(traversal) => {
                         // Determine kind
                         let Expression::Variable(ref v) = traversal.expr else {
-                            bail!("Expected tofu provider traversal to be a variable, got {:?} from {:?}", traversal.expr, block);
+                            bail!(
+                                "Expected tofu provider traversal to be a variable, got {:?} from {:?}",
+                                traversal.expr,
+                                block
+                            );
                         };
                         let kind = TofuProviderKind::from_str(v.as_str())?;
 
                         // Determine alias
                         let Some(alias) = traversal.operators.first() else {
-                            bail!("Expected tofu provider traversal to have an alias, failed to find on {:?} from {:?}", traversal, block);
+                            bail!(
+                                "Expected tofu provider traversal to have an alias, failed to find on {:?} from {:?}",
+                                traversal,
+                                block
+                            );
                         };
                         let TraversalOperator::GetAttr(ref alias) = alias.value() else {
-                            bail!("Expected tofu provider traversal alias to be a getter, instead got {:?} from {:?}", alias.value(), block);
+                            bail!(
+                                "Expected tofu provider traversal alias to be a getter, instead got {:?} from {:?}",
+                                alias.value(),
+                                block
+                            );
                         };
                         let alias = alias.as_str();
 
@@ -99,7 +111,11 @@ impl TryFrom<Block> for TofuImportBlock {
                         }
                     }
                     _ => {
-                        bail!("Unable to understand attribute \"provider\" in import block, expected a traversal, got {:?} from {:?}", attrib.value, block);
+                        bail!(
+                            "Unable to understand attribute \"provider\" in import block, expected a traversal, got {:?} from {:?}",
+                            attrib.value,
+                            block
+                        );
                     }
                 };
                 provider

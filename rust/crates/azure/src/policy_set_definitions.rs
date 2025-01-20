@@ -10,8 +10,8 @@ use cloud_terrastodon_core_command::prelude::CommandKind;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-pub async fn fetch_all_policy_set_definitions(
-) -> Result<HashMap<ManagementGroup, Vec<PolicySetDefinition>>> {
+pub async fn fetch_all_policy_set_definitions()
+-> Result<HashMap<ManagementGroup, Vec<PolicySetDefinition>>> {
     gather_from_management_groups(async |mg: ManagementGroup, _pb| {
         fetch_policy_set_definitions(Some(mg.id.clone()), None).await
     })

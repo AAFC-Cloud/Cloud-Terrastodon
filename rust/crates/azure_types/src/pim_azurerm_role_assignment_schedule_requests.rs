@@ -1,12 +1,12 @@
-use std::time::Duration;
-use chrono::DateTime;
-use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
 use crate::prelude::to_iso8601;
 use crate::prelude::PrincipalId;
 use crate::prelude::RoleDefinitionId;
 use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
+use chrono::DateTime;
+use chrono::Utc;
+use serde::Deserialize;
+use serde::Serialize;
+use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RoleAssignmentScheduleRequest {

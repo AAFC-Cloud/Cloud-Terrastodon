@@ -96,7 +96,9 @@ pub fn validate_storage_account_name(name: &str) -> Result<()> {
     }
     for char in name.chars() {
         if !char.is_ascii_alphanumeric() {
-            bail!("Name {name:?} must be lowercase letters and numbers, the character {char:?} is not allowed");
+            bail!(
+                "Name {name:?} must be lowercase letters and numbers, the character {char:?} is not allowed"
+            );
         }
     }
 

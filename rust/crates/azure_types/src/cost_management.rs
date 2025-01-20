@@ -91,7 +91,7 @@ impl QueryDefinition {
                     QueryGrouping {
                         kind: QueryColumnType::Dimension,
                         name: "SubscriptionId".to_string(),
-                    }
+                    },
                 ]),
             },
             timeframe: TimeframeType::Custom,

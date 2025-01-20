@@ -15,13 +15,13 @@ use indexmap::IndexMap;
 use indoc::indoc;
 use itertools::Itertools;
 use serde::Deserialize;
-use tracing::trace;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::try_join;
 use tracing::info;
+use tracing::trace;
 use tracing::warn;
 
 #[derive(Debug, Deserialize)]
@@ -112,12 +112,8 @@ pub async fn browse_policy_assignments() -> anyhow::Result<()> {
         .fold(HashMap::new(), |mut acc, elem| {
             acc.entry(&elem.policy_assignment_id)
                 .or_default()
-                .entry(
-                    elem.policy_definition_reference_id
-                        .as_ref()
-                        .map(|x| x.as_str()),
-                )
-                .or_insert(&elem);
+                .entry(elem.policy_definition_reference_id.as_deref())
+                .or_insert(elem);
             acc
         });
 
@@ -181,7 +177,10 @@ pub async fn browse_policy_assignments() -> anyhow::Result<()> {
                             ),
                         );
                     } else {
-                        trace!("Failed to find compliance inside {}", ass.id.expanded_form());
+                        trace!(
+                            "Failed to find compliance inside {}",
+                            ass.id.expanded_form()
+                        );
                     }
                 } else {
                     trace!("Failed to find compliance for {}", ass.id.expanded_form());
@@ -264,11 +263,15 @@ pub async fn browse_policy_assignments() -> anyhow::Result<()> {
                         } else {
                             trace!(
                                 "Failed to find policy compliance for {} inside {}",
-                                &inner_definition.policy_definition_reference_id, ass.id.expanded_form()
+                                &inner_definition.policy_definition_reference_id,
+                                ass.id.expanded_form()
                             );
                         }
                     } else {
-                        trace!("Failed to find policy compliance for {}", ass.id.expanded_form());
+                        trace!(
+                            "Failed to find policy compliance for {}",
+                            ass.id.expanded_form()
+                        );
                     }
                     choices.insert(
                         row.iter()

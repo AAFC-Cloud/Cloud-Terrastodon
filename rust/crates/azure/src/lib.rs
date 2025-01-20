@@ -1,6 +1,7 @@
 #![feature(async_closure, impl_trait_in_assoc_type, duration_constructors)]
 mod auth;
 mod batch_api;
+mod cost_management;
 mod create_role_assignment;
 mod eligible_child_resources;
 mod evaluate_policy_assignment_compliance;
@@ -16,6 +17,7 @@ mod pim_entra_role_settings;
 mod policy_assignments;
 mod policy_definitions;
 mod policy_set_definitions;
+mod principals;
 mod remediate_policy_assignment;
 mod resource_graph;
 mod resource_groups;
@@ -26,20 +28,16 @@ mod role_definitions;
 mod role_eligibility_schedules;
 mod role_management_policy_assignments;
 mod security_groups;
+mod service_principals;
 mod storage_accounts;
 mod subscriptions;
 mod tags;
 mod users;
-mod principals;
-mod service_principals;
-mod cost_management;
 pub mod prelude {
     pub use crate::auth::*;
-    pub use crate::service_principals::*;
-    pub use crate::cost_management::*;
     pub use crate::batch_api::*;
+    pub use crate::cost_management::*;
     pub use crate::create_role_assignment::*;
-    pub use crate::principals::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
     pub use crate::groups::*;
@@ -54,6 +52,7 @@ pub mod prelude {
     pub use crate::policy_assignments::*;
     pub use crate::policy_definitions::*;
     pub use crate::policy_set_definitions::*;
+    pub use crate::principals::*;
     pub use crate::remediate_policy_assignment::*;
     pub use crate::resource_graph::*;
     pub use crate::resource_groups::*;
@@ -63,6 +62,7 @@ pub mod prelude {
     pub use crate::role_eligibility_schedules::*;
     pub use crate::role_management_policy_assignments::*;
     pub use crate::security_groups::*;
+    pub use crate::service_principals::*;
     pub use crate::storage_accounts::*;
     pub use crate::subscriptions::*;
     pub use crate::tags::*;

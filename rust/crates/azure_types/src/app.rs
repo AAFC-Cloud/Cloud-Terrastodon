@@ -1,6 +1,6 @@
-use uuid::Uuid;
 use crate::impl_uuid_traits;
 use crate::prelude::UuidWrapper;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AppId(Uuid);

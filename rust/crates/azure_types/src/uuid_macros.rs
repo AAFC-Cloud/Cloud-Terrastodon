@@ -16,8 +16,8 @@ macro_rules! impl_uuid_traits {
                 D: serde::Deserializer<'de>,
             {
                 let s = String::deserialize(deserializer)?;
-                use std::str::FromStr;
                 use serde::de::Error;
+                use std::str::FromStr;
                 let uuid = uuid::Uuid::from_str(&s).map_err(D::Error::custom)?;
                 Ok(Self::new(uuid))
             }

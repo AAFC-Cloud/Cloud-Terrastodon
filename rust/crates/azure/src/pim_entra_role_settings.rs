@@ -17,10 +17,7 @@ pub async fn fetch_entra_pim_role_settings(
         format_args!(
             "$select={}&$filter={}",
             "id,roleDefinitionId,userMemberSettings",
-            format_args!(
-                "(roleDefinition/id eq '{}')",
-                role_definition_id,
-            ),
+            format_args!("(roleDefinition/id eq '{}')", role_definition_id,),
         )
     );
 

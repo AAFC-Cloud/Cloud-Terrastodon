@@ -43,7 +43,8 @@ pub enum PolicyAssignmentId {
 impl PartialEq for PolicyAssignmentId {
     fn eq(&self, other: &Self) -> bool {
         // Compare ignoring case
-        self.expanded_form().eq_ignore_ascii_case(other.expanded_form())
+        self.expanded_form()
+            .eq_ignore_ascii_case(other.expanded_form())
     }
 }
 

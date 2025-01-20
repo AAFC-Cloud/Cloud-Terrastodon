@@ -99,7 +99,9 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                 } else if let Ok(resource_group_id) = ResourceGroupId::try_from_expanded(scope) {
                     cmd.args(["--resource-group", resource_group_id.short_form()]);
                 } else {
-                    bail!("Could not identify kind of scope (management group, resource group) for scope {scope}");
+                    bail!(
+                        "Could not identify kind of scope (management group, resource group) for scope {scope}"
+                    );
                 }
                 cmd.should_announce(true);
                 cmd.run_raw().await?;
@@ -121,7 +123,9 @@ pub async fn remediate_policy_assignment() -> Result<()> {
             } else if let Ok(resource_group_id) = ResourceGroupId::try_from_expanded(scope) {
                 cmd.args(["--resource-group", resource_group_id.short_form()]);
             } else {
-                bail!("Could not identify kind of scope (management group, resource group) for scope {scope}");
+                bail!(
+                    "Could not identify kind of scope (management group, resource group) for scope {scope}"
+                );
             }
             cmd.should_announce(true);
             cmd.run_raw().await?;

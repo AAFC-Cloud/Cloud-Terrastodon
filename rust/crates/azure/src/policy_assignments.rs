@@ -10,8 +10,8 @@ use cloud_terrastodon_core_command::prelude::CommandKind;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-pub async fn fetch_all_policy_assignments(
-) -> Result<HashMap<ManagementGroup, Vec<PolicyAssignment>>> {
+pub async fn fetch_all_policy_assignments()
+-> Result<HashMap<ManagementGroup, Vec<PolicyAssignment>>> {
     gather_from_management_groups(async |mg: ManagementGroup, _pb| {
         fetch_policy_assignments(Some(mg.id.as_scope()), None).await
     })

@@ -106,19 +106,28 @@ impl FromStr for ResourceGroupId {
 
         // maybe "/resourceGroups/..." => Some("/resourceGroups/...")
         let Some(remaining) = remaining else {
-            bail!("Tried to parse {:?} as resource group id, but the stuff after the subscription id was missing", expanded_form)
+            bail!(
+                "Tried to parse {:?} as resource group id, but the stuff after the subscription id was missing",
+                expanded_form
+            )
         };
 
         // "My-Resource-Group", "optional/other/stuff"
-        let (rg_name, remaining) =
-            strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)
-                .context(format!(
+        let (rg_name, remaining) = strip_prefix_get_slug_and_leading_slashed_remains(
+            remaining,
+            RESOURCE_GROUP_ID_PREFIX,
+        )
+        .context(format!(
             "Tried to parse {:?} as a resource group id, but chunk {:?} was missing prefix {:?}",
             expanded_form, remaining, RESOURCE_GROUP_ID_PREFIX
         ))?;
 
         if let Some(remaining) = remaining {
-            bail!("Tried to parse {:?} as a resource group id, but encountered unexpected trailing remains {:?}", expanded_form, remaining);
+            bail!(
+                "Tried to parse {:?} as a resource group id, but encountered unexpected trailing remains {:?}",
+                expanded_form,
+                remaining
+            );
         }
 
         Ok(ResourceGroupId::new(&sub_id, rg_name.to_owned()))

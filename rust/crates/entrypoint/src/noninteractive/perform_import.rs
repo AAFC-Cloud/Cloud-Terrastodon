@@ -22,7 +22,9 @@ pub async fn perform_import() -> Result<()> {
     match TofuImporter::default().using_dir(imports_dir).run().await {
         Ok(_) => info!("Import success!"),
         Err(e) => {
-            warn!("Error: {e:?}\nImport encountered problems. This may be because the generated code needs attention, or it could have failed.")
+            warn!(
+                "Error: {e:?}\nImport encountered problems. This may be because the generated code needs attention, or it could have failed."
+            )
         }
     };
 

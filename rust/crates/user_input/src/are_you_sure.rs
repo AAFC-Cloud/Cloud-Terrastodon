@@ -6,7 +6,7 @@ pub fn are_you_sure(message: String) -> anyhow::Result<bool> {
     let chosen = pick(FzfArgs {
         choices: choices.into(),
         header: Some(message),
-        prompt: Some("Are you sure? ".to_string())
+        prompt: Some("Are you sure? ".to_string()),
     })?;
     Ok(chosen == "Yes")
 }

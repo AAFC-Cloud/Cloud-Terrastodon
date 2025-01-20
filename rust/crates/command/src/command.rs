@@ -571,7 +571,9 @@ impl CommandBuilder {
                     .any(|x| output.stderr.contains(x)) =>
                 {
                     // Let the user know
-                    warn!("Command failed due to bad auth. Refreshing credential, user action required in a moment...");
+                    warn!(
+                        "Command failed due to bad auth. Refreshing credential, user action required in a moment..."
+                    );
 
                     // Perform login command
                     // (avoid using login fn from azure crate to avoid a dependency)

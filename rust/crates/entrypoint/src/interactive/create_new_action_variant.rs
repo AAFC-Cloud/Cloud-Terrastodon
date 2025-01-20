@@ -2,9 +2,16 @@ use crate::menu_action;
 use cloud_terrastodon_core_user_input::prelude::prompt_line;
 use quote::quote;
 use std::path::PathBuf;
-use syn::{
-    parse_file, parse_str, Arm, Expr, ImplItem, Item, ItemEnum, Stmt, Type, Variant,
-};
+use syn::parse_file;
+use syn::parse_str;
+use syn::Arm;
+use syn::Expr;
+use syn::ImplItem;
+use syn::Item;
+use syn::ItemEnum;
+use syn::Stmt;
+use syn::Type;
+use syn::Variant;
 use tokio::process::Command;
 use tracing::info;
 
@@ -15,9 +22,13 @@ pub async fn create_new_action_variant() -> anyhow::Result<()> {
     let content = tokio::fs::read_to_string(&menu_action_file).await?;
     let mut ast = parse_file(&content)?;
 
-    let new_variant_decl = prompt_line("Enter the new enum variant name, e.g., \"BuildPolicyImports\":").await?;
-    let new_variant_display = prompt_line("Enter the display name for the new variant, e.g., \"build policy imports\":").await?;
-    let function_name = prompt_line("Enter the function name, e.g., \"build_policy_imports\":").await?;
+    let new_variant_decl =
+        prompt_line("Enter the new enum variant name, e.g., \"BuildPolicyImports\":").await?;
+    let new_variant_display =
+        prompt_line("Enter the display name for the new variant, e.g., \"build policy imports\":")
+            .await?;
+    let function_name =
+        prompt_line("Enter the function name, e.g., \"build_policy_imports\":").await?;
 
     // Parse the new variant declaration into a syn::Variant
     let new_variant: Variant = syn::parse_str(&new_variant_decl)?;
@@ -41,7 +52,10 @@ pub async fn create_new_action_variant() -> anyhow::Result<()> {
     }
 
     if !variant_added {
-        return Err(anyhow::anyhow!("MenuAction enum not found in {}", menu_action_file.display()));
+        return Err(anyhow::anyhow!(
+            "MenuAction enum not found in {}",
+            menu_action_file.display()
+        ));
     }
 
     // Modify the impl block of MenuAction
@@ -86,7 +100,7 @@ pub async fn create_new_action_variant() -> anyhow::Result<()> {
 
     Command::new("rustfmt")
         .arg(menu_action_file.as_os_str())
-        .args(&["--edition", "2021"])
+        .args(["--edition", "2021"])
         .status()
         .await?;
 
@@ -99,15 +113,13 @@ fn add_name_match_arm(
     display_name: &str,
 ) -> anyhow::Result<()> {
     for stmt in &mut method.block.stmts {
-        if let Stmt::Expr(ref mut expr, _) = stmt {
-            if let Expr::Match(ref mut match_expr) = expr {
-                let new_arm: Arm = parse_str(&format!(
-                    "MenuAction::{} => \"{}\",",
-                    variant_ident, display_name
-                ))?;
-                match_expr.arms.push(new_arm);
-                break;
-            }
+        if let Stmt::Expr(Expr::Match(ref mut match_expr), _) = stmt {
+            let new_arm: Arm = parse_str(&format!(
+                "MenuAction::{} => \"{}\",",
+                variant_ident, display_name
+            ))?;
+            match_expr.arms.push(new_arm);
+            break;
         }
     }
     Ok(())
@@ -119,15 +131,13 @@ fn add_invoke_match_arm(
     function_name: &str,
 ) -> anyhow::Result<()> {
     for stmt in &mut method.block.stmts {
-        if let Stmt::Expr(ref mut expr, _) = stmt {
-            if let Expr::Match(ref mut match_expr) = expr {
-                let new_arm: Arm = parse_str(&format!(
-                    "MenuAction::{} => {}().await?,",
-                    variant_ident, function_name
-                ))?;
-                match_expr.arms.push(new_arm);
-                break;
-            }
+        if let Stmt::Expr(Expr::Match(ref mut match_expr), _) = stmt {
+            let new_arm: Arm = parse_str(&format!(
+                "MenuAction::{} => {}().await?,",
+                variant_ident, function_name
+            ))?;
+            match_expr.arms.push(new_arm);
+            break;
         }
     }
     Ok(())

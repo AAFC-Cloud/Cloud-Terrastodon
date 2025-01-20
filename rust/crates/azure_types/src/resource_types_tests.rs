@@ -10,7 +10,10 @@ mod tests {
             "MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS",
         ] {
             let y: ResourceType = x.parse().unwrap();
-            assert_eq!(y, ResourceType::MICROSOFT_DOT_RESOURCES_SLASH_SUBSCRIPTIONS_SLASH_RESOURCEGROUPS);
+            assert_eq!(
+                y,
+                ResourceType::MICROSOFT_DOT_RESOURCES_SLASH_SUBSCRIPTIONS_SLASH_RESOURCEGROUPS
+            );
         }
     }
 
@@ -18,9 +21,12 @@ mod tests {
     fn serialization() {
         let x = ResourceType::MICROSOFT_DOT_RESOURCES_SLASH_SUBSCRIPTIONS_SLASH_RESOURCEGROUPS;
         let y = serde_json::to_string(&x).unwrap();
-        assert_eq!(y.to_lowercase(), "\"Microsoft.Resources/Subscriptions/ResourceGroups\"".to_lowercase());
+        assert_eq!(
+            y.to_lowercase(),
+            "\"Microsoft.Resources/Subscriptions/ResourceGroups\"".to_lowercase()
+        );
         let z = serde_json::from_str::<ResourceType>(&y).unwrap();
-        assert_eq!(x,z);
+        assert_eq!(x, z);
     }
 
     #[test]

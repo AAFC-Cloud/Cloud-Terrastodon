@@ -2,9 +2,9 @@ use crate::prelude::ResourceGraphHelper;
 use anyhow::Result;
 use cloud_terrastodon_core_azure_types::prelude::RoleDefinition;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-use tracing::info;
 use std::path::PathBuf;
 use std::time::Duration;
+use tracing::info;
 
 pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     let role_definitions = ResourceGraphHelper::new(

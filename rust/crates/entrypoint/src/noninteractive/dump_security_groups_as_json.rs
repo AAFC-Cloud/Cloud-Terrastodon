@@ -1,8 +1,8 @@
 use chrono::Local;
 use cloud_terrastodon_core_azure::prelude::fetch_all_security_groups;
-use tokio::io::AsyncWriteExt;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 pub async fn dump_security_groups_as_json() -> anyhow::Result<()> {
@@ -18,6 +18,10 @@ pub async fn dump_security_groups_as_json() -> anyhow::Result<()> {
         .open(&destination_file)
         .await?;
     file.write_all(content.as_bytes()).await?;
-    info!("Wrote {} security groups to \"{}\"", security_groups.len(), destination_file.display());
+    info!(
+        "Wrote {} security groups to \"{}\"",
+        security_groups.len(),
+        destination_file.display()
+    );
     Ok(())
 }

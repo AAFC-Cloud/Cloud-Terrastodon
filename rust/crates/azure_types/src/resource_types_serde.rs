@@ -6,7 +6,6 @@ use serde::Serializer;
 
 use crate::prelude::ResourceType;
 
-
 impl Serialize for ResourceType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

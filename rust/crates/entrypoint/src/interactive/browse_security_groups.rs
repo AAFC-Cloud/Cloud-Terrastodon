@@ -108,9 +108,7 @@ pub async fn browse_security_groups() -> Result<()> {
                     role_assignments
                         .iter()
                         .fold(HashMap::default(), |mut map, row| {
-                            map.entry(&row.principal_id)
-                                .or_insert(Vec::new())
-                                .push(&row);
+                            map.entry(&row.principal_id).or_default().push(row);
                             map
                         });
                 let role_definitions_by_id: HashMap<&RoleDefinitionId, &RoleDefinition> =
@@ -135,7 +133,8 @@ pub async fn browse_security_groups() -> Result<()> {
                             if let Some(role_definition) =
                                 role_definitions_by_id.get(&role_assignment.role_definition_id)
                             {
-                                role_assignment_for_group["role_definition"] = serde_json::to_value(role_definition)?;
+                                role_assignment_for_group["role_definition"] =
+                                    serde_json::to_value(role_definition)?;
                             } else {
                                 bail!(
                                     "Failed to find role definition with id {} for assignment {}",

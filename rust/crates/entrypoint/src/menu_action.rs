@@ -45,7 +45,7 @@ use std::env;
 use std::path::PathBuf;
 use strum::VariantArray;
 use tokio::fs;
-pub const THIS_FILE: &'static str = file!();
+pub const THIS_FILE: &str = file!();
 #[derive(Debug, VariantArray)]
 pub enum MenuAction {
     BuildPolicyImports,

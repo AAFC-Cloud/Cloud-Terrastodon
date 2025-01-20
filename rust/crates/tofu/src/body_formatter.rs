@@ -116,7 +116,9 @@ impl From<BodyFormatter> for Body {
             // Find resource block
             let found = value.resource_blocks.remove(key);
             let Some(mut resource_block) = found else {
-                error!("Couldn't find resource block for import to {key}, this import will be omitted!");
+                error!(
+                    "Couldn't find resource block for import to {key}, this import will be omitted!"
+                );
                 // output.push(import_block);
                 continue;
             };

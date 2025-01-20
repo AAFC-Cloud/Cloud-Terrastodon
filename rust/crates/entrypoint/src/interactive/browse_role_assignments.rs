@@ -29,7 +29,10 @@ pub async fn browse_role_assignments() -> Result<()> {
     info!("Building lookup tables");
     let role_definition_lookup: HashMap<&RoleDefinitionId, &RoleDefinition> =
         role_definitions.iter().map(|ra| (&ra.id, ra)).collect();
-    let user_lookup = users.iter().map(|u| (u.id.clone().into(), u)).collect::<HashMap<PrincipalId, _>>();
+    let user_lookup = users
+        .iter()
+        .map(|u| (u.id.into(), u))
+        .collect::<HashMap<PrincipalId, _>>();
 
     info!("Building choices");
     let mut choices: Vec<Choice<ThinRoleAssignment>> = Vec::new();

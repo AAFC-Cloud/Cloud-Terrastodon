@@ -10,7 +10,6 @@ use crate::prelude::UserId;
 use crate::prelude::UuidWrapper;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::Value;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy)]
@@ -27,10 +26,10 @@ impl UuidWrapper for PrincipalId {
 
     fn as_ref(&self) -> &Uuid {
         match self {
-            PrincipalId::UserId(inner) => &inner.as_ref(),
-            PrincipalId::GroupId(inner) => &inner.as_ref(),
-            PrincipalId::ServicePrincipalId(inner) => &inner.as_ref(),
-            PrincipalId::Unknown(inner) => &inner.as_ref(),
+            PrincipalId::UserId(inner) => inner.as_ref(),
+            PrincipalId::GroupId(inner) => inner.as_ref(),
+            PrincipalId::ServicePrincipalId(inner) => inner.as_ref(),
+            PrincipalId::Unknown(inner) => inner,
         }
     }
 }

@@ -235,48 +235,51 @@ impl Traversal {
                 }
             }
             Traversal::GroupMembers => {
-                if let Clue::Principal { principal } = clue.as_ref() {
-                    if let Principal::Group(group) = principal {
-                        let members = fetch_group_members(group.id).await?;
-                        for member in members {
-                            let Some(principal) = context.principal_map.get(member.id()) else {
-                                bail!(
-                                    "Found a member {} for group {} but wasn't in the list of all principals?",
-                                    member,
-                                    group
-                                );
-                            };
-                            rtn.push(clue.join(Clue::GroupMember { group, principal }));
-                        }
+                if let Clue::Principal {
+                    principal: Principal::Group(group),
+                } = clue.as_ref()
+                {
+                    let members = fetch_group_members(group.id).await?;
+                    for member in members {
+                        let Some(principal) = context.principal_map.get(member.id()) else {
+                            bail!(
+                                "Found a member {} for group {} but wasn't in the list of all principals?",
+                                member,
+                                group
+                            );
+                        };
+                        rtn.push(clue.join(Clue::GroupMember { group, principal }));
                     }
                 }
             }
             Traversal::GroupOwners => {
-                if let Clue::Principal { principal } = clue.as_ref() {
-                    if let Principal::Group(group) = principal {
-                        let owners = fetch_group_owners(group.id).await?;
-                        for member in owners {
-                            let Some(principal) = context.principal_map.get(member.id()) else {
-                                bail!(
-                                    "Found a owner {} for group {} but wasn't in the list of all principals?",
-                                    member,
-                                    group
-                                );
-                            };
-                            rtn.push(clue.join(Clue::GroupOwner { group, principal }));
-                        }
+                if let Clue::Principal {
+                    principal: Principal::Group(group),
+                } = clue.as_ref()
+                {
+                    let owners = fetch_group_owners(group.id).await?;
+                    for member in owners {
+                        let Some(principal) = context.principal_map.get(member.id()) else {
+                            bail!(
+                                "Found a owner {} for group {} but wasn't in the list of all principals?",
+                                member,
+                                group
+                            );
+                        };
+                        rtn.push(clue.join(Clue::GroupOwner { group, principal }));
                     }
                 }
             }
             Traversal::ServicePrincipalAlternativeNames => {
-                if let Clue::Principal { principal } = clue.as_ref() {
-                    if let Principal::ServicePrincipal(service_principal) = principal {
-                        for alternative_name in service_principal.alternative_names.iter() {
-                            rtn.push(clue.join(Clue::ServicePrincipalAlternativeName {
-                                alternative_name,
-                                service_principal,
-                            }));
-                        }
+                if let Clue::Principal {
+                    principal: Principal::ServicePrincipal(service_principal),
+                } = clue.as_ref()
+                {
+                    for alternative_name in service_principal.alternative_names.iter() {
+                        rtn.push(clue.join(Clue::ServicePrincipalAlternativeName {
+                            alternative_name,
+                            service_principal,
+                        }));
                     }
                 }
             }
@@ -344,7 +347,7 @@ pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
     })?;
 
     let resource_choices = resources.iter().map(|resource| Choice {
-        key: format!("{}", resource.id.expanded_form()),
+        key: resource.id.expanded_form().to_string(),
         value: resource,
     });
 

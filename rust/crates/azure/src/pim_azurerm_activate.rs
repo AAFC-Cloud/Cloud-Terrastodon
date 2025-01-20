@@ -21,7 +21,9 @@ pub async fn activate_pim_role(
 ) -> Result<()> {
     let scope = scope.expanded_form();
     let id = Uuid::new_v4();
-    let url = format!("https://management.azure.com/{scope}/providers/Microsoft.Authorization/roleAssignmentScheduleRequests/{id}?api-version=2020-10-01");
+    let url = format!(
+        "https://management.azure.com/{scope}/providers/Microsoft.Authorization/roleAssignmentScheduleRequests/{id}?api-version=2020-10-01"
+    );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "PUT", "--url", &url, "--body"]);
     cmd.file_arg(

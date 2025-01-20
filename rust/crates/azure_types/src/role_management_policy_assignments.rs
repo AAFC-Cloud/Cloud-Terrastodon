@@ -325,7 +325,8 @@ mod tests {
     use super::*;
     #[test]
     fn it_works() -> Result<()> {
-        let id = format!("/providers/Microsoft.Management/managementGroups/{}/providers/Microsoft.Authorization/roleManagementPolicyAssignments/{}_{}",
+        let id = format!(
+            "/providers/Microsoft.Management/managementGroups/{}/providers/Microsoft.Authorization/roleManagementPolicyAssignments/{}_{}",
             Uuid::nil(),
             Uuid::nil(),
             Uuid::nil(),

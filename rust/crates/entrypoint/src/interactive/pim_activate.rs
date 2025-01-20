@@ -188,7 +188,7 @@ pub async fn pim_activate_azurerm() -> Result<()> {
                     .unwrap_or_else(|| r.name.clone()),
                 r.id.expanded_form()
             );
-            Choice { key: key, value: r }
+            Choice { key, value: r }
         })
         .collect_vec();
     let chosen_scopes = pick_many(FzfArgs {

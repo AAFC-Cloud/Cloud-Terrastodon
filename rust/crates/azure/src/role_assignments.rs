@@ -138,7 +138,9 @@ mod tests {
                     assert_eq!(sub_ra_id.subscription_id(), sub.id);
                 } else {
                     if matches!(ra.id, RoleAssignmentId::SubscriptionScoped(_)) {
-                        bail!("Subscription scoped role assignments should have scope matching their subscription")
+                        bail!(
+                            "Subscription scoped role assignments should have scope matching their subscription"
+                        )
                     }
                 }
             }

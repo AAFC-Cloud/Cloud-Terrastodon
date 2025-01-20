@@ -164,7 +164,7 @@ pub fn pick<T>(args: impl Into<FzfArgs<T>>) -> Result<T>
 where
     T: Into<Choice<T>>,
 {
-    outer(args, [] as [&str;0])?
+    outer(args, [] as [&str; 0])?
         .into_iter()
         .next()
         .ok_or(anyhow!("No results were received"))

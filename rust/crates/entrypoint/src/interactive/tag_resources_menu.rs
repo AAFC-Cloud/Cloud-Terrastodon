@@ -64,7 +64,7 @@ pub async fn tag_resources_menu() -> anyhow::Result<()> {
             .collect(),
     )
     .await?;
-    for (_id, tags) in &result {
+    for tags in result.values() {
         assert_eq!(tags.get(&tag_key), Some(&tag_value));
     }
     info!("Successfully added tag for {} resources", result.len());
