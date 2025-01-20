@@ -15,9 +15,9 @@ pub async fn create_new_action_variant() -> anyhow::Result<()> {
     let content = tokio::fs::read_to_string(&menu_action_file).await?;
     let mut ast = parse_file(&content)?;
 
-    let new_variant_decl = prompt_line("Enter the new variant declaration:").await?;
-    let new_variant_display = prompt_line("Enter the display name for the new variant:").await?;
-    let function_name = prompt_line("Enter the function name:").await?;
+    let new_variant_decl = prompt_line("Enter the new enum variant name, e.g., \"BuildPolicyImports\":").await?;
+    let new_variant_display = prompt_line("Enter the display name for the new variant, e.g., \"build policy imports\":").await?;
+    let function_name = prompt_line("Enter the function name, e.g., \"build_policy_imports\":").await?;
 
     // Parse the new variant declaration into a syn::Variant
     let new_variant: Variant = syn::parse_str(&new_variant_decl)?;

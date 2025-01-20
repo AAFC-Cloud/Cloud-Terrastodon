@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::impl_uuid_traits;
 use crate::prelude::Group;
 use crate::prelude::GroupId;
@@ -8,9 +10,10 @@ use crate::prelude::UserId;
 use crate::prelude::UuidWrapper;
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::Value;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum PrincipalId {
     UserId(UserId),
     GroupId(GroupId),
@@ -32,6 +35,22 @@ impl UuidWrapper for PrincipalId {
     }
 }
 impl_uuid_traits!(PrincipalId);
+
+// Because the internal uuids should be unique between categories, it's fine to compare between unknown/group/user/etc
+impl PartialEq for PrincipalId {
+    fn eq(&self, other: &Self) -> bool {
+        let left: &Uuid = self;
+        let right: &Uuid = other;
+        left == right
+    }
+}
+impl Eq for PrincipalId {}
+impl Hash for PrincipalId {
+    fn hash<H: std::hash::Hasher>(self: &PrincipalId, state: &mut H) {
+        let id: &Uuid = self;
+        id.hash(state);
+    }
+}
 
 impl From<Uuid> for PrincipalId {
     fn from(value: Uuid) -> Self {
@@ -63,6 +82,8 @@ pub enum Principal {
     Group(Group),
     #[serde(rename = "#microsoft.graph.servicePrincipal")]
     ServicePrincipal(ServicePrincipal),
+    // #[serde(rename = "#microsoft.graph.device")]
+    // Device(Value),
 }
 impl From<User> for Principal {
     fn from(value: User) -> Self {

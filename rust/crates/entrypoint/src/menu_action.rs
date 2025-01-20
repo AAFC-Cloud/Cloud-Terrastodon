@@ -1,4 +1,5 @@
 use crate::interactive::prelude::apply_processed;
+use crate::interactive::prelude::browse_policy_assignments;
 use crate::interactive::prelude::browse_resource_groups;
 use crate::interactive::prelude::browse_resources_menu;
 use crate::interactive::prelude::browse_role_assignments;
@@ -26,9 +27,9 @@ use crate::interactive::prelude::plan_processed;
 use crate::interactive::prelude::populate_cache;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
 use crate::interactive::prelude::run_query_menu;
-use crate::interactive::prelude::browse_policy_assignments;
 use crate::interactive::prelude::tag_empty_resource_group_menu;
 use crate::interactive::prelude::tag_resources_menu;
+use crate::noninteractive::prelude::dump_security_groups_as_json;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
@@ -86,6 +87,7 @@ pub enum MenuAction {
     Quit,
     CreateNewActionVariant,
     BrowsePolicyAssignments,
+    DumpSecurityGroups,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -141,6 +143,7 @@ impl MenuAction {
             MenuAction::FindResourceOwners => "find resource owners",
             MenuAction::CreateNewActionVariant => "create new action variant",
             MenuAction::BrowsePolicyAssignments => "Search assigned policies",
+            MenuAction::DumpSecurityGroups => "dump security groups as json",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -196,6 +199,7 @@ impl MenuAction {
             MenuAction::FindResourceOwners => find_resource_owners_menu().await?,
             MenuAction::CreateNewActionVariant => create_new_action_variant().await?,
             MenuAction::BrowsePolicyAssignments => browse_policy_assignments().await?,
+            MenuAction::DumpSecurityGroups => dump_security_groups_as_json().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
