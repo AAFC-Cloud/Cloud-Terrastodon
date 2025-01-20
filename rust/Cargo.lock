@@ -253,7 +253,7 @@ checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 
 [[package]]
 name = "cloud_terrastodon"
-version = "0.5.0"
+version = "0.6.0-pre"
 dependencies = [
  "anyhow",
  "cloud_terrastodon_core_entrypoint",
