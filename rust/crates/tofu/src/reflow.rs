@@ -1,6 +1,6 @@
+use cloud_terrastodon_core_azure::prelude::fetch_all_users;
 use eyre::Context;
 use eyre::Result;
-use cloud_terrastodon_core_azure::prelude::fetch_all_users;
 use hcl::edit::structure::Body;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit_mut::VisitMut;

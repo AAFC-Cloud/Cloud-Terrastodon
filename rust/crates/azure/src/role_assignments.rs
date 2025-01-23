@@ -1,6 +1,5 @@
 use crate::prelude::gather_from_subscriptions;
 use crate::prelude::ResourceGraphHelper;
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::RoleAssignment;
 use cloud_terrastodon_core_azure_types::prelude::Scope;
 use cloud_terrastodon_core_azure_types::prelude::Subscription;
@@ -8,6 +7,7 @@ use cloud_terrastodon_core_azure_types::prelude::ThinRoleAssignment;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+use eyre::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -71,10 +71,10 @@ authorizationresources
 mod tests {
     use std::any::type_name;
 
-    use eyre::bail;
     use cloud_terrastodon_core_azure_types::prelude::RoleAssignmentId;
     use cloud_terrastodon_core_azure_types::prelude::SubscriptionScoped;
     use cloud_terrastodon_core_azure_types::prelude::SubscriptionScopedRoleAssignmentId;
+    use eyre::bail;
     use itertools::Itertools;
 
     use super::*;

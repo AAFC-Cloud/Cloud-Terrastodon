@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::Group;
 use cloud_terrastodon_core_azure_types::prelude::GroupId;
 use cloud_terrastodon_core_azure_types::prelude::Principal;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+use eyre::Result;
 use tracing::info;
 
 use crate::prelude::MicrosoftGraphHelper;

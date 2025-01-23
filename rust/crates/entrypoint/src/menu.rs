@@ -1,10 +1,10 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
-use eyre::Context;
-use eyre::Result;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::prompt_line;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::Context;
+use eyre::Result;
 use strum::VariantArray;
 use tracing::error;
 use tracing::info;

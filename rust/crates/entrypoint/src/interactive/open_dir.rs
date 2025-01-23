@@ -1,9 +1,9 @@
-use eyre::Result;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_pathing::Existy;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::Result;
 use opener::open;
 use tokio::fs::try_exists;
 

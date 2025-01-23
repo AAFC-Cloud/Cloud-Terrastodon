@@ -1,5 +1,3 @@
-use eyre::eyre;
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_core_azure::prelude::Subscription;
@@ -10,6 +8,8 @@ use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuProviderKind;
 use cloud_terrastodon_core_tofu::prelude::TofuProviderReference;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
+use eyre::eyre;
+use eyre::Result;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use tracing::info;

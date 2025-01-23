@@ -1,4 +1,3 @@
-use eyre::Context;
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
@@ -11,6 +10,7 @@ use cloud_terrastodon_core_azure::prelude::SomePolicyDefinitionId;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::Context;
 use indexmap::IndexMap;
 use indoc::indoc;
 use itertools::Itertools;

@@ -1,6 +1,6 @@
-use eyre::bail;
 use clap::ValueEnum;
 use directories_next::ProjectDirs;
+use eyre::bail;
 use once_cell::sync::Lazy;
 use std::path::Path;
 use std::path::PathBuf;

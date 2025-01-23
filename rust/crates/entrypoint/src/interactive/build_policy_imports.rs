@@ -1,5 +1,3 @@
-use eyre::eyre;
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
@@ -8,6 +6,8 @@ use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::Sanitizable;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
+use eyre::eyre;
+use eyre::Result;
 use std::collections::HashSet;
 
 pub async fn build_policy_imports() -> Result<()> {

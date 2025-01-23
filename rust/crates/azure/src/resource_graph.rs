@@ -1,10 +1,10 @@
-#[cfg(debug_assertions)]
-use eyre::bail;
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::ResourceGraphQueryResponse;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+#[cfg(debug_assertions)]
+use eyre::bail;
+use eyre::Result;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;

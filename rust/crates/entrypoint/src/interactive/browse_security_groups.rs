@@ -1,5 +1,3 @@
-use eyre::bail;
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_security_groups;
@@ -14,6 +12,8 @@ use cloud_terrastodon_core_user_input::prelude::are_you_sure;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::bail;
+use eyre::Result;
 use itertools::Itertools;
 use serde_json::json;
 use serde_json::Value;

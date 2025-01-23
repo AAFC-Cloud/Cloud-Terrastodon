@@ -1,5 +1,5 @@
-use eyre::Result;
 use cloud_terrastodon_core_pathing::AppDir;
+use eyre::Result;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::info;

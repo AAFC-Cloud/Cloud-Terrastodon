@@ -1,9 +1,9 @@
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_core_azure::prelude::Scope;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::Result;
 use itertools::Itertools;
 use tracing::info;
 

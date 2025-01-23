@@ -1,11 +1,11 @@
-use eyre::eyre;
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_groups;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::eyre;
+use eyre::Result;
 use itertools::Itertools;
 use tracing::info;
 

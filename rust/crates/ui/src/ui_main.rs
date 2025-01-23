@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use eyre::Result;
 use crossterm::event::EventStream;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEventKind;
+use eyre::Result;
 use futures::StreamExt;
 use ratatui::crossterm::event::Event;
 use ratatui::prelude::Constraint;

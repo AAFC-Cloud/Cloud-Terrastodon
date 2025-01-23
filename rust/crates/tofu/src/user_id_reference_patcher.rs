@@ -1,4 +1,3 @@
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::UserId;
 use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;
@@ -6,6 +5,7 @@ use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuDataBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TryAsTofuBlocks;
+use eyre::Result;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::Body;

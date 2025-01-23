@@ -1,8 +1,8 @@
-use eyre::Context;
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::Scope;
 use cloud_terrastodon_core_azure_types::prelude::ScopeImpl;
 use cloud_terrastodon_core_azure_types::prelude::ScopeImplKind;
+use eyre::Context;
+use eyre::Result;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use tracing::info;

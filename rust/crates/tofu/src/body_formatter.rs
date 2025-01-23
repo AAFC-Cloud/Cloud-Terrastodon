@@ -1,6 +1,6 @@
+use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
 use eyre::eyre;
 use eyre::Result;
-use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
 use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;

@@ -1,7 +1,7 @@
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::User;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+use eyre::Result;
 use tracing::info;
 
 pub async fn fetch_all_users() -> Result<Vec<User>> {

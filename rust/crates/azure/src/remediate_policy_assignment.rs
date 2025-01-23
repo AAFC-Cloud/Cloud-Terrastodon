@@ -1,6 +1,3 @@
-use eyre::eyre;
-use eyre::bail;
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::DistinctByScope;
 use cloud_terrastodon_core_azure_types::prelude::ManagementGroupId;
 use cloud_terrastodon_core_azure_types::prelude::PolicyAssignment;
@@ -14,6 +11,9 @@ use cloud_terrastodon_core_user_input::prelude::pick;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::bail;
+use eyre::eyre;
+use eyre::Result;
 use itertools::Itertools;
 use rand::RngCore;
 use tracing::info;

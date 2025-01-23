@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::RoleEligibilitySchedule;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+use eyre::Result;
 use serde::Deserialize;
 
 pub async fn fetch_my_role_eligibility_schedules() -> Result<Vec<RoleEligibilitySchedule>> {

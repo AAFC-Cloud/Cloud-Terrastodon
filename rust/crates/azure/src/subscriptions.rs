@@ -1,6 +1,6 @@
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::Subscription;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use eyre::Result;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;

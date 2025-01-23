@@ -4,9 +4,9 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::Resource;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use eyre::Result;
 use tracing::info;
 
 use crate::prelude::ResourceGraphHelper;

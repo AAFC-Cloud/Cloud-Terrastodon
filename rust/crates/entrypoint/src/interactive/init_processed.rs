@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use eyre::Result;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::OutputBehaviour;
 use cloud_terrastodon_core_pathing::AppDir;
+use eyre::Result;
 pub async fn init_processed() -> Result<()> {
     let processed_dir: PathBuf = AppDir::Processed.into();
     CommandBuilder::new(CommandKind::Tofu)

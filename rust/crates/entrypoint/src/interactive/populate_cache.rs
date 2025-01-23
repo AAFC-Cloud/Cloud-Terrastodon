@@ -1,10 +1,10 @@
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_users;
+use eyre::Result;
 use indicatif::ProgressBar;
 use tokio::task::JoinSet;
 pub async fn populate_cache() -> Result<()> {

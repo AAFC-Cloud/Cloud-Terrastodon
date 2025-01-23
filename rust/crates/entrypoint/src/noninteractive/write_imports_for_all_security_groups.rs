@@ -1,9 +1,9 @@
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_security_groups;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuProviderBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
+use eyre::Result;
 use tracing::info;
 
 pub async fn write_imports_for_all_security_groups() -> Result<()> {

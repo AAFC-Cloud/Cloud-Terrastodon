@@ -1,7 +1,7 @@
 #![feature(let_chains)]
-use eyre::Result;
 use cloud_terrastodon_core_entrypoint::prelude::main as entrypoint_main;
 use cloud_terrastodon_core_entrypoint::prelude::Version;
+use eyre::Result;
 use itertools::Itertools;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;

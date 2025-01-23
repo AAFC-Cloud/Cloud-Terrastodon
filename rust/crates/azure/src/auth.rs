@@ -1,8 +1,8 @@
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::User;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::RetryBehaviour;
+use eyre::Result;
 use tracing::warn;
 
 pub async fn fetch_current_user() -> Result<User> {

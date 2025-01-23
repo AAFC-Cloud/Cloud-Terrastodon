@@ -1,4 +1,3 @@
-use eyre::bail;
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resources;
@@ -20,6 +19,7 @@ use cloud_terrastodon_core_user_input::prelude::pick;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::bail;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::VecDeque;

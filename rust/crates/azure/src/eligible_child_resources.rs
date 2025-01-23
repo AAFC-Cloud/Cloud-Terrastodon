@@ -1,6 +1,5 @@
 use crate::management_groups::fetch_root_management_group;
 use crate::resource_groups::fetch_all_resource_groups;
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::EligibleChildResource;
 use cloud_terrastodon_core_azure_types::prelude::EligibleChildResourceKind;
 use cloud_terrastodon_core_azure_types::prelude::HasScope;
@@ -8,6 +7,7 @@ use cloud_terrastodon_core_azure_types::prelude::Scope;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::time::Duration;

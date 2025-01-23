@@ -1,5 +1,5 @@
-use eyre::Result;
 use cloud_terrastodon_core_pathing::AppDir;
+use eyre::Result;
 use tokio::fs::remove_dir_all;
 use tracing::info;
 use tracing::warn;

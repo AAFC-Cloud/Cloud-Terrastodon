@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use eyre::bail;
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
@@ -24,6 +22,8 @@ use cloud_terrastodon_core_user_input::prelude::pick;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::bail;
+use eyre::Result;
 use tokio::fs::remove_dir_all;
 use tokio::join;
 use tracing::info;

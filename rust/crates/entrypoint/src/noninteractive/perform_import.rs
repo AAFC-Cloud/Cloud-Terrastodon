@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use eyre::Result;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::TofuImporter;
+use eyre::Result;
 use tracing::info;
 use tracing::warn;
 pub async fn perform_import() -> Result<()> {

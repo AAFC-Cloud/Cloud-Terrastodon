@@ -1,10 +1,10 @@
-use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_core_azure_types::prelude::RoleAssignmentId;
 use cloud_terrastodon_core_azure_types::prelude::RoleDefinitionId;
 use cloud_terrastodon_core_azure_types::prelude::Scope;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+use eyre::Result;
 use serde::Deserialize;
 
 pub async fn create_role_assignment(

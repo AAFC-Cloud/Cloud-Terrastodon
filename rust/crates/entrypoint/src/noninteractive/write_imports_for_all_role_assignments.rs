@@ -1,5 +1,3 @@
-use eyre::bail;
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_core_azure::prelude::RoleAssignmentId;
@@ -14,6 +12,8 @@ use cloud_terrastodon_core_tofu::prelude::TofuProviderBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuProviderKind;
 use cloud_terrastodon_core_tofu::prelude::TofuProviderReference;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
+use eyre::bail;
+use eyre::Result;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use tracing::info;

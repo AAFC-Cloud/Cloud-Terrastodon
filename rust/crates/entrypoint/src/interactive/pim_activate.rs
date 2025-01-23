@@ -1,4 +1,3 @@
-use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::activate_pim_entra_role;
 use cloud_terrastodon_core_azure::prelude::activate_pim_role;
 use cloud_terrastodon_core_azure::prelude::fetch_all_entra_pim_role_definitions;
@@ -16,6 +15,7 @@ use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::prompt_line;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use eyre::Result;
 use humantime::format_duration;
 use itertools::Itertools;
 use std::collections::HashMap;
