@@ -55,6 +55,10 @@ pub async fn fetch_policy_set_definitions(
     cmd.run().await
 }
 
+pub async fn fetch_policy_set_definitions_v2() -> Result<Vec<PolicySetDefinition>> {
+    todo!();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
