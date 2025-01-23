@@ -1,6 +1,6 @@
 use crate::management_groups::fetch_root_management_group;
 use crate::resource_groups::fetch_all_resource_groups;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::EligibleChildResource;
 use cloud_terrastodon_core_azure_types::prelude::EligibleChildResourceKind;
 use cloud_terrastodon_core_azure_types::prelude::HasScope;

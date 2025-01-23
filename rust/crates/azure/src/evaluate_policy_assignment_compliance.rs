@@ -1,6 +1,6 @@
 use crate::prelude::fetch_all_policy_assignments;
 use crate::prelude::ResourceGraphHelper;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::DistinctByScope;
 use cloud_terrastodon_core_azure_types::prelude::PolicyAssignment;
 use cloud_terrastodon_core_azure_types::prelude::Scope;

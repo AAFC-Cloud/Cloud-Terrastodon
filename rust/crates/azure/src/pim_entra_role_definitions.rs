@@ -1,5 +1,5 @@
 use crate::management_groups::fetch_root_management_group;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::PimEntraRoleDefinition;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;

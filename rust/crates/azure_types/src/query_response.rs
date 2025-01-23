@@ -1,5 +1,5 @@
-use anyhow::Context;
-use anyhow::Result;
+use eyre::Context;
+use eyre::Result;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -60,7 +60,7 @@ impl<T> TryFrom<RawResourceGraphQueryResponse> for ResourceGraphQueryResponse<T>
 where
     T: for<'de> Deserialize<'de>,
 {
-    type Error = anyhow::Error;
+    type Error = eyre::Error;
 
     fn try_from(value: RawResourceGraphQueryResponse) -> Result<Self> {
         Ok(ResourceGraphQueryResponse {

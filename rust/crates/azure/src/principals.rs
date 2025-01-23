@@ -7,7 +7,7 @@ use crate::prelude::fetch_all_security_groups;
 use crate::prelude::fetch_all_service_principals;
 use crate::prelude::fetch_all_users;
 
-pub async fn fetch_all_principals() -> anyhow::Result<Vec<Principal>> {
+pub async fn fetch_all_principals() -> eyre::Result<Vec<Principal>> {
     info!("Fetching principals (users, security groups, and service principals)");
     let (users, security_groups, service_principals) = try_join!(
         fetch_all_users(),
@@ -29,7 +29,7 @@ mod tests {
     use crate::prelude::fetch_all_principals;
 
     #[tokio::test]
-    async fn it_works() -> anyhow::Result<()> {
+    async fn it_works() -> eyre::Result<()> {
         let found = fetch_all_principals().await?;
         println!("Found {} principals", found.len());
         assert!(found.len() > 10);

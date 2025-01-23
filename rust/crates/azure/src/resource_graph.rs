@@ -1,6 +1,6 @@
 #[cfg(debug_assertions)]
-use anyhow::bail;
-use anyhow::Result;
+use eyre::bail;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::ResourceGraphQueryResponse;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;

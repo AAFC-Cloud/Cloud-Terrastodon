@@ -1,4 +1,4 @@
-use anyhow::bail;
+use eyre::bail;
 use clap::ValueEnum;
 use directories_next::ProjectDirs;
 use once_cell::sync::Lazy;
@@ -72,11 +72,11 @@ impl AppDir {
 
 #[allow(async_fn_in_trait)]
 pub trait Existy {
-    async fn ensure_dir_exists(&self) -> anyhow::Result<()>;
-    async fn ensure_parent_dir_exists(&self) -> anyhow::Result<()>;
+    async fn ensure_dir_exists(&self) -> eyre::Result<()>;
+    async fn ensure_parent_dir_exists(&self) -> eyre::Result<()>;
 }
 impl<T: AsRef<Path>> Existy for T {
-    async fn ensure_dir_exists(&self) -> anyhow::Result<()> {
+    async fn ensure_dir_exists(&self) -> eyre::Result<()> {
         let path = self.as_ref();
         match try_exists(&path).await {
             Ok(true) => {
@@ -99,7 +99,7 @@ impl<T: AsRef<Path>> Existy for T {
             }
         }
     }
-    async fn ensure_parent_dir_exists(&self) -> anyhow::Result<()> {
+    async fn ensure_parent_dir_exists(&self) -> eyre::Result<()> {
         if let Some(parent) = self.as_ref().parent() {
             parent.ensure_dir_exists().await?;
             Ok(())

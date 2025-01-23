@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use hcl::edit::prelude::Span;
 use hcl::edit::structure::Block;
 use std::path::PathBuf;

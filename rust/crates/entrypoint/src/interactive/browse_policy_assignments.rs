@@ -1,4 +1,4 @@
-use anyhow::Context;
+use eyre::Context;
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
@@ -32,7 +32,7 @@ struct PolicyComplianceRow {
     noncompliant_count: u32,
 }
 
-async fn fetch_all_policy_compliance() -> anyhow::Result<Vec<PolicyComplianceRow>> {
+async fn fetch_all_policy_compliance() -> eyre::Result<Vec<PolicyComplianceRow>> {
     info!("Fetching all policy compliance information");
     let query = indoc! {r#"
 policyResources
@@ -64,7 +64,7 @@ policyResources
 }
 
 /// This is a new function that merges “search assigned policies” with a compliance query.
-pub async fn browse_policy_assignments() -> anyhow::Result<()> {
+pub async fn browse_policy_assignments() -> eyre::Result<()> {
     ensure_logged_in().await?;
     info!("Fetching a bunch of data...");
     let (policy_assignments, policy_definitions, mut policy_set_definitions, mut policy_compliance) =

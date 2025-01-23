@@ -1,5 +1,5 @@
 #![feature(let_chains)]
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_entrypoint::prelude::main as entrypoint_main;
 use cloud_terrastodon_core_entrypoint::prelude::Version;
 use itertools::Itertools;
@@ -33,6 +33,7 @@ mod windows_ansi {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    color_eyre::install()?;
     // start logging
 
     let env_filter = EnvFilter::builder()

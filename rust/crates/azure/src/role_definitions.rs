@@ -1,5 +1,5 @@
 use crate::prelude::ResourceGraphHelper;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::RoleDefinition;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use std::path::PathBuf;
@@ -31,7 +31,7 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
+    use eyre::eyre;
     use cloud_terrastodon_core_azure_types::prelude::Scope;
 
     use super::*;
@@ -53,7 +53,7 @@ mod tests {
 
     #[test]
     fn understanding_context() -> Result<()> {
-        let e1 = anyhow!("Something went wrong! (base error)").context("e1 context");
+        let e1 = eyre!("Something went wrong! (base error)").context("e1 context");
         let e2 = e1.context("e2 context");
 
         println!("{e2:#}\n=====\n{e2:#?}\n=====");

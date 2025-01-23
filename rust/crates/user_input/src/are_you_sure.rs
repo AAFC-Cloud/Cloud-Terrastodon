@@ -1,7 +1,7 @@
 use crate::prelude::pick;
 use crate::prelude::FzfArgs;
 
-pub fn are_you_sure(message: String) -> anyhow::Result<bool> {
+pub fn are_you_sure(message: String) -> eyre::Result<bool> {
     let choices = ["Yes", "No"];
     let chosen = pick(FzfArgs {
         choices: choices.into(),

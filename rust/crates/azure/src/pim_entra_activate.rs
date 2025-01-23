@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::EligiblePimEntraRoleAssignment;
 use cloud_terrastodon_core_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_core_azure_types::prelude::RoleAssignmentRequest;

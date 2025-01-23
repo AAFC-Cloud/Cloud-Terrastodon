@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_core_azure_types::prelude::RoleAssignmentId;
 use cloud_terrastodon_core_azure_types::prelude::RoleDefinitionId;

@@ -144,7 +144,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() -> anyhow::Result<()> {
+    fn it_works() -> eyre::Result<()> {
         let user = User::fake();
         let principal = Principal::from(user);
         let encoded = serde_json::to_string_pretty(&principal)?;

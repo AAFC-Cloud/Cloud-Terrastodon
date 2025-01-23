@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::Sanitizable;
@@ -35,7 +35,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     }
 
     if import_blocks.is_empty() {
-        return Err(anyhow!("Imports should not be empty"));
+        return Err(eyre!("Imports should not be empty"));
     }
 
     info!("Writing imports to file");

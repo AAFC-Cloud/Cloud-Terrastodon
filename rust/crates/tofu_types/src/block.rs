@@ -1,6 +1,6 @@
 use crate::prelude::TofuImportBlock;
 use crate::prelude::TofuProviderBlock;
-use anyhow::Result;
+use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use itertools::Itertools;
@@ -22,7 +22,7 @@ impl From<TofuImportBlock> for TofuBlock {
     }
 }
 impl TryFrom<Block> for TofuBlock {
-    type Error = anyhow::Error;
+    type Error = eyre::Error;
     fn try_from(block: Block) -> Result<Self> {
         Ok(match block.ident.as_str() {
             "import" => {

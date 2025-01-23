@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::set_tags_for_resources;
 use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_core_azure::prelude::ResourceGroupId;

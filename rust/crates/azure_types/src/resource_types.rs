@@ -4667,7 +4667,7 @@ pub enum ResourceType {
     Other(String),
 }
 impl std::str::FromStr for ResourceType {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_lowercase().as_str() {
             "astronomer.astro/locations" => {

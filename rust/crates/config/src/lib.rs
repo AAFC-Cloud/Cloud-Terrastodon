@@ -1,6 +1,6 @@
-use anyhow::bail;
-use anyhow::Context;
-use anyhow::Result;
+use eyre::bail;
+use eyre::Context;
+use eyre::Result;
 use cloud_terrastodon_core_pathing::AppDir;
 use once_cell::sync::Lazy;
 use serde::Deserialize;

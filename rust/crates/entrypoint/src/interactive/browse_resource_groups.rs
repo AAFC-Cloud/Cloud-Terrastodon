@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
@@ -24,7 +24,7 @@ pub async fn browse_resource_groups() -> Result<()> {
         let subscription_name = &subscriptions
             .get(&rg.subscription_id)
             .ok_or_else(|| {
-                anyhow!(
+                eyre!(
                     "Failed to find name for subscription with id {}",
                     rg.subscription_id
                 )

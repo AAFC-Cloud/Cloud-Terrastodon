@@ -62,7 +62,7 @@ impl Scope for SubscriptionId {
         &self.expanded
     }
 
-    fn try_from_expanded(expanded: &str) -> anyhow::Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         expanded.parse()
     }
 
@@ -76,7 +76,7 @@ impl Scope for SubscriptionId {
 }
 
 impl FromStr for SubscriptionId {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let uuid = uuid::Uuid::parse_str(

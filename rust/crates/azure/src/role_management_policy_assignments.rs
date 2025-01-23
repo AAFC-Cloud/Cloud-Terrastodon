@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::RoleDefinitionId;
 use cloud_terrastodon_core_azure_types::prelude::RoleManagementPolicyAssignment;
 use cloud_terrastodon_core_azure_types::prelude::Scope;

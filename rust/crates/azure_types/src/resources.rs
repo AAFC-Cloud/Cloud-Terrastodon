@@ -3,7 +3,7 @@ use crate::prelude::ResourceType;
 use crate::prelude::Scope;
 use crate::prelude::ScopeImpl;
 use crate::prelude::ScopeImplKind;
-use anyhow::Result;
+use eyre::Result;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -29,7 +29,7 @@ impl std::fmt::Display for ResourceId {
 }
 
 impl FromStr for ResourceId {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(ResourceId {

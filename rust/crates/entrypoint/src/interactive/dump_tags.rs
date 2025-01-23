@@ -10,7 +10,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::info;
 use tracing::warn;
 
-pub async fn dump_tags() -> anyhow::Result<()> {
+pub async fn dump_tags() -> eyre::Result<()> {
     let path = PathBuf::from("resource_tags.json");
     if try_exists(&path).await.unwrap_or(false) {
         let yes = "yes";

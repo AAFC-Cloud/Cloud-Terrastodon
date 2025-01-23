@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_pathing::Existy;
 use cloud_terrastodon_core_user_input::prelude::pick_many;

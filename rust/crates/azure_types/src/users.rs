@@ -87,7 +87,7 @@ impl Fake for User {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result;
+    use eyre::Result;
 
     #[test]
     fn deserializes() -> Result<()> {

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::create_role_assignment;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_definitions;

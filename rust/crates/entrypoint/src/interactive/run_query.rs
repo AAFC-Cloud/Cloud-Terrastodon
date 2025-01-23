@@ -10,7 +10,7 @@ use serde_json::Value;
 use tracing::debug;
 use tracing::info;
 
-pub async fn run_query_menu() -> anyhow::Result<()> {
+pub async fn run_query_menu() -> eyre::Result<()> {
     let mut query = r#"
 resources 
 | union resourcecontainers

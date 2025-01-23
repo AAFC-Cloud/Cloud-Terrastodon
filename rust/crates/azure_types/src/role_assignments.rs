@@ -19,7 +19,7 @@ use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromResourceScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
-use anyhow::Result;
+use eyre::Result;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
@@ -516,7 +516,7 @@ impl From<ThinRoleAssignment> for TofuImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result;
+    use eyre::Result;
 
     #[test]
     fn deserializes() -> Result<()> {

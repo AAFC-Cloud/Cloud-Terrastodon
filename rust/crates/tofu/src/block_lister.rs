@@ -1,5 +1,5 @@
-use anyhow::Context;
-use anyhow::Result;
+use eyre::Context;
+use eyre::Result;
 use cloud_terrastodon_core_tofu_types::prelude::CodeReference;
 use hcl::edit::structure::Body;
 use std::path::Path;

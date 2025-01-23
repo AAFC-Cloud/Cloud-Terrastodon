@@ -1,4 +1,4 @@
-use anyhow::bail;
+use eyre::bail;
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resources;
@@ -182,7 +182,7 @@ impl Traversal {
         &self,
         clue: &ClueChain<'a>,
         context: &TraversalContext<'a>,
-    ) -> anyhow::Result<Vec<ClueChain<'a>>> {
+    ) -> eyre::Result<Vec<ClueChain<'a>>> {
         let mut rtn = Vec::new();
         match self {
             Traversal::Tags => {
@@ -288,7 +288,7 @@ impl Traversal {
     }
 }
 
-pub async fn find_resource_owners_menu() -> anyhow::Result<()> {
+pub async fn find_resource_owners_menu() -> eyre::Result<()> {
     info!("Ensuring CLI is authenticated");
     ensure_logged_in().await?;
 

@@ -1,6 +1,6 @@
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::bail;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::DistinctByScope;
 use cloud_terrastodon_core_azure_types::prelude::ManagementGroupId;
 use cloud_terrastodon_core_azure_types::prelude::PolicyAssignment;
@@ -65,7 +65,7 @@ pub async fn remediate_policy_assignment() -> Result<()> {
             info!("Found policy set definition - prompting for inner definitions to remediate");
             let reference_ids = policy_set_definition
                 .policy_definitions
-                .ok_or(anyhow!(
+                .ok_or(eyre!(
                     "Expected {policy_set_definition_id:?} to have inner policy definitions"
                 ))?
                 .into_iter()

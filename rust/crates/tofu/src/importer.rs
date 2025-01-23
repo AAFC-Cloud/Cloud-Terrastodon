@@ -1,6 +1,6 @@
-use anyhow::anyhow;
-use anyhow::Context;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Context;
+use eyre::Result;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::OutputBehaviour;
@@ -25,7 +25,7 @@ impl TofuImporter {
     pub async fn run(&mut self) -> Result<()> {
         // Check preconditions
         let Some(ref imports_dir) = self.imports_dir else {
-            return Err(anyhow!("Dir must be set with using_dir"));
+            return Err(eyre!("Dir must be set with using_dir"));
         };
 
         // Open boilerplate file
@@ -56,8 +56,8 @@ impl TofuImporter {
         let generated_path = imports_dir.join("generated.tf");
         if generated_path.exists() {
             if !generated_path.is_file() {
-                return Err(anyhow!("generated output path exists but is not a file")
-                    .context(generated_path.to_string_lossy().into_owned()));
+                return Err(eyre!("generated output path exists but is not a file")
+                    .wrap_err(generated_path.to_string_lossy().into_owned()));
             }
             fs::remove_file(generated_path).await?;
         }

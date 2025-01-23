@@ -54,6 +54,8 @@ quote = "1.0.37"
 proc-macro2 = "1.0.89"
 prettyplease = "0.2.25"
 syn = { version = "2.0.87", default-features = false, features = ["full", "parsing", "printing"] }
+eyre = "0.6.12"
+color-eyre = "0.6.3"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58.0", features = [
@@ -68,7 +70,8 @@ embed-resource = "1.6.3"
 [dependencies]
 cloud_terrastodon_core_entrypoint = { workspace = true }
 tokio = { workspace = true }
-anyhow = { workspace = true }
+eyre = { workspace = true }
+color-eyre = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 itertools = { workspace = true }

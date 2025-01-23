@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::UserId;
 use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;

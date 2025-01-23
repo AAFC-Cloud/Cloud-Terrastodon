@@ -23,7 +23,7 @@ impl AzureDevopsProjectId {
     }
 }
 impl FromStr for AzureDevopsProjectId {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let uuid = Uuid::parse_str(s)?;

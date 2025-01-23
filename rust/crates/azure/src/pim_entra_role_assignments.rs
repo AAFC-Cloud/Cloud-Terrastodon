@@ -1,5 +1,5 @@
 use crate::prelude::fetch_current_user;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::PimEntraRoleAssignment;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;

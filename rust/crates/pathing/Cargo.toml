@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = { workspace = true }
+eyre = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }

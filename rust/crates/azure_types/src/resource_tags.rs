@@ -3,8 +3,8 @@ use crate::prelude::HasScope;
 use crate::prelude::Scope;
 use crate::prelude::ScopeImpl;
 use crate::prelude::ScopeImplKind;
-use anyhow::Context;
-use anyhow::Result;
+use eyre::Context;
+use eyre::Result;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -35,7 +35,7 @@ impl std::fmt::Display for ResourceTagsId {
 }
 
 impl FromStr for ResourceTagsId {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         strip_suffix_case_insensitive(s, TAGS_SUFFIX).context(format!(

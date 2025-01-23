@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
 use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
@@ -21,7 +21,7 @@ pub struct BodyFormatter {
     attrs: Vec<Attribute>,
 }
 impl TryFrom<Body> for BodyFormatter {
-    type Error = anyhow::Error;
+    type Error = eyre::Error;
 
     fn try_from(src: Body) -> Result<Self> {
         let mut rtn = BodyFormatter::default();
@@ -44,22 +44,22 @@ impl TryFrom<Body> for BodyFormatter {
                                 .body
                                 .get_attribute("id")
                                 .ok_or(
-                                    anyhow!("import block missing attribute \"id\" ")
-                                        .context(block.as_tofu_string()),
+                                    eyre!("import block missing attribute \"id\" ")
+                                        .wrap_err(block.as_tofu_string()),
                                 )?
                                 .value
                                 .as_str()
                                 .ok_or(
-                                    anyhow!("import block attribute \"id\" not a string")
-                                        .context(block.as_tofu_string()),
+                                    eyre!("import block attribute \"id\" not a string")
+                                        .wrap_err(block.as_tofu_string()),
                                 )?
                                 .to_string();
                             let key = block
                                 .body
                                 .get_attribute("to")
                                 .ok_or(
-                                    anyhow!("import block missing attribute \"to\"")
-                                        .context(block.as_tofu_string()),
+                                    eyre!("import block missing attribute \"to\"")
+                                        .wrap_err(block.as_tofu_string()),
                                 )?
                                 .value
                                 .to_string();

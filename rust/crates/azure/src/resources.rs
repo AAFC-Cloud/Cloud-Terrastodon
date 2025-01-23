@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::Resource;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use tracing::info;

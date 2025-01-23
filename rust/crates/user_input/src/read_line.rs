@@ -1,7 +1,7 @@
 use std::io::Write;
 
-use anyhow::Context;
-use anyhow::Result;
+use eyre::Context;
+use eyre::Result;
 use tokio::io;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;

@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::get_imports_from_existing;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
@@ -17,7 +17,7 @@ pub async fn build_imports_from_existing() -> Result<()> {
 
     let imports = get_imports_from_existing(tf_dir).await?;
     if imports.is_empty() {
-        return Err(anyhow!("Imports should not be empty"));
+        return Err(eyre!("Imports should not be empty"));
     }
 
     TofuWriter::new(AppDir::Imports.join(name))

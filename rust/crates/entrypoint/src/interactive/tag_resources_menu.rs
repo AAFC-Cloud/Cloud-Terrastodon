@@ -12,7 +12,7 @@ use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn tag_resources_menu() -> anyhow::Result<()> {
+pub async fn tag_resources_menu() -> eyre::Result<()> {
     let resource_groups = fetch_all_resource_groups().await?;
     let resource_group = pick(FzfArgs {
         choices: resource_groups

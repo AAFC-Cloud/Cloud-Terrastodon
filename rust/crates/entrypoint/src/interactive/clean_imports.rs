@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_pathing::AppDir;
 use std::path::PathBuf;
 use tokio::fs;

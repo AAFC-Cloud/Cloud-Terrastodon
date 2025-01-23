@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use anyhow::bail;
-use anyhow::Result;
+use eyre::bail;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;

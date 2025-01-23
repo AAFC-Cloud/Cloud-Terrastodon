@@ -10,9 +10,9 @@ use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::subscriptions::SubscriptionId;
-use anyhow::bail;
-use anyhow::Context;
-use anyhow::Result;
+use eyre::bail;
+use eyre::Context;
+use eyre::Result;
 use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
@@ -85,7 +85,7 @@ impl TryFromSubscriptionScoped for ResourceGroupId {
 }
 
 impl FromStr for ResourceGroupId {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(expanded_form: &str) -> Result<Self, Self::Err> {
         // /subscriptions/0000-000-00000/resourceGroups/My-Resource-Group/optional/other/stuff
@@ -221,7 +221,7 @@ impl From<ResourceGroup> for TofuImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result;
+    use eyre::Result;
 
     #[test]
     fn deserializes() -> Result<()> {

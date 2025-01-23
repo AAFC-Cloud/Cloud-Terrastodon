@@ -1,5 +1,5 @@
 use crate::data_lookup_holder::DataLookupHolder;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::NameLookupHelper;
 use cloud_terrastodon_core_azure::prelude::ScopeImpl;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMDataKind;

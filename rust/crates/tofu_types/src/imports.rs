@@ -4,7 +4,7 @@ use crate::prelude::AsTofuString;
 use crate::prelude::TofuProviderKind;
 use crate::prelude::TofuResourceReference;
 use crate::providers::TofuProviderReference;
-use anyhow::bail;
+use eyre::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::TraversalOperator;
 use hcl::edit::parser;
@@ -64,7 +64,7 @@ impl TryFrom<TofuImportBlock> for Block {
 }
 
 impl TryFrom<Block> for TofuImportBlock {
-    type Error = anyhow::Error;
+    type Error = eyre::Error;
 
     fn try_from(mut block: Block) -> Result<Self, Self::Error> {
         let ident = block.ident.as_str();
@@ -157,7 +157,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn conversaion_parity1() -> anyhow::Result<()> {
+    fn conversaion_parity1() -> eyre::Result<()> {
         let import = TofuImportBlock {
             provider: TofuProviderReference::Inherited,
             id: "abc123".to_string(),
@@ -173,7 +173,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn conversaion_parity2() -> anyhow::Result<()> {
+    fn conversaion_parity2() -> eyre::Result<()> {
         let import = TofuImportBlock {
             provider: TofuProviderReference::Alias {
                 kind: TofuProviderKind::AzureRM,
@@ -192,7 +192,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn import_block_conversion1() -> anyhow::Result<()> {
+    fn import_block_conversion1() -> eyre::Result<()> {
         let content = r#"
             import {
                 provider = azurerm.abc
@@ -217,7 +217,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn import_block_conversion2() -> anyhow::Result<()> {
+    fn import_block_conversion2() -> eyre::Result<()> {
         let content = r#"
             import {
                 id = "123"
@@ -238,7 +238,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn import_block_conversion3() -> anyhow::Result<()> {
+    fn import_block_conversion3() -> eyre::Result<()> {
         let content = r#"
             import {
                 provider = azurerm

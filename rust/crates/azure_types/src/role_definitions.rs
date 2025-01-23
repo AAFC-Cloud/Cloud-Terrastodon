@@ -5,8 +5,8 @@ use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
-use anyhow::bail;
-use anyhow::Result;
+use eyre::bail;
+use eyre::Result;
 use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
@@ -54,7 +54,7 @@ impl std::fmt::Display for RoleDefinitionId {
 }
 
 impl FromStr for RoleDefinitionId {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(expanded: &str) -> Result<Self, Self::Err> {
         if strip_prefix_case_insensitive(expanded, ROLE_DEFINITION_ID_PREFIX).is_err() {
@@ -193,7 +193,7 @@ impl From<RoleDefinition> for TofuImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result;
+    use eyre::Result;
     use uuid::Uuid;
 
     #[test]

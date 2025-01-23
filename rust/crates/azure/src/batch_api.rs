@@ -1,5 +1,5 @@
-use anyhow::bail;
-use anyhow::Result;
+use eyre::bail;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;

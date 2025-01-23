@@ -5,7 +5,7 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
 
-pub async fn dump_security_groups_as_json() -> anyhow::Result<()> {
+pub async fn dump_security_groups_as_json() -> eyre::Result<()> {
     info!("Fetching security_groups");
     let mut security_groups = fetch_all_security_groups().await?;
     security_groups.sort_by(|x, y| x.display_name.cmp(&y.display_name));

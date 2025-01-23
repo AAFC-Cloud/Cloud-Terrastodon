@@ -1,5 +1,5 @@
-use anyhow::bail;
-use anyhow::Result;
+use eyre::bail;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_security_groups;

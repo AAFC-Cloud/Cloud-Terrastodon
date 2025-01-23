@@ -4,7 +4,7 @@ use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
-use anyhow::Result;
+use eyre::Result;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -53,7 +53,7 @@ impl Scope for TestResourceId {
 }
 
 impl FromStr for TestResourceId {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let slug = strip_prefix_case_insensitive(s, TEST_ID_PREFIX)?;

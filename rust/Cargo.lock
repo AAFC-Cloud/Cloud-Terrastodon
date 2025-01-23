@@ -97,12 +97,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.82"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f538837af36e6f6a9be0faa67f9a314f8119e4e4b5867c6ab40ed60360142519"
-
-[[package]]
 name = "async-recursion"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -255,9 +249,10 @@ checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 name = "cloud_terrastodon"
 version = "0.6.0-pre"
 dependencies = [
- "anyhow",
  "cloud_terrastodon_core_entrypoint",
+ "color-eyre",
  "embed-resource",
+ "eyre",
  "itertools 0.12.1",
  "tokio",
  "tracing",
@@ -269,12 +264,12 @@ dependencies = [
 name = "cloud_terrastodon_core_azure"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "cloud_terrastodon_core_azure_types",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_pathing",
  "cloud_terrastodon_core_tofu_types",
  "cloud_terrastodon_core_user_input",
+ "eyre",
  "humantime",
  "indicatif",
  "indoc",
@@ -296,12 +291,12 @@ dependencies = [
 name = "cloud_terrastodon_core_azure_devops"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "cloud_terrastodon_core_azure_devops_types",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_pathing",
  "cloud_terrastodon_core_tofu_types",
  "cloud_terrastodon_core_user_input",
+ "eyre",
  "humantime",
  "indicatif",
  "indoc",
@@ -319,12 +314,12 @@ dependencies = [
 name = "cloud_terrastodon_core_azure_devops_types"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "chrono",
  "clap",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_tofu_types",
  "cloud_terrastodon_core_user_input",
+ "eyre",
  "iso8601-duration",
  "itertools 0.12.1",
  "serde",
@@ -338,12 +333,12 @@ dependencies = [
 name = "cloud_terrastodon_core_azure_types"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "chrono",
  "clap",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_tofu_types",
  "cloud_terrastodon_core_user_input",
+ "eyre",
  "iso8601-duration",
  "itertools 0.12.1",
  "serde",
@@ -357,11 +352,11 @@ dependencies = [
 name = "cloud_terrastodon_core_command"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-recursion",
  "chrono",
  "cloud_terrastodon_core_config",
  "cloud_terrastodon_core_pathing",
+ "eyre",
  "humantime",
  "serde",
  "serde_json",
@@ -374,8 +369,8 @@ dependencies = [
 name = "cloud_terrastodon_core_config"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "cloud_terrastodon_core_pathing",
+ "eyre",
  "once_cell",
  "serde",
  "serde_json",
@@ -387,7 +382,6 @@ dependencies = [
 name = "cloud_terrastodon_core_entrypoint"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-recursion",
  "chrono",
  "clap",
@@ -398,6 +392,7 @@ dependencies = [
  "cloud_terrastodon_core_tofu",
  "cloud_terrastodon_core_user_input",
  "cloud_terrastodon_ui",
+ "eyre",
  "humantime",
  "indexmap",
  "indicatif",
@@ -421,9 +416,9 @@ dependencies = [
 name = "cloud_terrastodon_core_pathing"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "clap",
  "directories-next",
+ "eyre",
  "once_cell",
  "tokio",
  "tracing",
@@ -433,11 +428,11 @@ dependencies = [
 name = "cloud_terrastodon_core_tofu"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "cloud_terrastodon_core_azure",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_pathing",
  "cloud_terrastodon_core_tofu_types",
+ "eyre",
  "hcl-rs",
  "indicatif",
  "indoc",
@@ -452,9 +447,9 @@ dependencies = [
 name = "cloud_terrastodon_core_tofu_types"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_user_input",
+ "eyre",
  "hcl-primitives",
  "hcl-rs",
  "indoc",
@@ -468,7 +463,7 @@ dependencies = [
 name = "cloud_terrastodon_core_user_input"
 version = "0.1.0"
 dependencies = [
- "anyhow",
+ "eyre",
  "indexmap",
  "itertools 0.12.1",
  "tokio",
@@ -478,8 +473,8 @@ dependencies = [
 name = "cloud_terrastodon_ui"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "crossterm",
+ "eyre",
  "futures",
  "itertools 0.12.1",
  "ratatui",
@@ -487,6 +482,33 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "color-eyre"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55146f5e46f237f7423d74111267d4597b59b0dad0ffaf7303bce9945d843ad5"
+dependencies = [
+ "backtrace",
+ "color-spantrace",
+ "eyre",
+ "indenter",
+ "once_cell",
+ "owo-colors",
+ "tracing-error",
+]
+
+[[package]]
+name = "color-spantrace"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd6be1b2a7e382e2b98b43b2adcca6bb0e465af0bdd38123873ae61eb17a72c2"
+dependencies = [
+ "once_cell",
+ "owo-colors",
+ "tracing-core",
+ "tracing-error",
 ]
 
 [[package]]
@@ -646,6 +668,16 @@ checksum = "a258e46cdc063eb8519c00b9fc845fc47bcfca4130e2f08e88665ceda8474245"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "eyre"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cd915d99f24784cdc19fd37ef22b97e3ff0ae756c7e492e9fbfe897d61e2aec"
+dependencies = [
+ "indenter",
+ "once_cell",
 ]
 
 [[package]]
@@ -868,6 +900,12 @@ checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
 ]
+
+[[package]]
+name = "indenter"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce23b50ad8242c51a442f3ff322d56b02f08852c77e4c0b4d3fd684abc89c683"
 
 [[package]]
 name = "indexmap"
@@ -1181,6 +1219,12 @@ name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
+
+[[package]]
+name = "owo-colors"
+version = "3.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
 name = "parking_lot"
@@ -1709,6 +1753,16 @@ checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
 dependencies = [
  "once_cell",
  "valuable",
+]
+
+[[package]]
+name = "tracing-error"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b1581020d7a273442f5b45074a6a57d5757ad0a47dac0e9f0bd57b81936f3db"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

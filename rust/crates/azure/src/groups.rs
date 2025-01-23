@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::Group;
 use cloud_terrastodon_core_azure_types::prelude::GroupId;
 use cloud_terrastodon_core_azure_types::prelude::Principal;
@@ -54,7 +54,7 @@ pub async fn fetch_group_owners(group_id: GroupId) -> Result<Vec<Principal>> {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::bail;
+    use eyre::bail;
 
     use super::*;
 

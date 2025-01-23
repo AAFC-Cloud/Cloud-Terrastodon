@@ -16,11 +16,11 @@ use crate::resource_groups::RESOURCE_GROUP_ID_PREFIX;
 use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
 use crate::subscriptions::SubscriptionId;
 use crate::subscriptions::SUBSCRIPTION_ID_PREFIX;
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Context;
-use anyhow::Error;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::bail;
+use eyre::Context;
+use eyre::Error;
+use eyre::Result;
 use clap::ValueEnum;
 use serde::de::Visitor;
 use serde::de::{self};
@@ -145,15 +145,15 @@ fn strip_provider_and_resource(expanded: &str) -> Result<&str> {
     // Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
     let (_, remaining) = remaining
         .split_once('/')
-        .ok_or_else(|| anyhow!("Missing provider"))?;
+        .ok_or_else(|| eyre!("Missing provider"))?;
     // vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
     let (_, remaining) = remaining
         .split_once('/')
-        .ok_or_else(|| anyhow!("Missing resource type"))?;
+        .ok_or_else(|| eyre!("Missing resource type"))?;
     // my-vault/providers/Microsoft.Authorization/roleAssignments/0000
     let (_, remaining) = remaining
         .split_once('/')
-        .ok_or_else(|| anyhow!("Missing resource name"))?;
+        .ok_or_else(|| eyre!("Missing resource name"))?;
     // providers/Microsoft.Authorization/roleAssignments/0000
     let remaining = &expanded[expanded.len() - remaining.len() - 1..];
     // /providers/Microsoft.Authorization/roleAssignments/0000
@@ -212,7 +212,7 @@ where
             .to_lowercase()
             .rfind(&prefix.to_lowercase())
             .ok_or_else(|| {
-                anyhow!("String {remaining:?} must contain {prefix} (case insensitive)")
+                eyre!("String {remaining:?} must contain {prefix} (case insensitive)")
             })?;
         let name = &remaining[prefix_pos + prefix.len()..];
         Self::validate_name(name).context("validating name")?;

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use anyhow::Result;
+use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::IntoBlocks;

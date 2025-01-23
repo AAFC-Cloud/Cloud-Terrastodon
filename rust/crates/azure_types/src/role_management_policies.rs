@@ -8,7 +8,7 @@ use crate::scopes::TryFromManagementGroupScoped;
 use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
-use anyhow::Result;
+use eyre::Result;
 use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;

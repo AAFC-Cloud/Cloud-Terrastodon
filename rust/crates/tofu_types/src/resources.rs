@@ -1,6 +1,6 @@
 use crate::providers::TofuProviderKind;
-use anyhow::bail;
-use anyhow::Context;
+use eyre::bail;
+use eyre::Context;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::Traversal;
 use hcl::edit::expr::TraversalOperator;
@@ -24,7 +24,7 @@ impl std::fmt::Display for TofuResourceKind {
     }
 }
 impl FromStr for TofuResourceKind {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(azurerm) = s.parse::<TofuAzureRMResourceKind>() {
@@ -43,7 +43,7 @@ pub struct TofuOtherResourceKind {
     resource: String,
 }
 impl FromStr for TofuOtherResourceKind {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let Some((provider, resource)) = s.split_once('_') else {
@@ -108,7 +108,7 @@ impl AsRef<str> for TofuAzureRMResourceKind {
     }
 }
 impl FromStr for TofuAzureRMResourceKind {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let provider_prefix = TofuProviderKind::AzureRM.provider_prefix();
@@ -161,7 +161,7 @@ impl AsRef<str> for TofuAzureADResourceKind {
     }
 }
 impl FromStr for TofuAzureADResourceKind {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let provider_prefix = TofuProviderKind::AzureAD.provider_prefix();
@@ -285,7 +285,7 @@ impl TryFrom<TofuResourceReference> for Expression {
     }
 }
 impl FromStr for TofuResourceReference {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let expr = s.parse::<Expression>()?;
@@ -294,7 +294,7 @@ impl FromStr for TofuResourceReference {
     }
 }
 impl TryFrom<Expression> for TofuResourceReference {
-    type Error = anyhow::Error;
+    type Error = eyre::Error;
 
     fn try_from(expr: Expression) -> Result<Self, Self::Error> {
         let Expression::Traversal(traversal) = expr else {
@@ -304,7 +304,7 @@ impl TryFrom<Expression> for TofuResourceReference {
     }
 }
 impl TryFrom<Box<Traversal>> for TofuResourceReference {
-    type Error = anyhow::Error;
+    type Error = eyre::Error;
 
     fn try_from(mut traversal: Box<Traversal>) -> Result<Self, Self::Error> {
         let Expression::Variable(first) = &traversal.expr else {
@@ -354,7 +354,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn simple() -> anyhow::Result<()> {
+    fn simple() -> eyre::Result<()> {
         let x = TofuResourceReference::AzureRM {
             kind: TofuAzureRMResourceKind::ResourceGroup,
             name: "my-rg".to_string(),
@@ -365,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_azurerm_role_assignment() -> anyhow::Result<()> {
+    fn parse_azurerm_role_assignment() -> eyre::Result<()> {
         let kind: TofuResourceKind = "azurerm_role_assignment".parse()?;
         assert_eq!(
             kind,
@@ -375,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_azurerm_other() -> anyhow::Result<()> {
+    fn parse_azurerm_other() -> eyre::Result<()> {
         let kind: TofuResourceKind = "azurerm_synapse_workspace".parse()?;
         assert_eq!(
             kind,
@@ -387,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_azuread_group() -> anyhow::Result<()> {
+    fn parse_azuread_group() -> eyre::Result<()> {
         let kind: TofuResourceKind = "azuread_group".parse()?;
         assert_eq!(
             kind,
@@ -396,7 +396,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn parse_azuread_other() -> anyhow::Result<()> {
+    fn parse_azuread_other() -> eyre::Result<()> {
         let kind: TofuResourceKind = "azuread_thingy".parse()?;
         assert_eq!(
             kind,
@@ -405,7 +405,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn parse_tofu_resource_reference1() -> anyhow::Result<()> {
+    fn parse_tofu_resource_reference1() -> eyre::Result<()> {
         let thing = "azurerm_storage_account.bruh";
         let x: TofuResourceReference = thing.parse()?;
         let expected = TofuResourceReference::AzureRM {
@@ -416,7 +416,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn parse_tofu_azurerm_resource_kind() -> anyhow::Result<()> {
+    fn parse_tofu_azurerm_resource_kind() -> eyre::Result<()> {
         let thing = "azurerm_storage_account";
         let x: TofuAzureRMResourceKind = thing.parse()?;
         let expected = TofuAzureRMResourceKind::StorageAccount;

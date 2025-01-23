@@ -1,7 +1,7 @@
-use anyhow::bail;
-use anyhow::Context;
-use anyhow::Error;
-use anyhow::Result;
+use eyre::bail;
+use eyre::Context;
+use eyre::Error;
+use eyre::Result;
 use async_recursion::async_recursion;
 use chrono::DateTime;
 use chrono::Local;
@@ -592,7 +592,7 @@ impl CommandBuilder {
                     return output;
                 }
                 (_, o) => {
-                    return Err(Error::from(o).context(format!(
+                    return Err(Error::from(o).wrap_err(format!(
                         "Command did not execute successfully: {}",
                         self.summarize()
                     )));
@@ -627,7 +627,7 @@ impl CommandBuilder {
             Ok(results) => Ok(results),
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
-                Err(anyhow::Error::new(e).context(format!(
+                Err(eyre::Error::new(e).wrap_err(format!(
                     "deserializing {} failed, dumped to {:?}",
                     self.summarize(),
                     dir
@@ -658,7 +658,7 @@ impl CommandBuilder {
             },
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
-                Err(anyhow::Error::new(e).context(format!(
+                Err(eyre::Error::new(e).wrap_err(format!(
                     "deserializing {} failed, dumped to {:?}",
                     self.summarize(),
                     dir
@@ -818,7 +818,7 @@ Resources
                     println!("result1: {result1:?}\nresult2: {result2:?}\nresult3: {result3:?}");
                     assert_eq!(result1, result2);
                     assert_ne!(result1, result3);
-                    Ok::<(), anyhow::Error>(())
+                    Ok::<(), eyre::Error>(())
                 })
                 .unwrap();
         })?;

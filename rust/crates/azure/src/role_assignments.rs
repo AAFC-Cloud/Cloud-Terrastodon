@@ -1,6 +1,6 @@
 use crate::prelude::gather_from_subscriptions;
 use crate::prelude::ResourceGraphHelper;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::RoleAssignment;
 use cloud_terrastodon_core_azure_types::prelude::Scope;
 use cloud_terrastodon_core_azure_types::prelude::Subscription;
@@ -71,7 +71,7 @@ authorizationresources
 mod tests {
     use std::any::type_name;
 
-    use anyhow::bail;
+    use eyre::bail;
     use cloud_terrastodon_core_azure_types::prelude::RoleAssignmentId;
     use cloud_terrastodon_core_azure_types::prelude::SubscriptionScoped;
     use cloud_terrastodon_core_azure_types::prelude::SubscriptionScopedRoleAssignmentId;

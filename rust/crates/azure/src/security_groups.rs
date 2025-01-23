@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::Group;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use std::path::PathBuf;

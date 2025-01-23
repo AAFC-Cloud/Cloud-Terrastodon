@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_core_azure::prelude::Subscription;
@@ -32,7 +32,7 @@ pub async fn write_imports_for_all_resource_groups() -> Result<()> {
     for rg in resource_groups {
         let sub = subscriptions
             .get(&rg.subscription_id)
-            .ok_or_else(|| anyhow!("could not find subscription for resource group {rg:?}"))?;
+            .ok_or_else(|| eyre!("could not find subscription for resource group {rg:?}"))?;
         let mut block: TofuImportBlock = rg.into();
         block.provider = TofuProviderReference::Alias {
             kind: TofuProviderKind::AzureRM,
@@ -43,7 +43,7 @@ pub async fn write_imports_for_all_resource_groups() -> Result<()> {
         used_subscriptions.insert(sub);
     }
     if imports.is_empty() {
-        return Err(anyhow!("Imports should not be empty"));
+        return Err(eyre!("Imports should not be empty"));
     }
 
     info!("Writing import blocks");

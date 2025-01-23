@@ -1,5 +1,5 @@
 use crate::prelude::ResourceGraphHelper;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::PolicyDefinition;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use std::path::PathBuf;

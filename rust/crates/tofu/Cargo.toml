@@ -11,7 +11,7 @@ cloud_terrastodon_core_azure = { workspace = true }
 cloud_terrastodon_core_command = { workspace = true }
 cloud_terrastodon_core_pathing = { workspace = true }
 tokio = { workspace = true }
-anyhow = { workspace = true }
+eyre = { workspace = true }
 itertools = { workspace = true }
 indoc = { workspace = true }
 hcl-rs = { workspace = true }

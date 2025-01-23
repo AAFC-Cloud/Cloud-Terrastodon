@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::visit_expr_mut;
 use hcl::edit::visit_mut::VisitMut;
@@ -17,7 +17,7 @@ impl VisitMut for JsonPatcher {
             };
             // Must contain a quote
             if !node_content.contains('"') {
-                return Err(anyhow!("not json"));
+                return Err(eyre!("not json"));
             }
 
             // Prettify json, failing if not json
@@ -29,7 +29,7 @@ impl VisitMut for JsonPatcher {
             let json_encode_expr = body
                 .into_attributes()
                 .next()
-                .ok_or(anyhow!("'a' not found"))?
+                .ok_or(eyre!("'a' not found"))?
                 .value;
 
             // Update node

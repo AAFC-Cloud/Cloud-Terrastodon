@@ -4,7 +4,7 @@ use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn browse_policy_definitions() -> anyhow::Result<()> {
+pub async fn browse_policy_definitions() -> eyre::Result<()> {
     let policy_definitions = fetch_all_policy_definitions().await?;
     let chosen = pick_many(FzfArgs {
         choices: policy_definitions,

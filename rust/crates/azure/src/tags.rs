@@ -3,7 +3,7 @@ use crate::prelude::BatchRequest;
 use crate::prelude::BatchRequestEntry;
 use crate::prelude::BatchResponse;
 use crate::prelude::HttpMethod;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::ResourceTagsId;
 use cloud_terrastodon_core_azure_types::prelude::Scope;
 use itertools::Itertools;

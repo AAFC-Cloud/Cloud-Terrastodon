@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_definitions;

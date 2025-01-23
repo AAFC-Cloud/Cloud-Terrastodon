@@ -1,7 +1,7 @@
-use anyhow::anyhow;
-use anyhow::Context;
-use anyhow::Error;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::ContextCompat;
+use eyre::Error;
+use eyre::Result;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use std::ffi::OsStr;
@@ -120,7 +120,7 @@ where
                 .map(|x| x.to_string())
                 .unwrap_or("code was None".to_string())
         );
-        return Err(Error::msg(msg).context("did you ctrl+c?"));
+        return Err(Error::msg(msg).wrap_err("did you ctrl+c?"));
     }
 
     // Parse output
@@ -167,7 +167,7 @@ where
     outer(args, [] as [&str; 0])?
         .into_iter()
         .next()
-        .ok_or(anyhow!("No results were received"))
+        .ok_or(eyre!("No results were received"))
 }
 
 /// Prompt the user to pick from a predetermined list of options.

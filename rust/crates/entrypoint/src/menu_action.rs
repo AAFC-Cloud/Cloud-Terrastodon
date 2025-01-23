@@ -36,7 +36,7 @@ use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::evaluate_policy_assignment_compliance;
 use cloud_terrastodon_core_azure::prelude::remediate_policy_assignment;
 use cloud_terrastodon_core_command::prelude::USE_TERRAFORM_FLAG_KEY;

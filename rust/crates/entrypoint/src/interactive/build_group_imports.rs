@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_groups;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
@@ -26,7 +26,7 @@ pub async fn build_group_imports() -> Result<()> {
     let imports: Vec<TofuImportBlock> = chosen.into_iter().map(|x| x.into()).collect_vec();
 
     if imports.is_empty() {
-        return Err(anyhow!("Imports should not be empty"));
+        return Err(eyre!("Imports should not be empty"));
     }
 
     TofuWriter::new(AppDir::Imports.join("group_imports.tf"))

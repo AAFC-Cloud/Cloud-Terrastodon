@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 cloud_terrastodon_core_pathing = {workspace = true}
-anyhow = { workspace = true }
+eyre = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 once_cell = { workspace = true }

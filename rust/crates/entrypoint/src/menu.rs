@@ -1,7 +1,7 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
-use anyhow::Context;
-use anyhow::Result;
+use eyre::Context;
+use eyre::Result;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::prompt_line;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;

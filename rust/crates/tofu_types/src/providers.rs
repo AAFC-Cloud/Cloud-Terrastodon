@@ -1,4 +1,4 @@
-use anyhow::bail;
+use eyre::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::TraversalOperator;
 use hcl::edit::parser;
@@ -30,7 +30,7 @@ impl std::fmt::Display for TofuProviderKind {
     }
 }
 impl FromStr for TofuProviderKind {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         for char in s.chars() {
@@ -92,7 +92,7 @@ impl TofuProviderReference {
     }
 }
 impl TryFrom<Block> for TofuProviderReference {
-    type Error = anyhow::Error;
+    type Error = eyre::Error;
     // TODO: optimize this to take a reference instead of cloning the block; make it a custom trait
     fn try_from(block: Block) -> Result<Self, Self::Error> {
         let Some(provider_attr) = block.body.get_attribute("provider") else {
@@ -197,7 +197,7 @@ impl From<TofuProviderBlock> for Block {
     }
 }
 impl TryFrom<Block> for TofuProviderBlock {
-    type Error = anyhow::Error;
+    type Error = eyre::Error;
 
     fn try_from(block: Block) -> Result<Self, Self::Error> {
         // Preconditions
@@ -251,7 +251,7 @@ mod tests {
     use std::collections::HashSet;
 
     #[test]
-    fn it_works1() -> anyhow::Result<()> {
+    fn it_works1() -> eyre::Result<()> {
         let provider = TofuProviderBlock::AzureRM {
             alias: Some("bruh".to_string()),
             subscription_id: Some("abc".to_string()),
@@ -263,7 +263,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn it_works2() -> anyhow::Result<()> {
+    fn it_works2() -> eyre::Result<()> {
         let provider = TofuProviderBlock::AzureAD { alias: None };
         let block: Block = provider.clone().try_into()?;
         println!("{}", block.as_tofu_string());
@@ -272,7 +272,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn it_works3() -> anyhow::Result<()> {
+    fn it_works3() -> eyre::Result<()> {
         let provider = TofuProviderBlock::AzureAD {
             alias: Some("yeehaw".to_string()),
         };

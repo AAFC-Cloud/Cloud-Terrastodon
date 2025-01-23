@@ -7,7 +7,7 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromResourceGroupScoped;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
@@ -139,7 +139,7 @@ mod tests {
     use crate::prelude::ResourceGroupId;
 
     use super::*;
-    use anyhow::Result;
+    use eyre::Result;
     use uuid::Uuid;
 
     #[test]

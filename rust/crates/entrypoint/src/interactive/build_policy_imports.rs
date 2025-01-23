@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
@@ -59,7 +59,7 @@ pub async fn build_policy_imports() -> Result<()> {
     }
 
     if imports.is_empty() {
-        return Err(anyhow!("Imports should not be empty"));
+        return Err(eyre!("Imports should not be empty"));
     }
 
     TofuWriter::new(AppDir::Imports.join("policy_imports.tf"))

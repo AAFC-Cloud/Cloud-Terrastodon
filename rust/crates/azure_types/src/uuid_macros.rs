@@ -30,7 +30,7 @@ macro_rules! impl_uuid_traits {
         }
 
         impl std::str::FromStr for $type {
-            type Err = anyhow::Error;
+            type Err = eyre::Error;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 Ok(Self::new(uuid::Uuid::parse_str(s)?))

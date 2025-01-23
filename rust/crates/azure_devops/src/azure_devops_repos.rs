@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsProjectId;
 use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsRepo;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;

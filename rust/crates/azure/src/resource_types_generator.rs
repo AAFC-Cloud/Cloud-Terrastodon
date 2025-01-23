@@ -19,7 +19,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn gen_definitions() -> anyhow::Result<()> {
+    async fn gen_definitions() -> eyre::Result<()> {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args([
             "rest",
@@ -95,7 +95,7 @@ mod tests {
             .collect();
         let impl_fromstr = quote! {
             impl std::str::FromStr for ResourceType {
-                type Err = anyhow::Error;
+                type Err = eyre::Error;
                 fn from_str(value: &str) -> Result<Self, Self::Err> {
                     match value.to_lowercase().as_str() {
                         #(#match_arms)*

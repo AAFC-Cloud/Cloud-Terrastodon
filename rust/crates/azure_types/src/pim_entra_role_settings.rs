@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use anyhow::bail;
-use anyhow::Result;
+use eyre::bail;
+use eyre::Result;
 use serde::de;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;

@@ -12,8 +12,8 @@ use crate::scopes::TryFromManagementGroupScoped;
 use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use core::any::type_name;
 use serde::de::Error;
 use serde::de::Visitor;
@@ -43,7 +43,7 @@ impl NameValidatable for RoleManagementPolicyAssignmentId {
     fn validate_name(name: &str) -> Result<()> {
         let (role_management_policy, role_management_policy_assignment) =
             name.split_once('_').ok_or_else(|| {
-                anyhow!(
+                eyre!(
                     "{} names are two uuids joined by an underscore",
                     type_name::<RoleManagementPolicyAssignmentId>()
                 )

@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use crate::prelude::AsTofuString;
 use crate::providers::TofuProviderKind;
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use indoc::formatdoc;
 use itertools::Itertools;
 
@@ -34,14 +34,14 @@ impl AsRef<str> for TofuAzureRMDataKind {
     }
 }
 impl FromStr for TofuAzureRMDataKind {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let seeking = s.trim_start_matches(TofuProviderKind::AzureRM.provider_prefix());
         Self::supported_variants()
             .into_iter()
             .find(|x| x.as_ref() == seeking)
-            .ok_or(anyhow!("no variant matches"))
+            .ok_or(eyre!("no variant matches"))
     }
 }
 

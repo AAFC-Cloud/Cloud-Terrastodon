@@ -7,7 +7,7 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromManagementGroupScoped;
-use anyhow::Result;
+use eyre::Result;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::de::Error;

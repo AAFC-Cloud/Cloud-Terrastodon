@@ -1,5 +1,5 @@
-use anyhow::anyhow;
-use anyhow::Result;
+use eyre::eyre;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_core_azure::prelude::ResourceGroup;
@@ -43,7 +43,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
     for rg in resource_groups {
         let sub = subscriptions
             .get(&rg.subscription_id)
-            .ok_or_else(|| anyhow!("could not find subscription for resource group {rg:?}"))?;
+            .ok_or_else(|| eyre!("could not find subscription for resource group {rg:?}"))?;
         let choice = SubRGPair {
             subscription: sub,
             resource_group: rg,
@@ -70,7 +70,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
         used_subscriptions.insert(pair.subscription);
     }
     if imports.is_empty() {
-        return Err(anyhow!("Imports should not be empty"));
+        return Err(eyre!("Imports should not be empty"));
     }
 
     info!("Writing import blocks");

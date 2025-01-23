@@ -15,7 +15,7 @@ use syn::Variant;
 use tokio::process::Command;
 use tracing::info;
 
-pub async fn create_new_action_variant() -> anyhow::Result<()> {
+pub async fn create_new_action_variant() -> eyre::Result<()> {
     let menu_action_file =
         PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join(menu_action::THIS_FILE);
     info!("Going to modify {}", menu_action_file.display());
@@ -52,7 +52,7 @@ pub async fn create_new_action_variant() -> anyhow::Result<()> {
     }
 
     if !variant_added {
-        return Err(anyhow::anyhow!(
+        return Err(eyre::eyre!(
             "MenuAction enum not found in {}",
             menu_action_file.display()
         ));
@@ -111,7 +111,7 @@ fn add_name_match_arm(
     method: &mut syn::ImplItemFn,
     variant_ident: &syn::Ident,
     display_name: &str,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     for stmt in &mut method.block.stmts {
         if let Stmt::Expr(Expr::Match(ref mut match_expr), _) = stmt {
             let new_arm: Arm = parse_str(&format!(
@@ -129,7 +129,7 @@ fn add_invoke_match_arm(
     method: &mut syn::ImplItemFn,
     variant_ident: &syn::Ident,
     function_name: &str,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     for stmt in &mut method.block.stmts {
         if let Stmt::Expr(Expr::Match(ref mut match_expr), _) = stmt {
             let new_arm: Arm = parse_str(&format!(

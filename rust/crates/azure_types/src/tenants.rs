@@ -31,7 +31,7 @@ impl std::fmt::Display for TenantId {
 }
 
 impl FromStr for TenantId {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(TenantId(uuid::Uuid::parse_str(s)?))

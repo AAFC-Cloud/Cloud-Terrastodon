@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::Result;
+use eyre::Result;
 use crossterm::event::EventStream;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEventKind;

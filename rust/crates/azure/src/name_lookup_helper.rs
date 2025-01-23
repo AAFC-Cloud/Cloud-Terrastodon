@@ -1,5 +1,5 @@
-use anyhow::Context;
-use anyhow::Result;
+use eyre::Context;
+use eyre::Result;
 use cloud_terrastodon_core_azure_types::prelude::Scope;
 use cloud_terrastodon_core_azure_types::prelude::ScopeImpl;
 use cloud_terrastodon_core_azure_types::prelude::ScopeImplKind;

@@ -10,7 +10,7 @@ use crate::scopes::TryFromManagementGroupScoped;
 use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
@@ -169,7 +169,7 @@ impl From<PolicyDefinition> for TofuImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result;
+    use eyre::Result;
 
     #[test]
     fn unscoped() -> Result<()> {

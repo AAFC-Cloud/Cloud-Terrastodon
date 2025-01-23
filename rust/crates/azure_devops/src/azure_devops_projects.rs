@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsProject;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;

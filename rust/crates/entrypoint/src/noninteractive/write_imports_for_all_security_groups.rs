@@ -1,4 +1,4 @@
-use anyhow::Result;
+use eyre::Result;
 use cloud_terrastodon_core_azure::prelude::fetch_all_security_groups;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;

@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::prelude::MicrosoftGraphHelper;
 
-pub async fn fetch_all_service_principals() -> anyhow::Result<Vec<ServicePrincipal>> {
+pub async fn fetch_all_service_principals() -> eyre::Result<Vec<ServicePrincipal>> {
     info!("Fetching service principals");
     let query = MicrosoftGraphHelper::new(
         "https://graph.microsoft.com/v1.0/servicePrincipals",
@@ -28,7 +28,7 @@ mod tests {
     use crate::prelude::fetch_all_service_principals;
 
     #[tokio::test]
-    async fn it_works() -> anyhow::Result<()> {
+    async fn it_works() -> eyre::Result<()> {
         let found: Vec<ServicePrincipal> = fetch_all_service_principals().await?;
         println!("Found {} service principals", found.len());
         assert!(found.len() > 10);
