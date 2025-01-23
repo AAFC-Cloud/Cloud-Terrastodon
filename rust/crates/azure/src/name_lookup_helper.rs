@@ -37,8 +37,7 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
     Ok(match kind {
         ScopeImplKind::PolicyDefinition => fetch_all_policy_definitions()
             .await?
-            .into_values()
-            .flatten()
+            .into_iter()
             .map(|x| (x.id.as_scope(), x.name))
             .collect(),
         ScopeImplKind::PolicySetDefinition => fetch_all_policy_set_definitions()

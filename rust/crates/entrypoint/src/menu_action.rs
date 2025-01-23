@@ -1,5 +1,6 @@
 use crate::interactive::prelude::apply_processed;
 use crate::interactive::prelude::browse_policy_assignments;
+use crate::interactive::prelude::browse_policy_definitions;
 use crate::interactive::prelude::browse_resource_groups;
 use crate::interactive::prelude::browse_resources_menu;
 use crate::interactive::prelude::browse_role_assignments;
@@ -88,6 +89,7 @@ pub enum MenuAction {
     CreateNewActionVariant,
     BrowsePolicyAssignments,
     DumpSecurityGroups,
+    BrowsePolicyDefinitions,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -142,8 +144,9 @@ impl MenuAction {
             MenuAction::ResourceGraphQuery => "resource graph query",
             MenuAction::FindResourceOwners => "find resource owners",
             MenuAction::CreateNewActionVariant => "create new action variant",
-            MenuAction::BrowsePolicyAssignments => "Search assigned policies",
+            MenuAction::BrowsePolicyAssignments => "Browse policy assignments",
             MenuAction::DumpSecurityGroups => "dump security groups as json",
+            MenuAction::BrowsePolicyDefinitions => "browse policy definitions",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -200,6 +203,7 @@ impl MenuAction {
             MenuAction::CreateNewActionVariant => create_new_action_variant().await?,
             MenuAction::BrowsePolicyAssignments => browse_policy_assignments().await?,
             MenuAction::DumpSecurityGroups => dump_security_groups_as_json().await?,
+            MenuAction::BrowsePolicyDefinitions => browse_policy_definitions().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }

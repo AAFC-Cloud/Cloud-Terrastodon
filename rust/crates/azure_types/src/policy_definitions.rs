@@ -120,22 +120,15 @@ impl<'de> Deserialize<'de> for PolicyDefinitionId {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicyDefinition {
-    pub description: Option<String>,
-    #[serde(rename = "displayName")]
-    pub display_name: Option<String>,
     pub id: PolicyDefinitionId,
-    pub metadata: HashMap<String, Value>,
-    pub mode: String,
     pub name: String,
+    pub display_name: Option<String>,
+    pub description: Option<String>,
+    pub mode: String,
     pub parameters: Option<HashMap<String, Value>>,
-    #[serde(rename = "policyRule")]
     pub policy_rule: serde_json::Value,
-    #[serde(rename = "policyType")]
     pub policy_type: String,
-    #[serde(rename = "systemData")]
-    pub system_data: Value,
-    #[serde(rename = "type")]
-    pub kind: String,
+    pub version: String,
 }
 
 impl HasScope for PolicyDefinition {
@@ -151,10 +144,13 @@ impl HasScope for &PolicyDefinition {
 
 impl std::fmt::Display for PolicyDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("policy definition ")?;
         f.write_str(&self.name)?;
-        f.write_str(" (")?;
-        f.write_fmt(format_args!("{:?}", self.display_name))?;
-        f.write_str(")")?;
+        if let Some(display_name) = self.display_name.as_deref() {
+            f.write_str(" (")?;
+            f.write_str(display_name)?;
+            f.write_str(")")?;
+        }
         Ok(())
     }
 }

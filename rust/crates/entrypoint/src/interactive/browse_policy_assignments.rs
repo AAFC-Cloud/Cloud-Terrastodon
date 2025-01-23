@@ -95,8 +95,7 @@ pub async fn browse_policy_assignments() -> anyhow::Result<()> {
     }
 
     let policy_definition_map = policy_definitions
-        .values()
-        .flatten()
+        .iter()
         .map(|v| (&v.id, v))
         .collect::<HashMap<_, _>>();
     let policy_set_definition_map = policy_set_definitions

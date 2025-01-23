@@ -18,16 +18,13 @@ pub async fn build_policy_imports() -> Result<()> {
     let mut imports: Vec<TofuImportBlock> = Default::default();
     let mut seen_ids: HashSet<String> = HashSet::new();
 
-    for (_management_group, policy_definitions) in policy_definitions {
-        policy_definitions
-            .into_iter()
-            .filter(|def| def.policy_type == "Custom")
-            .map(|x| x.into())
-            .for_each(|block: TofuImportBlock| {
-                if seen_ids.insert(block.id.clone()) {
-                    imports.push(block);
-                }
-            });
+    for policy_definition in policy_definitions {
+        if policy_definition.policy_type == "Custom" {
+            let block: TofuImportBlock = policy_definition.into();
+            if seen_ids.insert(block.id.clone()) {
+                imports.push(block);
+            }
+        }
     }
 
     for (_management_group, policy_set_definitions) in policy_set_definitions {
