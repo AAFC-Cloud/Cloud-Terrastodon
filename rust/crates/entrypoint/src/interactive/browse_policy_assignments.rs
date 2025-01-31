@@ -1,7 +1,7 @@
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
-use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions_v2;
+use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
 use cloud_terrastodon_core_azure::prelude::PolicyAssignmentId;
 use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_core_azure::prelude::Scope;
@@ -71,7 +71,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
         match try_join!(
             fetch_all_policy_assignments(),
             fetch_all_policy_definitions(),
-            fetch_all_policy_set_definitions_v2(),
+            fetch_all_policy_set_definitions(),
             fetch_all_policy_compliance(),
         ) {
             Ok(x) => x,

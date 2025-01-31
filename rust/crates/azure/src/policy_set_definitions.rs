@@ -5,7 +5,7 @@ use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
 
-pub async fn fetch_all_policy_set_definitions_v2() -> Result<Vec<PolicySetDefinition>> {
+pub async fn fetch_all_policy_set_definitions() -> Result<Vec<PolicySetDefinition>> {
     let mut query = ResourceGraphHelper::new(
         r#"
 policyresources
@@ -35,7 +35,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_policy_set_definitions_v2().await?;
+        let result = fetch_all_policy_set_definitions().await?;
         println!("Found {} policy set definitions:", result.len());
         for v in result {
             println!("- {}", v);
@@ -44,7 +44,7 @@ mod tests {
     }
     #[tokio::test]
     async fn it_works_v2() -> Result<()> {
-        let result = fetch_all_policy_set_definitions_v2().await?;
+        let result = fetch_all_policy_set_definitions().await?;
         println!("Found {} policy set definitions:", result.len());
         for v in result {
             println!("- {}", v);
