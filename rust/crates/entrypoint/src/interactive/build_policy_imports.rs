@@ -1,6 +1,6 @@
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
-use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
+use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions_v2;
 use cloud_terrastodon_core_azure::prelude::PolicyAssignment;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_tofu::prelude::Sanitizable;
@@ -12,7 +12,7 @@ use std::collections::HashSet;
 
 pub async fn build_policy_imports() -> Result<()> {
     let policy_definitions = fetch_all_policy_definitions().await?;
-    let policy_set_definitions = fetch_all_policy_set_definitions().await?;
+    let policy_set_definitions = fetch_all_policy_set_definitions_v2().await?;
     let policy_assignments = fetch_all_policy_assignments().await?;
 
     let mut imports: Vec<TofuImportBlock> = Default::default();
@@ -27,17 +27,15 @@ pub async fn build_policy_imports() -> Result<()> {
         }
     }
 
-    for (_management_group, policy_set_definitions) in policy_set_definitions {
-        policy_set_definitions
-            .into_iter()
-            .filter(|def| def.policy_type == "Custom")
-            .map(|x| x.into())
-            .for_each(|block: TofuImportBlock| {
-                if seen_ids.insert(block.id.clone()) {
-                    imports.push(block);
-                }
-            });
-    }
+    policy_set_definitions
+        .into_iter()
+        .filter(|def| def.policy_type == "Custom")
+        .map(|x| x.into())
+        .for_each(|block: TofuImportBlock| {
+            if seen_ids.insert(block.id.clone()) {
+                imports.push(block);
+            }
+        });
 
     for (management_group, policy_assignments) in policy_assignments {
         policy_assignments

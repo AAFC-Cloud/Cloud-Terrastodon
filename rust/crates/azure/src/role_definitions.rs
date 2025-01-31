@@ -53,8 +53,8 @@ mod tests {
 
     #[test]
     fn understanding_context() -> Result<()> {
-        let e1 = eyre!("Something went wrong! (base error)").context("e1 context");
-        let e2 = e1.context("e2 context");
+        let e1 = eyre!("Something went wrong! (base error)").wrap_err("e1 context");
+        let e2 = e1.wrap_err("e2 context");
 
         println!("{e2:#}\n=====\n{e2:#?}\n=====");
         Ok(())

@@ -19,7 +19,7 @@ use rand::RngCore;
 use tracing::info;
 
 use crate::prelude::fetch_all_policy_assignments;
-use crate::prelude::fetch_all_policy_set_definitions;
+use crate::prelude::fetch_all_policy_set_definitions_v2;
 
 pub async fn remediate_policy_assignment() -> Result<()> {
     info!("Fetching policy assignments");
@@ -53,10 +53,9 @@ pub async fn remediate_policy_assignment() -> Result<()> {
     ) {
         (Ok(policy_set_definition_id), Err(_)) => {
             info!("Remediating a policy set - must prompt for inner choice");
-            let Some(policy_set_definition) = fetch_all_policy_set_definitions()
+            let Some(policy_set_definition) = fetch_all_policy_set_definitions_v2()
                 .await?
-                .into_values()
-                .flatten()
+                .into_iter()
                 .find(|def| def.id == policy_set_definition_id)
             else {
                 bail!("Could not find policy set definition with id {policy_set_definition_id:?}");

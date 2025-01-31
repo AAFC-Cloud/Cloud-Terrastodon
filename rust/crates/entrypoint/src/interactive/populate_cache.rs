@@ -1,6 +1,6 @@
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
-use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
+use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_users;
@@ -24,7 +24,7 @@ pub async fn populate_cache() -> Result<()> {
     work.spawn(async {
         (
             "fetch_all_policy_set_definitions",
-            fetch_all_policy_set_definitions().await.is_ok(),
+            fetch_all_policy_set_definitions_v2().await.is_ok(),
         )
     });
     work.spawn(async {

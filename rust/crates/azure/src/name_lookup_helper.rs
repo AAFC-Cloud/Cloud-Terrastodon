@@ -11,7 +11,7 @@ use tracing::warn;
 use crate::prelude::fetch_all_management_groups;
 use crate::prelude::fetch_all_policy_assignments;
 use crate::prelude::fetch_all_policy_definitions;
-use crate::prelude::fetch_all_policy_set_definitions;
+use crate::prelude::fetch_all_policy_set_definitions_v2;
 use crate::prelude::fetch_all_resource_groups;
 use crate::prelude::fetch_all_subscriptions;
 
@@ -40,10 +40,9 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
             .into_iter()
             .map(|x| (x.id.as_scope(), x.name))
             .collect(),
-        ScopeImplKind::PolicySetDefinition => fetch_all_policy_set_definitions()
+        ScopeImplKind::PolicySetDefinition => fetch_all_policy_set_definitions_v2()
             .await?
-            .into_values()
-            .flatten()
+            .into_iter()
             .map(|x| (x.id.as_scope(), x.name))
             .collect(),
         ScopeImplKind::PolicyAssignment => fetch_all_policy_assignments()

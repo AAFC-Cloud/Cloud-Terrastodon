@@ -1,7 +1,7 @@
 use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
-use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
+use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions_v2;
 use cloud_terrastodon_core_azure::prelude::PolicyAssignmentId;
 use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_core_azure::prelude::Scope;
@@ -71,7 +71,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
         match try_join!(
             fetch_all_policy_assignments(),
             fetch_all_policy_definitions(),
-            fetch_all_policy_set_definitions(),
+            fetch_all_policy_set_definitions_v2(),
             fetch_all_policy_compliance(),
         ) {
             Ok(x) => x,
@@ -80,9 +80,8 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
 
     // make the policy definition reference IDs lowercase for equality sanity
     for ele in policy_set_definitions
-        .values_mut()
-        .flatten()
-        .filter_map(|x| x.policy_definitions.as_mut())
+        .iter_mut()
+        .flat_map(|policy_set_definition| &mut policy_set_definition.policy_definitions)
         .flatten()
     {
         ele.policy_definition_reference_id.make_ascii_lowercase();
@@ -99,8 +98,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
         .map(|v| (&v.id, v))
         .collect::<HashMap<_, _>>();
     let policy_set_definition_map = policy_set_definitions
-        .values()
-        .flatten()
+        .iter()
         .map(|v| (&v.id, v))
         .collect::<HashMap<_, _>>();
     let policy_compliance_map: HashMap<
