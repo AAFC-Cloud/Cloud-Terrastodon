@@ -15,7 +15,7 @@ pub async fn browse_policy_definitions() -> eyre::Result<()> {
         "You chose:\n{}",
         chosen
             .iter()
-            .map(|x| format!("- {}", x.to_string()))
+            .map(|x| format!("- {:#}", x))
             .join("\n")
     );
     info!("{msg}");
