@@ -18,7 +18,6 @@ pub async fn bulk_user_id_lookup() -> Result<()> {
         }
     }
 
-    info!("Fetching users");
     let users = fetch_all_users()
         .await?
         .into_iter()
