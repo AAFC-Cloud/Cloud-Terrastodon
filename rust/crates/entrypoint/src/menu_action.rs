@@ -11,6 +11,7 @@ use crate::interactive::prelude::build_imports_from_existing;
 use crate::interactive::prelude::build_policy_imports;
 use crate::interactive::prelude::build_resource_group_imports;
 use crate::interactive::prelude::build_role_assignment_imports;
+use crate::interactive::prelude::bulk_user_id_lookup;
 use crate::interactive::prelude::clean_all_menu;
 use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
@@ -90,6 +91,7 @@ pub enum MenuAction {
     BrowsePolicyAssignments,
     DumpSecurityGroups,
     BrowsePolicyDefinitions,
+    BulkUserIdLookup,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -147,6 +149,7 @@ impl MenuAction {
             MenuAction::BrowsePolicyAssignments => "Browse policy assignments",
             MenuAction::DumpSecurityGroups => "dump security groups as json",
             MenuAction::BrowsePolicyDefinitions => "browse policy definitions",
+            MenuAction::BulkUserIdLookup => "bulk user id lookup",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -204,6 +207,7 @@ impl MenuAction {
             MenuAction::BrowsePolicyAssignments => browse_policy_assignments().await?,
             MenuAction::DumpSecurityGroups => dump_security_groups_as_json().await?,
             MenuAction::BrowsePolicyDefinitions => browse_policy_definitions().await?,
+            MenuAction::BulkUserIdLookup => bulk_user_id_lookup().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
