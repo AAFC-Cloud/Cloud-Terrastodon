@@ -386,6 +386,7 @@ dependencies = [
  "chrono",
  "clap",
  "cloud_terrastodon_core_azure",
+ "cloud_terrastodon_core_azure_devops",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_config",
  "cloud_terrastodon_core_pathing",

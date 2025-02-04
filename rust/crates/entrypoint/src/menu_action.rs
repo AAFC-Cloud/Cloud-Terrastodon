@@ -19,6 +19,7 @@ use crate::interactive::prelude::copy_azurerm_backend_menu;
 use crate::interactive::prelude::create_new_action_variant;
 use crate::interactive::prelude::create_role_assignment_menu;
 use crate::interactive::prelude::dump_tags;
+use crate::interactive::prelude::dump_work_items;
 use crate::interactive::prelude::find_resource_owners_menu;
 use crate::interactive::prelude::init_processed;
 use crate::interactive::prelude::jump_to_block;
@@ -92,6 +93,7 @@ pub enum MenuAction {
     DumpSecurityGroups,
     BrowsePolicyDefinitions,
     BulkUserIdLookup,
+    DumpWorkItems,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -150,6 +152,7 @@ impl MenuAction {
             MenuAction::DumpSecurityGroups => "dump security groups as json",
             MenuAction::BrowsePolicyDefinitions => "browse policy definitions",
             MenuAction::BulkUserIdLookup => "bulk user id lookup",
+            MenuAction::DumpWorkItems => "dump work items",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -208,6 +211,7 @@ impl MenuAction {
             MenuAction::DumpSecurityGroups => dump_security_groups_as_json().await?,
             MenuAction::BrowsePolicyDefinitions => browse_policy_definitions().await?,
             MenuAction::BulkUserIdLookup => bulk_user_id_lookup().await?,
+            MenuAction::DumpWorkItems => dump_work_items().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }

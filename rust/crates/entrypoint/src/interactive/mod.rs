@@ -31,9 +31,11 @@ mod run_query;
 mod tag_empty_resource_groups;
 mod tag_resources_menu;
 mod bulk_user_id_lookup;
+mod dump_work_items;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
+    pub use crate::interactive::dump_work_items::*;
     pub use crate::interactive::bulk_user_id_lookup::*;
     pub use crate::interactive::browse_policy_assignments::*;
     pub use crate::interactive::browse_policy_definitions::*;
