@@ -39,9 +39,11 @@ mod test_resource;
 mod users;
 mod uuid_macros;
 mod uuid_wrapper;
+mod oauth2_permission_grants;
 
 pub mod prelude {
     pub use crate::duration::*;
+    pub use crate::oauth2_permission_grants::*;
     pub use crate::uuid_wrapper::*;
     // pub use crate::uuid_macros::*;
     pub use crate::app::*;
