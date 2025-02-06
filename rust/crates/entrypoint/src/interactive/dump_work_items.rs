@@ -26,6 +26,6 @@ pub async fn dump_work_items() -> eyre::Result<()> {
     for query in queries {
         println!("Found query: {}", query.name);
     }
-    
+
     Ok(())
 }

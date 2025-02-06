@@ -23,7 +23,7 @@ pub async fn bulk_user_id_lookup() -> Result<()> {
         .into_iter()
         .filter(|x| user_ids.contains(&x.id))
         .map(|x| (x.id.clone(), x))
-        .collect::<HashMap<_,_>>();
+        .collect::<HashMap<_, _>>();
 
     // we want to print in the order which the IDs were provided
     for user_id in user_ids {
@@ -31,11 +31,7 @@ pub async fn bulk_user_id_lookup() -> Result<()> {
             println!("{} - no user found", user_id);
             continue;
         };
-        println!(
-            "{} - {}",
-            user_id,
-            user.user_principal_name
-        )
+        println!("{} - {}", user_id, user.user_principal_name)
     }
 
     Ok(())

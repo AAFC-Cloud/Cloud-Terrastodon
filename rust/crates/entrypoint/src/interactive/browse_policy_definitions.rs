@@ -13,10 +13,7 @@ pub async fn browse_policy_definitions() -> eyre::Result<()> {
     })?;
     let msg = format!(
         "You chose:\n{}",
-        chosen
-            .iter()
-            .map(|x| format!("- {:#}", x))
-            .join("\n")
+        chosen.iter().map(|x| format!("- {:#}", x)).join("\n")
     );
     info!("{msg}");
 

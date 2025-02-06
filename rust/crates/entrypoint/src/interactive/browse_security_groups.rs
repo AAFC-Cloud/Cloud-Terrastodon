@@ -26,7 +26,7 @@ use tracing::info;
 enum SecurityGroupAction {
     FetchAndDisplayMembersAndOwners,
     FetchAndDisplayRoleAssignments,
-    JustPrint
+    JustPrint,
 }
 
 pub async fn browse_security_groups() -> Result<()> {
@@ -60,7 +60,6 @@ pub async fn browse_security_groups() -> Result<()> {
         ..Default::default()
     })?;
 
-    
     info!(
         "You chose:\n{}",
         serde_json::to_string_pretty(&security_groups)?
@@ -151,7 +150,7 @@ pub async fn browse_security_groups() -> Result<()> {
                     row["role_assignments"] = serde_json::to_value(role_assignments_for_group)?;
                 }
             }
-            SecurityGroupAction::JustPrint => {},
+            SecurityGroupAction::JustPrint => {}
         }
     }
     info!("You chose:\n{}", serde_json::to_string_pretty(&rows)?);
