@@ -4,6 +4,7 @@ use eyre::bail;
 use eyre::Context;
 use quote::quote;
 use syn::ItemUse;
+use std::path::Path;
 use std::path::PathBuf;
 use syn::parse_file;
 use syn::parse_str;
@@ -29,6 +30,9 @@ pub async fn create_new_action_variant() -> eyre::Result<()> {
 
     update_menu_action_rs_file(&new_variant_decl, &new_variant_display, &function_name).await?;
     update_interactive_entrypoint_mod_rs_file(&function_name).await?;
+
+    // Now, create the new file in src/interactive/<function_name>.rs with boilerplate code.
+    create_new_function_file(&function_name).await?;
 
     Ok(())
 }
@@ -213,6 +217,44 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
     })
     .await
 }
+
+
+/// This function creates a new file at src/interactive/{function_name}.rs
+/// with the following boilerplate:
+///
+/// ```rust
+/// use eyre::Result;
+///
+/// pub async fn {function_name}() -> Result<()> {
+///     Ok(())
+/// }
+/// ```
+async fn create_new_function_file(function_name: &str) -> eyre::Result<()> {
+    // Determine the manifest directory. This assumes that your source is in `src/interactive`
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
+    let file_path = Path::new(&manifest_dir)
+        .join("src")
+        .join("interactive")
+        .join(format!("{}.rs", function_name));
+
+    // Create the boilerplate code using a raw string literal.
+    let boilerplate = format!(
+r#"use eyre::Result;
+
+pub async fn {function_name}() -> Result<()> {{
+    Ok(())
+}}
+"#,
+        function_name = function_name
+    );
+
+    // Write the file asynchronously.
+    tokio::fs::write(&file_path, boilerplate)
+        .await
+        .wrap_err_with(|| format!("Failed to write to {}", file_path.display()))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
