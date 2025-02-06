@@ -22,7 +22,7 @@ pub async fn browse_users() -> Result<()> {
     })?;
     info!("You chose:");
     for user in users {
-        info!("- {}", user.key);
+        println!("- {}", user.key);
     }
     Ok(())
 }
