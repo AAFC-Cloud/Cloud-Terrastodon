@@ -3,6 +3,7 @@ use cloud_terrastodon_core_user_input::prelude::prompt_line;
 use eyre::bail;
 use eyre::Context;
 use quote::quote;
+use syn::ItemUse;
 use std::path::PathBuf;
 use syn::parse_file;
 use syn::parse_str;
@@ -181,12 +182,30 @@ async fn update_menu_action_rs_file(
     Ok(())
 }
 
+
 async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre::Result<()> {
     mutate_file(crate::interactive::THIS_FILE, |ast| {
+        // --- Add the new mod statement at the top ---
+        // You may want to determine the proper location for the mod statement.
+        let new_mod_code = format!("mod {};", function_name);
+        let new_mod: syn::ItemMod = parse_str(&new_mod_code)
+            .wrap_err("Failed to parse new mod statement")?;
+        // For example, insert at the beginning (or after other mod statements)
+        ast.items.insert(0, Item::Mod(new_mod));
+
+        // --- Add the new pub use statement in the prelude module ---
         for item in &mut ast.items {
-            if let Item::Mod(item) = item {
-                if item.ident == "prelude" {
-                    println!("Found prelude block with {}", item.content.is_some())
+            if let Item::Mod(ref mut item_mod) = item {
+                if item_mod.ident == "prelude" {
+                    // Ensure that the module is inline (has a body)
+                    let (_, ref mut body) = item_mod.content.as_mut().ok_or_else(|| {
+                        eyre::eyre!("prelude module has no inline content")
+                    })?;
+                    let new_use_code = format!("pub use crate::interactive::{}::*;", function_name);
+                    let new_use: ItemUse = parse_str(&new_use_code)
+                        .wrap_err("Failed to parse new use statement")?;
+                    body.push(Item::Use(new_use));
+                    break;
                 }
             }
         }
@@ -194,7 +213,6 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
     })
     .await
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
