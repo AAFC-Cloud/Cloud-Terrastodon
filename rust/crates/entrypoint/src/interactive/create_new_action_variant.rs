@@ -3,8 +3,6 @@ use cloud_terrastodon_core_user_input::prelude::prompt_line;
 use eyre::bail;
 use eyre::Context;
 use quote::quote;
-use syn::ItemUse;
-use std::path::Path;
 use std::path::PathBuf;
 use syn::parse_file;
 use syn::parse_str;
@@ -13,6 +11,7 @@ use syn::Expr;
 use syn::ImplItem;
 use syn::Item;
 use syn::ItemEnum;
+use syn::ItemUse;
 use syn::Stmt;
 use syn::Type;
 use syn::Variant;
@@ -29,10 +28,11 @@ pub async fn create_new_action_variant() -> eyre::Result<()> {
         prompt_line("Enter the function name, e.g., \"build_policy_imports\":").await?;
 
     update_menu_action_rs_file(&new_variant_decl, &new_variant_display, &function_name).await?;
-    update_interactive_entrypoint_mod_rs_file(&function_name).await?;
 
     // Now, create the new file in src/interactive/<function_name>.rs with boilerplate code.
     create_new_function_file(&function_name).await?;
+    // Updating the mod file should happen after to avoid issues about the function.rs file not existing.
+    update_interactive_entrypoint_mod_rs_file(&function_name).await?;
 
     Ok(())
 }
@@ -76,7 +76,8 @@ where
         .arg(full_path.as_os_str())
         .args(["--edition", "2021"])
         .status()
-        .await?;
+        .await
+        .wrap_err("Error applying rustfmt")?;
     Ok(())
 }
 
@@ -186,14 +187,13 @@ async fn update_menu_action_rs_file(
     Ok(())
 }
 
-
 async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre::Result<()> {
     mutate_file(crate::interactive::THIS_FILE, |ast| {
         // --- Add the new mod statement at the top ---
         // You may want to determine the proper location for the mod statement.
         let new_mod_code = format!("mod {};", function_name);
-        let new_mod: syn::ItemMod = parse_str(&new_mod_code)
-            .wrap_err("Failed to parse new mod statement")?;
+        let new_mod: syn::ItemMod =
+            parse_str(&new_mod_code).wrap_err("Failed to parse new mod statement")?;
         // For example, insert at the beginning (or after other mod statements)
         ast.items.insert(0, Item::Mod(new_mod));
 
@@ -202,12 +202,13 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
             if let Item::Mod(ref mut item_mod) = item {
                 if item_mod.ident == "prelude" {
                     // Ensure that the module is inline (has a body)
-                    let (_, ref mut body) = item_mod.content.as_mut().ok_or_else(|| {
-                        eyre::eyre!("prelude module has no inline content")
-                    })?;
+                    let (_, ref mut body) = item_mod
+                        .content
+                        .as_mut()
+                        .ok_or_else(|| eyre::eyre!("prelude module has no inline content"))?;
                     let new_use_code = format!("pub use crate::interactive::{}::*;", function_name);
-                    let new_use: ItemUse = parse_str(&new_use_code)
-                        .wrap_err("Failed to parse new use statement")?;
+                    let new_use: ItemUse =
+                        parse_str(&new_use_code).wrap_err("Failed to parse new use statement")?;
                     body.push(Item::Use(new_use));
                     break;
                 }
@@ -217,7 +218,6 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
     })
     .await
 }
-
 
 /// This function creates a new file at src/interactive/{function_name}.rs
 /// with the following boilerplate:
@@ -232,14 +232,13 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
 async fn create_new_function_file(function_name: &str) -> eyre::Result<()> {
     // Determine the manifest directory. This assumes that your source is in `src/interactive`
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
-    let file_path = Path::new(&manifest_dir)
-        .join("src")
-        .join("interactive")
-        .join(format!("{}.rs", function_name));
+    let mut crate_dir = PathBuf::from(&manifest_dir).join(crate::interactive::THIS_FILE);
+    crate_dir.pop();
+    let file_path = crate_dir.join(format!("{}.rs", function_name));
 
     // Create the boilerplate code using a raw string literal.
     let boilerplate = format!(
-r#"use eyre::Result;
+        r#"use eyre::Result;
 
 pub async fn {function_name}() -> Result<()> {{
     Ok(())
