@@ -11,6 +11,7 @@ mod build_imports_from_existing;
 mod build_policy_imports;
 mod build_resource_group_imports;
 mod build_role_assignment_imports;
+mod bulk_user_id_lookup;
 mod clean_all;
 mod clean_imports;
 mod clean_processed;
@@ -18,6 +19,7 @@ mod copy_azurerm_backend_menu;
 mod create_new_action_variant;
 mod create_role_assignment_menu;
 mod dump_tags;
+mod dump_work_items;
 mod find_resource_owners;
 mod import_wizard_menu;
 mod init_processed;
@@ -30,13 +32,9 @@ mod populate_cache;
 mod run_query;
 mod tag_empty_resource_groups;
 mod tag_resources_menu;
-mod bulk_user_id_lookup;
-mod dump_work_items;
 
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
-    pub use crate::interactive::dump_work_items::*;
-    pub use crate::interactive::bulk_user_id_lookup::*;
     pub use crate::interactive::browse_policy_assignments::*;
     pub use crate::interactive::browse_policy_definitions::*;
     pub use crate::interactive::browse_resource_groups::*;
@@ -49,6 +47,7 @@ pub mod prelude {
     pub use crate::interactive::build_policy_imports::*;
     pub use crate::interactive::build_resource_group_imports::*;
     pub use crate::interactive::build_role_assignment_imports::*;
+    pub use crate::interactive::bulk_user_id_lookup::*;
     pub use crate::interactive::clean_all::*;
     pub use crate::interactive::clean_imports::*;
     pub use crate::interactive::clean_processed::*;
@@ -56,6 +55,7 @@ pub mod prelude {
     pub use crate::interactive::create_new_action_variant::*;
     pub use crate::interactive::create_role_assignment_menu::*;
     pub use crate::interactive::dump_tags::*;
+    pub use crate::interactive::dump_work_items::*;
     pub use crate::interactive::find_resource_owners::*;
     pub use crate::interactive::import_wizard_menu::*;
     pub use crate::interactive::init_processed::*;
