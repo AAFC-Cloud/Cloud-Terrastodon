@@ -32,9 +32,7 @@ mod populate_cache;
 mod run_query;
 mod tag_empty_resource_groups;
 mod tag_resources_menu;
-
 pub const THIS_FILE: &str = file!();
-
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
     pub use crate::interactive::browse_policy_assignments::*;
