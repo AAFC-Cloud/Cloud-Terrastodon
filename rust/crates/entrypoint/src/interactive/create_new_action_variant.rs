@@ -37,13 +37,22 @@ where
     T: FnMut(&mut syn::File) -> eyre::Result<()>,
 {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let full_path = PathBuf::from(&manifest_dir).join(path);
+    #[cfg(not(test))]
+    let manifest_dir = PathBuf::from(&manifest_dir);
+    #[cfg(test)]
+    let mut manifest_dir = PathBuf::from(&manifest_dir);
+    #[cfg(test)]
+    {
+        manifest_dir.pop();
+        manifest_dir.pop();
+    }
+    let full_path = manifest_dir.join(path);
     let content = tokio::fs::read_to_string(&full_path)
         .await
         .wrap_err(format!(
             "Failed to find {} in manifest dir {} given path {}",
             full_path.display(),
-            &manifest_dir,
+            manifest_dir.display(),
             &path
         ))?;
     let mut ast = parse_file(&content)?;
