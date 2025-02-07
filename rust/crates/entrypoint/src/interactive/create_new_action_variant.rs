@@ -33,7 +33,7 @@ pub async fn create_new_action_variant() -> eyre::Result<()> {
     create_new_function_file(&function_name).await?;
     // Updating the mod file should happen after to avoid issues about the function.rs file not existing.
     update_interactive_entrypoint_mod_rs_file(&function_name).await?;
-
+    add_import_statement_to_menu_action_rs(&function_name).await?;
     Ok(())
 }
 
@@ -214,6 +214,16 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
                 }
             }
         }
+        Ok(())
+    })
+    .await
+}
+
+async fn add_import_statement_to_menu_action_rs(function_name: &str) -> eyre::Result<()> {
+    mutate_file(crate::menu_action::THIS_FILE, |ast| {
+        let use_statement = format!("use crate::interactive::prelude::{};", function_name);
+        let use_statement = parse_str(&use_statement)?;
+        ast.items.insert(0, use_statement);
         Ok(())
     })
     .await
