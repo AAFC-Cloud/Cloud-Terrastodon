@@ -566,6 +566,7 @@ impl CommandBuilder {
                     if [
                         "AADSTS70043",
                         "No subscription found. Run 'az account set' to select a subscription.",
+                        "Please run 'az login' to setup account."
                     ]
                     .into_iter()
                     .any(|x| output.stderr.contains(x)) =>
