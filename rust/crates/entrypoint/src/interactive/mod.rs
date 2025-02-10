@@ -1,4 +1,5 @@
 mod apply_processed;
+mod browse_oauth2_permission_grants;
 mod browse_policy_assignments;
 mod browse_policy_definitions;
 mod browse_resource_groups;
@@ -35,6 +36,7 @@ mod tag_resources_menu;
 pub const THIS_FILE: &str = file!();
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
+    pub use crate::interactive::browse_oauth2_permission_grants::*;
     pub use crate::interactive::browse_policy_assignments::*;
     pub use crate::interactive::browse_policy_definitions::*;
     pub use crate::interactive::browse_resource_groups::*;

@@ -1,4 +1,5 @@
 use crate::interactive::prelude::apply_processed;
+use crate::interactive::prelude::browse_oauth2_permission_grants;
 use crate::interactive::prelude::browse_policy_assignments;
 use crate::interactive::prelude::browse_policy_definitions;
 use crate::interactive::prelude::browse_resource_groups;
@@ -94,6 +95,7 @@ pub enum MenuAction {
     BrowsePolicyDefinitions,
     BulkUserIdLookup,
     DumpWorkItems,
+    BrowseOAuth2PermissionGrants,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -153,6 +155,7 @@ impl MenuAction {
             MenuAction::BrowsePolicyDefinitions => "browse policy definitions",
             MenuAction::BulkUserIdLookup => "bulk user id lookup",
             MenuAction::DumpWorkItems => "dump work items",
+            MenuAction::BrowseOAuth2PermissionGrants => "browse oauth2 permission grants",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -212,6 +215,7 @@ impl MenuAction {
             MenuAction::BrowsePolicyDefinitions => browse_policy_definitions().await?,
             MenuAction::BulkUserIdLookup => bulk_user_id_lookup().await?,
             MenuAction::DumpWorkItems => dump_work_items().await?,
+            MenuAction::BrowseOAuth2PermissionGrants => browse_oauth2_permission_grants().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
