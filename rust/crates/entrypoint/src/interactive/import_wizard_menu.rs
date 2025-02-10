@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-
-use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_security_groups;
@@ -47,9 +45,6 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         }
         _ => unreachable!(),
     }
-
-    info!("Ensuring CLI is authenticated");
-    ensure_logged_in().await?;
 
     info!("Fetching a bunch of data");
     let (

@@ -24,6 +24,7 @@ use std::path::PathBuf;
 use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
+use std::sync::Arc;
 use std::time::Duration;
 use tempfile::Builder;
 use tempfile::TempPath;
@@ -31,6 +32,8 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
+use tokio::sync::Mutex;
+use tokio::sync::OnceCell;
 use tokio::time::timeout;
 use tracing::debug;
 use tracing::error;
@@ -253,6 +256,9 @@ pub struct CommandBuilder {
     should_announce: bool,
     timeout: Option<Duration>,
 }
+
+static LOGIN_LOCK: OnceCell<Arc<Mutex<()>>> = OnceCell::const_new();
+
 impl CommandBuilder {
     pub fn new(kind: CommandKind) -> CommandBuilder {
         let mut cmd = CommandBuilder::default();
@@ -566,22 +572,38 @@ impl CommandBuilder {
                     if [
                         "AADSTS70043",
                         "No subscription found. Run 'az account set' to select a subscription.",
-                        "Please run 'az login' to setup account."
+                        "Please run 'az login' to setup account.",
                     ]
                     .into_iter()
                     .any(|x| output.stderr.contains(x)) =>
                 {
-                    // Let the user know
-                    warn!(
-                        "Command failed due to bad auth. Refreshing credential, user action required in a moment..."
-                    );
+                    let mutex = LOGIN_LOCK
+                        .get_or_init(async || Arc::new(Mutex::new(())))
+                        .await;
+                    match mutex.try_lock() {
+                        Ok(x) => {
+                            debug!(
+                                "Acquired login lock without waiting, there isn't a login in progress"
+                            );
+                            // Let the user know
+                            warn!(
+                                "Command failed due to bad auth. Refreshing credential, user action required in a moment..."
+                            );
 
-                    // Perform login command
-                    // (avoid using login fn from azure crate to avoid a dependency)
-                    CommandBuilder::new(CommandKind::AzureCLI)
-                        .arg("login")
-                        .run_raw()
-                        .await?;
+                            // Perform login command
+                            // (avoid using login fn from azure crate to avoid a dependency)
+                            CommandBuilder::new(CommandKind::AzureCLI)
+                                .arg("login")
+                                .run_raw()
+                                .await?;
+                            drop(x);
+                        }
+                        Err(_) => {
+                            debug!("Login lock busy, waiting for the login to complete");
+                            warn!("Command failed due to bad auth. Waiting for login in progress...");
+                            _ = mutex.lock().await;
+                        }
+                    }
 
                     // Retry the failed command, no further retries
                     info!("Retrying command with refreshed credential...");

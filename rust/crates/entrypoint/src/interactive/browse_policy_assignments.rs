@@ -1,4 +1,3 @@
-use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_policy_set_definitions;
@@ -65,7 +64,6 @@ policyResources
 
 /// This is a new function that merges “search assigned policies” with a compliance query.
 pub async fn browse_policy_assignments() -> eyre::Result<()> {
-    ensure_logged_in().await?;
     info!("Fetching a bunch of data...");
     let (policy_assignments, policy_definitions, mut policy_set_definitions, mut policy_compliance) =
         match try_join!(

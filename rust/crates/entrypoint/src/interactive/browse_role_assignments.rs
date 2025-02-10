@@ -1,4 +1,3 @@
-use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_core_azure::prelude::fetch_all_users;
@@ -16,9 +15,6 @@ use tracing::info;
 use tracing::warn;
 
 pub async fn browse_role_assignments() -> Result<()> {
-    info!("Ensuring CLI is authenticated");
-    ensure_logged_in().await?;
-
     info!("Fetching role assignments and definitions and principals");
     let (role_assignments, role_definitions, users) = try_join!(
         fetch_all_role_assignments_v2(),

@@ -1,4 +1,3 @@
-use cloud_terrastodon_core_azure::prelude::ensure_logged_in;
 use cloud_terrastodon_core_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_core_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments_v2;
@@ -289,9 +288,6 @@ impl Traversal {
 }
 
 pub async fn find_resource_owners_menu() -> eyre::Result<()> {
-    info!("Ensuring CLI is authenticated");
-    ensure_logged_in().await?;
-
     info!(
         "Fetching a bunch of stuff (resources, role assignments, role definitions, and principals)"
     );
