@@ -181,8 +181,8 @@ impl From<TofuProviderBlock> for Block {
             builder = builder
                 .block(Block::builder(Ident::new("features")).build())
                 .attribute(Attribute::new(
-                    Ident::new("skip_provider_registration"),
-                    true,
+                    Ident::new("resource_provider_registrations"),
+                    "none",
                 ));
             if let Some(subscription_id) = subscription_id {
                 builder = builder.attribute(Attribute::new(

@@ -34,9 +34,11 @@ mod subscriptions;
 mod tags;
 mod users;
 mod oauth2_permission_grants;
+mod pick_oauth2_permission_grants;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::oauth2_permission_grants::*;
+    pub use crate::pick_oauth2_permission_grants::*;
     pub use crate::batch_api::*;
     pub use crate::cost_management::*;
     pub use crate::create_role_assignment::*;

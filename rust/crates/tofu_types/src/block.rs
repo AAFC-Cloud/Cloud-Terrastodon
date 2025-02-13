@@ -1,3 +1,4 @@
+use crate::prelude::TofuTerraformBlock;
 use crate::prelude::TofuImportBlock;
 use crate::prelude::TofuProviderBlock;
 use eyre::Result;
@@ -7,6 +8,7 @@ use itertools::Itertools;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TofuBlock {
+    Terraform(TofuTerraformBlock),
     Provider(TofuProviderBlock),
     Import(TofuImportBlock),
     Other(Block),
@@ -33,6 +35,10 @@ impl TryFrom<Block> for TofuBlock {
                 let block = TofuProviderBlock::try_from(block)?;
                 TofuBlock::Provider(block)
             }
+            "terraform" => {
+                let block = TofuTerraformBlock::try_from(block)?;
+                TofuBlock::Terraform(block)
+            }
             _ => TofuBlock::Other(block),
         })
     }
@@ -40,6 +46,10 @@ impl TryFrom<Block> for TofuBlock {
 impl std::fmt::Display for TofuBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            TofuBlock::Terraform(terraform) => {
+                // f.write_fmt(format_args!("Terraform block - {}", terraform))
+                f.write_fmt(format_args!("Terraform block"))
+            }
             TofuBlock::Provider(provider) => match provider.alias() {
                 Some(alias) => f.write_fmt(format_args!(
                     "provider {} - alias={}",

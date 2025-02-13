@@ -29,6 +29,7 @@ use crate::interactive::prelude::open_dir;
 use crate::interactive::prelude::pim_activate;
 use crate::interactive::prelude::plan_processed;
 use crate::interactive::prelude::populate_cache;
+use crate::interactive::prelude::remove_oauth2_permission_grants;
 use crate::interactive::prelude::resource_group_import_wizard_menu;
 use crate::interactive::prelude::run_query_menu;
 use crate::interactive::prelude::tag_empty_resource_group_menu;
@@ -96,6 +97,7 @@ pub enum MenuAction {
     BulkUserIdLookup,
     DumpWorkItems,
     BrowseOAuth2PermissionGrants,
+    RemoveOAuth2PermissionGrants,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -156,6 +158,7 @@ impl MenuAction {
             MenuAction::BulkUserIdLookup => "bulk user id lookup",
             MenuAction::DumpWorkItems => "dump work items",
             MenuAction::BrowseOAuth2PermissionGrants => "browse oauth2 permission grants",
+            MenuAction::RemoveOAuth2PermissionGrants => "remove oauth2 permission grants",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -216,6 +219,7 @@ impl MenuAction {
             MenuAction::BulkUserIdLookup => bulk_user_id_lookup().await?,
             MenuAction::DumpWorkItems => dump_work_items().await?,
             MenuAction::BrowseOAuth2PermissionGrants => browse_oauth2_permission_grants().await?,
+            MenuAction::RemoveOAuth2PermissionGrants => remove_oauth2_permission_grants().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
