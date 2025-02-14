@@ -8,6 +8,16 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct OAuth2PermissionGrantId(String);
+impl std::fmt::Display for OAuth2PermissionGrantId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl AsRef<str> for OAuth2PermissionGrantId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ConsentType {

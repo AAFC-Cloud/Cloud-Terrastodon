@@ -18,9 +18,9 @@ use crate::prelude::fetch_oauth2_permission_grants;
 
 #[derive(Debug)]
 pub struct Grant {
-    grant: OAuth2PermissionGrant,
-    service_principal: ServicePrincipal,
-    target: Target,
+    pub grant: OAuth2PermissionGrant,
+    pub service_principal: ServicePrincipal,
+    pub target: Target,
 }
 #[derive(Debug)]
 pub enum Target {
@@ -28,7 +28,7 @@ pub enum Target {
     User(User),
 }
 
-pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Grant>> {
+pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Choice<Grant>>> {
     let grants = fetch_oauth2_permission_grants();
     let service_principals = fetch_all_service_principals();
     let users = fetch_all_users();
@@ -100,5 +100,5 @@ pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Grant>> {
         prompt: None,
         header: Some("Pick the items to browse".to_string()),
     })?;
-    Ok(chosen.into_iter().map(|x| x.value).collect_vec())
+    Ok(chosen)
 }

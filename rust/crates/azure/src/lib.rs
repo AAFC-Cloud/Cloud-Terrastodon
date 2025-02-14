@@ -35,9 +35,11 @@ mod tags;
 mod users;
 mod oauth2_permission_grants;
 mod pick_oauth2_permission_grants;
+pub mod remove_oauth2_permission_grant;
 pub mod prelude {
     pub use crate::auth::*;
     pub use crate::oauth2_permission_grants::*;
+    pub use crate::remove_oauth2_permission_grant::*;
     pub use crate::pick_oauth2_permission_grants::*;
     pub use crate::batch_api::*;
     pub use crate::cost_management::*;
