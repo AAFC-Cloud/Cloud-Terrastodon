@@ -4,10 +4,15 @@ use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceKind;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;
+use hcl::edit::structure::Attribute;
 use hcl::edit::visit_mut::visit_block_mut;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::Decorate;
 use tracing::warn;
+
+fn is_null_or_empty(attrib: &Attribute) -> bool {
+    attrib.value.is_null() || attrib.value.as_str().filter(|x| x.is_empty()).is_some()
+}
 
 pub struct DefaultAttributeRemovalPatcher;
 impl VisitMut for DefaultAttributeRemovalPatcher {
@@ -45,7 +50,7 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                     "skip_service_principal_aad_check",
                 ] {
                     if let Some(attrib) = node.body.get_attribute(key) {
-                        if attrib.value.is_null() {
+                        if is_null_or_empty(attrib) {
                             node.body.remove_attribute(key).unwrap();
                         }
                     }
@@ -80,7 +85,7 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                     "onpremises_group_type",
                 ] {
                     if let Some(attrib) = node.body.get_attribute(key) {
-                        if attrib.value.is_null() {
+                        if is_null_or_empty(attrib) {
                             node.body.remove_attribute(key).unwrap();
                         }
                     }
@@ -149,7 +154,7 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                 // Remove null attributes
                 for key in ["managed_by"] {
                     if let Some(attrib) = node.body.get_attribute(key) {
-                        if attrib.value.is_null() {
+                        if is_null_or_empty(attrib) {
                             node.body.remove_attribute(key).unwrap();
                         }
                     }
