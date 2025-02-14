@@ -235,7 +235,7 @@ async fn add_import_statement_to_menu_action_rs(function_name: &str) -> eyre::Re
 /// ```rust
 /// use eyre::Result;
 ///
-/// pub async fn {function_name}() -> Result<()> {
+/// pub async fn function_name() -> Result<()> {
 ///     Ok(())
 /// }
 /// ```
