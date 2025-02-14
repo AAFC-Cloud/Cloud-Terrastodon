@@ -2,6 +2,9 @@ use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::OutputBehaviour;
 use cloud_terrastodon_core_tofu_types::prelude::TofuProviderBlock;
+use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
+use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformProviderVersionObject;
+use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
 use eyre::eyre;
 use eyre::Context;
 use eyre::Result;
@@ -33,6 +36,37 @@ impl TofuImporter {
         let boilerplate_path = imports_dir.join("boilerplate.tf");
         let import_writer = TofuWriter::new(boilerplate_path);
         import_writer
+            .merge(vec![TofuTerraformBlock {
+                required_providers: Some(TofuTerraformRequiredProvidersBlock(
+                    [
+                        (
+                            "azurerm".to_string(),
+                            TofuTerraformProviderVersionObject {
+                                source: "hashicorp/azurerm".to_string(),
+                                version: ">=4.18.0".to_string(),
+                            },
+                        ),
+                        (
+                            "azuread".to_string(),
+                            TofuTerraformProviderVersionObject {
+                                source: "hashicorp/azuread".to_string(),
+                                version: ">=3.1.0".to_string(),
+                            },
+                        ),
+                        (
+                            "azuredevops".to_string(),
+                            TofuTerraformProviderVersionObject {
+                                source: "microsoft/azuredevops".to_string(),
+                                version: ">=1.6.0".to_string(),
+                            },
+                        ),
+                    ]
+                    .into(),
+                )),
+                ..Default::default()
+            }])
+            .await
+            .context("writing terraform block")?
             .merge(vec![TofuProviderBlock::AzureRM {
                 alias: None,
                 subscription_id: None,

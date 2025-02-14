@@ -4,6 +4,7 @@ use cloud_terrastodon_core_pathing::Existy;
 use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
 use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuProviderBlock;
+use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
 use eyre::Context;
 use eyre::Result;
 use hcl::edit::structure::Block;
@@ -79,6 +80,7 @@ impl TofuWriter {
         ))?;
 
         // Create holders for deduplicating data
+        let mut terraform_blocks: Vec<TofuTerraformBlock> = Default::default();
         let mut provider_blocks: HashSet<TofuProviderBlock> = Default::default();
         let mut import_blocks: HashSet<TofuImportBlock> = Default::default();
         let mut other_blocks: Vec<Block> = Default::default();
@@ -95,6 +97,9 @@ impl TofuWriter {
                 TofuBlock::Other(block) => {
                     other_blocks.push(block);
                 }
+                TofuBlock::Terraform(block) => {
+                    terraform_blocks.push(block);
+                }
             }
         }
 
@@ -110,11 +115,17 @@ impl TofuWriter {
                 TofuBlock::Other(block) => {
                     other_blocks.push(block);
                 }
+                TofuBlock::Terraform(block) => {
+                    terraform_blocks.push(block);
+                }
             }
         }
 
         // Build result body
         let mut result_body = Body::builder();
+        for block in terraform_blocks {
+            result_body = result_body.block(block);
+        }
         for block in provider_blocks {
             result_body = result_body.block(block);
         }

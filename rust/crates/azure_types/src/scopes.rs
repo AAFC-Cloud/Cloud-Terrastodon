@@ -28,6 +28,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use core::panic;
 use std::fmt;
 use std::str::pattern::Pattern;
 use std::str::FromStr;
@@ -377,9 +378,28 @@ pub trait SubscriptionScoped: Scope {
 }
 pub trait ResourceGroupScoped: SubscriptionScoped {
     fn resource_group_id(&self) -> ResourceGroupId {
-        self.expanded_form()
-            .parse()
-            .expect("resource group id should be well formed")
+        let expanded = self.expanded_form();
+        let Ok((subscription_id, Some(remaining))) =
+            strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)
+        else {
+            panic!(
+                "resource group id should have been validated before construction - expected subscription prefix with slug but got {expanded:?}"
+            );
+        };
+        let Ok(subscription_id) = subscription_id.parse() else {
+            panic!("resource group id should have been validated before construction - subscription id malformed {subscription_id:?}");
+        };
+        let Ok((resource_group_name, _)) =
+            strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)
+        else {
+            panic!(
+                "resource group id should have been validated before construction - expected resource group prefix with slug but got {expanded:?}"
+            );
+        };
+        ResourceGroupId::new(
+            &subscription_id,
+            resource_group_name.to_string()
+        )
     }
 }
 pub trait ResourceScoped: ResourceGroupScoped {

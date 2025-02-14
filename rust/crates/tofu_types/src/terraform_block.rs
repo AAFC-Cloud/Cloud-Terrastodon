@@ -12,7 +12,7 @@ use hcl_primitives::Ident;
 use itertools::Itertools;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct TofuTerraformBlock {
     pub backend: Option<TofuTerraformBackendBlock>,
     pub required_providers: Option<TofuTerraformRequiredProvidersBlock>,
@@ -212,7 +212,7 @@ impl TryFrom<Block> for TofuTerraformAzureRMBackendBlock {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TofuTerraformRequiredProvidersBlock(HashMap<String, TofuTerraformProviderVersionObject>);
+pub struct TofuTerraformRequiredProvidersBlock(pub HashMap<String, TofuTerraformProviderVersionObject>);
 
 impl TryFrom<Block> for TofuTerraformRequiredProvidersBlock {
     type Error = eyre::Error;
