@@ -84,7 +84,7 @@ where
     let mut cmd = Command::new("fzf");
     cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
-    cmd.args(["--height", "-3"]);
+    cmd.args(["--height", "~9999"]);
     cmd.args(["--read0", "--print0"]);
     cmd.arg("--highlight-line");
     cmd.args([
