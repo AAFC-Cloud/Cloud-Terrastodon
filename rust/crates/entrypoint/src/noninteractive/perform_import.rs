@@ -22,8 +22,12 @@ pub async fn perform_import() -> Result<()> {
     match TofuImporter::default().using_dir(imports_dir).run().await {
         Ok(_) => info!("Import success!"),
         Err(e) => {
-            info!("Error from tf during perform_import, this is expected since generated resources often have conflicting attributes: {e:?}");
-            warn!("Import encountered problems. This may be because the generated code needs attention, or it could have failed. Processing step may resolve the errors.");
+            info!(
+                "Error from tf during perform_import, this is expected since generated resources often have conflicting attributes: {e:?}"
+            );
+            warn!(
+                "Import encountered problems. This may be because the generated code needs attention, or it could have failed. Processing step may resolve the errors."
+            );
         }
     };
 

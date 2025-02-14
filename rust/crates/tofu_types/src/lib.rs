@@ -11,11 +11,11 @@ mod terraform_block;
 pub mod prelude {
     pub use crate::block::*;
     pub use crate::code_reference::*;
-    pub use crate::terraform_block::*;
     pub use crate::data::*;
     pub use crate::imports::*;
     pub use crate::providers::*;
     pub use crate::resources::*;
     pub use crate::strings::*;
+    pub use crate::terraform_block::*;
     pub use hcl::*;
 }

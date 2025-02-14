@@ -7,6 +7,7 @@ mod fake;
 mod groups;
 mod management_groups;
 mod naming;
+mod oauth2_permission_grants;
 mod pim_azurerm_role_assignment_schedule_requests;
 mod pim_entra_role_assignment_requests;
 mod pim_entra_role_assignments;
@@ -39,7 +40,6 @@ mod test_resource;
 mod users;
 mod uuid_macros;
 mod uuid_wrapper;
-mod oauth2_permission_grants;
 
 pub mod prelude {
     pub use crate::duration::*;

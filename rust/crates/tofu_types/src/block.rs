@@ -1,6 +1,6 @@
-use crate::prelude::TofuTerraformBlock;
 use crate::prelude::TofuImportBlock;
 use crate::prelude::TofuProviderBlock;
+use crate::prelude::TofuTerraformBlock;
 use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
@@ -51,9 +51,12 @@ impl TryFrom<Block> for TofuBlock {
 impl std::fmt::Display for TofuBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TofuBlock::Terraform(terraform) => {
-                f.write_fmt(format_args!("Terraform block - backend={}, required_providers={}, other={}", terraform.backend.is_some(), terraform.required_providers.is_some(), terraform.other.len()))
-            }
+            TofuBlock::Terraform(terraform) => f.write_fmt(format_args!(
+                "Terraform block - backend={}, required_providers={}, other={}",
+                terraform.backend.is_some(),
+                terraform.required_providers.is_some(),
+                terraform.other.len()
+            )),
             TofuBlock::Provider(provider) => match provider.alias() {
                 Some(alias) => f.write_fmt(format_args!(
                     "provider {} - alias={}",

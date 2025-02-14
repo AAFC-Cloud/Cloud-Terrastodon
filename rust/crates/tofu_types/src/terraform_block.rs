@@ -212,7 +212,9 @@ impl TryFrom<Block> for TofuTerraformAzureRMBackendBlock {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TofuTerraformRequiredProvidersBlock(pub HashMap<String, TofuTerraformProviderVersionObject>);
+pub struct TofuTerraformRequiredProvidersBlock(
+    pub HashMap<String, TofuTerraformProviderVersionObject>,
+);
 
 impl TryFrom<Block> for TofuTerraformRequiredProvidersBlock {
     type Error = eyre::Error;

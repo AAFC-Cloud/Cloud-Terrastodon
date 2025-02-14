@@ -17,6 +17,7 @@ use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
 use crate::subscriptions::SubscriptionId;
 use crate::subscriptions::SUBSCRIPTION_ID_PREFIX;
 use clap::ValueEnum;
+use core::panic;
 use eyre::bail;
 use eyre::eyre;
 use eyre::Context;
@@ -28,7 +29,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use core::panic;
 use std::fmt;
 use std::str::pattern::Pattern;
 use std::str::FromStr;
@@ -387,7 +387,9 @@ pub trait ResourceGroupScoped: SubscriptionScoped {
             );
         };
         let Ok(subscription_id) = subscription_id.parse() else {
-            panic!("resource group id should have been validated before construction - subscription id malformed {subscription_id:?}");
+            panic!(
+                "resource group id should have been validated before construction - subscription id malformed {subscription_id:?}"
+            );
         };
         let Ok((resource_group_name, _)) =
             strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)
@@ -396,10 +398,7 @@ pub trait ResourceGroupScoped: SubscriptionScoped {
                 "resource group id should have been validated before construction - expected resource group prefix with slug but got {expanded:?}"
             );
         };
-        ResourceGroupId::new(
-            &subscription_id,
-            resource_group_name.to_string()
-        )
+        ResourceGroupId::new(&subscription_id, resource_group_name.to_string())
     }
 }
 pub trait ResourceScoped: ResourceGroupScoped {

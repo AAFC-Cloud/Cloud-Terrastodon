@@ -18,7 +18,7 @@ pub async fn fetch_queries_for_project(
         "--route-parameters",
         format!("project={project_name}").as_str(),
     ]);
-    cmd.args(["--query-parameters", "$expand=all","$depth=2"]);
+    cmd.args(["--query-parameters", "$expand=all", "$depth=2"]);
     #[derive(Deserialize)]
     struct InvokeResponse {
         continuation_token: Option<Value>,
@@ -26,7 +26,10 @@ pub async fn fetch_queries_for_project(
         value: Vec<AzureDevopsWorkItemQuery>,
     }
     let resp = cmd.run::<InvokeResponse>().await?;
-    info!("Found {} queries for Azure DevOps project {project_name}", resp.count);
+    info!(
+        "Found {} queries for Azure DevOps project {project_name}",
+        resp.count
+    );
     if resp.continuation_token.is_some() {
         todo!("Add support for continuation token...");
     }

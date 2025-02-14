@@ -600,7 +600,9 @@ impl CommandBuilder {
                         }
                         Err(_) => {
                             debug!("Login lock busy, waiting for the login to complete");
-                            warn!("Command failed due to bad auth. Waiting for login in progress...");
+                            warn!(
+                                "Command failed due to bad auth. Waiting for login in progress..."
+                            );
                             _ = mutex.lock().await;
                         }
                     }
