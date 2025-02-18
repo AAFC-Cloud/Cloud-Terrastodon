@@ -86,11 +86,12 @@ impl<'de> Deserialize<'de> for RoleEligibilityScheduleId {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum RoleEligibilityScheduleMemberType {
     Group,
+    Direct,
 }
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum RoleEligibilitySchedulePrincipalType {
-    // todo: make this a more centralized type def?
     Group,
+    User,
 }
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum RoleEligibilityScheduleStatus {
