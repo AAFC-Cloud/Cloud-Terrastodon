@@ -264,6 +264,7 @@ dependencies = [
 name = "cloud_terrastodon_core_azure"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "cloud_terrastodon_core_azure_types",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_pathing",

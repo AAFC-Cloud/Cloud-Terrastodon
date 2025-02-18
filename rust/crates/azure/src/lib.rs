@@ -36,7 +36,9 @@ mod storage_accounts;
 mod subscriptions;
 mod tags;
 mod users;
+mod metrics;
 pub mod prelude {
+    pub use crate::metrics::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::cost_management::*;
