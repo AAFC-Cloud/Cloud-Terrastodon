@@ -134,3 +134,14 @@ where
     }
     Ok(rtn)
 }
+impl<T> BatchRequest<T>
+where
+    T: Serialize + Clone,
+{
+    pub async fn invoke<RESP>(&self) -> eyre::Result<BatchResponse<RESP>>
+    where
+        RESP: DeserializeOwned,
+    {
+        invoke_batch_request(self).await
+    }
+}
