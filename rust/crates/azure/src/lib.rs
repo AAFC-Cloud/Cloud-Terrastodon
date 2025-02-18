@@ -37,8 +37,10 @@ mod subscriptions;
 mod tags;
 mod users;
 mod metrics;
+mod oauth2_permission_scopes;
 pub mod prelude {
     pub use crate::metrics::*;
+    pub use crate::oauth2_permission_scopes::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::cost_management::*;

@@ -18,6 +18,7 @@ use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
 use crate::interactive::prelude::copy_azurerm_backend_menu;
 use crate::interactive::prelude::create_new_action_variant;
+use crate::interactive::prelude::create_oauth2_permission_grant;
 use crate::interactive::prelude::create_role_assignment_menu;
 use crate::interactive::prelude::dump_tags;
 use crate::interactive::prelude::dump_work_items;
@@ -98,6 +99,7 @@ pub enum MenuAction {
     DumpWorkItems,
     BrowseOAuth2PermissionGrants,
     RemoveOAuth2PermissionGrants,
+    CreateOAuth2PermissionGrant,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -159,6 +161,7 @@ impl MenuAction {
             MenuAction::DumpWorkItems => "dump work items",
             MenuAction::BrowseOAuth2PermissionGrants => "browse oauth2 permission grants",
             MenuAction::RemoveOAuth2PermissionGrants => "remove oauth2 permission grants",
+            MenuAction::CreateOAuth2PermissionGrant => "create oauth2 permission grant",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -220,6 +223,7 @@ impl MenuAction {
             MenuAction::DumpWorkItems => dump_work_items().await?,
             MenuAction::BrowseOAuth2PermissionGrants => browse_oauth2_permission_grants().await?,
             MenuAction::RemoveOAuth2PermissionGrants => remove_oauth2_permission_grants().await?,
+            MenuAction::CreateOAuth2PermissionGrant => create_oauth2_permission_grant().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
