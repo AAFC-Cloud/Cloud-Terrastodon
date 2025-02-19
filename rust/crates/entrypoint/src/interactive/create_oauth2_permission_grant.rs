@@ -30,8 +30,8 @@ pub async fn create_oauth2_permission_grant() -> Result<()> {
         header: Some("Select the scopes you want to grant".to_string()),
     })?;
 
-    todo!("'Found {} scopes, fetch all?' then fetch Microsoft Graph scopes and add to list");
-    todo!("rename action to be plural")
+    // todo!("'Found {} scopes, fetch all?' then fetch Microsoft Graph scopes and add to list");
+    // todo!("rename action to be plural")
 
     let users = fetch_all_users().await?;
     let users_to_add = pick_many(FzfArgs {

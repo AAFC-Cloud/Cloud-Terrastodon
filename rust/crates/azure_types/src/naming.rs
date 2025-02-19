@@ -34,12 +34,13 @@ pub fn validate_policy_name(name: &str) -> Result<()> {
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftmanagement
 pub fn validate_management_group_name(name: &str) -> Result<()> {
-    if name.is_empty() || name.len() > 90 {
-        bail!(
-            "Name {name:?} must be  1-90 characters (was {})",
-            name.len()
-        );
-    }
+    // names can be empty if no management groups exist
+    // if name.is_empty() || name.len() > 90 {
+    //     bail!(
+    //         "Name {name:?} must be  1-90 characters (was {})",
+    //         name.len()
+    //     );
+    // }
 
     if let Some(first_char) = name.chars().next() {
         if !first_char.is_alphanumeric() {
