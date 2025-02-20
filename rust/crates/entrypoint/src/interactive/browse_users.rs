@@ -18,7 +18,7 @@ pub async fn browse_users() -> Result<()> {
             })
             .collect_vec(),
         prompt: Some("Users: ".to_string()),
-        header: None,
+        ..Default::default()
     })?;
     info!("You chose:");
     for user in users {

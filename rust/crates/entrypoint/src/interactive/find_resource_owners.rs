@@ -338,8 +338,9 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
 
     let beginning = pick(FzfArgs {
         choices: MyChoice::VARIANTS.to_vec(),
-        prompt: None,
+
         header: Some("Where should the investigation start?".to_string()),
+        ..Default::default()
     })?;
 
     let resource_choices = resources.iter().map(|resource| Choice {
@@ -354,8 +355,9 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
                 .collect_vec(),
             MyChoice::AllResources => resource_choices.collect_vec(),
         },
-        prompt: None,
+
         header: Some("Pick the resources to find the owners for".to_string()),
+        ..Default::default()
     })?;
 
     info!("You chose:");
@@ -403,8 +405,8 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
     loop {
         let clue_source = pick(FzfArgs {
             choices: ClueAction::VARIANTS.to_vec(),
-            prompt: None,
             header: Some("What to search next?".to_string()),
+            ..Default::default()
         })?;
         match clue_source {
             ClueAction::PeekClueDetails => {
@@ -417,8 +419,8 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
                             value: clue,
                         })
                         .collect_vec(),
-                    prompt: None,
                     header: Some("What clues do you want to see the details for?".to_string()),
+                    ..Default::default()
                 })?;
                 info!("You chose:\n{clues:#?}");
                 press_enter_to_continue().await?;

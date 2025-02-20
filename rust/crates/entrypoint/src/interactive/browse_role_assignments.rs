@@ -51,7 +51,7 @@ pub async fn browse_role_assignments() -> Result<()> {
     let chosen = pick_many(FzfArgs {
         choices,
         prompt: Some("Role assignments: ".to_string()),
-        header: None,
+        ..Default::default()
     })?;
 
     info!("You chose:");

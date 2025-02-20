@@ -2,12 +2,12 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 pub enum OAuth2PermissionScopeKind {
     Admin,
-    User
+    User,
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
 pub struct OAuth2PermissionScope {
     #[serde(rename = "adminConsentDescription")]
     pub admin_consent_description: String,

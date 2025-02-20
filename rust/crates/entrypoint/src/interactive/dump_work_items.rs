@@ -15,8 +15,9 @@ pub async fn dump_work_items() -> eyre::Result<()> {
                 value: p,
             })
             .collect_vec(),
-        prompt: None,
+
         header: Some("Pick the projects to export from".to_string()),
+        ..Default::default()
     })?;
     let mut queries = Vec::new();
     for proj in &projects {

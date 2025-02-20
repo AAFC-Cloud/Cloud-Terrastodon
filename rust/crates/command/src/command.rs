@@ -567,8 +567,8 @@ impl CommandBuilder {
 
         // Return if errored
         if !output.success() {
-            match (self.retry_behaviour, output) {
-                (RetryBehaviour::Reauth, output)
+            match self.retry_behaviour {
+                RetryBehaviour::Reauth
                     if [
                         "AADSTS70043",
                         "No subscription found. Run 'az account set' to select a subscription.",
@@ -616,10 +616,12 @@ impl CommandBuilder {
                     // Return the result
                     return output;
                 }
-                (_, o) => {
-                    return Err(Error::from(o).wrap_err(format!(
-                        "Command did not execute successfully: {}",
-                        self.summarize()
+                _ => {
+                    let dir = self.write_failure(&output).await?;
+                    return Err(eyre::Error::from(output).wrap_err(format!(
+                        "Command did not execute successfully: {}, dumped to {:?}",
+                        self.summarize(),
+                        dir
                     )));
                 }
             }

@@ -42,7 +42,7 @@ pub async fn browse_security_groups() -> Result<()> {
             })
             .collect_vec(),
         prompt: Some("security groups: ".to_string()),
-        header: None,
+        ..Default::default()
     })?
     .into_iter()
     .map(|x| x.value)

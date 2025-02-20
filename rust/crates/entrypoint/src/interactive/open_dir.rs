@@ -23,8 +23,9 @@ pub async fn open_dir() -> Result<()> {
     }
     let dirs_to_open = pick_many(FzfArgs {
         choices,
-        prompt: None,
+
         header: Some("Choose directories to open".to_string()),
+        ..Default::default()
     })?;
     for v in dirs_to_open {
         let (dir, exists) = v.value;

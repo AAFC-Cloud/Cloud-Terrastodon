@@ -33,8 +33,8 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
                 value: ass,
             })
             .collect(),
-        prompt: None,
         header: Some("Choose policy to evaluate".to_string()),
+        ..Default::default()
     })?;
 
     info!(
@@ -88,8 +88,8 @@ policyResources
                 value: row,
             })
             .collect_vec(),
-        prompt: None,
         header: Some("Choose an inner policy to review".to_string()),
+        ..Default::default()
     })?;
 
     info!(
@@ -167,6 +167,7 @@ policyResources
             "{} - {}",
             chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
         )),
+        ..Default::default()
     })?;
 
     info!(

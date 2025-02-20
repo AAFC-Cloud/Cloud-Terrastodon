@@ -55,7 +55,10 @@ async fn main() -> Result<()> {
             .parse()
             .unwrap(),
         );
-    tracing_subscriber::fmt().with_env_filter(env_filter).init();
+    tracing_subscriber::fmt()
+        .with_env_filter(env_filter)
+        .without_time()
+        .init();
 
     // fix colours in the default exe terminal
     // show no errors when colours unavailable (piping situations)

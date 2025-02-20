@@ -23,7 +23,7 @@ pub async fn tag_resources_menu() -> eyre::Result<()> {
             })
             .collect_vec(),
         header: Some("Choose a resource group".to_string()),
-        prompt: None,
+        ..Default::default()
     })?;
     let resources = fetch_all_resources()
         .await?
@@ -43,7 +43,7 @@ pub async fn tag_resources_menu() -> eyre::Result<()> {
             })
             .collect_vec(),
         header: Some("Choose resources to tag".to_string()),
-        prompt: None,
+        ..Default::default()
     })?;
     let resource_tags = get_tags_for_resources(
         resources

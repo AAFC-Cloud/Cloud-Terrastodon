@@ -21,7 +21,7 @@ pub async fn dump_tags() -> eyre::Result<()> {
                 "Output path {} already exists, overwrite?",
                 path.display()
             )),
-            header: None,
+            ..Default::default()
         })? == &no
         {
             warn!("Chose not to overwrite, no action taken!");

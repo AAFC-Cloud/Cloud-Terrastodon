@@ -20,7 +20,7 @@ pub async fn browse_resources_menu() -> Result<()> {
     let chosen = pick_many(FzfArgs {
         choices,
         prompt: Some("Resources: ".to_string()),
-        header: None,
+        ..Default::default()
     })?;
     info!("You chose:");
     for choice in chosen {

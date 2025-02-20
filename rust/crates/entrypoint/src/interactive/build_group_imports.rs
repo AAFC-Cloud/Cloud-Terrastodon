@@ -20,7 +20,7 @@ pub async fn build_group_imports() -> Result<()> {
     let chosen = pick_many(FzfArgs {
         choices: groups,
         prompt: Some("Groups to import: ".to_string()),
-        header: None,
+        ..Default::default()
     })?;
 
     let imports: Vec<TofuImportBlock> = chosen.into_iter().map(|x| x.into()).collect_vec();

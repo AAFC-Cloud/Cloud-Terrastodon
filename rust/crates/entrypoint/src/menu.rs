@@ -39,7 +39,7 @@ pub async fn menu() -> Result<MenuActionResult> {
             }
             .to_string(),
         ),
-        prompt: None,
+        ..Default::default()
     })?;
 
     // restore execution order

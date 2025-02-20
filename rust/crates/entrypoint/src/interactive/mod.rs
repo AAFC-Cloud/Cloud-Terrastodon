@@ -18,7 +18,7 @@ mod clean_imports;
 mod clean_processed;
 mod copy_azurerm_backend_menu;
 mod create_new_action_variant;
-mod create_oauth2_permission_grant;
+mod create_oauth2_permission_grants;
 mod create_role_assignment_menu;
 mod dump_tags;
 mod dump_work_items;
@@ -57,7 +57,7 @@ pub mod prelude {
     pub use crate::interactive::clean_processed::*;
     pub use crate::interactive::copy_azurerm_backend_menu::*;
     pub use crate::interactive::create_new_action_variant::*;
-    pub use crate::interactive::create_oauth2_permission_grant::*;
+    pub use crate::interactive::create_oauth2_permission_grants::*;
     pub use crate::interactive::create_role_assignment_menu::*;
     pub use crate::interactive::dump_tags::*;
     pub use crate::interactive::dump_work_items::*;

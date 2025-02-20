@@ -9,8 +9,9 @@ pub async fn clean_all_menu() -> Result<()> {
     let choices = vec!["keep command cache (recommended)", "purge command cache"];
     let chosen = pick(FzfArgs {
         choices,
-        prompt: None,
+
         header: Some("Cleaning".to_string()),
+        ..Default::default()
     })?;
     match chosen {
         "keep command cache (recommended)" => {

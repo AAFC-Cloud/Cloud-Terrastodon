@@ -43,6 +43,7 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
             .collect(),
         prompt: Some("Storage Account: ".to_string()),
         header: Some("Picking the storage account for the state file".to_string()),
+        ..Default::default()
     })?;
 
     info!("Fetching blob containers for {}", chosen_storage_account.1);
@@ -69,8 +70,9 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
                         value: name,
                     })
                     .collect(),
-                prompt: None,
+
                 header: Some("Blob Container Name: ".to_string()),
+                ..Default::default()
             })?
             .value
         }

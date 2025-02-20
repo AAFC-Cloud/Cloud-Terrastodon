@@ -7,7 +7,7 @@ use serde::Serialize;
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct OAuth2PermissionGrantId(String);
+pub struct OAuth2PermissionGrantId(pub String);
 impl std::fmt::Display for OAuth2PermissionGrantId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
@@ -53,4 +53,9 @@ impl OAuth2PermissionGrant {
     pub fn get_scopes(&self) -> Vec<&str> {
         self.scope.split_ascii_whitespace().collect_vec()
     }
+    // pub fn new(
+    //     service_principal_id: ServicePrincipalId,
+    //     consent_type: ConsentType,
+
+    // )
 }

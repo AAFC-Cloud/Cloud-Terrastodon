@@ -22,7 +22,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
             })
             .collect_vec(),
         prompt: Some("Roles to assign: ".to_string()),
-        header: None,
+        ..Default::default()
     })?;
 
     info!("Fetching principals");
@@ -40,6 +40,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
             "Assigning {}",
             role_definitions.iter().map(|r| &r.display_name).join(", ")
         )),
+        ..Default::default()
     })?;
 
     info!("Fetching resources");
@@ -58,6 +59,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
             role_definitions.iter().map(|r| &r.display_name).join(", "),
             principals.iter().map(|p| &p.display_name).join(", ")
         )),
+        ..Default::default()
     })?;
 
     let mut total = 0;

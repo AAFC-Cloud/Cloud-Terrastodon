@@ -6,8 +6,10 @@ mod eligible_child_resources;
 mod fake;
 mod groups;
 mod management_groups;
+mod metrics;
 mod naming;
 mod oauth2_permission_grants;
+mod oauth2_permission_scopes;
 mod pim_azurerm_role_assignment_schedule_requests;
 mod pim_entra_role_assignment_requests;
 mod pim_entra_role_assignments;
@@ -40,14 +42,12 @@ mod test_resource;
 mod users;
 mod uuid_macros;
 mod uuid_wrapper;
-mod metrics;
-mod oauth2_permission_scopes;
 
 pub mod prelude {
     pub use crate::duration::*;
+    pub use crate::metrics::*;
     pub use crate::oauth2_permission_grants::*;
     pub use crate::oauth2_permission_scopes::*;
-    pub use crate::metrics::*;
     pub use crate::uuid_wrapper::*;
     // pub use crate::uuid_macros::*;
     pub use crate::app::*;

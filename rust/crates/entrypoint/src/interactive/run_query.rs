@@ -69,8 +69,8 @@ resources
         let return_to_menu = "return to menu";
         let next = pick(FzfArgs {
             choices: vec![run_another_query, return_to_menu],
-            header: None,
-            prompt: None,
+
+            ..Default::default()
         })?;
         match next {
             x if x == run_another_query => continue,

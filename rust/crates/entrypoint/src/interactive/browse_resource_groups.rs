@@ -48,8 +48,9 @@ pub async fn browse_resource_groups() -> Result<()> {
     info!("Prompting user");
     let chosen = pick_many(FzfArgs {
         choices,
-        prompt: None,
+
         header: Some("Browsing resource groups".to_string()),
+        ..Default::default()
     })?;
 
     info!("You chose:");

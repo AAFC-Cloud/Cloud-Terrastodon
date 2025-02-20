@@ -32,8 +32,8 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     let keep_existing_imports = "keep existing imports";
     match pick(FzfArgs {
         choices: vec![start_from_scratch, keep_existing_imports],
-        prompt: None,
         header: Some("This will wipe any existing imports from the Cloud Terrastodon work directory. Proceed?".to_string()),
+        ..Default::default()
     })? {
         x if x == start_from_scratch => {
             info!("Removing existing imports");
@@ -92,8 +92,9 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     info!("Picking resource groups");
     let resource_groups = pick_many(FzfArgs {
         choices: resource_group_choices,
-        prompt: None,
+
         header: Some("Pick which to import".to_string()),
+        ..Default::default()
     })?;
     info!("You chose {} resource groups", resource_groups.len());
 

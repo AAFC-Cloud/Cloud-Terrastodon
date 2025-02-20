@@ -1,4 +1,2 @@
 #[derive(Debug)]
-pub struct Metrics {
-    
-}
+pub struct Metrics {}

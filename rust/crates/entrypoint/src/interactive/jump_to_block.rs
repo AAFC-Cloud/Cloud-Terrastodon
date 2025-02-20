@@ -16,8 +16,9 @@ pub async fn jump_to_block(dir: PathBuf) -> Result<()> {
 
     let chosen = pick(FzfArgs {
         choices,
-        prompt: None,
+
         header: Some("Blocks".to_string()),
+        ..Default::default()
     })
     .context("picking")?;
     CommandBuilder::new(CommandKind::VSCode)

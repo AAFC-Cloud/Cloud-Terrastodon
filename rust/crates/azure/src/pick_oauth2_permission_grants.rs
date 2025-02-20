@@ -97,8 +97,8 @@ pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Choice<Grant>>>
                 })
             })
             .collect_vec(),
-        prompt: None,
         header: Some("Pick the items to browse".to_string()),
+        ..Default::default()
     })?;
     Ok(chosen)
 }

@@ -53,7 +53,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
     let chosen = pick_many(FzfArgs {
         choices,
         prompt: Some("Groups to import: ".to_string()),
-        header: None,
+        ..Default::default()
     })?;
 
     info!("Building import blocks");

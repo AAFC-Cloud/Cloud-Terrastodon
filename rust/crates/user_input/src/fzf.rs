@@ -54,9 +54,17 @@ impl<T> Eq for Choice<T> where T: Eq {}
 
 #[derive(Debug)]
 pub struct FzfArgs<T> {
+    /// The list of items being chosen from
     pub choices: Vec<T>,
+
+    /// The term that appears before the user's text input
     pub prompt: Option<String>,
+
+    /// The term that appears between the item list and the user's text input
     pub header: Option<String>,
+
+    /// The default search term
+    pub query: Option<String>,
 }
 impl<T> Default for FzfArgs<T> {
     fn default() -> Self {
@@ -64,6 +72,7 @@ impl<T> Default for FzfArgs<T> {
             choices: Default::default(),
             prompt: Default::default(),
             header: Default::default(),
+            query: Default::default(),
         }
     }
 }
@@ -151,6 +160,10 @@ where
         args.push("--header".as_ref());
         args.push(header.as_ref());
     }
+    if let Some(query) = &options.query {
+        args.push("--query".as_ref());
+        args.push(query.as_ref());
+    }
     let holder = additional_args.into_iter().collect_vec();
     for arg in holder.iter() {
         args.push(arg.as_ref())
@@ -197,6 +210,7 @@ mod tests {
             choices,
             prompt: Some("Pick things".to_string()),
             header: Some("bruh".to_string()),
+            ..Default::default()
         };
         let chosen = pick_many(options)?;
         println!("You chose: {:?}", chosen);

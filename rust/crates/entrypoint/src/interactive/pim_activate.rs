@@ -39,8 +39,8 @@ impl std::fmt::Display for PimKind {
 pub async fn pim_activate() -> Result<()> {
     match pick(FzfArgs {
         choices: vec![PimKind::Entra, PimKind::AzureRM],
-        prompt: None,
         header: Some("Choose the kind of role to activate".to_string()),
+        ..Default::default()
     })? {
         PimKind::Entra => pim_activate_entra().await,
         PimKind::AzureRM => pim_activate_azurerm().await,
@@ -106,8 +106,9 @@ pub async fn pim_activate_entra() -> Result<()> {
     info!("Prompting user choice");
     let chosen_roles = pick_many(FzfArgs {
         choices: activatable_assignments,
-        prompt: None,
+
         header: Some("Choose roles to activate".to_string()),
+        ..Default::default()
     })?;
 
     info!("Fetching maximum activation durations");
@@ -130,8 +131,9 @@ pub async fn pim_activate_entra() -> Result<()> {
                 value: d,
             })
             .collect(),
-        prompt: None,
+
         header: Some("Duration to activate PIM for".to_string()),
+        ..Default::default()
     })?;
     info!("Chosen duration is {}", format_duration(*chosen_duration));
 
@@ -160,8 +162,8 @@ pub async fn pim_activate_azurerm() -> Result<()> {
                 value: x,
             })
             .collect_vec(),
-        prompt: None,
         header: Some("Choose roles to activate".to_string()),
+        ..Default::default()
     })?;
 
     let chosen_roles_display = chosen_roles
@@ -193,8 +195,9 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         .collect_vec();
     let chosen_scopes = pick_many(FzfArgs {
         choices: possible_scopes,
-        prompt: None,
+
         header: Some(format!("Activating {chosen_roles_display}")),
+        ..Default::default()
     })?;
 
     info!("Fetching maximum eligible duration");
@@ -223,8 +226,8 @@ pub async fn pim_activate_azurerm() -> Result<()> {
                 value: d,
             })
             .collect(),
-        prompt: None,
         header: Some("Duration to activate PIM for".to_string()),
+        ..Default::default()
     })?;
     info!("Chosen duration is {}", format_duration(*chosen_duration));
 

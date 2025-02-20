@@ -42,8 +42,8 @@ pub async fn remediate_policy_assignment() -> Result<()> {
         ..
     } = pick(FzfArgs {
         choices,
-        prompt: None,
         header: Some("Choose policy to remediate".to_string()),
+        ..Default::default()
     })?;
 
     info!("Finding policy definition for chosen");
@@ -75,8 +75,8 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                 .collect_vec();
             let chosen = pick_many(FzfArgs {
                 choices: reference_ids,
-                prompt: None,
                 header: Some("Pick the inner definitions to remediate".to_string()),
+                ..Default::default()
             })?;
 
             info!("Launching remediation tasks");

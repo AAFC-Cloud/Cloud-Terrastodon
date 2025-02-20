@@ -47,10 +47,9 @@ pub struct User {
 }
 impl std::fmt::Display for User {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.display_name)?;
-        f.write_str(" (")?;
         f.write_str(self.id.to_string().as_str())?;
-        f.write_str(")")?;
+        f.write_str(" - ")?;
+        f.write_str(&self.user_principal_name)?;
         Ok(())
     }
 }
