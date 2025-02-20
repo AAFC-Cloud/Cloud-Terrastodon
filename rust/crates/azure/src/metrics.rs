@@ -27,7 +27,7 @@ pub async fn fetch_metrics(
             .ok_or_eyre("Failed to construct starting data")?;
         let url = format!(
             // "{}/providers/Microsoft.Insights/metrics?timespan={}/{}&interval=FULL&metricnames=UsedCapacity&aggregation=maximum&metricNamespace=Microsoft.Storage/storageAccounts&api-version=2019-07-01",
-            "{}/providers/Microsoft.Insights/metrics?timespan={}/{}&interval=P1D&metricnames=UsedCapacity&aggregation=maximum&metricNamespace=Microsoft.Storage/storageAccounts&api-version=2019-07-01",
+            "{}/providers/Microsoft.Insights/metrics?timespan={}/{}&interval=PT1H&metricnames=UsedCapacity&aggregation=maximum&metricNamespace=Microsoft.Storage/storageAccounts&api-version=2019-07-01",
             id,
             begin.to_rfc3339_opts(SecondsFormat::Secs, true),
             end.to_rfc3339_opts(SecondsFormat::Secs, true)

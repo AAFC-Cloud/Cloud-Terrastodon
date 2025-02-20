@@ -11,7 +11,6 @@ use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use eyre::Result;
 use itertools::Itertools;
 use tracing::info;
-use tracing::warn;
 
 pub async fn create_oauth2_permission_grants() -> Result<()> {
     let service_principals = fetch_all_service_principals().await?;
@@ -43,7 +42,7 @@ pub async fn create_oauth2_permission_grants() -> Result<()> {
     })?;
     info!("You chose: {} - {}", client.display_name, client.id);
 
-    let mut scopes = fetch_oauth2_permission_scopes(resource.id)
+    let scopes = fetch_oauth2_permission_scopes(resource.id)
         .await?
         .into_iter()
         .collect::<HashSet<_>>();

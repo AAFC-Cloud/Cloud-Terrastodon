@@ -159,8 +159,8 @@ mod tests {
                         value: x,
                     })
                     .collect_vec(),
-                prompt: None,
                 header: Some("Choose a scope".to_string()),
+                ..Default::default()
             })?;
             scope = next_scope.value.id;
         }
@@ -177,8 +177,7 @@ mod tests {
                     value: x,
                 })
                 .collect(),
-            prompt: None,
-            header: None,
+            ..Default::default()
         })?;
         assert!(chosen.len() > 0);
         Ok(())
