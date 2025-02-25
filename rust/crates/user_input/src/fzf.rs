@@ -1,4 +1,5 @@
 use eyre::eyre;
+use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Error;
 use eyre::Result;
@@ -6,6 +7,7 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 use std::ffi::OsStr;
 use std::fmt::Display;
+use std::io::ErrorKind;
 use std::io::Write;
 use std::ops::Deref;
 use std::process::Command;
@@ -101,7 +103,18 @@ where
         "ctrl-a:select-all,ctrl-d:deselect-all,ctrl-t:toggle-all",
     ]);
     cmd.args(additional_args);
-    let mut child = cmd.spawn()?;
+    let mut child = match cmd.spawn() {
+        Ok(x) => x,
+        Err(e) if e.kind() == ErrorKind::NotFound => {
+            #[cfg(windows)]
+            return Err(e).wrap_err("Is fzf installed?\nhttps://github.com/junegunn/fzf?tab=readme-ov-file#windows-packages");
+            #[cfg(not(windows))]
+            return Err(e).wrap_err("Is fzf installed?\nhttps://github.com/junegunn/fzf?tab=readme-ov-file#linux-packages");
+        }
+        x => x?
+    };  
+
+
 
     // Write the choices to fzf's stdin
     {
