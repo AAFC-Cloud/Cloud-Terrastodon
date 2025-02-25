@@ -204,8 +204,8 @@ impl TryFrom<Output> for CommandOutput {
     type Error = Error;
     fn try_from(value: Output) -> Result<Self> {
         Ok(CommandOutput {
-            stdout: String::from_utf8(value.stdout)?,
-            stderr: String::from_utf8(value.stderr)?,
+            stdout: String::from_utf8_lossy_owned(value.stdout),
+            stderr: String::from_utf8_lossy_owned(value.stderr),
             status: match value.status.code().unwrap_or(1) {
                 x if x < 0 => 1,
                 x => x,
@@ -556,7 +556,7 @@ impl CommandBuilder {
         )
         .await
         {
-            Ok(result) => result?.try_into()?,
+            Ok(result) => result.wrap_err("Acquiring result of command execution")?.try_into().wrap_err("Converting command output")?,
             Err(elapsed) => {
                 bail!("Command timeout, {elapsed:?}: {}", self.summarize());
             }
