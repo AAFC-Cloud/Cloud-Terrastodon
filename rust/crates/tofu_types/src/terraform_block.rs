@@ -18,6 +18,11 @@ pub struct TofuTerraformBlock {
     pub required_providers: Option<TofuTerraformRequiredProvidersBlock>,
     pub other: Vec<Structure>,
 }
+impl TofuTerraformBlock {
+    pub fn is_empty(&self) -> bool {
+        self.backend.is_none() && self.required_providers.is_none() && self.other.is_empty()
+    }
+}
 impl From<TofuTerraformBlock> for Block {
     fn from(block: TofuTerraformBlock) -> Self {
         let mut builder = Block::builder(Ident::new("terraform"));

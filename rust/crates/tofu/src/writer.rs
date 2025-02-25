@@ -17,6 +17,7 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
+use tracing::warn;
 
 use crate::prelude::TofuBlock;
 
@@ -123,8 +124,38 @@ impl TofuWriter {
 
         // Build result body
         let mut result_body = Body::builder();
+        let mut terraform_block = TofuTerraformBlock::default();
         for block in terraform_blocks {
-            result_body = result_body.block(block);
+            if block.backend.is_some() {
+                if let Some(x) = terraform_block.backend {
+                    warn!("Multiple backend blocks detected, prioritizing latest")
+                }
+                terraform_block.backend = block.backend;
+            }
+            if let Some(required_providers) = block.required_providers {
+                match &mut terraform_block.required_providers {
+                    None => {
+                        terraform_block.required_providers = Some(required_providers);
+                    }
+                    Some(existing) => {
+                        for (provider, version) in required_providers.0 {
+                            if let Some(existing_provider_version) = existing.0.get(&provider) {
+                                if *existing_provider_version != version {
+                                    warn!(
+                                        "Detected multiple required_provider entries for {provider}, discarding {:?} for {:?}",
+                                        existing_provider_version, version
+                                    );
+                                }
+                            }
+                            existing.0.insert(provider, version);
+                        }
+                    }
+                }
+            }
+            terraform_block.other.extend(block.other);
+        }
+        if !terraform_block.is_empty() {
+            result_body = result_body.block(terraform_block);
         }
         for block in provider_blocks {
             result_body = result_body.block(block);
