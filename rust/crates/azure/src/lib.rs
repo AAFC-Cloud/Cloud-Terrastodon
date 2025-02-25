@@ -1,4 +1,4 @@
-#![feature(async_closure, impl_trait_in_assoc_type, duration_constructors)]
+#![feature(impl_trait_in_assoc_type, duration_constructors)]
 mod auth;
 mod batch_api;
 mod cost_management;
