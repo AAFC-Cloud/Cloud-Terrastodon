@@ -127,7 +127,7 @@ impl TofuWriter {
         let mut terraform_block = TofuTerraformBlock::default();
         for block in terraform_blocks {
             if block.backend.is_some() {
-                if let Some(x) = terraform_block.backend {
+                if terraform_block.backend.is_some() {
                     warn!("Multiple backend blocks detected, prioritizing latest")
                 }
                 terraform_block.backend = block.backend;
