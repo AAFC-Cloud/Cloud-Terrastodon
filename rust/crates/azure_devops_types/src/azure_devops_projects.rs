@@ -32,6 +32,39 @@ impl FromStr for AzureDevopsProjectId {
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+pub struct AzureDevopsProjectName(String);
+impl Deref for AzureDevopsProjectName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl std::fmt::Display for AzureDevopsProjectName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl AzureDevopsProjectName {
+    pub fn new(name: String) -> AzureDevopsProjectName {
+        AzureDevopsProjectName(name)
+    }
+}
+impl FromStr for AzureDevopsProjectName {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(AzureDevopsProjectName::new(s.to_string()))
+    }
+}
+impl AsRef<str> for AzureDevopsProjectName {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub enum AzureDevopsProjectState {
     #[serde(rename = "wellFormed")]
     WellFormed,
@@ -53,7 +86,7 @@ pub struct AzureDevopsProject {
     pub id: AzureDevopsProjectId,
     #[serde(rename = "lastUpdateTime")]
     pub last_update_time: DateTime<Utc>,
-    pub name: String,
+    pub name: AzureDevopsProjectName,
     pub revision: u16,
     pub state: AzureDevopsProjectState,
     pub url: String,
