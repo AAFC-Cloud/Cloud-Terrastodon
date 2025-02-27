@@ -1,8 +1,8 @@
-use crate::prelude::invoke_batch_request;
 use crate::prelude::BatchRequest;
 use crate::prelude::BatchRequestEntry;
 use crate::prelude::BatchResponse;
 use crate::prelude::HttpMethod;
+use crate::prelude::invoke_batch_request;
 use cloud_terrastodon_core_azure_types::prelude::ResourceTagsId;
 use cloud_terrastodon_core_azure_types::prelude::Scope;
 use eyre::Result;

@@ -1,6 +1,6 @@
 #![feature(let_chains)]
-use cloud_terrastodon_core_entrypoint::prelude::main as entrypoint_main;
 use cloud_terrastodon_core_entrypoint::prelude::Version;
+use cloud_terrastodon_core_entrypoint::prelude::main as entrypoint_main;
 use eyre::Result;
 use itertools::Itertools;
 use tracing::level_filters::LevelFilter;
@@ -8,13 +8,13 @@ use tracing_subscriber::EnvFilter;
 
 #[cfg(windows)]
 mod windows_ansi {
-    use windows::core::Result;
     use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::System::Console::ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     use windows::Win32::System::Console::GetConsoleMode;
     use windows::Win32::System::Console::GetStdHandle;
-    use windows::Win32::System::Console::SetConsoleMode;
-    use windows::Win32::System::Console::ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     use windows::Win32::System::Console::STD_OUTPUT_HANDLE;
+    use windows::Win32::System::Console::SetConsoleMode;
+    use windows::core::Result;
 
     pub fn enable_ansi_support() -> Result<()> {
         unsafe {

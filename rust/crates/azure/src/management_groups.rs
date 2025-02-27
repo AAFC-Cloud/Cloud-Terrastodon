@@ -1,7 +1,7 @@
 use cloud_terrastodon_core_azure_types::prelude::ManagementGroup;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-use eyre::bail;
 use eyre::Result;
+use eyre::bail;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;

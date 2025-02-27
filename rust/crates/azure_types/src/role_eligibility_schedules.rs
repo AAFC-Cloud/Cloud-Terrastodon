@@ -10,11 +10,11 @@ use crate::scopes::TryFromManagementGroupScoped;
 use chrono::DateTime;
 use chrono::Utc;
 use eyre::Result;
-use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Error;
 use uuid::Uuid;
 
 pub const ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX: &str =

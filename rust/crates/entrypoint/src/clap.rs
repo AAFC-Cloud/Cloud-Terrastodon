@@ -20,8 +20,8 @@ use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_ui::prelude::ui_main;
 use eyre::Context;
 use eyre::Result;
-use tokio::io::stdout;
 use tokio::io::AsyncWriteExt;
+use tokio::io::stdout;
 #[derive(Parser, Debug)]
 #[command(name = "cloud_terrastodon", about, long_about = None)]
 struct Cli {

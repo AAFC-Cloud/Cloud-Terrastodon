@@ -1,5 +1,5 @@
-use crate::management_groups::ManagementGroupId;
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
+use crate::management_groups::ManagementGroupId;
 use crate::policy_assignments::PolicyAssignmentId;
 use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
@@ -14,24 +14,24 @@ use crate::prelude::StorageAccountId;
 use crate::prelude::TestResourceId;
 use crate::resource_groups::RESOURCE_GROUP_ID_PREFIX;
 use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
-use crate::subscriptions::SubscriptionId;
 use crate::subscriptions::SUBSCRIPTION_ID_PREFIX;
+use crate::subscriptions::SubscriptionId;
 use clap::ValueEnum;
 use core::panic;
-use eyre::bail;
-use eyre::eyre;
 use eyre::Context;
 use eyre::Error;
 use eyre::Result;
-use serde::de::Visitor;
-use serde::de::{self};
+use eyre::bail;
+use eyre::eyre;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Visitor;
+use serde::de::{self};
 use std::fmt;
-use std::str::pattern::Pattern;
 use std::str::FromStr;
+use std::str::pattern::Pattern;
 
 pub trait HasName {
     fn name(&self) -> &str;

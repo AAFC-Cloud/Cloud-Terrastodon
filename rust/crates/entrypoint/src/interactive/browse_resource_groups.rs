@@ -1,10 +1,10 @@
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_core_user_input::prelude::pick_many;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
-use eyre::eyre;
+use cloud_terrastodon_core_user_input::prelude::pick_many;
 use eyre::Result;
+use eyre::eyre;
 use std::collections::HashMap;
 use tracing::info;
 

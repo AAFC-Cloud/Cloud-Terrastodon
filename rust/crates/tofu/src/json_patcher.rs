@@ -1,8 +1,8 @@
-use eyre::eyre;
 use eyre::Result;
+use eyre::eyre;
 use hcl::edit::structure::Body;
-use hcl::edit::visit_mut::visit_expr_mut;
 use hcl::edit::visit_mut::VisitMut;
+use hcl::edit::visit_mut::visit_expr_mut;
 use serde_json::Value;
 
 pub struct JsonPatcher;

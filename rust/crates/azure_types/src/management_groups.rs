@@ -1,18 +1,18 @@
 use crate::naming::validate_management_group_name;
-use crate::prelude::strip_prefix_case_insensitive;
 use crate::prelude::HasPrefix;
 use crate::prelude::NameValidatable;
 use crate::prelude::TenantId;
+use crate::prelude::strip_prefix_case_insensitive;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use eyre::Result;
-use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Error;
 use std::hash::Hash;
 
 pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";

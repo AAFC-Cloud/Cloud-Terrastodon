@@ -1,10 +1,10 @@
 use crate::management_groups::fetch_root_management_group;
-use cloud_terrastodon_core_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_core_azure_types::prelude::PimEntraRoleSettings;
+use cloud_terrastodon_core_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
-use eyre::bail;
 use eyre::Result;
+use eyre::bail;
 use serde::Deserialize;
 use std::path::PathBuf;
 

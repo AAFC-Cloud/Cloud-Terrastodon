@@ -4,13 +4,13 @@ use chrono::Local;
 use cloud_terrastodon_core_config::Config;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_pathing::Existy;
-use eyre::bail;
 use eyre::Context;
 use eyre::Error;
 use eyre::Result;
-use serde::de::DeserializeOwned;
+use eyre::bail;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
@@ -556,7 +556,10 @@ impl CommandBuilder {
         )
         .await
         {
-            Ok(result) => result.wrap_err("Acquiring result of command execution")?.try_into().wrap_err("Converting command output")?,
+            Ok(result) => result
+                .wrap_err("Acquiring result of command execution")?
+                .try_into()
+                .wrap_err("Converting command output")?,
             Err(elapsed) => {
                 bail!("Command timeout, {elapsed:?}: {}", self.summarize());
             }
@@ -732,8 +735,8 @@ impl CommandBuilder {
 #[cfg(test)]
 mod tests {
     use std::thread;
-    use tokio::time::sleep_until;
     use tokio::time::Instant;
+    use tokio::time::sleep_until;
 
     use super::*;
 

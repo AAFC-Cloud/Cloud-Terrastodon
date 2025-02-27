@@ -1,9 +1,9 @@
 use cloud_terrastodon_core_pathing::AppDir;
-use cloud_terrastodon_core_tofu::prelude::get_imports_from_existing;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
+use cloud_terrastodon_core_tofu::prelude::get_imports_from_existing;
 use cloud_terrastodon_core_user_input::prelude::prompt_line;
-use eyre::eyre;
 use eyre::Result;
+use eyre::eyre;
 
 pub async fn build_imports_from_existing() -> Result<()> {
     let tf_dir = prompt_line("Enter the path to the existing workspace: ").await?;

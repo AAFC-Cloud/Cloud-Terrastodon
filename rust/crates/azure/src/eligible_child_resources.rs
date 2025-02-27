@@ -83,10 +83,10 @@ mod tests {
     use crate::subscriptions::fetch_all_subscriptions;
     use cloud_terrastodon_core_azure_types::prelude::HasScope;
     use cloud_terrastodon_core_azure_types::prelude::Scope;
-    use cloud_terrastodon_core_user_input::prelude::pick;
-    use cloud_terrastodon_core_user_input::prelude::pick_many;
     use cloud_terrastodon_core_user_input::prelude::Choice;
     use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+    use cloud_terrastodon_core_user_input::prelude::pick;
+    use cloud_terrastodon_core_user_input::prelude::pick_many;
     use itertools::Itertools;
 
     #[test_log::test(tokio::test)]

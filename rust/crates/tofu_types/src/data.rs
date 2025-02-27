@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use crate::prelude::AsTofuString;
 use crate::providers::TofuProviderKind;
-use eyre::eyre;
 use eyre::Result;
+use eyre::eyre;
 use indoc::formatdoc;
 use itertools::Itertools;
 

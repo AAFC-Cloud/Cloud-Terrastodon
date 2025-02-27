@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use eyre::bail;
 use eyre::Result;
-use serde::de;
-use serde::de::DeserializeOwned;
+use eyre::bail;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
+use serde::de;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 use uuid::Uuid;
 

@@ -1,6 +1,6 @@
 use crate::providers::TofuProviderKind;
-use eyre::bail;
 use eyre::Context;
+use eyre::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::Traversal;
 use hcl::edit::expr::TraversalOperator;

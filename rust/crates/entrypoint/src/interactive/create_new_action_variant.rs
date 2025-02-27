@@ -1,11 +1,9 @@
 use crate::menu_action;
 use cloud_terrastodon_core_user_input::prelude::prompt_line;
-use eyre::bail;
 use eyre::Context;
+use eyre::bail;
 use quote::quote;
 use std::path::PathBuf;
-use syn::parse_file;
-use syn::parse_str;
 use syn::Arm;
 use syn::Expr;
 use syn::ImplItem;
@@ -15,6 +13,8 @@ use syn::ItemUse;
 use syn::Stmt;
 use syn::Type;
 use syn::Variant;
+use syn::parse_file;
+use syn::parse_str;
 use tokio::process::Command;
 use tracing::info;
 

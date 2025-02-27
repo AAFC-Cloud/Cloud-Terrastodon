@@ -5,13 +5,13 @@ use crossterm::event::KeyCode;
 use crossterm::event::KeyEventKind;
 use eyre::Result;
 use futures::StreamExt;
+use ratatui::DefaultTerminal;
+use ratatui::Frame;
 use ratatui::crossterm::event::Event;
 use ratatui::prelude::Constraint;
 use ratatui::prelude::Layout;
 use ratatui::prelude::Line;
 use ratatui::prelude::Stylize;
-use ratatui::DefaultTerminal;
-use ratatui::Frame;
 use tracing::info;
 
 pub async fn ui_main() -> Result<()> {

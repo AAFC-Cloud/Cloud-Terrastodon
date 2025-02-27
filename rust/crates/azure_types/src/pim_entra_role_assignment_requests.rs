@@ -4,10 +4,10 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::prelude::to_iso8601;
 use crate::prelude::EligiblePimEntraRoleAssignment;
 use crate::prelude::PrincipalId;
 use crate::prelude::TenantId;
+use crate::prelude::to_iso8601;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoleAssignmentRequest {

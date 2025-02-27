@@ -4,8 +4,8 @@ use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuProviderReference;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceReference;
 use eyre::Result;
-use hcl::edit::structure::Body;
 use hcl::edit::Decorate;
+use hcl::edit::structure::Body;
 use std::path::Path;
 
 pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<TofuImportBlock>> {

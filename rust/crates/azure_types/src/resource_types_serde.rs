@@ -1,8 +1,8 @@
-use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Error;
 
 use crate::prelude::ResourceType;
 

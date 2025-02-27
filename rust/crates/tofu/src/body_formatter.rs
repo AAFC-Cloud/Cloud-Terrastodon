@@ -1,11 +1,11 @@
 use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
-use eyre::eyre;
 use eyre::Result;
+use eyre::eyre;
+use hcl::edit::Decorate;
 use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::Structure;
-use hcl::edit::Decorate;
 use indoc::formatdoc;
 use itertools::Itertools;
 use std::collections::HashMap;

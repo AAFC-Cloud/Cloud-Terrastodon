@@ -1,22 +1,22 @@
 use crate::prelude::Fake;
-use crate::scopes::strip_prefix_case_insensitive;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
+use crate::scopes::strip_prefix_case_insensitive;
 use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuProviderReference;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceReference;
-use eyre::bail;
 use eyre::Result;
-use serde::de::Error;
+use eyre::bail;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Error;
 use std::str::FromStr;
 use uuid::Uuid;
 

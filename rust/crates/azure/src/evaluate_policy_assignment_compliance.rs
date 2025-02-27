@@ -1,13 +1,13 @@
-use crate::prelude::fetch_all_policy_assignments;
 use crate::prelude::ResourceGraphHelper;
+use crate::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_core_azure_types::prelude::DistinctByScope;
 use cloud_terrastodon_core_azure_types::prelude::PolicyAssignment;
 use cloud_terrastodon_core_azure_types::prelude::Scope;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_core_user_input::prelude::pick;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
+use cloud_terrastodon_core_user_input::prelude::pick;
 use eyre::Result;
 use indoc::formatdoc;
 use itertools::Itertools;

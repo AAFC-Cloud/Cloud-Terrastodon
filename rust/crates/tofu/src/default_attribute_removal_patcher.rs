@@ -2,12 +2,12 @@ use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceKind;
+use hcl::edit::Decorate;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::Attribute;
-use hcl::edit::visit_mut::visit_block_mut;
 use hcl::edit::visit_mut::VisitMut;
-use hcl::edit::Decorate;
+use hcl::edit::visit_mut::visit_block_mut;
 use tracing::warn;
 
 fn is_null_or_empty(attrib: &Attribute) -> bool {

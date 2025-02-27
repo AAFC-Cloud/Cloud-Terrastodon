@@ -1,15 +1,15 @@
-use crate::prelude::strip_prefix_case_insensitive;
 use crate::prelude::Fake;
+use crate::prelude::strip_prefix_case_insensitive;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use eyre::Result;
-use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Error;
 use std::str::FromStr;
 
 pub const TEST_ID_PREFIX: &str = "/CloudTerrastodon/testResources/";

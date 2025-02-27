@@ -4,11 +4,11 @@ use crate::prelude::Scope;
 use crate::prelude::ScopeImpl;
 use crate::prelude::ScopeImplKind;
 use eyre::Result;
-use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Error;
 use std::collections::HashMap;
 use std::str::FromStr;
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

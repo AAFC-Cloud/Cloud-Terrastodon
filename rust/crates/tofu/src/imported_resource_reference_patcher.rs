@@ -2,9 +2,9 @@ use crate::import_lookup_holder::ImportLookupHolder;
 use cloud_terrastodon_core_azure::prelude::ScopeImpl;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
+use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::visit_mut::visit_attr_mut;
 use hcl::edit::visit_mut::visit_block_mut;
-use hcl::edit::visit_mut::VisitMut;
 use std::collections::HashSet;
 use tracing::warn;
 

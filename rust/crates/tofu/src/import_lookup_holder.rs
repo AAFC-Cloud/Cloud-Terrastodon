@@ -1,7 +1,7 @@
 use cloud_terrastodon_core_azure::prelude::ScopeImpl;
 use hcl::edit::structure::Block;
-use hcl::edit::visit::visit_block;
 use hcl::edit::visit::Visit;
+use hcl::edit::visit::visit_block;
 use std::collections::HashMap;
 use tracing::warn;
 

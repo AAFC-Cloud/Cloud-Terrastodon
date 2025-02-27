@@ -1,15 +1,15 @@
-use crate::prelude::strip_suffix_case_insensitive;
 use crate::prelude::HasScope;
 use crate::prelude::Scope;
 use crate::prelude::ScopeImpl;
 use crate::prelude::ScopeImplKind;
+use crate::prelude::strip_suffix_case_insensitive;
 use eyre::Context;
 use eyre::Result;
-use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Error;
 use std::str::FromStr;
 
 pub const TAGS_SUFFIX: &str = "/providers/Microsoft.Resources/tags/default";

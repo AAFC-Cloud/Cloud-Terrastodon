@@ -1,7 +1,7 @@
 use cloud_terrastodon_core_pathing::AppDir;
-use eyre::bail;
 use eyre::Context;
 use eyre::Result;
+use eyre::bail;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde::Serialize;

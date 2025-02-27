@@ -1,9 +1,9 @@
-use serde::de::Visitor;
-use serde::de::{self};
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Visitor;
+use serde::de::{self};
 use std::fmt;
 
 use crate::scopes::ScopeImpl;

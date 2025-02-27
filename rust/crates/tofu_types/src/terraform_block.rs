@@ -1,5 +1,6 @@
-use eyre::bail;
 use eyre::OptionExt;
+use eyre::bail;
+use hcl::edit::Decorated;
 use hcl::edit::expr::Object;
 use hcl::edit::expr::ObjectKey;
 use hcl::edit::expr::ObjectValue;
@@ -7,7 +8,6 @@ use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::Structure;
-use hcl::edit::Decorated;
 use hcl_primitives::Ident;
 use itertools::Itertools;
 use std::collections::HashMap;

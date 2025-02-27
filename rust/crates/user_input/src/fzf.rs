@@ -1,8 +1,8 @@
-use eyre::eyre;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Error;
 use eyre::Result;
+use eyre::eyre;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use std::ffi::OsStr;
@@ -111,10 +111,8 @@ where
             #[cfg(not(windows))]
             return Err(e).wrap_err("Is fzf installed?\nhttps://github.com/junegunn/fzf?tab=readme-ov-file#linux-packages");
         }
-        x => x?
-    };  
-
-
+        x => x?,
+    };
 
     // Write the choices to fzf's stdin
     {

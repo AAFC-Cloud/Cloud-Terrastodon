@@ -1,5 +1,5 @@
-use crate::prelude::pick;
 use crate::prelude::FzfArgs;
+use crate::prelude::pick;
 
 pub fn are_you_sure(message: impl AsRef<str>) -> eyre::Result<bool> {
     let choices = ["No", "Yes"];

@@ -1,5 +1,5 @@
-use cloud_terrastodon_core_azure::prelude::fetch_all_users;
 use cloud_terrastodon_core_azure::prelude::UserId;
+use cloud_terrastodon_core_azure::prelude::fetch_all_users;
 use cloud_terrastodon_core_user_input::prelude::prompt_line;
 use eyre::Result;
 use indexmap::IndexSet;

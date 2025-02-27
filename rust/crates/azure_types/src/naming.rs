@@ -1,5 +1,5 @@
-use eyre::bail;
 use eyre::Result;
+use eyre::bail;
 
 // https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
 

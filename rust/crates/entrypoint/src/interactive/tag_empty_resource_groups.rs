@@ -1,8 +1,8 @@
-use cloud_terrastodon_core_azure::prelude::set_tags_for_resources;
 use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_core_azure::prelude::ResourceGroupId;
 use cloud_terrastodon_core_azure::prelude::ResourceTagsId;
 use cloud_terrastodon_core_azure::prelude::Scope;
+use cloud_terrastodon_core_azure::prelude::set_tags_for_resources;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use eyre::Result;
 use serde::Deserialize;
