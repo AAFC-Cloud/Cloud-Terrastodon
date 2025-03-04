@@ -44,8 +44,8 @@ impl UserIdReferencePatcher {
         let local_block = r#"
             locals {
                 users = {
-                    for x in data.azuread_users.users.users :
-                    x.user_principal_name => x.object_id
+                    for user in data.azuread_users.users.users :
+                    user.user_principal_name => user.object_id
                 }
             }
         "#;
