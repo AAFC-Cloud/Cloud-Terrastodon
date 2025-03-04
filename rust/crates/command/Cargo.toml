@@ -17,3 +17,4 @@ async-recursion = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
 humantime = { workspace = true }
+bstr = { workspace = true }

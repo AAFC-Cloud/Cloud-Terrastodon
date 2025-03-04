@@ -15,7 +15,7 @@ use crate::prelude::MicrosoftGraphHelper;
 pub async fn fetch_groups() -> Result<Vec<Group>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["ad", "group", "list", "--output", "json"]);
-    cmd.use_cache_dir("az ad group list");
+    cmd.use_cache_dir(PathBuf::from_iter(["az","ad","group","list"]));
     cmd.run().await
 }
 

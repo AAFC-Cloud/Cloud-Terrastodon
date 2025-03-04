@@ -1,5 +1,6 @@
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
 use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuProviderReference;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceReference;
@@ -16,6 +17,7 @@ pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<Tof
         .run_raw()
         .await?
         .stdout
+        .to_str()?
         .parse::<Body>()?;
 
     let mut imports = Vec::<TofuImportBlock>::new();

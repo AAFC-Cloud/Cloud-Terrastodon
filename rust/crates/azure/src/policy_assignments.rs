@@ -31,28 +31,28 @@ pub async fn fetch_policy_assignments(
         "--output",
         "json",
     ]);
-    let mut cache_key = PathBuf::new();
-    cache_key.push("az policy assignment list");
+    let mut cache_key = PathBuf::from_iter(["az", "policy", "assignment", "list"]);
     match (scope, subscription_id) {
         (Some(scope), Some(subscription_id)) => {
-            cmd.args(["--scope", scope.expanded_form()]);
             cmd.args(["--subscription", subscription_id.short_form()]);
-            cache_key.push(format!(
-                "--scope {} --subscription {}",
-                scope.short_form(),
-                subscription_id.short_form()
-            ));
+            cmd.args(["--scope", scope.expanded_form()]);
+            cache_key.push("subscription");
+            cache_key.push(subscription_id.short_form().replace(" ","_"));
+            cache_key.push("scope");
+            cache_key.push(scope.short_form().replace(" ","_"));
         }
         (Some(scope), None) => {
             cmd.args(["--scope", scope.expanded_form()]);
-            cache_key.push(format!("--scope {}", scope.short_form()));
+            cache_key.push("scope");
+            cache_key.push(scope.short_form().replace(" ","_"));
         }
         (None, Some(subscription_id)) => {
             cmd.args(["--subscription", subscription_id.short_form()]);
-            cache_key.push(format!("--subscription {}", subscription_id.short_form()))
+            cache_key.push("subscription");
+            cache_key.push(subscription_id.short_form().replace(" ","_"));
         }
         (None, None) => {
-            cache_key.push("(unscoped, default subscription)");
+            cache_key.push("unscoped_default_subscription");
         }
     }
     cmd.use_cache_dir(cache_key);

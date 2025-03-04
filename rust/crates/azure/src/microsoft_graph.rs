@@ -4,7 +4,6 @@ use cloud_terrastodon_core_command::prelude::CommandKind;
 use eyre::Result;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use std::ffi::OsString;
 use std::path::PathBuf;
 
 enum NextLink {
@@ -19,10 +18,9 @@ pub struct MicrosoftGraphHelper {
 impl MicrosoftGraphHelper {
     pub fn new(url: impl ToString, mut cache_behaviour: CacheBehaviour) -> Self {
         if let CacheBehaviour::Some { ref mut path, .. } = cache_behaviour {
-            let mut segment = OsString::new();
-            segment.push("ms graph get ");
-            segment.push(path.as_os_str());
-            *path = PathBuf::from(segment);
+            let mut with_prefix = PathBuf::from_iter(["ms", "graph", "GET"]);
+            with_prefix.push(&path);
+            *path = with_prefix;
         }
         MicrosoftGraphHelper {
             url: url.to_string(),

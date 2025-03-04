@@ -10,7 +10,6 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
-use std::ffi::OsString;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -56,10 +55,9 @@ pub struct ResourceGraphQueryRestBody {
 impl ResourceGraphHelper {
     pub fn new(query: impl AsRef<str>, mut cache_behaviour: CacheBehaviour) -> Self {
         if let CacheBehaviour::Some { ref mut path, .. } = cache_behaviour {
-            let mut segment = OsString::new();
-            segment.push("az graph query --graph-query ");
-            segment.push(path.as_os_str());
-            *path = PathBuf::from(segment);
+            let mut with_prefix = PathBuf::from_iter(["az", "resource_graph"]);
+            with_prefix.push(&path);
+            *path = with_prefix;
         }
         Self {
             query: query.as_ref().to_owned(),

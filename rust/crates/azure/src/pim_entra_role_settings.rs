@@ -24,8 +24,11 @@ pub async fn fetch_entra_pim_role_settings(
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
     cmd.use_cache_dir(PathBuf::from_iter([
-        "az rest --method GET --url pim_roleSettings",
-        role_definition_id.to_string().as_ref(),
+        "az",
+        "rest",
+        "GET",
+        "pim_roleSettings",
+        role_definition_id.to_string().replace(" ","_").as_ref(),
     ]));
 
     #[derive(Deserialize)]

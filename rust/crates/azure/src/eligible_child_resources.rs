@@ -35,11 +35,11 @@ pub async fn fetch_eligible_child_resources(
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
 
-    let mut cache_chunks = PathBuf::from("az rest --method GET --url eligibleChildResources");
+    let mut cache_chunks = PathBuf::from_iter(["az","rest","GET","eligibleChildResources"]);
     scope
         .split("/")
         .filter(|x| !x.is_empty())
-        .for_each(|x| cache_chunks.push(x));
+        .for_each(|x| cache_chunks.push(x.replace(" ","_")));
 
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: cache_chunks,

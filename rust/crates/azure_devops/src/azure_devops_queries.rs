@@ -10,6 +10,8 @@ use serde::Deserialize;
 use serde_json::Value;
 use tracing::info;
 
+use crate::prelude::flatten_queries;
+
 pub async fn fetch_queries_for_project(
     project_name: &AzureDevopsProjectName,
 ) -> eyre::Result<Vec<AzureDevopsWorkItemQuery>> {
@@ -25,7 +27,7 @@ pub async fn fetch_queries_for_project(
     ]);
     cmd.args(["--query-parameters", "$expand=all", "$depth=2"]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
-        path: PathBuf::from("az devops query list").join(project_name.as_ref()),
+        path: PathBuf::from_iter(["az", "devops", "query", "list", project_name.replace(" ","_").as_ref()]),
         valid_for: Duration::from_hours(8),
     });
     #[derive(Deserialize)]
@@ -35,12 +37,32 @@ pub async fn fetch_queries_for_project(
         value: Vec<AzureDevopsWorkItemQuery>,
     }
     let resp = cmd.run::<InvokeResponse>().await?;
+    let queries = resp.value;
+    let total = flatten_queries(&queries).len();
     info!(
-        "Found {} queries for Azure DevOps project {project_name}",
-        resp.count
+        "Found {} queries for Azure DevOps project {project_name} ({} counting children)",
+        resp.count, total
     );
     if resp.continuation_token.is_some() {
         todo!("Add support for continuation token...");
     }
-    Ok(resp.value)
+    Ok(queries)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::flatten_queries::flatten_queries;
+    use crate::prelude::fetch_queries_for_project;
+    use crate::prelude::get_default_project_name;
+
+    #[tokio::test]
+    pub async fn it_works() -> eyre::Result<()> {
+        let project_name = get_default_project_name().await?;
+        println!("Fetching queries for {project_name:?}");
+        let queries = fetch_queries_for_project(&project_name).await?;
+        for (parents, query) in flatten_queries(&queries) {
+            println!("{}{}", ".".repeat(parents.len()), query.name);
+        }
+        Ok(())
+    }
 }

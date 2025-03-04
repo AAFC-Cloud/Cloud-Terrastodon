@@ -16,7 +16,7 @@ pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevopsProject>
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "project", "list", "--output", "json"]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
-        path: PathBuf::from("az devops project list"),
+        path: PathBuf::from_iter(["az", "devops", "project", "list"]),
         valid_for: Duration::from_hours(8),
     });
 

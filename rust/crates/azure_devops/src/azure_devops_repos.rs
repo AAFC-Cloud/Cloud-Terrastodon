@@ -22,7 +22,7 @@ pub async fn fetch_all_azure_devops_repos_for_project(
         project_id.to_string().as_ref(),
     ]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
-        path: PathBuf::from_iter(["az repos list --project", project_id.to_string().as_ref()]),
+        path: PathBuf::from_iter(["az", "repos", "list", project_id.to_string().replace(" ","_").as_ref()]),
         valid_for: Duration::from_hours(8),
     });
     let repos: Vec<AzureDevopsRepo> = cmd.run().await?;

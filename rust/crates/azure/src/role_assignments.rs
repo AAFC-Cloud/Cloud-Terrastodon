@@ -29,8 +29,12 @@ pub async fn fetch_all_role_assignments() -> Result<HashMap<Subscription, Vec<Ro
             sub.id.short_form(),
         ]);
         cmd.use_cache_dir(PathBuf::from_iter([
-            "az role assignment list",
-            format!("--subscription {}", sub.name).as_str(),
+            "az",
+            "role",
+            "assignment",
+            "list",
+            "subscription",
+            &sub.name.replace(" ", "_"),
         ]));
         cmd.run().await
     })

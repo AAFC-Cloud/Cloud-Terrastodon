@@ -1,4 +1,7 @@
 use async_recursion::async_recursion;
+pub use bstr;
+use bstr::BString;
+use bstr::ByteSlice;
 use chrono::DateTime;
 use chrono::Local;
 use cloud_terrastodon_core_config::Config;
@@ -11,6 +14,7 @@ use eyre::bail;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use std::backtrace::Backtrace;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
@@ -46,6 +50,7 @@ pub enum CommandKind {
     AzureCLI,
     Tofu,
     VSCode,
+    Echo,
 }
 
 pub const USE_TERRAFORM_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TERRAFORM";
@@ -59,6 +64,7 @@ impl CommandKind {
                 Ok(_) => Config::get_active_config().commands.terraform.to_owned(),
             },
             CommandKind::VSCode => Config::get_active_config().commands.vscode.to_owned(),
+            CommandKind::Echo => "pwsh".to_string(),
         }
     }
     async fn apply_args_and_envs(
@@ -168,6 +174,24 @@ impl CommandKind {
             (_, false) => {
                 bail!("Only {:?} can use Azure args", CommandKind::AzureCLI);
             }
+            (CommandKind::Echo, true) => {
+                let mut new_args: Vec<OsString> = Vec::with_capacity(3);
+                new_args.push("-NoProfile".into());
+                new_args.push("-Command".into());
+                // new_args.push("echo".into());
+                let mut guh = OsString::new();
+                guh.push("'");
+                let space: OsString = " ".into();
+                guh.push(
+                    args.join(&space)
+                        .as_encoded_bytes()
+                        .replace(b"'", b"''")
+                        .to_os_str()?,
+                );
+                guh.push("'");
+                new_args.push(guh);
+                args = new_args;
+            }
             (_, true) => {}
         }
         // Apply args and envs to tokio Command
@@ -179,8 +203,8 @@ impl CommandKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct CommandOutput {
-    pub stdout: String,
-    pub stderr: String,
+    pub stdout: BString,
+    pub stderr: BString,
     pub status: i32,
 }
 impl CommandOutput {
@@ -204,8 +228,10 @@ impl TryFrom<Output> for CommandOutput {
     type Error = Error;
     fn try_from(value: Output) -> Result<Self> {
         Ok(CommandOutput {
-            stdout: String::from_utf8_lossy_owned(value.stdout),
-            stderr: String::from_utf8_lossy_owned(value.stderr),
+            // stdout: String::from_utf8_lossy_owned(value.stdout),
+            // stderr: String::from_utf8_lossy_owned(value.stderr),
+            stdout: BString::from(value.stdout),
+            stderr: BString::from(value.stderr),
             status: match value.status.code().unwrap_or(1) {
                 x if x < 0 => 1,
                 x => x,
@@ -270,11 +296,10 @@ impl CommandBuilder {
         self
     }
     pub fn use_cache_dir(&mut self, cache: impl AsRef<Path>) -> &mut Self {
-        self.cache_behaviour = CacheBehaviour::Some {
-            path: AppDir::Commands.join(cache),
+        self.use_cache_behaviour(CacheBehaviour::Some {
+            path: cache.as_ref().to_path_buf(),
             valid_for: Duration::from_days(1),
-        };
-        self
+        })
     }
     pub async fn bust_cache(&self) -> Result<()> {
         let CacheBehaviour::Some {
@@ -296,13 +321,25 @@ impl CommandBuilder {
             ))?;
         Ok(())
     }
+
+    #[track_caller]
     pub fn use_cache_behaviour(&mut self, mut behaviour: CacheBehaviour) -> &mut Self {
         if let CacheBehaviour::Some { ref mut path, .. } = behaviour {
+            if path.as_os_str().as_encoded_bytes().contains(&(' ' as u8)) {
+                warn!(
+                    "Cache path contains a space which is discouraged because VSCode's terminal ctrl-click behaviour reliability suffers\nPath: {}\nAt: {}\nFor: {}",
+                    path.display(),
+                    // format!("{}:{}", Location::caller().file(), Location::caller().line()),
+                    Backtrace::force_capture(),
+                    self.summarize()
+                );
+            }
             *path = AppDir::Commands.join(&path);
         }
         self.cache_behaviour = behaviour;
         self
     }
+
     pub fn use_run_dir(&mut self, dir: impl AsRef<Path>) -> &mut Self {
         self.run_dir = Some(dir.as_ref().to_path_buf());
         self
@@ -391,7 +428,7 @@ impl CommandBuilder {
             return Ok(None);
         }
 
-        let load_path = async |path: &PathBuf| -> Result<String> {
+        let load_from_pathbuf = async |path: &PathBuf| -> Result<BString> {
             let path = cache_dir.join(path);
             let mut file = OpenOptions::new()
                 .read(true)
@@ -400,14 +437,15 @@ impl CommandBuilder {
                 .context(format!("opening cache file {}", path.display()))?;
 
             // Read the file
-            let mut file_contents = String::new();
-            file.read_to_string(&mut file_contents)
+            let mut file_contents = Vec::new();
+            file.read_to_end(&mut file_contents)
                 .await
                 .context(format!("reading cache file {}", path.display()))?;
+            let file_contents = BString::from(file_contents);
             Ok(file_contents)
         };
-        let load_file =
-            async |path: &str| -> Result<String> { load_path(&PathBuf::from(path)).await };
+        let load_from_path =
+            async |path: &str| -> Result<BString> { load_from_pathbuf(&PathBuf::from(path)).await };
 
         // Validate cache matches expectations
         let expect_files = [
@@ -420,7 +458,7 @@ impl CommandBuilder {
             expect_files.push((&arg.path, &arg.content));
         }
         for (path, expected_contents) in expect_files {
-            let file_contents = load_path(path).await?;
+            let file_contents = load_from_pathbuf(path).await?;
 
             // If an expectation is present, validate it
             if file_contents != *expected_contents {
@@ -433,8 +471,8 @@ impl CommandBuilder {
             }
         }
 
-        let timestamp = load_file("timestamp.txt").await?;
-        let timestamp = DateTime::parse_from_rfc2822(&timestamp)?;
+        let timestamp = load_from_path("timestamp.txt").await?;
+        let timestamp = DateTime::parse_from_rfc2822(timestamp.to_str()?)?;
         let now = Local::now();
         if now > timestamp + *valid_for {
             bail!(
@@ -444,9 +482,9 @@ impl CommandBuilder {
             );
         }
 
-        let status: i32 = load_file("status.txt").await?.parse()?;
-        let stdout = load_file("stdout.json").await?;
-        let stderr = load_file("stderr.json").await?;
+        let status: i32 = load_from_path("status.txt").await?.to_str()?.parse()?;
+        let stdout = load_from_path("stdout.json").await?;
+        let stderr = load_from_path("stderr.json").await?;
 
         // Return!
         Ok(Some(CommandOutput {
@@ -463,12 +501,15 @@ impl CommandBuilder {
         parent_dir.ensure_dir_exists().await?;
 
         // Prepare write contents
+        let summary = self.summarize();
+        let status = output.status.to_string();
+        let timestamp = &Local::now().to_rfc2822();
         let files = [
-            ("context.txt", &self.summarize()),
+            ("context.txt", summary.as_bytes()),
             ("stdout.json", &output.stdout),
             ("stderr.json", &output.stderr),
-            ("status.txt", &output.status.to_string()),
-            ("timestamp.txt", &Local::now().to_rfc2822()),
+            ("status.txt", status.as_bytes()),
+            ("timestamp.txt", timestamp.as_bytes()),
         ];
 
         // Remove busted marker if present
@@ -559,7 +600,7 @@ impl CommandBuilder {
             Ok(result) => result
                 .wrap_err("Acquiring result of command execution")?
                 .try_into()
-                .wrap_err("Converting command output")?,
+                .wrap_err(format!("Converting output of command {}", self.summarize()))?,
             Err(elapsed) => {
                 bail!("Command timeout, {elapsed:?}: {}", self.summarize());
             }
@@ -578,7 +619,7 @@ impl CommandBuilder {
                         "Please run 'az login' to setup account.",
                     ]
                     .into_iter()
-                    .any(|x| output.stderr.contains(x)) =>
+                    .any(|x| output.stderr.contains_str(x)) =>
                 {
                     let mutex = LOGIN_LOCK
                         .get_or_init(async || Arc::new(Mutex::new(())))
@@ -653,7 +694,8 @@ impl CommandBuilder {
         let output = self.run_raw().await?;
 
         // Parse
-        match serde_json::from_str(&output.stdout) {
+        //TODO: find out why unicode failing on french
+        match serde_json::from_slice(output.stdout.to_str_lossy().as_bytes()) {
             Ok(results) => Ok(results),
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
@@ -675,7 +717,7 @@ impl CommandBuilder {
         let output = self.run_raw().await?;
 
         // Parse
-        match serde_json::from_str(&output.stdout) {
+        match serde_json::from_slice(&output.stdout) {
             Ok(results) => match validator(results) {
                 Ok(results) => Ok(results),
                 Err(e) => {
@@ -702,7 +744,7 @@ impl CommandBuilder {
             CacheBehaviour::None => (AppDir::Commands.join("failed"), true),
             CacheBehaviour::Some {
                 path: cache_dir, ..
-            } => (cache_dir.join("failed"), false),
+            } => (cache_dir.join("failed"), true),
         };
         dir.ensure_dir_exists().await?;
         let dir = Builder::new()
@@ -739,6 +781,50 @@ mod tests {
     use tokio::time::sleep_until;
 
     use super::*;
+
+    #[test]
+    fn encoding() {
+        let x = "é";
+        let bytes = x.as_bytes().to_vec();
+        let _y = String::from_utf8(bytes).unwrap();
+
+        let x = "�";
+        let bytes = x.as_bytes().to_vec();
+        let _y = String::from_utf8(bytes).unwrap();
+
+        let x = "\u{FFFD}";
+        let bytes = x.as_bytes().to_vec();
+        let _y = String::from_utf8(bytes).unwrap();
+    }
+
+    #[tokio::test]
+    async fn encoding_2() {
+        let mut cmd = CommandBuilder::new(CommandKind::Echo);
+        // cmd.args(["ad","user","show","--id",""]);
+        cmd.args(["aéa"]);
+        let x = cmd.run_raw().await.unwrap();
+        println!("Got {x:?}");
+        assert_eq!(x.stdout.trim(), "aéa".as_bytes());
+        assert_eq!(x.stdout.trim().to_str().unwrap(), "aéa");
+    }
+
+    #[tokio::test]
+    async fn echo_works() {
+        let mut cmd = CommandBuilder::new(CommandKind::Echo);
+        cmd.args(["ahoy", "world"]);
+        let x = cmd.run_raw().await.unwrap();
+        println!("Got {:?}", x.stdout);
+        assert_eq!(x.stdout.trim(), "ahoy world".as_bytes());
+    }
+
+    #[tokio::test]
+    async fn echo_works2() {
+        let mut cmd = CommandBuilder::new(CommandKind::Echo);
+        cmd.args(["a\"ho\"y", "w'or\nl'd"]);
+        let x = cmd.run_raw().await.unwrap();
+        println!("Got {:?}", x.stdout);
+        assert_eq!(x.stdout.trim(), "a\"ho\"y w'or\nl'd".as_bytes());
+    }
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
@@ -792,8 +878,10 @@ resourcecontainers
                 .to_string(),
             )
             .use_cache_dir(PathBuf::from_iter([
-                "az graph query",
-                "--graph-query count-resource-containers",
+                "az",
+                "graph",
+                "query",
+                "count-resource-containers",
             ]))
             .run_raw()
             .await?;
@@ -816,7 +904,7 @@ Resources
         );
         let period = Duration::from_secs(5);
         cmd.use_cache_behaviour(CacheBehaviour::Some {
-            path: PathBuf::from_iter(["az graph query", "--graph-query current-time"]),
+            path: PathBuf::from_iter(["az", "resource_graph", "current-time"]),
             valid_for: period,
         });
 
@@ -898,7 +986,7 @@ Resources
             Ok(msg) => println!("{}", msg),
             Err(e) => match e.downcast_ref::<CommandOutput>() {
                 Some(CommandOutput { stderr, .. })
-                    if stderr.contains("ERROR: There are no active accounts.") =>
+                    if stderr.contains_str("ERROR: There are no active accounts.") =>
                 {
                     println!("Already logged out!")
                 }

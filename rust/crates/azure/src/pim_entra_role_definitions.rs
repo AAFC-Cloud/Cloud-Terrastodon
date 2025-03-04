@@ -13,9 +13,12 @@ pub async fn fetch_all_entra_pim_role_definitions() -> Result<Vec<PimEntraRoleDe
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_dir(PathBuf::from(
-        "az rest --method GET --url pim_roleDefinitions",
-    ));
+    cmd.use_cache_dir(PathBuf::from_iter([
+        "az",
+        "rest",
+        "GET",
+        "pim_roleDefinitions",
+    ]));
 
     #[derive(Deserialize)]
     struct Response {

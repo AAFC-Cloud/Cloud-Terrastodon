@@ -22,8 +22,12 @@ pub async fn fetch_role_management_policy_assignments(
     cmd.args(["rest", "--method", "GET", "--url", &url]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter([
-            "az rest --method GET --url roleManagementPolicyAssignments",
-            &format!("roleDefinitionId eq {}", role_definition_id.short_form()),
+            "az",
+            "rest",
+            "GET",
+            "roleManagementPolicyAssignments",
+            "roleDefinitionId",
+            role_definition_id.short_form().replace(" ", "_").as_ref(),
         ]),
         valid_for: Duration::from_hours(1),
     });
