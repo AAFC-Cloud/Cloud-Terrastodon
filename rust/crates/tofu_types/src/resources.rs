@@ -191,6 +191,58 @@ impl std::fmt::Display for TofuAzureADResourceKind {
     }
 }
 
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum TofuAzureDevOpsResourceKind {
+    Project,
+    Other(String),
+}
+impl TofuAzureDevOpsResourceKind {
+    pub fn known_variants() -> Vec<TofuAzureDevOpsResourceKind> {
+        vec![
+            TofuAzureDevOpsResourceKind::Project,
+        ]
+    }
+}
+impl AsRef<str> for TofuAzureDevOpsResourceKind {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Project => "project",
+            Self::Other(s) => s.as_ref(),
+        }
+    }
+}
+impl FromStr for TofuAzureDevOpsResourceKind {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let provider_prefix = TofuProviderKind::AzureDevOps.provider_prefix();
+        let Some(seeking) = s
+            .strip_prefix(provider_prefix)
+            .and_then(|s| s.strip_prefix("_"))
+        else {
+            bail!(format!(
+                "String {s:?} is missing prefix {}",
+                provider_prefix
+            ));
+        };
+        for variant in Self::known_variants() {
+            if variant.as_ref() == seeking {
+                return Ok(variant);
+            }
+        }
+        Ok(Self::Other(seeking.to_owned()))
+    }
+}
+
+impl std::fmt::Display for TofuAzureDevOpsResourceKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(TofuProviderKind::AzureDevOps.provider_prefix())?;
+        f.write_str("_")?;
+        f.write_str(self.as_ref())
+    }
+}
+
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum TofuResourceReference {
     AzureRM {
@@ -199,6 +251,10 @@ pub enum TofuResourceReference {
     },
     AzureAD {
         kind: TofuAzureADResourceKind,
+        name: String,
+    },
+    AzureDevOps {
+        kind: TofuAzureDevOpsResourceKind,
         name: String,
     },
     Other {
@@ -216,6 +272,7 @@ impl TofuResourceReference {
         match self {
             TofuResourceReference::AzureRM { .. } => TofuProviderKind::AzureRM,
             TofuResourceReference::AzureAD { .. } => TofuProviderKind::AzureAD,
+            TofuResourceReference::AzureDevOps { .. } => TofuProviderKind::AzureDevOps,
             TofuResourceReference::Other { provider, .. } => {
                 TofuProviderKind::Other(provider.to_owned())
             }
@@ -236,6 +293,11 @@ impl TofuResourceReference {
                 TofuProviderKind::AzureAD.provider_prefix(),
                 kind.as_ref()
             ),
+            Self::AzureDevOps { kind, .. } => format!(
+                "{}_{}",
+                TofuProviderKind::AzureDevOps.provider_prefix(),
+                kind.as_ref()
+            ),
             Self::Other { provider, kind, .. } => format!("{}_{}", provider, kind),
             Self::Raw(value) => value
                 .split_once(".")
@@ -247,6 +309,7 @@ impl TofuResourceReference {
         match self {
             Self::AzureRM { name, .. } => name.as_str(),
             Self::AzureAD { name, .. } => name.as_str(),
+            Self::AzureDevOps { name, .. } => name.as_str(),
             Self::Other { name, .. } => name.as_str(),
             Self::Raw(value) => value.split_once(".").map(|pair| pair.1).unwrap_or(value),
         }
@@ -257,6 +320,9 @@ impl TofuResourceReference {
                 *name = (mapper)(name);
             }
             Self::AzureAD { name, .. } => {
+                *name = (mapper)(name);
+            }
+            Self::AzureDevOps { name, .. } => {
                 *name = (mapper)(name);
             }
             Self::Other { name, .. } => {

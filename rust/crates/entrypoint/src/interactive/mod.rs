@@ -1,4 +1,5 @@
 mod apply_processed;
+mod azure_devops_project_import_wizard_menu;
 mod browse_oauth2_permission_grants;
 mod browse_policy_assignments;
 mod browse_policy_definitions;
@@ -23,7 +24,6 @@ mod create_role_assignment_menu;
 mod dump_tags;
 mod dump_work_items;
 mod find_resource_owners;
-mod import_wizard_menu;
 mod init_processed;
 mod jump_to_block;
 mod list_imports;
@@ -32,12 +32,14 @@ mod pim_activate;
 mod plan_processed;
 mod populate_cache;
 mod remove_oauth2_permission_grants;
+mod resource_group_import_wizard_menu;
 mod run_query;
 mod tag_empty_resource_groups;
 mod tag_resources_menu;
 pub const THIS_FILE: &str = file!();
 pub mod prelude {
     pub use crate::interactive::apply_processed::*;
+    pub use crate::interactive::azure_devops_project_import_wizard_menu::*;
     pub use crate::interactive::browse_oauth2_permission_grants::*;
     pub use crate::interactive::browse_policy_assignments::*;
     pub use crate::interactive::browse_policy_definitions::*;
@@ -62,7 +64,6 @@ pub mod prelude {
     pub use crate::interactive::dump_tags::*;
     pub use crate::interactive::dump_work_items::*;
     pub use crate::interactive::find_resource_owners::*;
-    pub use crate::interactive::import_wizard_menu::*;
     pub use crate::interactive::init_processed::*;
     pub use crate::interactive::jump_to_block::*;
     pub use crate::interactive::list_imports::*;
@@ -71,6 +72,7 @@ pub mod prelude {
     pub use crate::interactive::plan_processed::*;
     pub use crate::interactive::populate_cache::*;
     pub use crate::interactive::remove_oauth2_permission_grants::*;
+    pub use crate::interactive::resource_group_import_wizard_menu::*;
     pub use crate::interactive::run_query::*;
     pub use crate::interactive::tag_empty_resource_groups::*;
     pub use crate::interactive::tag_resources_menu::*;

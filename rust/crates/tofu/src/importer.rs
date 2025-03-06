@@ -1,3 +1,4 @@
+use cloud_terrastodon_core_azure_devops::prelude::get_default_organization_name;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::OutputBehaviour;
@@ -31,8 +32,14 @@ impl TofuImporter {
             return Err(eyre!("Dir must be set with using_dir"));
         };
 
+        // Get devops url
+        let org_service_url = format!(
+            "https://dev.azure.com/{name}/",
+            name = get_default_organization_name().await?
+        );
+
         // Open boilerplate file
-        info!("Writing default AzureRM provider");
+        info!("Writing default providers");
         let boilerplate_path = imports_dir.join("boilerplate.tf");
         let import_writer = TofuWriter::new(boilerplate_path);
         import_writer
@@ -67,10 +74,16 @@ impl TofuImporter {
             }])
             .await
             .context("writing terraform block")?
-            .merge(vec![TofuProviderBlock::AzureRM {
-                alias: None,
-                subscription_id: None,
-            }])
+            .merge(vec![
+                TofuProviderBlock::AzureRM {
+                    alias: None,
+                    subscription_id: None,
+                },
+                TofuProviderBlock::AzureDevOps {
+                    alias: None,
+                    org_service_url,
+                },
+            ])
             .await
             .context("writing default azurerm provider block")?
             .format()

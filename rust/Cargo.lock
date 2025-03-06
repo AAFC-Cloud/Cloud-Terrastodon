@@ -432,6 +432,7 @@ name = "cloud_terrastodon_core_tofu"
 version = "0.1.0"
 dependencies = [
  "cloud_terrastodon_core_azure",
+ "cloud_terrastodon_core_azure_devops",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_pathing",
  "cloud_terrastodon_core_tofu_types",

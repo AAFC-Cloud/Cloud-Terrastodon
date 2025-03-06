@@ -42,6 +42,7 @@ impl TofuWriter {
     }
 
     pub async fn overwrite(&self, content: impl AsTofuString) -> Result<&Self> {
+        info!("Overwriting tf file {}", self.path.display());
         self.path.ensure_parent_dir_exists().await?;
         let mut imports_file = OpenOptions::new()
             .create(true)

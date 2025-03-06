@@ -1,4 +1,5 @@
 use crate::interactive::prelude::apply_processed;
+use crate::interactive::prelude::azure_devops_project_import_wizard_menu;
 use crate::interactive::prelude::browse_oauth2_permission_grants;
 use crate::interactive::prelude::browse_policy_assignments;
 use crate::interactive::prelude::browse_policy_definitions;
@@ -60,7 +61,7 @@ pub enum MenuAction {
     BuildRoleAssignmentImports,
     ResourceGraphQuery,
     BuildImportsFromExisting,
-    BuildImportsWizard,
+    ResourceGroupImportWizard,
     BrowseResourceGroups,
     BrowseRoleAssignments,
     BrowseUsers,
@@ -100,6 +101,7 @@ pub enum MenuAction {
     BrowseOAuth2PermissionGrants,
     RemoveOAuth2PermissionGrants,
     CreateOAuth2PermissionGrants,
+    AzureDevopsProjectImportWizard,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -110,7 +112,7 @@ pub enum MenuActionResult {
 impl MenuAction {
     pub fn name(&self) -> &str {
         match self {
-            MenuAction::BuildImportsWizard => "build imports - import wizard",
+            MenuAction::ResourceGroupImportWizard => "build imports - resource group import wizard",
             MenuAction::BuildAllImports => "build imports - import all",
             MenuAction::CopyAzureRMBackend => "copy azurerm backend",
             MenuAction::BrowseResourceGroups => "browse resource groups",
@@ -162,11 +164,14 @@ impl MenuAction {
             MenuAction::BrowseOAuth2PermissionGrants => "browse oauth2 permission grants",
             MenuAction::RemoveOAuth2PermissionGrants => "remove oauth2 permission grants",
             MenuAction::CreateOAuth2PermissionGrants => "create oauth2 permission grants",
+            MenuAction::AzureDevopsProjectImportWizard => {
+                "build imports - azure devops project import wizard"
+            }
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
         match self {
-            MenuAction::BuildImportsWizard => resource_group_import_wizard_menu().await?,
+            MenuAction::ResourceGroupImportWizard => resource_group_import_wizard_menu().await?,
             MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu().await?,
             MenuAction::BrowseResourceGroups => browse_resource_groups().await?,
             MenuAction::BrowseRoleAssignments => browse_role_assignments().await?,
@@ -224,6 +229,9 @@ impl MenuAction {
             MenuAction::BrowseOAuth2PermissionGrants => browse_oauth2_permission_grants().await?,
             MenuAction::RemoveOAuth2PermissionGrants => remove_oauth2_permission_grants().await?,
             MenuAction::CreateOAuth2PermissionGrants => create_oauth2_permission_grants().await?,
+            MenuAction::AzureDevopsProjectImportWizard => {
+                azure_devops_project_import_wizard_menu().await?
+            }
         }
         Ok(MenuActionResult::PauseAndContinue)
     }
@@ -252,6 +260,7 @@ impl MenuAction {
                     AppDir::Imports.join("group_imports.tf"),
                     AppDir::Imports.join("resource_group_imports.tf"),
                     AppDir::Imports.join("role_assignment_imports.tf"),
+                    AppDir::Imports.join("azure_devops_project_imports.tf"),
                     AppDir::Imports.join("existing.tf"),
                 ])
                 .await

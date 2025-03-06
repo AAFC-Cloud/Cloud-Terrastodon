@@ -13,6 +13,7 @@ use std::str::FromStr;
 pub enum TofuProviderKind {
     AzureRM,
     AzureAD,
+    AzureDevOps,
     Other(String),
 }
 impl TofuProviderKind {
@@ -20,6 +21,7 @@ impl TofuProviderKind {
         match self {
             TofuProviderKind::AzureRM => "azurerm",
             TofuProviderKind::AzureAD => "azuread",
+            TofuProviderKind::AzureDevOps => "azuredevops",
             TofuProviderKind::Other(s) => s.as_str(),
         }
     }
@@ -141,6 +143,10 @@ pub enum TofuProviderBlock {
     AzureAD {
         alias: Option<String>,
     },
+    AzureDevOps {
+        alias: Option<String>,
+        org_service_url: String,
+    },
     Other {
         kind: String,
         alias: Option<String>,
@@ -151,6 +157,7 @@ impl TofuProviderBlock {
         match self {
             TofuProviderBlock::AzureRM { .. } => TofuProviderKind::AzureRM,
             TofuProviderBlock::AzureAD { .. } => TofuProviderKind::AzureAD,
+            TofuProviderBlock::AzureDevOps { .. } => TofuProviderKind::AzureDevOps,
             TofuProviderBlock::Other { kind, .. } => TofuProviderKind::Other(kind.to_owned()),
         }
     }
@@ -158,6 +165,7 @@ impl TofuProviderBlock {
         match self {
             TofuProviderBlock::AzureRM { alias, .. } => alias.as_ref(),
             TofuProviderBlock::AzureAD { alias, .. } => alias.as_ref(),
+            TofuProviderBlock::AzureDevOps { alias, .. } => alias.as_ref(),
             TofuProviderBlock::Other { alias, .. } => alias.as_ref(),
         }
     }
@@ -174,22 +182,35 @@ impl From<TofuProviderBlock> for Block {
         }
 
         // Kind-specific configuration
-        if let TofuProviderBlock::AzureRM {
-            subscription_id, ..
-        } = provider
-        {
-            builder = builder
-                .block(Block::builder(Ident::new("features")).build())
-                .attribute(Attribute::new(
-                    Ident::new("resource_provider_registrations"),
-                    "none",
-                ));
-            if let Some(subscription_id) = subscription_id {
+        match provider {
+            TofuProviderBlock::AzureRM {
+                alias: _,
+                subscription_id,
+            } => {
+                builder = builder
+                    .block(Block::builder(Ident::new("features")).build())
+                    .attribute(Attribute::new(
+                        Ident::new("resource_provider_registrations"),
+                        "none",
+                    ));
+                if let Some(subscription_id) = subscription_id {
+                    builder = builder.attribute(Attribute::new(
+                        Ident::new("subscription_id"),
+                        subscription_id,
+                    ));
+                }
+            }
+            TofuProviderBlock::AzureAD { alias: _ } => {}
+            TofuProviderBlock::AzureDevOps {
+                alias: _,
+                org_service_url,
+            } => {
                 builder = builder.attribute(Attribute::new(
-                    Ident::new("subscription_id"),
-                    subscription_id,
+                    Ident::new("org_service_url"),
+                    org_service_url,
                 ));
             }
+            TofuProviderBlock::Other { kind: _, alias: _ } => {}
         }
 
         // Return

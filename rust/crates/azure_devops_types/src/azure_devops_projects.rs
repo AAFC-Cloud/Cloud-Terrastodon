@@ -3,6 +3,11 @@ use std::str::FromStr;
 
 use chrono::DateTime;
 use chrono::Utc;
+use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
+use cloud_terrastodon_core_tofu_types::prelude::TofuAzureDevOpsResourceKind;
+use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
+use cloud_terrastodon_core_tofu_types::prelude::TofuProviderReference;
+use cloud_terrastodon_core_tofu_types::prelude::TofuResourceReference;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
@@ -91,6 +96,19 @@ pub struct AzureDevopsProject {
     pub state: AzureDevopsProjectState,
     pub url: String,
     pub visibility: AzureDevopsProjectVisibility,
+}
+
+impl From<AzureDevopsProject> for TofuImportBlock {
+    fn from(project: AzureDevopsProject) -> Self {
+        TofuImportBlock {
+            provider: TofuProviderReference::Inherited,
+            id: project.id.to_string(),
+            to: TofuResourceReference::AzureDevOps {
+                kind: TofuAzureDevOpsResourceKind::Project,
+                name: project.name.sanitize(),
+            },
+        }
+    }
 }
 
 #[cfg(test)]
