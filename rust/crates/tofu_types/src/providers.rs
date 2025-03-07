@@ -1,3 +1,4 @@
+use eyre::OptionExt;
 use eyre::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::TraversalOperator;
@@ -25,6 +26,13 @@ impl TofuProviderKind {
             TofuProviderKind::Other(s) => s.as_str(),
         }
     }
+    pub fn well_known_variants() -> [TofuProviderKind; 3] {
+        return [
+            TofuProviderKind::AzureRM,
+            TofuProviderKind::AzureAD,
+            TofuProviderKind::AzureDevOps,
+        ];
+    }
 }
 impl std::fmt::Display for TofuProviderKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -40,15 +48,12 @@ impl FromStr for TofuProviderKind {
                 bail!("Invalid character {char} parsing provider kind {s}");
             }
         }
-        Ok(match s {
-            kind if kind == TofuProviderKind::AzureRM.provider_prefix() => {
-                TofuProviderKind::AzureRM
+        for kind in TofuProviderKind::well_known_variants() {
+            if kind.provider_prefix() == s {
+                return Ok(kind);
             }
-            kind if kind == TofuProviderKind::AzureAD.provider_prefix() => {
-                TofuProviderKind::AzureAD
-            }
-            kind => TofuProviderKind::Other(kind.to_owned()),
-        })
+        }
+        Ok(TofuProviderKind::Other(s.to_owned()))
     }
 }
 
@@ -241,24 +246,30 @@ impl TryFrom<Block> for TofuProviderBlock {
 
         // Kind-specific conversion
         let label = label.value();
-        let provider_block = match label {
-            kind if kind == TofuProviderKind::AzureRM.provider_prefix() => {
-                TofuProviderBlock::AzureRM {
+        let provider_kind = TofuProviderKind::from_str(label)?;
+        let provider_block = match provider_kind {
+            TofuProviderKind::AzureRM => TofuProviderBlock::AzureRM {
+                alias,
+                subscription_id: block
+                    .body
+                    .get_attribute("subscription_id")
+                    .and_then(|attr| attr.value.as_str())
+                    .map(|s| s.to_owned()),
+            },
+            TofuProviderKind::AzureAD => TofuProviderBlock::AzureAD { alias },
+            TofuProviderKind::AzureDevOps => {
+                let org_service_url = block
+                    .body
+                    .get_attribute("org_service_url")
+                    .and_then(|attr| attr.value.as_str())
+                    .map(|s| s.to_owned())
+                    .ok_or_eyre("Expected org_service_url in devops block")?;
+                TofuProviderBlock::AzureDevOps {
                     alias,
-                    subscription_id: block
-                        .body
-                        .get_attribute("subscription_id")
-                        .and_then(|attr| attr.value.as_str())
-                        .map(|s| s.to_owned()),
+                    org_service_url,
                 }
             }
-            kind if kind == TofuProviderKind::AzureAD.provider_prefix() => {
-                TofuProviderBlock::AzureAD { alias }
-            }
-            kind => TofuProviderBlock::Other {
-                kind: kind.to_owned(),
-                alias,
-            },
+            TofuProviderKind::Other(kind) => TofuProviderBlock::Other { kind, alias },
         };
 
         Ok(provider_block)
