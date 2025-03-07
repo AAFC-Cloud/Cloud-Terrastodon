@@ -38,32 +38,32 @@ impl Plugin for RoleAssignmentsPlugin {
         app.init_resource::<RoleAssignmentIconData>();
         app.observe(join_on_follower_added(
             |ra: &AzureRoleAssignment, rg: &AzureResourceGroup| {
-                ra.role_assignment.scope == rg.id.expanded_form()
+                ra.role_assignment.scope.expanded_form() == rg.id.expanded_form()
             },
         ));
         app.observe(join_on_follower_added(
             |ra: &AzureRoleAssignment, sub: &AzureSubscription| {
-                ra.role_assignment.scope == sub.id.expanded_form()
+                ra.role_assignment.scope.expanded_form() == sub.id.expanded_form()
             },
         ));
         app.observe(join_on_follower_added(
             |ra: &AzureRoleAssignment, mg: &AzureManagementGroup| {
-                ra.role_assignment.scope == mg.id.expanded_form()
+                ra.role_assignment.scope.expanded_form() == mg.id.expanded_form()
             },
         ));
         app.observe(join_on_leader_added(
             |rg: &AzureResourceGroup, ra: &AzureRoleAssignment| {
-                ra.role_assignment.scope == rg.id.expanded_form()
+                ra.role_assignment.scope.expanded_form() == rg.id.expanded_form()
             },
         ));
         app.observe(join_on_leader_added(
             |sub: &AzureSubscription, ra: &AzureRoleAssignment| {
-                ra.role_assignment.scope == sub.id.expanded_form()
+                ra.role_assignment.scope.expanded_form() == sub.id.expanded_form()
             },
         ));
         app.observe(join_on_leader_added(
             |mg: &AzureManagementGroup, ra: &AzureRoleAssignment| {
-                ra.role_assignment.scope == mg.id.expanded_form()
+                ra.role_assignment.scope.expanded_form() == mg.id.expanded_form()
             },
         ));
     }
@@ -135,9 +135,9 @@ fn receive_results(
         debug!("Received {} role assignments", role_assignments.len());
         for (i, role_assignment) in role_assignments.iter().enumerate() {
             // only display role assignments for ManagementGroups, Subscriptions, and ResourceGroups
-            let should_show = ResourceGroupId::try_from_expanded(&role_assignment.scope).is_ok()
-                || SubscriptionId::try_from_expanded(&role_assignment.scope).is_ok()
-                || ManagementGroupId::try_from_expanded(&role_assignment.scope).is_ok();
+            let should_show = ResourceGroupId::try_from_expanded(role_assignment.scope.expanded_form()).is_ok()
+                || SubscriptionId::try_from_expanded(role_assignment.scope.expanded_form()).is_ok()
+                || ManagementGroupId::try_from_expanded(role_assignment.scope.expanded_form()).is_ok();
             if !should_show {
                 continue;
             }

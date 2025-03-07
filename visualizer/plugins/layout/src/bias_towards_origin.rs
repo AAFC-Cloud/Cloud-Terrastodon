@@ -1,4 +1,3 @@
-use avian2d::prelude::Joint;
 use avian2d::prelude::RigidBody;
 use avian2d::prelude::Sensor;
 use bevy::prelude::*;
@@ -34,15 +33,15 @@ fn spawn_anchor(mut commands: Commands) {
 }
 
 fn apply_bias(
-    trigger: Trigger<OnAdd, BiasTowardsOrigin>,
-    commands: Commands,
-    anchor_query: Query<Entity, With<OriginAnchor>>,
+    _trigger: Trigger<OnAdd, BiasTowardsOrigin>,
+    _commands: Commands,
+    _anchor_query: Query<Entity, With<OriginAnchor>>,
 ) {
-    let target_id = trigger.entity();
-    let Ok(anchor_id) = anchor_query.get_single() else {
-        warn!("Failed to get the origin anchor to create joint for {target_id}");
-        return;
-    };
+    // let target_id = trigger.entity();
+    // let Ok(anchor_id) = anchor_query.get_single() else {
+    //     warn!("Failed to get the origin anchor to create joint for {target_id}");
+    //     return;
+    // };
     // commands.spawn(
     //     DistanceJoint::new(anchor_id, target_id)
     //         .with_rest_length(5000.0)

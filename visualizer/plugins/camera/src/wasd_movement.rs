@@ -1,4 +1,3 @@
-use avian2d::prelude::Joint;
 use avian2d::prelude::LinearVelocity;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;

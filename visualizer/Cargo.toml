@@ -29,8 +29,9 @@ tokio = { version = "1.39.2", features = ["full"] }
 avian2d = "0.1.2"
 bevy_egui = { version = "0.28", default-features = false }
 itertools = "0.12.1"
-anyhow = "1.0.82"
 indexmap = "2.6.0"
+eyre = "0.6.12"
+color-eyre = "0.6.3"
 
 [dependencies]
 cloud_terrastodon_visualizer_camera_plugin = { workspace = true }
@@ -44,6 +45,8 @@ bevy = { workspace = true }
 bevy-inspector-egui = { workspace = true }
 bevy_svg = { workspace = true }
 itertools = { workspace = true }
+eyre = { workspace = true }
+color-eyre = { workspace = true }
 
 [profile.dev]
 opt-level = 1

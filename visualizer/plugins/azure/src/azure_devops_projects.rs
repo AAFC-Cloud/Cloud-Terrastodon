@@ -87,7 +87,7 @@ fn receive_results(
             spawn_graph_node(
                 SpawnGraphNodeEvent {
                     name: Name::new(format!("Azure DevOps Project - {}", project.name)),
-                    text: project.name.to_owned(),
+                    text: project.name.to_string(),
                     translation: Vec3::new(0., i as f32 * 150., 0.),
                     top_extras: (
                         AzureDevopsProjectComponent {

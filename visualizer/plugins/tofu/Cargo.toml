@@ -17,5 +17,5 @@ avian2d = { workspace = true }
 bevy_svg = { workspace = true }
 crossbeam-channel = { workspace = true }
 tokio = { workspace = true }
-anyhow = { workspace = true }
+eyre = { workspace = true }
 leafwing-input-manager = { workspace = true }
