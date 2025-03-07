@@ -94,8 +94,12 @@ pub async fn reflow_workspace(
         patcher.visit_body_mut(&mut body);
     }
 
+    info!("Formatting pretty body");
+    let pretty_body = body.to_string_pretty()?;
+    let entry = (dest_dir.join("generated.tf"), pretty_body);
+
     info!("Appending generated.tf to output");
-    rtn.push((dest_dir.join("generated.tf"), body.to_string_pretty()?));
+    rtn.push(entry);
 
     Ok(rtn)
 }

@@ -9,6 +9,7 @@ use eyre::Context;
 use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
+use itertools::Itertools;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
@@ -20,6 +21,7 @@ use tracing::info;
 use tracing::warn;
 
 use crate::prelude::TofuBlock;
+use crate::sorting::TofuBlockSortable;
 
 pub struct TofuWriter {
     path: PathBuf,
@@ -139,7 +141,13 @@ impl TofuWriter {
                         terraform_block.required_providers = Some(required_providers);
                     }
                     Some(existing) => {
-                        for (provider, version) in required_providers.0 {
+                        // Sort by provider name
+                        let providers = required_providers
+                            .0
+                            .into_iter()
+                            .sorted_by(|(a, _), (b, _)| a.cmp(b));
+
+                        for (provider, version) in providers {
                             if let Some(existing_provider_version) = existing.0.get(&provider) {
                                 if *existing_provider_version != version {
                                     warn!(
@@ -158,14 +166,26 @@ impl TofuWriter {
         if !terraform_block.is_empty() {
             result_body = result_body.block(terraform_block);
         }
-        for block in provider_blocks {
+
+        let sorted_provider_blocks = provider_blocks.into_iter().sorted_by(|a, b| {
+            a.provider_kind()
+                .provider_prefix()
+                .cmp(b.provider_kind().provider_prefix())
+        });
+        for block in sorted_provider_blocks {
             result_body = result_body.block(block);
         }
-        for block in import_blocks {
+
+        let sorted_import_blocks = import_blocks
+            .into_iter()
+            .sorted_by(|a, b| a.to.expression_str().cmp(&b.to.expression_str()));
+        for block in sorted_import_blocks {
             let block: Block = block.try_into()?;
             result_body = result_body.block(block);
         }
-        for block in other_blocks {
+
+        let sorted_other_blocks = other_blocks.into_iter().sort_blocks();
+        for block in sorted_other_blocks {
             result_body = result_body.block(block);
         }
         let result_body = result_body.build();

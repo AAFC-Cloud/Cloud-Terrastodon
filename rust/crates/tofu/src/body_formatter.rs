@@ -11,10 +11,13 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use tracing::error;
 
+use crate::sorting::TofuBlockSortable;
+
 #[derive(Default, Clone)]
 pub struct BodyFormatter {
     resource_blocks: HashMap<String, Block>,
     resource_keys_by_id: HashMap<String, String>,
+    terraform_blocks: Vec<Block>,
     import_blocks: Vec<Block>,
     provider_blocks: Vec<Block>,
     other_blocks: Vec<Block>,
@@ -68,6 +71,9 @@ impl TryFrom<Body> for BodyFormatter {
                             // Add it to the import block list
                             rtn.import_blocks.push(block);
                         }
+                        "terraform" => {
+                            rtn.terraform_blocks.push(block);
+                        }
                         _ => rtn.other_blocks.push(block),
                     };
                 }
@@ -84,16 +90,25 @@ impl From<BodyFormatter> for Body {
         // Create output
         let mut output = Body::new();
 
+        // Add terraform block to the top of the output
+        value
+            .terraform_blocks
+            .into_iter()
+            .sort_blocks()
+            .for_each(|block| output.push(block));
+
         // Add providers to the top of the output
         value
             .provider_blocks
             .into_iter()
+            .sort_blocks()
             .for_each(|block| output.push(block));
 
         // Add unknowns
         value
             .other_blocks
             .into_iter()
+            .sort_blocks()
             .for_each(|block| output.push(block));
 
         // Sort import blocks by destination
