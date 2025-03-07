@@ -15,7 +15,7 @@ pub async fn plan_processed() -> Result<()> {
         .run_raw()
         .await;
     if let Err(e) = result {
-        warn!("Tofu apply failed, did you say no? {e:?}")
+        warn!("Tofu plan failed D: {e:?}")
     }
     Ok(())
 }

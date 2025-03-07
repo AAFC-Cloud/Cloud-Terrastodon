@@ -1,5 +1,6 @@
 use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;
+use cloud_terrastodon_core_tofu_types::prelude::TofuAzureDevOpsResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceKind;
 use hcl::edit::Decorate;
@@ -157,6 +158,24 @@ impl VisitMut for DefaultAttributeRemovalPatcher {
                         if is_null_or_empty(attrib) {
                             node.body.remove_attribute(key).unwrap();
                         }
+                    }
+                }
+            }
+            TofuResourceKind::AzureDevOps(TofuAzureDevOpsResourceKind::Project) => {
+                // let mut blocks = node.body.get_blocks("features");
+                // if blocks.all(|b| b.body.is_empty()) {
+                //     drop(blocks);
+                //     node.body.remove_blocks("features");
+                // }
+                let features = node.body.get_attribute("features");
+                if let Some(features) = features {
+                    if features
+                        .value
+                        .as_object()
+                        .map(|x| x.is_empty())
+                        .unwrap_or(false)
+                    {
+                        node.body.remove_attribute("features");
                     }
                 }
             }

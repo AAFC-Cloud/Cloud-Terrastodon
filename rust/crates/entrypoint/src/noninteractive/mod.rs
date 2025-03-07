@@ -1,5 +1,6 @@
 mod clean;
 mod dump_security_groups_as_json;
+mod dump_everything;
 mod perform_import;
 mod process_generated;
 mod write_imports_for_all_resource_groups;
@@ -12,5 +13,6 @@ pub mod prelude {
     pub use crate::noninteractive::process_generated::*;
     pub use crate::noninteractive::write_imports_for_all_resource_groups::*;
     pub use crate::noninteractive::write_imports_for_all_role_assignments::*;
+    pub use crate::noninteractive::dump_everything::*;
     pub use crate::noninteractive::write_imports_for_all_security_groups::*;
 }

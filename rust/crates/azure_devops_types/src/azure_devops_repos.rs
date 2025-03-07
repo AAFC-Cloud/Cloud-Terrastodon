@@ -1,3 +1,8 @@
+use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
+use cloud_terrastodon_core_tofu_types::prelude::TofuAzureDevOpsResourceKind;
+use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
+use cloud_terrastodon_core_tofu_types::prelude::TofuProviderReference;
+use cloud_terrastodon_core_tofu_types::prelude::TofuResourceReference;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
@@ -57,7 +62,7 @@ pub struct AzureDevopsRepo {
     #[serde(rename = "remoteUrl")]
     pub remote_url: String,
 
-    pub size: u32,
+    pub size: u64,
 
     #[serde(rename = "sshUrl")]
     pub ssh_url: String,
@@ -69,4 +74,17 @@ pub struct AzureDevopsRepo {
 
     #[serde(rename = "webUrl")]
     pub web_url: String,
+}
+
+impl From<AzureDevopsRepo> for TofuImportBlock {
+    fn from(repo: AzureDevopsRepo) -> Self {
+        TofuImportBlock {
+            provider: TofuProviderReference::Inherited,
+            id: format!("{}/{}", repo.project.id.to_string(), repo.id.to_string()),
+            to: TofuResourceReference::AzureDevOps {
+                kind: TofuAzureDevOpsResourceKind::Repo,
+                name: format!("project_{}_repo_{}", repo.project.name, repo.name).sanitize(),
+            },
+        }
+    }
 }

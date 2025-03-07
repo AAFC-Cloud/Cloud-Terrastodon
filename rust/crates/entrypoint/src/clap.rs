@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use crate::menu::menu_loop;
 use crate::noninteractive::prelude::clean;
+use crate::noninteractive::prelude::dump_everything;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
@@ -35,6 +36,7 @@ enum Commands {
     Clean,
     WriteAllImports,
     PerformCodeGenerationFromImports,
+    DumpEverything,
     GetPath { dir: AppDir },
     CopyResults { dest: PathBuf },
     AddScanDir { dir: PathBuf },
@@ -106,6 +108,9 @@ pub async fn main(version: Version) -> Result<()> {
                     Ok(())
                 }
                 copy_dir_all(AppDir::Processed.as_path_buf(), dest).await?;
+            }
+            Commands::DumpEverything => {
+                dump_everything().await?;
             }
         },
     }

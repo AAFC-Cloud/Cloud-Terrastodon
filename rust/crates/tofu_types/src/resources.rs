@@ -12,6 +12,7 @@ use std::str::FromStr;
 pub enum TofuResourceKind {
     AzureAD(TofuAzureADResourceKind),
     AzureRM(TofuAzureRMResourceKind),
+    AzureDevOps(TofuAzureDevOpsResourceKind),
     Other(TofuOtherResourceKind),
 }
 impl std::fmt::Display for TofuResourceKind {
@@ -19,6 +20,7 @@ impl std::fmt::Display for TofuResourceKind {
         match self {
             TofuResourceKind::AzureAD(res) => res.fmt(f),
             TofuResourceKind::AzureRM(res) => res.fmt(f),
+            TofuResourceKind::AzureDevOps(res) => res.fmt(f),
             TofuResourceKind::Other(res) => res.fmt(f),
         }
     }
@@ -27,11 +29,14 @@ impl FromStr for TofuResourceKind {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(azurerm) = s.parse::<TofuAzureRMResourceKind>() {
-            return Ok(TofuResourceKind::AzureRM(azurerm));
+        if let Ok(kind) = s.parse::<TofuAzureRMResourceKind>() {
+            return Ok(TofuResourceKind::AzureRM(kind));
         }
-        if let Ok(azuread) = s.parse::<TofuAzureADResourceKind>() {
-            return Ok(TofuResourceKind::AzureAD(azuread));
+        if let Ok(kind) = s.parse::<TofuAzureADResourceKind>() {
+            return Ok(TofuResourceKind::AzureAD(kind));
+        }
+        if let Ok(kind) = s.parse::<TofuAzureDevOpsResourceKind>() {
+            return Ok(TofuResourceKind::AzureDevOps(kind));
         }
         Ok(TofuResourceKind::Other(TofuOtherResourceKind::from_str(s)?))
     }
@@ -195,6 +200,7 @@ impl std::fmt::Display for TofuAzureADResourceKind {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TofuAzureDevOpsResourceKind {
     Project,
+    Repo,
     Other(String),
 }
 impl TofuAzureDevOpsResourceKind {
@@ -208,6 +214,7 @@ impl AsRef<str> for TofuAzureDevOpsResourceKind {
     fn as_ref(&self) -> &str {
         match self {
             Self::Project => "project",
+            Self::Repo => "git_repository",
             Self::Other(s) => s.as_ref(),
         }
     }
@@ -406,6 +413,7 @@ impl TryFrom<Box<Traversal>> for TofuResourceReference {
         Ok(match kind {
             TofuResourceKind::AzureAD(kind) => TofuResourceReference::AzureAD { kind, name },
             TofuResourceKind::AzureRM(kind) => TofuResourceReference::AzureRM { kind, name },
+            TofuResourceKind::AzureDevOps(kind) => TofuResourceReference::AzureDevOps { kind, name },
             TofuResourceKind::Other(kind) => TofuResourceReference::Other {
                 provider: kind.provider,
                 kind: kind.resource,
