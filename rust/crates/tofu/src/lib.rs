@@ -14,6 +14,7 @@ mod reflow;
 mod user_id_reference_patcher;
 mod writer;
 mod sorting;
+mod azuredevops_git_repository_initialization_patcher;
 pub mod prelude {
     pub use crate::block_lister::*;
     pub use crate::import_builder::*;

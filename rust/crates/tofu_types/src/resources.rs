@@ -207,6 +207,7 @@ impl TofuAzureDevOpsResourceKind {
     pub fn known_variants() -> Vec<TofuAzureDevOpsResourceKind> {
         vec![
             TofuAzureDevOpsResourceKind::Project,
+            TofuAzureDevOpsResourceKind::Repo,
         ]
     }
 }

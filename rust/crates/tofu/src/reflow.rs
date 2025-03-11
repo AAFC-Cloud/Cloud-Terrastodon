@@ -12,6 +12,7 @@ use tokio::fs;
 use tracing::info;
 use tracing::instrument;
 
+use crate::azuredevops_git_repository_initialization_patcher::AzureDevOpsGitRepositoryInitializationPatcher;
 use crate::body_formatter::PrettyBody;
 use crate::data_block_creation::create_data_blocks_for_ids;
 use crate::data_reference_patcher::DataReferencePatcher;
@@ -91,6 +92,11 @@ pub async fn reflow_workspace(
     {
         info!("Pruning default/conflicting properties");
         let mut patcher = DefaultAttributeRemovalPatcher {};
+        patcher.visit_body_mut(&mut body);
+    }
+    {
+        info!("Fixing azuredevops_git_repository initialization blocks");
+        let mut patcher = AzureDevOpsGitRepositoryInitializationPatcher;
         patcher.visit_body_mut(&mut body);
     }
 
