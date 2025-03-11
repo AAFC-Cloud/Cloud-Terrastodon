@@ -19,4 +19,4 @@ pub trait TofuBlockSortable: Iterator<Item = Block> {
         v.into_iter()
     }
 }
-impl<T> TofuBlockSortable for T where T: Iterator<Item=Block> + ?Sized {}
+impl<T> TofuBlockSortable for T where T: Iterator<Item = Block> + ?Sized {}

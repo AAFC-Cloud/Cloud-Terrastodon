@@ -1,4 +1,5 @@
 #![feature(let_chains)]
+mod azuredevops_git_repository_initialization_patcher;
 mod block_lister;
 mod body_formatter;
 mod data_block_creation;
@@ -11,10 +12,9 @@ mod imported_resource_reference_patcher;
 mod importer;
 mod json_patcher;
 mod reflow;
+mod sorting;
 mod user_id_reference_patcher;
 mod writer;
-mod sorting;
-mod azuredevops_git_repository_initialization_patcher;
 pub mod prelude {
     pub use crate::block_lister::*;
     pub use crate::import_builder::*;

@@ -196,7 +196,6 @@ impl std::fmt::Display for TofuAzureADResourceKind {
     }
 }
 
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TofuAzureDevOpsResourceKind {
     Project,
@@ -414,7 +413,9 @@ impl TryFrom<Box<Traversal>> for TofuResourceReference {
         Ok(match kind {
             TofuResourceKind::AzureAD(kind) => TofuResourceReference::AzureAD { kind, name },
             TofuResourceKind::AzureRM(kind) => TofuResourceReference::AzureRM { kind, name },
-            TofuResourceKind::AzureDevOps(kind) => TofuResourceReference::AzureDevOps { kind, name },
+            TofuResourceKind::AzureDevOps(kind) => {
+                TofuResourceReference::AzureDevOps { kind, name }
+            }
             TofuResourceKind::Other(kind) => TofuResourceReference::Other {
                 provider: kind.provider,
                 kind: kind.resource,

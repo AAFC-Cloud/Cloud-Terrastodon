@@ -24,7 +24,10 @@ pub async fn fetch_oauth2_permission_scopes(
     cmd.args(["rest", "--method", "GET", "--url", url.as_ref()]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter([
-            "az","rest","GET","oauth2_permission_scopes",
+            "az",
+            "rest",
+            "GET",
+            "oauth2_permission_scopes",
             service_principal_id.to_string().as_ref(),
         ]),
         valid_for: Duration::from_hours(8),

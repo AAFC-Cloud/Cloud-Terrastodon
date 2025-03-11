@@ -76,8 +76,12 @@ async fn main() -> Result<()> {
     #[cfg(windows)]
     if !windows_utf8::is_system_utf8() {
         tracing::warn!("The current system codepage is not UTF-8. This may cause '�' problems.");
-        tracing::warn!("See https://github.com/Azure/azure-cli/issues/22616#issuecomment-1147061949");
-        tracing::warn!("Control panel -> Clock and Region -> Region -> Administrative -> Change system locale -> Check Beta: Use Unicode UTF-8 for worldwide language support.");
+        tracing::warn!(
+            "See https://github.com/Azure/azure-cli/issues/22616#issuecomment-1147061949"
+        );
+        tracing::warn!(
+            "Control panel -> Clock and Region -> Region -> Administrative -> Change system locale -> Check Beta: Use Unicode UTF-8 for worldwide language support."
+        );
     }
 
     // go to menu

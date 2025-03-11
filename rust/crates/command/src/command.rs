@@ -809,7 +809,7 @@ mod tests {
         // assert_eq!(x.stdout.trim(), "aéa".as_bytes());
         assert_eq!(x.stdout.trim().to_str().unwrap(), "aéa");
     }
-    
+
     #[tokio::test]
     #[ignore]
     /// The Azure CLI uses system locale by default, which is latin-1 instead of UTF-8
@@ -818,12 +818,26 @@ mod tests {
         // let user_id = prompt_line("Enter the ID for the user who is experiencing encoding issues:").await?;
         let user_id = include_str!("test_user_id.txt");
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["ad","user","show","--id",user_id.as_ref(),"--query", "displayName"]);
+        cmd.args([
+            "ad",
+            "user",
+            "show",
+            "--id",
+            user_id.as_ref(),
+            "--query",
+            "displayName",
+        ]);
         let x = cmd.run_raw().await.unwrap().stdout;
         let bytes = x.as_ref() as &[u8];
         println!("Got {:?}", x);
         println!("Got {:?}", bytes);
-        println!("Got {:?}", bytes.iter().map(|x| char::from_u32(*x as u32)).collect::<Vec<_>>());
+        println!(
+            "Got {:?}",
+            bytes
+                .iter()
+                .map(|x| char::from_u32(*x as u32))
+                .collect::<Vec<_>>()
+        );
         let z = String::from_utf8(bytes.to_vec())?;
         println!("Decoded {z:?}");
         let y = x.to_str()?;

@@ -27,7 +27,13 @@ pub async fn fetch_queries_for_project(
     ]);
     cmd.args(["--query-parameters", "$expand=all", "$depth=2"]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
-        path: PathBuf::from_iter(["az", "devops", "query", "list", project_name.replace(" ","_").as_ref()]),
+        path: PathBuf::from_iter([
+            "az",
+            "devops",
+            "query",
+            "list",
+            project_name.replace(" ", "_").as_ref(),
+        ]),
         valid_for: Duration::from_hours(8),
     });
     #[derive(Deserialize)]

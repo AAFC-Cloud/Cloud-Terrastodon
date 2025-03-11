@@ -1,9 +1,9 @@
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
-use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
 
 pub async fn get_default_organization_name() -> eyre::Result<String> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
