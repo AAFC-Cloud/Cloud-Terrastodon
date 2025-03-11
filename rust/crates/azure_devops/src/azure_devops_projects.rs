@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsProject;
+use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsProject;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
@@ -11,7 +11,7 @@ use serde::Serialize;
 use tracing::field::debug;
 use tracing::info;
 
-pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevopsProject>> {
+pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevOpsProject>> {
     info!("Fetching Azure DevOps projects");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "project", "list", "--output", "json"]);
@@ -24,7 +24,7 @@ pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevopsProject>
     pub struct Response {
         #[serde(rename = "continuationToken")]
         continuation_token: Option<String>,
-        value: Vec<AzureDevopsProject>,
+        value: Vec<AzureDevOpsProject>,
     }
 
     let mut projects = Vec::new();

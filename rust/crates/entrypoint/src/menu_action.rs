@@ -101,7 +101,7 @@ pub enum MenuAction {
     BrowseOAuth2PermissionGrants,
     RemoveOAuth2PermissionGrants,
     CreateOAuth2PermissionGrants,
-    AzureDevopsProjectImportWizard,
+    AzureDevOpsProjectImportWizard,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -164,7 +164,7 @@ impl MenuAction {
             MenuAction::BrowseOAuth2PermissionGrants => "browse oauth2 permission grants",
             MenuAction::RemoveOAuth2PermissionGrants => "remove oauth2 permission grants",
             MenuAction::CreateOAuth2PermissionGrants => "create oauth2 permission grants",
-            MenuAction::AzureDevopsProjectImportWizard => {
+            MenuAction::AzureDevOpsProjectImportWizard => {
                 "build imports - azure devops project import wizard"
             }
         }
@@ -229,7 +229,7 @@ impl MenuAction {
             MenuAction::BrowseOAuth2PermissionGrants => browse_oauth2_permission_grants().await?,
             MenuAction::RemoveOAuth2PermissionGrants => remove_oauth2_permission_grants().await?,
             MenuAction::CreateOAuth2PermissionGrants => create_oauth2_permission_grants().await?,
-            MenuAction::AzureDevopsProjectImportWizard => {
+            MenuAction::AzureDevOpsProjectImportWizard => {
                 azure_devops_project_import_wizard_menu().await?
             }
         }

@@ -10,11 +10,11 @@ use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::prelude::AzureDevopsProject;
+use crate::prelude::AzureDevOpsProject;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
-pub struct AzureDevopsRepoId(Uuid);
-impl Deref for AzureDevopsRepoId {
+pub struct AzureDevOpsRepoId(Uuid);
+impl Deref for AzureDevOpsRepoId {
     type Target = Uuid;
 
     fn deref(&self) -> &Self::Target {
@@ -22,26 +22,26 @@ impl Deref for AzureDevopsRepoId {
     }
 }
 
-impl AzureDevopsRepoId {
-    pub fn new(uuid: Uuid) -> AzureDevopsRepoId {
-        AzureDevopsRepoId(uuid)
+impl AzureDevOpsRepoId {
+    pub fn new(uuid: Uuid) -> AzureDevOpsRepoId {
+        AzureDevOpsRepoId(uuid)
     }
 }
-impl FromStr for AzureDevopsRepoId {
+impl FromStr for AzureDevOpsRepoId {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let uuid = Uuid::parse_str(s)?;
-        Ok(AzureDevopsRepoId::new(uuid))
+        Ok(AzureDevOpsRepoId::new(uuid))
     }
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
-pub struct AzureDevopsRepo {
+pub struct AzureDevOpsRepo {
     #[serde(rename = "defaultBranch")]
     pub default_branch: Option<String>,
 
-    pub id: AzureDevopsRepoId,
+    pub id: AzureDevOpsRepoId,
 
     #[serde(rename = "isDisabled")]
     pub is_disabled: bool,
@@ -57,7 +57,7 @@ pub struct AzureDevopsRepo {
     #[serde(rename = "parentRepository")]
     pub parent_repository: Option<Value>,
 
-    pub project: AzureDevopsProject,
+    pub project: AzureDevOpsProject,
 
     #[serde(rename = "remoteUrl")]
     pub remote_url: String,
@@ -76,8 +76,8 @@ pub struct AzureDevopsRepo {
     pub web_url: String,
 }
 
-impl From<AzureDevopsRepo> for TofuImportBlock {
-    fn from(repo: AzureDevopsRepo) -> Self {
+impl From<AzureDevOpsRepo> for TofuImportBlock {
+    fn from(repo: AzureDevOpsRepo) -> Self {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
             id: format!("{}/{}", repo.project.id.to_string(), repo.id.to_string()),

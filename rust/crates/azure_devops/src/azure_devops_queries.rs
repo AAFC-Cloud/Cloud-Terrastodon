@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsProjectName;
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsWorkItemQuery;
+use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsProjectName;
+use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
@@ -13,8 +13,8 @@ use tracing::info;
 use crate::prelude::flatten_queries;
 
 pub async fn fetch_queries_for_project(
-    project_name: &AzureDevopsProjectName,
-) -> eyre::Result<Vec<AzureDevopsWorkItemQuery>> {
+    project_name: &AzureDevOpsProjectName,
+) -> eyre::Result<Vec<AzureDevOpsWorkItemQuery>> {
     info!("Fetching queries for Azure DevOps project {project_name}");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "invoke"]);
@@ -34,7 +34,7 @@ pub async fn fetch_queries_for_project(
     struct InvokeResponse {
         continuation_token: Option<Value>,
         count: u32,
-        value: Vec<AzureDevopsWorkItemQuery>,
+        value: Vec<AzureDevOpsWorkItemQuery>,
     }
     let resp = cmd.run::<InvokeResponse>().await?;
     let queries = resp.value;

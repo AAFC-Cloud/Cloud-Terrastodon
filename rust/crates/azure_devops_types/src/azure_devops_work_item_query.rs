@@ -6,12 +6,12 @@ use serde_json::Value;
 
 /// Also known as: QueryHierarchyItem
 #[derive(Serialize, Deserialize)]
-pub struct AzureDevopsWorkItemQuery {
+pub struct AzureDevOpsWorkItemQuery {
     #[serde(rename = "_links")]
     pub _links: Value,
     #[serde(rename = "children")]
     #[serde(default)]
-    pub children: Vec<AzureDevopsWorkItemQuery>,
+    pub children: Vec<AzureDevOpsWorkItemQuery>,
     #[serde(rename = "createdBy")]
     pub created_by: Option<Value>,
     #[serde(rename = "createdDate")]

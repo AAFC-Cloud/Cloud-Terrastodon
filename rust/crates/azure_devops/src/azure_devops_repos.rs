@@ -1,5 +1,5 @@
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsProjectId;
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsRepo;
+use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsProjectId;
+use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsRepo;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
@@ -9,8 +9,8 @@ use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_all_azure_devops_repos_for_project(
-    project_id: &AzureDevopsProjectId,
-) -> Result<Vec<AzureDevopsRepo>> {
+    project_id: &AzureDevOpsProjectId,
+) -> Result<Vec<AzureDevOpsRepo>> {
     info!("Fetching repos for project {project_id:?}");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args([
@@ -25,7 +25,7 @@ pub async fn fetch_all_azure_devops_repos_for_project(
         path: PathBuf::from_iter(["az", "repos", "list", project_id.to_string().replace(" ","_").as_ref()]),
         valid_for: Duration::from_hours(8),
     });
-    let repos: Vec<AzureDevopsRepo> = cmd.run().await?;
+    let repos: Vec<AzureDevOpsRepo> = cmd.run().await?;
     info!("Found {} repos", repos.len());
     Ok(repos)
 }

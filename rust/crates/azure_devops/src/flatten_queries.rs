@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsWorkItemQuery;
+use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 
 pub fn flatten_queries(
-    queries: &[AzureDevopsWorkItemQuery],
-) -> Vec<(Vec<&AzureDevopsWorkItemQuery>, &AzureDevopsWorkItemQuery)> {
+    queries: &[AzureDevOpsWorkItemQuery],
+) -> Vec<(Vec<&AzureDevOpsWorkItemQuery>, &AzureDevOpsWorkItemQuery)> {
     let mut rtn = Vec::new();
     let mut to_visit = VecDeque::new();
     for query in queries {

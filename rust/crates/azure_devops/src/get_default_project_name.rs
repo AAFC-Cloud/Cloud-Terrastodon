@@ -1,4 +1,4 @@
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevopsProjectName;
+use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
@@ -6,12 +6,12 @@ use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
 
-pub async fn get_default_project_name() -> eyre::Result<AzureDevopsProjectName> {
+pub async fn get_default_project_name() -> eyre::Result<AzureDevOpsProjectName> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "configure", "--list"]);
     let resp = cmd.run_raw().await?.stdout;
     let resp = resp.to_str()?;
-    let rtn: AzureDevopsProjectName = (|| {
+    let rtn: AzureDevOpsProjectName = (|| {
         let project = resp
             .lines()
             .find(|line| line.contains("project"))
@@ -20,7 +20,7 @@ pub async fn get_default_project_name() -> eyre::Result<AzureDevopsProjectName> 
             bail!("Expected project to have a slash before the name, found {project:?}");
         };
         let project = project.trim();
-        eyre::Ok(AzureDevopsProjectName::new(project.to_string()))
+        eyre::Ok(AzureDevOpsProjectName::new(project.to_string()))
     })()
     .wrap_err(format!("Failed to extract value from config:\n===\n{resp}\n==="))?;
     Ok(rtn)

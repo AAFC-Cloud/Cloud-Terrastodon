@@ -13,8 +13,8 @@ use serde::Serialize;
 use uuid::Uuid;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
-pub struct AzureDevopsProjectId(Uuid);
-impl Deref for AzureDevopsProjectId {
+pub struct AzureDevOpsProjectId(Uuid);
+impl Deref for AzureDevOpsProjectId {
     type Target = Uuid;
 
     fn deref(&self) -> &Self::Target {
@@ -22,60 +22,60 @@ impl Deref for AzureDevopsProjectId {
     }
 }
 
-impl AzureDevopsProjectId {
-    pub fn new(uuid: Uuid) -> AzureDevopsProjectId {
-        AzureDevopsProjectId(uuid)
+impl AzureDevOpsProjectId {
+    pub fn new(uuid: Uuid) -> AzureDevOpsProjectId {
+        AzureDevOpsProjectId(uuid)
     }
 }
-impl FromStr for AzureDevopsProjectId {
+impl FromStr for AzureDevOpsProjectId {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let uuid = Uuid::parse_str(s)?;
-        Ok(AzureDevopsProjectId::new(uuid))
+        Ok(AzureDevOpsProjectId::new(uuid))
     }
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
-pub struct AzureDevopsProjectName(String);
-impl Deref for AzureDevopsProjectName {
+pub struct AzureDevOpsProjectName(String);
+impl Deref for AzureDevOpsProjectName {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl std::fmt::Display for AzureDevopsProjectName {
+impl std::fmt::Display for AzureDevOpsProjectName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
     }
 }
 
-impl AzureDevopsProjectName {
-    pub fn new(name: String) -> AzureDevopsProjectName {
-        AzureDevopsProjectName(name)
+impl AzureDevOpsProjectName {
+    pub fn new(name: String) -> AzureDevOpsProjectName {
+        AzureDevOpsProjectName(name)
     }
 }
-impl FromStr for AzureDevopsProjectName {
+impl FromStr for AzureDevOpsProjectName {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(AzureDevopsProjectName::new(s.to_string()))
+        Ok(AzureDevOpsProjectName::new(s.to_string()))
     }
 }
-impl AsRef<str> for AzureDevopsProjectName {
+impl AsRef<str> for AzureDevOpsProjectName {
     fn as_ref(&self) -> &str {
         &self.0
     }
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
-pub enum AzureDevopsProjectState {
+pub enum AzureDevOpsProjectState {
     #[serde(rename = "wellFormed")]
     WellFormed,
 }
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
-pub enum AzureDevopsProjectVisibility {
+pub enum AzureDevOpsProjectVisibility {
     #[serde(rename = "private")]
     Private,
     #[serde(rename = "public")]
@@ -83,23 +83,23 @@ pub enum AzureDevopsProjectVisibility {
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
-pub struct AzureDevopsProject {
+pub struct AzureDevOpsProject {
     pub abbreviation: Option<String>,
     #[serde(rename = "defaultTeamImageUrl")]
     pub default_team_image_url: Option<String>,
     pub description: Option<String>,
-    pub id: AzureDevopsProjectId,
+    pub id: AzureDevOpsProjectId,
     #[serde(rename = "lastUpdateTime")]
     pub last_update_time: DateTime<Utc>,
-    pub name: AzureDevopsProjectName,
+    pub name: AzureDevOpsProjectName,
     pub revision: u16,
-    pub state: AzureDevopsProjectState,
+    pub state: AzureDevOpsProjectState,
     pub url: String,
-    pub visibility: AzureDevopsProjectVisibility,
+    pub visibility: AzureDevOpsProjectVisibility,
 }
 
-impl From<AzureDevopsProject> for TofuImportBlock {
-    fn from(project: AzureDevopsProject) -> Self {
+impl From<AzureDevOpsProject> for TofuImportBlock {
+    fn from(project: AzureDevOpsProject) -> Self {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
             id: project.id.to_string(),
@@ -118,6 +118,6 @@ mod tests {
     #[test]
     fn it_works() {
         let id = Uuid::new_v4().to_string();
-        let _project_id = id.parse::<AzureDevopsProjectId>().unwrap();
+        let _project_id = id.parse::<AzureDevOpsProjectId>().unwrap();
     }
 }
