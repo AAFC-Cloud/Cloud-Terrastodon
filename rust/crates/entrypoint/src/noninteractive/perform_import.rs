@@ -22,6 +22,9 @@ pub async fn perform_import() -> Result<()> {
     match TofuImporter::default().using_dir(imports_dir).run().await {
         Ok(_) => info!("Import success!"),
         Err(e) => {
+            if format!("{e:?}").contains("No valid credentials found") {
+                return Err(e.wrap_err("No valid credentials found. Did you forget to set your devops access token?\n$env:AZDO_PERSONAL_ACCESS_TOKEN=Read-Host -MaskInput \"Enter PAT\""));
+            }
             info!(
                 "Error from tf during perform_import, this is expected since generated resources often have conflicting attributes: {e:?}"
             );
