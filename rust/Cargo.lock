@@ -358,6 +358,7 @@ dependencies = [
  "chrono",
  "cloud_terrastodon_core_config",
  "cloud_terrastodon_core_pathing",
+ "cloud_terrastodon_core_user_input",
  "eyre",
  "humantime",
  "serde",

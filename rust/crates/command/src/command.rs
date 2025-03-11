@@ -180,7 +180,7 @@ impl CommandKind {
                 new_args.push("-Command".into());
                 // new_args.push("echo".into());
                 let mut guh = OsString::new();
-                guh.push("'");
+                guh.push("[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new();'");
                 let space: OsString = " ".into();
                 guh.push(
                     args.join(&space)
@@ -804,8 +804,46 @@ mod tests {
         cmd.args(["aéa"]);
         let x = cmd.run_raw().await.unwrap();
         println!("Got {x:?}");
-        assert_eq!(x.stdout.trim(), "aéa".as_bytes());
+        println!("Expected: {:?}", "aéa".as_bytes());
+        println!("Given:    {:?}", x.stdout.trim());
+        // assert_eq!(x.stdout.trim(), "aéa".as_bytes());
         assert_eq!(x.stdout.trim().to_str().unwrap(), "aéa");
+    }
+    
+    #[tokio::test]
+    #[ignore]
+    /// The Azure CLI uses system locale by default, which is latin-1 instead of UTF-8
+    /// https://github.com/Azure/azure-cli/issues/22616
+    async fn encoding_3() -> eyre::Result<()> {
+        // let user_id = prompt_line("Enter the ID for the user who is experiencing encoding issues:").await?;
+        let user_id = include_str!("test_user_id.txt");
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.args(["ad","user","show","--id",user_id.as_ref(),"--query", "displayName"]);
+        let x = cmd.run_raw().await.unwrap().stdout;
+        let bytes = x.as_ref() as &[u8];
+        println!("Got {:?}", x);
+        println!("Got {:?}", bytes);
+        println!("Got {:?}", bytes.iter().map(|x| char::from_u32(*x as u32)).collect::<Vec<_>>());
+        let z = String::from_utf8(bytes.to_vec())?;
+        println!("Decoded {z:?}");
+        let y = x.to_str()?;
+        println!("Decoded {y:?}");
+        Ok(())
+    }
+
+    #[test]
+    fn encoding_4() -> eyre::Result<()> {
+        let byte = 233 as u8;
+        println!("{byte} => {:?}", char::from_u32(byte as u32));
+        let bytes = vec![byte, 101];
+        println!("bytes: {bytes:?}");
+        let str = String::from_utf8(bytes);
+        println!("str: {str:?}");
+
+        // 233 is a latin-1 not utf-8 valid.
+        // Therefore, it should fail.
+        assert!(str.is_err());
+        Ok(())
     }
 
     #[tokio::test]

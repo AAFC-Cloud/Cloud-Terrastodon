@@ -18,3 +18,5 @@ tracing = { workspace = true }
 chrono = { workspace = true }
 humantime = { workspace = true }
 bstr = { workspace = true }
+[dev-dependencies]
+cloud_terrastodon_core_user_input = { workspace = true }
