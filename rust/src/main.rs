@@ -2,7 +2,6 @@
 use cloud_terrastodon_core_entrypoint::prelude::Version;
 use cloud_terrastodon_core_entrypoint::prelude::main as entrypoint_main;
 use eyre::Result;
-use itertools::Itertools;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
@@ -46,25 +45,11 @@ async fn main() -> Result<()> {
 
     let env_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
-        .from_env_lossy()
-        .add_directive(
-            format!(
-                "
-                {}=info
-                ",
-                env!("CARGO_PKG_NAME")
-            )
-            .lines()
-            .map(|line| line.trim())
-            .filter(|line| !line.starts_with("//"))
-            .filter(|line| !line.is_empty())
-            .join(",")
-            .trim()
-            .parse()
-            .unwrap(),
-        );
+        .from_env_lossy();
     tracing_subscriber::fmt()
         .with_env_filter(env_filter)
+        .with_file(true)
+        .with_line_number(true)
         .without_time()
         .init();
 

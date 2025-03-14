@@ -2,6 +2,7 @@ use clap::ValueEnum;
 use directories_next::ProjectDirs;
 use eyre::bail;
 use once_cell::sync::Lazy;
+use tracing::field::debug;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs::create_dir_all;
@@ -78,6 +79,7 @@ pub trait Existy {
 impl<T: AsRef<Path>> Existy for T {
     async fn ensure_dir_exists(&self) -> eyre::Result<()> {
         let path = self.as_ref();
+        debug("Ensuring path exist: {path:?}");
         match try_exists(&path).await {
             Ok(true) => {
                 if !path.is_dir() {

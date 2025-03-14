@@ -8,12 +8,13 @@ use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::task::JoinSet;
+use tracing::debug;
 use tracing::info;
 
 pub async fn fetch_all_azure_devops_repos_for_project(
     project_id: &AzureDevOpsProjectId,
 ) -> Result<Vec<AzureDevOpsRepo>> {
-    info!("Fetching repos for project {project_id:?}");
+    debug!("Fetching repos for project {project_id:?}");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args([
         "repos",
@@ -33,15 +34,17 @@ pub async fn fetch_all_azure_devops_repos_for_project(
         valid_for: Duration::from_hours(8),
     });
     let repos: Vec<AzureDevOpsRepo> = cmd.run().await?;
-    info!("Found {} repos for {project_id:?}", repos.len());
+    debug!("Found {} repos for {project_id:?}", repos.len());
     Ok(repos)
 }
 
 pub async fn fetch_azure_devops_repos_batch(
     project_ids: Vec<AzureDevOpsProjectId>,
 ) -> Result<Vec<(AzureDevOpsProjectId, Vec<AzureDevOpsRepo>)>> {
+    info!("Fetching repos for {} projects", project_ids.len());
     let mut rtn = Vec::new();
     let mut set = JoinSet::new();
+    let project_count = project_ids.len();
     for project_id in project_ids {
         set.spawn(async move {
             let repos = fetch_all_azure_devops_repos_for_project(&project_id).await;
@@ -53,6 +56,11 @@ pub async fn fetch_azure_devops_repos_batch(
         let repos = repos.wrap_err(format!("Fetching repos for project {project_id:?}"))?;
         rtn.push((project_id, repos));
     }
+    info!(
+        "Found {} repos across {} projects",
+        rtn.len(),
+        project_count
+    );
     Ok(rtn)
 }
 

@@ -144,7 +144,7 @@ impl std::fmt::Display for Subscription {
     }
 }
 impl Subscription {
-    pub fn into_provider_block(self) -> TofuProviderBlock {
+    pub fn into_provider_block(&self) -> TofuProviderBlock {
         TofuProviderBlock::AzureRM {
             alias: Some(self.name.sanitize()),
             subscription_id: Some(self.id.short_form().to_owned()),

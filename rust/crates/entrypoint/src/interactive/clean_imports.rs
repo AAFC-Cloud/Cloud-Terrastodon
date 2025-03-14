@@ -5,7 +5,7 @@ use tokio::fs;
 use tracing::info;
 pub async fn clean_imports() -> Result<()> {
     info!("Cleaning imports");
-    let ignore_dir: PathBuf = AppDir::Imports.into();
-    fs::remove_dir_all(ignore_dir).await?;
+    let imports_dir: PathBuf = AppDir::Imports.into();
+    fs::remove_dir_all(imports_dir).await?;
     Ok(())
 }

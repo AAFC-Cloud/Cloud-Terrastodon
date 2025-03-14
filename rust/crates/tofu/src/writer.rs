@@ -17,7 +17,7 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
-use tracing::info;
+use tracing::debug;
 use tracing::warn;
 
 use crate::prelude::TofuBlock;
@@ -34,17 +34,17 @@ impl TofuWriter {
     }
 
     pub async fn format(&self) -> Result<()> {
+        debug!("Formatting tf file {}", self.path.display());
         CommandBuilder::new(CommandKind::Tofu)
             .arg("fmt")
             .arg(self.path.as_os_str())
-            .should_announce(true)
             .run_raw()
             .await?;
         Ok(())
     }
 
     pub async fn overwrite(&self, content: impl AsTofuString) -> Result<&Self> {
-        info!("Overwriting tf file {}", self.path.display());
+        debug!("Overwriting tf file {}", self.path.display());
         self.path.ensure_parent_dir_exists().await?;
         let mut imports_file = OpenOptions::new()
             .create(true)
@@ -53,7 +53,7 @@ impl TofuWriter {
             .open(&self.path)
             .await
             .context(format!("opening file {}", self.path.display()))?;
-        info!("Writing {:?}", self.path);
+        debug!("Writing {:?}", self.path);
         imports_file
             .write_all(content.as_tofu_string().as_bytes())
             .await
@@ -64,6 +64,7 @@ impl TofuWriter {
         &self,
         to_merge: impl IntoIterator<Item = impl Into<TofuBlock>>,
     ) -> Result<&Self> {
+        debug!("Merging into tf file {}", self.path.display());
         self.path.ensure_parent_dir_exists().await?;
         let mut file = OpenOptions::new()
             .create(true)
