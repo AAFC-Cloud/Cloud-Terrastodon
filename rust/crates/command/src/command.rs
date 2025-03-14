@@ -548,142 +548,147 @@ impl CommandBuilder {
     }
 
     #[async_recursion]
+    #[track_caller]
     pub async fn run_raw(&self) -> Result<CommandOutput> {
-        // Check cache
-        match self.get_cached_output().await {
-            Ok(None) => {}
-            Ok(Some(output)) => return Ok(output),
-            Err(e) => {
-                debug!("Cache load failed: {:?}", e);
+        let result: eyre::Result<CommandOutput> = (async ||{
+            // Check cache
+            match self.get_cached_output().await {
+                Ok(None) => {}
+                Ok(Some(output)) => return Ok(output),
+                Err(e) => {
+                    debug!("Cache load failed: {:?}", e);
+                }
             }
-        }
 
-        let mut command = Command::new(self.kind.program());
-        match self.output_behaviour {
-            OutputBehaviour::Capture => {
-                command.stdin(Stdio::piped());
-                command.stdout(Stdio::piped());
-                command.stderr(Stdio::piped());
+            let mut command = Command::new(self.kind.program());
+            match self.output_behaviour {
+                OutputBehaviour::Capture => {
+                    command.stdin(Stdio::piped());
+                    command.stdout(Stdio::piped());
+                    command.stderr(Stdio::piped());
+                }
+                OutputBehaviour::Display => {}
             }
-            OutputBehaviour::Display => {}
-        }
 
-        // Apply arguments, saving temp files to a variable to be cleaned up when dropped later
-        let _temp_files = self
-            .kind
-            .apply_args_and_envs(self, &mut command)
-            .await
-            .context("applying args and envs")?;
+            // Apply arguments, saving temp files to a variable to be cleaned up when dropped later
+            let _temp_files = self
+                .kind
+                .apply_args_and_envs(self, &mut command)
+                .await
+                .context("applying args and envs")?;
 
-        if let Some(ref dir) = self.run_dir {
-            command.current_dir(dir);
-        }
-
-        // Announce launch
-        if self.should_announce {
-            info!("Running {}", self.summarize());
-        }
-
-        // Launch command
-        command.kill_on_drop(true);
-        let child = command
-            .spawn()
-            .context(format!("Failed to spawn command `{}`", self.summarize()))?;
-
-        // Wait for it to finish
-        let output: CommandOutput = match timeout(
-            self.timeout.unwrap_or(Duration::MAX),
-            child.wait_with_output(),
-        )
-        .await
-        {
-            Ok(result) => result
-                .wrap_err("Acquiring result of command execution")?
-                .try_into()
-                .wrap_err(format!("Converting output of command {}", self.summarize()))?,
-            Err(elapsed) => {
-                bail!("Command timeout, {elapsed:?}: {}", self.summarize());
+            if let Some(ref dir) = self.run_dir {
+                command.current_dir(dir);
             }
-        };
 
-        // // Convert to our output type
-        // let output: CommandOutput = output.try_into()?;
+            // Announce launch
+            if self.should_announce {
+                info!("Running {}", self.summarize());
+            } else {
+                debug!("Running {}", self.summarize());
+            }
 
-        // Return if errored
-        if !output.success() {
-            match self.retry_behaviour {
-                RetryBehaviour::Reauth
-                    if [
-                        "AADSTS70043",
-                        "No subscription found. Run 'az account set' to select a subscription.",
-                        "Please run 'az login' to setup account.",
-                    ]
-                    .into_iter()
-                    .any(|x| output.stderr.contains_str(x)) =>
-                {
-                    let mutex = LOGIN_LOCK
-                        .get_or_init(async || Arc::new(Mutex::new(())))
-                        .await;
-                    match mutex.try_lock() {
-                        Ok(x) => {
-                            debug!(
-                                "Acquired login lock without waiting, there isn't a login in progress"
-                            );
-                            // Let the user know
-                            warn!(
-                                "Command failed due to bad auth. Refreshing credential, user action required in a moment..."
-                            );
+            // Launch command
+            command.kill_on_drop(true);
+            let child = command.spawn().wrap_err("Failed to spawn command")?;
 
-                            // Perform login command
-                            // (avoid using login fn from azure crate to avoid a dependency)
-                            CommandBuilder::new(CommandKind::AzureCLI)
-                                .arg("login")
-                                .run_raw()
-                                .await?;
-                            drop(x);
-                        }
-                        Err(_) => {
-                            debug!("Login lock busy, waiting for the login to complete");
-                            warn!(
-                                "Command failed due to bad auth. Waiting for login in progress..."
-                            );
-                            _ = mutex.lock().await;
-                        }
+            // Wait for it to finish
+            let timeout_duration = self.timeout.unwrap_or(Duration::MAX);
+            let output: CommandOutput =
+                match timeout(timeout_duration, child.wait_with_output()).await {
+                    Ok(result) => result
+                        .wrap_err("Acquiring result of command execution")?
+                        .try_into()
+                        .wrap_err("Converting output of command")?,
+                    Err(elapsed) => {
+                        bail!(
+                            "Command timeout, {elapsed:?} ({})",
+                            humantime::format_duration(timeout_duration)
+                        );
                     }
+                };
 
-                    // Retry the failed command, no further retries
-                    info!("Retrying command with refreshed credential...");
-                    let mut retry = self.clone();
-                    retry.use_retry_behaviour(RetryBehaviour::Fail);
-                    let output = retry.run_raw().await;
+            // // Convert to our output type
+            // let output: CommandOutput = output.try_into()?;
 
-                    // Return the result
-                    return output;
-                }
-                _ => {
-                    let dir = self.write_failure(&output).await?;
-                    return Err(eyre::Error::from(output).wrap_err(format!(
-                        "Command did not execute successfully: {}, dumped to {:?}",
-                        self.summarize(),
-                        dir
-                    )));
+            // Return if errored
+            if !output.success() {
+                match self.retry_behaviour {
+                    RetryBehaviour::Reauth
+                        if [
+                            "AADSTS70043",
+                            "No subscription found. Run 'az account set' to select a subscription.",
+                            "Please run 'az login' to setup account.",
+                        ]
+                        .into_iter()
+                        .any(|x| output.stderr.contains_str(x)) =>
+                    {
+                        let mutex = LOGIN_LOCK
+                            .get_or_init(async || Arc::new(Mutex::new(())))
+                            .await;
+                        match mutex.try_lock() {
+                            Ok(x) => {
+                                debug!(
+                                    "Acquired login lock without waiting, there isn't a login in progress"
+                                );
+                                // Let the user know
+                                warn!(
+                                    "Command failed due to bad auth. Refreshing credential, user action required in a moment..."
+                                );
+
+                                // Perform login command
+                                // (avoid using login fn from azure crate to avoid a dependency)
+                                CommandBuilder::new(CommandKind::AzureCLI)
+                                    .arg("login")
+                                    .run_raw()
+                                    .await?;
+                                drop(x);
+                            }
+                            Err(_) => {
+                                debug!("Login lock busy, waiting for the login to complete");
+                                warn!(
+                                    "Command failed due to bad auth. Waiting for login in progress..."
+                                );
+                                _ = mutex.lock().await;
+                            }
+                        }
+
+                        // Retry the failed command, no further retries
+                        info!("Retrying command with refreshed credential...");
+                        let mut retry = self.clone();
+                        retry.use_retry_behaviour(RetryBehaviour::Fail);
+                        let output = retry.run_raw().await;
+
+                        // Return the result
+                        return output;
+                    }
+                    _ => {
+                        let dir = self.write_failure(&output).await?;
+                        return Err(eyre::Error::from(output).wrap_err(format!(
+                            "Command did not execute successfully, dumped to {:?}",
+                            dir
+                        )));
+                    }
                 }
             }
-        }
 
-        // Write happy results to the cache
-        if output.success()
-            && let CacheBehaviour::Some {
-                path: cache_dir, ..
-            } = &self.cache_behaviour
-        {
-            if let Err(e) = self.write_output(&output, cache_dir).await {
-                error!("Encountered problem saving cache: {:?}", e);
+            // Write happy results to the cache
+            if output.success()
+                && let CacheBehaviour::Some {
+                    path: cache_dir, ..
+                } = &self.cache_behaviour
+            {
+                if let Err(e) = self.write_output(&output, cache_dir).await {
+                    error!("Encountered problem saving cache: {:?}", e);
+                }
             }
-        }
 
-        // Return success
-        Ok(output)
+            // Return success
+            Ok(output)
+        })().await;
+        result
+            .wrap_err(format!("Invoking command `{}`", self.summarize()))
+            .wrap_err(format!("Called from {}", std::panic::Location::caller()))
     }
 
     pub async fn run<T>(&self) -> Result<T>
