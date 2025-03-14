@@ -174,6 +174,17 @@ impl TofuProviderBlock {
             TofuProviderBlock::Other { alias, .. } => alias.as_ref(),
         }
     }
+    pub fn as_reference(&self) -> TofuProviderReference {
+        match self.alias().cloned() {
+            Some(name) => TofuProviderReference::Alias {
+                kind: self.provider_kind(),
+                name,
+            },
+            None => TofuProviderReference::Default {
+                kind: self.provider_kind(),
+            },
+        }
+    }
 }
 impl From<TofuProviderBlock> for Block {
     fn from(provider: TofuProviderBlock) -> Self {

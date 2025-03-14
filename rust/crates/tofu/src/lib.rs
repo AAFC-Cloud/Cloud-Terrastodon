@@ -1,4 +1,4 @@
-#![feature(let_chains)]
+#![feature(let_chains, try_blocks)]
 mod azuredevops_git_repository_initialization_patcher;
 mod block_lister;
 mod body_formatter;
