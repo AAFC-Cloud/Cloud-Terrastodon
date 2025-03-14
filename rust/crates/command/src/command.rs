@@ -550,7 +550,7 @@ impl CommandBuilder {
     #[async_recursion]
     #[track_caller]
     pub async fn run_raw(&self) -> Result<CommandOutput> {
-        let result: eyre::Result<CommandOutput> = (async ||{
+        // let result: eyre::Result<CommandOutput> = (async ||{
             // Check cache
             match self.get_cached_output().await {
                 Ok(None) => {}
@@ -685,10 +685,10 @@ impl CommandBuilder {
 
             // Return success
             Ok(output)
-        })().await;
-        result
-            .wrap_err(format!("Invoking command `{}`", self.summarize()))
-            .wrap_err(format!("Called from {}", std::panic::Location::caller()))
+        // })().await;
+        // result
+        //     .wrap_err(format!("Invoking command `{}`", self.summarize()))
+        //     .wrap_err(format!("Called from {}", std::panic::Location::caller()))
     }
 
     pub async fn run<T>(&self) -> Result<T>
