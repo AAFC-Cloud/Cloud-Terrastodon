@@ -12,6 +12,9 @@ use std::str::FromStr;
 use tokio::io::AsyncReadExt;
 use tracing::debug;
 
+/// Helper to address https://github.com/hashicorp/terraform/issues/33321
+/// 
+/// > "terraform providers mirror" skip downloading packages that are already present in the mirror directory
 pub struct ProviderManager {
     pub tf_plugin_cache_dir: PathBuf,
 }
