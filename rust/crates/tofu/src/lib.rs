@@ -1,4 +1,4 @@
-#![feature(let_chains, try_blocks)]
+#![feature(let_chains, async_fn_track_caller)]
 mod azuredevops_git_repository_initialization_patcher;
 mod block_lister;
 mod body_formatter;
@@ -15,8 +15,10 @@ mod reflow;
 mod sorting;
 mod user_id_reference_patcher;
 mod writer;
+mod provider_manager;
 pub mod prelude {
     pub use crate::block_lister::*;
+    pub use crate::provider_manager::*;
     pub use crate::import_builder::*;
     pub use crate::importer::*;
     pub use crate::reflow::*;

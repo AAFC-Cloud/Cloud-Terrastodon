@@ -442,6 +442,7 @@ dependencies = [
  "indicatif",
  "indoc",
  "itertools 0.12.1",
+ "serde",
  "serde_json",
  "tempfile",
  "tokio",

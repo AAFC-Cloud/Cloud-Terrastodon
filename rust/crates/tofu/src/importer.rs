@@ -8,13 +8,11 @@ use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
 use cloud_terrastodon_core_command::prelude::bstr::io::BufReadExt;
 use cloud_terrastodon_core_tofu_types::prelude::TofuProviderBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
-use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformProviderVersionObject;
 use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::Result;
 use eyre::eyre;
-use std::any::type_name;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
@@ -36,12 +34,13 @@ impl TofuImporter {
         self.imports_dir = Some(imports_dir.as_ref().to_path_buf());
         self
     }
+    #[track_caller]
     pub async fn run(&mut self) -> Result<()> {
         // Check preconditions
         let Some(ref imports_dir) = self.imports_dir else {
             return Err(eyre!("Dir must be set with using_dir"));
         };
-        let result: eyre::Result<()> = try {
+        let result: eyre::Result<()> = (async ||{
             // Get devops url
             let org_service_url = format!(
                 "https://dev.azure.com/{name}/",
@@ -54,48 +53,19 @@ impl TofuImporter {
             let import_writer = TofuWriter::new(boilerplate_path);
             import_writer
                 .merge(vec![TofuTerraformBlock {
-                    required_providers: Some(TofuTerraformRequiredProvidersBlock(
-                        [
-                            (
-                                "azurerm".to_string(),
-                                TofuTerraformProviderVersionObject {
-                                    source: "hashicorp/azurerm".to_string(),
-                                    version: ">=4.18.0".to_string(),
-                                },
-                            ),
-                            (
-                                "azuread".to_string(),
-                                TofuTerraformProviderVersionObject {
-                                    source: "hashicorp/azuread".to_string(),
-                                    version: ">=3.1.0".to_string(),
-                                },
-                            ),
-                            (
-                                "azuredevops".to_string(),
-                                TofuTerraformProviderVersionObject {
-                                    source: "microsoft/azuredevops".to_string(),
-                                    version: ">=1.6.0".to_string(),
-                                },
-                            ),
-                        ]
-                        .into(),
-                    )),
+                    required_providers: Some(TofuTerraformRequiredProvidersBlock::default()),
                     ..Default::default()
                 }])
                 .await
-                .context("writing terraform block")?
+                .context("Writing terraform block")?
                 .merge(vec![
-                    // TofuProviderBlock::AzureRM {
-                    //     alias: None,
-                    //     subscription_id: Some(""),
-                    // },
                     TofuProviderBlock::AzureDevOps {
                         alias: None,
                         org_service_url,
                     },
                 ])
                 .await
-                .context("writing default azurerm provider block")?
+                .context("Writing default provider blocks")?
                 .format()
                 .await?;
 
@@ -105,8 +75,8 @@ impl TofuImporter {
             init_cmd.use_run_dir(imports_dir);
             init_cmd.use_output_behaviour(OutputBehaviour::Display);
             // init_cmd.use_timeout(Duration::from_secs(120));
-            init_cmd.args(["init", "-input","false"]);
-            init_cmd.run_raw().await.context("performing tf init")?;
+            init_cmd.args(["init", "-input=false"]);
+            init_cmd.run_raw().await?;
             info!("Tofu init successful!");
 
             // remove old plan outputs
@@ -125,19 +95,21 @@ impl TofuImporter {
             validate_cmd.use_output_behaviour(OutputBehaviour::Display);
             // validate_cmd.use_timeout(Duration::from_secs(30));
             validate_cmd.arg("validate");
-            validate_cmd
-                .run_raw()
-                .await
-                .context("performing tf validate")?;
+            validate_cmd.run_raw().await?;
 
             // tf plan
             let mut plan_cmd = CommandBuilder::new(CommandKind::Tofu);
             plan_cmd.should_announce(true);
             plan_cmd.use_run_dir(imports_dir.clone());
-            plan_cmd.args(["plan", "-generate-config-out", "generated.tf", "-input","false"]);
+            plan_cmd.args([
+                "plan",
+                "-generate-config-out",
+                "generated.tf",
+                "-input=false",
+            ]);
 
             info!("Executing import, please be patient.");
-            let plan_result = plan_cmd.run_raw().await.context("performing tf plan");
+            let plan_result = plan_cmd.run_raw().await;
             match plan_result {
                 Ok(_) => {
                     info!("Import success!");
@@ -205,12 +177,16 @@ impl TofuImporter {
 
             // Success!
             info!("🚀 Successfully generated tf files from imports!");
-        };
-        result.wrap_err(format!(
-            "Performing using {} \"{}\" against dir \"{}\"",
-            type_name::<TofuImporter>(),
-            file!(),
-            imports_dir.display()
-        ))
+            Ok(())
+        })().await;
+        result
+            .wrap_err(format!(
+                "TofuImporter::run called from {}",
+                std::panic::Location::caller()
+            ))
+            .wrap_err(format!(
+                "TofuImporter::run failed with dir \"{}\"",
+                imports_dir.display()
+            ))
     }
 }

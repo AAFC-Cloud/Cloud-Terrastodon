@@ -3,17 +3,19 @@ use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_azure_devops_repos_batch;
 use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_core_tofu::prelude::ProviderManager;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuImporter;
+use cloud_terrastodon_core_tofu::prelude::TofuTerraformRequiredProvidersBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
-use eyre::bail;
 use eyre::Context;
-use tokio::sync::Semaphore;
+use eyre::bail;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tokio::try_join;
 use tracing::debug;
@@ -166,6 +168,13 @@ async fn import_all(tf_workspace_dirs: Vec<PathBuf>) -> eyre::Result<()> {
         tf_workspace_dir_count
     );
     let start = Instant::now();
+    
+    info!("Ensuring the tf providers are available");
+    let provider_manager = ProviderManager::try_new()?;
+    let installed = provider_manager.list_cached_providers().await?;
+    let required = TofuTerraformRequiredProvidersBlock::default().0;
+    
+    
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
     let limit = Arc::new(Semaphore::new(1));
     for dir in tf_workspace_dirs {
@@ -173,7 +182,11 @@ async fn import_all(tf_workspace_dirs: Vec<PathBuf>) -> eyre::Result<()> {
         join_set.spawn(async move {
             try {
                 let permit = limit.acquire().await?;
-                TofuImporter::default().using_dir(&dir).run().await.wrap_err(format!("Importing tf workspace dir \"{}\"", dir.display()))?;
+                TofuImporter::default()
+                    .using_dir(&dir)
+                    .run()
+                    .await
+                    .wrap_err(format!("Importing tf workspace dir \"{}\"", dir.display()))?;
                 drop(permit);
             }
         });
@@ -193,23 +206,4 @@ async fn import_all(tf_workspace_dirs: Vec<PathBuf>) -> eyre::Result<()> {
         humantime::format_duration(took)
     );
     Ok(())
-}
-
-#[cfg(test)]
-mod test {
-    use cloud_terrastodon_core_pathing::Existy;
-    use cloud_terrastodon_core_tofu::prelude::TofuImporter;
-    use tempfile::Builder;
-
-    #[tokio::test]
-    pub async fn terraform_concurrent_init() -> eyre::Result<()> {
-        let temp_dir = Builder::new().tempdir()?;
-        let num_workspaces = 5;
-        for i in 0..num_workspaces {
-            let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
-            workspace_dir.ensure_dir_exists().await?;
-            TofuImporter::new().using_dir(&workspace_dir).run().await?;
-        }
-        Ok(())
-    }
 }

@@ -1,16 +1,12 @@
+use crate::version::TofuTerraformRequiredProvidersBlock;
 use eyre::OptionExt;
 use eyre::bail;
-use hcl::edit::Decorated;
-use hcl::edit::expr::Object;
-use hcl::edit::expr::ObjectKey;
-use hcl::edit::expr::ObjectValue;
 use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::Structure;
 use hcl_primitives::Ident;
 use itertools::Itertools;
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct TofuTerraformBlock {
@@ -216,112 +212,18 @@ impl TryFrom<Block> for TofuTerraformAzureRMBackendBlock {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TofuTerraformRequiredProvidersBlock(
-    pub HashMap<String, TofuTerraformProviderVersionObject>,
-);
-
-impl TryFrom<Block> for TofuTerraformRequiredProvidersBlock {
-    type Error = eyre::Error;
-
-    fn try_from(block: Block) -> Result<Self, Self::Error> {
-        if block.ident.to_string() != "required_providers" {
-            bail!("Block must use 'required_providers' ident");
-        }
-        let mut entries = HashMap::new();
-        for attr in block.body.attributes() {
-            let provider_label = &attr.key;
-            let version_block = attr
-                .value
-                .as_object()
-                .ok_or_eyre("Expected required provider value to be an object")?
-                .try_into()?;
-            entries.insert(provider_label.to_string(), version_block);
-        }
-        Ok(TofuTerraformRequiredProvidersBlock(entries))
-    }
-}
-impl From<TofuTerraformRequiredProvidersBlock> for Block {
-    fn from(value: TofuTerraformRequiredProvidersBlock) -> Self {
-        let mut builder = Block::builder(Ident::new("required_providers"));
-        for (provider, body) in value.0 {
-            let body: Object = body.into();
-            builder = builder.attribute(Attribute::new(Decorated::new(Ident::new(provider)), body));
-        }
-        builder.build()
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TofuTerraformProviderVersionObject {
-    pub source: String,
-    pub version: String,
-}
-impl TryFrom<&Object> for TofuTerraformProviderVersionObject {
-    type Error = eyre::Error;
-
-    fn try_from(obj: &Object) -> Result<Self, Self::Error> {
-        let mut source = None;
-        let mut version = None;
-        for (key, value) in obj {
-            match key.as_ident() {
-                Some(s) => match s.to_string().as_str() {
-                    "source" => {
-                        if source.is_some() {
-                            bail!("Duplicate key: source");
-                        }
-                        source = Some(
-                            value
-                                .expr()
-                                .as_str()
-                                .ok_or_eyre("Expected value to be a string literal")?
-                                .to_string(),
-                        );
-                    }
-                    "version" => {
-                        if version.is_some() {
-                            bail!("Duplicate key: source");
-                        }
-                        version = Some(
-                            value
-                                .expr()
-                                .as_str()
-                                .ok_or_eyre("Expected value to be a string literal")?
-                                .to_string(),
-                        );
-                    }
-                    x => {
-                        bail!("Unexpected key: {x}");
-                    }
-                },
-                None => {
-                    bail!("Unexpected entry format, key is none\nkey={key:?}\nvalue={value:?}")
-                }
-            }
-        }
-        let source = source.ok_or_eyre("Missing source attribute")?;
-        let version = version.ok_or_eyre("Missing version attribute")?;
-        Ok(TofuTerraformProviderVersionObject { source, version })
-    }
-}
-impl From<TofuTerraformProviderVersionObject> for Object {
-    fn from(value: TofuTerraformProviderVersionObject) -> Self {
-        let mut obj = Object::new();
-        obj.insert(
-            ObjectKey::Ident(Decorated::new(Ident::new("source"))),
-            ObjectValue::new(value.source),
-        );
-        obj.insert(
-            ObjectKey::Ident(Decorated::new(Ident::new("version"))),
-            ObjectValue::new(value.version),
-        );
-        obj
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
+
+    use crate::prelude::TofuProviderKind;
+    use crate::version::SemVer;
+    use crate::version::TFProviderHostname;
+    use crate::version::TFProviderNamespace;
+    use crate::version::TFProviderSource;
+    use crate::version::TFProviderVersionConstraint;
+    use crate::version::TFProviderVersionConstraintClause;
+    use crate::version::TofuTerraformProviderVersionObject;
 
     use super::*;
 
@@ -363,8 +265,21 @@ mod tests {
                     [(
                         "azurerm".to_string(),
                         TofuTerraformProviderVersionObject {
-                            source: "hashicorp/azurerm".to_string(),
-                            version: ">=4.18.0".to_string()
+                            source: TFProviderSource {
+                                hostname: TFProviderHostname::default(),
+                                namespace: TFProviderNamespace("hashicorp".to_string()),
+                                kind: TofuProviderKind::AzureRM,
+                            },
+                            version: TFProviderVersionConstraint {
+                                clauses: vec![TFProviderVersionConstraintClause::GreaterOrEqual(
+                                    SemVer {
+                                        major: 4,
+                                        minor: Some(18),
+                                        patch: Some(0),
+                                        pre_release: None,
+                                    }
+                                )]
+                            }
                         }
                     )]
                     .into()
