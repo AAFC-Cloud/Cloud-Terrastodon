@@ -110,7 +110,7 @@ pub async fn reflow_workspace(
     Ok(rtn)
 }
 
-pub async fn as_single_body(source_dir: &Path) -> Result<Body> {
+pub async fn as_single_body(source_dir: impl AsRef<Path>) -> Result<Body> {
     let mut body = Body::new();
 
     // Read all files in source dir and append to body

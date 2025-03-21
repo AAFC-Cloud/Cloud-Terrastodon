@@ -8,6 +8,7 @@ mod resources;
 mod strings;
 mod terraform_block;
 mod version;
+mod tf_work_dir;
 
 pub mod prelude {
     pub use crate::block::*;
@@ -19,5 +20,6 @@ pub mod prelude {
     pub use crate::resources::*;
     pub use crate::strings::*;
     pub use crate::terraform_block::*;
+    pub use crate::tf_work_dir::*;
     pub use hcl::*;
 }

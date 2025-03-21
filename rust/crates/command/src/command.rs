@@ -581,9 +581,23 @@ impl CommandBuilder {
 
         // Announce launch
         if self.should_announce {
-            info!("Running {}", self.summarize());
+            info!(
+                "Running `{}` in \"{}\"",
+                self.summarize(),
+                self.run_dir
+                    .as_ref()
+                    .map(|x| x.display().to_string())
+                    .unwrap_or(".".to_string())
+            );
         } else {
-            debug!("Running {}", self.summarize());
+            debug!(
+                "Running `{}` in \"{}\"",
+                self.summarize(),
+                self.run_dir
+                    .as_ref()
+                    .map(|x| x.display().to_string())
+                    .unwrap_or(".".to_string())
+            );
         }
 
         // Launch command
@@ -689,7 +703,10 @@ impl CommandBuilder {
     pub async fn run_raw(&self) -> Result<CommandOutput> {
         self.run_raw_inner()
             .await
-            .wrap_err(format!("Command::run_raw failed, called from {}", std::panic::Location::caller()))
+            .wrap_err(format!(
+                "Command::run_raw failed, called from {}",
+                std::panic::Location::caller()
+            ))
             .wrap_err(format!("Invoking command failed: {}", self.summarize()))
     }
 
@@ -699,10 +716,10 @@ impl CommandBuilder {
         T: DeserializeOwned,
     {
         // Get stdout
-        let output = self
-            .run_raw()
-            .await
-            .wrap_err(format!("Command::run failed, called from {}", std::panic::Location::caller()))?;
+        let output = self.run_raw().await.wrap_err(format!(
+            "Command::run failed, called from {}",
+            std::panic::Location::caller()
+        ))?;
 
         // Parse
         match serde_json::from_slice(output.stdout.to_str_lossy().as_bytes()) {

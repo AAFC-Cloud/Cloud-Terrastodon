@@ -1,25 +1,49 @@
+use cloud_terrastodon_core_azure_devops::prelude::get_default_organization_name;
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_core_command::prelude::OutputBehaviour;
+use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_core_pathing::Existy;
+use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
 use cloud_terrastodon_core_tofu_types::prelude::ProviderAvailability;
 use cloud_terrastodon_core_tofu_types::prelude::TFProviderHostname;
 use cloud_terrastodon_core_tofu_types::prelude::TFProviderNamespace;
+use cloud_terrastodon_core_tofu_types::prelude::TofuProviderBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuProviderKind;
+use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
+use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
+use directories_next::BaseDirs;
+use eyre::Context;
+use eyre::OptionExt;
 use eyre::bail;
+use hcl::edit::structure::Block;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env::{self};
+use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
+use tempfile::TempDir;
 use tokio::io::AsyncReadExt;
 use tracing::debug;
+use tracing::info;
 
-/// Helper to address https://github.com/hashicorp/terraform/issues/33321
+use crate::writer::TofuWriter;
+
+/// Helper to address concurrency issues.
 /// 
+/// https://github.com/hashicorp/terraform/issues/33321
 /// > "terraform providers mirror" skip downloading packages that are already present in the mirror directory
+/// 
+/// https://github.com/hashicorp/terraform/issues/31964
+/// > Allow multiple Terraform instances to write to plugin_cache_dir concurrently
 pub struct ProviderManager {
-    pub tf_plugin_cache_dir: PathBuf,
+    pub local_mirror_dir: PathBuf,
 }
 
 impl ProviderManager {
+    /// https://developer.hashicorp.com/terraform/cli/config/config-file#provider-plugin-cache
     pub fn get_default_tf_plugin_cache_dir() -> eyre::Result<PathBuf> {
         if let Ok(path) = env::var("TF_PLUGIN_CACHE_DIR") {
             return Ok(PathBuf::from(path));
@@ -39,15 +63,38 @@ impl ProviderManager {
             "Failed to acquire TF_PLUGIN_CACHE_DIR from environment variable and failed to find home directory"
         );
     }
+
+    /// https://developer.hashicorp.com/terraform/cli/config/config-file#implied-local-mirror-directories
+    pub fn get_local_mirror_dir() -> eyre::Result<PathBuf> {
+        #[cfg(windows)]
+        {
+            // Windows: %APPDATA%/terraform.d/plugins
+            return Ok(BaseDirs::new()
+                .ok_or_eyre("Failed to get base dirs")?
+                .config_dir()
+                .join("terraform.d/plugins")
+                .to_path_buf());
+        }
+        #[cfg(not(windows))]
+        {
+            // Not(Windows): $HOME/.terraform.d/plugins
+            return Ok(BaseDirs::new()
+                .ok_or_eyre("Failed to get base dirs")?
+                .home_dir()
+                .join(".terraform.d/plugins")
+                .to_path_buf());
+        }
+    }
+
     pub fn try_new() -> eyre::Result<Self> {
         Ok(ProviderManager {
-            tf_plugin_cache_dir: Self::get_default_tf_plugin_cache_dir()?,
+            local_mirror_dir: Self::get_local_mirror_dir()?,
         })
     }
 
     pub async fn list_cached_providers(&self) -> eyre::Result<HashSet<ProviderAvailability>> {
         let mut rtn = HashSet::default();
-        let mut cache_children = tokio::fs::read_dir(&self.tf_plugin_cache_dir).await?;
+        let mut cache_children = tokio::fs::read_dir(&self.local_mirror_dir).await?;
         while let Some(registry) = cache_children.next_entry().await? {
             let mut registry_children = tokio::fs::read_dir(&registry.path()).await?;
             while let Some(author) = registry_children.next_entry().await? {
@@ -138,26 +185,88 @@ impl ProviderManager {
         }
         Ok(rtn)
     }
+
+    pub async fn populate_provider_cache(
+        &self,
+        desired_providers: &TofuTerraformRequiredProvidersBlock,
+    ) -> eyre::Result<Option<TempDir>> {
+        let provider_manager = self;
+        let available_providers = provider_manager.list_cached_providers().await?;
+        let missing_providers = desired_providers.identify_missing(&available_providers);
+        if missing_providers.0.is_empty() {
+            debug!("All required providers are already available");
+            return Ok(None);
+        }
+
+        let terraform_block = TofuTerraformBlock {
+            backend: None,
+            required_providers: Some(missing_providers),
+            other: vec![],
+        };
+        let terraform_block: Block = terraform_block.into();
+        let boilerplate_tf = terraform_block.as_tofu_string();
+        debug!("Mirroring providers using this terraform:\n{boilerplate_tf}");
+        let app_temp_dir = AppDir::Temp.as_path_buf();
+        app_temp_dir.ensure_dir_exists().await?;
+        let temp_dir = tempfile::Builder::new().tempdir_in(&app_temp_dir)?;
+        let boilerplate_tf_path = temp_dir.path().join("boilerplate.tf");
+        TofuWriter::new(boilerplate_tf_path)
+            .overwrite(boilerplate_tf)
+            .await?
+            .format()
+            .await?;
+
+        let mut cmd = CommandBuilder::new(CommandKind::Tofu);
+        // let tf_plugin_cache_dir = std::env::var("TF_PLUGIN_CACHE_DIR")?;
+        // PathBuf::from(&tf_plugin_cache_dir)
+        //     .ensure_dir_exists()
+        //     .await?;
+        cmd.args(["providers", "mirror", &self.local_mirror_dir.display().to_string().replace("\\", "/")]);
+        cmd.use_output_behaviour(OutputBehaviour::Display);
+        cmd.use_run_dir(temp_dir.path());
+        cmd.run_raw().await?;
+        Ok(Some(temp_dir))
+    }
+
+    pub async fn write_default_provider_configs(
+        &self,
+        work_dir: impl AsRef<Path>,
+    ) -> eyre::Result<()> {
+        let work_dir = work_dir.as_ref();
+        // Get devops url
+        let org_service_url = format!(
+            "https://dev.azure.com/{name}/",
+            name = get_default_organization_name().await?
+        );
+
+        // Open boilerplate file
+        info!("Writing default provider configs in {}", work_dir.display());
+        let boilerplate_path = work_dir.join("boilerplate.tf");
+        TofuWriter::new(boilerplate_path)
+            .merge(vec![TofuTerraformBlock {
+                required_providers: Some(TofuTerraformRequiredProvidersBlock::common()),
+                ..Default::default()
+            }])
+            .await
+            .wrap_err("Writing terraform block")?
+            .merge(vec![TofuProviderBlock::AzureDevOps {
+                alias: None,
+                org_service_url,
+            }])
+            .await
+            .wrap_err("Writing default provider blocks")?
+            .format()
+            .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::prelude::ProviderManager;
-    use crate::prelude::TofuImporter;
-    use crate::writer::TofuWriter;
-    use cloud_terrastodon_core_command::prelude::CommandBuilder;
-    use cloud_terrastodon_core_command::prelude::CommandKind;
-    use cloud_terrastodon_core_command::prelude::OutputBehaviour;
-    use cloud_terrastodon_core_pathing::AppDir;
-    use cloud_terrastodon_core_pathing::Existy;
-    use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
-    use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
     use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
     use eyre::bail;
-    use hcl::edit::structure::Block;
     use hcl::edit::structure::Body;
-    use tempfile::Builder;
-    use tokio::task::JoinSet;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -185,59 +294,38 @@ mod test {
             .unwrap(),
         )?;
         let provider_manager = ProviderManager::try_new()?;
-        let available_providers = provider_manager.list_cached_providers().await?;
-        let missing_providers = required_providers.identify_missing(&available_providers);
-        if missing_providers.0.is_empty() {
-            bail!("All required providers are already available");
-        }
-
-        let terraform_block = TofuTerraformBlock {
-            backend: None,
-            required_providers: Some(missing_providers),
-            other: vec![],
-        };
-        let terraform_block: Block = terraform_block.into();
-        let boilerplate_tf = terraform_block.as_tofu_string();
-        let app_temp_dir = AppDir::Temp.as_path_buf();
-        app_temp_dir.ensure_dir_exists().await?;
-        let temp_dir = Builder::new().tempdir_in(&app_temp_dir)?;
-        let boilerplate_tf_path = temp_dir.path().join("boilerplate.tf");
-        TofuWriter::new(boilerplate_tf_path)
-            .overwrite(boilerplate_tf)
-            .await?
-            .format()
+        let temp_dir = provider_manager
+            .populate_provider_cache(&required_providers)
             .await?;
-
-        let mut cmd = CommandBuilder::new(CommandKind::Tofu);
-        let tf_plugin_cache_dir = std::env::var("TF_PLUGIN_CACHE_DIR")?;
-        cmd.args(["providers", "mirror", &tf_plugin_cache_dir]);
-        cmd.use_output_behaviour(OutputBehaviour::Display);
-        cmd.use_run_dir(temp_dir.path());
-        cmd.run_raw().await?;
+        let temp_dir = match temp_dir {
+            None => {
+                bail!("All required providers are already installed");
+            }
+            Some(x) => x,
+        };
 
         let persist = temp_dir.into_path();
         println!("Persisting dir for testing at {}", persist.display());
-
         Ok(())
     }
 
     #[tokio::test]
-    pub async fn terraform_concurrent_init() -> eyre::Result<()> {
-        let temp_dir = Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
-        let num_workspaces = 25;
-        let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
-        for i in 0..num_workspaces {
-            let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
-            join_set.spawn(async move {
-                workspace_dir.ensure_dir_exists().await?;
-                TofuImporter::new().using_dir(&workspace_dir).run().await?;
-                Ok(())
-            });
-        }
-        while let Some(x) = join_set.join_next().await {
-            x??;
-        }
+    #[ignore]
+    pub async fn install_default_providers() -> eyre::Result<()> {
+        let required_providers = TofuTerraformRequiredProvidersBlock::common();
+        let provider_manager = ProviderManager::try_new()?;
+        let temp_dir = provider_manager
+            .populate_provider_cache(&required_providers)
+            .await?;
+        let temp_dir = match temp_dir {
+            None => {
+                bail!("All required providers are already installed");
+            }
+            Some(x) => x,
+        };
 
+        let persist = temp_dir.into_path();
+        println!("Persisting dir for testing at {}", persist.display());
         Ok(())
     }
 }

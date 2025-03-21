@@ -1,3 +1,7 @@
+use std::path::PathBuf;
+use std::time::Duration;
+
+use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
@@ -8,6 +12,10 @@ use eyre::bail;
 pub async fn get_default_organization_name() -> eyre::Result<String> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "configure", "--list"]);
+    cmd.use_cache_behaviour(CacheBehaviour::Some {
+        path: PathBuf::from_iter(["az","devops","configure","--list"]),
+        valid_for: Duration::from_hours(8)
+    });
     let resp = cmd.run_raw().await?;
     let resp = resp.stdout.to_str()?;
     let rtn: String = (|| {

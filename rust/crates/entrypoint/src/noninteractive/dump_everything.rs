@@ -3,13 +3,22 @@ use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_azure_devops_repos_batch;
 use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_core_pathing::Existy;
+use cloud_terrastodon_core_tofu::prelude::edit::structure::Block;
+use cloud_terrastodon_core_tofu::prelude::AsTofuString;
+use cloud_terrastodon_core_tofu::prelude::FreshTFWorkDir;
 use cloud_terrastodon_core_tofu::prelude::ProviderManager;
+use cloud_terrastodon_core_tofu::prelude::TofuGenerateConfigOutHelper;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
-use cloud_terrastodon_core_tofu::prelude::TofuImporter;
+use cloud_terrastodon_core_tofu::prelude::TofuTerraformBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuTerraformRequiredProvidersBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
+use cloud_terrastodon_core_tofu::prelude::generate_config_out_bulk;
+use cloud_terrastodon_core_tofu::prelude::initialize_work_dirs;
+use cloud_terrastodon_core_tofu::prelude::validate_work_dirs;
 use eyre::Context;
 use eyre::bail;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
@@ -48,8 +57,8 @@ pub async fn dump_everything() -> eyre::Result<()> {
     _ = clean_imports().await;
     _ = clean_processed().await;
 
-    let tf_workspace_dirs = write_all_import_blocks().await?;
-    import_all(tf_workspace_dirs).await?;
+    let tf_work_dirs = write_all_import_blocks().await?;
+    import_all(tf_work_dirs).await?;
 
     // info!("Make it pretty");
     // process_generated().await?;
@@ -67,7 +76,7 @@ pub async fn dump_everything() -> eyre::Result<()> {
     return Ok(());
 }
 
-async fn write_all_import_blocks() -> eyre::Result<Vec<PathBuf>> {
+async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Writing all import blocks; fetching a lot of data");
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
         fetch_all_azure_devops_projects(),
@@ -75,7 +84,7 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<PathBuf>> {
         fetch_all_resource_groups(),
     )?;
 
-    let mut tf_workspace_dirs: Vec<PathBuf> = Vec::new();
+    let mut tf_work_dirs: Vec<PathBuf> = Vec::new();
 
     let azure_devops_project_repos = fetch_azure_devops_repos_batch(
         azure_devops_projects
@@ -95,11 +104,19 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<PathBuf>> {
     {
         let project_dir = azure_devops_dir.join(project.name.replace(" ", "-"));
         let project_creation_dir = project_dir.join("project_creation");
+        project_creation_dir.ensure_dir_exists().await?;
         let project_repos_dir = project_dir.join("repos");
+        project_repos_dir.ensure_dir_exists().await?;
+
         let project_tf_file = project_creation_dir.join("project.tf");
         let repos_tf_file = project_repos_dir.join("repos.tf");
-        tf_workspace_dirs.push(project_creation_dir);
-        tf_workspace_dirs.push(project_repos_dir);
+
+        let provider_manager = ProviderManager::try_new()?;
+        provider_manager.write_default_provider_configs(&project_creation_dir).await?;
+        provider_manager.write_default_provider_configs(&project_repos_dir).await?;
+
+        tf_work_dirs.push(project_creation_dir);
+        tf_work_dirs.push(project_repos_dir);
         join_set.spawn(async move {
             try {
                 write_import_blocks(project_tf_file, vec![project]).await?;
@@ -158,51 +175,54 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<PathBuf>> {
     // azure-portal/subscriptions/mysub/resource-groups/my-resource-group/resource-group-rbac
     // azure-portal/subscriptions/mysub/resource-groups/my-resource-group/resource-group-networking
     // azure-portal/subscriptions/mysub/resource-groups/my-resource-group/resource-group-statefile-storage
-    Ok(tf_workspace_dirs)
+    Ok(tf_work_dirs
+        .into_iter()
+        .map(|x| FreshTFWorkDir::from(x))
+        .collect())
 }
 
-async fn import_all(tf_workspace_dirs: Vec<PathBuf>) -> eyre::Result<()> {
-    let tf_workspace_dir_count = tf_workspace_dirs.len();
-    info!(
-        "Performing import for {} tf workspace dirs",
-        tf_workspace_dir_count
-    );
+async fn import_all(work_dirs: Vec<FreshTFWorkDir>) -> eyre::Result<()> {
+    let tf_work_dir_count = work_dirs.len();
+    info!("Performing import for {} tf work dirs", tf_work_dir_count);
     let start = Instant::now();
-    
-    info!("Ensuring the tf providers are available");
-    let provider_manager = ProviderManager::try_new()?;
-    let installed = provider_manager.list_cached_providers().await?;
-    let required = TofuTerraformRequiredProvidersBlock::default().0;
-    
-    
-    let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
-    let limit = Arc::new(Semaphore::new(1));
-    for dir in tf_workspace_dirs {
-        let limit = limit.clone();
-        join_set.spawn(async move {
-            try {
-                let permit = limit.acquire().await?;
-                TofuImporter::default()
-                    .using_dir(&dir)
-                    .run()
-                    .await
-                    .wrap_err(format!("Importing tf workspace dir \"{}\"", dir.display()))?;
-                drop(permit);
-            }
-        });
-    }
 
-    info!("Waiting for tasks to finish...");
-    while let Some(result) = join_set.join_next().await {
-        result??;
-        info!("{} tasks remaining...", join_set.len());
-    }
+    let work_dirs = initialize_work_dirs(work_dirs).await?;
+    let work_dirs = validate_work_dirs(work_dirs).await?;
+    generate_config_out_bulk(work_dirs).await?;
+
+    // info!("Ensuring the tf providers are available");
+    // let provider_manager = ProviderManager::try_new()?;
+    // let installed = provider_manager.list_cached_providers().await?;
+    // let required = TofuTerraformRequiredProvidersBlock::common().0;
+
+    // let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
+    // let limit = Arc::new(Semaphore::new(1));
+    // for dir in tf_work_dirs {
+    //     let limit = limit.clone();
+    //     join_set.spawn(async move {
+    //         try {
+    //             let permit = limit.acquire().await?;
+    //             TofuGenerateConfigOutHelper::default()
+    //                 .with_run_dir(&dir)
+    //                 .run()
+    //                 .await
+    //                 .wrap_err(format!("Importing tf work dir \"{}\"", dir.display()))?;
+    //             drop(permit);
+    //         }
+    //     });
+    // }
+
+    // info!("Waiting for tasks to finish...");
+    // while let Some(result) = join_set.join_next().await {
+    //     result??;
+    //     info!("{} tasks remaining...", join_set.len());
+    // }
 
     let end = Instant::now();
     let took = end - start;
     info!(
-        "Performed import for {} tf workspace dirs in {}",
-        tf_workspace_dir_count,
+        "Performed import for {} tf work dirs in {}",
+        tf_work_dir_count,
         humantime::format_duration(took)
     );
     Ok(())

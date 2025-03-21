@@ -247,7 +247,7 @@ checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 
 [[package]]
 name = "cloud_terrastodon"
-version = "0.7.0-pre"
+version = "0.7.0"
 dependencies = [
  "cloud_terrastodon_core_entrypoint",
  "color-eyre",
@@ -437,6 +437,7 @@ dependencies = [
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_pathing",
  "cloud_terrastodon_core_tofu_types",
+ "directories-next",
  "eyre",
  "hcl-rs",
  "indicatif",
@@ -447,6 +448,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

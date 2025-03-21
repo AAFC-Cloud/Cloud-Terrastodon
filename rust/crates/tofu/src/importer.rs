@@ -1,4 +1,4 @@
-use cloud_terrastodon_core_azure_devops::prelude::get_default_organization_name;
+use crate::prelude::ProviderManager;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::CommandOutput;
@@ -6,9 +6,6 @@ use cloud_terrastodon_core_command::prelude::OutputBehaviour;
 use cloud_terrastodon_core_command::prelude::bstr::BString;
 use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
 use cloud_terrastodon_core_command::prelude::bstr::io::BufReadExt;
-use cloud_terrastodon_core_tofu_types::prelude::TofuProviderBlock;
-use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
-use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::Result;
@@ -20,67 +17,50 @@ use tokio::fs;
 use tracing::info;
 use tracing::warn;
 
-use crate::prelude::TofuWriter;
-
 #[derive(Default)]
-pub struct TofuImporter {
-    imports_dir: Option<PathBuf>,
+pub struct TofuGenerateConfigOutHelper {
+    run_dir: Option<PathBuf>,
+    plugin_dir: Option<PathBuf>,
 }
-impl TofuImporter {
+impl TofuGenerateConfigOutHelper {
     pub fn new() -> Self {
         Self::default()
     }
-    pub fn using_dir(&mut self, imports_dir: impl AsRef<Path>) -> &mut Self {
-        self.imports_dir = Some(imports_dir.as_ref().to_path_buf());
+    pub fn with_run_dir(&mut self, dir: impl AsRef<Path>) -> &mut Self {
+        self.run_dir = Some(dir.as_ref().to_path_buf());
+        self
+    }
+    pub fn with_plugin_dir(&mut self, dir: impl AsRef<Path>) -> &mut Self {
+        self.plugin_dir = Some(dir.as_ref().to_path_buf());
         self
     }
     #[track_caller]
     pub async fn run(&mut self) -> Result<()> {
         // Check preconditions
-        let Some(ref imports_dir) = self.imports_dir else {
-            return Err(eyre!("Dir must be set with using_dir"));
+        let Some(ref work_dir) = self.run_dir else {
+            return Err(eyre!("Run dir not set!"));
         };
         let result: eyre::Result<()> = (async ||{
-            // Get devops url
-            let org_service_url = format!(
-                "https://dev.azure.com/{name}/",
-                name = get_default_organization_name().await?
-            );
-
-            // Open boilerplate file
-            info!("Writing default providers");
-            let boilerplate_path = imports_dir.join("boilerplate.tf");
-            let import_writer = TofuWriter::new(boilerplate_path);
-            import_writer
-                .merge(vec![TofuTerraformBlock {
-                    required_providers: Some(TofuTerraformRequiredProvidersBlock::default()),
-                    ..Default::default()
-                }])
-                .await
-                .context("Writing terraform block")?
-                .merge(vec![
-                    TofuProviderBlock::AzureDevOps {
-                        alias: None,
-                        org_service_url,
-                    },
-                ])
-                .await
-                .context("Writing default provider blocks")?
-                .format()
-                .await?;
+            let provider_manager = ProviderManager::try_new()?;
+            provider_manager.write_default_provider_configs(&work_dir).await?;
+            // provider_manager.populate_provider_cache(&TofuTerraformRequiredProvidersBlock::common()).await?;
 
             // tf init
             let mut init_cmd = CommandBuilder::new(CommandKind::Tofu);
             init_cmd.should_announce(true);
-            init_cmd.use_run_dir(imports_dir);
+            init_cmd.use_run_dir(work_dir);
             init_cmd.use_output_behaviour(OutputBehaviour::Display);
             // init_cmd.use_timeout(Duration::from_secs(120));
             init_cmd.args(["init", "-input=false"]);
+            if let Some(plugin_dir) = &self.plugin_dir {
+                init_cmd.arg(format!("-plugin-dir={}", plugin_dir.display()));
+                // init_cmd.arg(plugin_dir);
+            }
             init_cmd.run_raw().await?;
             info!("Tofu init successful!");
 
             // remove old plan outputs
-            let generated_path = imports_dir.join("generated.tf");
+            let generated_path = work_dir.join("generated.tf");
             if generated_path.exists() {
                 if !generated_path.is_file() {
                     return Err(eyre!("generated output path exists but is not a file")
@@ -91,7 +71,7 @@ impl TofuImporter {
 
             let mut validate_cmd = CommandBuilder::new(CommandKind::Tofu);
             validate_cmd.should_announce(true);
-            validate_cmd.use_run_dir(imports_dir);
+            validate_cmd.use_run_dir(work_dir);
             validate_cmd.use_output_behaviour(OutputBehaviour::Display);
             // validate_cmd.use_timeout(Duration::from_secs(30));
             validate_cmd.arg("validate");
@@ -100,7 +80,7 @@ impl TofuImporter {
             // tf plan
             let mut plan_cmd = CommandBuilder::new(CommandKind::Tofu);
             plan_cmd.should_announce(true);
-            plan_cmd.use_run_dir(imports_dir.clone());
+            plan_cmd.use_run_dir(work_dir.clone());
             plan_cmd.args([
                 "plan",
                 "-generate-config-out",
@@ -186,7 +166,90 @@ impl TofuImporter {
             ))
             .wrap_err(format!(
                 "TofuImporter::run failed with dir \"{}\"",
-                imports_dir.display()
+                work_dir.display()
             ))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::sync::Arc;
+
+    use crate::prelude::ProviderManager;
+    use crate::prelude::TofuGenerateConfigOutHelper;
+    use cloud_terrastodon_core_pathing::AppDir;
+    use cloud_terrastodon_core_pathing::Existy;
+    use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
+    use tempfile::Builder;
+    use tokio::sync::Semaphore;
+    use tokio::task::JoinSet;
+
+    #[tokio::test]
+    #[ignore]
+    pub async fn terraform_concurrent_init_fail() -> eyre::Result<()> {
+        let plugin_dir = ProviderManager::get_default_tf_plugin_cache_dir()?;
+        println!(
+            "This test can leave your plugin dir in a broken config, I recommend deleting {} after",
+            plugin_dir.display()
+        );
+        let temp_dir = Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
+        let num_workspaces = 25;
+        let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
+        for i in 0..num_workspaces {
+            let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
+            join_set.spawn(async move {
+                workspace_dir.ensure_dir_exists().await?;
+                TofuGenerateConfigOutHelper::new()
+                    .with_run_dir(&workspace_dir)
+                    .run()
+                    .await?;
+                Ok(())
+            });
+        }
+        while let Some(x) = join_set.join_next().await {
+            x??;
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore]
+    pub async fn terraform_concurrent_init_happy() -> eyre::Result<()> {
+        let temp_dir = Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
+        let num_workspaces = 25;
+        let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
+
+        let provider_manager = ProviderManager::try_new()?;
+        provider_manager
+            .populate_provider_cache(&TofuTerraformRequiredProvidersBlock::common())
+            .await?;
+
+        // let limit = Arc::new(Semaphore::new(1));
+        let limit = Arc::new(Semaphore::new(num_workspaces));
+
+        let cache_dir = provider_manager.local_mirror_dir;
+        for i in 0..num_workspaces {
+            let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
+            let cache_dir = cache_dir.clone();
+            let limit = limit.clone();
+            join_set.spawn(async move {
+                workspace_dir.ensure_dir_exists().await?;                
+                let permit = limit.acquire().await?;
+                TofuGenerateConfigOutHelper::new()
+                    .with_run_dir(&workspace_dir)
+                    .with_plugin_dir(cache_dir)
+                    .run()
+                    .await?;
+                drop(permit);
+                Ok(())
+            });
+        }
+
+        _ = temp_dir.into_path(); // keep it around
+
+        while let Some(x) = join_set.join_next().await {
+            x??;
+        }
+        Ok(())
     }
 }

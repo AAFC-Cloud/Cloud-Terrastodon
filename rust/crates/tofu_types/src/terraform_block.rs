@@ -1,3 +1,4 @@
+use crate::strings::AsTofuString;
 use crate::version::TofuTerraformRequiredProvidersBlock;
 use eyre::OptionExt;
 use eyre::bail;
@@ -80,6 +81,13 @@ impl TryFrom<Block> for TofuTerraformBlock {
         Ok(this)
     }
 }
+impl AsTofuString for TofuTerraformBlock {
+    fn as_tofu_string(&self) -> String {
+        let block: Block = self.clone().into();
+        block.as_tofu_string()
+    }
+}
+
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TofuTerraformBackendBlock {

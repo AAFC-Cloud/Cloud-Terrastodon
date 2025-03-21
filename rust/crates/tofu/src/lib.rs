@@ -16,9 +16,11 @@ mod sorting;
 mod user_id_reference_patcher;
 mod writer;
 mod provider_manager;
+mod work_dir_lifecycle;
 pub mod prelude {
     pub use crate::block_lister::*;
     pub use crate::provider_manager::*;
+    pub use crate::work_dir_lifecycle::*;
     pub use crate::import_builder::*;
     pub use crate::importer::*;
     pub use crate::reflow::*;

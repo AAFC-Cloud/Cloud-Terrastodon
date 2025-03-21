@@ -13,6 +13,7 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::str::FromStr;
+use tracing::warn;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct TFProviderHostname(pub String);
@@ -44,7 +45,12 @@ impl FromStr for TFProviderSource {
         Ok(match s.split("/").collect_vec().as_slice() {
             [a] => Self {
                 hostname: TFProviderHostname::default(),
-                namespace: TFProviderNamespace::default(),
+                //todo: make this use references instead of hardcoded strings
+                namespace: if *a == "azuredevops" {
+                    TFProviderNamespace("microsoft".to_string())
+                } else {
+                    TFProviderNamespace::default()
+                },
                 kind: TofuProviderKind::from_str(a)?,
             },
             [a, b] => Self {
@@ -108,6 +114,9 @@ impl From<TFProviderVersionConstraint> for Expression {
     }
 }
 impl TFProviderVersionConstraint {
+    pub fn unspecified() -> Self {
+        Self { clauses: vec![] }
+    }
     pub fn is_satisfied_by(&self, other: &SemVer) -> bool {
         self.clauses
             .iter()
@@ -313,8 +322,10 @@ impl TryFrom<&Object> for TofuTerraformProviderVersionObject {
         }
         let source = source.ok_or_eyre("Missing source attribute")?;
         let source: TFProviderSource = source.parse()?;
-        let version = version.ok_or_eyre("Missing version attribute")?;
-        let version: TFProviderVersionConstraint = version.parse()?;
+        let version = match version {
+            Some(x) => x.parse()?,
+            None => TFProviderVersionConstraint::unspecified(),
+        };
         Ok(TofuTerraformProviderVersionObject { source, version })
     }
 }
@@ -325,20 +336,63 @@ impl From<TofuTerraformProviderVersionObject> for Object {
             ObjectKey::Ident(Decorated::new(Ident::new("source"))),
             ObjectValue::new(value.source),
         );
-        obj.insert(
-            ObjectKey::Ident(Decorated::new(Ident::new("version"))),
-            ObjectValue::new(value.version),
-        );
+        if value.version != TFProviderVersionConstraint::unspecified() {
+            obj.insert(
+                ObjectKey::Ident(Decorated::new(Ident::new("version"))),
+                ObjectValue::new(value.version),
+            );
+        }
         obj
     }
 }
 
+/// https://developer.hashicorp.com/terraform/language/providers/requirements#version-constraints
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TofuTerraformRequiredProvidersBlock(
     pub HashMap<String, TofuTerraformProviderVersionObject>,
 );
-impl Default for TofuTerraformRequiredProvidersBlock {
-    fn default() -> Self {
+impl TofuTerraformRequiredProvidersBlock {
+    pub fn empty() -> Self {
+        Self(Default::default())
+    }
+    pub fn merge_entry(
+        &mut self,
+        key: String,
+        value: TofuTerraformProviderVersionObject,
+    ) -> eyre::Result<()> {
+        if let Some(existing) = self.0.get(&key) {
+            if existing.source != value.source {
+                bail!(
+                    "Tried to merge two required_providers entries for key {key:?} with conflicting sources.\nExisting: {existing:#?}\nMerging: {value:#?}"
+                )
+            }
+            if *existing != value {
+                warn!(
+                    "Merged key {key:?}, discarding old value {:#?} for new value {:#?}",
+                    existing.version, value.version
+                );
+                // TODO: merge the constraints instead of clobbering
+            }
+        }
+        _ = self.0.insert(key, value);
+        Ok(())
+    }
+    pub fn merge(&mut self, other: TofuTerraformRequiredProvidersBlock) -> eyre::Result<()> {
+        for (key, version) in other.0.into_iter() {
+            self.merge_entry(key, version)?;
+        }
+        Ok(())
+    }
+    pub fn try_from_iter(
+        iter: impl IntoIterator<Item = TofuTerraformRequiredProvidersBlock>,
+    ) -> eyre::Result<Self> {
+        let mut rtn = TofuTerraformRequiredProvidersBlock::empty();
+        for required_providers in iter.into_iter() {
+            rtn.merge(required_providers)?;
+        }
+        Ok(rtn)
+    }
+    pub fn common() -> Self {
         Self(
             [
                 (
@@ -437,7 +491,6 @@ impl From<TofuTerraformRequiredProvidersBlock> for Block {
         builder.build()
     }
 }
-
 #[derive(Debug, PartialEq, Hash, Eq)]
 pub struct ProviderAvailability {
     pub hostname: TFProviderHostname,
@@ -473,8 +526,6 @@ impl TofuTerraformRequiredProvidersBlock {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
-
     use super::ProviderAvailability;
     use super::SemVer;
     use super::TFProviderHostname;
@@ -487,6 +538,7 @@ mod test {
     use crate::version::TFProviderVersionConstraintClause;
     use hcl::edit::structure::Body;
     use indoc::indoc;
+    use std::collections::HashSet;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -624,6 +676,100 @@ mod test {
                                     pre_release: None
                                 }
                             )]
+                        }
+                    }
+                )]
+                .into()
+            )
+        );
+        Ok(())
+    }
+    #[test]
+    pub fn merge_required_providers_fail_different_sources() -> eyre::Result<()> {
+        let required_providers = [
+            r#"
+                required_providers {
+                    azurerm = {
+                        source = "hashicorp/azurerm"
+                        version = ">=4.18.0"
+                    }
+                }
+            "#,
+            r#"
+                required_providers {
+                    azurerm = {
+                        source = "otherregistry.example/hashicorp/azurerm"
+                        version = ">=4.18.0"
+                    }
+                }
+            "#,
+        ]
+        .into_iter()
+        .map(|x| {
+            x.parse::<Body>()
+                .map(|x| x.into_blocks().next().unwrap())
+                .unwrap()
+        })
+        .map(TofuTerraformRequiredProvidersBlock::try_from)
+        .collect::<eyre::Result<Vec<_>>>()?;
+        let merged = TofuTerraformRequiredProvidersBlock::try_from_iter(required_providers);
+        dbg!(&merged);
+        assert!(
+            merged.is_err(),
+            "should have errored, instead got {merged:#?}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    pub fn merge_required_providers() -> eyre::Result<()> {
+        let required_providers = [
+            r#"
+                required_providers {
+                    azurerm = {
+                        source = "hashicorp/azurerm"
+                        version = ">=4.18.0"
+                    }
+                }
+            "#,
+            r#"
+                required_providers {
+                    azurerm = {
+                        source = "hashicorp/azurerm"
+                        version = ">=4.20.0"
+                    }
+                }
+            "#,
+        ]
+        .into_iter()
+        .map(|x| {
+            x.parse::<Body>()
+                .map(|x| x.into_blocks().next().unwrap())
+                .unwrap()
+        })
+        .map(TofuTerraformRequiredProvidersBlock::try_from)
+        .collect::<eyre::Result<Vec<_>>>()?;
+        let merged = TofuTerraformRequiredProvidersBlock::try_from_iter(required_providers)?;
+        assert_eq!(
+            merged,
+            TofuTerraformRequiredProvidersBlock(
+                [(
+                    "azurerm".to_string(),
+                    TofuTerraformProviderVersionObject {
+                        source: TFProviderSource {
+                            hostname: TFProviderHostname::default(),
+                            namespace: TFProviderNamespace("hashicorp".to_string()),
+                            kind: TofuProviderKind::AzureRM
+                        },
+                        version: TFProviderVersionConstraint {
+                            clauses: vec![TFProviderVersionConstraintClause::GreaterOrEqual(
+                                SemVer {
+                                    major: 4,
+                                    minor: Some(20),
+                                    patch: Some(0),
+                                    pre_release: None
+                                }
+                            ),]
                         }
                     }
                 )]
