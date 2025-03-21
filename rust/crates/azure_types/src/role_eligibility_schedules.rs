@@ -1,5 +1,6 @@
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleDefinitionKind;
+use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
 use crate::scopes::NameValidatable;
@@ -7,6 +8,10 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromManagementGroupScoped;
+use crate::scopes::TryFromResourceGroupScoped;
+use crate::scopes::TryFromResourceScoped;
+use crate::scopes::TryFromSubscriptionScoped;
+use crate::scopes::TryFromUnscoped;
 use chrono::DateTime;
 use chrono::Utc;
 use eyre::Result;
@@ -22,7 +27,11 @@ pub const ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX: &str =
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum RoleEligibilityScheduleId {
+    Unscoped { expanded: String },
     ManagementGroupScoped { expanded: String },
+    SubscriptionScoped { expanded: String },
+    ResourceGroupScoped { expanded: String },
+    ResourceScoped { expanded: String },
 }
 impl NameValidatable for RoleEligibilityScheduleId {
     fn validate_name(name: &str) -> Result<()> {
@@ -36,6 +45,36 @@ impl HasPrefix for RoleEligibilityScheduleId {
     }
 }
 
+impl TryFromUnscoped for RoleEligibilityScheduleId {
+    unsafe fn new_unscoped_unchecked(expanded: &str) -> Self {
+        RoleEligibilityScheduleId::Unscoped {
+            expanded: expanded.to_string(),
+        }
+    }
+}
+impl TryFromResourceGroupScoped for RoleEligibilityScheduleId {
+    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
+        RoleEligibilityScheduleId::ResourceGroupScoped {
+            expanded: expanded.to_string(),
+        }
+    }
+}
+
+impl TryFromResourceScoped for RoleEligibilityScheduleId {
+    unsafe fn new_resource_scoped_unchecked(expanded: &str) -> Self {
+        RoleEligibilityScheduleId::ResourceScoped {
+            expanded: expanded.to_string(),
+        }
+    }
+}
+impl TryFromSubscriptionScoped for RoleEligibilityScheduleId {
+    unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
+        RoleEligibilityScheduleId::SubscriptionScoped {
+            expanded: expanded.to_string(),
+        }
+    }
+}
+
 impl TryFromManagementGroupScoped for RoleEligibilityScheduleId {
     unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self {
         RoleEligibilityScheduleId::ManagementGroupScoped {
@@ -43,15 +82,20 @@ impl TryFromManagementGroupScoped for RoleEligibilityScheduleId {
         }
     }
 }
+
 impl Scope for RoleEligibilityScheduleId {
     fn expanded_form(&self) -> &str {
         match self {
+            Self::Unscoped { expanded } => expanded,
+            Self::ResourceGroupScoped { expanded } => expanded,
+            Self::SubscriptionScoped { expanded } => expanded,
             Self::ManagementGroupScoped { expanded } => expanded,
+            Self::ResourceScoped { expanded } => expanded,
         }
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        RoleEligibilityScheduleId::try_from_expanded_management_group_scoped(expanded)
+        try_from_expanded_hierarchy_scoped(expanded)
     }
 
     fn kind(&self) -> ScopeImplKind {
