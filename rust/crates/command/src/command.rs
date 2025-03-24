@@ -703,10 +703,10 @@ impl CommandBuilder {
     pub async fn run_raw(&self) -> Result<CommandOutput> {
         self.run_raw_inner()
             .await
-            .wrap_err(format!(
-                "Command::run_raw failed, called from {}",
-                std::panic::Location::caller()
-            ))
+            // .wrap_err(format!(
+            //     "Command::run_raw failed, called from {}",
+            //     std::panic::Location::caller()
+            // ))
             .wrap_err(format!("Invoking command failed: {}", self.summarize()))
     }
 
@@ -716,18 +716,22 @@ impl CommandBuilder {
         T: DeserializeOwned,
     {
         // Get stdout
-        let output = self.run_raw().await.wrap_err(format!(
-            "Command::run failed, called from {}",
-            std::panic::Location::caller()
-        ))?;
-
+        let output = self.run_raw().await;
+        // #[cfg(debug_assertions)]
+        // let output = output.wrap_err(format!(
+        //     "Command::run failed, called from {}",
+        //     std::panic::Location::caller()
+        // ))?;
+        // #[cfg(not(debug_assertions))]   
+        let output = output?;
+        
         // Parse
         match serde_json::from_slice(output.stdout.to_str_lossy().as_bytes()) {
             Ok(results) => Ok(results),
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
                 Err(eyre::Error::new(e)
-                    .wrap_err(format!("Called from {}", std::panic::Location::caller()))
+                    // .wrap_err(format!("Called from {}", std::panic::Location::caller()))
                     .wrap_err(format!(
                         "deserializing {} failed, dumped to {:?}",
                         self.summarize(),

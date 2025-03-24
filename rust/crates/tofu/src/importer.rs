@@ -160,10 +160,10 @@ impl TofuGenerateConfigOutHelper {
             Ok(())
         })().await;
         result
-            .wrap_err(format!(
-                "TofuImporter::run called from {}",
-                std::panic::Location::caller()
-            ))
+            // .wrap_err(format!(
+            //     "TofuImporter::run called from {}",
+            //     std::panic::Location::caller()
+            // ))
             .wrap_err(format!(
                 "TofuImporter::run failed with dir \"{}\"",
                 work_dir.display()
