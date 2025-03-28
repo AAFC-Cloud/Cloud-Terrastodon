@@ -1,7 +1,9 @@
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_azure_devops_repos_batch;
+use cloud_terrastodon_core_azure_devops::prelude::fetch_azure_devops_teams_batch;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_pathing::Existy;
 use cloud_terrastodon_core_tofu::prelude::FreshTFWorkDir;
@@ -20,28 +22,10 @@ use tokio::task::JoinSet;
 use tokio::try_join;
 use tracing::debug;
 use tracing::info;
+use tracing::warn;
 
 use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
-
-async fn write_import_blocks(
-    file_path: impl AsRef<Path>,
-    import_blocks: impl IntoIterator<Item = impl Into<TofuImportBlock>>,
-) -> eyre::Result<()> {
-    let import_blocks: Vec<TofuImportBlock> = import_blocks.into_iter().map(|x| x.into()).collect();
-    let len = import_blocks.len();
-    TofuWriter::new(&file_path)
-        .overwrite(import_blocks)
-        .await?
-        .format()
-        .await?;
-    debug!(
-        "Wrote {} import blocks to {}",
-        len,
-        file_path.as_ref().display()
-    );
-    Ok(())
-}
 
 pub async fn dump_everything() -> eyre::Result<()> {
     info!("Clean up previous runs");
@@ -67,6 +51,25 @@ pub async fn dump_everything() -> eyre::Result<()> {
     return Ok(());
 }
 
+async fn write_import_blocks(
+    file_path: impl AsRef<Path>,
+    import_blocks: impl IntoIterator<Item = impl Into<TofuImportBlock>>,
+) -> eyre::Result<()> {
+    let import_blocks: Vec<TofuImportBlock> = import_blocks.into_iter().map(|x| x.into()).collect();
+    let len = import_blocks.len();
+    TofuWriter::new(&file_path)
+        .overwrite(import_blocks)
+        .await?
+        .format()
+        .await?;
+    debug!(
+        "Wrote {} import blocks to {}",
+        len,
+        file_path.as_ref().display()
+    );
+    Ok(())
+}
+
 async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Writing all import blocks; fetching a lot of data");
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
@@ -77,45 +80,92 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
 
     let mut tf_work_dirs: Vec<PathBuf> = Vec::new();
 
-    let azure_devops_project_repos = fetch_azure_devops_repos_batch(
-        azure_devops_projects
-            .iter()
-            .map(|project| project.id.clone())
-            .collect(),
-    )
-    .await?;
+    let project_ids: Vec<AzureDevOpsProjectId> = azure_devops_projects
+        .iter()
+        .map(|project| project.id.clone())
+        .collect();
+    let mut azure_devops_project_repos =
+        fetch_azure_devops_repos_batch(project_ids.clone()).await?;
+
+    let mut azure_devops_project_teams = fetch_azure_devops_teams_batch(project_ids).await?;
 
     let azure_devops_dir = AppDir::Imports.join("AzureDevOps");
 
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
 
-    for (project, (_project_id, repos)) in azure_devops_projects
-        .into_iter()
-        .zip(azure_devops_project_repos.into_iter())
-    {
+    info!("Writing Azure Devops tf files");
+    for project in azure_devops_projects {
+        let Some(repos) = azure_devops_project_repos.remove(&project.id) else {
+            warn!("Failed to get repos for project {project:?}");
+            continue;
+        };
+        let Some(teams) = azure_devops_project_teams.remove(&project.id) else {
+            warn!("Failed to get teams for project {project:?}");
+            continue;
+        };
+
         let project_dir = azure_devops_dir.join(project.name.replace(" ", "-"));
+
         let project_creation_dir = project_dir.join("project_creation");
         project_creation_dir.ensure_dir_exists().await?;
+
         let project_repos_dir = project_dir.join("repos");
         project_repos_dir.ensure_dir_exists().await?;
 
+        let project_teams_dir = project_dir.join("teams");
+        project_teams_dir.ensure_dir_exists().await?;
+
         let project_tf_file = project_creation_dir.join("project.tf");
         let repos_tf_file = project_repos_dir.join("repos.tf");
+        let teams_tf_file = project_teams_dir.join("teams.tf");
 
-        let provider_manager = ProviderManager::try_new()?;
-        provider_manager.write_default_provider_configs(&project_creation_dir).await?;
-        provider_manager.write_default_provider_configs(&project_repos_dir).await?;
+        tf_work_dirs.push(project_creation_dir.clone());
+        tf_work_dirs.push(project_repos_dir.clone());
+        tf_work_dirs.push(project_teams_dir.clone());
 
-        tf_work_dirs.push(project_creation_dir);
-        tf_work_dirs.push(project_repos_dir);
+        join_set.spawn(async move {
+            try {
+                let provider_manager = ProviderManager::try_new()?;
+                provider_manager
+                    .write_default_provider_configs(&project_creation_dir)
+                    .await?;
+            }
+        });
+        join_set.spawn(async move {
+            try {
+                let provider_manager = ProviderManager::try_new()?;
+
+                provider_manager
+                    .write_default_provider_configs(&project_repos_dir)
+                    .await?;
+            }
+        });
+        join_set.spawn(async move {
+            try {
+                let provider_manager = ProviderManager::try_new()?;
+                provider_manager
+                    .write_default_provider_configs(&project_teams_dir)
+                    .await?;
+            }
+        });
         join_set.spawn(async move {
             try {
                 write_import_blocks(project_tf_file, vec![project]).await?;
+            }
+        });
+        join_set.spawn(async move {
+            try {
                 write_import_blocks(repos_tf_file, repos).await?;
+            }
+        });
+        join_set.spawn(async move {
+            try {
+                write_import_blocks(teams_tf_file, teams).await?;
             }
         });
     }
 
+    info!("Writing Azure Portal tf files");
     let azure_portal_dir = AppDir::Imports.join("AzurePortal");
     let subscriptions_dir = azure_portal_dir.join("subscriptions");
 
@@ -160,7 +210,7 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
         info!("{} tasks remaining...", join_set.len());
     }
     info!("All done!");
-    
+
     Ok(tf_work_dirs
         .into_iter()
         .map(|x| FreshTFWorkDir::from(x))
