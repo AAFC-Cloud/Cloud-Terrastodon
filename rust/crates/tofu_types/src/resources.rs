@@ -199,6 +199,7 @@ impl std::fmt::Display for TofuAzureADResourceKind {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TofuAzureDevOpsResourceKind {
     Project,
+    Team,
     Repo,
     Other(String),
 }
@@ -215,6 +216,7 @@ impl AsRef<str> for TofuAzureDevOpsResourceKind {
         match self {
             Self::Project => "project",
             Self::Repo => "git_repository",
+            Self::Team => "team",
             Self::Other(s) => s.as_ref(),
         }
     }

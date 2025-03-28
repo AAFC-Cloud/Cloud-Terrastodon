@@ -5,6 +5,7 @@ use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
 use eyre::Context;
 use eyre::Result;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::task::JoinSet;
@@ -40,9 +41,9 @@ pub async fn fetch_all_azure_devops_repos_for_project(
 
 pub async fn fetch_azure_devops_repos_batch(
     project_ids: Vec<AzureDevOpsProjectId>,
-) -> Result<Vec<(AzureDevOpsProjectId, Vec<AzureDevOpsRepo>)>> {
+) -> Result<HashMap<AzureDevOpsProjectId, Vec<AzureDevOpsRepo>>> {
     info!("Fetching repos for {} projects", project_ids.len());
-    let mut rtn = Vec::new();
+    let mut rtn: HashMap<AzureDevOpsProjectId, Vec<AzureDevOpsRepo>> = HashMap::new();
     let mut set = JoinSet::new();
     let project_count = project_ids.len();
     for project_id in project_ids {
@@ -54,11 +55,11 @@ pub async fn fetch_azure_devops_repos_batch(
     while let Some(res) = set.join_next().await {
         let (project_id, repos) = res?;
         let repos = repos.wrap_err(format!("Fetching repos for project {project_id:?}"))?;
-        rtn.push((project_id, repos));
+        rtn.insert(project_id, repos);
     }
     info!(
         "Found {} repos across {} projects",
-        rtn.len(),
+        rtn.values().map(|x| x.len()).sum::<usize>(),
         project_count
     );
     Ok(rtn)

@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsOrganizationName;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
@@ -9,7 +10,7 @@ use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
 
-pub async fn get_default_organization_name() -> eyre::Result<String> {
+pub async fn get_default_organization_name() -> eyre::Result<AzureDevOpsOrganizationName> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "configure", "--list"]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
@@ -32,7 +33,7 @@ pub async fn get_default_organization_name() -> eyre::Result<String> {
         Ok(org.to_string())
     })()
     .wrap_err(format!("Failed to extract value from config:\n===\n{resp}\n==="))?;
-    Ok(rtn)
+    Ok(AzureDevOpsOrganizationName::new(rtn))
 }
 
 #[cfg(test)]

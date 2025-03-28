@@ -1,13 +1,14 @@
 use clap::ValueEnum;
 use directories_next::ProjectDirs;
+use eyre::Context;
 use eyre::bail;
 use once_cell::sync::Lazy;
-use tracing::field::debug;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs::create_dir_all;
 use tokio::fs::try_exists;
 use tracing::debug;
+use tracing::field::debug;
 
 static PROJECT_DIRS: Lazy<ProjectDirs> = Lazy::new(|| {
     let Some(project_dirs) = ProjectDirs::from_path(PathBuf::from("cloud_terrastodon")) else {
@@ -26,6 +27,7 @@ pub enum AppDir {
     Processed,
     Temp,
     Config,
+    WorkItems,
 }
 impl std::fmt::Display for AppDir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -35,6 +37,7 @@ impl std::fmt::Display for AppDir {
             AppDir::Processed => "Processed",
             AppDir::Temp => "Temp",
             AppDir::Config => "Config",
+            AppDir::WorkItems => "Work Items",
         })
     }
 }
@@ -42,6 +45,7 @@ impl AppDir {
     pub fn as_path_buf(&self) -> PathBuf {
         match self {
             AppDir::Commands => CACHE_DIR.join("commands"),
+            AppDir::WorkItems => CACHE_DIR.join("work_items"),
             AppDir::Imports => DATA_DIR.join("imports"),
             AppDir::Processed => DATA_DIR.join("processed"),
             AppDir::Temp => DATA_DIR.join("temp"),
@@ -53,21 +57,14 @@ impl AppDir {
         buf.join(path)
     }
     pub fn ok_to_clean() -> Vec<AppDir> {
-        vec![
-            AppDir::Commands,
-            AppDir::Imports,
-            AppDir::Processed,
-            AppDir::Temp,
-        ]
+        Self::variants()
+            .iter()
+            .filter(|x| !matches!(x, Self::Config))
+            .cloned()
+            .collect()
     }
-    pub fn variants() -> Vec<AppDir> {
-        vec![
-            AppDir::Commands,
-            AppDir::Imports,
-            AppDir::Processed,
-            AppDir::Temp,
-            AppDir::Config,
-        ]
+    pub fn variants() -> &'static [AppDir] {
+        AppDir::value_variants()
     }
 }
 
@@ -89,7 +86,9 @@ impl<T: AsRef<Path>> Existy for T {
             }
             Ok(false) => {
                 debug!("Creating {}", path.display());
-                create_dir_all(&path).await?;
+                create_dir_all(&path)
+                    .await
+                    .wrap_err(format!("Ensuring dir exists: {}", path.display()))?;
                 Ok(())
             }
             Err(e) => {

@@ -208,11 +208,26 @@ pub struct CommandOutput {
     pub status: i32,
 }
 impl CommandOutput {
-    fn success(&self) -> bool {
+    pub fn success(&self) -> bool {
         #[cfg(windows)]
         return ExitStatus::from_raw(self.status as u32).success();
         #[cfg(not(windows))]
         return ExitStatus::from_raw(self.status).success();
+    }
+    pub async fn try_interpret<T: DeserializeOwned>(&self, command: &CommandBuilder) -> eyre::Result<T> {
+        match serde_json::from_slice(self.stdout.to_str_lossy().as_bytes()) {
+            Ok(results) => Ok(results),
+            Err(e) => {
+                let dir = command.write_failure(self).await?;
+                Err(eyre::Error::new(e)
+                    // .wrap_err(format!("Called from {}", std::panic::Location::caller()))
+                    .wrap_err(format!(
+                        "deserializing `{}` failed, dumped to {:?}",
+                        command.summarize(),
+                        dir
+                    )))
+            }
+        }
     }
 }
 impl std::error::Error for CommandOutput {}
@@ -733,7 +748,7 @@ impl CommandBuilder {
                 Err(eyre::Error::new(e)
                     // .wrap_err(format!("Called from {}", std::panic::Location::caller()))
                     .wrap_err(format!(
-                        "deserializing {} failed, dumped to {:?}",
+                        "deserializing `{}` failed, dumped to {:?}",
                         self.summarize(),
                         dir
                     )))

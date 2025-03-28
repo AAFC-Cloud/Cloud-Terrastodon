@@ -12,8 +12,13 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
 pub struct AzureDevOpsProjectId(Uuid);
+impl std::fmt::Display for AzureDevOpsProjectId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 impl Deref for AzureDevOpsProjectId {
     type Target = Uuid;
 
