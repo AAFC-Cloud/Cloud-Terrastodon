@@ -16,8 +16,10 @@ use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBl
 use cloud_terrastodon_core_tofu_types::prelude::ValidatedTFWorkDir;
 use eyre::OptionExt;
 use itertools::Itertools;
+use tokio::sync::Semaphore;
 use std::collections::HashSet;
 use std::path::Path;
+use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::debug;
 use tracing::info;
@@ -95,10 +97,13 @@ pub async fn initialize_work_dirs(
         .await?;
 
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
+    let parallism = Arc::new(Semaphore::new(1));
     for dir in &dirs {
         let plugin_dir = provider_manager.local_mirror_dir.clone();
         let dir = dir.clone();
+        let parallelism = parallism.clone();
         join_set.spawn(async move {
+            let permit = parallelism.acquire().await?;
             let mut init_cmd = CommandBuilder::new(CommandKind::Tofu);
             init_cmd.use_run_dir(dir);
             init_cmd.use_output_behaviour(OutputBehaviour::Display);
@@ -108,13 +113,14 @@ pub async fn initialize_work_dirs(
                 plugin_dir.display().to_string().replace("\\", "/")
             ));
             init_cmd.run_raw().await?;
+            drop(permit);
             Ok(())
         });
     }
 
     while let Some(x) = join_set.join_next().await {
         x??;
-        debug!("Initializing tf work dirs, {} remain...", join_set.len());
+        info!("Initializing tf work dirs, {} remain...", join_set.len());
     }
 
     Ok(dirs.into_iter().map(InitializedTFWorkDir::from).collect())
