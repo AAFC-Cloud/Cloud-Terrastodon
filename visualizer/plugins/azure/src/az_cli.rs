@@ -13,9 +13,9 @@ use cloud_terrastodon_core_azure::prelude::ThinRoleAssignment;
 use cloud_terrastodon_core_azure::prelude::User;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_all_azure_devops_repos_for_project;
-use cloud_terrastodon_core_azure_devops::prelude::AzureDevopsProject;
-use cloud_terrastodon_core_azure_devops::prelude::AzureDevopsProjectId;
-use cloud_terrastodon_core_azure_devops::prelude::AzureDevopsRepo;
+use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProject;
+use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProjectId;
+use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsRepo;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
@@ -45,7 +45,7 @@ pub enum AzureCliRequest {
     ListAzureResourceGroups,
     ListAzureSubscriptions,
     ListAzureDevopsProjects,
-    ListAzureDevopsRepos(AzureDevopsProjectId),
+    ListAzureDevopsRepos(AzureDevOpsProjectId),
     ListAzureUsers,
     ListAzureRoleAssignments,
     ListAzureManagementGroups,
@@ -55,8 +55,8 @@ pub enum AzureCliRequest {
 pub enum AzureCliResponse {
     ListAzureResourceGroups(Vec<ResourceGroup>),
     ListAzureSubscriptions(Vec<Subscription>),
-    ListAzureDevopsProjects(Vec<AzureDevopsProject>),
-    ListAzureDevopsRepos(Vec<AzureDevopsRepo>),
+    ListAzureDevopsProjects(Vec<AzureDevOpsProject>),
+    ListAzureDevopsRepos(Vec<AzureDevOpsRepo>),
     ListAzureRoleAssignments {
         role_assignments: Vec<ThinRoleAssignment>,
         role_definitions: Vec<RoleDefinition>,
