@@ -5,7 +5,7 @@ use bevy::color::palettes::css::BLUE;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
 use bevy_svg::prelude::Svg;
-use cloud_terrastodon_core_azure_devops::prelude::AzureDevopsProject;
+use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProject;
 use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::GraphNodeIconData;
@@ -45,10 +45,10 @@ struct AzureDevopsProjectIconData {
 
 #[derive(Debug, Component)]
 pub struct AzureDevopsProjectComponent {
-    pub inner: AzureDevopsProject,
+    pub inner: AzureDevOpsProject,
 }
 impl Deref for AzureDevopsProjectComponent {
-    type Target = AzureDevopsProject;
+    type Target = AzureDevOpsProject;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

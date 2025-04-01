@@ -4,7 +4,7 @@ use avian2d::prelude::CollisionLayers;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
-use cloud_terrastodon_core_azure_devops::prelude::AzureDevopsRepo;
+use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsRepo;
 use cloud_terrastodon_visualizer_cursor_plugin::prelude::OnlyShowWhenHovered;
 use cloud_terrastodon_visualizer_graph_nodes_derive::derive_graph_node_icon_data;
 use cloud_terrastodon_visualizer_graph_nodes_plugin::prelude::spawn_graph_node;
@@ -25,7 +25,7 @@ impl Plugin for AzureDevopsReposPlugin {
         app.init_resource::<AzureDevopsRepoIconData>();
         app.observe(join_on_follower_added(
             |repo: &AzureDevopsRepoComponent, project: &AzureDevopsProjectComponent| {
-                repo.project.id == project.id
+                repo.inner.project.id == project.inner.id
             },
         ));
     }
@@ -44,10 +44,10 @@ struct AzureDevopsRepoIconData {
 
 #[derive(Debug, Component)]
 pub struct AzureDevopsRepoComponent {
-    pub inner: AzureDevopsRepo,
+    pub inner: AzureDevOpsRepo,
 }
 impl Deref for AzureDevopsRepoComponent {
-    type Target = AzureDevopsRepo;
+    type Target = AzureDevOpsRepo;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
