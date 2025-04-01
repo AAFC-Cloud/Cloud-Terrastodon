@@ -37,7 +37,7 @@ impl FromStr for AzureDevOpsTeamId {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct AzureDevopsTeam {
+pub struct AzureDevOpsTeam {
     description: String,
     id: AzureDevOpsTeamId,
     #[serde(rename = "identityUrl")]
@@ -50,8 +50,8 @@ pub struct AzureDevopsTeam {
     url: String,
 }
 
-impl From<AzureDevopsTeam> for TofuImportBlock {
-    fn from(team: AzureDevopsTeam) -> Self {
+impl From<AzureDevOpsTeam> for TofuImportBlock {
+    fn from(team: AzureDevOpsTeam) -> Self {
         TofuImportBlock {
             provider: TofuProviderReference::Inherited,
             id: format!("{}/{}", team.project_id.to_string(), team.id.to_string()),

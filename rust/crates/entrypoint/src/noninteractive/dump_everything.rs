@@ -104,7 +104,7 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
 
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
 
-    info!("Writing Azure Devops tf files");
+    info!("Writing Azure DevOps tf files");
     for project in azure_devops_projects {
         let Some(repos) = azure_devops_project_repos.remove(&project.id) else {
             warn!("Failed to get repos for project {project:?}");

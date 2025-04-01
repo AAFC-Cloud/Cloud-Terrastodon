@@ -44,8 +44,8 @@ pub struct AzureCliBridge {
 pub enum AzureCliRequest {
     ListAzureResourceGroups,
     ListAzureSubscriptions,
-    ListAzureDevopsProjects,
-    ListAzureDevopsRepos(AzureDevOpsProjectId),
+    ListAzureDevOpsProjects,
+    ListAzureDevOpsRepos(AzureDevOpsProjectId),
     ListAzureUsers,
     ListAzureRoleAssignments,
     ListAzureManagementGroups,
@@ -55,8 +55,8 @@ pub enum AzureCliRequest {
 pub enum AzureCliResponse {
     ListAzureResourceGroups(Vec<ResourceGroup>),
     ListAzureSubscriptions(Vec<Subscription>),
-    ListAzureDevopsProjects(Vec<AzureDevOpsProject>),
-    ListAzureDevopsRepos(Vec<AzureDevOpsRepo>),
+    ListAzureDevOpsProjects(Vec<AzureDevOpsProject>),
+    ListAzureDevOpsRepos(Vec<AzureDevOpsRepo>),
     ListAzureRoleAssignments {
         role_assignments: Vec<ThinRoleAssignment>,
         role_definitions: Vec<RoleDefinition>,
@@ -104,14 +104,14 @@ fn create_worker_thread(mut commands: Commands) {
                                 let subscriptions = fetch_all_subscriptions().await?;
                                 AzureCliResponse::ListAzureSubscriptions(subscriptions)
                             }
-                            AzureCliRequest::ListAzureDevopsProjects => {
+                            AzureCliRequest::ListAzureDevOpsProjects => {
                                 let projects = fetch_all_azure_devops_projects().await?;
-                                AzureCliResponse::ListAzureDevopsProjects(projects)
+                                AzureCliResponse::ListAzureDevOpsProjects(projects)
                             }
-                            AzureCliRequest::ListAzureDevopsRepos(project_id) => {
+                            AzureCliRequest::ListAzureDevOpsRepos(project_id) => {
                                 let repos =
                                     fetch_all_azure_devops_repos_for_project(&project_id).await?;
-                                AzureCliResponse::ListAzureDevopsRepos(repos)
+                                AzureCliResponse::ListAzureDevOpsRepos(repos)
                             }
                             AzureCliRequest::ListAzureUsers => {
                                 let users = fetch_all_users().await?;
@@ -156,7 +156,7 @@ fn initial_fetch(bridge: ResMut<AzureCliBridge>) {
         AzureCliRequest::ListAzureManagementGroups,
         AzureCliRequest::ListAzureSubscriptions,
         AzureCliRequest::ListAzureResourceGroups,
-        // AzureCliRequest::ListAzureDevopsProjects,
+        // AzureCliRequest::ListAzureDevOpsProjects,
         // AzureCliRequest::ListAzureUsers,
         // AzureCliRequest::ListAzureRoleAssignments,
     ] {
@@ -193,14 +193,14 @@ fn refresh_repos(
     mut cli_requests: EventWriter<AzureCliRequest>,
 ) {
     for msg in cli_responses.read() {
-        if let AzureCliResponse::ListAzureDevopsProjects(projects) = msg {
+        if let AzureCliResponse::ListAzureDevOpsProjects(projects) = msg {
             debug!("found list of {} projects to get repos for", projects.len());
             for project in projects.iter().take(30) {
                 debug!(
                     "Requesting repos refresh for Azure DevOps project {}",
                     project.name
                 );
-                cli_requests.send(AzureCliRequest::ListAzureDevopsRepos(project.id.to_owned()));
+                cli_requests.send(AzureCliRequest::ListAzureDevOpsRepos(project.id.to_owned()));
             }
         }
     }

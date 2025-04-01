@@ -1,5 +1,5 @@
 use crate::az_cli::AzureCliResponse;
-use crate::prelude::AzureDevopsRepoComponent;
+use crate::prelude::AzureDevOpsRepoComponent;
 use avian2d::prelude::CollisionLayers;
 use bevy::color::palettes::css::BLUE;
 use bevy::prelude::*;
@@ -16,16 +16,16 @@ use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizablePrimary;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use std::ops::Deref;
 
-pub struct AzureDevopsProjectsPlugin;
-impl Plugin for AzureDevopsProjectsPlugin {
+pub struct AzureDevOpsProjectsPlugin;
+impl Plugin for AzureDevOpsProjectsPlugin {
     fn build(&self, app: &mut App) {
-        info!("Building AzureDevopsProjectsPlugin");
+        info!("Building AzureDevOpsProjectsPlugin");
         app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
-        app.register_type::<AzureDevopsProjectIconData>();
-        app.init_resource::<AzureDevopsProjectIconData>();
+        app.register_type::<AzureDevOpsProjectIconData>();
+        app.init_resource::<AzureDevOpsProjectIconData>();
         app.observe(join_on_leader_added(
-            |project: &AzureDevopsProjectComponent, repo: &AzureDevopsRepoComponent| {
+            |project: &AzureDevOpsProjectComponent, repo: &AzureDevOpsRepoComponent| {
                 repo.project.id == project.id
             },
         ));
@@ -33,7 +33,7 @@ impl Plugin for AzureDevopsProjectsPlugin {
 }
 
 #[derive_graph_node_icon_data]
-struct AzureDevopsProjectIconData {
+struct AzureDevOpsProjectIconData {
     pub icon_width: i32,
     pub circle_radius: f32,
     pub circle_icon_padding: f32,
@@ -44,10 +44,10 @@ struct AzureDevopsProjectIconData {
 }
 
 #[derive(Debug, Component)]
-pub struct AzureDevopsProjectComponent {
+pub struct AzureDevOpsProjectComponent {
     pub inner: AzureDevOpsProject,
 }
-impl Deref for AzureDevopsProjectComponent {
+impl Deref for AzureDevOpsProjectComponent {
     type Target = AzureDevOpsProject;
 
     fn deref(&self) -> &Self::Target {
@@ -56,7 +56,7 @@ impl Deref for AzureDevopsProjectComponent {
 }
 
 fn setup(
-    mut handles: ResMut<AzureDevopsProjectIconData>,
+    mut handles: ResMut<AzureDevOpsProjectIconData>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -76,10 +76,10 @@ fn setup(
 fn receive_results(
     mut cli_events: EventReader<AzureCliResponse>,
     mut commands: Commands,
-    icon_data: Res<AzureDevopsProjectIconData>,
+    icon_data: Res<AzureDevOpsProjectIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliResponse::ListAzureDevopsProjects(projects) = msg else {
+        let AzureCliResponse::ListAzureDevOpsProjects(projects) = msg else {
             continue;
         };
         debug!("Received {} azure devops projects", projects.len());
@@ -90,7 +90,7 @@ fn receive_results(
                     text: project.name.to_string(),
                     translation: Vec3::new(0., i as f32 * 150., 0.),
                     top_extras: (
-                        AzureDevopsProjectComponent {
+                        AzureDevOpsProjectComponent {
                             inner: project.to_owned(),
                         },
                         OrganizablePrimary,

@@ -1,5 +1,5 @@
 use crate::az_cli::AzureCliResponse;
-use crate::prelude::AzureDevopsProjectComponent;
+use crate::prelude::AzureDevOpsProjectComponent;
 use avian2d::prelude::CollisionLayers;
 use bevy::color::palettes::css::ORANGE;
 use bevy::prelude::*;
@@ -15,16 +15,16 @@ use cloud_terrastodon_visualizer_layout_plugin::prelude::join_on_follower_added;
 use cloud_terrastodon_visualizer_layout_plugin::prelude::OrganizableSecondary;
 use cloud_terrastodon_visualizer_physics_plugin::prelude::PhysLayer;
 use std::ops::Deref;
-pub struct AzureDevopsReposPlugin;
-impl Plugin for AzureDevopsReposPlugin {
+pub struct AzureDevOpsReposPlugin;
+impl Plugin for AzureDevOpsReposPlugin {
     fn build(&self, app: &mut App) {
-        info!("Building AzureDevopsReposPlugin");
+        info!("Building AzureDevOpsReposPlugin");
         app.add_systems(Startup, setup);
         app.add_systems(Update, receive_results);
-        app.register_type::<AzureDevopsRepoIconData>();
-        app.init_resource::<AzureDevopsRepoIconData>();
+        app.register_type::<AzureDevOpsRepoIconData>();
+        app.init_resource::<AzureDevOpsRepoIconData>();
         app.observe(join_on_follower_added(
-            |repo: &AzureDevopsRepoComponent, project: &AzureDevopsProjectComponent| {
+            |repo: &AzureDevOpsRepoComponent, project: &AzureDevOpsProjectComponent| {
                 repo.inner.project.id == project.inner.id
             },
         ));
@@ -32,7 +32,7 @@ impl Plugin for AzureDevopsReposPlugin {
 }
 
 #[derive_graph_node_icon_data]
-struct AzureDevopsRepoIconData {
+struct AzureDevOpsRepoIconData {
     pub icon_width: i32,
     pub circle_radius: f32,
     pub circle_icon_padding: f32,
@@ -43,10 +43,10 @@ struct AzureDevopsRepoIconData {
 }
 
 #[derive(Debug, Component)]
-pub struct AzureDevopsRepoComponent {
+pub struct AzureDevOpsRepoComponent {
     pub inner: AzureDevOpsRepo,
 }
-impl Deref for AzureDevopsRepoComponent {
+impl Deref for AzureDevOpsRepoComponent {
     type Target = AzureDevOpsRepo;
 
     fn deref(&self) -> &Self::Target {
@@ -55,7 +55,7 @@ impl Deref for AzureDevopsRepoComponent {
 }
 
 fn setup(
-    mut handles: ResMut<AzureDevopsRepoIconData>,
+    mut handles: ResMut<AzureDevOpsRepoIconData>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -75,10 +75,10 @@ fn setup(
 fn receive_results(
     mut cli_events: EventReader<AzureCliResponse>,
     mut commands: Commands,
-    icon_data: Res<AzureDevopsRepoIconData>,
+    icon_data: Res<AzureDevOpsRepoIconData>,
 ) {
     for msg in cli_events.read() {
-        let AzureCliResponse::ListAzureDevopsRepos(repos) = msg else {
+        let AzureCliResponse::ListAzureDevOpsRepos(repos) = msg else {
             continue;
         };
         debug!("icon data: {icon_data:#?}");
@@ -90,7 +90,7 @@ fn receive_results(
                     text: repo.name.to_owned(),
                     translation: Vec3::new(0., i as f32 * 150., 0.),
                     top_extras: (
-                        AzureDevopsRepoComponent {
+                        AzureDevOpsRepoComponent {
                             inner: repo.to_owned(),
                         },
                         OrganizableSecondary,
