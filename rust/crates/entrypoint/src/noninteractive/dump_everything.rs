@@ -1,5 +1,6 @@
 use cloud_terrastodon_core_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_core_azure_devops::prelude::get_personal_access_token;
 use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_azure_devops_repos_batch;
@@ -14,10 +15,13 @@ use cloud_terrastodon_core_tofu::prelude::generate_config_out_bulk;
 use cloud_terrastodon_core_tofu::prelude::initialize_work_dirs;
 use cloud_terrastodon_core_tofu::prelude::validate_work_dirs;
 use eyre::bail;
+use tokio::sync::mpsc::UnboundedSender;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Instant;
+use tokio::sync::mpsc::unbounded_channel;
 use tokio::task::JoinSet;
 use tokio::try_join;
 use tracing::debug;
@@ -28,6 +32,9 @@ use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
 
 pub async fn dump_everything() -> eyre::Result<()> {
+    info!("Ensuring Azure DevOps PAT is set for future steps");
+    _ = get_personal_access_token().await?;
+
     info!("Clean up previous runs");
     _ = clean_imports().await;
     _ = clean_processed().await;
@@ -54,8 +61,10 @@ pub async fn dump_everything() -> eyre::Result<()> {
 async fn write_import_blocks(
     file_path: impl AsRef<Path>,
     import_blocks: impl IntoIterator<Item = impl Into<TofuImportBlock>>,
+    all_in_one: UnboundedSender<Vec<TofuImportBlock>>,
 ) -> eyre::Result<()> {
     let import_blocks: Vec<TofuImportBlock> = import_blocks.into_iter().map(|x| x.into()).collect();
+    all_in_one.send(import_blocks.clone())?;
     let len = import_blocks.len();
     TofuWriter::new(&file_path)
         .overwrite(import_blocks)
@@ -79,6 +88,8 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
     )?;
 
     let mut tf_work_dirs: Vec<PathBuf> = Vec::new();
+    let (all_in_one_imports_tx, mut all_in_one_imports_rx) =
+        unbounded_channel::<Vec<TofuImportBlock>>();
 
     let project_ids: Vec<AzureDevOpsProjectId> = azure_devops_projects
         .iter()
@@ -148,19 +159,25 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
                     .await?;
             }
         });
+
+        let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
             try {
-                write_import_blocks(project_tf_file, vec![project]).await?;
+                write_import_blocks(project_tf_file, vec![project], sender).await?;
             }
         });
+
+        let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
             try {
-                write_import_blocks(repos_tf_file, repos).await?;
+                write_import_blocks(repos_tf_file, repos, sender).await?;
             }
         });
+
+        let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
             try {
-                write_import_blocks(teams_tf_file, teams).await?;
+                write_import_blocks(teams_tf_file, teams, sender).await?;
             }
         });
     }
@@ -173,6 +190,7 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
         .into_iter()
         .map(|sub| (sub.id.to_owned(), sub))
         .collect::<HashMap<_, _>>();
+    let mut provider_blocks: HashSet<_> = Default::default();
     for rg in resource_groups {
         let Some(sub) = subscriptions_by_id.get(&rg.subscription_id) else {
             bail!(
@@ -188,8 +206,11 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
         let resource_group_import_file = resource_group_dir.join("resource-group.tf");
 
         let azurerm_provider_block = sub.into_provider_block();
+        provider_blocks.insert(azurerm_provider_block.clone());
         let mut resource_group_import_block: TofuImportBlock = rg.into();
         resource_group_import_block.provider = azurerm_provider_block.as_reference();
+        
+        let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
             try {
                 TofuWriter::new(&boilerplate_file)
@@ -198,17 +219,50 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
                     .format()
                     .await?;
 
-                write_import_blocks(resource_group_import_file, [resource_group_import_block])
+                write_import_blocks(resource_group_import_file, [resource_group_import_block], sender)
                     .await?;
             }
         });
     }
+
+    info!("Prepping all-in-one dir");
+    let all_in_one_dir = AppDir::Imports.join("all_in_one");
+    tf_work_dirs.push(all_in_one_dir.clone());
+
+    {
+        let all_in_one_dir = all_in_one_dir.clone();
+        join_set.spawn(async move {
+            try {
+                let provider_manager = ProviderManager::try_new()?;
+                provider_manager
+                    .write_default_provider_configs(&all_in_one_dir)
+                    .await?;
+            }
+        });
+    }
+
 
     info!("Waiting for tasks to finish...");
     while let Some(result) = join_set.join_next().await {
         result??;
         info!("{} tasks remaining...", join_set.len());
     }
+    all_in_one_imports_rx.close();
+
+    info!("Writing the all-in-one");
+    let all_in_one_file = all_in_one_dir.join("all-in-one.tf");
+    let mut import_blocks: Vec<TofuImportBlock> = vec![];
+    while let Some(import_block) = all_in_one_imports_rx.recv().await {
+        import_blocks.extend(import_block);
+    }
+    TofuWriter::new(&all_in_one_file)
+        .merge(provider_blocks)
+        .await?
+        .merge(import_blocks)
+        .await?
+        .format()
+        .await?;
+
     info!("All done!");
 
     Ok(tf_work_dirs
