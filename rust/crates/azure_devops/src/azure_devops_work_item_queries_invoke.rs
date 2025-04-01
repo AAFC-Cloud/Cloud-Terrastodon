@@ -1,10 +1,8 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use cloud_terrastodon_core_azure_devops_rest_client::create_client::create_azure_devops_rest_client;
 use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsOrganizationName;
 use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsProjectName;
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_core_azure_devops_types::prelude::WorkItemQueryResult;
 use cloud_terrastodon_core_command::prelude::CacheBehaviour;
@@ -13,14 +11,15 @@ use cloud_terrastodon_core_command::prelude::CommandKind;
 use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
 use tracing::debug;
 
-use crate::prelude::get_default_organization_name;
-
+#[deprecated(note = "WIP, the return type and behaviour isn't in a good spot yet.")]
 pub async fn fetch_work_items_for_query(
     org_name: &AzureDevOpsOrganizationName,
     project_name: &AzureDevOpsProjectName,
     query_id: &AzureDevOpsWorkItemQueryId,
 ) -> eyre::Result<Option<WorkItemQueryResult>> {
-    debug!("Fetching work item query results for {query_id} from project {project_name} in organization {org_name}");
+    debug!(
+        "Fetching work item query results for {query_id} from project {project_name} in organization {org_name}"
+    );
     // https://developercommunity.visualstudio.com/t/Its-impossible-to-use-az-devops-invoke/10880749
 
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -42,7 +41,7 @@ pub async fn fetch_work_items_for_query(
     }
     let rtn = output.try_interpret(&cmd).await?;
     Ok(Some(rtn))
-    
+
     // let url = format!(
     //     "https://dev.azure.com/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version=7.1"
     // );
@@ -54,6 +53,7 @@ pub async fn fetch_work_items_for_query(
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod test {
     use crate::prelude::fetch_all_azure_devops_projects;
     use crate::prelude::fetch_queries_for_project;
