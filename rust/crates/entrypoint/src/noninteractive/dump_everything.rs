@@ -10,6 +10,7 @@ use cloud_terrastodon_core_pathing::Existy;
 use cloud_terrastodon_core_tofu::prelude::FreshTFWorkDir;
 use cloud_terrastodon_core_tofu::prelude::InitializedTFWorkDir;
 use cloud_terrastodon_core_tofu::prelude::ProviderManager;
+use cloud_terrastodon_core_tofu::prelude::TofuBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
 use cloud_terrastodon_core_tofu::prelude::TofuWriter;
 use cloud_terrastodon_core_tofu::prelude::ValidatedTFWorkDir;
@@ -442,9 +443,8 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
         join_set.spawn(async move {
             try {
                 TofuWriter::new(&boilerplate_file)
+                    .format_on_write()
                     .merge([azurerm_provider_block])
-                    .await?
-                    .format_file()
                     .await?;
 
                 write_import_blocks(
@@ -486,12 +486,17 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
     while let Some(import_block) = all_in_one_imports_rx.recv().await {
         import_blocks.extend(import_block);
     }
+    let mut together: Vec<TofuBlock> = Vec::new();
+    for block in provider_blocks {
+        together.push(block.into());
+    }
+    for block in import_blocks {
+        together.push(block.into());
+    }
+
     TofuWriter::new(&all_in_one_file)
-        .merge(provider_blocks)
-        .await?
-        .merge(import_blocks)
-        .await?
-        .format_file()
+        .format_on_write()
+        .merge(together)
         .await?;
 
     info!("All done!");
