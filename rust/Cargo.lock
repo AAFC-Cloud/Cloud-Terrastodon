@@ -268,11 +268,7 @@ dependencies = [
  "color-eyre",
  "embed-resource",
  "eyre",
- "itertools 0.12.1",
  "tokio",
- "tracing",
- "tracing-subscriber",
- "windows",
 ]
 
 [[package]]
@@ -444,6 +440,8 @@ dependencies = [
  "test-log",
  "tokio",
  "tracing",
+ "tracing-subscriber",
+ "windows",
 ]
 
 [[package]]

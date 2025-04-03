@@ -65,14 +65,6 @@ bstr = { version = "1.11.3", features = ["serde"] }
 reqwest = { version = "0.12.15", features = ["json"] }
 base64 = "0.22.1"
 
-[target.'cfg(windows)'.dependencies]
-windows = { version = "0.58.0", features = [
-    "Win32",
-    "Win32_System",
-    "Win32_System_Console",
-    "Win32_Globalization",
-] }
-
 [build-dependencies]
 embed-resource = "1.6.3"
 
@@ -81,6 +73,3 @@ cloud_terrastodon_core_entrypoint = { workspace = true }
 tokio = { workspace = true }
 eyre = { workspace = true }
 color-eyre = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-itertools = { workspace = true }
