@@ -80,6 +80,7 @@ pub async fn identify_required_providers_bulk(
     let mut rtn = Vec::with_capacity(join_set.len());
     while let Some(x) = join_set.join_next().await {
         rtn.push(x??);
+        debug!("Identifying required providers, {} work dirs remain", join_set.len());
     }
     let rtn = TofuTerraformRequiredProvidersBlock::try_from_iter(rtn)?;
     Ok(rtn)
@@ -97,7 +98,7 @@ pub async fn initialize_work_dirs(
         .await?;
 
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
-    let parallism = Arc::new(Semaphore::new(1));
+    let parallism = Arc::new(Semaphore::new(5));
     for dir in &dirs {
         let plugin_dir = provider_manager.local_mirror_dir.clone();
         let dir = dir.clone();
@@ -132,15 +133,19 @@ pub async fn validate_work_dirs(
     let dirs: Vec<InitializedTFWorkDir> = dirs.into_iter().collect();
     info!("Validating {} tf work dirs", dirs.len());
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
+    let rate_limit = Arc::new(Semaphore::new(16));
     for dir in &dirs {
         let dir = dir.clone();
+        let rate_limit = rate_limit.clone();
         join_set.spawn(async move {
             let mut validate_cmd = CommandBuilder::new(CommandKind::Tofu);
             validate_cmd.should_announce(true);
             validate_cmd.use_run_dir(dir);
             validate_cmd.use_output_behaviour(OutputBehaviour::Display);
             validate_cmd.arg("validate");
+            let permit = rate_limit.acquire().await?;
             validate_cmd.run_raw().await?;
+            drop(permit);
             Ok(())
         });
     }
@@ -241,9 +246,14 @@ pub async fn generate_config_out_bulk(
     let dirs = work_dirs.into_iter().collect_vec();
     info!("Performing tf code generation for {} dirs", dirs.len());
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
+    let rate_limit = Arc::new(Semaphore::new(5));
+
     for dir in dirs {
+        let rate_limit = rate_limit.clone();
         join_set.spawn(async move {
+            let permit = rate_limit.acquire().await?;
             generate_config_out(&dir).await?;
+            drop(permit);
             Ok(())
         });
     }
