@@ -50,7 +50,7 @@ pub async fn write_imports_for_all_resource_groups() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
         .overwrite(imports)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     info!("Writing provider blocks");
@@ -62,7 +62,7 @@ pub async fn write_imports_for_all_resource_groups() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     Ok(())

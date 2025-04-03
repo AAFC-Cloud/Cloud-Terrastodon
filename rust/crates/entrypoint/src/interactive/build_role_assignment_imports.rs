@@ -42,7 +42,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
         .overwrite(import_blocks)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     info!("Writing providers to boilerplate");
@@ -53,7 +53,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     Ok(())

@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use cloud_terrastodon_core_command::prelude::CommandBuilder;
+use cloud_terrastodon_core_command::prelude::CommandKind;
 use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
@@ -7,8 +9,16 @@ use hcl::edit::structure::IntoBlocks;
 use hcl_primitives::ident::is_id_continue;
 use hcl_primitives::ident::is_id_start;
 
+#[async_trait::async_trait]
 pub trait AsTofuString {
     fn as_tofu_string(&self) -> String;
+    async fn as_formatted_tofu_string(&self) -> eyre::Result<String> {
+        let mut cmd = CommandBuilder::new(CommandKind::Tofu);
+        cmd.args(["fmt", "-"]);
+        cmd.send_stdin(self.as_tofu_string());
+        let output = cmd.run_raw().await?;
+        Ok(output.stdout.to_string())
+    }
 }
 impl AsTofuString for String {
     fn as_tofu_string(&self) -> String {
@@ -96,5 +106,29 @@ impl AsTofuString for Block {
 impl AsTofuString for Body {
     fn as_tofu_string(&self) -> String {
         self.to_string()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::strings::AsTofuString;
+
+    #[tokio::test]
+    async fn send_stdin_tofu_fmt() -> eyre::Result<()> {
+        let content = r#"resource "time_static" "wait_1_second" {
+depends_on = []
+triggers_complete = null
+}
+"#;
+        let expected = r#"resource "time_static" "wait_1_second" {
+  depends_on        = []
+  triggers_complete = null
+}
+"#;
+        assert_eq!(
+            content.as_formatted_tofu_string().await?.trim(),
+            expected.trim()
+        );
+        Ok(())
     }
 }

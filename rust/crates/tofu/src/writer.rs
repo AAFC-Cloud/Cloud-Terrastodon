@@ -10,6 +10,7 @@ use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use itertools::Itertools;
+use tokio::fs::File;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
@@ -25,21 +26,41 @@ use crate::sorting::TofuBlockSortable;
 
 pub struct TofuWriter {
     path: PathBuf,
+    format_on_write: bool,
 }
 impl TofuWriter {
     pub fn new(path: impl AsRef<Path>) -> TofuWriter {
         TofuWriter {
             path: path.as_ref().to_path_buf(),
+            format_on_write: false,
         }
     }
 
-    pub async fn format(&self) -> Result<()> {
+    pub fn format_on_write(mut self) -> Self {
+        self.format_on_write = true;
+        self
+    }
+
+    pub async fn format_file(&self) -> Result<()> {
         debug!("Formatting tf file {}", self.path.display());
         CommandBuilder::new(CommandKind::Tofu)
             .arg("fmt")
             .arg(self.path.as_os_str())
             .run_raw()
             .await?;
+        Ok(())
+    }
+
+    async fn write(&self, file: &mut File, content: impl AsTofuString + Sync) -> eyre::Result<()> {
+        let content = if self.format_on_write {
+            content.as_formatted_tofu_string().await?
+        } else {
+            content.as_tofu_string()
+        };
+        file
+            .write_all(content.as_bytes())
+            .await
+            .context("writing content")?;
         Ok(())
     }
 
@@ -54,10 +75,7 @@ impl TofuWriter {
             .await
             .context(format!("opening file {}", self.path.display()))?;
         debug!("Writing {:?}", self.path);
-        tf_file
-            .write_all(content.as_tofu_string().as_bytes())
-            .await
-            .context("writing content")?;
+        self.write(&mut tf_file, content).await?;
         Ok(self)
     }
     pub async fn merge(

@@ -17,3 +17,4 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 # unidecode = { workspace = true }
 hcl-primitives = { workspace = true }
+async-trait = { workspace = true }

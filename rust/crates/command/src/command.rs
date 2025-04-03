@@ -299,6 +299,7 @@ pub struct CommandBuilder {
     cache_behaviour: CacheBehaviour,
     should_announce: bool,
     timeout: Option<Duration>,
+    stdin_content: Option<String>, // Added field for stdin content
 }
 
 static LOGIN_LOCK: OnceCell<Arc<Mutex<()>>> = OnceCell::const_new();
@@ -565,6 +566,12 @@ impl CommandBuilder {
         Ok(())
     }
 
+    /// Sends content to stdin of the command.
+    pub fn send_stdin(&mut self, content: impl Into<String>) -> &mut Self {
+        self.stdin_content = Some(content.into());
+        self
+    }
+
     #[async_recursion]
     pub async fn run_raw_inner(&self) -> Result<CommandOutput> {
         // Check cache
@@ -579,11 +586,15 @@ impl CommandBuilder {
         let mut command = Command::new(self.kind.program());
         match self.output_behaviour {
             OutputBehaviour::Capture => {
-                command.stdin(Stdio::piped());
+                command.stdin(Stdio::piped()); // Set stdin to piped for capture mode
                 command.stdout(Stdio::piped());
                 command.stderr(Stdio::piped());
             }
-            OutputBehaviour::Display => {}
+            OutputBehaviour::Display => {
+                if self.stdin_content.is_some() {
+                    command.stdin(Stdio::piped()); // Still need piped stdin if we want to send content
+                }
+            }
         }
 
         // Apply arguments, saving temp files to a variable to be cleaned up when dropped later
@@ -620,7 +631,21 @@ impl CommandBuilder {
 
         // Launch command
         command.kill_on_drop(true);
-        let child = command.spawn().wrap_err("Failed to spawn command")?;
+        let mut child = command.spawn().wrap_err("Failed to spawn command")?;
+
+        // Send stdin content if provided
+        if let Some(content) = &self.stdin_content {
+            if let Some(mut stdin) = child.stdin.take() {
+                let content = content.to_owned();
+                tokio::spawn(async move {
+                    // Spawn a task to avoid blocking the main thread while writing to stdin
+                    if let Err(e) = stdin.write_all(content.as_bytes()).await {
+                        error!("Failed to write to stdin: {:?}", e);
+                    }
+                    // stdin.shutdown().await.ok(); // Not strictly needed, stdin will close when dropped
+                });
+            }
+        }
 
         // Wait for it to finish
         let timeout_duration = self.timeout.unwrap_or(Duration::MAX);
@@ -637,9 +662,6 @@ impl CommandBuilder {
                 );
             }
         };
-
-        // // Convert to our output type
-        // let output: CommandOutput = output.try_into()?;
 
         // Return if errored
         if !output.success() {
@@ -1115,6 +1137,38 @@ Resources
                 .run_raw()
                 .await?
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn send_stdin_echo() -> Result<()> {
+        let mut cmd = CommandBuilder::new(CommandKind::Echo);
+        cmd.args(["-Command", "-" /* Read from stdin */]); // For pwsh, "-" means read from stdin for command
+        cmd.send_stdin("hello stdin");
+        let output = cmd.run_raw().await?;
+        println!("Stdout: {:?}", output.stdout);
+        assert_eq!(output.stdout.trim(), "hello stdin".as_bytes());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn send_stdin_tofu_fmt() -> Result<()> {
+        let content = r#"resource "time_static" "wait_1_second" {
+depends_on = []
+triggers_complete = null
+}
+"#;
+        let mut cmd = CommandBuilder::new(CommandKind::Tofu);
+        cmd.args(["fmt", "-"]);
+        cmd.send_stdin(content);
+        let output = cmd.run_raw().await?;
+        println!("Stdout: {:?}", output.stdout);
+        let expected = r#"resource "time_static" "wait_1_second" {
+  depends_on        = []
+  triggers_complete = null
+}
+"#;
+        assert_eq!(output.stdout.trim(), expected.trim().as_bytes());
         Ok(())
     }
 }

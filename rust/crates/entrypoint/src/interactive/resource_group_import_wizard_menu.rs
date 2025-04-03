@@ -129,7 +129,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
         .overwrite(rg_imports)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     let mut used_principals: HashSet<Uuid> = HashSet::new();
@@ -175,7 +175,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
         .overwrite(ra_imports)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     info!("Building security group imports");
@@ -197,7 +197,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("security_groups.tf"))
         .overwrite(sg_imports)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     info!("Building provider blocks");
@@ -211,7 +211,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     Ok(())

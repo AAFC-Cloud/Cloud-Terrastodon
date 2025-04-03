@@ -366,15 +366,20 @@ impl TofuTerraformRequiredProvidersBlock {
                     "Tried to merge two required_providers entries for key {key:?} with conflicting sources.\nExisting: {existing:#?}\nMerging: {value:#?}"
                 )
             }
-            if *existing != value {
-                warn!(
-                    "Merged key {key:?}, discarding old value {:#?} for new value {:#?}",
-                    existing.version, value.version
-                );
-                // TODO: merge the constraints instead of clobbering
+            let should_merge = *existing != value && !value.version.clauses.is_empty();
+            if should_merge {
+                if !existing.version.clauses.is_empty() {
+                    warn!(
+                        "Merged key {key:?}, discarding old value {:#?} for new value {:#?}",
+                        existing.version, value.version
+                    );
+                }
+                // TODO: merge the constraints properly instead of clobbering
+                _ = self.0.insert(key, value);
             }
+        } else {
+            _ = self.0.insert(key, value);
         }
-        _ = self.0.insert(key, value);
         Ok(())
     }
     pub fn merge(&mut self, other: TofuTerraformRequiredProvidersBlock) -> eyre::Result<()> {

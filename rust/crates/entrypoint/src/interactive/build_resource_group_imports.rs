@@ -77,7 +77,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
         .overwrite(imports)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     let mut providers = Vec::new();
@@ -88,7 +88,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     Ok(())

@@ -1,3 +1,4 @@
+use crate::writer::TofuWriter;
 use cloud_terrastodon_core_azure_devops::prelude::get_default_organization_name;
 use cloud_terrastodon_core_command::prelude::CommandBuilder;
 use cloud_terrastodon_core_command::prelude::CommandKind;
@@ -27,9 +28,6 @@ use std::str::FromStr;
 use tempfile::TempDir;
 use tokio::io::AsyncReadExt;
 use tracing::debug;
-use tracing::info;
-
-use crate::writer::TofuWriter;
 
 /// Helper to address concurrency issues.
 ///
@@ -213,7 +211,7 @@ impl ProviderManager {
         TofuWriter::new(boilerplate_tf_path)
             .overwrite(boilerplate_tf)
             .await?
-            .format()
+            .format_file()
             .await?;
 
         let mut cmd = CommandBuilder::new(CommandKind::Tofu);
@@ -248,7 +246,7 @@ impl ProviderManager {
         );
 
         // Open boilerplate file
-        info!("Writing default provider configs in {}", work_dir.display());
+        debug!("Writing default provider configs in {}", work_dir.display());
         let boilerplate_path = work_dir.join("boilerplate.tf");
         TofuWriter::new(boilerplate_path)
             .merge(vec![TofuTerraformBlock {
@@ -263,7 +261,7 @@ impl ProviderManager {
             }])
             .await
             .wrap_err("Writing default provider blocks")?
-            .format()
+            .format_file()
             .await?;
         Ok(())
     }

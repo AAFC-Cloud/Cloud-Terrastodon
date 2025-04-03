@@ -64,6 +64,7 @@ color-eyre = "0.6.3"
 bstr = { version = "1.11.3", features = ["serde"] }
 reqwest = { version = "0.12.15", features = ["json"] }
 base64 = "0.22.1"
+async-trait = "0.1.88"
 
 [build-dependencies]
 embed-resource = "1.6.3"

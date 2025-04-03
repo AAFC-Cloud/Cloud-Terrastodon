@@ -58,7 +58,7 @@ pub async fn azure_devops_project_import_wizard_menu() -> Result<()> {
     TofuWriter::new(tf_file_path.clone())
         .overwrite(project_import_blocks)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     info!("Opening written imports in VSCode");

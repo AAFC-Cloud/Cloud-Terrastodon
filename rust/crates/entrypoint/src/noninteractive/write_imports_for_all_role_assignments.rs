@@ -68,14 +68,14 @@ pub async fn write_imports_for_all_role_assignments() -> Result<()> {
     TofuWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
         .overwrite(imports)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     info!("Writing provider blocks");
     TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
-        .format()
+        .format_file()
         .await?;
 
     Ok(())
