@@ -32,10 +32,10 @@ use tracing::info;
 use crate::writer::TofuWriter;
 
 /// Helper to address concurrency issues.
-/// 
+///
 /// https://github.com/hashicorp/terraform/issues/33321
 /// > "terraform providers mirror" skip downloading packages that are already present in the mirror directory
-/// 
+///
 /// https://github.com/hashicorp/terraform/issues/31964
 /// > Allow multiple Terraform instances to write to plugin_cache_dir concurrently
 pub struct ProviderManager {
@@ -221,7 +221,15 @@ impl ProviderManager {
         // PathBuf::from(&tf_plugin_cache_dir)
         //     .ensure_dir_exists()
         //     .await?;
-        cmd.args(["providers", "mirror", &self.local_mirror_dir.display().to_string().replace("\\", "/")]);
+        cmd.args([
+            "providers",
+            "mirror",
+            &self
+                .local_mirror_dir
+                .display()
+                .to_string()
+                .replace("\\", "/"),
+        ]);
         cmd.use_output_behaviour(OutputBehaviour::Display);
         cmd.use_run_dir(temp_dir.path());
         cmd.run_raw().await?;

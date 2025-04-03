@@ -7,12 +7,11 @@ mod providers;
 mod resources;
 mod strings;
 mod terraform_block;
-mod version;
 mod tf_work_dir;
+mod version;
 
 pub mod prelude {
     pub use crate::block::*;
-    pub use crate::version::*;
     pub use crate::code_reference::*;
     pub use crate::data::*;
     pub use crate::imports::*;
@@ -21,5 +20,6 @@ pub mod prelude {
     pub use crate::strings::*;
     pub use crate::terraform_block::*;
     pub use crate::tf_work_dir::*;
+    pub use crate::version::*;
     pub use hcl::*;
 }

@@ -7,10 +7,11 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(name = "cloud_terrastodon", about, long_about = None)]
 pub struct Cli {
+    #[arg(long, global = true, default_value = "false")]
+    pub debug: bool,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
-    #[arg(long)]
-    pub debug: bool,
 }
 
 #[derive(Subcommand, Debug)]

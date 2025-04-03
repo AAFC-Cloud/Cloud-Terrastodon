@@ -11,19 +11,19 @@ mod import_lookup_holder;
 mod imported_resource_reference_patcher;
 mod importer;
 mod json_patcher;
+mod provider_manager;
 mod reflow;
 mod sorting;
 mod user_id_reference_patcher;
-mod writer;
-mod provider_manager;
 mod work_dir_lifecycle;
+mod writer;
 pub mod prelude {
     pub use crate::block_lister::*;
-    pub use crate::provider_manager::*;
-    pub use crate::work_dir_lifecycle::*;
     pub use crate::import_builder::*;
     pub use crate::importer::*;
+    pub use crate::provider_manager::*;
     pub use crate::reflow::*;
+    pub use crate::work_dir_lifecycle::*;
     pub use crate::writer::*;
     pub use cloud_terrastodon_core_tofu_types::prelude::*;
 }

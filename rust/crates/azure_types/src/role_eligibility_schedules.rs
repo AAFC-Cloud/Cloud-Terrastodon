@@ -1,6 +1,5 @@
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleDefinitionKind;
-use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
 use crate::scopes::NameValidatable;
@@ -12,6 +11,7 @@ use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromResourceScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
+use crate::scopes::try_from_expanded_hierarchy_scoped;
 use chrono::DateTime;
 use chrono::Utc;
 use eyre::Result;

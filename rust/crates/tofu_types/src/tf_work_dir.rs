@@ -15,7 +15,7 @@ impl From<PathBuf> for FreshTFWorkDir {
     }
 }
 impl Deref for FreshTFWorkDir {
-    type Target=Path;
+    type Target = Path;
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
@@ -35,7 +35,7 @@ impl From<FreshTFWorkDir> for InitializedTFWorkDir {
     }
 }
 impl Deref for InitializedTFWorkDir {
-    type Target=Path;
+    type Target = Path;
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
@@ -55,7 +55,7 @@ impl From<InitializedTFWorkDir> for ValidatedTFWorkDir {
     }
 }
 impl Deref for ValidatedTFWorkDir {
-    type Target=Path;
+    type Target = Path;
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()

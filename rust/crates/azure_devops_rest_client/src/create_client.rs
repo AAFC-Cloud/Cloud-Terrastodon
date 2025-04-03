@@ -85,7 +85,9 @@ mod test {
         let url = "https://app.vssps.visualstudio.com/_apis/accounts?api-version=7.1";
         let client = create_azure_devops_rest_client().await?;
         let rtn: serde_json::Value = client.get(url).send().await?.json().await?;
-        println!("(as long as this returns json instead of html, it's good. it might complain about 'necessary parameters' or whatever.)");
+        println!(
+            "(as long as this returns json instead of html, it's good. it might complain about 'necessary parameters' or whatever.)"
+        );
         println!("{:#?}", rtn);
 
         Ok(())

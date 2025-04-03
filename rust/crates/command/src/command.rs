@@ -214,7 +214,10 @@ impl CommandOutput {
         #[cfg(not(windows))]
         return ExitStatus::from_raw(self.status).success();
     }
-    pub async fn try_interpret<T: DeserializeOwned>(&self, command: &CommandBuilder) -> eyre::Result<T> {
+    pub async fn try_interpret<T: DeserializeOwned>(
+        &self,
+        command: &CommandBuilder,
+    ) -> eyre::Result<T> {
         match serde_json::from_slice(self.stdout.to_str_lossy().as_bytes()) {
             Ok(results) => Ok(results),
             Err(e) => {
@@ -691,10 +694,19 @@ impl CommandBuilder {
                 }
                 _ => {
                     let dir = self.write_failure(&output).await?;
-                    return Err(eyre::Error::from(output).wrap_err(format!(
+                    let mut error = Err(eyre::Error::from(output).wrap_err(format!(
                         "Command did not execute successfully, dumped to {:?}",
                         dir
                     )));
+                    if matches!(self.output_behaviour, OutputBehaviour::Display) {
+                        error = error.wrap_err(format!(
+                            "The output behaviour was set to {:?} instead of {:?} so the stdout and stderr are not available in the dump, try scrolling up in your terminal.", 
+                            OutputBehaviour::Display,
+                            OutputBehaviour::Capture,
+                        ));
+                    }
+
+                    return error;
                 }
             }
         }
@@ -737,9 +749,9 @@ impl CommandBuilder {
         //     "Command::run failed, called from {}",
         //     std::panic::Location::caller()
         // ))?;
-        // #[cfg(not(debug_assertions))]   
+        // #[cfg(not(debug_assertions))]
         let output = output?;
-        
+
         // Parse
         match serde_json::from_slice(output.stdout.to_str_lossy().as_bytes()) {
             Ok(results) => Ok(results),

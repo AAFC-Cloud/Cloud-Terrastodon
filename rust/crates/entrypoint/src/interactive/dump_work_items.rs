@@ -1,6 +1,6 @@
+use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_core_azure_devops::prelude::fetch_queries_for_project;
-use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use cloud_terrastodon_core_user_input::prelude::pick_many;
@@ -32,7 +32,8 @@ pub async fn dump_work_items() -> eyre::Result<()> {
             .into_iter()
             .filter(|entry| !entry.child.is_folder)
             .map(|entry| Choice {
-                key: entry.parents
+                key: entry
+                    .parents
                     .into_iter()
                     .chain(std::iter::once(entry.child))
                     .map(|x| &x.name)
@@ -44,8 +45,6 @@ pub async fn dump_work_items() -> eyre::Result<()> {
         ..Default::default()
     })?;
     info!("You chose {} queries", queries.len());
-
-    
 
     Ok(())
 }

@@ -233,7 +233,7 @@ mod test {
             let cache_dir = cache_dir.clone();
             let limit = limit.clone();
             join_set.spawn(async move {
-                workspace_dir.ensure_dir_exists().await?;                
+                workspace_dir.ensure_dir_exists().await?;
                 let permit = limit.acquire().await?;
                 TofuGenerateConfigOutHelper::new()
                     .with_run_dir(&workspace_dir)

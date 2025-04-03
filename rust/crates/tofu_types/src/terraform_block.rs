@@ -88,7 +88,6 @@ impl AsTofuString for TofuTerraformBlock {
     }
 }
 
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TofuTerraformBackendBlock {
     AzureRM(TofuTerraformAzureRMBackendBlock),
