@@ -7,6 +7,7 @@ use cloud_terrastodon_core_command::prelude::bstr::BString;
 use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
 use cloud_terrastodon_core_command::prelude::bstr::io::BufReadExt;
 use cloud_terrastodon_core_tofu_types::prelude::FreshTFWorkDir;
+use cloud_terrastodon_core_tofu_types::prelude::GeneratedConfigOutTFWorkDir;
 use cloud_terrastodon_core_tofu_types::prelude::InitializedTFWorkDir;
 use cloud_terrastodon_core_tofu_types::prelude::IntoTofuBlocks;
 use cloud_terrastodon_core_tofu_types::prelude::TFProviderSource;
@@ -239,14 +240,15 @@ pub async fn generate_config_out(work_dir: &ValidatedTFWorkDir) -> eyre::Result<
 
 pub async fn generate_config_out_bulk(
     work_dirs: impl IntoIterator<Item = ValidatedTFWorkDir>,
-) -> eyre::Result<()> {
+) -> eyre::Result<Vec<GeneratedConfigOutTFWorkDir>> {
     let mut dirs = work_dirs.into_iter().collect_vec();
     dirs.shuffle(&mut thread_rng()); // try and hit errors earlier than if we had a consistent iteration order
     info!("Performing tf code generation for {} dirs", dirs.len());
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
     let rate_limit = Arc::new(Semaphore::new(10));
-    for dir in dirs {
+    for dir in &dirs {
         let rate_limit = rate_limit.clone();
+        let dir = dir.clone();
         join_set.spawn(async move {
             let permit = rate_limit.acquire().await?;
             generate_config_out(&dir).await?;
@@ -262,7 +264,7 @@ pub async fn generate_config_out_bulk(
             join_set.len()
         );
     }
-    Ok(())
+    Ok(dirs.into_iter().map(|x| x.into()).collect())
 }
 
 #[cfg(test)]
