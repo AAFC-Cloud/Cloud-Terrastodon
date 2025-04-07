@@ -23,16 +23,19 @@ use cloud_terrastodon_core_tofu::prelude::validate_work_dirs;
 use cloud_terrastodon_core_user_input::prelude::Choice;
 use cloud_terrastodon_core_user_input::prelude::FzfArgs;
 use cloud_terrastodon_core_user_input::prelude::pick;
+use cloud_terrastodon_core_zombies::prompt_kill_processes_using_dirs;
 use eyre::bail;
 use humantime::FormattedDuration;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use strum::VariantArray;
 use tokio::fs::read_dir;
+use tokio::sync::Semaphore;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio::task::JoinSet;
@@ -40,9 +43,6 @@ use tokio::try_join;
 use tracing::debug;
 use tracing::info;
 use tracing::warn;
-
-use crate::interactive::prelude::clean_imports;
-use crate::interactive::prelude::clean_processed;
 
 pub async fn measure<F, T>(runnable: F) -> eyre::Result<(T, FormattedDuration)>
 where
@@ -61,7 +61,12 @@ where
 pub async fn dump_everything() -> eyre::Result<()> {
     info!("Ensuring Azure DevOps PAT is set for future steps");
     _ = get_personal_access_token().await?;
+    let (rtn, took) = measure(dump_everything_inner()).await?;
+    info!("Overall dump took {took}");
+    Ok(rtn)
+}
 
+pub async fn dump_everything_inner() -> eyre::Result<()> {
     #[derive(VariantArray, Debug)]
     enum Behaviour {
         CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess,
@@ -83,105 +88,110 @@ pub async fn dump_everything() -> eyre::Result<()> {
     })?
     .value;
 
-    let (_, took) = measure(async move {
-        let should_clean = matches!(
-            behaviour,
-            Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
-        );
-        if should_clean {
-            info!("Clean up previous runs");
-            _ = clean_imports().await;
-            _ = clean_processed().await;
-        }
-
-        let tf_work_dirs = match behaviour {
-            Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
-            | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess => {
-                write_all_import_blocks().await?
+    let should_clean = matches!(
+        behaviour,
+        Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
+    );
+    if should_clean {
+        info!("Clean up previous runs");
+        prompt_kill_processes_using_dirs(
+            [AppDir::Imports, AppDir::Processed]
+                .into_iter()
+                .map(|x| x.as_path_buf())
+                .filter(|x| x.exists()),
+                "Previous runs can leave dangling processes if aborted. Select the ones you want to kill".to_string()
+        )?;
+        for dir in [AppDir::Imports, AppDir::Processed] {
+            if dir.exists_async().await? {
+                tokio::fs::remove_dir_all(dir.as_path_buf()).await?;
             }
-            _ => discover_existing_dirs().await?,
-        };
-
-        let should_init = matches!(
-            behaviour,
-            Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
-                | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess
-                | Behaviour::InitAndValidateAndGenerateAndProcess
-        );
-        let tf_work_dirs: Vec<InitializedTFWorkDir> = if should_init {
-            let tf_work_dir_count = tf_work_dirs.len();
-            info!("Performing init for {} tf work dirs", tf_work_dir_count);
-            let (tf_work_dirs, took) =
-                measure(async move { initialize_work_dirs(tf_work_dirs).await }).await?;
-            info!("Performed init for {tf_work_dir_count} work dirs in {took}");
-            tf_work_dirs
-        } else {
-            tf_work_dirs.into_iter().map(|x| x.into()).collect()
-        };
-
-        let should_clean_old_generated_tf_files =
-            matches!(behaviour, Behaviour::ValidateAndGenerateAndProcess);
-        if should_clean_old_generated_tf_files {
-            clean_up_generated_files(&tf_work_dirs).await?;
         }
+    }
 
-        let should_validate = matches!(
-            behaviour,
-            Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
-                | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess
-                | Behaviour::InitAndValidateAndGenerateAndProcess
-                | Behaviour::ValidateAndGenerateAndProcess
-        );
-        let tf_work_dirs: Vec<ValidatedTFWorkDir> = if should_validate {
-            let tf_work_dir_count = tf_work_dirs.len();
-            let (work_dirs, duration) =
-                measure(async move { validate_work_dirs(tf_work_dirs).await }).await?;
-            info!("Validated {tf_work_dir_count} work dirs in {duration}");
-            work_dirs
-        } else {
-            tf_work_dirs.into_iter().map(|x| x.into()).collect()
-        };
+    let tf_work_dirs = match behaviour {
+        Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
+        | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess => {
+            write_all_import_blocks().await?
+        }
+        _ => discover_existing_dirs().await?,
+    };
 
-        let should_skip_generated_tf_files = matches!(behaviour, Behaviour::GenerateAndProcess);
-        let tf_work_dirs: Vec<ValidatedTFWorkDir> = if should_skip_generated_tf_files {
-            prune_dirs_containing_generated_tf_file(tf_work_dirs).await?
-        } else {
-            tf_work_dirs
-        };
+    let should_init = matches!(
+        behaviour,
+        Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
+            | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess
+            | Behaviour::InitAndValidateAndGenerateAndProcess
+    );
+    let tf_work_dirs: Vec<InitializedTFWorkDir> = if should_init {
+        let tf_work_dir_count = tf_work_dirs.len();
+        info!("Performing init for {} tf work dirs", tf_work_dir_count);
+        let (tf_work_dirs, took) =
+            measure(async move { initialize_work_dirs(tf_work_dirs).await }).await?;
+        info!("Performed init for {tf_work_dir_count} work dirs in {took}");
+        tf_work_dirs
+    } else {
+        tf_work_dirs.into_iter().map(|x| x.into()).collect()
+    };
 
-        let should_generate = matches!(
-            behaviour,
-            Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
-                | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess
-                | Behaviour::InitAndValidateAndGenerateAndProcess
-                | Behaviour::ValidateAndGenerateAndProcess
-                | Behaviour::GenerateAndProcess
-        );
-        let tf_work_dirs = if should_generate {
-            let tf_work_dir_count = tf_work_dirs.len();
-            let (tf_work_dirs, duration) =
-                measure(async move { generate_config_out_bulk(tf_work_dirs).await }).await?;
-            info!("Generated configs for {tf_work_dir_count} work dirs in {duration}");
-            tf_work_dirs
-        } else {
-            tf_work_dirs.into_iter().map(|x| x.into()).collect()
-        };
+    let should_clean_old_generated_tf_files =
+        matches!(behaviour, Behaviour::ValidateAndGenerateAndProcess);
+    if should_clean_old_generated_tf_files {
+        clean_up_generated_files(&tf_work_dirs).await?;
+    }
 
+    let should_validate = matches!(
+        behaviour,
+        Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
+            | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess
+            | Behaviour::InitAndValidateAndGenerateAndProcess
+            | Behaviour::ValidateAndGenerateAndProcess
+    );
+    let tf_work_dirs: Vec<ValidatedTFWorkDir> = if should_validate {
+        let tf_work_dir_count = tf_work_dirs.len();
+        let (work_dirs, duration) =
+            measure(async move { validate_work_dirs(tf_work_dirs).await }).await?;
+        info!("Validated {tf_work_dir_count} work dirs in {duration}");
+        work_dirs
+    } else {
+        tf_work_dirs.into_iter().map(|x| x.into()).collect()
+    };
+
+    let should_skip_generated_tf_files = matches!(behaviour, Behaviour::GenerateAndProcess);
+    let tf_work_dirs: Vec<ValidatedTFWorkDir> = if should_skip_generated_tf_files {
+        prune_dirs_containing_generated_tf_file(tf_work_dirs).await?
+    } else {
+        tf_work_dirs
+    };
+
+    let should_generate = matches!(
+        behaviour,
+        Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
+            | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess
+            | Behaviour::InitAndValidateAndGenerateAndProcess
+            | Behaviour::ValidateAndGenerateAndProcess
+            | Behaviour::GenerateAndProcess
+    );
+    let tf_work_dirs = if should_generate {
+        let tf_work_dir_count = tf_work_dirs.len();
         let (tf_work_dirs, duration) =
-            measure(async move { process_generated_many(tf_work_dirs).await }).await?;
-        info!(
-            "Processed generated terraform code in {} dirs in {duration}",
-            tf_work_dirs.len()
-        );
-        // info!("Make sure there is no drift");
-        // init_processed().await?;
-        // plan_processed().await?;
-        Ok(())
-    })
-    .await?;
+            measure(async move { generate_config_out_bulk(tf_work_dirs).await }).await?;
+        info!("Generated configs for {tf_work_dir_count} work dirs in {duration}");
+        tf_work_dirs
+    } else {
+        tf_work_dirs.into_iter().map(|x| x.into()).collect()
+    };
 
-    info!("Overall dump took {took}");
-    return Ok(());
+    let (tf_work_dirs, duration) =
+        measure(async move { process_generated_many(tf_work_dirs).await }).await?;
+    info!(
+        "Processed generated terraform code in {} dirs in {duration}",
+        tf_work_dirs.len()
+    );
+    // info!("Make sure there is no drift");
+    // init_processed().await?;
+    // plan_processed().await?;
+
+    Ok(())
 }
 
 async fn process_generated_many(
@@ -189,32 +199,68 @@ async fn process_generated_many(
 ) -> eyre::Result<Vec<ProcessedTFWorkDir>> {
     let mut rtn: Vec<ProcessedTFWorkDir> = Default::default();
     let out_dir: PathBuf = AppDir::Processed.into();
-    _ = tokio::fs::remove_dir_all(&out_dir).await;
+    if out_dir.exists_async().await? {
+        tokio::fs::remove_dir_all(&out_dir).await?;
+    }
     let imports_dir = AppDir::Imports.as_path_buf().canonicalize()?;
-    let mut write_jobs: JoinSet<eyre::Result<()>> = JoinSet::new();
+    let mut reflow_jobs: JoinSet<eyre::Result<(PathBuf, Vec<(PathBuf, String)>)>> = JoinSet::new();
+    let rate_limit = Arc::new(Semaphore::new(16));
     for work_dir in tf_work_dirs {
-        let out_dir = AppDir::Processed.join(
-            work_dir
-                .canonicalize()?
-                .strip_prefix(&imports_dir)
-                .map(PathBuf::from)?,
+        let imports_dir_clone = imports_dir.clone();
+        let rate_limit = rate_limit.clone();
+        reflow_jobs.spawn(async move {
+            let permit = rate_limit.acquire().await?;
+            let out_dir = AppDir::Processed.join(
+                work_dir
+                    .canonicalize()?
+                    .strip_prefix(&imports_dir_clone)
+                    .map(PathBuf::from)?,
+            );
+            let reflowed = reflow_workspace(&work_dir).await?;
+            drop(permit);
+            Ok((out_dir.clone(), reflowed.get_file_contents(&out_dir)?))
+        });
+    }
+
+    let mut write_jobs: JoinSet<eyre::Result<()>> = JoinSet::new();
+    let rate_limit = Arc::new(Semaphore::new(16));
+    while let Some(reflow_result) = reflow_jobs.join_next().await {
+        let (out_dir, files) = reflow_result??;
+
+        info!(
+            "Reflowing workspace and spawning write tasks, {} remain",
+            reflow_jobs.len()
         );
-        let files = reflow_workspace(&work_dir, &out_dir).await?;
-        rtn.push(ProcessedTFWorkDir::new(out_dir));
+
+        rtn.push(ProcessedTFWorkDir::new(out_dir.clone()));
+
         for (path, content) in files {
+            let path_clone = path.clone();
+            let rate_limit = rate_limit.clone();
             write_jobs.spawn(async move {
-                path.ensure_parent_dir_exists().await?;
-                TofuWriter::new(path)
+                let permit = rate_limit.acquire().await?;
+                path_clone.ensure_parent_dir_exists().await?;
+                TofuWriter::new(path_clone)
                     .format_on_write()
                     .overwrite(content)
                     .await?;
+                drop(permit);
                 Ok(())
             });
         }
+
+        // we don't need to write provider configs for processed dir since it will get the terraform config from the import dir
+        // write_jobs.spawn(async move {
+        //     let provider_manager = ProviderManager::try_new()?;
+        //     provider_manager
+        //         .write_default_provider_configs(&out_dir)
+        //         .await?;
+        //     Ok(())
+        // });
     }
-    while let Some(x) = write_jobs.join_next().await {
-        x??;
-        info!("Writing files, {} tasks remain...", write_jobs.len());
+    while let Some(write_result) = write_jobs.join_next().await {
+        write_result??;
+        info!("Writing processed files, {} tasks remain...", write_jobs.len());
     }
 
     Ok(rtn)
@@ -297,7 +343,12 @@ async fn write_import_blocks(
 async fn discover_existing_dirs() -> eyre::Result<Vec<FreshTFWorkDir>> {
     let azure_devops_dir: PathBuf = AppDir::Imports.join("AzureDevOps");
     let azure_portal_dir: PathBuf = AppDir::Imports.join("AzurePortal");
+    let all_in_one_dir: PathBuf = AppDir::Imports.join("all_in_one");
     let mut rtn = Vec::new();
+
+    if all_in_one_dir.exists() {
+        rtn.push(all_in_one_dir);
+    }
 
     if azure_devops_dir.exists() {
         let mut project_dirs = read_dir(azure_devops_dir).await?;

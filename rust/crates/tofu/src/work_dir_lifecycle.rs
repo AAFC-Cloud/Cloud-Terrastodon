@@ -42,7 +42,7 @@ pub async fn identify_required_providers(
             TofuBlock::Terraform(tofu_terraform_block) => {
                 if let Some(required_providers) = tofu_terraform_block.required_providers {
                     for (key, version) in required_providers.0 {
-                        rtn.merge_entry(key, version)?;
+                        rtn.try_merge_entry(key, version)?;
                     }
                 }
             }
@@ -54,7 +54,7 @@ pub async fn identify_required_providers(
                     source,
                     version: TFProviderVersionConstraint::unspecified(),
                 };
-                rtn.merge_entry(provider_prefix, version)?;
+                rtn.try_merge_entry(provider_prefix, version)?;
             }
             TofuBlock::Import(tofu_import_block) => {
                 let provider_kind = tofu_import_block.to.provider_kind();
@@ -64,7 +64,7 @@ pub async fn identify_required_providers(
                     source,
                     version: TFProviderVersionConstraint::unspecified(),
                 };
-                rtn.merge_entry(provider_prefix, version)?;
+                rtn.try_merge_entry(provider_prefix, version)?;
             }
             TofuBlock::Other(_block) => {}
         }
@@ -145,10 +145,10 @@ pub async fn validate_work_dirs(
         join_set.spawn(async move {
             let mut validate_cmd = CommandBuilder::new(CommandKind::Tofu);
             // validate_cmd.should_announce(true);
-            validate_cmd.use_run_dir(dir);
+            validate_cmd.use_run_dir(&dir);
             validate_cmd.arg("validate");
             let permit = rate_limit.acquire().await?;
-            validate_cmd.run_raw().await?;
+            validate_cmd.run_raw().await.wrap_err(format!("Validating dir: {}", dir.display()))?;
             drop(permit);
             Ok(())
         });

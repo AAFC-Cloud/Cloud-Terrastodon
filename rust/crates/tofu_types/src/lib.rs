@@ -9,9 +9,11 @@ mod strings;
 mod terraform_block;
 mod tf_work_dir;
 mod version;
+mod users_lookup_body;
 
 pub mod prelude {
     pub use crate::block::*;
+    pub use crate::users_lookup_body::*;
     pub use crate::code_reference::*;
     pub use crate::data::*;
     pub use crate::imports::*;

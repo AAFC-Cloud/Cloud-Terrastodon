@@ -68,12 +68,14 @@ impl AppDir {
     }
 }
 
-#[allow(async_fn_in_trait)]
+#[async_trait::async_trait]
 pub trait Existy {
     async fn ensure_dir_exists(&self) -> eyre::Result<()>;
     async fn ensure_parent_dir_exists(&self) -> eyre::Result<()>;
+    async fn exists_async(&self) -> eyre::Result<bool>;
 }
-impl<T: AsRef<Path>> Existy for T {
+#[async_trait::async_trait]
+impl<T: AsRef<Path>> Existy for T where T: Sync {
     async fn ensure_dir_exists(&self) -> eyre::Result<()> {
         let path = self.as_ref();
         debug("Ensuring path exist: {path:?}");
@@ -107,6 +109,24 @@ impl<T: AsRef<Path>> Existy for T {
         } else {
             bail!("Could not acquire parent for {}", self.as_ref().display());
         }
+    }
+    async fn exists_async(&self) -> eyre::Result<bool> {
+        tokio::fs::try_exists(&self).await.wrap_err(format!(
+            "Checking if path exists: {:?}",
+            self.as_ref() as &Path
+        ))
+    }
+}
+#[async_trait::async_trait]
+impl Existy for AppDir {
+    async fn ensure_dir_exists(&self) -> eyre::Result<()> {
+        self.as_path_buf().ensure_dir_exists().await
+    }
+    async fn ensure_parent_dir_exists(&self) -> eyre::Result<()> {
+        self.as_path_buf().ensure_parent_dir_exists().await
+    }
+    async fn exists_async(&self) -> eyre::Result<bool> {
+        self.as_path_buf().exists_async().await
     }
 }
 

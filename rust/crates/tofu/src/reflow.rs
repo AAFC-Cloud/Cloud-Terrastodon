@@ -1,7 +1,10 @@
 use cloud_terrastodon_core_azure::prelude::fetch_all_users;
+use cloud_terrastodon_core_tofu_types::prelude::TFUsersLookupBody;
+use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
 use eyre::Context;
 use eyre::Result;
 use hcl::edit::structure::Body;
+use hcl::edit::structure::BodyBuilder;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit_mut::VisitMut;
 use std::collections::HashSet;
@@ -9,7 +12,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs;
-use tracing::info;
+use tracing::debug;
 use tracing::instrument;
 
 use crate::azuredevops_git_repository_initialization_patcher::AzureDevOpsGitRepositoryInitializationPatcher;
@@ -20,28 +23,63 @@ use crate::default_attribute_removal_patcher::DefaultAttributeRemovalPatcher;
 use crate::import_lookup_holder::ImportLookupHolder;
 use crate::imported_resource_reference_patcher::ImportedResourceReferencePatcher;
 use crate::json_patcher::JsonPatcher;
+use crate::terraform_block_extracter_patcher::TerraformBlockExtracterPatcher;
 use crate::user_id_reference_patcher::UserIdReferencePatcher;
 
-#[instrument(level = "trace")]
-pub async fn reflow_workspace(
-    source_dir: &Path,
-    dest_dir: &Path,
-) -> Result<Vec<(PathBuf, String)>> {
-    let mut rtn = Vec::new();
+pub struct ReflowedTFWorkspace {
+    pub main: Body,
+    pub users: TFUsersLookupBody,
+    pub boilerplate: TofuTerraformBlock,
+}
+impl ReflowedTFWorkspace {
+    pub fn get_file_contents(
+        self,
+        destination_dir: impl AsRef<Path>,
+    ) -> eyre::Result<Vec<(PathBuf, String)>> {
+        let dest_dir = destination_dir.as_ref();
+        let mut rtn = Vec::new();
 
-    info!("Assembling body for parsing");
-    let mut body = as_single_body(source_dir).await?;
-    {
-        info!("Updating json string literals to use jsonencode");
-        let mut json_patcher = JsonPatcher;
-        json_patcher.visit_body_mut(&mut body);
+        rtn.push((dest_dir.join("main.tf"), self.main.to_string_pretty()?));
+
+        if !self.users.is_empty() {
+            let body: Body = self.users.into();
+            rtn.push((dest_dir.join("users.tf"), body.to_string_pretty()?));
+        }
+
+        if !self.boilerplate.is_empty() {
+            let body = BodyBuilder::default().block(self.boilerplate).build();
+            rtn.push((dest_dir.join("boilerplate.tf"), body.to_string_pretty()?));
+        }
+
+        Ok(rtn)
     }
-    {
-        info!("Gathering import blocks to discover IDs");
-        let mut lookups = ImportLookupHolder::default();
-        lookups.visit_body(&body);
+}
 
-        info!("Updating strings from hardcoded IDs to reference resource blocks instead");
+#[instrument(level = "trace")]
+pub async fn reflow_workspace(source_dir: &Path) -> Result<ReflowedTFWorkspace> {
+    debug!("Assembling body for parsing");
+    let mut main_body = as_single_body(source_dir).await?;
+    let users_body;
+    let boilerplate_body;
+    {
+        debug!("Extracting terraform config blocks");
+        let mut patcher = TerraformBlockExtracterPatcher::default();
+        patcher.visit_body_mut(&mut main_body);
+        boilerplate_body = patcher.terraform_block;
+    }
+
+    {
+        debug!("Updating json string literals to use jsonencode");
+        let mut json_patcher = JsonPatcher;
+        json_patcher.visit_body_mut(&mut main_body);
+    }
+
+    {
+        debug!("Gathering import blocks to discover IDs");
+        let mut lookups = ImportLookupHolder::default();
+        lookups.visit_body(&main_body);
+
+        debug!("Updating strings from hardcoded IDs to reference resource blocks instead");
         let mut import_reference_patcher = ImportedResourceReferencePatcher::new(
             lookups,
             ["policy_definition_id", "scope"]
@@ -49,65 +87,66 @@ pub async fn reflow_workspace(
                 .map(|x| x.to_string())
                 .collect(),
         );
-        import_reference_patcher.visit_body_mut(&mut body);
+        import_reference_patcher.visit_body_mut(&mut main_body);
 
-        info!("Creating data blocks for hardcoded IDs without a matching resource block");
+        debug!("Creating data blocks for hardcoded IDs without a matching resource block");
         let (data_blocks, data_references) =
             create_data_blocks_for_ids(&import_reference_patcher.missing_entries).await?;
 
-        info!("Adding new data blocks to body");
+        debug!("Adding new data blocks to body");
         for block in data_blocks.into_blocks() {
-            body.push(block);
+            main_body.push(block);
         }
 
-        info!("Updating string from hardcoded IDs to reference data blocks instead");
+        debug!("Updating string from hardcoded IDs to reference data blocks instead");
         let mut data_reference_patcher = DataReferencePatcher {
             lookup: data_references,
         };
-        data_reference_patcher.visit_body_mut(&mut body);
+        data_reference_patcher.visit_body_mut(&mut main_body);
     }
+
     {
-        info!("Fetching users to perform user ID substitution");
+        debug!("Fetching users to perform user ID substitution");
         let users = fetch_all_users()
             .await?
             .into_iter()
             .map(|user| (user.id, user.user_principal_name))
             .collect();
 
-        info!("Performing user ID substitution");
+        debug!("Performing user ID substitution");
         let mut user_reference_patcher = UserIdReferencePatcher {
             user_principal_name_by_user_id: users,
             used: HashSet::default(),
         };
-        user_reference_patcher.visit_body_mut(&mut body);
+        user_reference_patcher.visit_body_mut(&mut main_body);
 
-        info!("Building user lookup");
-        if let Some(body) = user_reference_patcher.build_lookup_blocks()? {
-            info!("Appending users.tf to output");
-            rtn.push((dest_dir.join("users.tf"), body.to_string_pretty()?));
+        debug!("Building user lookup");
+        if let Some(new_users_body) = user_reference_patcher.build_lookup_blocks()? {
+            debug!("Appending users.tf to output");
+            users_body = new_users_body;
         } else {
-            info!("No users referenced, lookup not needed");
+            debug!("No users referenced, lookup not needed");
+            users_body = Default::default();
         }
     }
+
     {
-        info!("Pruning default/conflicting properties");
+        debug!("Pruning default/conflicting properties");
         let mut patcher = DefaultAttributeRemovalPatcher {};
-        patcher.visit_body_mut(&mut body);
+        patcher.visit_body_mut(&mut main_body);
     }
+
     {
-        info!("Fixing azuredevops_git_repository initialization blocks");
+        debug!("Fixing azuredevops_git_repository initialization blocks");
         let mut patcher = AzureDevOpsGitRepositoryInitializationPatcher;
-        patcher.visit_body_mut(&mut body);
+        patcher.visit_body_mut(&mut main_body);
     }
 
-    info!("Formatting pretty body");
-    let pretty_body = body.to_string_pretty()?;
-    let entry = (dest_dir.join("generated.tf"), pretty_body);
-
-    info!("Appending generated.tf to output");
-    rtn.push(entry);
-
-    Ok(rtn)
+    Ok(ReflowedTFWorkspace {
+        main: main_body,
+        users: users_body,
+        boilerplate: boilerplate_body,
+    })
 }
 
 pub async fn as_single_body(source_dir: impl AsRef<Path>) -> Result<Body> {
@@ -118,10 +157,10 @@ pub async fn as_single_body(source_dir: impl AsRef<Path>) -> Result<Body> {
     while let Some(entry) = found.next_entry().await? {
         let path = entry.path();
         if !path.is_file() || path.extension() != Some(OsStr::new("tf")) {
-            info!("Skipping {}", path.display());
+            debug!("Skipping {}", path.display());
             continue;
         }
-        info!("Adding {} to body", path.display());
+        debug!("Adding {} to body", path.display());
         let contents = fs::read(&path)
             .await
             .context(format!("reading {}", path.display()))?;

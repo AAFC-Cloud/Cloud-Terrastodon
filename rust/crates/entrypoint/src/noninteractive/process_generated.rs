@@ -30,10 +30,10 @@ pub async fn process_generated() -> Result<()> {
     let workspace_path: PathBuf = AppDir::Imports.into();
 
     // Determine output files
-    let files = reflow_workspace(&workspace_path, &out_dir).await?;
+    let reflowed = reflow_workspace(&workspace_path).await?;
 
     // Write files
-    let error_count = write_many_contents(files).await?;
+    let error_count = write_many_contents(reflowed.get_file_contents(&out_dir)?).await?;
 
     // Format the files
     CommandBuilder::new(CommandKind::Tofu)

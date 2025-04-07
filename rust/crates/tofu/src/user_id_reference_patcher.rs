@@ -1,15 +1,12 @@
 use cloud_terrastodon_core_azure::prelude::UserId;
-use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
+use cloud_terrastodon_core_tofu_types::prelude::TFUsersLookupBody;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;
 use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrastodon_core_tofu_types::prelude::TofuDataBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuResourceKind;
-use cloud_terrastodon_core_tofu_types::prelude::TryAsTofuBlocks;
 use eyre::Result;
 use hcl::edit::Decorate;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;
-use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::visit_mut::visit_block_mut;
 use std::collections::HashMap;
@@ -22,41 +19,18 @@ pub struct UserIdReferencePatcher {
 }
 impl UserIdReferencePatcher {
     /// Returns None if no user references were transformed.
-    pub fn build_lookup_blocks(&mut self) -> Result<Option<Body>> {
+    pub fn build_lookup_blocks(&mut self) -> Result<Option<TFUsersLookupBody>> {
         if self.used.is_empty() {
             return Ok(None);
         }
-
-        let mut body = Body::with_capacity(2);
-
-        let data_block = TofuDataBlock::UserLookup {
-            label: "users".to_string(),
+        Ok(Some(TFUsersLookupBody {
             user_principal_names: self
                 .used
                 .iter()
                 .filter_map(|x| self.user_principal_name_by_user_id.get(x))
                 .map(|x| x.to_string())
                 .collect(),
-        }
-        .as_tofu_string();
-
-        // No need to use indoc to strip indent because this gets parsed into body
-        let local_block = r#"
-            locals {
-                users = {
-                    for user in data.azuread_users.users.users :
-                    user.user_principal_name => user.object_id
-                }
-            }
-        "#;
-
-        [data_block.as_str(), local_block]
-            .into_iter()
-            .filter_map(|x| x.try_as_tofu_blocks().ok())
-            .flatten()
-            .for_each(|x| body.push(x));
-
-        Ok(Some(body))
+        }))
     }
 
     fn convert_array(&mut self, array: &mut Array) {

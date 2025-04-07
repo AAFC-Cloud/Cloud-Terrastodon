@@ -2,8 +2,8 @@ use cloud_terrastodon_core_azure::prelude::ScopeImpl;
 use hcl::edit::structure::Block;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit::visit_block;
+use tracing::trace;
 use std::collections::HashMap;
-use tracing::warn;
 
 #[derive(Default)]
 pub struct ImportLookupHolder {
@@ -39,7 +39,7 @@ impl Visit for ImportLookupHolder {
 
         // Add to lookup table
         let Ok(scope) = id.parse() else {
-            warn!("Failed to interpret id as scope: {id:?}");
+            trace!("Failed to interpret id as scope: {id:?}");
             return;
         };
         self.track(scope, to);

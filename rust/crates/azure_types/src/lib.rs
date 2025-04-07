@@ -42,9 +42,11 @@ mod test_resource;
 mod users;
 mod uuid_macros;
 mod uuid_wrapper;
+mod accounts;
 
 pub mod prelude {
     pub use crate::duration::*;
+    pub use crate::accounts::*;
     pub use crate::metrics::*;
     pub use crate::oauth2_permission_grants::*;
     pub use crate::oauth2_permission_scopes::*;

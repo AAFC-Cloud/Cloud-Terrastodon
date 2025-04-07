@@ -8,6 +8,7 @@ use hcl::edit::structure::Body;
 use hcl::edit::structure::Structure;
 use hcl_primitives::Ident;
 use itertools::Itertools;
+use tracing::warn;
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct TofuTerraformBlock {
@@ -18,6 +19,40 @@ pub struct TofuTerraformBlock {
 impl TofuTerraformBlock {
     pub fn is_empty(&self) -> bool {
         self.backend.is_none() && self.required_providers.is_none() && self.other.is_empty()
+    }
+    pub fn assert_is_terraform_block(block: &Block) -> eyre::Result<()> {
+        if block.ident.to_string() != "terraform" {
+            bail!("Block must use 'terraform' ident");
+        }
+        if !block.labels.is_empty() {
+            bail!("Block must have exactly zero labels");
+        }
+        Ok(())
+    }
+    pub fn try_merge(&mut self, other: TofuTerraformBlock) -> eyre::Result<()> {
+        match (&self.backend, other.backend) {
+            (None, None) => {}
+            (None, Some(right)) => self.backend = Some(right),
+            (Some(_), None) => {}
+            (Some(left), Some(right)) => {
+                if *left != right {
+                    bail!(
+                        "Failed to merge, incongruent backend blocks detected.\nleft: {left:#?}\nright: {right:#?}"
+                    );
+                }
+            }
+        }
+        match (&mut self.required_providers, other.required_providers) {
+            (None, None) => {}
+            (None, Some(right)) => self.required_providers = Some(right),
+            (Some(_), None) => {}
+            (Some(ref mut left), Some(right)) => left.try_merge(right)?,
+        }
+        if !other.other.is_empty() {
+            warn!("Merge logic for other stuff in terraform blocks may result in duplication!");
+            self.other.extend(other.other);
+        }
+        Ok(())
     }
 }
 impl From<TofuTerraformBlock> for Block {
@@ -38,12 +73,7 @@ impl TryFrom<Block> for TofuTerraformBlock {
     type Error = eyre::Error;
 
     fn try_from(block: Block) -> eyre::Result<Self> {
-        if block.ident.to_string() != "terraform" {
-            bail!("Block must use 'terraform' ident");
-        }
-        if !block.labels.is_empty() {
-            bail!("Block must have exactly zero labels");
-        }
+        TofuTerraformBlock::assert_is_terraform_block(&block)?;
         let mut other: Vec<Structure> = Vec::new();
         let mut backend: Option<TofuTerraformBackendBlock> = None;
         let mut required_providers: Option<TofuTerraformRequiredProvidersBlock> = None;

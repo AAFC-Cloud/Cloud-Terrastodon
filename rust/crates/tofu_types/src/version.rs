@@ -355,7 +355,7 @@ impl TofuTerraformRequiredProvidersBlock {
     pub fn empty() -> Self {
         Self(Default::default())
     }
-    pub fn merge_entry(
+    pub fn try_merge_entry(
         &mut self,
         key: String,
         value: TofuTerraformProviderVersionObject,
@@ -382,9 +382,9 @@ impl TofuTerraformRequiredProvidersBlock {
         }
         Ok(())
     }
-    pub fn merge(&mut self, other: TofuTerraformRequiredProvidersBlock) -> eyre::Result<()> {
+    pub fn try_merge(&mut self, other: TofuTerraformRequiredProvidersBlock) -> eyre::Result<()> {
         for (key, version) in other.0.into_iter() {
-            self.merge_entry(key, version)?;
+            self.try_merge_entry(key, version)?;
         }
         Ok(())
     }
@@ -393,7 +393,7 @@ impl TofuTerraformRequiredProvidersBlock {
     ) -> eyre::Result<Self> {
         let mut rtn = TofuTerraformRequiredProvidersBlock::empty();
         for required_providers in iter.into_iter() {
-            rtn.merge(required_providers)?;
+            rtn.try_merge(required_providers)?;
         }
         Ok(rtn)
     }

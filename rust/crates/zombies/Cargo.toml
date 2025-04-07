@@ -1,0 +1,12 @@
+[package]
+name = "cloud_terrastodon_core_zombies"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sysinfo = "0.34.2"
+cloud_terrastodon_core_user_input = { workspace = true }
+cloud_terrastodon_core_pathing = { workspace = true }
+eyre = { workspace = true }
+itertools = { workspace = true }
+tracing = { workspace = true }

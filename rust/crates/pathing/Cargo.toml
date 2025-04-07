@@ -10,3 +10,4 @@ tokio = { workspace = true }
 clap = { workspace = true }
 once_cell = { workspace = true }
 directories-next = { workspace = true }
+async-trait.workspace = true

@@ -7,12 +7,13 @@ edition = "2021"
 
 [dependencies]
 cloud_terrastodon_core_user_input = { workspace = true }
-cloud_terrastodon_core_tofu = { workspace = true } 
+cloud_terrastodon_core_tofu = { workspace = true }
 cloud_terrastodon_core_azure = { workspace = true }
 cloud_terrastodon_core_azure_devops = { workspace = true }
-cloud_terrastodon_core_command = { workspace = true } 
+cloud_terrastodon_core_command = { workspace = true }
 cloud_terrastodon_core_pathing = { workspace = true }
 cloud_terrastodon_core_config = { workspace = true }
+cloud_terrastodon_core_zombies = { workspace = true }
 cloud_terrastodon_ui = { workspace = true }
 eyre = { workspace = true }
 chrono = { workspace = true }
