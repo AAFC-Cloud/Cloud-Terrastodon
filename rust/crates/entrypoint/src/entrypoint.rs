@@ -14,7 +14,8 @@ use clap::CommandFactory;
 use clap::FromArgMatches;
 use cloud_terrastodon_core_config::Config;
 use cloud_terrastodon_core_pathing::AppDir;
-use cloud_terrastodon_ui::prelude::ui_main;
+use cloud_terrastodon_ui_egui::egui_main;
+use cloud_terrastodon_ui_ratatui::prelude::ui_main;
 use eyre::Context;
 use eyre::Result;
 use std::fs::canonicalize;
@@ -48,8 +49,11 @@ pub async fn entrypoint(version: Version) -> Result<()> {
             menu_loop().await?;
         }
         Some(command) => match command {
-            Commands::V2 => {
+            Commands::Ratatui => {
                 ui_main().await?;
+            }
+            Commands::Egui => {
+                egui_main().await?;
             }
             Commands::Clean => {
                 clean().await?;

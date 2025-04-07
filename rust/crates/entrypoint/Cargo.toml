@@ -14,7 +14,8 @@ cloud_terrastodon_core_command = { workspace = true }
 cloud_terrastodon_core_pathing = { workspace = true }
 cloud_terrastodon_core_config = { workspace = true }
 cloud_terrastodon_core_zombies = { workspace = true }
-cloud_terrastodon_ui = { workspace = true }
+cloud_terrastodon_ui_egui = { workspace = true }
+cloud_terrastodon_ui_ratatui = { workspace = true }
 eyre = { workspace = true }
 chrono = { workspace = true }
 itertools = { workspace = true }

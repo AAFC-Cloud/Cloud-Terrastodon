@@ -16,7 +16,8 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    V2,
+    Ratatui,
+    Egui,
     Clean,
     WriteAllImports,
     PerformCodeGenerationFromImports,
