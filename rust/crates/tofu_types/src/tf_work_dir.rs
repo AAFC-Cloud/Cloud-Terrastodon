@@ -2,6 +2,24 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
+#[derive(Debug)]
+pub enum TFWorkDirInitializationState {
+    NotInitialized,
+    Initialized,
+}
+
+#[derive(Debug)]
+pub enum TFWorkDirValidationState {
+    NotValidated,
+    Validated,
+}
+
+#[derive(Debug)]
+pub enum TFWorkDirKind {
+    ForImporting,
+    Reified
+}
+
 #[derive(Debug, Clone)]
 pub struct FreshTFWorkDir(PathBuf);
 impl From<&Path> for FreshTFWorkDir {
