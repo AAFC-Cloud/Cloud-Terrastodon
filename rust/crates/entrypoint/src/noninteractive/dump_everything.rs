@@ -260,7 +260,10 @@ async fn process_generated_many(
     }
     while let Some(write_result) = write_jobs.join_next().await {
         write_result??;
-        info!("Writing processed files, {} tasks remain...", write_jobs.len());
+        info!(
+            "Writing processed files, {} tasks remain...",
+            write_jobs.len()
+        );
     }
 
     Ok(rtn)

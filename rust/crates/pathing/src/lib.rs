@@ -75,7 +75,10 @@ pub trait Existy {
     async fn exists_async(&self) -> eyre::Result<bool>;
 }
 #[async_trait::async_trait]
-impl<T: AsRef<Path>> Existy for T where T: Sync {
+impl<T: AsRef<Path>> Existy for T
+where
+    T: Sync,
+{
     async fn ensure_dir_exists(&self) -> eyre::Result<()> {
         let path = self.as_ref();
         debug("Ensuring path exist: {path:?}");

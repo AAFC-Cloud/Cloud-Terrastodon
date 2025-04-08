@@ -17,7 +17,7 @@ pub enum TFWorkDirValidationState {
 #[derive(Debug)]
 pub enum TFWorkDirKind {
     ForImporting,
-    Reified
+    Reified,
 }
 
 #[derive(Debug, Clone)]

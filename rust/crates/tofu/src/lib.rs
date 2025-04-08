@@ -14,10 +14,10 @@ mod json_patcher;
 mod provider_manager;
 mod reflow;
 mod sorting;
+mod terraform_block_extracter_patcher;
 mod user_id_reference_patcher;
 mod work_dir_lifecycle;
 mod writer;
-mod terraform_block_extracter_patcher;
 pub mod prelude {
     pub use crate::block_lister::*;
     pub use crate::import_builder::*;

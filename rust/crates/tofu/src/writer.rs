@@ -10,10 +10,10 @@ use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use itertools::Itertools;
-use tokio::fs::File;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
+use tokio::fs::File;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
@@ -57,8 +57,7 @@ impl TofuWriter {
         } else {
             content.as_tofu_string()
         };
-        file
-            .write_all(content.as_bytes())
+        file.write_all(content.as_bytes())
             .await
             .context("writing content")?;
         Ok(())

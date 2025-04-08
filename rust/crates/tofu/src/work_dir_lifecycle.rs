@@ -16,18 +16,18 @@ use cloud_terrastodon_core_tofu_types::prelude::TofuBlock;
 use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformProviderVersionObject;
 use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
 use cloud_terrastodon_core_tofu_types::prelude::ValidatedTFWorkDir;
-use eyre::bail;
 use eyre::Context;
 use eyre::OptionExt;
+use eyre::bail;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use tracing::debug;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
+use tracing::debug;
 use tracing::info;
 use tracing::warn;
 
@@ -148,7 +148,10 @@ pub async fn validate_work_dirs(
             validate_cmd.use_run_dir(&dir);
             validate_cmd.arg("validate");
             let permit = rate_limit.acquire().await?;
-            validate_cmd.run_raw().await.wrap_err(format!("Validating dir: {}", dir.display()))?;
+            validate_cmd
+                .run_raw()
+                .await
+                .wrap_err(format!("Validating dir: {}", dir.display()))?;
             drop(permit);
             Ok(())
         });
