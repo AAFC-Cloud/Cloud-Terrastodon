@@ -39,8 +39,10 @@ mod subscriptions;
 mod tags;
 mod tenants;
 mod users;
+mod accounts;
 pub mod prelude {
     pub use crate::auth::*;
+    pub use crate::accounts::*;
     pub use crate::batch_api::*;
     pub use crate::cost_management::*;
     pub use crate::create_role_assignment::*;

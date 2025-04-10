@@ -1,36 +1,37 @@
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::Value;
 use uuid::Uuid;
 
 use crate::tenants::TenantId;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Account {
     #[serde(rename = "cloudName")]
-    cloud_name: String,
+    pub cloud_name: String,
     #[serde(rename = "homeTenantId")]
-    home_tenant_id: TenantId,
-    id: Uuid,
+    pub home_tenant_id: TenantId,
+    pub id: Uuid,
     #[serde(rename = "isDefault")]
-    is_default: bool,
+    pub is_default: bool,
     #[serde(rename = "managedByTenants")]
-    managed_by_tenants: String,
-    name: String,
-    state: String,
+    pub managed_by_tenants: Vec<Value>,
+    pub name: String,
+    pub state: String,
     #[serde(rename = "tenantId")]
-    tenant_id: String,
-    user: AccountUser,
+    pub tenant_id: TenantId,
+    pub user: AccountUser,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct TenantIdHolder {
     #[serde(rename = "tenantId")]
     pub tenant_id: TenantId,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AccountUser {
-    name: String,
+    pub name: String,
     // #[serde(rename="type")]
     // kind: UserKind,
 }
