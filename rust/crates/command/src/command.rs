@@ -676,6 +676,7 @@ impl CommandBuilder {
                         "AADSTS70043",
                         "No subscription found. Run 'az account set' to select a subscription.",
                         "Please run 'az login' to setup account.",
+                        "ERROR: (pii). Status: Response_Status.Status_InteractionRequired, Error code: 3399614467",
                     ]
                     .into_iter()
                     .any(|x| output.stderr.contains_str(x)) =>
@@ -707,6 +708,7 @@ impl CommandBuilder {
                                 .run_raw()
                                 .await?
                                 .stdout;
+                            let tenant_id = tenant_id.trim();
                             if tenant_id.is_empty() {
                                 warn!(
                                     "Failed to find tenant ID from default account, the login command without tenant ID has been flaky for me .-. trying anyways"
@@ -811,7 +813,10 @@ impl CommandBuilder {
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
                 Err(eyre::Error::new(e)
-                    .wrap_err(format!("Called from {}", RelativeLocation::from(std::panic::Location::caller())))
+                    .wrap_err(format!(
+                        "Called from {}",
+                        RelativeLocation::from(std::panic::Location::caller())
+                    ))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}",
                         self.summarize(),
