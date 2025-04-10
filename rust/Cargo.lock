@@ -907,6 +907,7 @@ dependencies = [
  "chrono",
  "cloud_terrastodon_core_config",
  "cloud_terrastodon_core_pathing",
+ "cloud_terrastodon_core_relative_location",
  "cloud_terrastodon_core_user_input",
  "eyre",
  "humantime",
@@ -981,6 +982,10 @@ dependencies = [
  "tokio",
  "tracing",
 ]
+
+[[package]]
+name = "cloud_terrastodon_core_relative_location"
+version = "0.1.0"
 
 [[package]]
 name = "cloud_terrastodon_core_tofu"

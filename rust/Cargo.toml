@@ -22,6 +22,7 @@ cloud_terrastodon_core_user_input = { version = "0.1.0", path = "./crates/user_i
 cloud_terrastodon_core_command = { version = "0.1.0", path = "./crates/command" }
 cloud_terrastodon_core_entrypoint = { version = "0.1.0", path = "./crates/entrypoint" }
 cloud_terrastodon_core_zombies = { version = "0.1.0", path = "./crates/zombies" }
+cloud_terrastodon_core_relative_location = { version = "0.1.0", path = "./crates/relative_location" }
 cloud_terrastodon_ui_ratatui = { version = "0.1.0", path = "./crates/ui_ratatui" }
 cloud_terrastodon_ui_egui = { version = "0.1.0", path = "./crates/ui_egui" }
 anyhow = "1.0.82"

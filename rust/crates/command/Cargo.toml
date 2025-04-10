@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 cloud_terrastodon_core_pathing = { workspace = true }
 cloud_terrastodon_core_config = { workspace = true }
+cloud_terrastodon_core_relative_location = { workspace = true }
 tokio = { workspace = true } 
 eyre = { workspace = true } 
 serde = { workspace = true }

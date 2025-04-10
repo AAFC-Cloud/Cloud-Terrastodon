@@ -7,6 +7,7 @@ use chrono::Local;
 use cloud_terrastodon_core_config::Config;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_pathing::Existy;
+use cloud_terrastodon_core_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::Error;
 use eyre::Result;
@@ -214,6 +215,7 @@ impl CommandOutput {
         #[cfg(not(windows))]
         return ExitStatus::from_raw(self.status).success();
     }
+    #[track_caller]
     pub async fn try_interpret<T: DeserializeOwned>(
         &self,
         command: &CommandBuilder,
@@ -223,7 +225,10 @@ impl CommandOutput {
             Err(e) => {
                 let dir = command.write_failure(self).await?;
                 Err(eyre::Error::new(e)
-                    // .wrap_err(format!("Called from {}", std::panic::Location::caller()))
+                    .wrap_err(format!(
+                        "Called from {}",
+                        RelativeLocation::from(std::panic::Location::caller())
+                    ))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}",
                         command.summarize(),
@@ -348,7 +353,7 @@ impl CommandBuilder {
                 warn!(
                     "Cache path contains a space which is discouraged because VSCode's terminal ctrl-click behaviour reliability suffers\nPath: {}\nAt: {}\nFor: {}",
                     path.display(),
-                    // format!("{}:{}", Location::caller().file(), Location::caller().line()),
+                    // RelativeLocation::from(std::panic::Location::caller())
                     Backtrace::force_capture(),
                     self.summarize()
                 );
@@ -689,11 +694,40 @@ impl CommandBuilder {
                             );
 
                             // Perform login command
-                            // (avoid using login fn from azure crate to avoid a dependency)
-                            CommandBuilder::new(CommandKind::AzureCLI)
-                                .arg("login")
+                            // (avoid using azure crate to avoid a dependency)
+                            let tenant_id = CommandBuilder::new(CommandKind::AzureCLI)
+                                .args([
+                                    "account",
+                                    "list",
+                                    "--query",
+                                    "[?isDefault].tenantId",
+                                    "--output",
+                                    "tsv",
+                                ])
                                 .run_raw()
-                                .await?;
+                                .await?
+                                .stdout;
+                            if tenant_id.is_empty() {
+                                warn!(
+                                    "Failed to find tenant ID from default account, the login command without tenant ID has been flaky for me .-. trying anyways"
+                                );
+                                CommandBuilder::new(CommandKind::AzureCLI)
+                                    .arg("login")
+                                    .run_raw()
+                                    .await?;
+                            } else {
+                                CommandBuilder::new(CommandKind::AzureCLI)
+                                    .args([
+                                        "login",
+                                        "--tenant",
+                                        tenant_id
+                                            .to_str()
+                                            .wrap_err("converting tenant id to str")?,
+                                    ])
+                                    .run_raw()
+                                    .await?;
+                            }
+
                             drop(x);
                         }
                         Err(_) => {
@@ -752,10 +786,10 @@ impl CommandBuilder {
     pub async fn run_raw(&self) -> Result<CommandOutput> {
         self.run_raw_inner()
             .await
-            // .wrap_err(format!(
-            //     "Command::run_raw failed, called from {}",
-            //     std::panic::Location::caller()
-            // ))
+            .wrap_err(format!(
+                "Command::run_raw failed, called from {}",
+                RelativeLocation::from(std::panic::Location::caller())
+            ))
             .wrap_err(format!("Invoking command failed: {}", self.summarize()))
     }
 
@@ -766,13 +800,10 @@ impl CommandBuilder {
     {
         // Get stdout
         let output = self.run_raw().await;
-        // #[cfg(debug_assertions)]
-        // let output = output.wrap_err(format!(
-        //     "Command::run failed, called from {}",
-        //     std::panic::Location::caller()
-        // ))?;
-        // #[cfg(not(debug_assertions))]
-        let output = output?;
+        let output = output.wrap_err(format!(
+            "Command::run failed, called from {}",
+            RelativeLocation::from(std::panic::Location::caller())
+        ))?;
 
         // Parse
         match serde_json::from_slice(output.stdout.to_str_lossy().as_bytes()) {
@@ -780,7 +811,7 @@ impl CommandBuilder {
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
                 Err(eyre::Error::new(e)
-                    // .wrap_err(format!("Called from {}", std::panic::Location::caller()))
+                    .wrap_err(format!("Called from {}", RelativeLocation::from(std::panic::Location::caller())))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}",
                         self.summarize(),
