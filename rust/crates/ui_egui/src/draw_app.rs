@@ -54,6 +54,9 @@ impl MyApp {
                             on_failure: UpdateSubscriptionsFailure,
                         }
                         .enqueue(app);
+                        crate::work::FieldUpdaterWorkBuilder::new()
+                            .field(|app| &mut app.subscriptions)
+                            .build();
                     }
                     expando
                         .clone()

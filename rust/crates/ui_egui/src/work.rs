@@ -70,3 +70,60 @@ where
         handle
     }
 }
+
+#[derive(Default)]
+pub struct FieldUpdaterWorkBuilder<T, E, Getter, OnEnqueue, OnWork>
+where
+    Getter: Fn(&mut MyApp) -> &mut Loadable<T, E>,
+{
+    pub getter: Option<Getter>,
+    pub on_enqueue: Option<OnEnqueue>,
+}
+impl<T, E, Getter, OnEnqueue, OnWork> FieldUpdaterWorkBuilder<T, E, Getter, OnEnqueue, OnWork>
+where
+    Getter: Fn(&mut MyApp) -> &mut Loadable<T, E>,
+    OnWork: Future<Output = Result<T, E>> + Send + 'static,
+    OnWork::Output: Send + 'static,
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn field(&mut self, getter: Getter) -> &mut Self {
+        self.getter = Some(getter);
+        self
+    }
+    pub fn build(
+        self,
+    ) -> eyre::Result<
+        Work<_, _, FieldUpdaterWorkSuccessMutator<T>, _, _, FieldUpdaterWorkFailureMutator<E>>,
+    > {
+        let Some(getter) = self.getter else {
+            bail!("Getter was not set!");
+        };
+        let work = Work {
+            on_enqueue: |app| {
+                let field = getter(app);
+                *field = Loadable::Loading;
+            },
+            on_work: async { Ok(()) },
+            on_failure: |e| {},
+        };
+        Ok(work)
+    }
+}
+
+#[derive(Debug)]
+struct FieldUpdaterWorkSuccessMutator<T>(T);
+impl<T: std::fmt::Debug + Send + Sync> StateMutator for FieldUpdaterWorkSuccessMutator<T> {
+    fn mutate_state(self: Box<Self>, state: &mut MyApp) {
+        state.subscriptions = Loadable::Loaded(self.0.into_iter().map(|x| (false, x)).collect());
+    }
+}
+
+#[derive(Debug)]
+struct FieldUpdaterWorkFailureMutator<E>(E);
+impl<E: std::fmt::Debug + Send + Sync> StateMutator for FieldUpdaterWorkFailureMutator<E> {
+    fn mutate_state(self: Box<Self>, state: &mut MyApp) {
+        state.subscriptions = Loadable::Failed(self.0)
+    }
+}
