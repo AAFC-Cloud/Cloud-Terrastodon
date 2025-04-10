@@ -8,47 +8,56 @@ use eframe::egui::collapsing_header::CollapsingState;
 use tracing::debug;
 
 use crate::app::MyApp;
-use crate::app_message::AppMessage;
 use crate::loadable::Loadable;
 use crate::state_mutator::StateMutator;
+use crate::work::Work;
 
 impl MyApp {
     pub fn draw_app(&mut self, ctx: &eframe::egui::Context) {
+        let app = self;
         Window::new("Starting Points").show(ctx, |ui| {
             ScrollArea::both().show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     let mut expando = CollapsingState::load_with_default_open(
                         ctx,
                         "subscriptions".into(),
-                        self.toggle_subscriptions_expando,
+                        app.toggle_subscriptions_expando,
                     );
-                    if self.toggle_subscriptions_expando {
+                    if app.toggle_subscriptions_expando {
                         expando.toggle(&ui);
-                        self.toggle_subscriptions_expando = false;
+                        app.toggle_subscriptions_expando = false;
                     }
                     let is_open = expando.is_open();
-                    if is_open && matches!(self.subscriptions, Loadable::NotLoaded) {
-                        let tx = self.tx.clone();
+                    if is_open && matches!(app.subscriptions, Loadable::NotLoaded) {
                         #[derive(Debug)]
-                        struct UpdateSubscriptions(Vec<Subscription>);
-                        impl StateMutator for UpdateSubscriptions {
+                        struct UpdateSubscriptionsSuccess(Vec<Subscription>);
+                        impl StateMutator for UpdateSubscriptionsSuccess {
                             fn mutate_state(self: Box<Self>, state: &mut MyApp) {
                                 state.subscriptions = Loadable::Loaded(
                                     self.0.into_iter().map(|x| (false, x)).collect(),
                                 );
                             }
                         }
-                        self.try_thing(async move {
-                            let subscriptions = fetch_all_subscriptions().await?;
-                            tx.send(AppMessage::update_state(UpdateSubscriptions(subscriptions)))?;
-                            Ok(())
-                        });
-                        self.subscriptions = Loadable::Loading;
+                        #[derive(Debug)]
+                        struct UpdateSubscriptionsFailure(eyre::ErrReport);
+                        impl StateMutator for UpdateSubscriptionsFailure {
+                            fn mutate_state(self: Box<Self>, state: &mut MyApp) {
+                                state.subscriptions = Loadable::Failed(self.0)
+                            }
+                        }
+                        Work {
+                            on_enqueue: |app| app.subscriptions = Loadable::Loading,
+                            on_work: async move {
+                                let subscriptions = fetch_all_subscriptions().await?;
+                                Ok(UpdateSubscriptionsSuccess(subscriptions))
+                            },
+                            on_failure: UpdateSubscriptionsFailure,
+                        }
+                        .enqueue(app);
                     }
-
                     expando
                         .clone()
-                        .show_header(ui, |ui| match &mut self.subscriptions {
+                        .show_header(ui, |ui| match &mut app.subscriptions {
                             Loadable::Loaded(subs) => {
                                 let mut all = subs.iter().all(|(checked, _)| *checked);
                                 let any = subs.iter().any(|(checked, _)| *checked);
@@ -66,12 +75,12 @@ impl MyApp {
                                 let elem = ui.label("Subscriptions");
                                 if elem.clicked() {
                                     debug!("Clicked on subscriptions");
-                                    self.toggle_subscriptions_expando = true;
+                                    app.toggle_subscriptions_expando = true;
                                 };
                             }
                         })
                         .body(|ui| {
-                            ui.vertical(|ui| match &mut self.subscriptions {
+                            ui.vertical(|ui| match &mut app.subscriptions {
                                 Loadable::NotLoaded => {
                                     ui.label("Not loaded");
                                 }
@@ -82,6 +91,9 @@ impl MyApp {
                                     for (checked, sub) in subs.iter_mut() {
                                         ui.checkbox(checked, sub.to_string());
                                     }
+                                }
+                                Loadable::Failed(err) => {
+                                    ui.label(&format!("Error: {}", err));
                                 }
                             });
                         });

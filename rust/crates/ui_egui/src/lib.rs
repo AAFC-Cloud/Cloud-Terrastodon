@@ -3,6 +3,7 @@ pub mod app_message;
 pub mod draw_app;
 pub mod loadable;
 pub mod state_mutator;
+pub mod work;
 
 use app::MyApp;
 use eframe::NativeOptions;

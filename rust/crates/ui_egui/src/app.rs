@@ -10,7 +10,7 @@ use tracing::error;
 #[derive(Debug)]
 pub struct MyApp {
     pub toggle_subscriptions_expando: bool,
-    pub subscriptions: Loadable<Vec<(bool, Subscription)>>,
+    pub subscriptions: Loadable<Vec<(bool, Subscription)>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,
     pub rx: UnboundedReceiver<AppMessage>,
 }
