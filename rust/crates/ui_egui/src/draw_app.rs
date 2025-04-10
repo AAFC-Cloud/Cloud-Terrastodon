@@ -1,4 +1,3 @@
-use cloud_terrastodon_core_azure::prelude::Subscription;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use eframe::egui::Checkbox;
 use eframe::egui::ScrollArea;
@@ -6,11 +5,10 @@ use eframe::egui::Widget;
 use eframe::egui::Window;
 use eframe::egui::collapsing_header::CollapsingState;
 use tracing::debug;
-
+use tracing::info;
 use crate::app::MyApp;
+use crate::loadable_work::LoadableWorkBuilder;
 use crate::loadable::Loadable;
-use crate::state_mutator::StateMutator;
-use crate::work::Work;
 
 impl MyApp {
     pub fn draw_app(&mut self, ctx: &eframe::egui::Context) {
@@ -29,34 +27,17 @@ impl MyApp {
                     }
                     let is_open = expando.is_open();
                     if is_open && matches!(app.subscriptions, Loadable::NotLoaded) {
-                        #[derive(Debug)]
-                        struct UpdateSubscriptionsSuccess(Vec<Subscription>);
-                        impl StateMutator for UpdateSubscriptionsSuccess {
-                            fn mutate_state(self: Box<Self>, state: &mut MyApp) {
-                                state.subscriptions = Loadable::Loaded(
-                                    self.0.into_iter().map(|x| (false, x)).collect(),
-                                );
-                            }
-                        }
-                        #[derive(Debug)]
-                        struct UpdateSubscriptionsFailure(eyre::ErrReport);
-                        impl StateMutator for UpdateSubscriptionsFailure {
-                            fn mutate_state(self: Box<Self>, state: &mut MyApp) {
-                                state.subscriptions = Loadable::Failed(self.0)
-                            }
-                        }
-                        Work {
-                            on_enqueue: |app| app.subscriptions = Loadable::Loading,
-                            on_work: async move {
-                                let subscriptions = fetch_all_subscriptions().await?;
-                                Ok(UpdateSubscriptionsSuccess(subscriptions))
-                            },
-                            on_failure: UpdateSubscriptionsFailure,
-                        }
-                        .enqueue(app);
-                        crate::work::FieldUpdaterWorkBuilder::new()
+                        info!("Queueing work to fetch subscriptions");
+                        LoadableWorkBuilder::new()
                             .field(|app| &mut app.subscriptions)
-                            .build();
+                            .work(async move {
+                                let subs = fetch_all_subscriptions().await?;
+                                // default to not-expanded
+                                Ok(subs.into_iter().map(|sub| (false, sub)).collect())
+                            })
+                            .build()
+                            .unwrap()
+                            .enqueue(app);
                     }
                     expando
                         .clone()

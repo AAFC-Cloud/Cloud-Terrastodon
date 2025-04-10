@@ -4,6 +4,7 @@ pub mod draw_app;
 pub mod loadable;
 pub mod state_mutator;
 pub mod work;
+pub mod loadable_work;
 
 use app::MyApp;
 use eframe::NativeOptions;
