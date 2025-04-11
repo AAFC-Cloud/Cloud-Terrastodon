@@ -4,8 +4,9 @@ pub mod draw_app;
 pub mod loadable;
 pub mod loadable_work;
 pub mod state_mutator;
-pub mod work;
+pub mod widgets;
 pub mod windows;
+pub mod work;
 pub mod workers;
 
 use app::MyApp;

@@ -3,30 +3,16 @@ use crate::loadable::Loadable;
 use crate::workers::load_resource_groups::load_resource_groups;
 use crate::workers::load_subscriptions::load_subscriptions;
 use cloud_terrastodon_core_azure::prelude::Subscription;
-use cloud_terrastodon_core_azure::prelude::SubscriptionId;
 use eframe::egui;
 use eframe::egui::Checkbox;
 use eframe::egui::Context;
 use eframe::egui::Id;
-use eframe::egui::ScrollArea;
 use eframe::egui::Ui;
 use eframe::egui::Widget;
-use eframe::egui::Window;
 use eframe::egui::collapsing_header::CollapsingState;
-use std::hash::Hash;
 use tracing::debug;
 
-pub fn draw_subscriptions_window(app: &mut MyApp, ctx: &Context) {
-    Window::new("Starting Points").show(ctx, |ui| {
-        ScrollArea::both().show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                draw_subscription_list_expando(app, ctx, ui);
-            })
-        });
-    });
-}
-
-fn draw_subscription_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
+pub fn draw_subscription_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
     let mut expando = CollapsingState::load_with_default_open(ctx, "subscriptions".into(), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
