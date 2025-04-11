@@ -21,3 +21,4 @@ tracing = { workspace = true }
 crossterm = { workspace = true }
 futures = { workspace = true }
 eframe = "0.31.1"
+egui_extras = { version = "0.31.1", features = ["default", "image"] }

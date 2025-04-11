@@ -2,9 +2,9 @@ pub mod app;
 pub mod app_message;
 pub mod draw_app;
 pub mod loadable;
+pub mod loadable_work;
 pub mod state_mutator;
 pub mod work;
-pub mod loadable_work;
 
 use app::MyApp;
 use eframe::NativeOptions;
@@ -22,7 +22,12 @@ pub async fn egui_main() -> eyre::Result<()> {
         eframe::run_native(
             "MyApp",
             native_options,
-            Box::new(|cc| Ok(Box::new(MyApp::new(cc)))),
+            Box::new(|cc| {
+                // This gives us image support:
+                egui_extras::install_image_loaders(&cc.egui_ctx);
+
+                Ok(Box::new(MyApp::new(cc)))
+            }),
         )
     }) {
         bail!("Failed to run app: {e:#?}");

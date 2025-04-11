@@ -1,4 +1,8 @@
+use crate::app::MyApp;
+use crate::loadable::Loadable;
+use crate::loadable_work::LoadableWorkBuilder;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
+use eframe::egui;
 use eframe::egui::Checkbox;
 use eframe::egui::ScrollArea;
 use eframe::egui::Widget;
@@ -6,9 +10,6 @@ use eframe::egui::Window;
 use eframe::egui::collapsing_header::CollapsingState;
 use tracing::debug;
 use tracing::info;
-use crate::app::MyApp;
-use crate::loadable_work::LoadableWorkBuilder;
-use crate::loadable::Loadable;
 
 impl MyApp {
     pub fn draw_app(&mut self, ctx: &eframe::egui::Context) {
@@ -43,6 +44,16 @@ impl MyApp {
                         .clone()
                         .show_header(ui, |ui| match &mut app.subscriptions {
                             Loadable::Loaded(subs) => {
+                                if ui
+                                    .image(egui::include_image!(
+                                        "../assets/10002-icon-service-Subscriptions-4x.png"
+                                    ))
+                                    .clicked()
+                                {
+                                    debug!("Clicked on subscription icon");
+                                    app.toggle_subscriptions_expando = true;
+                                }
+
                                 let mut all = subs.iter().all(|(checked, _)| *checked);
                                 let any = subs.iter().any(|(checked, _)| *checked);
                                 let indeterminate = any && !all;
@@ -56,9 +67,18 @@ impl MyApp {
                                 }
                             }
                             _ => {
+                                if ui
+                                    .image(egui::include_image!(
+                                        "../assets/10002-icon-service-Subscriptions-4x.png"
+                                    ))
+                                    .clicked()
+                                {
+                                    debug!("Clicked on subscription header icon");
+                                    app.toggle_subscriptions_expando = true;
+                                }
                                 let elem = ui.label("Subscriptions");
                                 if elem.clicked() {
-                                    debug!("Clicked on subscriptions");
+                                    debug!("Clicked on subscriptions header text");
                                     app.toggle_subscriptions_expando = true;
                                 };
                             }
@@ -73,7 +93,15 @@ impl MyApp {
                                 }
                                 Loadable::Loaded(subs) => {
                                     for (checked, sub) in subs.iter_mut() {
-                                        ui.checkbox(checked, sub.to_string());
+                                        ui.horizontal(|ui| {
+                                            if ui.image(egui::include_image!(
+                                                "../assets/10002-icon-service-Subscriptions-4x.png"
+                                            )).clicked() {
+                                                debug!("Clicked on subscription icon");
+                                                *checked ^= true;
+                                            }
+                                            ui.checkbox(checked, sub.to_string());
+                                        });
                                     }
                                 }
                                 Loadable::Failed(err) => {
