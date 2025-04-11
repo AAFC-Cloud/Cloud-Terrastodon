@@ -10,8 +10,9 @@ use crate::loadable::Loadable;
 pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
     Window::new("Selected Items").show(ctx, |ui| {
         ScrollArea::both().show(ui, |ui| {
-            if let Loadable::Loaded(subscriptions) = &mut app.subscriptions {
-                for (checked, sub) in subscriptions.iter_mut() {
+            if let Loadable::Loaded(subscriptions) = &app.subscriptions {
+                for subscription in subscriptions.clone().iter() {
+                    let checked = app.checkbox_for(&subscription.id);
                     if !*checked {
                         continue;
                     }
@@ -25,7 +26,7 @@ pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
                             debug!("Clicked on subscription icon");
                             *checked ^= true;
                         }
-                        ui.checkbox(checked, sub.to_string());
+                        ui.checkbox(checked, subscription.to_string());
                     });
                 }
             }

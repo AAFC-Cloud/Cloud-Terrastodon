@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::hash::Hash;
+use std::rc::Rc;
 
 use crate::app_message::AppMessage;
 use crate::loadable::Loadable;
@@ -17,8 +19,8 @@ use tracing::error;
 pub struct MyApp {
     pub toggle_intents: HashSet<Id>,
     pub checkboxes: HashMap<Id, bool>,
-    pub subscriptions: Loadable<Vec<(bool, Subscription)>, eyre::ErrReport>,
-    pub resource_groups: Loadable<HashMap<SubscriptionId, Vec<(bool, ResourceGroup)>>, eyre::ErrReport>,
+    pub subscriptions: Loadable<Rc<Vec<Subscription>>, eyre::ErrReport>,
+    pub resource_groups: Loadable<HashMap<SubscriptionId, Vec<ResourceGroup>>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,
     pub rx: UnboundedReceiver<AppMessage>,
 }
@@ -49,6 +51,9 @@ impl MyApp {
             result
         });
         handle
+    }
+    pub fn checkbox_for(&mut self, key: impl Hash) -> &mut bool {
+        self.checkboxes.entry(Id::new(key)).or_default()
     }
 }
 

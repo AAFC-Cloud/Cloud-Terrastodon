@@ -1,16 +1,17 @@
+use std::rc::Rc;
 use crate::app::MyApp;
 use crate::loadable_work::LoadableWorkBuilder;
+use cloud_terrastodon_core_azure::prelude::Subscription;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
 use tracing::info;
 
 pub fn load_subscriptions(app: &mut MyApp) {
     info!("Queueing work to fetch subscriptions");
-    LoadableWorkBuilder::new()
-        .field(|app| &mut app.subscriptions)
+    LoadableWorkBuilder::<Vec<Subscription>>::new()
+        .setter(|app, data| app.subscriptions = data.map(Rc::new))
         .work(async move {
             let subs = fetch_all_subscriptions().await?;
-            // default to not-expanded
-            Ok(subs.into_iter().map(|sub| (false, sub)).collect())
+            Ok(subs)
         })
         .build()
         .unwrap()

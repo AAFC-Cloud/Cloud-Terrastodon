@@ -15,7 +15,7 @@ where
     T: Debug + Send,
 {
     /// A function that, given `&mut MyApp`, returns the `&mut Loadable<T,E>` that we want to update.
-    getter: Option<Arc<dyn Fn(&mut MyApp) -> &mut Loadable<T, eyre::Error> + Send + Sync>>,
+    setter: Option<Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) -> () + Send + Sync>>,
     /// The async work that fetches a `T` or errors with `E`.
     on_work: Option<(
         &'static Location<'static>,
@@ -29,18 +29,16 @@ where
 {
     pub fn new() -> Self {
         Self {
-            getter: None,
+            setter: None,
             on_work: None,
         }
     }
 
-    /// Provide a function that returns the field you want to update, e.g.
-    /// `.field(|app| &mut app.subscriptions)`.
-    pub fn field<G>(mut self, getter: G) -> Self
+    pub fn setter<G>(mut self, setter: G) -> Self
     where
-        G: Fn(&mut MyApp) -> &mut Loadable<T, eyre::Error> + Send + Sync + 'static,
+        G: Fn(&mut MyApp,Loadable<T, eyre::Error>) -> () + Send + Sync + 'static,
     {
-        self.getter = Some(Arc::new(getter));
+        self.setter = Some(Arc::new(setter));
         self
     }
 
@@ -73,34 +71,33 @@ where
             impl Fn(eyre::Error) -> FieldUpdaterWorkFailureMutator<T> + Send,
         >,
     > {
-        let Some(getter) = self.getter else {
-            bail!("Getter was not set!");
+        let Some(setter) = self.setter else {
+            bail!("Setter was not set!");
         };
         let Some((location, on_work)) = self.on_work else {
             bail!("Work future was not set!");
         };
 
         // We'll clone the `Arc` so the future closure and the on_enqueue closure can both own it.
-        let getter_for_enqueue = getter.clone();
-        let getter_for_failure = getter.clone();
+        let setter_for_enqueue = setter.clone();
+        let setter_for_failure = setter.clone();
 
         // Build the final `Work`:
         let work = Work {
             location,
             on_enqueue: move |app: &mut MyApp| {
-                let field = (getter_for_enqueue)(app);
-                *field = Loadable::Loading;
+                (setter_for_enqueue)(app, Loadable::Loading);
             },
             on_work: async move {
                 let data = on_work.await?;
                 Ok(FieldUpdaterWorkSuccessMutator {
                     data,
-                    getter: getter.clone(),
+                    setter,
                 })
             },
             on_failure: move |err| FieldUpdaterWorkFailureMutator {
                 err,
-                getter: getter_for_failure.clone(),
+                setter: setter_for_failure.clone(),
             },
         };
         Ok(work)
@@ -110,7 +107,7 @@ where
 /// A success mutator that just sets the chosen field to Loaded(data).
 pub struct FieldUpdaterWorkSuccessMutator<T> {
     pub data: T,
-    pub getter: Arc<dyn Fn(&mut MyApp) -> &mut Loadable<T, eyre::Error> + Send + Sync>,
+    pub setter: Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) -> () + Send + Sync>,
 }
 impl<T> Debug for FieldUpdaterWorkSuccessMutator<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -124,7 +121,7 @@ impl<T> Debug for FieldUpdaterWorkSuccessMutator<T> {
 /// A failure mutator that sets the chosen field to Failed(err).
 pub struct FieldUpdaterWorkFailureMutator<T> {
     pub err: eyre::Error,
-    pub getter: Arc<dyn Fn(&mut MyApp) -> &mut Loadable<T, eyre::Error> + Send + Sync>,
+    pub setter: Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) -> () + Send + Sync>,
 }
 impl<T> Debug for FieldUpdaterWorkFailureMutator<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -140,8 +137,7 @@ where
     T: std::fmt::Debug + Send + 'static,
 {
     fn mutate_state(self: Box<Self>, state: &mut MyApp) {
-        let field = (self.getter)(state);
-        *field = Loadable::Loaded(self.data);
+        (self.setter)(state,Loadable::Loaded(self.data))
     }
 }
 
@@ -150,7 +146,6 @@ where
     T: std::fmt::Debug + Send + 'static,
 {
     fn mutate_state(self: Box<Self>, state: &mut MyApp) {
-        let field = (self.getter)(state);
-        *field = Loadable::Failed(self.err);
+        (self.setter)(state,Loadable::Failed(self.err))
     }
 }

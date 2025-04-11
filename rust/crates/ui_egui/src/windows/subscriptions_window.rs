@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use crate::app::MyApp;
 use crate::loadable::Loadable;
 use crate::workers::load_resource_groups::load_resource_groups;
@@ -15,6 +13,7 @@ use eframe::egui::Ui;
 use eframe::egui::Widget;
 use eframe::egui::Window;
 use eframe::egui::collapsing_header::CollapsingState;
+use std::hash::Hash;
 use tracing::debug;
 
 pub fn draw_subscriptions_window(app: &mut MyApp, ctx: &Context) {
@@ -46,8 +45,9 @@ fn draw_subscription_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
 }
 
 fn draw_subscription_list_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
-    match &mut app.subscriptions {
+    match &app.subscriptions {
         Loadable::Loaded(subs) => {
+            let subs = subs.clone();
             if ui
                 .image(egui::include_image!(
                     "../../assets/10002-icon-service-Subscriptions-4x.png"
@@ -58,15 +58,15 @@ fn draw_subscription_list_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_ke
                 app.toggle_intents.insert(toggle_key);
             }
 
-            let mut all = subs.iter().all(|(checked, _)| *checked);
-            let any = subs.iter().any(|(checked, _)| *checked);
+            let mut all = subs.iter().all(|sub| *app.checkbox_for(&sub.id));
+            let any = subs.iter().any(|sub| *app.checkbox_for(&sub.id));
             let indeterminate = any && !all;
             let elem = Checkbox::new(&mut all, "Subscriptions")
                 .indeterminate(indeterminate)
                 .ui(ui);
             if elem.changed() {
-                for (sub_checked, _) in subs.iter_mut() {
-                    *sub_checked = all;
+                for sub in subs.iter() {
+                    *app.checkbox_for(&sub.id) = all
                 }
             }
         }
@@ -90,7 +90,7 @@ fn draw_subscription_list_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_ke
 }
 
 fn draw_subscription_list_expando_body(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
-    ui.vertical(|ui| match &mut app.subscriptions {
+    ui.vertical(|ui| match &app.subscriptions {
         Loadable::NotLoaded => {
             ui.label("Not loaded");
         }
@@ -98,19 +98,9 @@ fn draw_subscription_list_expando_body(app: &mut MyApp, ctx: &Context, ui: &mut 
             ui.label("Loading...");
         }
         Loadable::Loaded(subs) => {
-            for (checked, subscription) in subs.iter_mut() {
-                ui.horizontal(|ui| {
-                    if ui
-                        .image(egui::include_image!(
-                            "../../assets/10002-icon-service-Subscriptions-4x.png"
-                        ))
-                        .clicked()
-                    {
-                        debug!("Clicked on subscription icon");
-                        *checked ^= true;
-                    }
-                    ui.checkbox(checked, subscription.to_string());
-                });
+            let subs = subs.clone();
+            for subscription in subs.iter() {
+                draw_subscription_list_expando_body_entry(app, ctx, ui, subscription);
             }
         }
         Loadable::Failed(err) => {
@@ -124,9 +114,8 @@ fn draw_subscription_list_expando_body_entry(
     ctx: &Context,
     ui: &mut Ui,
     subscription: &Subscription,
-    checked: &mut bool,
 ) {
-    draw_subscription_expando(app, ctx, ui, subscription, checked);
+    draw_subscription_expando(app, ctx, ui, subscription);
 }
 
 fn draw_subscription_expando(
@@ -134,7 +123,6 @@ fn draw_subscription_expando(
     ctx: &Context,
     ui: &mut Ui,
     subscription: &Subscription,
-    checked: &mut bool,
 ) {
     let mut expando =
         CollapsingState::load_with_default_open(ctx, Id::new(subscription.id.clone()), false);
@@ -148,8 +136,24 @@ fn draw_subscription_expando(
     }
     expando
         .clone()
-        .show_header(ui, |ui| {})
-        .body(|ui| draw_subscription_list_expando_body(app, ctx, ui));
+        .show_header(ui, |ui| {
+            ui.horizontal(|ui| {
+                let checked = app.checkbox_for(&subscription.id);
+                if ui
+                    .image(egui::include_image!(
+                        "../../assets/10002-icon-service-Subscriptions-4x.png"
+                    ))
+                    .clicked()
+                {
+                    debug!("Clicked on subscription icon");
+                    *checked ^= true;
+                }
+                ui.checkbox(checked, subscription.to_string());
+            });
+        })
+        .body(|ui| {
+            ui.label("Subscription details");
+        });
 }
 
 // fn draw_resource_groups_expando(
