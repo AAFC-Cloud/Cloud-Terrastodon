@@ -8,6 +8,7 @@ pub mod widgets;
 pub mod windows;
 pub mod work;
 pub mod workers;
+pub mod icons;
 
 use app::MyApp;
 use eframe::NativeOptions;

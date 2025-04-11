@@ -1,6 +1,6 @@
 use crate::app::MyApp;
 use crate::widgets::devops_project_list_expando::draw_devops_project_list_expando;
-use crate::widgets::subscription_list_expando::draw_subscription_list_expando;
+use crate::widgets::subscription_checkbox_list_expando::draw_subscription_list_expando;
 use eframe::egui::Context;
 use eframe::egui::ScrollArea;
 use eframe::egui::Window;

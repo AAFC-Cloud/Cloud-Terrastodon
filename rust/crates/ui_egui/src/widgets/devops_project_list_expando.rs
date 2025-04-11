@@ -1,4 +1,5 @@
 use crate::app::MyApp;
+use crate::icons::DEVOPS_ICON;
 use crate::loadable::Loadable;
 use crate::workers::load_azure_devops_projects::load_azure_devops_projects;
 use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProject;
@@ -10,9 +11,6 @@ use eframe::egui::Ui;
 use eframe::egui::Widget;
 use eframe::egui::collapsing_header::CollapsingState;
 use tracing::debug;
-
-const ICON_ASSET: egui::ImageSource =
-    egui::include_image!("../../assets/10261-icon-service-Azure-DevOps-4x.png");
 
 pub fn draw_devops_project_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
     let mut expando =
@@ -35,7 +33,7 @@ fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
     match &app.azure_devops_projects {
         Loadable::Loaded(projects) => {
             let projects = projects.clone();
-            if ui.image(ICON_ASSET).clicked() {
+            if ui.image(DEVOPS_ICON).clicked() {
                 app.toggle_intents.insert(toggle_key);
             }
 
@@ -52,7 +50,7 @@ fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
             }
         }
         _ => {
-            if ui.image(ICON_ASSET).clicked() {
+            if ui.image(DEVOPS_ICON).clicked() {
                 debug!("Clicked on Azure DevOps Projects header icon");
                 app.toggle_intents.insert(toggle_key);
             }
@@ -89,7 +87,7 @@ fn draw_entry(app: &mut MyApp, ctx: &Context, ui: &mut Ui, project: &AzureDevOps
     ui.horizontal(|ui| {
         let label = format!("{}", project.name);
         let checked = app.checkbox_for(&project.id);
-        if ui.image(ICON_ASSET).clicked() {
+        if ui.image(DEVOPS_ICON).clicked() {
             debug!("Clicked on Azure DevOps Project icon");
             *checked ^= true;
         }
