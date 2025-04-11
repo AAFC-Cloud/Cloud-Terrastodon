@@ -20,7 +20,7 @@ pub struct MyApp {
     pub toggle_intents: HashSet<Id>,
     pub checkboxes: HashMap<Id, bool>,
     pub subscriptions: Loadable<Rc<Vec<Subscription>>, eyre::ErrReport>,
-    pub resource_groups: Loadable<HashMap<SubscriptionId, Vec<ResourceGroup>>, eyre::ErrReport>,
+    pub resource_groups: Loadable<Rc<HashMap<SubscriptionId, Vec<ResourceGroup>>>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,
     pub rx: UnboundedReceiver<AppMessage>,
 }
