@@ -1,6 +1,12 @@
+use std::collections::HashMap;
+use std::collections::HashSet;
+
 use crate::app_message::AppMessage;
 use crate::loadable::Loadable;
+use cloud_terrastodon_core_azure::prelude::ResourceGroup;
 use cloud_terrastodon_core_azure::prelude::Subscription;
+use cloud_terrastodon_core_azure::prelude::SubscriptionId;
+use eframe::egui::Id;
 use eframe::App;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
@@ -9,8 +15,10 @@ use tracing::error;
 
 #[derive(Debug)]
 pub struct MyApp {
-    pub toggle_subscriptions_expando: bool,
+    pub toggle_intents: HashSet<Id>,
+    pub checkboxes: HashMap<Id, bool>,
     pub subscriptions: Loadable<Vec<(bool, Subscription)>, eyre::ErrReport>,
+    pub resource_groups: Loadable<HashMap<SubscriptionId, Vec<(bool, ResourceGroup)>>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,
     pub rx: UnboundedReceiver<AppMessage>,
 }
@@ -19,8 +27,10 @@ impl MyApp {
     pub fn new(_cc: &eframe::CreationContext) -> Self {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
         Self {
-            toggle_subscriptions_expando: false,
+            toggle_intents: Default::default(),
+            checkboxes: Default::default(),
             subscriptions: Default::default(),
+            resource_groups: Default::default(),
             tx,
             rx,
         }
