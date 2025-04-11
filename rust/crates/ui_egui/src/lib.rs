@@ -5,6 +5,7 @@ pub mod loadable;
 pub mod loadable_work;
 pub mod state_mutator;
 pub mod work;
+pub mod windows;
 
 use app::MyApp;
 use eframe::NativeOptions;
