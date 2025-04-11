@@ -30,6 +30,26 @@ pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
                     });
                 }
             }
+            if let Loadable::Loaded(projects) = &app.azure_devops_projects {
+                for project in projects.clone().iter() {
+                    let checked = app.checkbox_for(&project.id);
+                    if !*checked {
+                        continue;
+                    }
+                    ui.horizontal(|ui| {
+                        if ui
+                            .image(egui::include_image!(
+                                "../../assets/10261-icon-service-Azure-DevOps-4x.png"
+                            ))
+                            .clicked()
+                        {
+                            debug!("Clicked on Azure DevOps Project icon");
+                            *checked ^= true;
+                        }
+                        ui.checkbox(checked, project.name.to_string());
+                    });
+                }
+            }
         });
     });
 }
