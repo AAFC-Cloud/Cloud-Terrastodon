@@ -43,9 +43,11 @@ mod test_resource;
 mod users;
 mod uuid_macros;
 mod uuid_wrapper;
+mod resource_group_map;
 
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::resource_group_map::*;
     pub use crate::duration::*;
     pub use crate::metrics::*;
     pub use crate::oauth2_permission_grants::*;
