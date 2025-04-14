@@ -6,12 +6,15 @@ use eframe::egui::ScrollArea;
 use eframe::egui::Window;
 
 pub fn draw_starting_points_window(app: &mut MyApp, ctx: &Context) {
-    Window::new("Starting Points").show(ctx, |ui| {
-        ScrollArea::both().show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                draw_subscription_list_expando(app, ctx, ui);
-                draw_devops_project_list_expando(app, ctx, ui);
-            })
+    Window::new("Starting Points")
+        .default_size((300.0, 450.0))
+        .collapsible(false)
+        .show(ctx, |ui| {
+            ScrollArea::both().show(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    draw_subscription_list_expando(app, ctx, ui);
+                    draw_devops_project_list_expando(app, ctx, ui);
+                })
+            });
         });
-    });
 }

@@ -1,16 +1,14 @@
+use crate::app_message::AppMessage;
+use crate::loadable::Loadable;
+use cloud_terrastodon_core_azure::prelude::ResourceGroupMap;
+use cloud_terrastodon_core_azure::prelude::Subscription;
+use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProject;
+use eframe::App;
+use eframe::egui::Id;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::rc::Rc;
-
-use crate::app_message::AppMessage;
-use crate::loadable::Loadable;
-use cloud_terrastodon_core_azure::prelude::ResourceGroup;
-use cloud_terrastodon_core_azure::prelude::Subscription;
-use cloud_terrastodon_core_azure::prelude::SubscriptionId;
-use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProject;
-use eframe::egui::Id;
-use eframe::App;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -22,7 +20,7 @@ pub struct MyApp {
     pub checkboxes: HashMap<Id, bool>,
     pub subscriptions: Loadable<Rc<Vec<Subscription>>, eyre::ErrReport>,
     pub azure_devops_projects: Loadable<Rc<Vec<AzureDevOpsProject>>, eyre::ErrReport>,
-    pub resource_groups: Loadable<Rc<HashMap<SubscriptionId, Vec<ResourceGroup>>>, eyre::ErrReport>,
+    pub resource_groups: Loadable<Rc<ResourceGroupMap>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,
     pub rx: UnboundedReceiver<AppMessage>,
 }

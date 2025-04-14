@@ -5,6 +5,8 @@ use eframe::egui::Window;
 use tracing::debug;
 
 use crate::app::MyApp;
+use crate::icons::RESOURCE_GROUP_ICON;
+use crate::icons::SUBSCRIPTION_ICON;
 use crate::loadable::Loadable;
 
 pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
@@ -18,15 +20,30 @@ pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
                     }
                     ui.horizontal(|ui| {
                         if ui
-                            .image(egui::include_image!(
-                                "../../assets/10002-icon-service-Subscriptions-4x.png"
-                            ))
+                            .image(SUBSCRIPTION_ICON)
                             .clicked()
                         {
                             debug!("Clicked on subscription icon");
                             *checked ^= true;
                         }
                         ui.checkbox(checked, subscription.to_string());
+                    });
+                }
+            }
+            if let Loadable::Loaded(resource_groups) = &app.resource_groups {
+                for resource_group in resource_groups.clone().values() {
+                    let checked = app.checkbox_for(&resource_group.id);
+                    if !*checked {
+                        continue;
+                    }
+                    ui.horizontal(|ui| {
+                        if ui
+                            .image(RESOURCE_GROUP_ICON)
+                            .clicked()
+                        {
+                            *checked ^= true;
+                        }
+                        ui.checkbox(checked, &resource_group.name);
                     });
                 }
             }

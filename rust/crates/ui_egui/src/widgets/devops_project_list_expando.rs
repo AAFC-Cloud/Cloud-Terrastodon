@@ -3,7 +3,6 @@ use crate::icons::DEVOPS_ICON;
 use crate::loadable::Loadable;
 use crate::workers::load_azure_devops_projects::load_azure_devops_projects;
 use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProject;
-use eframe::egui;
 use eframe::egui::Checkbox;
 use eframe::egui::Context;
 use eframe::egui::Id;
@@ -83,7 +82,7 @@ fn draw_expando_body(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
     });
 }
 
-fn draw_entry(app: &mut MyApp, ctx: &Context, ui: &mut Ui, project: &AzureDevOpsProject) {
+fn draw_entry(app: &mut MyApp, _ctx: &Context, ui: &mut Ui, project: &AzureDevOpsProject) {
     ui.horizontal(|ui| {
         let label = format!("{}", project.name);
         let checked = app.checkbox_for(&project.id);
