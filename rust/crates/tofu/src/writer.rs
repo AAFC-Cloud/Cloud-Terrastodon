@@ -211,7 +211,7 @@ impl TofuWriter {
         // Truncate and write merged content
         file.set_len(0).await?;
         file.seek(std::io::SeekFrom::Start(0)).await?;
-        file.write_all(result_body.as_tofu_string().as_bytes())
+        file.write_all(result_body.as_formatted_tofu_string().await?.as_bytes())
             .await
             .context("appending content")?;
         Ok(self)
