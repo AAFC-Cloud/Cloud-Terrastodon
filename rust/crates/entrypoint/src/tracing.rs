@@ -4,7 +4,8 @@ use tracing_subscriber::EnvFilter;
 
 pub fn init_tracing(cli: &Cli) {
     let level = if cli.debug {
-        std::env::set_var("RUST_BACKTRACE", "1");
+        std::env::set_var("RUST_BACKTRACE", "full");
+        // std::env::set_var("RUST_BACKTRACE", "1");
         LevelFilter::DEBUG
     } else {
         LevelFilter::INFO
