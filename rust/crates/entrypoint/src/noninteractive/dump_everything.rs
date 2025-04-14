@@ -65,8 +65,42 @@ pub async fn dump_everything() -> eyre::Result<()> {
     info!("Overall dump took {took}");
     Ok(rtn)
 }
-
+#[derive(VariantArray, Debug, Clone, Copy)]
+enum Strategy {
+    AllInOne,
+    Split,
+    Both,
+}
+impl Strategy {
+    fn split(&self) -> bool {
+        match self {
+            Strategy::AllInOne => false,
+            Strategy::Split => true,
+            Strategy::Both => true,
+        }
+    }
+    fn all_in_one(&self) -> bool {
+        match self {
+            Strategy::AllInOne => true,
+            Strategy::Split => false,
+            Strategy::Both => true,
+        }
+    }
+}
 pub async fn dump_everything_inner() -> eyre::Result<()> {
+    let strategy = pick(FzfArgs {
+        choices: Strategy::VARIANTS
+            .iter()
+            .cloned()
+            .map(|behaviour| Choice {
+                key: format!("{:?}", behaviour),
+                value: behaviour,
+            })
+            .collect(),
+        ..Default::default()
+    })?
+    .value;
+
     #[derive(VariantArray, Debug)]
     enum Behaviour {
         CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess,
@@ -111,10 +145,13 @@ pub async fn dump_everything_inner() -> eyre::Result<()> {
     let tf_work_dirs = match behaviour {
         Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
         | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess => {
-            write_all_import_blocks().await?
+            write_all_import_blocks(strategy).await?
         }
-        _ => discover_existing_dirs().await?,
+        _ => discover_existing_dirs(strategy).await?,
     };
+    if strategy.all_in_one() {
+        assert_eq!(tf_work_dirs.len(), 1);
+    }
 
     let should_init = matches!(
         behaviour,
@@ -327,46 +364,41 @@ async fn write_import_blocks(
     file_path: impl AsRef<Path>,
     import_blocks: impl IntoIterator<Item = impl Into<TofuImportBlock>>,
     all_in_one: UnboundedSender<Vec<TofuImportBlock>>,
+    strategy: Strategy,
 ) -> eyre::Result<()> {
     let import_blocks: Vec<TofuImportBlock> = import_blocks.into_iter().map(|x| x.into()).collect();
-    all_in_one.send(import_blocks.clone())?;
-    let len = import_blocks.len();
-    TofuWriter::new(&file_path)
-        .format_on_write()
-        .overwrite(import_blocks)
-        .await?;
-    debug!(
-        "Wrote {} import blocks to {}",
-        len,
-        file_path.as_ref().display()
-    );
+    if strategy.all_in_one() {
+        all_in_one.send(import_blocks.clone())?;
+    }
+    if strategy.split() {
+        let len = import_blocks.len();
+        TofuWriter::new(&file_path)
+            .format_on_write()
+            .overwrite(import_blocks)
+            .await?;
+        debug!(
+            "Wrote {} import blocks to {}",
+            len,
+            file_path.as_ref().display()
+        );
+    }
     Ok(())
 }
 
-async fn discover_existing_dirs() -> eyre::Result<Vec<FreshTFWorkDir>> {
-    let azure_devops_dir: PathBuf = AppDir::Imports.join("AzureDevOps");
-    let azure_portal_dir: PathBuf = AppDir::Imports.join("AzurePortal");
+async fn discover_existing_dirs(strategy: Strategy) -> eyre::Result<Vec<FreshTFWorkDir>> {
     let all_in_one_dir: PathBuf = AppDir::Imports.join("all_in_one");
     let mut rtn = Vec::new();
 
-    if all_in_one_dir.exists() {
+    if strategy.all_in_one() && all_in_one_dir.exists() {
         rtn.push(all_in_one_dir);
     }
-
-    if azure_devops_dir.exists() {
-        let mut project_dirs = read_dir(azure_devops_dir).await?;
-        while let Some(project_dir_entry) = project_dirs.next_entry().await? {
-            let kind = project_dir_entry.file_type().await?;
-            if !kind.is_dir() {
-                warn!(
-                    "Unexpected non-directory item found: {}",
-                    project_dir_entry.path().display()
-                );
-                continue;
-            }
-            let mut project_children = read_dir(project_dir_entry.path()).await?;
-            while let Some(aspect_entry) = project_children.next_entry().await? {
-                let kind = aspect_entry.file_type().await?;
+    if strategy.split() {
+        let azure_devops_dir: PathBuf = AppDir::Imports.join("AzureDevOps");
+        let azure_portal_dir: PathBuf = AppDir::Imports.join("AzurePortal");
+        if azure_devops_dir.exists() {
+            let mut project_dirs = read_dir(azure_devops_dir).await?;
+            while let Some(project_dir_entry) = project_dirs.next_entry().await? {
+                let kind = project_dir_entry.file_type().await?;
                 if !kind.is_dir() {
                     warn!(
                         "Unexpected non-directory item found: {}",
@@ -374,34 +406,45 @@ async fn discover_existing_dirs() -> eyre::Result<Vec<FreshTFWorkDir>> {
                     );
                     continue;
                 }
-                rtn.push(aspect_entry.path());
-            }
-        }
-    }
-    if azure_portal_dir.exists() {
-        let subscriptions_dir = azure_portal_dir.join("subscriptions");
-        if subscriptions_dir.exists() {
-            let mut subscription_dirs = read_dir(subscriptions_dir).await?;
-            while let Some(subscription_entry) = subscription_dirs.next_entry().await? {
-                let kind = subscription_entry.file_type().await?;
-                if !kind.is_dir() {
-                    warn!(
-                        "Unexpected non-directory item found: {}",
-                        subscription_entry.path().display()
-                    );
-                    continue;
-                }
-                let mut resource_groups = read_dir(subscription_entry.path()).await?;
-                while let Some(resource_group_entry) = resource_groups.next_entry().await? {
-                    let kind = resource_group_entry.file_type().await?;
+                let mut project_children = read_dir(project_dir_entry.path()).await?;
+                while let Some(aspect_entry) = project_children.next_entry().await? {
+                    let kind = aspect_entry.file_type().await?;
                     if !kind.is_dir() {
                         warn!(
                             "Unexpected non-directory item found: {}",
-                            resource_group_entry.path().display()
+                            project_dir_entry.path().display()
                         );
                         continue;
                     }
-                    rtn.push(resource_group_entry.path());
+                    rtn.push(aspect_entry.path());
+                }
+            }
+        }
+        if azure_portal_dir.exists() {
+            let subscriptions_dir = azure_portal_dir.join("subscriptions");
+            if subscriptions_dir.exists() {
+                let mut subscription_dirs = read_dir(subscriptions_dir).await?;
+                while let Some(subscription_entry) = subscription_dirs.next_entry().await? {
+                    let kind = subscription_entry.file_type().await?;
+                    if !kind.is_dir() {
+                        warn!(
+                            "Unexpected non-directory item found: {}",
+                            subscription_entry.path().display()
+                        );
+                        continue;
+                    }
+                    let mut resource_groups = read_dir(subscription_entry.path()).await?;
+                    while let Some(resource_group_entry) = resource_groups.next_entry().await? {
+                        let kind = resource_group_entry.file_type().await?;
+                        if !kind.is_dir() {
+                            warn!(
+                                "Unexpected non-directory item found: {}",
+                                resource_group_entry.path().display()
+                            );
+                            continue;
+                        }
+                        rtn.push(resource_group_entry.path());
+                    }
                 }
             }
         }
@@ -411,7 +454,7 @@ async fn discover_existing_dirs() -> eyre::Result<Vec<FreshTFWorkDir>> {
     Ok(rtn)
 }
 
-async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
+async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Writing all import blocks; fetching a lot of data");
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
         fetch_all_azure_devops_projects(),
@@ -450,66 +493,67 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
         let project_dir = azure_devops_dir.join(project.name.replace(" ", "-"));
 
         let project_creation_dir = project_dir.join("project_creation");
-        project_creation_dir.ensure_dir_exists().await?;
-
         let project_repos_dir = project_dir.join("repos");
-        project_repos_dir.ensure_dir_exists().await?;
-
         let project_teams_dir = project_dir.join("teams");
-        project_teams_dir.ensure_dir_exists().await?;
 
         let project_tf_file = project_creation_dir.join("project.tf");
         let repos_tf_file = project_repos_dir.join("repos.tf");
         let teams_tf_file = project_teams_dir.join("teams.tf");
 
-        tf_work_dirs.push(project_creation_dir.clone());
-        tf_work_dirs.push(project_repos_dir.clone());
-        tf_work_dirs.push(project_teams_dir.clone());
+        if strategy.split() {
+            project_creation_dir.ensure_dir_exists().await?;
+            project_repos_dir.ensure_dir_exists().await?;
+            project_teams_dir.ensure_dir_exists().await?;
 
-        join_set.spawn(async move {
-            try {
-                let provider_manager = ProviderManager::try_new()?;
-                provider_manager
-                    .write_default_provider_configs(&project_creation_dir)
-                    .await?;
-            }
-        });
-        join_set.spawn(async move {
-            try {
-                let provider_manager = ProviderManager::try_new()?;
+            tf_work_dirs.push(project_creation_dir.clone());
+            tf_work_dirs.push(project_repos_dir.clone());
+            tf_work_dirs.push(project_teams_dir.clone());
 
-                provider_manager
-                    .write_default_provider_configs(&project_repos_dir)
-                    .await?;
-            }
-        });
+            join_set.spawn(async move {
+                try {
+                    let provider_manager = ProviderManager::try_new()?;
+                    provider_manager
+                        .write_default_provider_configs(&project_creation_dir)
+                        .await?;
+                }
+            });
+            join_set.spawn(async move {
+                try {
+                    let provider_manager = ProviderManager::try_new()?;
+
+                    provider_manager
+                        .write_default_provider_configs(&project_repos_dir)
+                        .await?;
+                }
+            });
+            join_set.spawn(async move {
+                try {
+                    let provider_manager = ProviderManager::try_new()?;
+                    provider_manager
+                        .write_default_provider_configs(&project_teams_dir)
+                        .await?;
+                }
+            });
+        }
+
+        let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
             try {
-                let provider_manager = ProviderManager::try_new()?;
-                provider_manager
-                    .write_default_provider_configs(&project_teams_dir)
-                    .await?;
+                write_import_blocks(project_tf_file, vec![project], sender, strategy).await?;
             }
         });
 
         let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
             try {
-                write_import_blocks(project_tf_file, vec![project], sender).await?;
+                write_import_blocks(repos_tf_file, repos, sender, strategy).await?;
             }
         });
 
         let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
             try {
-                write_import_blocks(repos_tf_file, repos, sender).await?;
-            }
-        });
-
-        let sender = all_in_one_imports_tx.clone();
-        join_set.spawn(async move {
-            try {
-                write_import_blocks(teams_tf_file, teams, sender).await?;
+                write_import_blocks(teams_tf_file, teams, sender, strategy).await?;
             }
         });
     }
@@ -533,7 +577,9 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
         };
         let subscription_dir = subscriptions_dir.join(sub.name.replace(" ", "-"));
         let resource_group_dir = subscription_dir.join(rg.name.replace(" ", "-"));
-        tf_work_dirs.push(resource_group_dir.clone());
+        if strategy.split() {
+            tf_work_dirs.push(resource_group_dir.clone());
+        }
 
         let boilerplate_file = resource_group_dir.join("boilerplate.tf");
         let resource_group_import_file = resource_group_dir.join("resource-group.tf");
@@ -546,15 +592,18 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
         let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
             try {
-                TofuWriter::new(&boilerplate_file)
-                    .format_on_write()
-                    .merge([azurerm_provider_block])
-                    .await?;
+                if strategy.split() {
+                    TofuWriter::new(&boilerplate_file)
+                        .format_on_write()
+                        .merge([azurerm_provider_block])
+                        .await?;
+                }
 
                 write_import_blocks(
                     resource_group_import_file,
                     [resource_group_import_block],
                     sender,
+                    strategy,
                 )
                 .await?;
             }
@@ -563,9 +612,8 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
 
     info!("Prepping all-in-one dir");
     let all_in_one_dir = AppDir::Imports.join("all_in_one");
-    tf_work_dirs.push(all_in_one_dir.clone());
-
-    {
+    if strategy.all_in_one() {
+        tf_work_dirs.push(all_in_one_dir.clone());
         let all_in_one_dir = all_in_one_dir.clone();
         join_set.spawn(async move {
             try {
@@ -580,29 +628,32 @@ async fn write_all_import_blocks() -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Waiting for tasks to finish...");
     while let Some(result) = join_set.join_next().await {
         result??;
-        info!("{} file write tasks remaining...", join_set.len());
+        info!("{} import write tasks remaining...", join_set.len());
     }
     all_in_one_imports_rx.close();
 
     info!("Writing the all-in-one");
-    let all_in_one_file = all_in_one_dir.join("all-in-one.tf");
-    let mut import_blocks: Vec<TofuImportBlock> = vec![];
-    while let Some(import_block) = all_in_one_imports_rx.recv().await {
-        import_blocks.extend(import_block);
-    }
-    let mut together: Vec<TofuBlock> = Vec::new();
-    for block in provider_blocks {
-        together.push(block.into());
-    }
-    for block in import_blocks {
-        together.push(block.into());
-    }
+    if strategy.all_in_one() {
+        let all_in_one_file = all_in_one_dir.join("all-in-one.tf");
+        let mut import_blocks: Vec<TofuImportBlock> = vec![];
+        while let Some(import_block) = all_in_one_imports_rx.recv().await {
+            import_blocks.extend(import_block);
+        }
+        let mut together: Vec<TofuBlock> = Vec::new();
+        for block in provider_blocks {
+            together.push(block.into());
+        }
+        for block in import_blocks {
+            together.push(block.into());
+        }
 
-    TofuWriter::new(&all_in_one_file)
-        .format_on_write()
-        .merge(together)
-        .await?;
-
+        TofuWriter::new(&all_in_one_file)
+            .format_on_write()
+            .merge(together)
+            .await?;
+    } else {
+        assert!(all_in_one_imports_rx.is_empty());
+    }
     info!("All done!");
 
     Ok(tf_work_dirs
