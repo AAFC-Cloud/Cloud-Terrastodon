@@ -153,7 +153,7 @@ pub async fn as_single_body(source_dir: impl AsRef<Path>) -> Result<Body> {
     let mut body = Body::new();
 
     // Read all files in source dir and append to body
-    let mut found = fs::read_dir(source_dir).await?;
+    let mut found = fs::read_dir(&source_dir).await.wrap_err(source_dir.as_ref().display().to_string())?;
     while let Some(entry) = found.next_entry().await? {
         let path = entry.path();
         if !path.is_file() || path.extension() != Some(OsStr::new("tf")) {
