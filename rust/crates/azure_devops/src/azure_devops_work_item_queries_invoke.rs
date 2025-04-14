@@ -39,8 +39,9 @@ pub async fn fetch_work_items_for_query(
     if output.stdout.trim().is_empty() {
         return Ok(None);
     }
-    let rtn = output.try_interpret(&cmd).await?;
-    Ok(Some(rtn))
+    let mut rtn: Vec<WorkItemQueryResult> = output.try_interpret(&cmd).await?;
+    assert_eq!(rtn.len(), 1);
+    Ok(Some(rtn.remove(0)))
 
     // let url = format!(
     //     "https://dev.azure.com/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version=7.1"
@@ -64,6 +65,7 @@ mod test {
     use eyre::bail;
 
     #[tokio::test]
+    #[ignore]
     pub async fn it_works() -> eyre::Result<()> {
         // get all projects
         let org_name = get_default_organization_name().await?;
@@ -87,11 +89,15 @@ mod test {
             let items = fetch_work_items_for_query(&org_name, &project.name, &query.id)
                 .await
                 .wrap_err(format!(
-                    "Failed to fetch work items for query {query:#?} from project {project:#?}",
-                    query = query,
-                    project = project
+                    "Failed to fetch work items for query {query} from project {project}",
+                    query = query.name,
+                    project = project.name
                 ))?;
-            println!("Result for query {query:#?} from project {project:#?}");
+            println!(
+                "Result for query {query} from project {project}",
+                query = query.name,
+                project = project.name
+            );
             println!("{:#?}", items);
 
             // success if found some items
