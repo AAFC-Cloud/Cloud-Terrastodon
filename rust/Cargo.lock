@@ -922,6 +922,8 @@ dependencies = [
 name = "cloud_terrastodon_core_config"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "chrono",
  "cloud_terrastodon_core_pathing",
  "eyre",
  "once_cell",

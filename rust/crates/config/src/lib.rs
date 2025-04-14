@@ -1,3 +1,6 @@
+pub mod egui_ui_state;
+pub mod iconfig;
+
 use cloud_terrastodon_core_pathing::AppDir;
 use eyre::Context;
 use eyre::Result;
