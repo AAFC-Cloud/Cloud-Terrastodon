@@ -52,6 +52,7 @@ pub enum CommandKind {
     Tofu,
     VSCode,
     Echo,
+    Pwsh,
 }
 
 pub const USE_TERRAFORM_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TERRAFORM";
@@ -66,6 +67,7 @@ impl CommandKind {
             },
             CommandKind::VSCode => Config::get_active_config().commands.vscode.to_owned(),
             CommandKind::Echo => "pwsh".to_string(),
+            CommandKind::Pwsh => "pwsh".to_string(),
         }
     }
     async fn apply_args_and_envs(
@@ -1178,9 +1180,9 @@ Resources
 
     #[tokio::test]
     async fn send_stdin_echo() -> Result<()> {
-        let mut cmd = CommandBuilder::new(CommandKind::Echo);
-        cmd.args(["-Command", "-" /* Read from stdin */]); // For pwsh, "-" means read from stdin for command
-        cmd.send_stdin("hello stdin");
+        let mut cmd = CommandBuilder::new(CommandKind::Pwsh);
+        cmd.args(["-NoProfile","-Command", "-" /* Read from stdin */]); // For pwsh, "-" means read from stdin for command
+        cmd.send_stdin("echo 'hello stdin'");
         let output = cmd.run_raw().await?;
         println!("Stdout: {:?}", output.stdout);
         assert_eq!(output.stdout.trim(), "hello stdin".as_bytes());
