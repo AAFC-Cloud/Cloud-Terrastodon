@@ -6,12 +6,13 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use serde_json::{self};
+use tracing::debug;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::warn;
 #[async_trait::async_trait]
 pub trait IConfig:
-    Sized + Default + std::fmt::Debug + Sync + for<'de> Deserialize<'de> + Serialize
+    Sized + Default + std::fmt::Debug + Sync + for<'de> Deserialize<'de> + Serialize + Clone + Send + 'static + PartialEq
 {
     /// Unique slug (used for generating the filename).
     const FILE_SLUG: &'static str;
@@ -66,6 +67,7 @@ pub trait IConfig:
             fs::create_dir_all(dir).await?;
         }
         let content = serde_json::to_string_pretty(self)?;
+        debug!("Writing config to {:?}", path);
         fs::write(&path, content).await?;
         Ok(())
     }

@@ -4,12 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cloud_terrastodon_core_pathing = {workspace = true}
+cloud_terrastodon_core_pathing = { workspace = true }
 eyre = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 once_cell = { workspace = true }
 serde = { workspace = true }
-serde_json = {workspace = true}
+serde_json = { workspace = true }
 async-trait.workspace = true
+emath = { workspace = true, features = ["serde"] }

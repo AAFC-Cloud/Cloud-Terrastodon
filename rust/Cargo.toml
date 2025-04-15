@@ -51,6 +51,7 @@ directories-next = "2.0.0"
 once_cell = "1.19.0"
 ratatui = "0.29.0"
 opener = "0.7.1"
+emath = {version="0.31.1",features=["serde"]}
 crossterm = { version = "0.28.1", features = ["event-stream"] }
 futures = "0.3.31"
 strum = { version = "0.26.3", features = ["derive"] }

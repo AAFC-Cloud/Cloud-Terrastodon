@@ -1,8 +1,10 @@
 use crate::app_message::AppMessage;
+use crate::autosave_info::AutoSaveBehaviour;
 use crate::loadable::Loadable;
 use cloud_terrastodon_core_azure::prelude::ResourceGroupMap;
 use cloud_terrastodon_core_azure::prelude::Subscription;
 use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProject;
+use cloud_terrastodon_core_config::egui_config::EguiConfig;
 use eframe::App;
 use eframe::egui::Id;
 use std::collections::HashMap;
@@ -23,10 +25,12 @@ pub struct MyApp {
     pub resource_groups: Loadable<Rc<ResourceGroupMap>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,
     pub rx: UnboundedReceiver<AppMessage>,
+    pub config: EguiConfig,
+    pub config_auto_save: AutoSaveBehaviour<EguiConfig>,
 }
 
 impl MyApp {
-    pub fn new(_cc: &eframe::CreationContext) -> Self {
+    pub fn new(_cc: &eframe::CreationContext, config: EguiConfig) -> Self {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
         Self {
             toggle_intents: Default::default(),
@@ -36,6 +40,8 @@ impl MyApp {
             azure_devops_projects: Default::default(),
             tx,
             rx,
+            config,
+            config_auto_save: Default::default(),
         }
     }
     pub fn try_thing<F, T>(&mut self, future: F) -> JoinHandle<F::Output>
@@ -68,5 +74,8 @@ impl App for MyApp {
             }
         }
         self.draw_app(ctx);
+
+        // save if needed
+        self.config_auto_save.apply(&self.config);
     }
 }

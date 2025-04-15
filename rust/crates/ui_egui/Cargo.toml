@@ -20,5 +20,5 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 crossterm = { workspace = true }
 futures = { workspace = true }
-eframe = "0.31.1"
+eframe = { version = "0.31.1", features = ["persistence"] }
 egui_extras = { version = "0.31.1", features = ["default", "image"] }

@@ -1,4 +1,4 @@
-pub mod egui_ui_state;
+pub mod egui_config;
 pub mod iconfig;
 
 use cloud_terrastodon_core_pathing::AppDir;
