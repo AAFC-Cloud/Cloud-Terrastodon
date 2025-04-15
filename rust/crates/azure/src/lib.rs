@@ -1,4 +1,5 @@
 #![feature(impl_trait_in_assoc_type, duration_constructors)]
+mod accounts;
 mod auth;
 mod batch_api;
 mod cost_management;
@@ -39,10 +40,9 @@ mod subscriptions;
 mod tags;
 mod tenants;
 mod users;
-mod accounts;
 pub mod prelude {
-    pub use crate::auth::*;
     pub use crate::accounts::*;
+    pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::cost_management::*;
     pub use crate::create_role_assignment::*;

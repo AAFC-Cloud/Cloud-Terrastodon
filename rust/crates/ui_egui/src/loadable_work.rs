@@ -36,7 +36,7 @@ where
 
     pub fn setter<G>(mut self, setter: G) -> Self
     where
-        G: Fn(&mut MyApp,Loadable<T, eyre::Error>) -> () + Send + Sync + 'static,
+        G: Fn(&mut MyApp, Loadable<T, eyre::Error>) -> () + Send + Sync + 'static,
     {
         self.setter = Some(Arc::new(setter));
         self
@@ -90,10 +90,7 @@ where
             },
             on_work: async move {
                 let data = on_work.await?;
-                Ok(FieldUpdaterWorkSuccessMutator {
-                    data,
-                    setter,
-                })
+                Ok(FieldUpdaterWorkSuccessMutator { data, setter })
             },
             on_failure: move |err| FieldUpdaterWorkFailureMutator {
                 err,
@@ -137,7 +134,7 @@ where
     T: std::fmt::Debug + Send + 'static,
 {
     fn mutate_state(self: Box<Self>, state: &mut MyApp) {
-        (self.setter)(state,Loadable::Loaded(self.data))
+        (self.setter)(state, Loadable::Loaded(self.data))
     }
 }
 
@@ -146,6 +143,6 @@ where
     T: std::fmt::Debug + Send + 'static,
 {
     fn mutate_state(self: Box<Self>, state: &mut MyApp) {
-        (self.setter)(state,Loadable::Failed(self.err))
+        (self.setter)(state, Loadable::Failed(self.err))
     }
 }

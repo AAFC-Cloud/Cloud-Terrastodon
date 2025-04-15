@@ -1,6 +1,7 @@
 pub mod app;
 pub mod app_message;
 pub mod draw_app;
+pub mod icons;
 pub mod loadable;
 pub mod loadable_work;
 pub mod state_mutator;
@@ -8,7 +9,6 @@ pub mod widgets;
 pub mod windows;
 pub mod work;
 pub mod workers;
-pub mod icons;
 
 use app::MyApp;
 use eframe::NativeOptions;

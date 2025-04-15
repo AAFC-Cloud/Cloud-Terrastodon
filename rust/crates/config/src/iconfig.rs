@@ -1,16 +1,19 @@
+use chrono::Utc;
 use cloud_terrastodon_core_pathing::AppDir;
-use eyre::{bail, eyre, Result};
+use eyre::Result;
+use eyre::bail;
+use eyre::eyre;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::{self, Value};
-use tracing::warn;
+use serde_json::Value;
+use serde_json::{self};
 use std::collections::HashSet;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tokio::fs;
-use chrono::Utc;
+use tracing::warn;
 
 // Global registry for tracking loaded configs.
 static LOADED_CONFIG_TRACKER: Lazy<Mutex<HashSet<&'static str>>> =
@@ -47,10 +50,14 @@ pub trait IConfig:
             let user_json: Value = match serde_json::from_str(&content) {
                 Ok(val) => val,
                 Err(err) => {
-                    warn!("Failed to load config as valid json, will make a backup and will revert to defaults. Error: {}", err);
+                    warn!(
+                        "Failed to load config as valid json, will make a backup and will revert to defaults. Error: {}",
+                        err
+                    );
                     // If we fail, backup the original file and use the default.
                     let now = Utc::now().format("%Y%m%dT%H%M%SZ");
-                    let backup_path = path.with_file_name(format!("{}-{}.json.bak", Self::FILE_SLUG, now));
+                    let backup_path =
+                        path.with_file_name(format!("{}-{}.json.bak", Self::FILE_SLUG, now));
                     fs::copy(&path, &backup_path).await?;
                     // For upgrade purposes, we use the default JSON.
                     serde_json::to_value(&Self::default())?

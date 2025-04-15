@@ -1,8 +1,8 @@
-use std::rc::Rc;
 use crate::app::MyApp;
 use crate::loadable_work::LoadableWorkBuilder;
 use cloud_terrastodon_core_azure::prelude::Subscription;
 use cloud_terrastodon_core_azure::prelude::fetch_all_subscriptions;
+use std::rc::Rc;
 use tracing::info;
 
 pub fn load_subscriptions(app: &mut MyApp) {

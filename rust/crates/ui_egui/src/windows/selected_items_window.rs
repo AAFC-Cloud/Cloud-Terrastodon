@@ -19,10 +19,7 @@ pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
                         continue;
                     }
                     ui.horizontal(|ui| {
-                        if ui
-                            .image(SUBSCRIPTION_ICON)
-                            .clicked()
-                        {
+                        if ui.image(SUBSCRIPTION_ICON).clicked() {
                             debug!("Clicked on subscription icon");
                             *checked ^= true;
                         }
@@ -37,10 +34,7 @@ pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
                         continue;
                     }
                     ui.horizontal(|ui| {
-                        if ui
-                            .image(RESOURCE_GROUP_ICON)
-                            .clicked()
-                        {
+                        if ui.image(RESOURCE_GROUP_ICON).clicked() {
                             *checked ^= true;
                         }
                         ui.checkbox(checked, &resource_group.name);

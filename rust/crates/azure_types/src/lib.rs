@@ -21,6 +21,7 @@ mod policy_definitions;
 mod policy_set_definitions;
 mod principals;
 mod query_response;
+mod resource_group_map;
 mod resource_groups;
 mod resource_tags;
 mod resource_types;
@@ -43,15 +44,14 @@ mod test_resource;
 mod users;
 mod uuid_macros;
 mod uuid_wrapper;
-mod resource_group_map;
 
 pub mod prelude {
     pub use crate::accounts::*;
-    pub use crate::resource_group_map::*;
     pub use crate::duration::*;
     pub use crate::metrics::*;
     pub use crate::oauth2_permission_grants::*;
     pub use crate::oauth2_permission_scopes::*;
+    pub use crate::resource_group_map::*;
     pub use crate::uuid_wrapper::*;
     // pub use crate::uuid_macros::*;
     pub use crate::app::*;
