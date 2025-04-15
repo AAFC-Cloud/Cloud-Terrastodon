@@ -48,7 +48,6 @@ clap = { version = "4.5.9", features = ["derive", "string"] }
 iso8601-duration = { version = "0.2.0", features = ["serde", "chrono"] }
 humantime = "2.1.0"
 directories-next = "2.0.0"
-once_cell = "1.19.0"
 ratatui = "0.29.0"
 opener = "0.7.1"
 emath = {version="0.31.1",features=["serde"]}

@@ -10,7 +10,7 @@ pub fn draw_starting_points_window(app: &mut MyApp, ctx: &Context) {
     let window_id = Id::new("Starting Points");
     Window::new("Starting Points")
         .id(window_id)
-        .default_size(app.config.starting_points_window.size())
+        .default_size(app.egui_config.starting_points_window.size())
         .collapsible(false)
         .show(ctx, |ui| {
             ScrollArea::both().show(ui, |ui| {
@@ -23,6 +23,6 @@ pub fn draw_starting_points_window(app: &mut MyApp, ctx: &Context) {
 
     // https://github.com/emilk/egui/issues/493#issuecomment-1859328201
     if let Some(window_area) = ctx.memory(|mem| mem.area_rect(window_id)) {
-        app.config.starting_points_window = window_area;
+        app.egui_config.starting_points_window = window_area;
     }
 }

@@ -24,5 +24,5 @@ pub enum Commands {
     DumpEverything,
     GetPath { dir: AppDir },
     CopyResults { dest: PathBuf },
-    AddScanDir { dir: PathBuf },
+    AddWorkDir { dir: PathBuf },
 }

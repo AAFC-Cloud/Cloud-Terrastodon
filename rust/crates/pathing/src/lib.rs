@@ -2,23 +2,23 @@ use clap::ValueEnum;
 use directories_next::ProjectDirs;
 use eyre::Context;
 use eyre::bail;
-use once_cell::sync::Lazy;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use tokio::fs::create_dir_all;
 use tokio::fs::try_exists;
 use tracing::debug;
 use tracing::field::debug;
 
-static PROJECT_DIRS: Lazy<ProjectDirs> = Lazy::new(|| {
+static PROJECT_DIRS: LazyLock<ProjectDirs> = LazyLock::new(|| {
     let Some(project_dirs) = ProjectDirs::from_path(PathBuf::from("cloud_terrastodon")) else {
         panic!("Failed to acquire disk locations for project");
     };
     project_dirs
 });
-static CACHE_DIR: Lazy<PathBuf> = Lazy::new(|| PROJECT_DIRS.cache_dir().to_path_buf());
-static DATA_DIR: Lazy<PathBuf> = Lazy::new(|| PROJECT_DIRS.data_dir().to_path_buf());
-static CONFIG_DIR: Lazy<PathBuf> = Lazy::new(|| PROJECT_DIRS.config_dir().to_path_buf());
+static CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRS.cache_dir().to_path_buf());
+static DATA_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRS.data_dir().to_path_buf());
+static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRS.config_dir().to_path_buf());
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum AppDir {

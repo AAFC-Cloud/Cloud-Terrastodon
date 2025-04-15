@@ -5,6 +5,8 @@ use cloud_terrastodon_core_azure::prelude::ResourceGroupMap;
 use cloud_terrastodon_core_azure::prelude::Subscription;
 use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProject;
 use cloud_terrastodon_core_config::egui_config::EguiConfig;
+use cloud_terrastodon_core_config::iconfig::IConfig;
+use cloud_terrastodon_core_config::work_dirs_config::WorkDirsConfig;
 use eframe::App;
 use eframe::egui::Id;
 use std::collections::HashMap;
@@ -25,14 +27,16 @@ pub struct MyApp {
     pub resource_groups: Loadable<Rc<ResourceGroupMap>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,
     pub rx: UnboundedReceiver<AppMessage>,
-    pub config: EguiConfig,
-    pub config_auto_save: AutoSaveBehaviour<EguiConfig>,
+    pub egui_config: EguiConfig,
+    pub egui_config_auto_save: AutoSaveBehaviour<EguiConfig>,
+    pub work_dirs_config: WorkDirsConfig,
+    pub work_dirs_config_auto_save: AutoSaveBehaviour<WorkDirsConfig>,
 }
 
 impl MyApp {
-    pub fn new(_cc: &eframe::CreationContext, config: EguiConfig) -> Self {
+    pub async fn new(_cc: &eframe::CreationContext<'_>) -> eyre::Result<Self> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
-        Self {
+        Ok(Self {
             toggle_intents: Default::default(),
             checkboxes: Default::default(),
             subscriptions: Default::default(),
@@ -40,9 +44,11 @@ impl MyApp {
             azure_devops_projects: Default::default(),
             tx,
             rx,
-            config,
-            config_auto_save: Default::default(),
-        }
+            egui_config: EguiConfig::load().await?,
+            egui_config_auto_save: Default::default(),
+            work_dirs_config: WorkDirsConfig::load().await?,
+            work_dirs_config_auto_save: Default::default(),
+        })
     }
     pub fn try_thing<F, T>(&mut self, future: F) -> JoinHandle<F::Output>
     where
@@ -76,6 +82,6 @@ impl App for MyApp {
         self.draw_app(ctx);
 
         // save if needed
-        self.config_auto_save.apply(&self.config);
+        self.egui_config_auto_save.apply(&self.egui_config);
     }
 }

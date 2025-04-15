@@ -12,7 +12,8 @@ use crate::prelude::Version;
 use crate::tracing::init_tracing;
 use clap::CommandFactory;
 use clap::FromArgMatches;
-use cloud_terrastodon_core_config::Config;
+use cloud_terrastodon_core_config::iconfig::IConfig;
+use cloud_terrastodon_core_config::work_dirs_config::WorkDirsConfig;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_ui_egui::egui_main;
 use cloud_terrastodon_ui_ratatui::prelude::ui_main;
@@ -73,14 +74,14 @@ pub async fn entrypoint(version: Version) -> Result<()> {
                     .await?;
                 out.flush().await?;
             }
-            Commands::AddScanDir { mut dir } => {
+            Commands::AddWorkDir { mut dir } => {
                 if !dir.is_absolute() {
                     dir = canonicalize(&dir)
                         .context(format!("failed to make path absolute: {}", dir.display()))?;
                 }
-                Config::modify_and_save_active_config(|config| {
-                    config.scan_dirs.insert(dir);
-                })?;
+                let mut config = WorkDirsConfig::load().await?;
+                config.work_dirs.insert(dir);
+                config.save().await?;
             }
             Commands::CopyResults { dest } => {
                 // from https://stackoverflow.com/a/78769977/11141271

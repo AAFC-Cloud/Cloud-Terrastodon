@@ -4,7 +4,8 @@ use bstr::BString;
 use bstr::ByteSlice;
 use chrono::DateTime;
 use chrono::Local;
-use cloud_terrastodon_core_config::Config;
+use cloud_terrastodon_core_config::commands_config::CommandsConfig;
+use cloud_terrastodon_core_config::iconfig::IConfig;
 use cloud_terrastodon_core_pathing::AppDir;
 use cloud_terrastodon_core_pathing::Existy;
 use cloud_terrastodon_core_relative_location::RelativeLocation;
@@ -30,6 +31,7 @@ use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 use tempfile::Builder;
 use tempfile::TempPath;
@@ -57,15 +59,24 @@ pub enum CommandKind {
 
 pub const USE_TERRAFORM_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TERRAFORM";
 
+const CONFIG: LazyLock<CommandsConfig> = LazyLock::new(load_config);
+
+fn load_config() -> CommandsConfig {
+    tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap()
+        .block_on(async { CommandsConfig::load().await.unwrap() })
+}
+
 impl CommandKind {
     fn program(&self) -> String {
         match self {
-            CommandKind::AzureCLI => Config::get_active_config().commands.azure_cli.to_owned(),
+            CommandKind::AzureCLI => CONFIG.azure_cli.to_owned(),
             CommandKind::Tofu => match env::var(USE_TERRAFORM_FLAG_KEY) {
-                Err(_) => Config::get_active_config().commands.tofu.to_owned(),
-                Ok(_) => Config::get_active_config().commands.terraform.to_owned(),
+                Err(_) => CONFIG.tofu.to_owned(),
+                Ok(_) => CONFIG.terraform.to_owned(),
             },
-            CommandKind::VSCode => Config::get_active_config().commands.vscode.to_owned(),
+            CommandKind::VSCode => CONFIG.vscode.to_owned(),
             CommandKind::Echo => "pwsh".to_string(),
             CommandKind::Pwsh => "pwsh".to_string(),
         }

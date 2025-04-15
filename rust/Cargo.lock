@@ -938,7 +938,6 @@ dependencies = [
  "cloud_terrastodon_core_pathing",
  "emath",
  "eyre",
- "once_cell",
  "serde",
  "serde_json",
  "tokio",
@@ -992,7 +991,6 @@ dependencies = [
  "clap",
  "directories-next",
  "eyre",
- "once_cell",
  "tokio",
  "tracing",
 ]

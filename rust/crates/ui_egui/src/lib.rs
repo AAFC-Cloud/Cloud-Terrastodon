@@ -1,5 +1,6 @@
 pub mod app;
 pub mod app_message;
+pub mod autosave_info;
 pub mod draw_app;
 pub mod icons;
 pub mod loadable;
@@ -9,21 +10,16 @@ pub mod widgets;
 pub mod windows;
 pub mod work;
 pub mod workers;
-pub mod autosave_info;
-
 use app::MyApp;
-use cloud_terrastodon_core_config::egui_config::EguiConfig;
-use cloud_terrastodon_core_config::iconfig::IConfig;
 use cloud_terrastodon_core_pathing::AppDir;
 use eframe::NativeOptions;
 use eyre::bail;
+use tokio::runtime;
 use tokio::task::block_in_place;
 use tracing::info;
 
 pub async fn egui_main() -> eyre::Result<()> {
     info!("Hello from egui!");
-
-    let config = EguiConfig::load().await?;
 
     let mut native_options = NativeOptions::default();
     native_options.persist_window = true;
@@ -33,11 +29,12 @@ pub async fn egui_main() -> eyre::Result<()> {
         eframe::run_native(
             "MyApp",
             native_options,
-            Box::new(|cc| {
+            Box::new(|cc: &eframe::CreationContext<'_>| {
                 // This gives us image support:
                 egui_extras::install_image_loaders(&cc.egui_ctx);
-
-                Ok(Box::new(MyApp::new(cc, config)))
+                let app =
+                    runtime::Handle::current().block_on(async move { MyApp::new(cc).await })?;
+                Ok(Box::new(app))
             }),
         )
     }) {
