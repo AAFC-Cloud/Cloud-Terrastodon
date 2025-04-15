@@ -10,6 +10,7 @@ pub mod widgets;
 pub mod windows;
 pub mod work;
 pub mod workers;
+pub mod file_drag_and_drop;
 use app::MyApp;
 use cloud_terrastodon_core_pathing::AppDir;
 use eframe::NativeOptions;
