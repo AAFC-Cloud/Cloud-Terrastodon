@@ -47,11 +47,11 @@ pub async fn test_config() -> eyre::Result<()> {
 }
 
 #[tokio::test]
-pub async fn multi_load_fails() -> eyre::Result<()> {
+pub async fn multi_load() -> eyre::Result<()> {
     let config1 = MyTestConfigV1::load().await;
     let config2 = MyTestConfigV1::load().await;
     assert!(config1.is_ok());
-    assert!(config2.is_err());
+    assert!(config2.is_ok());
     Ok(())
 }
 
@@ -62,7 +62,7 @@ pub async fn upgrade_works() -> eyre::Result<()> {
         bloop: "bologna".to_string(),
     };
     config
-        .modify(|cfg| *cfg = user_modified_v1_config.clone())
+        .modify_and_save(|cfg| *cfg = user_modified_v1_config.clone())
         .await?;
     drop(config);
 
@@ -72,6 +72,6 @@ pub async fn upgrade_works() -> eyre::Result<()> {
     let config = MyTestConfigV2::load().await?;
     assert_eq!(config.bloop, user_modified_v1_config.bloop);
     assert_eq!(config.bleep, MyTestConfigV2::default().bleep);
-    assert_ne!(*config, MyTestConfigV2::default());
+    assert_ne!(config, MyTestConfigV2::default());
     Ok(())
 }

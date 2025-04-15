@@ -1,24 +1,14 @@
 use chrono::Utc;
 use cloud_terrastodon_core_pathing::AppDir;
 use eyre::Result;
-use eyre::bail;
 use eyre::eyre;
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use serde_json::{self};
-use std::collections::HashSet;
-use std::ops::Deref;
 use std::path::PathBuf;
-use std::sync::Mutex;
 use tokio::fs;
 use tracing::warn;
-
-// Global registry for tracking loaded configs.
-static LOADED_CONFIG_TRACKER: Lazy<Mutex<HashSet<&'static str>>> =
-    Lazy::new(|| Mutex::new(HashSet::new()));
-
 #[async_trait::async_trait]
 pub trait IConfig:
     Sized + Default + std::fmt::Debug + Sync + for<'de> Deserialize<'de> + Serialize
@@ -32,17 +22,7 @@ pub trait IConfig:
     }
 
     /// Asynchronously load the configuration with incremental upgrading.
-    async fn load() -> Result<LoadedConfig<Self>> {
-        // Check the global registry to ensure this config isn’t already loaded.
-        {
-            let reg = LOADED_CONFIG_TRACKER
-                .lock()
-                .map_err(|_| eyre!("Failed to acquire config lock"))?;
-            if reg.contains(Self::FILE_SLUG) {
-                bail!("Configuration '{}' is already loaded", Self::FILE_SLUG);
-            }
-        }
-
+    async fn load() -> Result<Self> {
         let path = Self::config_path();
         let instance = if path.exists() {
             let content = fs::read_to_string(&path).await?;
@@ -75,13 +55,8 @@ pub trait IConfig:
             Self::default()
         };
 
-        // Register the config.
-        {
-            let mut reg = LOADED_CONFIG_TRACKER.lock().unwrap();
-            reg.insert(Self::FILE_SLUG);
-        }
 
-        Ok(LoadedConfig { inner: instance })
+        Ok(instance)
     }
 
     /// Asynchronously save the configuration.
@@ -92,6 +67,15 @@ pub trait IConfig:
         }
         let content = serde_json::to_string_pretty(self)?;
         fs::write(&path, content).await?;
+        Ok(())
+    }
+
+    async fn modify_and_save<F>(&mut self, f: F) -> Result<()>
+    where
+        F: FnOnce(&mut Self) -> () + Send,
+    {
+        f(self);
+        self.save().await?;
         Ok(())
     }
 }
@@ -111,41 +95,5 @@ fn merge_json(default: Value, user: Value) -> Value {
         }
         // In all other cases, take the user value.
         (_, user_value) => user_value,
-    }
-}
-
-/// A wrapper type for a loaded configuration.
-/// It automatically deregisters when dropped.
-#[derive(Debug)]
-pub struct LoadedConfig<T: IConfig> {
-    inner: T,
-}
-
-impl<T: IConfig> Deref for LoadedConfig<T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-// We remove DerefMut so that all mutations pass through our helper.
-impl<T: IConfig> LoadedConfig<T> {
-    /// Provide exclusive access to mutate the config through a closure.
-    /// After the closure completes, it will automatically save the configuration.
-    pub async fn modify<F>(&mut self, f: F) -> Result<()>
-    where
-        F: FnOnce(&mut T) -> (),
-    {
-        f(&mut self.inner);
-        self.inner.save().await?;
-        Ok(())
-    }
-}
-
-impl<T: IConfig> Drop for LoadedConfig<T> {
-    fn drop(&mut self) {
-        if let Ok(mut reg) = LOADED_CONFIG_TRACKER.lock() {
-            reg.remove(T::FILE_SLUG);
-        }
     }
 }
