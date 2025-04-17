@@ -92,6 +92,9 @@ impl ProviderManager {
 
     pub async fn list_cached_providers(&self) -> eyre::Result<HashSet<ProviderAvailability>> {
         let mut rtn = HashSet::default();
+        if !matches!(tokio::fs::try_exists(&self.local_mirror_dir).await, Ok(true)) {
+            return Ok(HashSet::new());
+        }
         let mut cache_children = tokio::fs::read_dir(&self.local_mirror_dir).await?;
         while let Some(registry) = cache_children.next_entry().await? {
             let mut registry_children = tokio::fs::read_dir(&registry.path()).await?;

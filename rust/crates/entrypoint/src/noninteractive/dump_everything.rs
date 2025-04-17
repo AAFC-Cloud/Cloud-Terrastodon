@@ -149,7 +149,7 @@ pub async fn dump_everything_inner() -> eyre::Result<()> {
         }
         _ => discover_existing_dirs(strategy).await?,
     };
-    if strategy.all_in_one() {
+    if matches!(strategy, Strategy::AllInOne) {
         assert_eq!(tf_work_dirs.len(), 1);
     }
 
