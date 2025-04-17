@@ -31,7 +31,6 @@ use std::process::ExitStatus;
 use std::process::Output;
 use std::process::Stdio;
 use std::sync::Arc;
-use std::sync::LazyLock;
 use std::time::Duration;
 use tempfile::Builder;
 use tempfile::TempPath;
@@ -59,24 +58,27 @@ pub enum CommandKind {
 
 pub const USE_TERRAFORM_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TERRAFORM";
 
-const CONFIG: LazyLock<CommandsConfig> = LazyLock::new(load_config);
+const CONFIG: OnceCell<CommandsConfig> = OnceCell::const_new();
 
-fn load_config() -> CommandsConfig {
-    tokio::runtime::Builder::new_current_thread()
-        .build()
-        .unwrap()
-        .block_on(async { CommandsConfig::load().await.unwrap() })
+async fn get_config(cache: &OnceCell<CommandsConfig>) -> &CommandsConfig {
+    let config: &CommandsConfig = cache
+        .get_or_init(|| async {
+            let config: CommandsConfig = CommandsConfig::load().await.unwrap();
+            config
+        })
+        .await;
+    config
 }
 
 impl CommandKind {
-    fn program(&self) -> String {
+    async fn program(&self) -> String {
         match self {
-            CommandKind::AzureCLI => CONFIG.azure_cli.to_owned(),
+            CommandKind::AzureCLI => get_config(&CONFIG).await.azure_cli.to_owned(),
             CommandKind::Tofu => match env::var(USE_TERRAFORM_FLAG_KEY) {
-                Err(_) => CONFIG.tofu.to_owned(),
-                Ok(_) => CONFIG.terraform.to_owned(),
+                Err(_) => get_config(&CONFIG).await.tofu.to_owned(),
+                Ok(_) => get_config(&CONFIG).await.terraform.to_owned(),
             },
-            CommandKind::VSCode => CONFIG.vscode.to_owned(),
+            CommandKind::VSCode => get_config(&CONFIG).await.vscode.to_owned(),
             CommandKind::Echo => "pwsh".to_string(),
             CommandKind::Pwsh => "pwsh".to_string(),
         }
@@ -244,7 +246,7 @@ impl CommandOutput {
                     ))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}",
-                        command.summarize(),
+                        command.summarize().await,
                         dir
                     )))
             }
@@ -364,11 +366,10 @@ impl CommandBuilder {
         if let CacheBehaviour::Some { ref mut path, .. } = behaviour {
             if path.as_os_str().as_encoded_bytes().contains(&(' ' as u8)) {
                 warn!(
-                    "Cache path contains a space which is discouraged because VSCode's terminal ctrl-click behaviour reliability suffers\nPath: {}\nAt: {}\nFor: {}",
+                    "Cache path contains a space which is discouraged because VSCode's terminal ctrl-click behaviour reliability suffers\nPath: {}\nAt: {}",
                     path.display(),
                     // RelativeLocation::from(std::panic::Location::caller())
                     Backtrace::force_capture(),
-                    self.summarize()
                 );
             }
             *path = AppDir::Commands.join(&path);
@@ -441,10 +442,10 @@ impl CommandBuilder {
         self
     }
 
-    pub fn summarize(&self) -> String {
+    pub async fn summarize(&self) -> String {
         format!(
             "{} {}",
-            self.kind.program(),
+            self.kind.program().await,
             self.args.join(&OsString::from(" ")).to_string_lossy()
         )
     }
@@ -485,9 +486,9 @@ impl CommandBuilder {
             async |path: &str| -> Result<BString> { load_from_pathbuf(&PathBuf::from(path)).await };
 
         // Validate cache matches expectations
-        let expect_files = [
+        let expect_files: [(&PathBuf, &String); 1] = [
             // Command summary must match
-            (&PathBuf::from("context.txt"), &self.summarize()),
+            (&PathBuf::from("context.txt"), &self.summarize().await),
         ];
         let mut expect_files = Vec::from_iter(expect_files);
         for arg in self.file_args.values() {
@@ -499,12 +500,13 @@ impl CommandBuilder {
 
             // If an expectation is present, validate it
             if file_contents != *expected_contents {
-                bail!(
+                debug!(
                     "Cache context mismatch for {}, found: {}, expected: {}",
                     path.display(),
                     file_contents,
                     expected_contents
                 );
+                return Ok(None)
             }
         }
 
@@ -512,11 +514,12 @@ impl CommandBuilder {
         let timestamp = DateTime::parse_from_rfc2822(timestamp.to_str()?)?;
         let now = Local::now();
         if now > timestamp + *valid_for {
-            bail!(
+            debug!(
                 "Cache entry has expired (was from {}, was valid for {})",
                 timestamp,
                 humantime::format_duration(*valid_for),
             );
+            return Ok(None)
         }
 
         let status: i32 = load_from_path("status.txt").await?.to_str()?.parse()?;
@@ -538,7 +541,7 @@ impl CommandBuilder {
         parent_dir.ensure_dir_exists().await?;
 
         // Prepare write contents
-        let summary = self.summarize();
+        let summary = self.summarize().await;
         let status = output.status.to_string();
         let timestamp = &Local::now().to_rfc2822();
         let files = [
@@ -601,7 +604,7 @@ impl CommandBuilder {
             }
         }
 
-        let mut command = Command::new(self.kind.program());
+        let mut command = Command::new(self.kind.program().await);
         match self.output_behaviour {
             OutputBehaviour::Capture => {
                 command.stdin(Stdio::piped()); // Set stdin to piped for capture mode
@@ -630,7 +633,7 @@ impl CommandBuilder {
         if self.should_announce {
             info!(
                 "Running `{}` in \"{}\"",
-                self.summarize(),
+                self.summarize().await,
                 self.run_dir
                     .as_ref()
                     .map(|x| x.display().to_string())
@@ -639,7 +642,7 @@ impl CommandBuilder {
         } else {
             debug!(
                 "Running `{}` in \"{}\"",
-                self.summarize(),
+                self.summarize().await,
                 self.run_dir
                     .as_ref()
                     .map(|x| x.display().to_string())
@@ -805,7 +808,10 @@ impl CommandBuilder {
                 "Command::run_raw failed, called from {}",
                 RelativeLocation::from(std::panic::Location::caller())
             ))
-            .wrap_err(format!("Invoking command failed: {}", self.summarize()))
+            .wrap_err(format!(
+                "Invoking command failed: {}",
+                self.summarize().await
+            ))
     }
 
     #[track_caller]
@@ -832,7 +838,7 @@ impl CommandBuilder {
                     ))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}",
-                        self.summarize(),
+                        self.summarize().await,
                         dir
                     )))
             }
@@ -854,7 +860,7 @@ impl CommandBuilder {
                 Err(e) => {
                     let dir = self.write_failure(&output).await?;
                     Err(e).context(format!("Encountered validation error after successful invocation of {}, dumped to {:?}",
-                            self.summarize(),
+                            self.summarize().await,
                             dir
                         ))
                 }
@@ -863,7 +869,7 @@ impl CommandBuilder {
                 let dir = self.write_failure(&output).await?;
                 Err(eyre::Error::new(e).wrap_err(format!(
                     "deserializing {} failed, dumped to {:?}",
-                    self.summarize(),
+                    self.summarize().await,
                     dir
                 )))
             }
