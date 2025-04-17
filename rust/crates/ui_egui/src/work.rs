@@ -1,9 +1,8 @@
-use std::panic::Location;
-
 use crate::app::MyApp;
 use crate::app_message::AppMessage;
 use crate::state_mutator::StateMutator;
-use tokio::task::JoinHandle;
+use eyre::eyre;
+use std::panic::Location;
 use tracing::error;
 
 pub struct Work<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
@@ -33,7 +32,7 @@ where
     OnFailure: Fn(eyre::Error) -> WorkFailureMutator + Send + 'static,
     WorkFailureMutator: StateMutator + 'static,
 {
-    pub fn enqueue(self, app: &mut MyApp) -> JoinHandle<()>
+    pub fn enqueue(self, app: &mut MyApp)
     where
         OnEnqueue: Fn(&mut MyApp) -> (),
         OnWork: Future<Output = eyre::Result<WorkSuccess>> + Send + 'static,
@@ -50,7 +49,7 @@ where
                 Ok(result) => {
                     let msg = AppMessage::StateChange(Box::new(result));
                     if let Err(e) = tx.send(msg) {
-                        panic!("Error sending message for work success: {:#?}", e);
+                        return Err(eyre!("Error sending message for work success: {:#?}", e));
                     }
                 }
                 Err(error) => {
@@ -62,12 +61,13 @@ where
                     let state_mutator: WorkFailureMutator = (work.on_failure)(error);
                     let msg = AppMessage::StateChange(Box::new(state_mutator));
                     if let Err(e) = tx.send(msg) {
-                        panic!("Error sending message for work failure: {:#?}", e);
+                        return Err(eyre!("Error sending message for work failure: {:#?}", e));
                     }
                 }
             }
+            Ok(())
         });
         (work.on_enqueue)(app);
-        handle
+        app.work_tracker.track(handle);
     }
 }
