@@ -6,13 +6,22 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use serde_json::{self};
-use tracing::debug;
 use std::path::PathBuf;
 use tokio::fs;
+use tracing::debug;
 use tracing::warn;
 #[async_trait::async_trait]
 pub trait IConfig:
-    Sized + Default + std::fmt::Debug + Sync + for<'de> Deserialize<'de> + Serialize + Clone + Send + 'static + PartialEq
+    Sized
+    + Default
+    + std::fmt::Debug
+    + Sync
+    + for<'de> Deserialize<'de>
+    + Serialize
+    + Clone
+    + Send
+    + 'static
+    + PartialEq
 {
     /// Unique slug (used for generating the filename).
     const FILE_SLUG: &'static str;
@@ -55,7 +64,6 @@ pub trait IConfig:
         } else {
             Self::default()
         };
-
 
         Ok(instance)
     }

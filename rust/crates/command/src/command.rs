@@ -506,7 +506,7 @@ impl CommandBuilder {
                     file_contents,
                     expected_contents
                 );
-                return Ok(None)
+                return Ok(None);
             }
         }
 
@@ -519,7 +519,7 @@ impl CommandBuilder {
                 timestamp,
                 humantime::format_duration(*valid_for),
             );
-            return Ok(None)
+            return Ok(None);
         }
 
         let status: i32 = load_from_path("status.txt").await?.to_str()?.parse()?;
