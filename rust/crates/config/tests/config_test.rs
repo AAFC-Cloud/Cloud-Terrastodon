@@ -2,7 +2,7 @@ use cloud_terrastodon_core_config::iconfig::IConfig;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct MyTestConfigV1 {
     pub bloop: String,
 }
@@ -15,7 +15,7 @@ impl Default for MyTestConfigV1 {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct MyTestConfigV2 {
     pub bleep: bool,
     pub bloop: String,
