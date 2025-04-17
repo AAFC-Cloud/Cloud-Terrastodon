@@ -9,7 +9,6 @@ use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use crate::prelude::Version;
-use crate::tracing::init_tracing;
 use clap::CommandFactory;
 use clap::FromArgMatches;
 use cloud_terrastodon_core_config::iconfig::IConfig;
@@ -23,17 +22,58 @@ use std::fs::canonicalize;
 use std::path::Path;
 use tokio::io::AsyncWriteExt;
 use tokio::io::stdout;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::EnvFilter;
 
-pub async fn entrypoint(version: Version) -> Result<()> {
+pub fn entrypoint(version: Version) -> Result<()> {
+    // let panic_hook = std::panic::take_hook();
+    // std::panic::set_hook(Box::new(move |info| {
+    //     tracing::error!(
+    //         "Panic encountered at {}",
+    //         info.location()
+    //             .map(|x| x.to_string())
+    //             .unwrap_or("unknown location".to_string())
+    //     );
+    //     panic_hook(info);
+    // }));
+
+    color_eyre::install()?;
+
+    // Parse command line arguments
     let mut cmd = Cli::command();
     cmd = cmd.version(version.to_string());
     let cli = Cli::from_arg_matches(&cmd.get_matches())?;
 
-    init_tracing(&cli);
+    // Configure backtrace-always
+    if cli.debug {
+        std::env::set_var("RUST_BACKTRACE", "full");
+        // std::env::set_var("RUST_BACKTRACE", "1");
+    }
 
+    // Configure tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(
+                    match cli.debug {
+                        true => LevelFilter::DEBUG,
+                        false => LevelFilter::INFO,
+                    }
+                    .into(),
+                )
+                .from_env_lossy(),
+        )
+        .with_file(true)
+        .with_target(false)
+        .with_line_number(true)
+        .without_time()
+        .init();
+
+    // Configure terminal colour support
     #[cfg(windows)]
     let _ = crate::windows_support::windows_ansi::enable_ansi_support();
 
+    // Warn if UTF-8 support is not enabled on Windows.
     #[cfg(windows)]
     if !crate::windows_support::windows_utf8::is_system_utf8() {
         tracing::warn!("The current system codepage is not UTF-8. This may cause '�' problems.");
@@ -45,7 +85,16 @@ pub async fn entrypoint(version: Version) -> Result<()> {
         );
     }
 
-    match cli.command {
+    // Build async runtime
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    runtime.block_on(handle(cli.command))?;
+    Ok(())
+}
+
+pub async fn handle(command: Option<Commands>) -> eyre::Result<()> {
+    match command {
         None => {
             menu_loop().await?;
         }

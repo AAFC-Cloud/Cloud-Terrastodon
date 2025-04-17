@@ -5,8 +5,8 @@ mod interactive;
 mod menu;
 mod menu_action;
 mod noninteractive;
-mod tracing;
 mod version;
+
 pub(crate) mod windows_support;
 pub mod prelude {
     pub use crate::clap::*;

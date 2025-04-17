@@ -17,6 +17,7 @@ cloud_terrastodon_core_zombies = { workspace = true }
 cloud_terrastodon_ui_egui = { workspace = true }
 cloud_terrastodon_ui_ratatui = { workspace = true }
 eyre = { workspace = true }
+color-eyre = { workspace = true }
 chrono = { workspace = true }
 itertools = { workspace = true }
 indexmap = { workspace = true }

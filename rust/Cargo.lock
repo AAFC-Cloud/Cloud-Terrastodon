@@ -961,6 +961,7 @@ dependencies = [
  "cloud_terrastodon_core_zombies",
  "cloud_terrastodon_ui_egui",
  "cloud_terrastodon_ui_ratatui",
+ "color-eyre",
  "eyre",
  "humantime",
  "indexmap",
