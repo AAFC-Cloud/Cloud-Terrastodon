@@ -3,7 +3,8 @@ use crate::app_message::AppMessage;
 use crate::state_mutator::StateMutator;
 use eyre::eyre;
 use std::panic::Location;
-use tracing::{error, warn};
+use tokio::task::JoinHandle;
+use tracing::error;
 
 pub struct Work<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
 where
@@ -19,9 +20,15 @@ where
     pub on_work: OnWork,
     pub on_failure: OnFailure,
     pub is_err_if_discarded: bool,
+    pub description: String,
 }
 
-pub struct WorkResult {}
+#[derive(Debug)]
+pub struct WorkHandle {
+    pub join_handle: JoinHandle<eyre::Result<()>>,
+    pub description: String,
+    pub is_err_if_discarded: bool,
+}
 
 impl<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
     Work<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
@@ -45,15 +52,14 @@ where
         let work = self;
         let runtime = tokio::runtime::Handle::current();
         let tx = app.tx.clone();
-        let handle = runtime.spawn(async move {
+        let description = work.description;
+        let join_handle = runtime.spawn(async move {
             match work.on_work.await {
                 Ok(result) => {
                     let msg = AppMessage::StateChange(Box::new(result));
                     if let Err(e) = tx.send(msg) {
                         if work.is_err_if_discarded {
                             return Err(eyre!("Error sending message for work success: {}", e));
-                        } else {
-                            warn!("Error sending message for work success, discarding work: {}", e)
                         }
                     }
                 }
@@ -73,6 +79,10 @@ where
             Ok(())
         });
         (work.on_enqueue)(app);
-        app.work_tracker.track(handle);
+        app.work_tracker.track(WorkHandle {
+            description,
+            join_handle,
+            is_err_if_discarded: work.is_err_if_discarded,
+        });
     }
 }

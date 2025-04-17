@@ -80,6 +80,7 @@ impl App for MyApp {
         self.handle_messages();
         self.draw_app(ctx);
         self.enqueue_auto_save();
+        self.work_tracker.prune();
     }
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         info!("Gracefully exiting");

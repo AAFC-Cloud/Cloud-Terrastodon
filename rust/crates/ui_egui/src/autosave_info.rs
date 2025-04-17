@@ -1,10 +1,12 @@
 use cloud_terrastodon_core_config::iconfig::IConfig;
+use std::any::type_name;
 use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 use tracing::debug;
 use tracing::error;
 
+use crate::work::WorkHandle;
 use crate::work_tracker::WorkTracker;
 
 #[derive(Debug)]
@@ -32,14 +34,19 @@ where
                 *last_save_copy = config.clone();
                 debug!("Detected config change during auto save, scheduling write");
                 let config_copy = config.clone();
-                let handle = tokio::runtime::Handle::current().spawn(async move {
+                let description = format!("Autosave for {}", type_name::<T>());
+                let join_handle = tokio::runtime::Handle::current().spawn(async move {
                     let result = config_copy.save().await;
                     if let Err(e) = &result {
                         error!("Error in message thread: {:#?}", e)
                     }
                     result
                 });
-                work_tracker.track(handle);
+                work_tracker.track(WorkHandle {
+                    join_handle,
+                    description,
+                    is_err_if_discarded: true,
+                });
             }
         }
     }

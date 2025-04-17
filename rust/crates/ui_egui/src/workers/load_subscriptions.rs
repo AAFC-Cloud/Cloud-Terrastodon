@@ -8,6 +8,7 @@ use tracing::info;
 pub fn load_subscriptions(app: &mut MyApp) {
     info!("Queueing work to fetch subscriptions");
     LoadableWorkBuilder::<Vec<Subscription>>::new()
+        .description("Loading Subscriptions")
         .setter(|app, data| app.subscriptions = data.map(Rc::new))
         .work(async move {
             let subs = fetch_all_subscriptions().await?;

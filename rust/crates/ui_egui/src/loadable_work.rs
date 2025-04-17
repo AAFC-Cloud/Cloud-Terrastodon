@@ -4,6 +4,7 @@ use crate::state_mutator::StateMutator;
 use crate::work::Work;
 use eyre::bail;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::future::Future;
 use std::panic::Location;
 use std::pin::Pin;
@@ -22,6 +23,7 @@ where
         Pin<Box<dyn Future<Output = eyre::Result<T>> + Send>>,
     )>,
     is_err_if_discarded: bool,
+    description: String,
 }
 
 impl<T> LoadableWorkBuilder<T>
@@ -33,7 +35,13 @@ where
             setter: None,
             on_work: None,
             is_err_if_discarded: false,
+            description: String::new(),
         }
+    }
+
+    pub fn description(mut self, description: impl Display) -> Self {
+        self.description = description.to_string();
+        self
     }
 
     pub fn is_err_if_discarded(mut self, is_err_if_discarded: bool) -> Self {
@@ -104,6 +112,7 @@ where
                 setter: setter_for_failure.clone(),
             },
             is_err_if_discarded: self.is_err_if_discarded,
+            description: self.description,
         };
         Ok(work)
     }

@@ -1,9 +1,9 @@
-use std::collections::HashSet;
-use std::path::PathBuf;
 use crate::app::MyApp;
 use eframe::egui::Context;
 use eframe::egui::Ui;
 use eframe::egui::Window;
+use std::collections::HashSet;
+use std::path::PathBuf;
 
 pub fn draw_work_dirs_window(app: &mut MyApp, ctx: &Context) {
     Window::new("TF Work Dirs").show(ctx, |ui| {
