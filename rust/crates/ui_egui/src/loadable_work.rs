@@ -21,6 +21,7 @@ where
         &'static Location<'static>,
         Pin<Box<dyn Future<Output = eyre::Result<T>> + Send>>,
     )>,
+    is_err_if_discarded: bool,
 }
 
 impl<T> LoadableWorkBuilder<T>
@@ -31,7 +32,13 @@ where
         Self {
             setter: None,
             on_work: None,
+            is_err_if_discarded: false,
         }
+    }
+
+    pub fn is_err_if_discarded(mut self, is_err_if_discarded: bool) -> Self {
+        self.is_err_if_discarded = is_err_if_discarded;
+        self
     }
 
     pub fn setter<G>(mut self, setter: G) -> Self
@@ -96,6 +103,7 @@ where
                 err,
                 setter: setter_for_failure.clone(),
             },
+            is_err_if_discarded: self.is_err_if_discarded,
         };
         Ok(work)
     }

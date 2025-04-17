@@ -3,7 +3,7 @@ use crate::app_message::AppMessage;
 use crate::state_mutator::StateMutator;
 use eyre::eyre;
 use std::panic::Location;
-use tracing::error;
+use tracing::{error, warn};
 
 pub struct Work<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
 where
@@ -18,6 +18,7 @@ where
     pub on_enqueue: OnEnqueue,
     pub on_work: OnWork,
     pub on_failure: OnFailure,
+    pub is_err_if_discarded: bool,
 }
 
 pub struct WorkResult {}
@@ -49,7 +50,11 @@ where
                 Ok(result) => {
                     let msg = AppMessage::StateChange(Box::new(result));
                     if let Err(e) = tx.send(msg) {
-                        return Err(eyre!("Error sending message for work success: {:#?}", e));
+                        if work.is_err_if_discarded {
+                            return Err(eyre!("Error sending message for work success: {}", e));
+                        } else {
+                            warn!("Error sending message for work success, discarding work: {}", e)
+                        }
                     }
                 }
                 Err(error) => {

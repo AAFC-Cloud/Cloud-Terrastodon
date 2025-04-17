@@ -55,22 +55,6 @@ impl MyApp {
             work_tracker,
         })
     }
-    // pub fn try_thing<F, T>(&mut self, future: F) -> JoinHandle<F::Output>
-    // where
-    //     F: Future<Output = eyre::Result<T>> + Send + 'static,
-    //     F::Output: Send + 'static,
-    //     T: Send + 'static,
-    // {
-    //     let handle = tokio::runtime::Handle::current().spawn(async move {
-    //         let result = future.await;
-    //         if let Err(e) = &result {
-    //             error!("Error in message thread: {:#?}", e)
-    //         }
-    //         result
-    //     });
-    //     self.remaining_work.push(handle);
-    //     handle
-    // }
     pub fn checkbox_for(&mut self, key: impl Hash) -> &mut bool {
         self.checkboxes.entry(Id::new(key)).or_default()
     }
