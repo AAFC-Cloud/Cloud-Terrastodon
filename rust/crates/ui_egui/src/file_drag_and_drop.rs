@@ -43,7 +43,6 @@ pub fn ui_file_drag_and_drop(app: &mut MyApp, ctx: &Context) {
     }
 
     // Collect dropped files:
-    let tx = app.tx.clone();
     let dropped_files = ctx.input(|i| i.raw.dropped_files.clone());
     if !dropped_files.is_empty() {
         info!("Dropped files: {:?}", dropped_files);

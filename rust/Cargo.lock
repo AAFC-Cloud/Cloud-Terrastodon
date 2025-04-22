@@ -938,6 +938,7 @@ dependencies = [
  "cloud_terrastodon_core_pathing",
  "emath",
  "eyre",
+ "ordermap",
  "serde",
  "serde_json",
  "tokio",
@@ -1080,6 +1081,7 @@ dependencies = [
  "egui_extras",
  "eyre",
  "futures",
+ "indexmap",
  "itertools 0.12.1",
  "serde",
  "serde_json",
@@ -3449,6 +3451,16 @@ checksum = "9aa2b01e1d916879f73a53d01d1d6cee68adbb31d6d9177a8cfce093cced1d50"
 dependencies = [
  "futures-core",
  "pin-project-lite",
+]
+
+[[package]]
+name = "ordermap"
+version = "0.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d31b8b7a99f71bdff4235faf9ce9eada0ad3562c8fbeb7d607d9f41a6ec569d"
+dependencies = [
+ "indexmap",
+ "serde",
 ]
 
 [[package]]

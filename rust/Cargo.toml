@@ -37,7 +37,8 @@ indoc = "2.0.5"
 hcl-rs = "0.18.0"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-indexmap = "2.2.6"
+indexmap = { version = "2.2.6", features = ["serde"] }
+ordermap = { version = "0.5.0", features = ["serde"] }
 # unidecode = "0.3.0"
 hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["serde", "v4"] }
@@ -50,7 +51,7 @@ humantime = "2.1.0"
 directories-next = "2.0.0"
 ratatui = "0.29.0"
 opener = "0.7.1"
-emath = {version="0.31.1",features=["serde"]}
+emath = { version = "0.31.1", features = ["serde"] }
 crossterm = { version = "0.28.1", features = ["event-stream"] }
 futures = "0.3.31"
 strum = { version = "0.26.3", features = ["derive"] }
