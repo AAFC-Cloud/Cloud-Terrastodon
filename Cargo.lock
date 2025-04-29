@@ -806,6 +806,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_azure_resource_types"
+version = "0.1.0"
+dependencies = [
+ "cloud_terrastodon_core_command",
+ "eyre",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+ "tokio",
+]
+
+[[package]]
 name = "cloud_terrastodon_core_azure"
 version = "0.1.0"
 dependencies = [
@@ -820,13 +835,9 @@ dependencies = [
  "indicatif",
  "indoc",
  "itertools 0.12.1",
- "prettyplease",
- "proc-macro2",
- "quote",
  "rand",
  "serde",
  "serde_json",
- "syn",
  "tempfile",
  "test-log",
  "tokio",
@@ -896,6 +907,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
+ "cloud_terrastodon_azure_resource_types",
  "cloud_terrastodon_core_command",
  "cloud_terrastodon_core_tofu_types",
  "cloud_terrastodon_core_user_input",

@@ -95,7 +95,7 @@ mod tests {
             .collect();
         let impl_fromstr = quote! {
             impl std::str::FromStr for ResourceType {
-                type Err = eyre::Error;
+                type Err = !;
                 fn from_str(value: &str) -> Result<Self, Self::Err> {
                     match value.to_lowercase().as_str() {
                         #(#match_arms)*
@@ -138,7 +138,7 @@ mod tests {
 
         // Write the generated code to a file
         let target = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?)
-            .join("../azure_types/src/resource_types.rs");
+            .join("src/resource_types.rs");
         println!("Writing to {}", target.display());
         let mut file = File::create(&target)?;
         write!(

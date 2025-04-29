@@ -24,10 +24,6 @@ mod query_response;
 mod resource_group_map;
 mod resource_groups;
 mod resource_tags;
-mod resource_types;
-mod resource_types_ext;
-mod resource_types_serde;
-mod resource_types_tests;
 mod resources;
 mod role_assignments;
 mod role_definitions;
@@ -53,7 +49,6 @@ pub mod prelude {
     pub use crate::oauth2_permission_scopes::*;
     pub use crate::resource_group_map::*;
     pub use crate::uuid_wrapper::*;
-    // pub use crate::uuid_macros::*;
     pub use crate::app::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::fake::*;
@@ -72,10 +67,7 @@ pub mod prelude {
     pub use crate::query_response::*;
     pub use crate::resource_groups::*;
     pub use crate::resource_tags::*;
-    pub use crate::resource_types::*;
     pub use crate::service_principal::*;
-    // pub use crate::resource_types_ext::*;
-    // pub use crate::resource_types_serde::*;
     pub use crate::resources::*;
     pub use crate::role_assignments::*;
     pub use crate::role_definitions::*;
@@ -90,4 +82,5 @@ pub mod prelude {
     pub use crate::test_resource::*;
     pub use crate::users::*;
     pub use uuid;
+    pub use cloud_terrastodon_azure_resource_types::prelude::*;
 }

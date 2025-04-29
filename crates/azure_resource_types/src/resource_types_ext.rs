@@ -1,4 +1,4 @@
-use crate::prelude::ResourceType;
+use crate::resource_types::ResourceType;
 
 impl ResourceType {
     pub fn is_resource_group(&self) -> bool {

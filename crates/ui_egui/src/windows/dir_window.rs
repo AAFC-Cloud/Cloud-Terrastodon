@@ -28,6 +28,6 @@ pub fn ui_dir_windows(app: &mut MyApp, ctx: &Context) {
     }
 }
 
-pub fn ui_dir_window_body(app: &mut MyApp, ctx: &Context, ui: &mut Ui, dir: &PathBuf) {
+pub fn ui_dir_window_body(_app: &mut MyApp, _ctx: &Context, ui: &mut Ui, _dir: &PathBuf) {
     ui.label("bruh");
 }

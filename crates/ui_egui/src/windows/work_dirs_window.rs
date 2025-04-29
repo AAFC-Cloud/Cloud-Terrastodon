@@ -4,7 +4,6 @@ use eframe::egui::Context;
 use eframe::egui::DragAndDrop;
 use eframe::egui::Frame;
 use eframe::egui::Id;
-use eframe::egui::Pos2;
 use eframe::egui::Rect;
 use eframe::egui::Stroke;
 use eframe::egui::Ui;
