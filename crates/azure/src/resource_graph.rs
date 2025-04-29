@@ -130,6 +130,9 @@ impl ResourceGraphHelper {
         self.index += 1;
 
         // Run command
+        // TODO: handle throttling
+        // https://learn.microsoft.com/en-us/azure/governance/resource-graph/overview#throttling
+        // https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/guidance-for-throttled-requests
         let results = cmd.run::<ResourceGraphQueryResponse<T>>().await?;
 
         // Update skip token

@@ -1,3 +1,9 @@
+# vNEXT
+
+- Remove `_core` suffix from crates
+- Separate resoure types to separate crate to maximize cache hits
+- Flatten repository structure
+
 # v0.7.1
 
 - Fix invalid assumption from role eligibility schedule ID parsing, should fix ct pim activate for azurerm
