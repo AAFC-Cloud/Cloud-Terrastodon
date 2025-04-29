@@ -1,4 +1,4 @@
-use cloud_terrastodon_user_input::prelude::read_line;
+use cloud_terrastodon_user_input::read_line;
 use std::io::Write;
 
 #[tokio::main]

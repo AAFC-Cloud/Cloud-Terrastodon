@@ -45,7 +45,7 @@ cargo add cloud_terrastodon_user_input
 ### are_you_sure.rs
 
 ```rust
-use cloud_terrastodon_user_input::prelude::are_you_sure;
+use cloud_terrastodon_user_input::are_you_sure;
 
 fn main() -> eyre::Result<()> {
     if are_you_sure("This will delete the universe. Are you sure you want to proceed?".to_string())? {
@@ -63,8 +63,8 @@ fn main() -> eyre::Result<()> {
 ### pick_many_nouns.rs
 
 ```rust
-use cloud_terrastodon_user_input::prelude::FzfArgs;
-use cloud_terrastodon_user_input::prelude::pick_many;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick_many;
 
 pub fn main() -> eyre::Result<()> {
     let nouns = vec!["dog", "cat", "house", "pickle", "mouse"];
@@ -87,8 +87,8 @@ pub fn main() -> eyre::Result<()> {
 ### starting_search.rs
 
 ```rust
-use cloud_terrastodon_user_input::prelude::FzfArgs;
-use cloud_terrastodon_user_input::prelude::pick;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick;
 
 pub fn main() -> eyre::Result<()> {
     let nouns = vec!["dog", "cat", "house", "pickle", "mouse"];
@@ -110,7 +110,7 @@ pub fn main() -> eyre::Result<()> {
 ### read_line.rs
 
 ```rust
-use cloud_terrastodon_user_input::prelude::read_line;
+use cloud_terrastodon_user_input::read_line;
 use std::io::Write;
 
 #[tokio::main]
@@ -130,8 +130,8 @@ async fn main() -> eyre::Result<()> {
 ### pick_a_noun.rs
 
 ```rust
-use cloud_terrastodon_user_input::prelude::FzfArgs;
-use cloud_terrastodon_user_input::prelude::pick;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick;
 
 pub fn main() -> eyre::Result<()> {
     let nouns = vec!["dog", "cat", "house", "pickle", "mouse"];
@@ -152,9 +152,9 @@ pub fn main() -> eyre::Result<()> {
 ### pick_a_path.rs
 
 ```rust
-use cloud_terrastodon_user_input::prelude::Choice;
-use cloud_terrastodon_user_input::prelude::FzfArgs;
-use cloud_terrastodon_user_input::prelude::pick;
+use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick;
 
 pub fn main() -> eyre::Result<()> {
     let mut choices = Vec::new();
@@ -188,7 +188,7 @@ pub fn main() -> eyre::Result<()> {
 ### prompt_line.rs
 
 ```rust
-use cloud_terrastodon_user_input::prelude::prompt_line;
+use cloud_terrastodon_user_input::prompt_line;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -202,7 +202,7 @@ async fn main() -> eyre::Result<()> {
 ### multiline.rs
 
 ```rust
-use cloud_terrastodon_user_input::prelude::pick_many;
+use cloud_terrastodon_user_input::pick_many;
 
 pub fn main() -> eyre::Result<()> {
     let choices = vec![

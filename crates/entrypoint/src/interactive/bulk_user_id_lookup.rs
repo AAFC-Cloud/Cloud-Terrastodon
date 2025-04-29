@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure::prelude::UserId;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
-use cloud_terrastodon_user_input::prelude::prompt_line;
+use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 use indexmap::IndexSet;
 use std::collections::HashMap;

@@ -4,11 +4,11 @@ use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::get_tags_for_resources;
 use cloud_terrastodon_azure::prelude::set_tags_for_resources;
-use cloud_terrastodon_user_input::prelude::Choice;
-use cloud_terrastodon_user_input::prelude::FzfArgs;
-use cloud_terrastodon_user_input::prelude::pick;
-use cloud_terrastodon_user_input::prelude::pick_many;
-use cloud_terrastodon_user_input::prelude::prompt_line;
+use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::prompt_line;
 use itertools::Itertools;
 use tracing::info;
 

@@ -1,6 +1,6 @@
-use cloud_terrastodon_user_input::prelude::Choice;
-use cloud_terrastodon_user_input::prelude::FzfArgs;
-use cloud_terrastodon_user_input::prelude::pick;
+use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick;
 
 pub fn main() -> eyre::Result<()> {
     let mut choices = Vec::new();

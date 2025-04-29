@@ -1,4 +1,4 @@
-use cloud_terrastodon_user_input::prelude::prompt_line;
+use cloud_terrastodon_user_input::prompt_line;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {

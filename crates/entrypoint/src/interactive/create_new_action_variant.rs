@@ -1,5 +1,5 @@
 use crate::menu_action;
-use cloud_terrastodon_user_input::prelude::prompt_line;
+use cloud_terrastodon_user_input::prompt_line;
 use eyre::Context;
 use eyre::bail;
 use quote::quote;

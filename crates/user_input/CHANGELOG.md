@@ -1,3 +1,7 @@
+# v0.1.3
+
+- Flatten and remove prelude mod
+
 # v0.1.2
 
 - Add fzf notes to README

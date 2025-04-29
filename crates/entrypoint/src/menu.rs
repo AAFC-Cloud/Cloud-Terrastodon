@@ -1,8 +1,8 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
-use cloud_terrastodon_user_input::prelude::FzfArgs;
-use cloud_terrastodon_user_input::prelude::pick_many;
-use cloud_terrastodon_user_input::prelude::prompt_line;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::prompt_line;
 use eyre::Context;
 use eyre::Result;
 use strum::VariantArray;

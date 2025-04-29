@@ -1,5 +1,5 @@
-use cloud_terrastodon_user_input::prelude::FzfArgs;
-use cloud_terrastodon_user_input::prelude::pick_many;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick_many;
 
 pub fn main() -> eyre::Result<()> {
     let nouns = vec!["dog", "cat", "house", "pickle", "mouse"];

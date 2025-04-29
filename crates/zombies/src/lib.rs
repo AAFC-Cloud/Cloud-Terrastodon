@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use cloud_terrastodon_user_input::prelude::Choice;
-use cloud_terrastodon_user_input::prelude::FzfArgs;
-use cloud_terrastodon_user_input::prelude::pick_many;
+use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick_many;
 use eyre::Context;
 use eyre::bail;
 use tracing::debug;
