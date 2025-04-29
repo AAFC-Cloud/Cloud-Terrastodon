@@ -10,6 +10,13 @@ This crate provides convenient functions for prompting the user for input, inclu
 *   Asking a yes/no question.
 *   Allowing the user to pick one or many items from a list using `fzf`.
 
+###  Prerequisites
+
+This crate relies on `fzf` being installed on the system. Please refer to the `fzf` installation instructions for your operating system:
+
+*   **Windows**: [https://github.com/junegunn/fzf?tab=readme-ov-file#windows-packages](https://github.com/junegunn/fzf?tab=readme-ov-file#windows-packages)
+*   **Linux/macOS**: [https://github.com/junegunn/fzf?tab=readme-ov-file#linux-packages](https://github.com/junegunn/fzf?tab=readme-ov-file#linux-packages)
+
 ## Française
 
 Fonctions d'aide pour interagir avec les utilisateurs dans le terminal.
@@ -19,6 +26,13 @@ Ce crate fournit des fonctions pratiques pour demander l'avis de l'utilisateur, 
 *   Obtenir une seule ligne de saisie.
 *   Poser une question par oui ou par non.
 *   Permettre à l'utilisateur de choisir un ou plusieurs éléments d'une liste à l'aide de `fzf`.
+
+### Prérequis
+
+Cette caisse dépend de l'installation de `fzf` sur le système. Veuillez vous référer aux instructions d'installation de `fzf` pour votre système d'exploitation :
+
+*   **Windows** : [https://github.com/junegunn/fzf?tab=readme-ov-file#windows-packages](https://github.com/junegunn/fzf?tab=readme-ov-file#windows-packages)
+*   **Linux/macOS** : [https://github.com/junegunn/fzf?tab=readme-ov-file#linux-packages](https://github.com/junegunn/fzf?tab=readme-ov-file#linux-packages)
 
 ## Installation
 

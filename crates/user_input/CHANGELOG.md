@@ -1,3 +1,7 @@
+# v0.1.2
+
+- Add fzf notes to README
+
 # v0.1.1
 
 - Add README
