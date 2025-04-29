@@ -5,10 +5,10 @@ use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops_types::prelude::WorkItemQueryResult;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
-use cloud_terrastodon_command::prelude::bstr::ByteSlice;
+use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::bstr::ByteSlice;
 use tracing::debug;
 
 #[deprecated(note = "WIP, the return type and behaviour isn't in a good spot yet.")]

@@ -1,7 +1,7 @@
 use crate::management_groups::fetch_root_management_group;
 use cloud_terrastodon_azure_types::prelude::PimEntraRoleDefinition;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;

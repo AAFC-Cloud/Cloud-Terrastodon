@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
-use cloud_terrastodon_command::prelude::bstr::ByteSlice;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::bstr::ByteSlice;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;

@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
-use cloud_terrastodon_command::prelude::OutputBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::OutputBehaviour;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_tofu::prelude::TofuImportBlock;
 use cloud_terrastodon_tofu::prelude::TofuWriter;

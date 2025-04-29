@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::CacheBehaviour;
 use tracing::info;
 
 use crate::prelude::MicrosoftGraphHelper;

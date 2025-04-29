@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
 use serde_json::Value;

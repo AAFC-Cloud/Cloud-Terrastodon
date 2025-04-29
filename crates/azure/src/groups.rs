@@ -4,9 +4,9 @@ use std::time::Duration;
 use cloud_terrastodon_azure_types::prelude::Group;
 use cloud_terrastodon_azure_types::prelude::GroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use tracing::info;
 

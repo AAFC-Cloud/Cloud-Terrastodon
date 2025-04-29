@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::prelude::ResourceGroupId;
 use cloud_terrastodon_azure::prelude::ResourceTagsId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::set_tags_for_resources;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
 use serde::Deserialize;
 use std::collections::HashMap;

@@ -2,9 +2,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProject;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Serialize;

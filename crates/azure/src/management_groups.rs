@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure_types::prelude::ManagementGroup;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
 use eyre::bail;
 use indicatif::MultiProgress;

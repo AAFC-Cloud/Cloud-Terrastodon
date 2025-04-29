@@ -44,7 +44,7 @@ use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use cloud_terrastodon_azure::prelude::evaluate_policy_assignment_compliance;
 use cloud_terrastodon_azure::prelude::remediate_policy_assignment;
-use cloud_terrastodon_command::prelude::USE_TERRAFORM_FLAG_KEY;
+use cloud_terrastodon_command::USE_TERRAFORM_FLAG_KEY;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use itertools::Itertools;

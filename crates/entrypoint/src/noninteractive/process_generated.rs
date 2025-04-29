@@ -1,5 +1,5 @@
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_tofu::prelude::reflow_workspace;

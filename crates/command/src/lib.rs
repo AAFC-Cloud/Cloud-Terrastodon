@@ -5,6 +5,5 @@
     async_fn_track_caller
 )]
 mod command;
-pub mod prelude {
-    pub use crate::command::*;
-}
+
+pub use crate::command::*;

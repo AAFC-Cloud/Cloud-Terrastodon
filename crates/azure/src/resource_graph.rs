@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_types::prelude::ResourceGraphQueryResponse;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 #[cfg(debug_assertions)]
 use eyre::bail;

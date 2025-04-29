@@ -9,9 +9,9 @@ use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
 use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::UserId;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
 use tracing::info;
 

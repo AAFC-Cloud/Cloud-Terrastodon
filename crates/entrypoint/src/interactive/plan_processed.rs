@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
-use cloud_terrastodon_command::prelude::OutputBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::OutputBehaviour;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use tracing::warn;

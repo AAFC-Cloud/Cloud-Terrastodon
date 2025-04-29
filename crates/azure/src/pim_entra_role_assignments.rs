@@ -1,7 +1,7 @@
 use crate::prelude::fetch_current_user;
 use cloud_terrastodon_azure_types::prelude::PimEntraRoleAssignment;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use itertools::Itertools;
 use serde::Deserialize;

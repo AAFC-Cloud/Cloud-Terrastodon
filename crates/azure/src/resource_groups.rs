@@ -1,6 +1,6 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ResourceGroup;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;

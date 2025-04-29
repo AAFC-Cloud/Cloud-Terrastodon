@@ -1,6 +1,6 @@
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
-use cloud_terrastodon_command::prelude::bstr::ByteSlice;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::bstr::ByteSlice;
 use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
 use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
 use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;

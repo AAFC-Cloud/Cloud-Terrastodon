@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_types::cost_management::QueryDefinition;
 use cloud_terrastodon_azure_types::cost_management::QueryResult;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 
 use crate::prelude::fetch_root_management_group;
 

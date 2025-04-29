@@ -1,5 +1,5 @@
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_tofu_types::prelude::AsTofuString;
 use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;

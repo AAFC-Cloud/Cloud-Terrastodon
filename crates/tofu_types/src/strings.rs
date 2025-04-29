@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;

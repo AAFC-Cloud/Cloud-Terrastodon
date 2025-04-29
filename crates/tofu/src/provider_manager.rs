@@ -1,8 +1,8 @@
 use crate::writer::TofuWriter;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_name;
-use cloud_terrastodon_command::prelude::CommandBuilder;
-use cloud_terrastodon_command::prelude::CommandKind;
-use cloud_terrastodon_command::prelude::OutputBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::OutputBehaviour;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_tofu_types::prelude::AsTofuString;

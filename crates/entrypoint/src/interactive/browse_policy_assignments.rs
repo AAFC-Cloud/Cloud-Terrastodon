@@ -6,7 +6,7 @@ use cloud_terrastodon_azure::prelude::SomePolicyDefinitionId;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_set_definitions;
-use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick_many;
 use eyre::Context;
