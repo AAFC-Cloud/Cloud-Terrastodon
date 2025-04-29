@@ -1,1 +1,0 @@
-- omit activated PIM role assignments when building role_assignment_imports.tf
