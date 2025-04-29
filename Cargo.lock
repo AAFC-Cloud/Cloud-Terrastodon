@@ -1012,6 +1012,9 @@ dependencies = [
 [[package]]
 name = "cloud_terrastodon_relative_location"
 version = "0.1.0"
+dependencies = [
+ "eyre",
+]
 
 [[package]]
 name = "cloud_terrastodon_tofu"
