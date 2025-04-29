@@ -1096,7 +1096,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_user_input"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "eyre",
  "indexmap",
