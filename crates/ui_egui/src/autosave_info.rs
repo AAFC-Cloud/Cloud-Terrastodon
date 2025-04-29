@@ -1,4 +1,4 @@
-use cloud_terrastodon_config::iconfig::IConfig;
+use cloud_terrastodon_config::Config;
 use std::any::type_name;
 use std::rc::Rc;
 use std::time::Duration;
@@ -10,13 +10,13 @@ use crate::work::WorkHandle;
 use crate::work_tracker::WorkTracker;
 
 #[derive(Debug)]
-pub struct AutoSaveBehaviour<T: IConfig> {
+pub struct AutoSaveBehaviour<T: Config> {
     pub interval: Duration,
     pub last_save: Option<(Instant, T)>,
 }
 impl<T> AutoSaveBehaviour<T>
 where
-    T: IConfig,
+    T: Config,
 {
     fn new(interval: Duration) -> Self {
         Self {
@@ -53,7 +53,7 @@ where
 }
 impl<T> Default for AutoSaveBehaviour<T>
 where
-    T: IConfig,
+    T: Config,
 {
     fn default() -> Self {
         Self::new(Duration::from_secs(1))

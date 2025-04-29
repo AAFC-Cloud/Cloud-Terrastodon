@@ -1,4 +1,9 @@
-pub mod commands_config;
-pub mod egui_config;
-pub mod iconfig;
-pub mod work_dirs_config;
+mod commands_config;
+mod config;
+mod egui_config;
+mod work_dirs_config;
+
+pub use commands_config::*;
+pub use config::*;
+pub use egui_config::*;
+pub use work_dirs_config::*;

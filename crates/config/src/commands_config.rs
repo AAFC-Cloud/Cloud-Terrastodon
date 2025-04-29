@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::iconfig::IConfig;
+use crate::config::Config;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct CommandsConfig {
@@ -23,6 +23,6 @@ impl Default for CommandsConfig {
 }
 
 #[async_trait::async_trait]
-impl IConfig for CommandsConfig {
+impl Config for CommandsConfig {
     const FILE_SLUG: &'static str = "commands";
 }

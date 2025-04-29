@@ -1,4 +1,4 @@
-use cloud_terrastodon_config::iconfig::IConfig;
+use cloud_terrastodon_config::Config;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -31,11 +31,11 @@ impl Default for MyTestConfigV2 {
 }
 
 #[async_trait::async_trait]
-impl IConfig for MyTestConfigV1 {
+impl Config for MyTestConfigV1 {
     const FILE_SLUG: &'static str = "config_test";
 }
 #[async_trait::async_trait]
-impl IConfig for MyTestConfigV2 {
+impl Config for MyTestConfigV2 {
     const FILE_SLUG: &'static str = "config_test";
 }
 

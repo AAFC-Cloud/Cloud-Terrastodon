@@ -11,7 +11,7 @@ use tokio::fs;
 use tracing::debug;
 use tracing::warn;
 #[async_trait::async_trait]
-pub trait IConfig:
+pub trait Config:
     Sized
     + Default
     + std::fmt::Debug
