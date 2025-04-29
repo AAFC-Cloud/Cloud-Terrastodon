@@ -2,7 +2,7 @@ use crate::app::MyApp;
 use crate::icons::DEVOPS_ICON;
 use crate::loadable::Loadable;
 use crate::workers::load_azure_devops_projects::load_azure_devops_projects;
-use cloud_terrastodon_core_azure_devops::prelude::AzureDevOpsProject;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject;
 use eframe::egui::Checkbox;
 use eframe::egui::Context;
 use eframe::egui::Id;

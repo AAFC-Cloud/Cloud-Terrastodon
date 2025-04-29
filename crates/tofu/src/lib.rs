@@ -26,5 +26,5 @@ pub mod prelude {
     pub use crate::reflow::*;
     pub use crate::work_dir_lifecycle::*;
     pub use crate::writer::*;
-    pub use cloud_terrastodon_core_tofu_types::prelude::*;
+    pub use cloud_terrastodon_tofu_types::prelude::*;
 }

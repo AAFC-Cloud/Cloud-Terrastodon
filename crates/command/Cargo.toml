@@ -1,14 +1,14 @@
 [package]
-name = "cloud_terrastodon_core_command"
+name = "cloud_terrastodon_command"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cloud_terrastodon_core_pathing = { workspace = true }
-cloud_terrastodon_core_config = { workspace = true }
-cloud_terrastodon_core_relative_location = { workspace = true }
+cloud_terrastodon_pathing = { workspace = true }
+cloud_terrastodon_config = { workspace = true }
+cloud_terrastodon_relative_location = { workspace = true }
 tokio = { workspace = true } 
 eyre = { workspace = true } 
 serde = { workspace = true }
@@ -20,4 +20,4 @@ chrono = { workspace = true }
 humantime = { workspace = true }
 bstr = { workspace = true }
 [dev-dependencies]
-cloud_terrastodon_core_user_input = { workspace = true }
+cloud_terrastodon_user_input = { workspace = true }

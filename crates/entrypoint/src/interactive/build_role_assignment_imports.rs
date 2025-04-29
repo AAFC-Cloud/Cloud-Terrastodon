@@ -1,10 +1,10 @@
-use cloud_terrastodon_core_azure::prelude::fetch_all_role_assignments;
-use cloud_terrastodon_core_pathing::AppDir;
-use cloud_terrastodon_core_tofu::prelude::Sanitizable;
-use cloud_terrastodon_core_tofu::prelude::TofuImportBlock;
-use cloud_terrastodon_core_tofu::prelude::TofuProviderKind;
-use cloud_terrastodon_core_tofu::prelude::TofuProviderReference;
-use cloud_terrastodon_core_tofu::prelude::TofuWriter;
+use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
+use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_tofu::prelude::Sanitizable;
+use cloud_terrastodon_tofu::prelude::TofuImportBlock;
+use cloud_terrastodon_tofu::prelude::TofuProviderKind;
+use cloud_terrastodon_tofu::prelude::TofuProviderReference;
+use cloud_terrastodon_tofu::prelude::TofuWriter;
 use eyre::Result;
 use eyre::eyre;
 use itertools::Itertools;

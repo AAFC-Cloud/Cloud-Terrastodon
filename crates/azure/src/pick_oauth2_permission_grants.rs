@@ -1,13 +1,13 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use cloud_terrastodon_core_azure_types::prelude::ConsentType;
-use cloud_terrastodon_core_azure_types::prelude::OAuth2PermissionGrant;
-use cloud_terrastodon_core_azure_types::prelude::ServicePrincipal;
-use cloud_terrastodon_core_azure_types::prelude::User;
-use cloud_terrastodon_core_user_input::prelude::Choice;
-use cloud_terrastodon_core_user_input::prelude::FzfArgs;
-use cloud_terrastodon_core_user_input::prelude::pick_many;
+use cloud_terrastodon_azure_types::prelude::ConsentType;
+use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
+use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
+use cloud_terrastodon_azure_types::prelude::User;
+use cloud_terrastodon_user_input::prelude::Choice;
+use cloud_terrastodon_user_input::prelude::FzfArgs;
+use cloud_terrastodon_user_input::prelude::pick_many;
 use eyre::bail;
 use itertools::Itertools;
 use tokio::try_join;

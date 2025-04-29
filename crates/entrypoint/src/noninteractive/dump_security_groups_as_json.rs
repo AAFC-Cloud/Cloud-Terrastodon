@@ -1,5 +1,5 @@
 use chrono::Local;
-use cloud_terrastodon_core_azure::prelude::fetch_all_security_groups;
+use cloud_terrastodon_azure::prelude::fetch_all_security_groups;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;

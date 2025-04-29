@@ -9,21 +9,21 @@ members = ["crates/*"]
 
 
 [workspace.dependencies]
-cloud_terrastodon_core_pathing = { path = "./crates/pathing" }
-cloud_terrastodon_core_config = { path = "./crates/config" }
-cloud_terrastodon_core_azure = { path = "./crates/azure" }
-cloud_terrastodon_core_azure_types = { path = "./crates/azure_types" }
+cloud_terrastodon_pathing = { path = "./crates/pathing" }
+cloud_terrastodon_config = { path = "./crates/config" }
+cloud_terrastodon_azure = { path = "./crates/azure" }
+cloud_terrastodon_azure_types = { path = "./crates/azure_types" }
 cloud_terrastodon_azure_resource_types = { path = "./crates/azure_resource_types" }
-cloud_terrastodon_core_azure_devops = { path = "./crates/azure_devops" }
-cloud_terrastodon_core_azure_devops_types = { path = "./crates/azure_devops_types" }
-cloud_terrastodon_core_azure_devops_rest_client = { path = "./crates/azure_devops_rest_client" }
-cloud_terrastodon_core_tofu = { path = "./crates/tofu" }
-cloud_terrastodon_core_tofu_types = { path = "./crates/tofu_types" }
-cloud_terrastodon_core_user_input = { path = "./crates/user_input" }
-cloud_terrastodon_core_command = { path = "./crates/command" }
-cloud_terrastodon_core_entrypoint = { path = "./crates/entrypoint" }
-cloud_terrastodon_core_zombies = { path = "./crates/zombies" }
-cloud_terrastodon_core_relative_location = { path = "./crates/relative_location" }
+cloud_terrastodon_azure_devops = { path = "./crates/azure_devops" }
+cloud_terrastodon_azure_devops_types = { path = "./crates/azure_devops_types" }
+cloud_terrastodon_azure_devops_rest_client = { path = "./crates/azure_devops_rest_client" }
+cloud_terrastodon_tofu = { path = "./crates/tofu" }
+cloud_terrastodon_tofu_types = { path = "./crates/tofu_types" }
+cloud_terrastodon_user_input = { path = "./crates/user_input" }
+cloud_terrastodon_command = { path = "./crates/command" }
+cloud_terrastodon_entrypoint = { path = "./crates/entrypoint" }
+cloud_terrastodon_zombies = { path = "./crates/zombies" }
+cloud_terrastodon_relative_location = { path = "./crates/relative_location" }
 cloud_terrastodon_ui_ratatui = { path = "./crates/ui_ratatui" }
 cloud_terrastodon_ui_egui = { path = "./crates/ui_egui" }
 anyhow = "1.0.82"
@@ -40,7 +40,6 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 indexmap = { version = "2.2.6", features = ["serde"] }
 ordermap = { version = "0.5.0", features = ["serde"] }
-# unidecode = "0.3.0"
 hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["serde", "v4"] }
 chrono = { version = "0.4.38", features = ["serde"] }
@@ -75,7 +74,7 @@ async-trait = "0.1.88"
 embed-resource = "1.6.3"
 
 [dependencies]
-cloud_terrastodon_core_entrypoint = { workspace = true }
+cloud_terrastodon_entrypoint = { workspace = true }
 tokio = { workspace = true }
 eyre = { workspace = true }
 color-eyre = { workspace = true }

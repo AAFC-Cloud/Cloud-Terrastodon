@@ -1,4 +1,4 @@
-use cloud_terrastodon_core_config::iconfig::IConfig;
+use cloud_terrastodon_config::iconfig::IConfig;
 use serde::Deserialize;
 use serde::Serialize;
 

@@ -1,4 +1,4 @@
-use cloud_terrastodon_core_tofu_types::prelude::CodeReference;
+use cloud_terrastodon_tofu_types::prelude::CodeReference;
 use eyre::Context;
 use eyre::Result;
 use hcl::edit::structure::Body;

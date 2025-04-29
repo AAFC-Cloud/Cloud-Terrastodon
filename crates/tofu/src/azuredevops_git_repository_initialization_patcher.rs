@@ -1,5 +1,5 @@
-use cloud_terrastodon_core_tofu_types::prelude::TofuAzureDevOpsResourceKind;
-use cloud_terrastodon_core_tofu_types::prelude::TofuResourceKind;
+use cloud_terrastodon_tofu_types::prelude::TofuAzureDevOpsResourceKind;
+use cloud_terrastodon_tofu_types::prelude::TofuResourceKind;
 use hcl::edit::Ident;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;

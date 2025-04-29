@@ -1,8 +1,8 @@
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
-use cloud_terrastodon_core_pathing::AppDir;
-use cloud_terrastodon_core_pathing::Existy;
-use cloud_terrastodon_core_tofu::prelude::reflow_workspace;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_pathing::Existy;
+use cloud_terrastodon_tofu::prelude::reflow_workspace;
 use eyre::Result;
 use std::path::Path;
 use std::path::PathBuf;

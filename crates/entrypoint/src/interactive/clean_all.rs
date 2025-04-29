@@ -1,6 +1,6 @@
-use cloud_terrastodon_core_pathing::AppDir;
-use cloud_terrastodon_core_user_input::prelude::FzfArgs;
-use cloud_terrastodon_core_user_input::prelude::pick;
+use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_user_input::prelude::FzfArgs;
+use cloud_terrastodon_user_input::prelude::pick;
 use eyre::Result;
 use eyre::bail;
 use tokio::fs;

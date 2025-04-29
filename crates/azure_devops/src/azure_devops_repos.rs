@@ -1,8 +1,8 @@
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsProjectId;
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsRepo;
-use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectId;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsRepo;
+use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
 use eyre::Context;
 use eyre::Result;
 use std::collections::HashMap;

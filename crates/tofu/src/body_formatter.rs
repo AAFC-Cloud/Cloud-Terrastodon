@@ -1,4 +1,4 @@
-use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
+use cloud_terrastodon_tofu_types::prelude::AsTofuString;
 use eyre::Result;
 use eyre::eyre;
 use hcl::edit::Decorate;

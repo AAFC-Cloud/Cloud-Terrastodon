@@ -1,18 +1,18 @@
 use crate::writer::TofuWriter;
-use cloud_terrastodon_core_azure_devops::prelude::get_default_organization_name;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
-use cloud_terrastodon_core_command::prelude::OutputBehaviour;
-use cloud_terrastodon_core_pathing::AppDir;
-use cloud_terrastodon_core_pathing::Existy;
-use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
-use cloud_terrastodon_core_tofu_types::prelude::ProviderAvailability;
-use cloud_terrastodon_core_tofu_types::prelude::TFProviderHostname;
-use cloud_terrastodon_core_tofu_types::prelude::TFProviderNamespace;
-use cloud_terrastodon_core_tofu_types::prelude::TofuProviderBlock;
-use cloud_terrastodon_core_tofu_types::prelude::TofuProviderKind;
-use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
-use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_name;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::prelude::OutputBehaviour;
+use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_pathing::Existy;
+use cloud_terrastodon_tofu_types::prelude::AsTofuString;
+use cloud_terrastodon_tofu_types::prelude::ProviderAvailability;
+use cloud_terrastodon_tofu_types::prelude::TFProviderHostname;
+use cloud_terrastodon_tofu_types::prelude::TFProviderNamespace;
+use cloud_terrastodon_tofu_types::prelude::TofuProviderBlock;
+use cloud_terrastodon_tofu_types::prelude::TofuProviderKind;
+use cloud_terrastodon_tofu_types::prelude::TofuTerraformBlock;
+use cloud_terrastodon_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
 use directories_next::BaseDirs;
 use eyre::Context;
 use eyre::OptionExt;
@@ -276,7 +276,7 @@ impl ProviderManager {
 #[cfg(test)]
 mod test {
     use crate::prelude::ProviderManager;
-    use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
+    use cloud_terrastodon_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
     use eyre::bail;
     use hcl::edit::structure::Body;
 

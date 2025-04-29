@@ -1,8 +1,8 @@
-use cloud_terrastodon_core_azure::prelude::UserId;
-use cloud_terrastodon_core_tofu_types::prelude::TFUsersLookupBody;
-use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;
-use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrastodon_core_tofu_types::prelude::TofuResourceKind;
+use cloud_terrastodon_azure::prelude::UserId;
+use cloud_terrastodon_tofu_types::prelude::TFUsersLookupBody;
+use cloud_terrastodon_tofu_types::prelude::TofuAzureADResourceKind;
+use cloud_terrastodon_tofu_types::prelude::TofuAzureRMResourceKind;
+use cloud_terrastodon_tofu_types::prelude::TofuResourceKind;
 use eyre::Result;
 use hcl::edit::Decorate;
 use hcl::edit::expr::Array;

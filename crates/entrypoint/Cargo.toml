@@ -1,19 +1,19 @@
 [package]
-name = "cloud_terrastodon_core_entrypoint"
+name = "cloud_terrastodon_entrypoint"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cloud_terrastodon_core_user_input = { workspace = true }
-cloud_terrastodon_core_tofu = { workspace = true }
-cloud_terrastodon_core_azure = { workspace = true }
-cloud_terrastodon_core_azure_devops = { workspace = true }
-cloud_terrastodon_core_command = { workspace = true }
-cloud_terrastodon_core_pathing = { workspace = true }
-cloud_terrastodon_core_config = { workspace = true }
-cloud_terrastodon_core_zombies = { workspace = true }
+cloud_terrastodon_user_input = { workspace = true }
+cloud_terrastodon_tofu = { workspace = true }
+cloud_terrastodon_azure = { workspace = true }
+cloud_terrastodon_azure_devops = { workspace = true }
+cloud_terrastodon_command = { workspace = true }
+cloud_terrastodon_pathing = { workspace = true }
+cloud_terrastodon_config = { workspace = true }
+cloud_terrastodon_zombies = { workspace = true }
 cloud_terrastodon_ui_egui = { workspace = true }
 cloud_terrastodon_ui_ratatui = { workspace = true }
 eyre = { workspace = true }

@@ -1,6 +1,6 @@
 use clap::Parser;
 use clap::Subcommand;
-use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_pathing::AppDir;
 use std::fmt::Debug;
 use std::path::PathBuf;
 

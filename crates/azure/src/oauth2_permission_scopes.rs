@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use cloud_terrastodon_core_azure_types::prelude::OAuth2PermissionScope;
-use cloud_terrastodon_core_azure_types::prelude::ServicePrincipalId;
-use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_azure_types::prelude::OAuth2PermissionScope;
+use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
+use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
 use serde::Deserialize;
 use tracing::info;
 

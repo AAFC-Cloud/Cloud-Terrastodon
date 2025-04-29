@@ -1,5 +1,5 @@
 use chrono::Utc;
-use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use eyre::eyre;
 use serde::Deserialize;

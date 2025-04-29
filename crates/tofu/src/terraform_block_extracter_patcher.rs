@@ -1,4 +1,4 @@
-use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
+use cloud_terrastodon_tofu_types::prelude::TofuTerraformBlock;
 use hcl::edit::visit_mut::VisitMut;
 use tracing::error;
 use tracing::warn;

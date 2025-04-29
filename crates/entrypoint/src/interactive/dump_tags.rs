@@ -1,7 +1,7 @@
-use cloud_terrastodon_core_azure::prelude::ResourceGraphHelper;
-use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-use cloud_terrastodon_core_user_input::prelude::FzfArgs;
-use cloud_terrastodon_core_user_input::prelude::pick;
+use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
+use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_user_input::prelude::FzfArgs;
+use cloud_terrastodon_user_input::prelude::pick;
 use serde_json::Value;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;

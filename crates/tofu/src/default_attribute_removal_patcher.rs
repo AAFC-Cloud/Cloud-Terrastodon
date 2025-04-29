@@ -1,8 +1,8 @@
-use cloud_terrastodon_core_azure::prelude::uuid::Uuid;
-use cloud_terrastodon_core_tofu_types::prelude::TofuAzureADResourceKind;
-use cloud_terrastodon_core_tofu_types::prelude::TofuAzureDevOpsResourceKind;
-use cloud_terrastodon_core_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrastodon_core_tofu_types::prelude::TofuResourceKind;
+use cloud_terrastodon_azure::prelude::uuid::Uuid;
+use cloud_terrastodon_tofu_types::prelude::TofuAzureADResourceKind;
+use cloud_terrastodon_tofu_types::prelude::TofuAzureDevOpsResourceKind;
+use cloud_terrastodon_tofu_types::prelude::TofuAzureRMResourceKind;
+use cloud_terrastodon_tofu_types::prelude::TofuResourceKind;
 use hcl::edit::Decorate;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;

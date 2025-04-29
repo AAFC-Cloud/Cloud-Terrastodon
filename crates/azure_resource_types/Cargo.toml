@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-cloud_terrastodon_core_command = { workspace = true }
+cloud_terrastodon_command = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]

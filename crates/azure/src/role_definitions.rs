@@ -1,6 +1,6 @@
 use crate::prelude::ResourceGraphHelper;
-use cloud_terrastodon_core_azure_types::prelude::RoleDefinition;
-use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use cloud_terrastodon_azure_types::prelude::RoleDefinition;
+use cloud_terrastodon_command::prelude::CacheBehaviour;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -31,7 +31,7 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_core_azure_types::prelude::Scope;
+    use cloud_terrastodon_azure_types::prelude::Scope;
     use eyre::eyre;
 
     use super::*;

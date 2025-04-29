@@ -1,4 +1,4 @@
-use cloud_terrastodon_core_azure_types::prelude::Principal;
+use cloud_terrastodon_azure_types::prelude::Principal;
 use itertools::Itertools;
 use tokio::try_join;
 use tracing::info;

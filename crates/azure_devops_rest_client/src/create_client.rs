@@ -1,9 +1,9 @@
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
-use cloud_terrastodon_core_azure_types::prelude::SubscriptionId;
-use cloud_terrastodon_core_azure_types::prelude::TenantId;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_azure_types::prelude::SubscriptionId;
+use cloud_terrastodon_azure_types::prelude::TenantId;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
 use reqwest::Client;
 use reqwest::ClientBuilder;
 use reqwest::header::AUTHORIZATION;

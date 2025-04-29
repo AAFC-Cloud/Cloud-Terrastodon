@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsOrganizationName;
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsProjectName;
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsWorkItemQueryId;
-use cloud_terrastodon_core_azure_devops_types::prelude::WorkItemQueryResult;
-use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
-use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationName;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQueryId;
+use cloud_terrastodon_azure_devops_types::prelude::WorkItemQueryResult;
+use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::prelude::bstr::ByteSlice;
 use tracing::debug;
 
 #[deprecated(note = "WIP, the return type and behaviour isn't in a good spot yet.")]
@@ -60,7 +60,7 @@ mod test {
     use crate::prelude::fetch_queries_for_project;
     use crate::prelude::fetch_work_items_for_query;
     use crate::prelude::get_default_organization_name;
-    use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
+    use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
     use eyre::Context;
     use eyre::bail;
 

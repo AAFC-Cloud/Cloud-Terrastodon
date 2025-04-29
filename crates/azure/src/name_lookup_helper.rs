@@ -1,6 +1,6 @@
-use cloud_terrastodon_core_azure_types::prelude::Scope;
-use cloud_terrastodon_core_azure_types::prelude::ScopeImpl;
-use cloud_terrastodon_core_azure_types::prelude::ScopeImplKind;
+use cloud_terrastodon_azure_types::prelude::Scope;
+use cloud_terrastodon_azure_types::prelude::ScopeImpl;
+use cloud_terrastodon_azure_types::prelude::ScopeImplKind;
 use eyre::Context;
 use eyre::Result;
 use std::collections::HashMap;

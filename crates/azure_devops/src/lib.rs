@@ -17,5 +17,5 @@ pub mod prelude {
     pub use crate::get_default_organization_name::*;
     pub use crate::get_default_project_name::*;
     pub use crate::get_pat::*;
-    pub use cloud_terrastodon_core_azure_devops_types::prelude::*;
+    pub use cloud_terrastodon_azure_devops_types::prelude::*;
 }

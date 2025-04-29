@@ -1,6 +1,6 @@
-use cloud_terrastodon_core_azure::prelude::fetch_all_users;
-use cloud_terrastodon_core_tofu_types::prelude::TFUsersLookupBody;
-use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
+use cloud_terrastodon_azure::prelude::fetch_all_users;
+use cloud_terrastodon_tofu_types::prelude::TFUsersLookupBody;
+use cloud_terrastodon_tofu_types::prelude::TofuTerraformBlock;
 use eyre::Context;
 use eyre::Result;
 use hcl::edit::structure::Body;

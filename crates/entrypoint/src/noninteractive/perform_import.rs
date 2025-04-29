@@ -1,5 +1,5 @@
-use cloud_terrastodon_core_pathing::AppDir;
-use cloud_terrastodon_core_tofu::prelude::TofuGenerateConfigOutHelper;
+use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_tofu::prelude::TofuGenerateConfigOutHelper;
 use eyre::Result;
 use std::path::PathBuf;
 use tracing::info;

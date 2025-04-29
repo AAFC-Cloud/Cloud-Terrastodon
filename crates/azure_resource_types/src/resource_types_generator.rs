@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_core_command::prelude::CommandBuilder;
-    use cloud_terrastodon_core_command::prelude::CommandKind;
+    use cloud_terrastodon_command::prelude::CommandBuilder;
+    use cloud_terrastodon_command::prelude::CommandKind;
     use proc_macro2::Ident;
     use quote::quote;
     use serde::Deserialize;

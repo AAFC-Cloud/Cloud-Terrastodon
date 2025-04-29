@@ -1,6 +1,6 @@
 use crate::app::MyApp;
 use crate::work_tracker::WorkTracker;
-use cloud_terrastodon_core_pathing::AppDir;
+use cloud_terrastodon_pathing::AppDir;
 use eframe::NativeOptions;
 use eyre::bail;
 use std::rc::Rc;

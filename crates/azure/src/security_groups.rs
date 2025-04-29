@@ -1,5 +1,5 @@
-use cloud_terrastodon_core_azure_types::prelude::Group;
-use cloud_terrastodon_core_command::prelude::CacheBehaviour;
+use cloud_terrastodon_azure_types::prelude::Group;
+use cloud_terrastodon_command::prelude::CacheBehaviour;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -24,7 +24,7 @@ pub async fn fetch_all_security_groups() -> Result<Vec<Group>> {
 mod tests {
     use super::*;
     use crate::prelude::fetch_all_security_groups;
-    use cloud_terrastodon_core_azure_types::prelude::Group;
+    use cloud_terrastodon_azure_types::prelude::Group;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

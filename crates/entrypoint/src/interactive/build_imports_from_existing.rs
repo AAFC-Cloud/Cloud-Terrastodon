@@ -1,7 +1,7 @@
-use cloud_terrastodon_core_pathing::AppDir;
-use cloud_terrastodon_core_tofu::prelude::TofuWriter;
-use cloud_terrastodon_core_tofu::prelude::get_imports_from_existing;
-use cloud_terrastodon_core_user_input::prelude::prompt_line;
+use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_tofu::prelude::TofuWriter;
+use cloud_terrastodon_tofu::prelude::get_imports_from_existing;
+use cloud_terrastodon_user_input::prelude::prompt_line;
 use eyre::Result;
 use eyre::eyre;
 

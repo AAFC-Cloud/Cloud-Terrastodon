@@ -1,11 +1,11 @@
 use crate::prelude::ProviderManager;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
-use cloud_terrastodon_core_command::prelude::CommandOutput;
-use cloud_terrastodon_core_command::prelude::OutputBehaviour;
-use cloud_terrastodon_core_command::prelude::bstr::BString;
-use cloud_terrastodon_core_command::prelude::bstr::ByteSlice;
-use cloud_terrastodon_core_command::prelude::bstr::io::BufReadExt;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_command::prelude::CommandOutput;
+use cloud_terrastodon_command::prelude::OutputBehaviour;
+use cloud_terrastodon_command::prelude::bstr::BString;
+use cloud_terrastodon_command::prelude::bstr::ByteSlice;
+use cloud_terrastodon_command::prelude::bstr::io::BufReadExt;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::Result;
@@ -177,9 +177,9 @@ mod test {
 
     use crate::prelude::ProviderManager;
     use crate::prelude::TofuGenerateConfigOutHelper;
-    use cloud_terrastodon_core_pathing::AppDir;
-    use cloud_terrastodon_core_pathing::Existy;
-    use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
+    use cloud_terrastodon_pathing::AppDir;
+    use cloud_terrastodon_pathing::Existy;
+    use cloud_terrastodon_tofu_types::prelude::TofuTerraformRequiredProvidersBlock;
     use tempfile::Builder;
     use tokio::sync::Semaphore;
     use tokio::task::JoinSet;

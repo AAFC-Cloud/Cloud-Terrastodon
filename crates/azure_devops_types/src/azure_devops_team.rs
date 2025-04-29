@@ -1,11 +1,11 @@
 use std::ops::Deref;
 use std::str::FromStr;
 
-use cloud_terrastodon_core_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_core_tofu_types::prelude::TofuAzureDevOpsResourceKind;
-use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_core_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_core_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_tofu_types::prelude::Sanitizable;
+use cloud_terrastodon_tofu_types::prelude::TofuAzureDevOpsResourceKind;
+use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
+use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
+use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;

@@ -1,5 +1,5 @@
 [package]
-name = "cloud_terrastodon_core_user_input"
+name = "cloud_terrastodon_user_input"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,5 +1,5 @@
 [package]
-name = "cloud_terrastodon_core_azure_devops_rest_client"
+name = "cloud_terrastodon_azure_devops_rest_client"
 version = "0.1.0"
 edition = "2024"
 
@@ -9,8 +9,8 @@ eyre.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 base64.workspace = true
-cloud_terrastodon_core_command.workspace = true
-cloud_terrastodon_core_azure_types.workspace = true
+cloud_terrastodon_command.workspace = true
+cloud_terrastodon_azure_types.workspace = true
 
 [dev-dependencies]
 tokio.workspace=true

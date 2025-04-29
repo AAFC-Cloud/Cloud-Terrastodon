@@ -1,5 +1,5 @@
 [package]
-name = "cloud_terrastodon_core_pathing"
+name = "cloud_terrastodon_pathing"
 version = "0.1.0"
 edition = "2021"
 

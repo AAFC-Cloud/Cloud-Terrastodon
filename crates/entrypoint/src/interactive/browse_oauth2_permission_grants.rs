@@ -1,4 +1,4 @@
-use cloud_terrastodon_core_azure::prelude::pick_oauth2_permission_grants;
+use cloud_terrastodon_azure::prelude::pick_oauth2_permission_grants;
 
 pub async fn browse_oauth2_permission_grants() -> eyre::Result<()> {
     let chosen = pick_oauth2_permission_grants().await?;

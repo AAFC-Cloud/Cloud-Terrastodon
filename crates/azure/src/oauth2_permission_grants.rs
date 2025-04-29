@@ -4,14 +4,14 @@ use std::cell::LazyCell;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use cloud_terrastodon_core_azure_types::prelude::ConsentType;
-use cloud_terrastodon_core_azure_types::prelude::OAuth2PermissionGrant;
-use cloud_terrastodon_core_azure_types::prelude::OAuth2PermissionGrantId;
-use cloud_terrastodon_core_azure_types::prelude::ServicePrincipalId;
-use cloud_terrastodon_core_azure_types::prelude::UserId;
-use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_azure_types::prelude::ConsentType;
+use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
+use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
+use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
+use cloud_terrastodon_azure_types::prelude::UserId;
+use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
 use serde::Deserialize;
 use tracing::info;
 

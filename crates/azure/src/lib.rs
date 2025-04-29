@@ -80,5 +80,5 @@ pub mod prelude {
     pub use crate::tags::*;
     pub use crate::tenants::*;
     pub use crate::users::*;
-    pub use cloud_terrastodon_core_azure_types::prelude::*;
+    pub use cloud_terrastodon_azure_types::prelude::*;
 }

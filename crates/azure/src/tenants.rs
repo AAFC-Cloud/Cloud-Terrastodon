@@ -1,4 +1,4 @@
-use cloud_terrastodon_core_azure_types::prelude::TenantId;
+use cloud_terrastodon_azure_types::prelude::TenantId;
 use eyre::bail;
 
 use crate::prelude::az_account_list;

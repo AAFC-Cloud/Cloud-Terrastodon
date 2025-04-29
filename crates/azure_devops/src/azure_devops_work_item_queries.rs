@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsProjectName;
-use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
-use cloud_terrastodon_core_command::prelude::CacheBehaviour;
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
+use cloud_terrastodon_command::prelude::CacheBehaviour;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
 use serde::Deserialize;
 use serde_json::Value;
 use tracing::info;
@@ -55,7 +55,7 @@ pub async fn fetch_queries_for_project(
 
 #[cfg(test)]
 mod test {
-    use cloud_terrastodon_core_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
+    use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 
     use crate::prelude::fetch_queries_for_project;
     use crate::prelude::get_default_project_name;

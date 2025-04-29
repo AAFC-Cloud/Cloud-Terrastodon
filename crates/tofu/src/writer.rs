@@ -1,10 +1,10 @@
-use cloud_terrastodon_core_command::prelude::CommandBuilder;
-use cloud_terrastodon_core_command::prelude::CommandKind;
-use cloud_terrastodon_core_pathing::Existy;
-use cloud_terrastodon_core_tofu_types::prelude::AsTofuString;
-use cloud_terrastodon_core_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_core_tofu_types::prelude::TofuProviderBlock;
-use cloud_terrastodon_core_tofu_types::prelude::TofuTerraformBlock;
+use cloud_terrastodon_command::prelude::CommandBuilder;
+use cloud_terrastodon_command::prelude::CommandKind;
+use cloud_terrastodon_pathing::Existy;
+use cloud_terrastodon_tofu_types::prelude::AsTofuString;
+use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
+use cloud_terrastodon_tofu_types::prelude::TofuProviderBlock;
+use cloud_terrastodon_tofu_types::prelude::TofuTerraformBlock;
 use eyre::Context;
 use eyre::Result;
 use hcl::edit::structure::Block;

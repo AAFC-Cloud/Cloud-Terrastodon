@@ -1,6 +1,6 @@
-use cloud_terrastodon_core_azure::prelude::pick_oauth2_permission_grants;
-use cloud_terrastodon_core_azure::prelude::remove_oauth2_permission_grant;
-use cloud_terrastodon_core_user_input::prelude::are_you_sure;
+use cloud_terrastodon_azure::prelude::pick_oauth2_permission_grants;
+use cloud_terrastodon_azure::prelude::remove_oauth2_permission_grant;
+use cloud_terrastodon_user_input::prelude::are_you_sure;
 use eyre::Result;
 use itertools::Itertools;
 use tracing::info;
