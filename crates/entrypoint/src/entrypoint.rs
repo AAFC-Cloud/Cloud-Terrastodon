@@ -46,7 +46,7 @@ pub fn entrypoint(version: Version) -> Result<()> {
 
     // Configure backtrace-always
     if cli.debug {
-        std::env::set_var("RUST_BACKTRACE", "full");
+        unsafe { std::env::set_var("RUST_BACKTRACE", "full") };
         // std::env::set_var("RUST_BACKTRACE", "1");
     }
 

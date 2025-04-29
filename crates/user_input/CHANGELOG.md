@@ -1,6 +1,7 @@
 # v0.1.2
 
 - Add fzf notes to README
+- Add multiline example
 
 # v0.1.1
 

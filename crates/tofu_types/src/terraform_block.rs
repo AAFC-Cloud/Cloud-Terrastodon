@@ -46,7 +46,7 @@ impl TofuTerraformBlock {
             (None, None) => {}
             (None, Some(right)) => self.required_providers = Some(right),
             (Some(_), None) => {}
-            (Some(ref mut left), Some(right)) => left.try_merge(right)?,
+            (Some(left), Some(right)) => left.try_merge(right)?,
         }
         if !other.other.is_empty() {
             warn!("Merge logic for other stuff in terraform blocks may result in duplication!");

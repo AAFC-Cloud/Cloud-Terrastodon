@@ -92,7 +92,7 @@ async fn update_menu_action_rs_file(
         display_name: &str,
     ) -> eyre::Result<()> {
         for stmt in &mut method.block.stmts {
-            if let Stmt::Expr(Expr::Match(ref mut match_expr), _) = stmt {
+            if let Stmt::Expr(Expr::Match(match_expr), _) = stmt {
                 let new_arm: Arm = parse_str(&format!(
                     "MenuAction::{} => \"{}\",",
                     variant_ident, display_name
@@ -110,7 +110,7 @@ async fn update_menu_action_rs_file(
         function_name: &str,
     ) -> eyre::Result<()> {
         for stmt in &mut method.block.stmts {
-            if let Stmt::Expr(Expr::Match(ref mut match_expr), _) = stmt {
+            if let Stmt::Expr(Expr::Match(match_expr), _) = stmt {
                 let new_arm: Arm = parse_str(&format!(
                     "MenuAction::{} => {}().await?,",
                     variant_ident, function_name
@@ -131,8 +131,8 @@ async fn update_menu_action_rs_file(
         let mut variant_added = false;
         for item in &mut ast.items {
             if let Item::Enum(ItemEnum {
-                ref ident,
-                ref mut variants,
+                ident,
+                variants,
                 ..
             }) = item
             {
@@ -150,13 +150,13 @@ async fn update_menu_action_rs_file(
 
         // Modify the impl block of MenuAction
         for item in &mut ast.items {
-            if let Item::Impl(ref mut impl_item) = item {
+            if let Item::Impl(impl_item) = item {
                 // Ensure we're modifying impl MenuAction, not any trait implementation
                 if impl_item.trait_.is_none() {
                     if let Type::Path(ref type_path) = *impl_item.self_ty {
                         if type_path.path.is_ident("MenuAction") {
                             for impl_item in &mut impl_item.items {
-                                if let ImplItem::Fn(ref mut method) = impl_item {
+                                if let ImplItem::Fn(method) = impl_item {
                                     // Modify the name() method
                                     if method.sig.ident == "name" {
                                         add_name_match_arm(
@@ -199,10 +199,10 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
 
         // --- Add the new pub use statement in the prelude module ---
         for item in &mut ast.items {
-            if let Item::Mod(ref mut item_mod) = item {
+            if let Item::Mod(item_mod) = item {
                 if item_mod.ident == "prelude" {
                     // Ensure that the module is inline (has a body)
-                    let (_, ref mut body) = item_mod
+                    let (_, body) = item_mod
                         .content
                         .as_mut()
                         .ok_or_else(|| eyre::eyre!("prelude module has no inline content"))?;

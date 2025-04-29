@@ -209,8 +209,8 @@ impl MenuAction {
             MenuAction::EvaluatePolicyAssignmentCompliance => {
                 evaluate_policy_assignment_compliance().await?
             }
-            MenuAction::UseTerraform => env::set_var(USE_TERRAFORM_FLAG_KEY, "1"),
-            MenuAction::UseTofu => env::remove_var(USE_TERRAFORM_FLAG_KEY),
+            MenuAction::UseTerraform => unsafe { env::set_var(USE_TERRAFORM_FLAG_KEY, "1") },
+            MenuAction::UseTofu => unsafe { env::remove_var(USE_TERRAFORM_FLAG_KEY) },
             MenuAction::PopulateCache => populate_cache().await?,
             MenuAction::OpenDir => open_dir().await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),

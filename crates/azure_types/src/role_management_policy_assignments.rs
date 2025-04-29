@@ -157,7 +157,7 @@ impl Serialize for RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPrope
             RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::ManagementGroup => serializer.serialize_str("managementgroup"),
             RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Subscription => serializer.serialize_str("subscription"),
             RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::ResourceGroup => serializer.serialize_str("resourcegroup"),
-            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Other(ref s) => serializer.serialize_str(s),
+            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Other(s) => serializer.serialize_str(s),
         }
     }
 }

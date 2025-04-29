@@ -96,7 +96,7 @@ impl TryFrom<Block> for TofuImportBlock {
                                 block
                             );
                         };
-                        let TraversalOperator::GetAttr(ref alias) = alias.value() else {
+                        let TraversalOperator::GetAttr(alias) = alias.value() else {
                             bail!(
                                 "Expected tofu provider traversal alias to be a getter, instead got {:?} from {:?}",
                                 alias.value(),

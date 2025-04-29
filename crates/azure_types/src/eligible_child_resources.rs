@@ -42,7 +42,7 @@ impl Serialize for EligibleChildResourceKind {
             }
             EligibleChildResourceKind::Subscription => serializer.serialize_str("subscription"),
             EligibleChildResourceKind::ResourceGroup => serializer.serialize_str("resourcegroup"),
-            EligibleChildResourceKind::Other(ref s) => serializer.serialize_str(s),
+            EligibleChildResourceKind::Other(s) => serializer.serialize_str(s),
         }
     }
 }
