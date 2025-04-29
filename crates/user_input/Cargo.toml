@@ -1,11 +1,12 @@
 [package]
 name = "cloud_terrastodon_user_input"
 description = "Helper functions for interacting with users in the terminal"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 license.workspace = true
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
