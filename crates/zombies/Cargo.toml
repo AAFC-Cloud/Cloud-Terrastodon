@@ -1,5 +1,6 @@
 [package]
 name = "cloud_terrastodon_zombies"
+description = "Helpers for detecting zombie processes for the Cloud Terrastodon project"
 version = "0.1.0"
 edition.workspace = true
 
