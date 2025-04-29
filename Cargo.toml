@@ -1,12 +1,12 @@
-[package]
-name = "cloud_terrastodon"
-version = "0.8.0-pre"
-edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
 members = ["crates/*"]
-
+[workspace.package]
+edition = "2024"
+authors = ["TeamDman"]
+repository = "https://github.com/AAFC-Cloud/Cloud-Terrastodon.git"
+readme = "README.md"
+license = "LiLiQ-R-1.1"
 
 [workspace.dependencies]
 cloud_terrastodon_pathing = { path = "./crates/pathing" }
@@ -69,6 +69,15 @@ bstr = { version = "1.11.3", features = ["serde"] }
 reqwest = { version = "0.12.15", features = ["json"] }
 base64 = "0.22.1"
 async-trait = "0.1.88"
+
+[package]
+name = "cloud_terrastodon"
+version = "0.8.0-pre"
+description = "A command-line tool for interacting with cloud ecosystems"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [build-dependencies]
 embed-resource = "1.6.3"
