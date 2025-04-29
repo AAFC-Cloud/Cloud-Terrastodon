@@ -1,12 +1,17 @@
 use crate::app::MyApp;
 use eframe::egui::Color32;
 use eframe::egui::Context;
+use eframe::egui::DragAndDrop;
 use eframe::egui::Frame;
 use eframe::egui::Id;
+use eframe::egui::Pos2;
+use eframe::egui::Rect;
 use eframe::egui::Stroke;
 use eframe::egui::Ui;
+use eframe::egui::Vec2;
 use eframe::egui::Window;
 use std::path::PathBuf;
+use tracing::info;
 
 pub fn draw_work_dirs_window(app: &mut MyApp, ctx: &Context) {
     let mut dnd_response = None;
@@ -47,10 +52,27 @@ pub fn draw_work_dirs_window(app: &mut MyApp, ctx: &Context) {
     }) = dnd_response
     {
         destination_index -= (source_index < destination_index) as usize;
-        let item = app.work_dirs_config.work_dirs.remove_index(source_index).unwrap();
+        let item = app
+            .work_dirs_config
+            .work_dirs
+            .remove_index(source_index)
+            .unwrap();
         app.work_dirs_config
             .work_dirs
             .shift_insert(destination_index, item);
+    } else if DragAndDrop::has_payload_of_type::<usize>(ctx)
+        && ctx.input(|input_state| input_state.pointer.any_released())
+    {
+        let source_index = DragAndDrop::take_payload::<usize>(ctx).unwrap();
+        let work_dir = app.work_dirs_config.work_dirs[*source_index].clone();
+        let pointer_pos = ctx.pointer_interact_pos();
+        let new_window_pos = pointer_pos.unwrap_or_default();
+        let new_window_size = Vec2::new(500., 500.);
+        info!("Opening window at {new_window_pos}");
+        app.egui_config.open_dirs.insert(
+            work_dir,
+            Rect::from_min_size(new_window_pos, new_window_size),
+        );
     }
 }
 

@@ -18,9 +18,9 @@ pub fn ui_file_drag_and_drop(app: &mut MyApp, ctx: &Context) {
             let mut text = "Dropping files:\n".to_owned();
             for file in &i.raw.hovered_files {
                 if let Some(path) = &file.path {
-                    write!(text, "\n{}", path.display()).ok();
+                    write!(text, "\n{}", path.display()).unwrap();
                 } else if !file.mime.is_empty() {
-                    write!(text, "\n{}", file.mime).ok();
+                    write!(text, "\n{}", file.mime).unwrap();
                 } else {
                     text += "\n???";
                 }
