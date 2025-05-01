@@ -833,7 +833,6 @@ dependencies = [
 name = "cloud_terrastodon_azure_devops"
 version = "0.1.0"
 dependencies = [
- "cloud_terrastodon_azure_devops_rest_client",
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_hcl_types",
