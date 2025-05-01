@@ -2,7 +2,7 @@ use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure::prelude::ThinRoleAssignment;
-use cloud_terrastodon_azure::prelude::fetch_all_role_assignments_v2;
+use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
 use cloud_terrastodon_user_input::Choice;
@@ -17,7 +17,7 @@ use tracing::warn;
 pub async fn browse_role_assignments() -> Result<()> {
     info!("Fetching role assignments and definitions and principals");
     let (role_assignments, role_definitions, users) = try_join!(
-        fetch_all_role_assignments_v2(),
+        fetch_all_role_assignments(),
         fetch_all_role_definitions(),
         fetch_all_users()
     )?;

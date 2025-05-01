@@ -5,6 +5,7 @@ use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceId;
 use crate::prelude::ResourceScoped;
 use crate::prelude::RoleDefinitionId;
+use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::Unscoped;
 use crate::scopes::HasPrefix;
@@ -21,11 +22,11 @@ use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -271,6 +272,23 @@ pub enum RoleAssignmentId {
     SubscriptionScoped(SubscriptionScopedRoleAssignmentId),
     ResourceGroupScoped(ResourceGroupScopedRoleAssignmentId),
     ResourceScoped(ResourceScopedRoleAssignmentId),
+}
+impl RoleAssignmentId {
+    pub fn subscription_id(&self) -> Option<SubscriptionId> {
+        match self {
+            RoleAssignmentId::Unscoped(_) => None,
+            RoleAssignmentId::ManagementGroupScoped(_) => None,
+            RoleAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
+                Some(subscription_scoped_role_assignment_id.subscription_id())
+            }
+            RoleAssignmentId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
+                Some(resource_group_scoped_role_assignment_id.subscription_id())
+            }
+            RoleAssignmentId::ResourceScoped(resource_scoped_role_assignment_id) => {
+                Some(resource_scoped_role_assignment_id.subscription_id())
+            }
+        }
+    }
 }
 
 impl NameValidatable for RoleAssignmentId {

@@ -46,7 +46,7 @@ pub async fn fetch_all_management_groups() -> Result<Vec<ManagementGroup>> {
             tenant_id=tenantId,
             id,
             display_name=properties.displayName,
-            parent_id=properties.details.parent.id
+            management_group_ancestors_chain=properties.details.managementGroupAncestorsChain
     "#};
 
     let management_groups = ResourceGraphHelper::new(
@@ -128,7 +128,7 @@ mod tests {
         let result = fetch_all_management_groups().await?;
         println!("Found {} management groups:", result.len());
         for mg in result {
-            println!("- {} ({})", mg.display_name, mg.name());
+            println!("{:?}", mg);
         }
         Ok(())
     }

@@ -11,8 +11,8 @@ license = "LiLiQ-R-1.1"
 [workspace.dependencies]
 cloud_terrastodon_pathing = { version="0.1.0", path = "./crates/pathing" }
 cloud_terrastodon_config = { version="0.1.0", path = "./crates/config" }
-cloud_terrastodon_azure = { version="0.1.0", path = "./crates/azure" }
-cloud_terrastodon_azure_types = { version="0.1.0", path = "./crates/azure_types" }
+cloud_terrastodon_azure = { version="0.2.0", path = "./crates/azure" }
+cloud_terrastodon_azure_types = { version="0.2.0", path = "./crates/azure_types" }
 cloud_terrastodon_azure_resource_types = { version="0.1.0", path = "./crates/azure_resource_types" }
 cloud_terrastodon_azure_devops = { version="0.1.0", path = "./crates/azure_devops" }
 cloud_terrastodon_azure_devops_types = { version="0.1.0", path = "./crates/azure_devops_types" }

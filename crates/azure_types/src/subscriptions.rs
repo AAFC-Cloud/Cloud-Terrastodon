@@ -1,4 +1,4 @@
-use crate::prelude::ManagementGroupId;
+use crate::prelude::ManagementGroupAncestorsChain;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::TenantId;
 use crate::prelude::strip_prefix_case_insensitive;
@@ -113,7 +113,7 @@ pub struct Subscription {
     pub id: SubscriptionId,
     pub name: String,
     pub tenant_id: TenantId,
-    pub parent_management_group_id: ManagementGroupId,
+    pub management_group_ancestors_chain: ManagementGroupAncestorsChain,
 }
 
 impl HasScope for Subscription {

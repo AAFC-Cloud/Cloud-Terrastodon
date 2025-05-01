@@ -10,6 +10,7 @@ use eyre::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+// TODO: optimize this to use resource graph
 pub async fn fetch_all_policy_assignments()
 -> Result<HashMap<ManagementGroup, Vec<PolicyAssignment>>> {
     gather_from_management_groups(async |mg: ManagementGroup, _pb| {

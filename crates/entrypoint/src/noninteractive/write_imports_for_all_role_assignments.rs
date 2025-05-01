@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::Subscription;
 use cloud_terrastodon_azure::prelude::SubscriptionId;
 use cloud_terrastodon_azure::prelude::SubscriptionScoped;
-use cloud_terrastodon_azure::prelude::fetch_all_role_assignments_v2;
+use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_hcl::prelude::Sanitizable;
@@ -25,7 +25,7 @@ pub async fn write_imports_for_all_role_assignments() -> Result<()> {
         .into_iter()
         .map(|sub| (sub.id.clone(), sub))
         .collect::<HashMap<SubscriptionId, Subscription>>();
-    let role_assignments = fetch_all_role_assignments_v2().await?;
+    let role_assignments = fetch_all_role_assignments().await?;
 
     info!("Building import blocks");
     let mut providers: HashSet<HCLProviderBlock> = HashSet::new();

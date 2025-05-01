@@ -807,7 +807,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_azure"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "cloud_terrastodon_azure_types",
@@ -902,7 +902,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_azure_types"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "clap",

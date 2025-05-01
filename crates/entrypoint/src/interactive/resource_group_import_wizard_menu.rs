@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::SubscriptionScoped;
 use cloud_terrastodon_azure::prelude::UuidWrapper;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
-use cloud_terrastodon_azure::prelude::fetch_all_role_assignments_v2;
+use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_security_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_azure::prelude::uuid::Uuid;
@@ -57,7 +57,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     ) = join!(
         fetch_all_subscriptions(),
         fetch_all_resource_groups(),
-        fetch_all_role_assignments_v2(),
+        fetch_all_role_assignments(),
         // fetch_all_role_definitions(),
         fetch_all_security_groups(),
         // fetch_all_users()

@@ -9,7 +9,7 @@ use cloud_terrastodon_azure::prelude::ServicePrincipal;
 use cloud_terrastodon_azure::prelude::ThinRoleAssignment;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
-use cloud_terrastodon_azure::prelude::fetch_all_role_assignments_v2;
+use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
 use cloud_terrastodon_azure::prelude::fetch_group_owners;
@@ -293,7 +293,7 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
     );
     let (resources, role_assignments, role_definitions, principals) = try_join!(
         fetch_all_resources(),
-        fetch_all_role_assignments_v2(),
+        fetch_all_role_assignments(),
         fetch_all_role_definitions(),
         fetch_all_principals(),
     )?;

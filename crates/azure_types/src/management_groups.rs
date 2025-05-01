@@ -1,5 +1,6 @@
 use crate::naming::validate_management_group_name;
 use crate::prelude::HasPrefix;
+use crate::prelude::ManagementGroupAncestorsChain;
 use crate::prelude::NameValidatable;
 use crate::prelude::TenantId;
 use crate::prelude::strip_prefix_case_insensitive;
@@ -88,7 +89,7 @@ pub struct ManagementGroup {
     pub display_name: String,
     pub id: ManagementGroupId,
     pub tenant_id: TenantId,
-    pub parent_id: Option<ManagementGroupId>,
+    pub management_group_ancestors_chain: ManagementGroupAncestorsChain,
 }
 impl ManagementGroup {
     pub fn name(&self) -> &str {
