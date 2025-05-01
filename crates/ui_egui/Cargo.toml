@@ -2,6 +2,9 @@
 name = "cloud_terrastodon_ui_egui"
 version = "0.1.0"
 edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 cloud_terrastodon_user_input = { workspace = true }
