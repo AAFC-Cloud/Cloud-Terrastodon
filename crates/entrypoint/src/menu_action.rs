@@ -44,7 +44,7 @@ use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use cloud_terrastodon_azure::prelude::evaluate_policy_assignment_compliance;
 use cloud_terrastodon_azure::prelude::remediate_policy_assignment;
-use cloud_terrastodon_command::USE_TERRAFORM_FLAG_KEY;
+use cloud_terrastodon_command::USE_TOFU_FLAG_KEY;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use itertools::Itertools;
@@ -209,8 +209,8 @@ impl MenuAction {
             MenuAction::EvaluatePolicyAssignmentCompliance => {
                 evaluate_policy_assignment_compliance().await?
             }
-            MenuAction::UseTerraform => unsafe { env::set_var(USE_TERRAFORM_FLAG_KEY, "1") },
-            MenuAction::UseTofu => unsafe { env::remove_var(USE_TERRAFORM_FLAG_KEY) },
+            MenuAction::UseTofu => unsafe { env::set_var(USE_TOFU_FLAG_KEY, "1") },
+            MenuAction::UseTerraform => unsafe { env::remove_var(USE_TOFU_FLAG_KEY) },
             MenuAction::PopulateCache => populate_cache().await?,
             MenuAction::OpenDir => open_dir().await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
@@ -283,8 +283,8 @@ impl MenuAction {
                 all_exist([AppDir::Processed.join(".terraform.lock.hcl")]).await
             }
             MenuAction::JumpToBlock => all_exist([AppDir::Processed.join("generated.tf")]).await,
-            MenuAction::UseTerraform => env::var(USE_TERRAFORM_FLAG_KEY).is_err(),
-            MenuAction::UseTofu => env::var(USE_TERRAFORM_FLAG_KEY).is_ok(),
+            MenuAction::UseTofu => env::var(USE_TOFU_FLAG_KEY).is_err(),
+            MenuAction::UseTerraform => env::var(USE_TOFU_FLAG_KEY).is_ok(),
             #[cfg(not(debug_assertions))]
             MenuAction::CreateNewActionVariant => false,
             _ => true,

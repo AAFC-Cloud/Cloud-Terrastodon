@@ -3,11 +3,11 @@ use std::str::FromStr;
 
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureDevOpsResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
@@ -103,13 +103,13 @@ pub struct AzureDevOpsProject {
     pub visibility: AzureDevOpsProjectVisibility,
 }
 
-impl From<AzureDevOpsProject> for TofuImportBlock {
+impl From<AzureDevOpsProject> for HCLImportBlock {
     fn from(project: AzureDevOpsProject) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
             id: project.id.to_string(),
-            to: TofuResourceReference::AzureDevOps {
-                kind: TofuAzureDevOpsResourceKind::Project,
+            to: ResourceBlockReference::AzureDevOps {
+                kind: AzureDevOpsResourceBlockKind::Project,
                 name: project.name.sanitize(),
             },
         }

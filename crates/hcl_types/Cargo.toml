@@ -1,0 +1,23 @@
+[package]
+name = "cloud_terrastodon_hcl_types"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cloud_terrastodon_command = { workspace = true }
+cloud_terrastodon_user_input = { workspace = true }
+tokio = { workspace = true }
+eyre = { workspace = true }
+itertools = { workspace = true }
+indoc = { workspace = true }
+hcl-rs = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+# unidecode = { workspace = true }
+hcl-primitives = { workspace = true }
+async-trait = { workspace = true }

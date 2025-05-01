@@ -1,8 +1,8 @@
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureADResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureADResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Serialize;
@@ -44,13 +44,13 @@ impl std::fmt::Display for Group {
         Ok(())
     }
 }
-impl From<Group> for TofuImportBlock {
+impl From<Group> for HCLImportBlock {
     fn from(group: Group) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
             id: format!("/groups/{}", group.id.0.as_hyphenated()),
-            to: TofuResourceReference::AzureAD {
-                kind: TofuAzureADResourceKind::Group,
+            to: ResourceBlockReference::AzureAD {
+                kind: AzureADResourceBlockKind::Group,
                 name: format!("{}__{}", group.display_name, group.id).sanitize(),
             },
         }

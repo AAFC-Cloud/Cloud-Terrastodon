@@ -1,8 +1,8 @@
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureDevOpsResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
@@ -76,13 +76,13 @@ pub struct AzureDevOpsRepo {
     pub web_url: String,
 }
 
-impl From<AzureDevOpsRepo> for TofuImportBlock {
+impl From<AzureDevOpsRepo> for HCLImportBlock {
     fn from(repo: AzureDevOpsRepo) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
             id: format!("{}/{}", repo.project.id.to_string(), repo.id.to_string()),
-            to: TofuResourceReference::AzureDevOps {
-                kind: TofuAzureDevOpsResourceKind::Repo,
+            to: ResourceBlockReference::AzureDevOps {
+                kind: AzureDevOpsResourceBlockKind::Repo,
                 name: format!("project_{}_repo_{}", repo.project.name, repo.name).sanitize(),
             },
         }

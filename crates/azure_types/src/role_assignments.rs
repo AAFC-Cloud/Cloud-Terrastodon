@@ -21,11 +21,11 @@ use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -475,17 +475,17 @@ impl std::fmt::Display for RoleAssignment {
     }
 }
 
-impl From<RoleAssignment> for TofuImportBlock {
+impl From<RoleAssignment> for HCLImportBlock {
     fn from(role_assignment: RoleAssignment) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
-            // Tofu doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
+            // Terraform doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
             id: role_assignment
                 .id
                 .expanded_form()
                 .replace("/RoleAssignments/", "/roleAssignments/"),
-            to: TofuResourceReference::AzureRM {
-                kind: TofuAzureRMResourceKind::RoleAssignment,
+            to: ResourceBlockReference::AzureRM {
+                kind: AzureRMResourceBlockKind::RoleAssignment,
                 name: format!(
                     "{}__{}",
                     role_assignment.name,
@@ -496,17 +496,17 @@ impl From<RoleAssignment> for TofuImportBlock {
         }
     }
 }
-impl From<ThinRoleAssignment> for TofuImportBlock {
+impl From<ThinRoleAssignment> for HCLImportBlock {
     fn from(role_assignment: ThinRoleAssignment) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
-            // Tofu doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
+            // Terraform doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
             id: role_assignment
                 .id
                 .expanded_form()
                 .replace("/RoleAssignments/", "/roleAssignments/"),
-            to: TofuResourceReference::AzureRM {
-                kind: TofuAzureRMResourceKind::RoleAssignment,
+            to: ResourceBlockReference::AzureRM {
+                kind: AzureRMResourceBlockKind::RoleAssignment,
                 name: role_assignment.id.short_form().sanitize(),
             },
         }

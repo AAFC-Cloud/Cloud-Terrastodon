@@ -4,7 +4,7 @@ use cloud_terrastodon_azure_types::prelude::DistinctByScope;
 use cloud_terrastodon_azure_types::prelude::PolicyAssignment;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheBehaviour;
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;

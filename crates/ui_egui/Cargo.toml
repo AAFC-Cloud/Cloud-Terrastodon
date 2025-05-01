@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 cloud_terrastodon_user_input = { workspace = true }
-cloud_terrastodon_tofu = { workspace = true }
+cloud_terrastodon_hcl = { workspace = true }
 cloud_terrastodon_azure = { workspace = true }
 cloud_terrastodon_azure_devops = { workspace = true }
 cloud_terrastodon_command = { workspace = true }

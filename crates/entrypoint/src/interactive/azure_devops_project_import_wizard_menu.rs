@@ -3,8 +3,8 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
 use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_tofu::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu::prelude::TofuWriter;
+use cloud_terrastodon_hcl::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl::prelude::HCLWriter;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
@@ -50,12 +50,12 @@ pub async fn azure_devops_project_import_wizard_menu() -> Result<()> {
 
     let mut project_import_blocks = Vec::new();
     for project in projects {
-        let import_block: TofuImportBlock = project.value.into();
+        let import_block: HCLImportBlock = project.value.into();
         project_import_blocks.push(import_block);
     }
 
     let tf_file_path = AppDir::Imports.join("azure_devops_project_imports.tf");
-    TofuWriter::new(tf_file_path.clone())
+    HCLWriter::new(tf_file_path.clone())
         .overwrite(project_import_blocks)
         .await?
         .format_file()

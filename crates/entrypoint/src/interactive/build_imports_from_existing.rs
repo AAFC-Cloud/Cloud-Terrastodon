@@ -1,6 +1,6 @@
 use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_tofu::prelude::TofuWriter;
-use cloud_terrastodon_tofu::prelude::get_imports_from_existing;
+use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::get_imports_from_existing;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 use eyre::eyre;
@@ -20,7 +20,7 @@ pub async fn build_imports_from_existing() -> Result<()> {
         return Err(eyre!("Imports should not be empty"));
     }
 
-    TofuWriter::new(AppDir::Imports.join(name))
+    HCLWriter::new(AppDir::Imports.join(name))
         .overwrite(imports)
         .await?;
 

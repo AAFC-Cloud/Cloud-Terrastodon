@@ -1,7 +1,7 @@
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
-use cloud_terrastodon_tofu::prelude::list_blocks_for_dir;
+use cloud_terrastodon_hcl::prelude::list_blocks_for_dir;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
 use eyre::Context;

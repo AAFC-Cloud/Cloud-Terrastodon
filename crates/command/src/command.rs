@@ -50,13 +50,13 @@ use tracing::warn;
 pub enum CommandKind {
     #[default]
     AzureCLI,
-    Tofu,
+    Terraform,
     VSCode,
     Echo,
     Pwsh,
 }
 
-pub const USE_TERRAFORM_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TERRAFORM";
+pub const USE_TOFU_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TOFU";
 
 const CONFIG: OnceCell<CommandsConfig> = OnceCell::const_new();
 
@@ -74,9 +74,9 @@ impl CommandKind {
     async fn program(&self) -> String {
         match self {
             CommandKind::AzureCLI => get_config(&CONFIG).await.azure_cli.to_owned(),
-            CommandKind::Tofu => match env::var(USE_TERRAFORM_FLAG_KEY) {
-                Err(_) => get_config(&CONFIG).await.tofu.to_owned(),
-                Ok(_) => get_config(&CONFIG).await.terraform.to_owned(),
+            CommandKind::Terraform => match env::var(USE_TOFU_FLAG_KEY) {
+                Err(_) => get_config(&CONFIG).await.terraform.to_owned(),
+                Ok(_) => get_config(&CONFIG).await.tofu.to_owned(),
             },
             CommandKind::VSCode => get_config(&CONFIG).await.vscode.to_owned(),
             CommandKind::Echo => "pwsh".to_string(),
@@ -1207,13 +1207,13 @@ Resources
     }
 
     #[tokio::test]
-    async fn send_stdin_tofu_fmt() -> Result<()> {
+    async fn send_stdin_terraform_fmt() -> Result<()> {
         let content = r#"resource "time_static" "wait_1_second" {
 depends_on = []
 triggers_complete = null
 }
 "#;
-        let mut cmd = CommandBuilder::new(CommandKind::Tofu);
+        let mut cmd = CommandBuilder::new(CommandKind::Terraform);
         cmd.args(["fmt", "-"]);
         cmd.send_stdin(content);
         let output = cmd.run_raw().await?;

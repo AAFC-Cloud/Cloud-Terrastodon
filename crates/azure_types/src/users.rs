@@ -1,11 +1,11 @@
 use crate::impl_uuid_traits;
 use crate::prelude::Fake;
 use crate::prelude::UuidWrapper;
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureADResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureADResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
@@ -53,13 +53,13 @@ impl std::fmt::Display for User {
         Ok(())
     }
 }
-impl From<User> for TofuImportBlock {
+impl From<User> for HCLImportBlock {
     fn from(user: User) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
             id: user.id.to_string(),
-            to: TofuResourceReference::AzureAD {
-                kind: TofuAzureADResourceKind::User,
+            to: ResourceBlockReference::AzureAD {
+                kind: AzureADResourceBlockKind::User,
                 name: format!("{}__{}", user.user_principal_name, user.id).sanitize(),
             },
         }

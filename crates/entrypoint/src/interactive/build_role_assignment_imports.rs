@@ -1,10 +1,10 @@
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_tofu::prelude::Sanitizable;
-use cloud_terrastodon_tofu::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu::prelude::TofuProviderKind;
-use cloud_terrastodon_tofu::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu::prelude::TofuWriter;
+use cloud_terrastodon_hcl::prelude::Sanitizable;
+use cloud_terrastodon_hcl::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl::prelude::ProviderKind;
+use cloud_terrastodon_hcl::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl::prelude::HCLWriter;
 use eyre::Result;
 use eyre::eyre;
 use itertools::Itertools;
@@ -20,13 +20,13 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     let mut seen_ids = HashSet::new();
     let mut import_blocks = Vec::new();
     for (subscription, role_assignments) in found {
-        let provider_alias = TofuProviderReference::Alias {
-            kind: TofuProviderKind::AzureRM,
+        let provider_alias = HCLProviderReference::Alias {
+            kind: ProviderKind::AzureRM,
             name: subscription.name.sanitize(),
         };
         for role_assignment in role_assignments {
             if seen_ids.insert(role_assignment.id.to_owned()) {
-                let mut block: TofuImportBlock = role_assignment.into();
+                let mut block: HCLImportBlock = role_assignment.into();
                 provider_alias.clone_into(&mut block.provider);
                 import_blocks.push(block);
             }
@@ -39,7 +39,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     }
 
     info!("Writing imports to file");
-    TofuWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
+    HCLWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
         .overwrite(import_blocks)
         .await?
         .format_file()
@@ -50,7 +50,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
         .into_iter()
         .map(|sub| sub.into_provider_block())
         .collect_vec();
-    TofuWriter::new(AppDir::Imports.join("boilerplate.tf"))
+    HCLWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
         .format_file()

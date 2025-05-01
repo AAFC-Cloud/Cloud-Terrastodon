@@ -1,11 +1,11 @@
 use std::ops::Deref;
 use std::str::FromStr;
 
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureDevOpsResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
@@ -50,13 +50,13 @@ pub struct AzureDevOpsTeam {
     url: String,
 }
 
-impl From<AzureDevOpsTeam> for TofuImportBlock {
+impl From<AzureDevOpsTeam> for HCLImportBlock {
     fn from(team: AzureDevOpsTeam) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
             id: format!("{}/{}", team.project_id.to_string(), team.id.to_string()),
-            to: TofuResourceReference::AzureDevOps {
-                kind: TofuAzureDevOpsResourceKind::Team,
+            to: ResourceBlockReference::AzureDevOps {
+                kind: AzureDevOpsResourceBlockKind::Team,
                 name: format!("project_{}_team_{}", team.project_name, team.name).sanitize(),
             },
         }

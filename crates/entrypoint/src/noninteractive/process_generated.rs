@@ -2,7 +2,7 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
-use cloud_terrastodon_tofu::prelude::reflow_workspace;
+use cloud_terrastodon_hcl::prelude::reflow_workspace;
 use eyre::Result;
 use std::path::Path;
 use std::path::PathBuf;
@@ -36,7 +36,7 @@ pub async fn process_generated() -> Result<()> {
     let error_count = write_many_contents(reflowed.get_file_contents(&out_dir)?).await?;
 
     // Format the files
-    CommandBuilder::new(CommandKind::Tofu)
+    CommandBuilder::new(CommandKind::Terraform)
         .should_announce(true)
         .use_run_dir(out_dir)
         .args(["fmt", "-recursive"])

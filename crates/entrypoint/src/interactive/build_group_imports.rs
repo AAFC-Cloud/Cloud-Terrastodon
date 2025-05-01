@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure::prelude::fetch_groups;
 use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_tofu::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu::prelude::TofuWriter;
+use cloud_terrastodon_hcl::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl::prelude::HCLWriter;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick_many;
 use eyre::Result;
@@ -23,13 +23,13 @@ pub async fn build_group_imports() -> Result<()> {
         ..Default::default()
     })?;
 
-    let imports: Vec<TofuImportBlock> = chosen.into_iter().map(|x| x.into()).collect_vec();
+    let imports: Vec<HCLImportBlock> = chosen.into_iter().map(|x| x.into()).collect_vec();
 
     if imports.is_empty() {
         return Err(eyre!("Imports should not be empty"));
     }
 
-    TofuWriter::new(AppDir::Imports.join("group_imports.tf"))
+    HCLWriter::new(AppDir::Imports.join("group_imports.tf"))
         .overwrite(imports)
         .await?;
 

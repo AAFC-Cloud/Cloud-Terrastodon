@@ -7,7 +7,7 @@ use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 pub async fn init_processed() -> Result<()> {
     let processed_dir: PathBuf = AppDir::Processed.into();
-    CommandBuilder::new(CommandKind::Tofu)
+    CommandBuilder::new(CommandKind::Terraform)
         .arg("init")
         .use_run_dir(processed_dir)
         .use_output_behaviour(OutputBehaviour::Display)

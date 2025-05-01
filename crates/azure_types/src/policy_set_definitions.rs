@@ -11,11 +11,11 @@ use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_resource_container_scoped;
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -174,13 +174,13 @@ impl std::fmt::Display for PolicySetDefinition {
         Ok(())
     }
 }
-impl From<PolicySetDefinition> for TofuImportBlock {
+impl From<PolicySetDefinition> for HCLImportBlock {
     fn from(policy_definition: PolicySetDefinition) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
             id: policy_definition.id.expanded_form().to_string(),
-            to: TofuResourceReference::AzureRM {
-                kind: TofuAzureRMResourceKind::PolicySetDefinition,
+            to: ResourceBlockReference::AzureRM {
+                kind: AzureRMResourceBlockKind::PolicySetDefinition,
                 name: policy_definition.name.sanitize(),
             },
         }

@@ -4,7 +4,7 @@ Command running helpers for the Cloud Terrastodon project.
 
 This crate provides utilities for building, running, and managing external commands within the Cloud Terrastodon project. It includes features for:
 
-- Specifying different command kinds (Azure CLI, Tofu, VSCode, Echo, Pwsh).
+- Specifying different command kinds (Azure CLI, Terraform, VSCode, Echo, Pwsh).
 - Building command arguments and environment variables.
 - Handling file arguments for commands like Azure CLI.
 - Configuring output behavior (capture or display).

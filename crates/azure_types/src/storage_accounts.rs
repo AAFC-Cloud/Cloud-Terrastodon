@@ -7,11 +7,11 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromResourceGroupScoped;
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -122,13 +122,13 @@ impl std::fmt::Display for StorageAccount {
         Ok(())
     }
 }
-impl From<StorageAccount> for TofuImportBlock {
+impl From<StorageAccount> for HCLImportBlock {
     fn from(storage_account: StorageAccount) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
             id: storage_account.id.expanded_form().to_owned(),
-            to: TofuResourceReference::AzureRM {
-                kind: TofuAzureRMResourceKind::StorageAccount,
+            to: ResourceBlockReference::AzureRM {
+                kind: AzureRMResourceBlockKind::StorageAccount,
                 name: storage_account.name.sanitize(),
             },
         }

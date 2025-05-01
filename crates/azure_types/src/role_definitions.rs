@@ -5,11 +5,11 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::strip_prefix_case_insensitive;
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use eyre::Result;
 use eyre::bail;
 use serde::Deserialize;
@@ -173,13 +173,13 @@ impl std::fmt::Display for RoleDefinition {
         Ok(())
     }
 }
-impl From<RoleDefinition> for TofuImportBlock {
+impl From<RoleDefinition> for HCLImportBlock {
     fn from(role_definition: RoleDefinition) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
             id: role_definition.id.to_string(),
-            to: TofuResourceReference::AzureRM {
-                kind: TofuAzureRMResourceKind::RoleDefinition,
+            to: ResourceBlockReference::AzureRM {
+                kind: AzureRMResourceBlockKind::RoleDefinition,
                 name: format!(
                     "{}__{}",
                     role_definition.display_name,

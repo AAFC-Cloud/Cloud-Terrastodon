@@ -6,8 +6,8 @@ use crate::scopes::HasScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderBlock;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderBlock;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -144,14 +144,14 @@ impl std::fmt::Display for Subscription {
     }
 }
 impl Subscription {
-    pub fn into_provider_block(&self) -> TofuProviderBlock {
-        TofuProviderBlock::AzureRM {
+    pub fn into_provider_block(&self) -> HCLProviderBlock {
+        HCLProviderBlock::AzureRM {
             alias: Some(self.name.sanitize()),
             subscription_id: Some(self.id.short_form().to_owned()),
         }
     }
 }
-impl From<Subscription> for TofuProviderBlock {
+impl From<Subscription> for HCLProviderBlock {
     fn from(value: Subscription) -> Self {
         value.into_provider_block()
     }

@@ -10,11 +10,11 @@ use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::subscriptions::SubscriptionId;
-use cloud_terrastodon_tofu_types::prelude::Sanitizable;
-use cloud_terrastodon_tofu_types::prelude::TofuAzureRMResourceKind;
-use cloud_terrastodon_tofu_types::prelude::TofuImportBlock;
-use cloud_terrastodon_tofu_types::prelude::TofuProviderReference;
-use cloud_terrastodon_tofu_types::prelude::TofuResourceReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -200,13 +200,13 @@ impl std::fmt::Display for ResourceGroup {
         f.write_str(&self.name)
     }
 }
-impl From<ResourceGroup> for TofuImportBlock {
+impl From<ResourceGroup> for HCLImportBlock {
     fn from(resource_group: ResourceGroup) -> Self {
-        TofuImportBlock {
-            provider: TofuProviderReference::Inherited,
+        HCLImportBlock {
+            provider: HCLProviderReference::Inherited,
             id: resource_group.id.to_string(),
-            to: TofuResourceReference::AzureRM {
-                kind: TofuAzureRMResourceKind::ResourceGroup,
+            to: ResourceBlockReference::AzureRM {
+                kind: AzureRMResourceBlockKind::ResourceGroup,
                 name: format!(
                     "{}__{}",
                     resource_group.name,
