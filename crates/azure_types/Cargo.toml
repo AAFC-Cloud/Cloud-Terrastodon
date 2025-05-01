@@ -1,5 +1,6 @@
 [package]
 name = "cloud_terrastodon_azure_types"
+description = "Types for modelling Azure stuff for the Cloud Terrastodon project"
 version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
