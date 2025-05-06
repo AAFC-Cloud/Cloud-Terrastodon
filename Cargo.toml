@@ -72,7 +72,7 @@ async-trait = "0.1.88"
 
 [package]
 name = "cloud_terrastodon"
-version = "0.8.0-pre"
+version = "0.8.0"
 description = "A command-line tool for interacting with cloud ecosystems"
 edition.workspace = true
 authors.workspace = true

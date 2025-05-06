@@ -1,8 +1,9 @@
-# vNEXT
+# v0.8.0
 
 - Remove `_core` suffix from crates
 - Separate resoure types to separate crate to maximize cache hits
 - Flatten repository structure
+- Add `ct terraform import` command
 
 # v0.7.1
 

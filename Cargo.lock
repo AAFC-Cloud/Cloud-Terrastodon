@@ -792,7 +792,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon"
-version = "0.8.0-pre"
+version = "0.8.0"
 dependencies = [
  "cloud_terrastodon_entrypoint",
  "color-eyre",
