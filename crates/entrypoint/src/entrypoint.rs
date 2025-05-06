@@ -1,5 +1,6 @@
 use crate::clap::Cli;
 use crate::clap::Commands;
+use crate::clap::TerraformCommand;
 use crate::menu::menu_loop;
 use crate::noninteractive::prelude::clean;
 use crate::noninteractive::prelude::dump_everything;
@@ -9,11 +10,17 @@ use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use crate::prelude::Version;
+use chrono::Local;
 use clap::CommandFactory;
 use clap::FromArgMatches;
+use cloud_terrastodon_azure::prelude::HCLImportable;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::WorkDirsConfig;
+use cloud_terrastodon_hcl::prelude::GenerateConfigOutHelper;
+use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::reflow_workspace;
 use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_ui_egui::egui_main;
 use cloud_terrastodon_ui_ratatui::prelude::ui_main;
 use eyre::Context;
@@ -22,6 +29,7 @@ use std::fs::canonicalize;
 use std::path::Path;
 use tokio::io::AsyncWriteExt;
 use tokio::io::stdout;
+use tracing::info;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
@@ -159,6 +167,39 @@ pub async fn handle(command: Option<Commands>) -> eyre::Result<()> {
             Commands::DumpEverything => {
                 dump_everything().await?;
             }
+            Commands::Terraform { command } => match command {
+                TerraformCommand::Import { work_dir } => {
+                    let kind_to_import = HCLImportable::pick()?;
+                    let imports = kind_to_import.pick_into_body().await?;
+                    work_dir.ensure_dir_exists().await?;
+                    let work_dir = tempfile::Builder::new()
+                        .prefix(&format!(
+                            "generated_{}",
+                            Local::now().format("%Y%m%d_%H%M%S_")
+                        ))
+                        .suffix(".tf")
+                        .tempdir_in(&work_dir)?
+                        .into_path();
+                    HCLWriter::new(work_dir.join("imports.tf"))
+                        .format_on_write()
+                        .overwrite(imports)
+                        .await?;
+                    GenerateConfigOutHelper::new()
+                        .with_run_dir(&work_dir)
+                        .run()
+                        .await?;
+                    info!("Reflowing content");
+                    let files = reflow_workspace(&work_dir)
+                        .await?
+                        .get_file_contents(&work_dir)?;
+                    for (path, contents) in files {
+                        HCLWriter::new(path)
+                            .format_on_write()
+                            .overwrite(contents)
+                            .await?;
+                    }
+                }
+            },
         },
     }
     Ok(())

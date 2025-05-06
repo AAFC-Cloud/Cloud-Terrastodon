@@ -22,7 +22,25 @@ pub enum Commands {
     WriteAllImports,
     PerformCodeGenerationFromImports,
     DumpEverything,
-    GetPath { dir: AppDir },
-    CopyResults { dest: PathBuf },
-    AddWorkDir { dir: PathBuf },
+    GetPath {
+        dir: AppDir,
+    },
+    CopyResults {
+        dest: PathBuf,
+    },
+    AddWorkDir {
+        dir: PathBuf,
+    },
+    Terraform {
+        #[command(subcommand)]
+        command: TerraformCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TerraformCommand {
+    Import {
+        #[arg(long, default_value = ".")]
+        work_dir: PathBuf,
+    },
 }

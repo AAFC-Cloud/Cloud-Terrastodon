@@ -148,6 +148,19 @@ impl TryFrom<Block> for HCLImportBlock {
     }
 }
 
+// pub trait TryIntoHCLImportBlock {
+//     fn try_as_import_block(self) -> eyre::Result<HCLImportBlock>;
+// }
+// impl<T, E> TryIntoHCLImportBlock for T
+// where
+//     T: TryInto<HCLImportBlock, Error = E>,
+//     E: std::error::Error + Send + Sync + 'static,
+// {
+//     fn try_as_import_block(self) -> eyre::Result<HCLImportBlock> {
+//         Ok(self.try_into()?)
+//     }
+// }
+
 #[cfg(test)]
 mod tests {
     use crate::prelude::TryAsHCLBlocks;

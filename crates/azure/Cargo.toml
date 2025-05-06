@@ -27,6 +27,7 @@ itertools = { workspace = true }
 rand = { workspace = true }
 indoc = { workspace = true }
 humantime = { workspace = true }
+strum = { workspace = true }
 
 
 [dev-dependencies]

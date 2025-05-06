@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::get_security_group_choices;
 use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::RoleDefinitionId;
@@ -5,7 +6,6 @@ use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::ThinRoleAssignment;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
-use cloud_terrastodon_azure::prelude::fetch_all_security_groups;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
 use cloud_terrastodon_azure::prelude::fetch_group_owners;
 use cloud_terrastodon_user_input::Choice;
@@ -30,17 +30,8 @@ enum SecurityGroupAction {
 }
 
 pub async fn browse_security_groups() -> Result<()> {
-    info!("Fetching security_groups");
-    let security_groups = fetch_all_security_groups().await?;
     let security_groups = pick_many(FzfArgs {
-        choices: security_groups
-            .into_iter()
-            .sorted_by(|x, y| x.display_name.cmp(&y.display_name))
-            .map(|u| Choice {
-                key: format!("{} {}", u.id, u.display_name),
-                value: u,
-            })
-            .collect_vec(),
+        choices: get_security_group_choices().await?,
         prompt: Some("security groups: ".to_string()),
         ..Default::default()
     })?

@@ -39,10 +39,18 @@ mod subscriptions;
 mod tags;
 mod tenants;
 mod users;
+mod import;
+mod resource_group_choices;
+mod security_group_choices;
+mod role_assignment_choices;
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::resource_group_choices::*;
+    pub use crate::role_assignment_choices::*;
+    pub use crate::security_group_choices::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
+    pub use crate::import::*;
     pub use crate::cost_management::*;
     pub use crate::create_role_assignment::*;
     pub use crate::eligible_child_resources::*;
