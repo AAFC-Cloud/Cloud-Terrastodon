@@ -4,6 +4,7 @@
 - Separate resoure types to separate crate to maximize cache hits
 - Flatten repository structure
 - Add `ct terraform import` command
+- Published `cloud_terrastodon_*` crates to crates.io
 
 # v0.7.1
 
