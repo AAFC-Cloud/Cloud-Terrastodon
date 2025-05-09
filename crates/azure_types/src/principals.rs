@@ -116,8 +116,14 @@ impl Principal {
             Principal::ServicePrincipal(service_principal) => &service_principal.display_name,
         }
     }
-    pub fn id(&self) -> &Uuid {
-        self.as_ref()
+    pub fn id(&self) -> PrincipalId {
+        match self {
+            Principal::User(user) => PrincipalId::UserId(user.id),
+            Principal::Group(group) => PrincipalId::GroupId(group.id),
+            Principal::ServicePrincipal(service_principal) => {
+                PrincipalId::ServicePrincipalId(service_principal.id)
+            }
+        }
     }
 }
 impl std::fmt::Display for Principal {
