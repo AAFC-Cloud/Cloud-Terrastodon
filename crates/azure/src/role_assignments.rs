@@ -7,7 +7,7 @@ use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_all_role_assignments() -> Result<Vec<RoleAssignment>> {
-    info!("Fetching role assignments (v2)");
+    info!("Fetching role assignments");
     let mut query = ResourceGraphHelper::new(
         r#"
 authorizationresources
