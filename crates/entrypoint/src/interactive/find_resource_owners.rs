@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::prelude::Group;
 use cloud_terrastodon_azure::prelude::Principal;
+use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::Resource;
 use cloud_terrastodon_azure::prelude::ResourceId;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
@@ -13,7 +14,6 @@ use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
 use cloud_terrastodon_azure::prelude::fetch_group_owners;
-use cloud_terrastodon_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
@@ -163,7 +163,7 @@ struct TraversalContext<'a> {
     pub clues: Vec<ClueChain<'a>>,
     pub resource_map: HashMap<&'a ResourceId, &'a Resource>,
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
-    pub principal_map: HashMap<&'a Uuid, &'a Principal>,
+    pub principal_map: HashMap<PrincipalId, &'a Principal>,
     pub role_assignments_by_scope: HashMap<&'a ResourceId, &'a RoleAssignment>,
 }
 #[derive(Debug, Clone, Copy, Eq, PartialEq, VariantArray)]
@@ -216,7 +216,7 @@ impl Traversal {
                         // Identify the principal
                         let principal = context
                             .principal_map
-                            .get(&*role_assignment.principal_id)
+                            .get(&role_assignment.principal_id)
                             .map(|v| &**v);
 
                         // Build the clue
@@ -240,7 +240,7 @@ impl Traversal {
                 {
                     let members = fetch_group_members(group.id).await?;
                     for member in members {
-                        let Some(principal) = context.principal_map.get(member.id()) else {
+                        let Some(principal) = context.principal_map.get(&member.id()) else {
                             bail!(
                                 "Found a member {} for group {} but wasn't in the list of all principals?",
                                 member,
@@ -258,7 +258,7 @@ impl Traversal {
                 {
                     let owners = fetch_group_owners(group.id).await?;
                     for member in owners {
-                        let Some(principal) = context.principal_map.get(member.id()) else {
+                        let Some(principal) = context.principal_map.get(&member.id()) else {
                             bail!(
                                 "Found a owner {} for group {} but wasn't in the list of all principals?",
                                 member,
@@ -306,9 +306,9 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
         .iter()
         .map(|role_definition| (&role_definition.id, role_definition))
         .collect::<HashMap<_, _>>();
-    let principal_map: HashMap<&Uuid, &Principal> = principals
+    let principal_map: HashMap<PrincipalId, &Principal> = principals
         .iter()
-        .map(|p| (p.as_ref(), p))
+        .map(|p| (p.id(), p))
         .collect::<HashMap<_, _>>();
     let role_assignments_by_scope: HashMap<&ResourceId, &RoleAssignment> = role_assignments
         .iter()
