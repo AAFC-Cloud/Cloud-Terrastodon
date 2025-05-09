@@ -20,8 +20,6 @@ use crate::scopes::TryFromResourceScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
@@ -33,7 +31,6 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use serde::de::Error;
-use serde_json::Value;
 use uuid::Uuid;
 
 pub const ROLE_ASSIGNMENT_ID_PREFIX: &str = "/providers/Microsoft.Authorization/roleAssignments/";
@@ -390,74 +387,23 @@ impl<'de> Deserialize<'de> for RoleAssignmentId {
     }
 }
 
-fn stupid_uuid_deserialize<'de, D>(deserializer: D) -> Result<Option<Uuid>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: Option<&str> = Option::deserialize(deserializer)?;
-    if let Some(s) = s {
-        if s.is_empty() {
-            Ok(None)
-        } else {
-            Uuid::parse_str(s)
-                .map(Some)
-                .map_err(serde::de::Error::custom)
-        }
-    } else {
-        Ok(None)
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-pub struct ThinRoleAssignment {
+pub struct RoleAssignment {
     pub id: RoleAssignmentId,
     pub scope: ResourceId,
     pub role_definition_id: RoleDefinitionId,
     pub principal_id: PrincipalId,
 }
 
-impl Fake for ThinRoleAssignment {
+impl Fake for RoleAssignment {
     fn fake() -> Self {
-        ThinRoleAssignment {
+        RoleAssignment {
             id: RoleAssignmentId::fake(),
             scope: ResourceId::new("SomeFakeResourceId"),
             role_definition_id: RoleDefinitionId::fake(),
             principal_id: PrincipalId::Unknown(Uuid::nil()),
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct RoleAssignment {
-    pub condition: Option<Value>,
-    #[serde(rename = "conditionVersion")]
-    pub condition_version: Option<Value>,
-    #[serde(rename = "createdBy", deserialize_with = "stupid_uuid_deserialize")]
-    pub created_by: Option<Uuid>,
-    #[serde(rename = "createdOn")]
-    pub created_on: DateTime<Utc>,
-    #[serde(rename = "delegatedManagedIdentityResourceId")]
-    pub delegated_managed_identity_resource_id: Option<Value>,
-    pub description: Option<Value>,
-    pub id: RoleAssignmentId,
-    pub name: Uuid,
-    #[serde(rename = "principalId")]
-    pub principal_id: Uuid,
-    #[serde(rename = "principalName")]
-    pub principal_name: String,
-    #[serde(rename = "principalType")]
-    pub principal_type: String,
-    #[serde(rename = "roleDefinitionId")]
-    pub role_definition_id: String,
-    #[serde(rename = "roleDefinitionName")]
-    pub role_definition_name: String,
-    pub scope: String,
-    #[serde(rename = "type")]
-    pub kind: String,
-    #[serde(rename = "updatedBy", deserialize_with = "stupid_uuid_deserialize")]
-    pub updated_by: Option<Uuid>,
-    #[serde(rename = "updatedOn")]
-    pub updated_on: DateTime<Utc>,
 }
 
 impl HasScope for RoleAssignment {
@@ -470,52 +416,9 @@ impl HasScope for &RoleAssignment {
         &self.id
     }
 }
-impl HasScope for ThinRoleAssignment {
-    fn scope(&self) -> &impl Scope {
-        &self.id
-    }
-}
-impl HasScope for &ThinRoleAssignment {
-    fn scope(&self) -> &impl Scope {
-        &self.id
-    }
-}
-
-impl std::fmt::Display for RoleAssignment {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.role_definition_name)?;
-        f.write_str(" for ")?;
-        f.write_str(&self.principal_name)?;
-        f.write_str(" (")?;
-        f.write_str(self.principal_id.to_string().as_str())?;
-        f.write_str(")")?;
-        Ok(())
-    }
-}
 
 impl From<RoleAssignment> for HCLImportBlock {
     fn from(role_assignment: RoleAssignment) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
-            // Terraform doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
-            id: role_assignment
-                .id
-                .expanded_form()
-                .replace("/RoleAssignments/", "/roleAssignments/"),
-            to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::RoleAssignment,
-                name: format!(
-                    "{}__{}",
-                    role_assignment.name,
-                    role_assignment.id.expanded_form()
-                )
-                .sanitize(),
-            },
-        }
-    }
-}
-impl From<ThinRoleAssignment> for HCLImportBlock {
-    fn from(role_assignment: ThinRoleAssignment) -> Self {
         HCLImportBlock {
             provider: HCLProviderReference::Inherited,
             // Terraform doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907

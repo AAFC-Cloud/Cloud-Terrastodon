@@ -6,7 +6,7 @@ use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::ServicePrincipal;
-use cloud_terrastodon_azure::prelude::ThinRoleAssignment;
+use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
@@ -41,7 +41,7 @@ enum Clue<'a> {
         resource: &'a Resource,
     },
     RoleAssignment {
-        role_assignment: &'a ThinRoleAssignment,
+        role_assignment: &'a RoleAssignment,
         role_definition: &'a RoleDefinition,
         principal: Option<&'a Principal>,
         resource: &'a Resource,
@@ -164,7 +164,7 @@ struct TraversalContext<'a> {
     pub resource_map: HashMap<&'a ResourceId, &'a Resource>,
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
     pub principal_map: HashMap<&'a Uuid, &'a Principal>,
-    pub role_assignments_by_scope: HashMap<&'a ResourceId, &'a ThinRoleAssignment>,
+    pub role_assignments_by_scope: HashMap<&'a ResourceId, &'a RoleAssignment>,
 }
 #[derive(Debug, Clone, Copy, Eq, PartialEq, VariantArray)]
 enum Traversal {
@@ -310,7 +310,7 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
         .iter()
         .map(|p| (p.as_ref(), p))
         .collect::<HashMap<_, _>>();
-    let role_assignments_by_scope: HashMap<&ResourceId, &ThinRoleAssignment> = role_assignments
+    let role_assignments_by_scope: HashMap<&ResourceId, &RoleAssignment> = role_assignments
         .iter()
         .map(|role_assignment| (&role_assignment.scope, role_assignment))
         .collect::<HashMap<_, _>>();

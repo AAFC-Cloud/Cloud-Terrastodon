@@ -1,7 +1,7 @@
 use crate::prelude::PrincipalId;
 use crate::prelude::RoleDefinition;
 use crate::prelude::RoleDefinitionId;
-use crate::prelude::ThinRoleAssignment;
+use crate::prelude::RoleAssignment;
 use crate::prelude::fetch_all_role_assignments;
 use crate::prelude::fetch_all_role_definitions;
 use crate::prelude::fetch_all_users;
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use tokio::try_join;
 use tracing::warn;
 
-pub async fn get_role_assignment_choices() -> eyre::Result<Vec<Choice<ThinRoleAssignment>>> {
+pub async fn get_role_assignment_choices() -> eyre::Result<Vec<Choice<RoleAssignment>>> {
     let (role_assignments, role_definitions, users) = try_join!(
         fetch_all_role_assignments(),
         fetch_all_role_definitions(),
@@ -24,7 +24,7 @@ pub async fn get_role_assignment_choices() -> eyre::Result<Vec<Choice<ThinRoleAs
         .map(|u| (u.id.into(), u))
         .collect::<HashMap<PrincipalId, _>>();
 
-    let mut choices: Vec<Choice<ThinRoleAssignment>> = Vec::new();
+    let mut choices: Vec<Choice<RoleAssignment>> = Vec::new();
     for ra in role_assignments {
         let Some(rd) = role_definition_lookup.get(&ra.role_definition_id) else {
             warn!("Could not identify role definition for {ra:?}");

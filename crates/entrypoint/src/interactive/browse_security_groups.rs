@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::ThinRoleAssignment;
+use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
@@ -97,7 +97,7 @@ pub async fn browse_security_groups() -> Result<()> {
                     fetch_all_role_assignments(),
                     fetch_all_role_definitions(),
                 )?;
-                let role_assignments_by_principal: HashMap<&PrincipalId, Vec<&ThinRoleAssignment>> =
+                let role_assignments_by_principal: HashMap<&PrincipalId, Vec<&RoleAssignment>> =
                     role_assignments
                         .iter()
                         .fold(HashMap::default(), |mut map, row| {
