@@ -54,6 +54,8 @@ pub enum CommandKind {
     VSCode,
     Echo,
     Pwsh,
+    Git,
+    Other(String)
 }
 
 pub const USE_TOFU_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TOFU";
@@ -81,6 +83,8 @@ impl CommandKind {
             CommandKind::VSCode => get_config(&CONFIG).await.vscode.to_owned(),
             CommandKind::Echo => "pwsh".to_string(),
             CommandKind::Pwsh => "pwsh".to_string(),
+            CommandKind::Git => "git".to_string(),
+            CommandKind::Other(x) => x.to_owned(),
         }
     }
     async fn apply_args_and_envs(

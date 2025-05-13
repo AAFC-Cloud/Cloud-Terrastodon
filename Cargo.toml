@@ -20,7 +20,7 @@ cloud_terrastodon_azure_devops_rest_client = { version="0.1.0", path = "./crates
 cloud_terrastodon_hcl = { version="0.1.0", path = "./crates/hcl" }
 cloud_terrastodon_hcl_types = { version="0.1.0", path = "./crates/hcl_types" }
 cloud_terrastodon_user_input = { version="0.1.3", path = "./crates/user_input" }
-cloud_terrastodon_command = { version="0.2.0", path = "./crates/command" }
+cloud_terrastodon_command = { version="0.3.0", path = "./crates/command" }
 cloud_terrastodon_entrypoint = { version="0.1.0", path = "./crates/entrypoint" }
 cloud_terrastodon_zombies = { version="0.1.0", path = "./crates/zombies" }
 cloud_terrastodon_relative_location = { version="0.1.0", path = "./crates/relative_location" }
