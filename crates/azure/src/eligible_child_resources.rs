@@ -25,7 +25,7 @@ pub async fn fetch_eligible_child_resources(
     behaviour: FetchChildrenBehaviour,
 ) -> Result<Vec<EligibleChildResource>> {
     let scope = scope.expanded_form();
-    let scope = scope.strip_prefix('/').unwrap_or(scope);
+    let scope = scope.strip_prefix('/').unwrap_or(&scope);
     let mut url = format!(
         "https://management.azure.com/{scope}/providers/Microsoft.Authorization/eligibleChildResources?api-version=2020-10-01"
     );

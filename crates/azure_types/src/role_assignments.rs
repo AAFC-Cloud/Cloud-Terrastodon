@@ -73,8 +73,8 @@ impl Fake for UnscopedRoleAssignmentId {
     }
 }
 impl Scope for UnscopedRoleAssignmentId {
-    fn expanded_form(&self) -> &str {
-        &self.expanded
+    fn expanded_form(&self) -> String {
+        self.expanded.to_owned()
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -113,8 +113,8 @@ impl TryFromManagementGroupScoped for ManagementGroupScopedRoleAssignmentId {
     }
 }
 impl Scope for ManagementGroupScopedRoleAssignmentId {
-    fn expanded_form(&self) -> &str {
-        &self.expanded
+    fn expanded_form(&self) -> String {
+        self.expanded.to_owned()
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -154,8 +154,8 @@ impl TryFromSubscriptionScoped for SubscriptionScopedRoleAssignmentId {
     }
 }
 impl Scope for SubscriptionScopedRoleAssignmentId {
-    fn expanded_form(&self) -> &str {
-        &self.expanded
+    fn expanded_form(&self) -> String {
+        self.expanded.to_owned()
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -198,8 +198,8 @@ impl TryFromResourceGroupScoped for ResourceGroupScopedRoleAssignmentId {
     }
 }
 impl Scope for ResourceGroupScopedRoleAssignmentId {
-    fn expanded_form(&self) -> &str {
-        &self.expanded
+    fn expanded_form(&self) -> String {
+        self.expanded.to_owned()
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -242,8 +242,8 @@ impl TryFromResourceScoped for ResourceScopedRoleAssignmentId {
     }
 }
 impl Scope for ResourceScopedRoleAssignmentId {
-    fn expanded_form(&self) -> &str {
-        &self.expanded
+    fn expanded_form(&self) -> String {
+        self.expanded.to_owned()
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -346,7 +346,7 @@ impl Scope for RoleAssignmentId {
         try_from_expanded_hierarchy_scoped(expanded)
     }
 
-    fn expanded_form(&self) -> &str {
+    fn expanded_form(&self) -> String {
         match self {
             Self::Unscoped(UnscopedRoleAssignmentId { expanded }) => expanded,
             Self::ResourceGroupScoped(ResourceGroupScopedRoleAssignmentId { expanded }) => expanded,
@@ -355,7 +355,7 @@ impl Scope for RoleAssignmentId {
                 expanded
             }
             Self::ResourceScoped(ResourceScopedRoleAssignmentId { expanded }) => expanded,
-        }
+        }.to_owned()
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -371,7 +371,7 @@ impl Serialize for RoleAssignmentId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.expanded_form())
+        serializer.serialize_str(&self.expanded_form())
     }
 }
 
@@ -382,7 +382,7 @@ impl<'de> Deserialize<'de> for RoleAssignmentId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = RoleAssignmentId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
         Ok(id)
     }
 }

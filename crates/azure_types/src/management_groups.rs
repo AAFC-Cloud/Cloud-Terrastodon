@@ -51,8 +51,8 @@ impl Scope for ManagementGroupId {
         })
     }
 
-    fn expanded_form(&self) -> &str {
-        &self.expanded
+    fn expanded_form(&self) -> String {
+        self.expanded.to_owned()
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -68,7 +68,7 @@ impl Serialize for ManagementGroupId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.expanded_form())
+        serializer.serialize_str(&self.expanded_form())
     }
 }
 
@@ -79,7 +79,7 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = ManagementGroupId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
         Ok(id)
     }
 }

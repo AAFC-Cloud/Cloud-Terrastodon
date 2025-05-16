@@ -87,16 +87,16 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                     "--name",
                     format!("myRemediation{:x}", rand::thread_rng().next_u32()).as_ref(),
                 ]);
-                cmd.args(["--policy-assignment", policy_assignment.id.expanded_form()]);
+                cmd.args(["--policy-assignment", &policy_assignment.id.expanded_form()]);
                 cmd.args([
                     "--definition-reference-id",
                     choice.value.policy_definition_reference_id.as_ref(),
                 ]);
                 let scope = &policy_assignment.scope;
                 if let Ok(management_group_id) = ManagementGroupId::try_from_expanded(scope) {
-                    cmd.args(["--management-group", management_group_id.short_form()]);
+                    cmd.args(["--management-group", &management_group_id.short_form()]);
                 } else if let Ok(resource_group_id) = ResourceGroupId::try_from_expanded(scope) {
-                    cmd.args(["--resource-group", resource_group_id.short_form()]);
+                    cmd.args(["--resource-group", &resource_group_id.short_form()]);
                 } else {
                     bail!(
                         "Could not identify kind of scope (management group, resource group) for scope {scope}"
@@ -114,13 +114,13 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                 "--name",
                 format!("myRemediation{:x}", rand::thread_rng().next_u32()).as_ref(),
             ]);
-            cmd.args(["--policy-assignment", policy_assignment.id.expanded_form()]);
+            cmd.args(["--policy-assignment", &policy_assignment.id.expanded_form()]);
 
             let scope = &policy_assignment.scope;
             if let Ok(management_group_id) = ManagementGroupId::try_from_expanded(scope) {
-                cmd.args(["--management-group", management_group_id.short_form()]);
+                cmd.args(["--management-group", &management_group_id.short_form()]);
             } else if let Ok(resource_group_id) = ResourceGroupId::try_from_expanded(scope) {
-                cmd.args(["--resource-group", resource_group_id.short_form()]);
+                cmd.args(["--resource-group", &resource_group_id.short_form()]);
             } else {
                 bail!(
                     "Could not identify kind of scope (management group, resource group) for scope {scope}"

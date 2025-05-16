@@ -49,7 +49,7 @@ impl HasPrefix for RoleDefinitionId {
 
 impl std::fmt::Display for RoleDefinitionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.expanded_form())
+        f.write_str(&self.expanded_form())
     }
 }
 
@@ -71,8 +71,8 @@ impl FromStr for RoleDefinitionId {
 }
 
 impl Scope for RoleDefinitionId {
-    fn expanded_form(&self) -> &str {
-        &self.expanded
+    fn expanded_form(&self) -> String {
+        self.expanded.to_owned()
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -92,7 +92,7 @@ impl Serialize for RoleDefinitionId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.expanded_form())
+        serializer.serialize_str(&self.expanded_form())
     }
 }
 
@@ -104,7 +104,7 @@ impl<'de> Deserialize<'de> for RoleDefinitionId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
         Ok(id)
     }
 }
@@ -168,7 +168,7 @@ impl std::fmt::Display for RoleDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.display_name)?;
         f.write_str(" (")?;
-        f.write_str(self.id.short_form())?;
+        f.write_str(&self.id.short_form())?;
         f.write_str(")")?;
         Ok(())
     }

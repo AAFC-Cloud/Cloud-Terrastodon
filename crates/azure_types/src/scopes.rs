@@ -3,6 +3,7 @@ use crate::management_groups::ManagementGroupId;
 use crate::policy_assignments::PolicyAssignmentId;
 use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
+use crate::prelude::RESOURCE_GROUP_ID_PREFIX;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceId;
 use crate::prelude::ResourceTagsId;
@@ -10,11 +11,10 @@ use crate::prelude::RoleAssignmentId;
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleManagementPolicyAssignmentId;
 use crate::prelude::RoleManagementPolicyId;
+use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::prelude::StorageAccountId;
 use crate::prelude::SubscriptionId;
 use crate::prelude::TestResourceId;
-use crate::prelude::RESOURCE_GROUP_ID_PREFIX;
-use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
 use clap::ValueEnum;
 use core::panic;
@@ -38,11 +38,11 @@ pub trait HasName {
 }
 
 pub trait Scope: Sized {
-    fn expanded_form(&self) -> &str;
-    fn short_form(&self) -> &str {
+    fn expanded_form(&self) -> String;
+    fn short_form(&self) -> String {
         self.expanded_form()
             .rsplit_once('/')
-            .map(|x| x.1)
+            .map(|x| x.1.to_owned())
             .unwrap_or_else(|| self.expanded_form())
     }
     fn try_from_expanded(expanded: &str) -> Result<Self>;
@@ -354,7 +354,7 @@ pub trait ManagementGroupScoped: Scope {
     fn management_group_id(&self) -> ManagementGroupId {
         ManagementGroupId::from_name(
             strip_prefix_get_slug_and_leading_slashed_remains(
-                self.expanded_form(),
+                &self.expanded_form(),
                 MANAGEMENT_GROUP_ID_PREFIX,
             )
             .expect("management group prefix should have been validated before construction")
@@ -366,7 +366,7 @@ pub trait SubscriptionScoped: Scope {
     fn subscription_id(&self) -> SubscriptionId {
         SubscriptionId::new(
             strip_prefix_get_slug_and_leading_slashed_remains(
-                self.expanded_form(),
+                &self.expanded_form(),
                 SUBSCRIPTION_ID_PREFIX,
             )
             .expect("subscription prefix should have been validated before construction")
@@ -380,7 +380,7 @@ pub trait ResourceGroupScoped: SubscriptionScoped {
     fn resource_group_id(&self) -> ResourceGroupId {
         let expanded = self.expanded_form();
         let Ok((subscription_id, Some(remaining))) =
-            strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)
+            strip_prefix_get_slug_and_leading_slashed_remains(&expanded, SUBSCRIPTION_ID_PREFIX)
         else {
             panic!(
                 "resource group id should have been validated before construction - expected subscription prefix with slug but got {expanded:?}"
@@ -405,7 +405,7 @@ pub trait ResourceScoped: ResourceGroupScoped {
     fn resource_id(&self) -> ResourceId {
         // /subscriptions/000/resourceGroups/abc/providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
         let expanded = self.expanded_form();
-        let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)
+        let remaining = strip_prefix_and_slug_leaving_slash(&expanded, SUBSCRIPTION_ID_PREFIX)
             .expect("subscription id prefix should have been validated before construction");
         // /resourceGroups/abc/providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
         let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)
@@ -482,7 +482,7 @@ pub enum ScopeImpl {
     Raw(ResourceId),
 }
 impl Scope for ScopeImpl {
-    fn expanded_form(&self) -> &str {
+    fn expanded_form(&self) -> String {
         match self {
             ScopeImpl::ManagementGroup(id) => id.expanded_form(),
             ScopeImpl::PolicyDefinition(id) => id.expanded_form(),
@@ -502,7 +502,7 @@ impl Scope for ScopeImpl {
         }
     }
 
-    fn short_form(&self) -> &str {
+    fn short_form(&self) -> String {
         match self {
             ScopeImpl::ManagementGroup(id) => id.short_form(),
             ScopeImpl::PolicyDefinition(id) => id.short_form(),
@@ -526,7 +526,7 @@ impl Scope for ScopeImpl {
         if let Ok(id) = ResourceGroupId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::ResourceGroup(id));
         }
-        if let Ok(id) = SubscriptionId::try_from_expanded(expanded) {
+        if let Ok(id) = SubscriptionId::from_str(expanded) {
             return Ok(ScopeImpl::Subscription(id));
         }
         if let Ok(id) = ManagementGroupId::try_from_expanded(expanded) {
@@ -656,7 +656,7 @@ impl Serialize for ScopeImpl {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.expanded_form())
+        serializer.serialize_str(&self.expanded_form())
     }
 }
 
@@ -673,7 +673,7 @@ impl<'de> Visitor<'de> for ScopeImplVisitor {
     where
         E: de::Error,
     {
-        ScopeImpl::try_from_expanded(value).map_err(|e| E::custom(format!("{e:#}")))
+        ScopeImpl::try_from_expanded(value).map_err(|e| E::custom(format!("{e:#?}")))
     }
 }
 

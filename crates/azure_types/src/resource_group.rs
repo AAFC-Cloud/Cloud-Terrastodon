@@ -49,7 +49,7 @@ impl From<ResourceGroup> for HCLImportBlock {
                 name: format!(
                     "{}__{}",
                     resource_group.name,
-                    resource_group.id.subscription_id().short_form()
+                    resource_group.id.subscription_id().as_hyphenated()
                 )
                 .sanitize(),
             },

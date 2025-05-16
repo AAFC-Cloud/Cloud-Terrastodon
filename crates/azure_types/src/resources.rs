@@ -39,8 +39,8 @@ impl FromStr for ResourceId {
 }
 
 impl Scope for ResourceId {
-    fn expanded_form(&self) -> &str {
-        &self.expanded
+    fn expanded_form(&self) -> String {
+        self.expanded.to_owned()
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -74,7 +74,7 @@ impl<'de> Deserialize<'de> for ResourceId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
         Ok(id)
     }
 }

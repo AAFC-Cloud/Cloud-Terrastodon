@@ -49,17 +49,17 @@ impl FromStr for ResourceTagsId {
 }
 
 impl Scope for ResourceTagsId {
-    fn expanded_form(&self) -> &str {
-        &self.expanded
+    fn expanded_form(&self) -> String {
+        self.expanded.clone()
     }
 
-    fn short_form(&self) -> &str {
+    fn short_form(&self) -> String {
         let x = match strip_suffix_case_insensitive(&self.expanded, TAGS_SUFFIX) {
             Ok(x) => x,
             Err(_) => &self.expanded,
         };
         x.rsplit_once('/')
-            .map(|x| x.1)
+            .map(|x| x.1.to_owned())
             .unwrap_or_else(|| self.expanded_form())
     }
 
@@ -92,7 +92,7 @@ impl<'de> Deserialize<'de> for ResourceTagsId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
         Ok(id)
     }
 }

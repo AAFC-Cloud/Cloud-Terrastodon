@@ -35,20 +35,20 @@ pub async fn fetch_policy_assignments(
     let mut cache_key = PathBuf::from_iter(["az", "policy", "assignment", "list"]);
     match (scope, subscription_id) {
         (Some(scope), Some(subscription_id)) => {
-            cmd.args(["--subscription", subscription_id.short_form()]);
-            cmd.args(["--scope", scope.expanded_form()]);
+            cmd.args(["--subscription", &subscription_id.short_form()]);
+            cmd.args(["--scope", &scope.expanded_form()]);
             cache_key.push("subscription");
             cache_key.push(subscription_id.short_form().replace(" ", "_"));
             cache_key.push("scope");
             cache_key.push(scope.short_form().replace(" ", "_"));
         }
         (Some(scope), None) => {
-            cmd.args(["--scope", scope.expanded_form()]);
+            cmd.args(["--scope", &scope.expanded_form()]);
             cache_key.push("scope");
             cache_key.push(scope.short_form().replace(" ", "_"));
         }
         (None, Some(subscription_id)) => {
-            cmd.args(["--subscription", subscription_id.short_form()]);
+            cmd.args(["--subscription", &subscription_id.short_form()]);
             cache_key.push("subscription");
             cache_key.push(subscription_id.short_form().replace(" ", "_"));
         }

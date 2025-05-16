@@ -14,9 +14,9 @@ pub async fn create_role_assignment(
 ) -> Result<RoleAssignmentId> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["role", "assignment", "create"]);
-    cmd.args(["--role", role_definition_id.short_form()]);
+    cmd.args(["--role", role_definition_id.to_string().as_ref()]);
     cmd.args(["--assignee-object-id", &principal_object_id.to_string()]);
-    cmd.args(["--scope", scope.expanded_form()]);
+    cmd.args(["--scope", &scope.expanded_form()]);
     #[derive(Deserialize)]
     struct Response {
         id: RoleAssignmentId,

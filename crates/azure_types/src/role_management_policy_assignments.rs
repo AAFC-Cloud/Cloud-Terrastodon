@@ -101,14 +101,14 @@ impl Scope for RoleManagementPolicyAssignmentId {
         try_from_expanded_hierarchy_scoped(expanded)
     }
 
-    fn expanded_form(&self) -> &str {
+    fn expanded_form(&self) -> String {
         match self {
             Self::Unscoped { expanded } => expanded,
             Self::ResourceGroupScoped { expanded } => expanded,
             Self::SubscriptionScoped { expanded } => expanded,
             Self::ManagementGroupScoped { expanded } => expanded,
             Self::ResourceScoped { expanded } => expanded,
-        }
+        }.to_owned()
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -124,7 +124,7 @@ impl Serialize for RoleManagementPolicyAssignmentId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.expanded_form())
+        serializer.serialize_str(&self.expanded_form())
     }
 }
 
@@ -135,7 +135,7 @@ impl<'de> Deserialize<'de> for RoleManagementPolicyAssignmentId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = RoleManagementPolicyAssignmentId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
         Ok(id)
     }
 }

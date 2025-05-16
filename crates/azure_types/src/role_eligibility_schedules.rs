@@ -84,14 +84,14 @@ impl TryFromManagementGroupScoped for RoleEligibilityScheduleId {
 }
 
 impl Scope for RoleEligibilityScheduleId {
-    fn expanded_form(&self) -> &str {
+    fn expanded_form(&self) -> String {
         match self {
             Self::Unscoped { expanded } => expanded,
             Self::ResourceGroupScoped { expanded } => expanded,
             Self::SubscriptionScoped { expanded } => expanded,
             Self::ManagementGroupScoped { expanded } => expanded,
             Self::ResourceScoped { expanded } => expanded,
-        }
+        }.to_owned()
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -111,7 +111,7 @@ impl Serialize for RoleEligibilityScheduleId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.expanded_form())
+        serializer.serialize_str(&self.expanded_form())
     }
 }
 
@@ -122,7 +122,7 @@ impl<'de> Deserialize<'de> for RoleEligibilityScheduleId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = RoleEligibilityScheduleId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
         Ok(id)
     }
 }

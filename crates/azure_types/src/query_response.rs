@@ -5,6 +5,7 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::de::Error;
 use serde_json::Value;
+use std::any::type_name;
 
 #[derive(Debug, Serialize)]
 pub struct ResourceGraphQueryResponse<T> {
@@ -51,7 +52,7 @@ where
         let raw = RawResourceGraphQueryResponse::deserialize(deserializer)?;
         let good: ResourceGraphQueryResponse<T> = raw
             .try_into()
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
         Ok(good)
     }
 }
@@ -88,8 +89,10 @@ where
         }
         // in dev, clone the map so we can display when there are errors :/
         #[cfg(debug_assertions)]
-        let record = serde_json::from_value(Value::Object(map.clone()))
-            .context(format!("failed to deserialize entry {i}, map={map:?}"))?;
+        let record = serde_json::from_value(Value::Object(map.clone())).context(format!(
+            "failed to deserialize entry {i} as {}, map={map:?}",
+            type_name::<T>()
+        ))?;
         #[cfg(not(debug_assertions))]
         let record = serde_json::from_value(Value::Object(map))
             .context(format!("failed to deserialize entry {i}"))?;

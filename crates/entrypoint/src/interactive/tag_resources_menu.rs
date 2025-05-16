@@ -31,7 +31,7 @@ pub async fn tag_resources_menu() -> eyre::Result<()> {
         .filter(|res| {
             res.id
                 .expanded_form()
-                .starts_with(resource_group.id.expanded_form())
+                .starts_with(&resource_group.id.expanded_form())
         })
         .collect_vec();
     let resources = pick_many(FzfArgs {

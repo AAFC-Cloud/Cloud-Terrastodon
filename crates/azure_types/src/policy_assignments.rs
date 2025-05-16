@@ -44,7 +44,7 @@ impl PartialEq for PolicyAssignmentId {
     fn eq(&self, other: &Self) -> bool {
         // Compare ignoring case
         self.expanded_form()
-            .eq_ignore_ascii_case(other.expanded_form())
+            .eq_ignore_ascii_case(&other.expanded_form())
     }
 }
 
@@ -102,13 +102,13 @@ impl Scope for PolicyAssignmentId {
         try_from_expanded_resource_container_scoped(expanded)
     }
 
-    fn expanded_form(&self) -> &str {
+    fn expanded_form(&self) -> String {
         match self {
             Self::Unscoped { expanded } => expanded,
             Self::ResourceGroupScoped { expanded } => expanded,
             Self::SubscriptionScoped { expanded } => expanded,
             Self::ManagementGroupScoped { expanded } => expanded,
-        }
+        }.to_owned()
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -124,7 +124,7 @@ impl Serialize for PolicyAssignmentId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.expanded_form())
+        serializer.serialize_str(&self.expanded_form())
     }
 }
 
@@ -135,7 +135,7 @@ impl<'de> Deserialize<'de> for PolicyAssignmentId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = PolicyAssignmentId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
         Ok(id)
     }
 }
