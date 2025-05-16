@@ -69,6 +69,7 @@ impl ResourceGraphHelper {
         }
     }
 
+    #[track_caller]
     pub async fn fetch<T: DeserializeOwned>(
         &mut self,
     ) -> Result<Option<ResourceGraphQueryResponse<T>>> {
@@ -149,6 +150,7 @@ impl ResourceGraphHelper {
         Ok(Some(results))
     }
 
+    #[track_caller]
     pub async fn collect_all<T: DeserializeOwned>(&mut self) -> Result<Vec<T>> {
         let mut all_data = Vec::new();
         debug!("Fetching first batch");

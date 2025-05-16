@@ -1,4 +1,4 @@
-#![feature(impl_trait_in_assoc_type, duration_constructors)]
+#![feature(impl_trait_in_assoc_type, duration_constructors, async_fn_track_caller)]
 mod accounts;
 mod auth;
 mod batch_api;
@@ -34,7 +34,7 @@ mod role_eligibility_schedules;
 mod role_management_policy_assignments;
 mod security_groups;
 mod service_principals;
-mod storage_accounts;
+mod storage_account;
 mod subscriptions;
 mod tags;
 mod tenants;
@@ -83,7 +83,7 @@ pub mod prelude {
     pub use crate::role_management_policy_assignments::*;
     pub use crate::security_groups::*;
     pub use crate::service_principals::*;
-    pub use crate::storage_accounts::*;
+    pub use crate::storage_account::*;
     pub use crate::subscriptions::*;
     pub use crate::tags::*;
     pub use crate::tenants::*;

@@ -49,7 +49,7 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
     info!("Fetching blob containers for {}", chosen_storage_account.1);
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["storage", "container", "list", "--account-name"]);
-    cmd.arg(&chosen_storage_account.0.name);
+    cmd.arg(&*chosen_storage_account.0.name);
     cmd.arg("--subscription");
     cmd.arg(chosen_storage_account.0.subscription_id.short_form());
     cmd.args(["--query", "[].name", "--output", "json"]);
