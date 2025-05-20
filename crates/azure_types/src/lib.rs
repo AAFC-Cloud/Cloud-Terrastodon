@@ -1,4 +1,4 @@
-#![feature(pattern, duration_constructors)]
+#![feature(pattern, duration_constructors, associated_type_defaults)]
 mod accounts;
 mod app;
 pub mod cost_management;
@@ -47,10 +47,12 @@ mod resource_group_id;
 mod resource_group_name;
 mod subscription_name;
 mod subscription_id;
+mod segment;
 
 pub mod prelude {
     pub use crate::accounts::*;
     pub use crate::app::*;
+    pub use crate::segment::*;
     pub use crate::duration::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::fake::*;

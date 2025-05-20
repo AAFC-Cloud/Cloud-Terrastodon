@@ -30,6 +30,8 @@ validator = { workspace = true }
 # regex = { workspace = true }
 arbitrary = { workspace = true }
 unicode_categories = { workspace = true }
+nom = { workspace = true }
+nom-language = { workspace = true }
 
 [dev-dependencies]
 rand.workspace=true

@@ -9,6 +9,8 @@ use unicode_categories::UnicodeCategories;
 use validator::Validate;
 use validator::ValidationError;
 
+use crate::scopes::Slug;
+
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftresources
 ///
 /// Underscores, hyphens, periods, parentheses, and letters or digits as defined by the Char.IsLetterOrDigit function
@@ -30,13 +32,24 @@ pub struct ResourceGroupName {
     )]
     pub inner: CompactString,
 }
-impl ResourceGroupName {
-    pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self {
-            inner: value.into(),
-        };
+impl Slug for ResourceGroupName {
+    fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
+        let rtn = Self { inner: name.into() };
         rtn.validate()?;
         Ok(rtn)
+    }
+
+    fn validate_slug(&self) -> eyre::Result<()> {
+        self.validate()?;
+        Ok(())
+    }
+}
+
+impl FromStr for ResourceGroupName {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ResourceGroupName::try_new(s)
     }
 }
 
@@ -81,13 +94,6 @@ fn validate_resource_group_name_contents(value: &CompactString) -> Result<(), Va
     Ok(())
 }
 
-impl FromStr for ResourceGroupName {
-    type Err = eyre::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        ResourceGroupName::try_new(s)
-    }
-}
 impl std::fmt::Display for ResourceGroupName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
@@ -187,7 +193,6 @@ mod test {
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::Rng;
-    use validator::Validate;
 
     #[test]
     pub fn validation() -> eyre::Result<()> {
@@ -218,7 +223,7 @@ mod test {
             rand::thread_rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = ResourceGroupName::arbitrary(&mut un)?;
-            assert!(name.validate().is_ok());
+            assert!(name.validate_slug().is_ok());
             println!("{name}");
         }
         Ok(())

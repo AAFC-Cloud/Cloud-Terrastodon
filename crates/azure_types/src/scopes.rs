@@ -5,6 +5,7 @@ use crate::policy_definitions::PolicyDefinitionId;
 use crate::policy_set_definitions::PolicySetDefinitionId;
 use crate::prelude::RESOURCE_GROUP_ID_PREFIX;
 use crate::prelude::ResourceGroupId;
+use crate::prelude::ResourceGroupName;
 use crate::prelude::ResourceId;
 use crate::prelude::ResourceTagsId;
 use crate::prelude::RoleAssignmentId;
@@ -32,10 +33,6 @@ use serde::de::{self};
 use std::fmt;
 use std::str::FromStr;
 use std::str::pattern::Pattern;
-
-pub trait HasName {
-    fn name(&self) -> &str;
-}
 
 pub trait Scope: Sized {
     fn expanded_form(&self) -> String;
@@ -228,19 +225,36 @@ where
 
 pub trait TryFromSubscriptionScoped
 where
-    Self: Sized + NameValidatable + HasPrefix,
+    Self: Sized + HasPrefix + HasSlug,
 {
     fn try_from_expanded_subscription_scoped(expanded: &str) -> Result<Self> {
-        let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
+        let (subscription, remaining) =
+            strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;
+        let Some(remaining) = remaining else {
+            bail!(
+                "Could not create resource group id from {expanded:?}, extracted subscription {subscription} but found no resource group afterwards"
+            );
+        };
+        let subscription_id = subscription.parse()?;
         let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
-        Self::validate_name(name).context("validating name")?;
-        unsafe { Ok(Self::new_subscription_scoped_unchecked(expanded)) }
+        let name = <<Self as HasSlug>::Name>::try_new(name)?;
+        unsafe {
+            Ok(Self::new_subscription_scoped_unchecked(
+                expanded,
+                subscription_id,
+                name,
+            ))
+        }
     }
 
     /// # Safety
     ///
     /// The try_from methods should be used instead
-    unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self;
+    unsafe fn new_subscription_scoped_unchecked(
+        _expanded: &str,
+        subscription_id: SubscriptionId,
+        name: Self::Name,
+    ) -> Self;
 }
 pub trait TryFromManagementGroupScoped
 where
@@ -386,7 +400,7 @@ pub trait ResourceGroupScoped: SubscriptionScoped {
                 "resource group id should have been validated before construction - expected subscription prefix with slug but got {expanded:?}"
             );
         };
-        let Ok(subscription_id) = subscription_id.parse() else {
+        let Ok(subscription_id): Result<SubscriptionId, _> = subscription_id.parse() else {
             panic!(
                 "resource group id should have been validated before construction - subscription id malformed {subscription_id:?}"
             );
@@ -398,7 +412,11 @@ pub trait ResourceGroupScoped: SubscriptionScoped {
                 "resource group id should have been validated before construction - expected resource group prefix with slug but got {expanded:?}"
             );
         };
-        ResourceGroupId::new(&subscription_id, resource_group_name.to_string())
+        let resource_group_name: ResourceGroupName = resource_group_name
+        .parse()
+        .wrap_err_with(|| eyre!("resource group id should have been validated before construction - failed to validate resource group name {resource_group_name:?}"))
+        .unwrap();
+        ResourceGroupId::new(subscription_id, resource_group_name)
     }
 }
 pub trait ResourceScoped: ResourceGroupScoped {

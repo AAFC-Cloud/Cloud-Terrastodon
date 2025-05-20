@@ -1,14 +1,16 @@
-use crate::naming::validate_resource_group_name;
-use crate::prelude::SubscriptionId;
+use crate::prelude::ResourceGroupName;
 use crate::prelude::SUBSCRIPTION_ID_PREFIX;
+use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::strip_prefix_get_slug_and_leading_slashed_remains;
+use crate::scopes::HasSlug;
 use crate::scopes::HasPrefix;
-use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
+use crate::scopes::strip_prefix_case_insensitive;
 use crate::scopes::TryFromSubscriptionScoped;
+use crate::scopes::Slug;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -18,62 +20,60 @@ use serde::Serialize;
 use serde::Serializer;
 use serde::de::Error;
 use std::hash::Hash;
-use std::hash::Hasher;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ResourceGroupId {
-    expanded: String,
+    pub subscription_id: SubscriptionId,
+    pub resource_group_name: ResourceGroupName,
 }
 impl ResourceGroupId {
-    pub fn new(subscription_id: &SubscriptionId, resource_group_name: String) -> ResourceGroupId {
-        let expanded = format!(
-            "{}{}{}",
-            subscription_id.expanded_form(),
-            RESOURCE_GROUP_ID_PREFIX,
-            resource_group_name
-        );
-        ResourceGroupId { expanded }
+    pub fn new(
+        subscription_id: impl Into<SubscriptionId>,
+        resource_group_name: impl Into<ResourceGroupName>,
+    ) -> ResourceGroupId {
+        ResourceGroupId {
+            subscription_id: subscription_id.into(),
+            resource_group_name: resource_group_name.into(),
+        }
+    }
+}
+impl HasSlug for ResourceGroupId {
+    type Name = ResourceGroupName;
+
+    fn try_new_name(name: impl Into<compact_str::CompactString>) -> eyre::Result<Self::Name> {
+        ResourceGroupName::try_new(name)
+    }
+
+    fn name(&self) -> &Self::Name {
+        &self.resource_group_name
     }
 }
 impl SubscriptionScoped for ResourceGroupId {}
 
-impl PartialEq for ResourceGroupId {
-    fn eq(&self, other: &Self) -> bool {
-        self.expanded.to_lowercase() == other.expanded.to_lowercase()
-    }
-}
-
-impl Eq for ResourceGroupId {}
-
-impl Hash for ResourceGroupId {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.expanded.to_lowercase().hash(state);
-    }
-}
 impl std::fmt::Display for ResourceGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.expanded.as_str())
+        f.write_str(self.expanded_form().as_str())
     }
 }
 
-impl NameValidatable for ResourceGroupId {
-    fn validate_name(name: &str) -> Result<()> {
-        validate_resource_group_name(name)
-    }
-}
 impl HasPrefix for ResourceGroupId {
     fn get_prefix() -> &'static str {
         RESOURCE_GROUP_ID_PREFIX
     }
 }
 impl TryFromSubscriptionScoped for ResourceGroupId {
-    unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
-        ResourceGroupId {
-            expanded: expanded.to_owned(),
+    unsafe fn new_subscription_scoped_unchecked(
+        _expanded: &str,
+        subscription_id: SubscriptionId,
+        name: Self::Name,
+    ) -> Self {
+        Self {
+            subscription_id,
+            resource_group_name: name
         }
     }
 }
@@ -115,6 +115,7 @@ impl FromStr for ResourceGroupId {
             "Tried to parse {:?} as a resource group id, but chunk {:?} was missing prefix {:?}",
             expanded_form, remaining, RESOURCE_GROUP_ID_PREFIX
         ))?;
+        let rg_name: ResourceGroupName = rg_name.parse()?;
 
         if let Some(remaining) = remaining {
             bail!(
@@ -124,17 +125,36 @@ impl FromStr for ResourceGroupId {
             );
         }
 
-        Ok(ResourceGroupId::new(&sub_id, rg_name.to_owned()))
+        Ok(ResourceGroupId::new(sub_id, rg_name.to_owned()))
     }
 }
 
 impl Scope for ResourceGroupId {
     fn expanded_form(&self) -> String {
-        self.expanded.to_owned()
+        format!(
+            "{}{}{}",
+            self.subscription_id.expanded_form(),
+            RESOURCE_GROUP_ID_PREFIX,
+            self.resource_group_name
+        )
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        ResourceGroupId::try_from_expanded_subscription_scoped(expanded)
+        let (subscription, resource_group) =
+            strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;
+        let Some(resource_group) = resource_group else {
+            bail!(
+                "Could not create resource group id from {expanded:?}, extracted subscription {subscription} but found no resource group afterwards"
+            );
+        };
+        let subscription_id = subscription.parse()?;
+        let resource_group_name =
+            strip_prefix_case_insensitive(resource_group, ResourceGroupId::get_prefix())?;
+        let resource_group_name = resource_group_name.parse()?;
+        Ok(ResourceGroupId {
+            subscription_id,
+            resource_group_name,
+        })
     }
 
     fn as_scope(&self) -> crate::scopes::ScopeImpl {
@@ -150,7 +170,7 @@ impl Serialize for ResourceGroupId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.expanded.to_string().as_str())
+        serializer.serialize_str(self.expanded_form().as_str())
     }
 }
 

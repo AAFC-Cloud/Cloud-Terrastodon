@@ -1,4 +1,3 @@
-use crate::prelude::validate_storage_account_name;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::StorageAccountName;
 use crate::scopes::HasPrefix;
@@ -21,20 +20,16 @@ pub struct StorageAccountId2 {
     pub resource_group_id: ResourceGroupId,
     pub storage_account_name: StorageAccountName,
 }
-
-// impl FromStr for StorageAccountName {
-//     type Err = eyre::Error;
-
-//     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-//         let naming_restriction = NamingRestriction {
-//             rules: vec![
-//                 StringRule::LowercaseLettersNumbersAndHyphens,
-//                 StringRule::Length(3..=24),
-//             ],
-//         };
-//         todo!()
-//     }
-// }
+impl AsRef<ResourceGroupId> for StorageAccountId2 {
+    fn as_ref(&self) -> &ResourceGroupId {
+        &self.resource_group_id
+    }
+}
+impl AsRef<StorageAccountName> for StorageAccountId2 {
+    fn as_ref(&self) -> &StorageAccountName {
+        &self.storage_account_name
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum StorageAccountId {
@@ -43,7 +38,7 @@ pub enum StorageAccountId {
 
 impl NameValidatable for StorageAccountId {
     fn validate_name(name: &str) -> Result<()> {
-        validate_storage_account_name(name)
+        StorageAccountName::try_new(name).map(|_| ())
     }
 }
 impl HasPrefix for StorageAccountId {
@@ -67,7 +62,8 @@ impl Scope for StorageAccountId {
     fn expanded_form(&self) -> String {
         match self {
             Self::ResourceGroupScoped { expanded } => expanded,
-        }.to_owned()
+        }
+        .to_owned()
     }
 
     fn kind(&self) -> ScopeImplKind {
