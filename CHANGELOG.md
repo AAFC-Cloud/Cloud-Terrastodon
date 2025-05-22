@@ -1,3 +1,7 @@
+# v0.9.0
+
+- The Great Big ID Rework - instead of storing simple strings to the resource, I fully parse the ID into its components.
+
 # v0.8.0
 
 - Remove `_core` suffix from crates
