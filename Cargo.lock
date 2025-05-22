@@ -988,6 +988,7 @@ dependencies = [
  "cloud_terrastodon_user_input",
  "cloud_terrastodon_zombies",
  "color-eyre",
+ "compact_str 0.9.0",
  "eyre",
  "humantime",
  "indexmap",

@@ -59,13 +59,19 @@ impl From<ResourceGroup> for HCLImportBlock {
 
 #[cfg(test)]
 mod tests {
+    use crate::prelude::ResourceGroupName;
+    use crate::slug::Slug;
+
     use super::*;
     use eyre::Result;
     use uuid::Uuid;
 
     #[test]
     fn deserializes() -> Result<()> {
-        let id = ResourceGroupId::new(&SubscriptionId::new(Uuid::nil()), "bruh".to_string());
+        let id = ResourceGroupId::new(
+            SubscriptionId::new(Uuid::nil()),
+            ResourceGroupName::try_new("bruh")?,
+        );
         let expanded = id.expanded_form();
         let x: ResourceGroupId = serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(x, id);

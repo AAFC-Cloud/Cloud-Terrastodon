@@ -50,7 +50,7 @@ impl<'de> serde::Deserialize<'de> for SubscriptionName {
         D: serde::Deserializer<'de>,
     {
         let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:#?}")))
+        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for SubscriptionName {

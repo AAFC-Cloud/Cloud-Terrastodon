@@ -1,121 +1,16 @@
-use crate::naming::validate_policy_name;
 use crate::prelude::PolicyDefinitionId;
-use crate::scopes::HasPrefix;
+use crate::prelude::PolicySetDefinitionId;
 use crate::scopes::HasScope;
-use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
-use crate::scopes::ScopeImpl;
-use crate::scopes::ScopeImplKind;
-use crate::scopes::TryFromManagementGroupScoped;
-use crate::scopes::TryFromResourceGroupScoped;
-use crate::scopes::TryFromSubscriptionScoped;
-use crate::scopes::TryFromUnscoped;
-use crate::scopes::try_from_expanded_resource_container_scoped;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
-use eyre::Result;
 use serde::Deserialize;
-use serde::Deserializer;
 use serde::Serialize;
-use serde::Serializer;
-use serde::de::Error;
 use serde_json::Value;
 use std::collections::HashMap;
-
-pub const POLICY_SET_DEFINITION_ID_PREFIX: &str =
-    "/providers/Microsoft.Authorization/policySetDefinitions/";
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum PolicySetDefinitionId {
-    Unscoped { expanded: String },
-    ManagementGroupScoped { expanded: String },
-    SubscriptionScoped { expanded: String },
-    ResourceGroupScoped { expanded: String },
-}
-impl NameValidatable for PolicySetDefinitionId {
-    fn validate_name(name: &str) -> Result<()> {
-        validate_policy_name(name)
-    }
-}
-impl HasPrefix for PolicySetDefinitionId {
-    fn get_prefix() -> &'static str {
-        POLICY_SET_DEFINITION_ID_PREFIX
-    }
-}
-impl TryFromUnscoped for PolicySetDefinitionId {
-    unsafe fn new_unscoped_unchecked(expanded: &str) -> Self {
-        PolicySetDefinitionId::Unscoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-impl TryFromResourceGroupScoped for PolicySetDefinitionId {
-    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
-        PolicySetDefinitionId::ResourceGroupScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-impl TryFromSubscriptionScoped for PolicySetDefinitionId {
-    unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
-        PolicySetDefinitionId::SubscriptionScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-impl TryFromManagementGroupScoped for PolicySetDefinitionId {
-    unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self {
-        PolicySetDefinitionId::ManagementGroupScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-
-impl Scope for PolicySetDefinitionId {
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
-        try_from_expanded_resource_container_scoped(expanded)
-    }
-
-    fn expanded_form(&self) -> String {
-        match self {
-            Self::Unscoped { expanded } => expanded,
-            Self::ResourceGroupScoped { expanded } => expanded,
-            Self::SubscriptionScoped { expanded } => expanded,
-            Self::ManagementGroupScoped { expanded } => expanded,
-        }.to_owned()
-    }
-
-    fn kind(&self) -> ScopeImplKind {
-        ScopeImplKind::PolicySetDefinition
-    }
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
-        ScopeImpl::PolicySetDefinition(self.clone())
-    }
-}
-
-impl Serialize for PolicySetDefinitionId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for PolicySetDefinitionId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = PolicySetDefinitionId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
-        Ok(id)
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicySetDefinitionPolicyDefinitionGroup {
@@ -189,20 +84,20 @@ impl From<PolicySetDefinition> for HCLImportBlock {
 
 #[cfg(test)]
 mod tests {
+    use crate::scopes::{TryFromManagementGroupScoped, TryFromSubscriptionScoped};
+
     use super::*;
-    use eyre::Result;
+    use eyre::{bail, Result};
 
     #[test]
     fn unscoped() -> Result<()> {
         let expanded = "/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
         let id = PolicySetDefinitionId::try_from_expanded(expanded)?;
         assert_eq!(id.expanded_form(), expanded);
-        assert_eq!(
-            PolicySetDefinitionId::Unscoped {
-                expanded: expanded.to_string()
-            },
-            id
-        );
+        match &id {
+            PolicySetDefinitionId::Unscoped(_) => {},
+            x => bail!("Bad: {x:?}")
+        }
         assert_eq!(id.short_form(), "my-policy-set-name");
         Ok(())
     }
@@ -213,12 +108,10 @@ mod tests {
         let id = PolicySetDefinitionId::try_from_expanded_management_group_scoped(expanded)?;
         assert_eq!(id, PolicySetDefinitionId::try_from_expanded(expanded)?);
         assert_eq!(id.expanded_form(), expanded);
-        assert_eq!(
-            PolicySetDefinitionId::ManagementGroupScoped {
-                expanded: expanded.to_string()
-            },
-            id
-        );
+        match &id {
+            PolicySetDefinitionId::ManagementGroupScoped(_) => {},
+            x => bail!("Bad: {x:?}")
+        }
         assert_eq!(id.short_form(), "my-policy-set-name");
         Ok(())
     }
@@ -229,12 +122,10 @@ mod tests {
         let id = PolicySetDefinitionId::try_from_expanded_subscription_scoped(expanded)?;
         assert_eq!(id, PolicySetDefinitionId::try_from_expanded(expanded)?);
         assert_eq!(id.expanded_form(), expanded);
-        assert_eq!(
-            PolicySetDefinitionId::SubscriptionScoped {
-                expanded: expanded.to_string()
-            },
-            id
-        );
+        match &id {
+            PolicySetDefinitionId::SubscriptionScoped(_) => {},
+            x => bail!("Bad: {x:?}")
+        }
         assert_eq!(id.short_form(), "my-policy-set-name");
         Ok(())
     }

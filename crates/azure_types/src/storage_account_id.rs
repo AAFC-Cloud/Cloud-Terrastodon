@@ -6,6 +6,8 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromResourceGroupScoped;
+use crate::slug::HasSlug;
+use crate::slug::Slug;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -16,24 +18,26 @@ use serde::de::Error;
 pub const STORAGE_ACCOUNT_ID_PREFIX: &str = "/providers/Microsoft.Storage/storageAccounts/";
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct StorageAccountId2 {
+pub struct StorageAccountId {
     pub resource_group_id: ResourceGroupId,
     pub storage_account_name: StorageAccountName,
 }
-impl AsRef<ResourceGroupId> for StorageAccountId2 {
+impl HasSlug for StorageAccountId {
+    type Name = StorageAccountName;
+
+    fn name(&self) -> &Self::Name {
+        &self.storage_account_name
+    }
+}
+impl AsRef<ResourceGroupId> for StorageAccountId {
     fn as_ref(&self) -> &ResourceGroupId {
         &self.resource_group_id
     }
 }
-impl AsRef<StorageAccountName> for StorageAccountId2 {
+impl AsRef<StorageAccountName> for StorageAccountId {
     fn as_ref(&self) -> &StorageAccountName {
         &self.storage_account_name
     }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum StorageAccountId {
-    ResourceGroupScoped { expanded: String },
 }
 
 impl NameValidatable for StorageAccountId {
@@ -47,11 +51,21 @@ impl HasPrefix for StorageAccountId {
     }
 }
 impl TryFromResourceGroupScoped for StorageAccountId {
-    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
-        StorageAccountId::ResourceGroupScoped {
-            expanded: expanded.to_string(),
+    unsafe fn new_resource_group_scoped_unchecked(
+        _expanded: &str,
+        resource_group_id: ResourceGroupId,
+        name: Self::Name,
+    ) -> Self {
+        StorageAccountId {
+            resource_group_id,
+            storage_account_name: name.into(),
         }
     }
+    // unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
+    //     StorageAccountId::ResourceGroupScoped {
+    //         expanded: expanded.to_string(),
+    //     }
+    // }
 }
 
 impl Scope for StorageAccountId {
@@ -60,10 +74,12 @@ impl Scope for StorageAccountId {
     }
 
     fn expanded_form(&self) -> String {
-        match self {
-            Self::ResourceGroupScoped { expanded } => expanded,
-        }
-        .to_owned()
+        format!(
+            "{}{}{}",
+            self.resource_group_id.expanded_form(),
+            STORAGE_ACCOUNT_ID_PREFIX,
+            self.storage_account_name
+        )
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -90,7 +106,7 @@ impl<'de> Deserialize<'de> for StorageAccountId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = StorageAccountId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

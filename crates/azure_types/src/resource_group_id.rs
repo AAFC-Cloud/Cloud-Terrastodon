@@ -3,14 +3,13 @@ use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::strip_prefix_get_slug_and_leading_slashed_remains;
-use crate::scopes::HasSlug;
 use crate::scopes::HasPrefix;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
-use crate::scopes::strip_prefix_case_insensitive;
 use crate::scopes::TryFromSubscriptionScoped;
-use crate::scopes::Slug;
+use crate::scopes::strip_prefix_case_insensitive;
+use crate::slug::HasSlug;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -44,15 +43,15 @@ impl ResourceGroupId {
 impl HasSlug for ResourceGroupId {
     type Name = ResourceGroupName;
 
-    fn try_new_name(name: impl Into<compact_str::CompactString>) -> eyre::Result<Self::Name> {
-        ResourceGroupName::try_new(name)
-    }
-
     fn name(&self) -> &Self::Name {
         &self.resource_group_name
     }
 }
-impl SubscriptionScoped for ResourceGroupId {}
+impl SubscriptionScoped for ResourceGroupId {
+    fn subscription_id(&self) -> &SubscriptionId {
+        &self.subscription_id
+    }
+}
 
 impl std::fmt::Display for ResourceGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -73,7 +72,7 @@ impl TryFromSubscriptionScoped for ResourceGroupId {
     ) -> Self {
         Self {
             subscription_id,
-            resource_group_name: name
+            resource_group_name: name,
         }
     }
 }
@@ -182,7 +181,7 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

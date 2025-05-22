@@ -15,12 +15,18 @@ use serde::Serialize;
 use serde::Serializer;
 use serde::de::Error;
 use std::hash::Hash;
+use std::str::FromStr;
 
 pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ManagementGroupId {
     expanded: String,
+}
+impl std::fmt::Display for ManagementGroupId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.expanded)
+    }
 }
 impl ManagementGroupId {
     pub fn from_name(name: &str) -> Self {
@@ -34,6 +40,15 @@ impl ManagementGroupId {
 impl HasPrefix for ManagementGroupId {
     fn get_prefix() -> &'static str {
         MANAGEMENT_GROUP_ID_PREFIX
+    }
+}
+
+impl FromStr for ManagementGroupId {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.strip_prefix(MANAGEMENT_GROUP_ID_PREFIX).unwrap_or(s);
+        Ok(Self::from_name(s))
     }
 }
 impl NameValidatable for ManagementGroupId {
@@ -79,7 +94,7 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = ManagementGroupId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

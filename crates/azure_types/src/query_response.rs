@@ -52,7 +52,8 @@ where
         let raw = RawResourceGraphQueryResponse::deserialize(deserializer)?;
         let good: ResourceGraphQueryResponse<T> = raw
             .try_into()
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
+            .wrap_err("Converting from RawResourceGraphQueryResponse to ResourceGraphQueryResponse failed")
+            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(good)
     }
 }
@@ -66,13 +67,13 @@ where
     fn try_from(value: RawResourceGraphQueryResponse) -> Result<Self> {
         Ok(ResourceGraphQueryResponse {
             count: value.count,
-            data: transform(value.data).context("transforming data")?,
+            data: transform(value.data).wrap_err("transforming data")?,
             skip_token: value.skip_token,
             total_records: value.total_records,
             truncated: value
                 .truncated
                 .parse()
-                .context("parsing boolean named 'truncated'")?,
+                .wrap_err("parsing boolean named 'truncated'")?,
         })
     }
 }
@@ -89,13 +90,13 @@ where
         }
         // in dev, clone the map so we can display when there are errors :/
         #[cfg(debug_assertions)]
-        let record = serde_json::from_value(Value::Object(map.clone())).context(format!(
-            "failed to deserialize entry {i} as {}, map={map:?}",
+        let record = serde_json::from_value(Value::Object(map.clone())).wrap_err(format!(
+            "failed to deserialize entry {i} as {}, map={map:#?}",
             type_name::<T>()
         ))?;
         #[cfg(not(debug_assertions))]
         let record = serde_json::from_value(Value::Object(map))
-            .context(format!("failed to deserialize entry {i}"))?;
+            .wrap_err(format!("failed to deserialize entry {i}"))?;
         rtn.push(record);
     }
     Ok(rtn)

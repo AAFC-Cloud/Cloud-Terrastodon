@@ -92,7 +92,7 @@ impl<'de> Deserialize<'de> for ResourceTagsId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

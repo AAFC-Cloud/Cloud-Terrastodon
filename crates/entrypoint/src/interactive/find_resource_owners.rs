@@ -2,7 +2,6 @@ use cloud_terrastodon_azure::prelude::Group;
 use cloud_terrastodon_azure::prelude::Principal;
 use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::Resource;
-use cloud_terrastodon_azure::prelude::ResourceId;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure::prelude::Scope;
@@ -18,6 +17,7 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
 use cloud_terrastodon_user_input::pick_many;
+use compact_str::CompactString;
 use eyre::bail;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -161,10 +161,10 @@ impl<'a> AsRef<Clue<'a>> for ClueChain<'a> {
 #[allow(dead_code)]
 struct TraversalContext<'a> {
     pub clues: Vec<ClueChain<'a>>,
-    pub resource_map: HashMap<&'a ResourceId, &'a Resource>,
+    pub resource_map: HashMap<&'a CompactString, &'a Resource>,
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
     pub principal_map: HashMap<PrincipalId, &'a Principal>,
-    pub role_assignments_by_scope: HashMap<&'a ResourceId, &'a RoleAssignment>,
+    pub role_assignments_by_scope: HashMap<&'a CompactString, &'a RoleAssignment>,
 }
 #[derive(Debug, Clone, Copy, Eq, PartialEq, VariantArray)]
 enum Traversal {
@@ -310,7 +310,7 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
         .iter()
         .map(|p| (p.id(), p))
         .collect::<HashMap<_, _>>();
-    let role_assignments_by_scope: HashMap<&ResourceId, &RoleAssignment> = role_assignments
+    let role_assignments_by_scope: HashMap<&CompactString, &RoleAssignment> = role_assignments
         .iter()
         .map(|role_assignment| (&role_assignment.scope, role_assignment))
         .collect::<HashMap<_, _>>();

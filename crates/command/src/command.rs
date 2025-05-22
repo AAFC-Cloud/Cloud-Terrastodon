@@ -836,10 +836,10 @@ impl CommandBuilder {
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
                 Err(eyre::Error::new(e)
-                    .wrap_err(format!(
-                        "Called from {}",
-                        RelativeLocation::from(std::panic::Location::caller())
-                    ))
+                    // .wrap_err(format!(
+                    //     "Called from {}",
+                    //     RelativeLocation::from(std::panic::Location::caller())
+                    // ))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}",
                         self.summarize().await,

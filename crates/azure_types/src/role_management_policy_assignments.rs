@@ -1,144 +1,18 @@
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleDefinitionKind;
+use crate::prelude::RoleManagementPolicyAssignmentId;
 use crate::prelude::RoleManagementPolicyId;
-use crate::prelude::TryFromResourceScoped;
-use crate::prelude::try_from_expanded_hierarchy_scoped;
-use crate::scopes::HasPrefix;
-use crate::scopes::NameValidatable;
-use crate::scopes::Scope;
-use crate::scopes::ScopeImpl;
-use crate::scopes::ScopeImplKind;
-use crate::scopes::TryFromManagementGroupScoped;
-use crate::scopes::TryFromResourceGroupScoped;
-use crate::scopes::TryFromSubscriptionScoped;
-use crate::scopes::TryFromUnscoped;
-use core::any::type_name;
 use eyre::Result;
-use eyre::eyre;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use serde::de::Visitor;
 use serde::de::{self};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
 use std::time::Duration;
-use uuid::Uuid;
-
-pub const ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX: &str =
-    "/providers/Microsoft.Authorization/roleManagementPolicyAssignments/";
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum RoleManagementPolicyAssignmentId {
-    Unscoped { expanded: String },
-    ManagementGroupScoped { expanded: String },
-    SubscriptionScoped { expanded: String },
-    ResourceGroupScoped { expanded: String },
-    ResourceScoped { expanded: String },
-}
-impl NameValidatable for RoleManagementPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
-        let (role_management_policy, role_management_policy_assignment) =
-            name.split_once('_').ok_or_else(|| {
-                eyre!(
-                    "{} names are two uuids joined by an underscore",
-                    type_name::<RoleManagementPolicyAssignmentId>()
-                )
-            })?;
-        Uuid::parse_str(role_management_policy)?;
-        Uuid::parse_str(role_management_policy_assignment)?;
-        Ok(())
-    }
-}
-impl HasPrefix for RoleManagementPolicyAssignmentId {
-    fn get_prefix() -> &'static str {
-        ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX
-    }
-}
-impl TryFromUnscoped for RoleManagementPolicyAssignmentId {
-    unsafe fn new_unscoped_unchecked(expanded: &str) -> Self {
-        RoleManagementPolicyAssignmentId::Unscoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-impl TryFromResourceGroupScoped for RoleManagementPolicyAssignmentId {
-    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
-        RoleManagementPolicyAssignmentId::ResourceGroupScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-
-impl TryFromResourceScoped for RoleManagementPolicyAssignmentId {
-    unsafe fn new_resource_scoped_unchecked(expanded: &str) -> Self {
-        RoleManagementPolicyAssignmentId::ResourceScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-impl TryFromSubscriptionScoped for RoleManagementPolicyAssignmentId {
-    unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
-        RoleManagementPolicyAssignmentId::SubscriptionScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-
-impl TryFromManagementGroupScoped for RoleManagementPolicyAssignmentId {
-    unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self {
-        RoleManagementPolicyAssignmentId::ManagementGroupScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-
-impl Scope for RoleManagementPolicyAssignmentId {
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
-        try_from_expanded_hierarchy_scoped(expanded)
-    }
-
-    fn expanded_form(&self) -> String {
-        match self {
-            Self::Unscoped { expanded } => expanded,
-            Self::ResourceGroupScoped { expanded } => expanded,
-            Self::SubscriptionScoped { expanded } => expanded,
-            Self::ManagementGroupScoped { expanded } => expanded,
-            Self::ResourceScoped { expanded } => expanded,
-        }.to_owned()
-    }
-
-    fn kind(&self) -> ScopeImplKind {
-        ScopeImplKind::RoleManagementPolicyAssignment
-    }
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
-        ScopeImpl::RoleManagementPolicyAssignment(self.clone())
-    }
-}
-
-impl Serialize for RoleManagementPolicyAssignmentId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for RoleManagementPolicyAssignmentId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = RoleManagementPolicyAssignmentId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
-        Ok(id)
-    }
-}
 
 #[derive(Debug)]
 pub enum RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind {
@@ -322,6 +196,10 @@ impl RoleManagementPolicyAssignment {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
+    use crate::scopes::Scope;
+
     use super::*;
     #[test]
     fn it_works() -> Result<()> {

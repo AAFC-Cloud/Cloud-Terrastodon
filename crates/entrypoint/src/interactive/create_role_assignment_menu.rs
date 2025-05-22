@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::create_role_assignment;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
@@ -49,7 +48,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
         choices: resources
             .into_iter()
             .map(|resource| Choice {
-                key: resource.id.short_form().to_owned(),
+                key: resource.id.to_string(),
                 value: resource,
             })
             .collect_vec(),
@@ -70,7 +69,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
                     "Assigning {} to {} on {}",
                     role.display_name,
                     principal.user_principal_name,
-                    res.id.short_form()
+                    res.id
                 );
                 create_role_assignment(&res.id, &role.id, &principal.id).await?;
                 total += 1;

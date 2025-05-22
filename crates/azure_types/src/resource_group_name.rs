@@ -1,3 +1,4 @@
+use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
@@ -8,8 +9,6 @@ use std::str::FromStr;
 use unicode_categories::UnicodeCategories;
 use validator::Validate;
 use validator::ValidationError;
-
-use crate::scopes::Slug;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftresources
 ///
@@ -24,13 +23,18 @@ use crate::scopes::Slug;
 /// DecimalDigitNumber.
 ///
 /// Can't end with period.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, Hash, Validate, PartialOrd, Ord)]
 pub struct ResourceGroupName {
     #[validate(
         length(min = 1, max = 90),
         custom(function = "validate_resource_group_name_contents")
     )]
     pub inner: CompactString,
+}
+impl PartialEq for ResourceGroupName {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.eq_ignore_ascii_case(&other.inner)
+    }
 }
 impl Slug for ResourceGroupName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -114,7 +118,7 @@ impl<'de> serde::Deserialize<'de> for ResourceGroupName {
         D: serde::Deserializer<'de>,
     {
         let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:#?}")))
+        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for ResourceGroupName {

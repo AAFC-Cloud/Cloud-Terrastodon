@@ -1,4 +1,4 @@
-#![feature(duration_constructors)]
+#![feature(duration_constructors_lite)]
 mod azure_devops_projects;
 mod azure_devops_repos;
 mod azure_devops_teams;

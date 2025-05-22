@@ -8,6 +8,8 @@ use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
 
+use crate::slug::Slug;
+
 const STORAGE_ACCOUNT_NAMING_RULES_URL: &str = "https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage";
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
 pub struct StorageAccountName {
@@ -17,13 +19,18 @@ pub struct StorageAccountName {
     )]
     pub inner: CompactString,
 }
-impl StorageAccountName {
-    pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
+impl Slug for StorageAccountName {
+    fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let rtn = Self {
-            inner: value.into(),
+            inner: name.into(),
         };
         rtn.validate()?;
         Ok(rtn)
+    }
+
+    fn validate_slug(&self) -> eyre::Result<()> {
+        self.validate()?;
+        Ok(())
     }
 }
 fn validate_lowercase_alphanumeric(value: &CompactString) -> Result<(), ValidationError> {
@@ -67,7 +74,7 @@ impl<'de> serde::Deserialize<'de> for StorageAccountName {
         D: serde::Deserializer<'de>,
     {
         let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:#?}")))
+        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for StorageAccountName {
@@ -116,6 +123,7 @@ impl<'a> Arbitrary<'a> for StorageAccountName {
 #[cfg(test)]
 mod test {
     use crate::prelude::StorageAccountName;
+    use crate::slug::Slug;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::Rng;

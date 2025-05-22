@@ -2,6 +2,7 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use arbitrary::Arbitrary;
+use eyre::Context;
 use serde::de::Error;
 use std::hash::Hash;
 use std::ops::Deref;
@@ -20,19 +21,19 @@ impl SubscriptionId {
 }
 impl std::fmt::Display for SubscriptionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.inner.hyphenated()))
+        f.write_fmt(format_args!("{}", self.hyphenated()))
     }
 }
 impl Deref for SubscriptionId {
     type Target = Uuid;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 impl DerefMut for SubscriptionId {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+        &mut self.0
     }
 }
 impl From<Uuid> for SubscriptionId {
@@ -45,7 +46,7 @@ impl serde::Serialize for SubscriptionId {
     where
         S: serde::Serializer,
     {
-        self.inner.serialize(serializer)
+        self.0.serialize(serializer)
     }
 }
 impl<'de> serde::Deserialize<'de> for SubscriptionId {
@@ -62,7 +63,7 @@ impl<'de> serde::Deserialize<'de> for SubscriptionId {
 }
 impl Scope for SubscriptionId {
     fn expanded_form(&self) -> String {
-        format!("{}{}", SUBSCRIPTION_ID_PREFIX, self.inner)
+        format!("{}{}", SUBSCRIPTION_ID_PREFIX, self.0)
     }
 
     fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
@@ -91,74 +92,70 @@ impl Scope for SubscriptionId {
 // Parsing
 // =====
 
-use nom::IResult;
-use nom::bytes::complete::tag;
-use nom::bytes::complete::tag_no_case;
-use nom::bytes::complete::take_while1;
-use nom::character::complete::char;
-use nom::combinator::all_consuming;
-use nom::combinator::map;
-use nom::combinator::map_res;
-use nom::combinator::recognize;
-use nom::error::ParseError;
-use nom_language::error::VerboseError;
+// use nom::IResult;
+// use nom::bytes::complete::tag;
+// use nom::bytes::complete::tag_no_case;
+// use nom::bytes::complete::take_while1;
+// use nom::character::complete::char;
+// use nom::combinator::all_consuming;
+// use nom::combinator::map;
+// use nom::combinator::map_res;
+// use nom::combinator::recognize;
+// use nom::error::ParseError;
+// use nom_language::error::VerboseError;
 
-// UUID (with dashes, canonical format)
-fn guid<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, Uuid, E> {
-    map_res(
-        recognize((
-            take_while1(|c: char| c.is_ascii_hexdigit()),
-            char('-'),
-            take_while1(|c: char| c.is_ascii_hexdigit()),
-            char('-'),
-            take_while1(|c: char| c.is_ascii_hexdigit()),
-            char('-'),
-            take_while1(|c: char| c.is_ascii_hexdigit()),
-            char('-'),
-            take_while1(|c: char| c.is_ascii_hexdigit()),
-        )),
-        Uuid::parse_str,
-    )(i)
-}
-// /subscriptions/{guid}
-fn parse_subscription_id<'a>(
-    i: &'a str,
-) -> IResult<&'a str, SubscriptionId, VerboseError<&'a str>> {
-    all_consuming(subscription_id)(i)
-}
-// Parse a subscription id URI
-fn subscription_id<'a>(i: &'a str) -> IResult<&'a str, SubscriptionId, VerboseError<&'a str>> {
-    let (i, _) = tag("/")(i)?;
-    let (i, _) = tag_no_case("subscriptions")(i)?;
-    let (i, _) = tag("/")(i)?;
-    map(guid, SubscriptionId)(i)
-}
-// impl FromStr for SubscriptionId {
-//     type Err = uuid::Error;
+// // UUID (with dashes, canonical format)
+// fn guid<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, Uuid, E> {
+//     map_res(
+//         recognize((
+//             take_while1(|c: char| c.is_ascii_hexdigit()),
+//             char('-'),
+//             take_while1(|c: char| c.is_ascii_hexdigit()),
+//             char('-'),
+//             take_while1(|c: char| c.is_ascii_hexdigit()),
+//             char('-'),
+//             take_while1(|c: char| c.is_ascii_hexdigit()),
+//             char('-'),
+//             take_while1(|c: char| c.is_ascii_hexdigit()),
+//         )),
+//         Uuid::parse_str,
+//     )(i)
+// }
+// // /subscriptions/{guid}
+// fn parse_subscription_id<'a>(
+//     i: &'a str,
+// ) -> IResult<&'a str, SubscriptionId, VerboseError<&'a str>> {
+//     all_consuming(subscription_id)(i)
+// }
+// // Parse a subscription id URI
+// fn subscription_id<'a>(i: &'a str) -> IResult<&'a str, SubscriptionId, VerboseError<&'a str>> {
+//     let (i, _) = tag("/")(i)?;
+//     let (i, _) = tag_no_case("subscriptions")(i)?;
+//     let (i, _) = tag("/")(i)?;
+//     map(guid, SubscriptionId)(i)
+// }
 
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         let s = s.strip_prefix(SUBSCRIPTION_ID_PREFIX).unwrap_or(s);
-//         Ok(Self { inner: s.parse()? })
+impl FromStr for SubscriptionId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.strip_prefix(SUBSCRIPTION_ID_PREFIX).unwrap_or(s);
+        let id: eyre::Result<Uuid, _> = s.parse().into();
+        let id = id.wrap_err_with(|| format!("Parsing subscription id from {s:?}"))?;
+        Ok(Self(id))
+    }
+}
+// #[cfg(test)]
+// mod test {
+//     use nom::combinator::all_consuming;
+
+//     use super::parse_subscription_id;
+
+//     #[test]
+//     pub fn it_works() -> eyre::Result<()> {
+//         let subscription_id = "/subscriptions/11112222-3333-4444-aaaa-bbbbccccdddd";
+//         let x = all_consuming(parse_subscription_id)(subscription_id)?;
+//         dbg!(x);
+//         Ok(())
 //     }
 // }
-impl FromStr for SubscriptionId {
-    type Err = uuid::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(SubscriptionId(Uuid::parse_str(s)?))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use nom::combinator::all_consuming;
-
-    use super::parse_subscription_id;
-
-    #[test]
-    pub fn it_works() -> eyre::Result<()> {
-        let subscription_id = "/subscriptions/11112222-3333-4444-aaaa-bbbbccccdddd";
-        let x = all_consuming(parse_subscription_id)(subscription_id)?;
-        dbg!(x);
-        Ok(())
-    }
-}

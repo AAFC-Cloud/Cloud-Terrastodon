@@ -1,24 +1,27 @@
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
 use crate::management_groups::ManagementGroupId;
-use crate::policy_assignments::PolicyAssignmentId;
-use crate::policy_definitions::PolicyDefinitionId;
-use crate::policy_set_definitions::PolicySetDefinitionId;
+use crate::prelude::PolicyAssignmentId;
+use crate::prelude::PolicyDefinitionId;
+use crate::prelude::PolicySetDefinitionId;
 use crate::prelude::RESOURCE_GROUP_ID_PREFIX;
 use crate::prelude::ResourceGroupId;
-use crate::prelude::ResourceGroupName;
 use crate::prelude::ResourceId;
 use crate::prelude::ResourceTagsId;
 use crate::prelude::RoleAssignmentId;
 use crate::prelude::RoleDefinitionId;
+use crate::prelude::RoleEligibilityScheduleId;
 use crate::prelude::RoleManagementPolicyAssignmentId;
 use crate::prelude::RoleManagementPolicyId;
 use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::prelude::StorageAccountId;
 use crate::prelude::SubscriptionId;
 use crate::prelude::TestResourceId;
-use crate::role_eligibility_schedules::RoleEligibilityScheduleId;
+use crate::slug::HasSlug;
+use crate::slug::Slug;
 use clap::ValueEnum;
-use core::panic;
+use cloud_terrastodon_azure_resource_types::prelude::ResourceType;
+use compact_str::CompactString;
+use compact_str::ToCompactString;
 use eyre::Context;
 use eyre::Error;
 use eyre::Result;
@@ -46,6 +49,24 @@ pub trait Scope: Sized {
     fn as_scope(&self) -> ScopeImpl;
     fn kind(&self) -> ScopeImplKind;
 }
+impl Scope for CompactString {
+    fn expanded_form(&self) -> String {
+        self.to_string()
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        Ok(expanded.to_compact_string())
+    }
+
+    fn as_scope(&self) -> ScopeImpl {
+        ScopeImpl::Unknown(self.to_owned())
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::Unknown
+    }
+}
+
 pub trait HasScope {
     fn scope(&self) -> &impl Scope;
 }
@@ -111,28 +132,9 @@ pub fn strip_prefix_get_slug_and_leading_slashed_remains<'a>(
     Ok((slug, Some(remaining)))
 }
 
-fn strip_prefix_and_slug_leaving_slash<'a>(expanded: &'a str, prefix: &str) -> Result<&'a str> {
-    // /subscription/abc/resourceGroups/def
-    // Remove prefix
-    let remaining = strip_prefix_case_insensitive(expanded, prefix)?;
-
-    // abc/resourceGroups/def
-    // Remove slug
-    let Some((_slug, remaining)) = remaining.split_once('/') else {
-        return Err(ScopeError::Malformed).context(format!(
-            "String {expanded:?} must contain a slash after the prefix {prefix:?}"
-        ));
-    };
-
-    // resourceGroups/def
-    // Unstrip leading slash
-    let remaining = &expanded[expanded.len() - remaining.len() - 1..];
-
-    // /resourceGroups/def
-    Ok(remaining)
-}
-
-fn strip_provider_and_resource(expanded: &str) -> Result<&str> {
+fn get_provider_and_resource_type_and_resource_and_remaining(
+    expanded: &str,
+) -> Result<(ResourceType, &str, &str)> {
     // /providers/Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
     // /providers/Microsoft.Network/bastionHosts/my-bst/providers/Microsoft.Authorization/roleAssignments/0000
     // /providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/0000
@@ -141,68 +143,148 @@ fn strip_provider_and_resource(expanded: &str) -> Result<&str> {
     let remaining = expanded;
     let remaining = strip_prefix_case_insensitive(remaining, "/providers/")?;
     // Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
-    let (_, remaining) = remaining
+    let (provider, remaining) = remaining
         .split_once('/')
         .ok_or_else(|| eyre!("Missing provider"))?;
     // vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
-    let (_, remaining) = remaining
+    let (resource_type, remaining) = remaining
         .split_once('/')
         .ok_or_else(|| eyre!("Missing resource type"))?;
+    let provider_and_resource_type = &expanded
+        ["/providers/".len()..provider.len() + resource_type.len() + "/providers/".len() + 1];
+    let resource_type = ResourceType::from_str(provider_and_resource_type)?;
     // my-vault/providers/Microsoft.Authorization/roleAssignments/0000
-    let (_, remaining) = remaining
+    let (resource, remaining) = remaining
         .split_once('/')
         .ok_or_else(|| eyre!("Missing resource name"))?;
     // providers/Microsoft.Authorization/roleAssignments/0000
     let remaining = &expanded[expanded.len() - remaining.len() - 1..];
     // /providers/Microsoft.Authorization/roleAssignments/0000
 
-    Ok(remaining)
+    Ok((resource_type, resource, remaining))
+}
+
+#[cfg(test)]
+mod test {
+    use cloud_terrastodon_azure_resource_types::prelude::ResourceType;
+
+    use super::get_provider_and_resource_type_and_resource_and_remaining;
+
+    #[test]
+    pub fn it_works() -> eyre::Result<()> {
+        let x = "/providers/Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000";
+        let (resource_type, name, remaining) =
+            get_provider_and_resource_type_and_resource_and_remaining(x)?;
+        assert_eq!(
+            resource_type,
+            ResourceType::MICROSOFT_DOT_KEYVAULT_SLASH_VAULTS
+        );
+        assert_eq!(name, "my-vault");
+        assert_eq!(
+            remaining,
+            "/providers/Microsoft.Authorization/roleAssignments/0000"
+        );
+        Ok(())
+    }
 }
 
 pub trait TryFromUnscoped
 where
-    Self: Sized + NameValidatable + HasPrefix,
+    Self: Sized + HasPrefix + HasSlug,
 {
     fn try_from_expanded_unscoped(expanded_unscoped: &str) -> Result<Self> {
         // Get name without prefix
         let prefix = Self::get_prefix();
         let name = strip_prefix_case_insensitive(expanded_unscoped, prefix)?;
-        Self::validate_name(name).context("validating name")?;
-
-        unsafe { Ok(Self::new_unscoped_unchecked(expanded_unscoped)) }
+        let name = <<Self as HasSlug>::Name>::try_new(name)?;
+        unsafe { Ok(Self::new_unscoped_unchecked(expanded_unscoped, name)) }
     }
     /// # Safety
     ///
     /// The try_from methods should be used instead
-    unsafe fn new_unscoped_unchecked(expanded: &str) -> Self;
+    unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self;
 }
 
 pub trait TryFromResourceGroupScoped
 where
-    Self: Sized + NameValidatable + HasPrefix,
+    Self: Sized + HasPrefix + HasSlug,
 {
     fn try_from_expanded_resource_group_scoped(expanded: &str) -> Result<Self> {
-        let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
-        let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)?;
+        let (subscription, remaining) =
+            strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;
+        let subscription_id = subscription.parse()?;
+        let Some(remaining) = remaining else {
+            bail!(
+                "Could not create resource-group-scoped id from {expanded:?}, extracted subscription {subscription} but found no content afterwards"
+            );
+        };
+
+        let (resource_group, remaining) =
+            strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)?;
+        let resource_group_name = resource_group.parse()?;
+        let resource_group_id = ResourceGroupId {
+            subscription_id,
+            resource_group_name,
+        };
+        let Some(remaining) = remaining else {
+            bail!(
+                "Could not create resource-group-scoped id from {expanded:?}, extracted resource group {resource_group_id} but found no content afterwards"
+            );
+        };
         let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
-        Self::validate_name(name).context("validating name")?;
-        unsafe { Ok(Self::new_resource_group_scoped_unchecked(expanded)) }
+        let name = <<Self as HasSlug>::Name>::try_new(name)?;
+        unsafe {
+            Ok(Self::new_resource_group_scoped_unchecked(
+                expanded,
+                resource_group_id,
+                name,
+            ))
+        }
     }
 
     /// # Safety
     ///
     /// The try_from methods should be used instead
-    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self;
+    unsafe fn new_resource_group_scoped_unchecked(
+        _expanded: &str,
+        resource_group_id: ResourceGroupId,
+        name: Self::Name,
+    ) -> Self;
 }
 
 pub trait TryFromResourceScoped
 where
-    Self: Sized + NameValidatable + HasPrefix,
+    Self: Sized + HasPrefix + HasSlug,
 {
     fn try_from_expanded_resource_scoped(expanded: &str) -> Result<Self> {
-        let remaining = strip_prefix_and_slug_leaving_slash(expanded, SUBSCRIPTION_ID_PREFIX)?;
-        let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)?;
-        let remaining = strip_provider_and_resource(remaining)?;
+        let (subscription_id, remaining) =
+            strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;
+        let subscription_id = subscription_id.parse()?;
+        let Some(remaining) = remaining else {
+            bail!(
+                "Could not create resource-scoped id from {expanded:?}, extracted subscription {subscription_id} but found no content afterwards"
+            );
+        };
+
+        let (resource_group_name, remaining) =
+            strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)?;
+        let resource_group_name = resource_group_name.parse()?;
+        let resource_group_id = ResourceGroupId {
+            subscription_id,
+            resource_group_name,
+        };
+        let Some(remaining) = remaining else {
+            bail!(
+                "Could not create resource-scoped id from {expanded:?}, extracted resource group {resource_group_id} but found no content afterwards"
+            );
+        };
+        let (resource_type, resource_name, remaining) =
+            get_provider_and_resource_type_and_resource_and_remaining(remaining)?;
+        let resource_id = ResourceId {
+            resource_group_id,
+            resource_type,
+            resource_name: resource_name.to_compact_string(),
+        };
         // the resource could have a subresource, like a subnet on a vnet
         // now we search from the right
         let prefix = Self::get_prefix();
@@ -213,14 +295,24 @@ where
                 eyre!("String {remaining:?} must contain {prefix} (case insensitive)")
             })?;
         let name = &remaining[prefix_pos + prefix.len()..];
-        Self::validate_name(name).context("validating name")?;
-        unsafe { Ok(Self::new_resource_scoped_unchecked(expanded)) }
+        let name = <<Self as HasSlug>::Name>::try_new(name)?;
+        unsafe {
+            Ok(Self::new_resource_scoped_unchecked(
+                expanded,
+                resource_id,
+                name,
+            ))
+        }
     }
 
     /// # Safety
     ///
     /// The try_from methods should be used instead
-    unsafe fn new_resource_scoped_unchecked(expanded: &str) -> Self;
+    unsafe fn new_resource_scoped_unchecked(
+        _expanded: &str,
+        resource_id: ResourceId,
+        name: Self::Name,
+    ) -> Self;
 }
 
 pub trait TryFromSubscriptionScoped
@@ -232,7 +324,7 @@ where
             strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;
         let Some(remaining) = remaining else {
             bail!(
-                "Could not create resource group id from {expanded:?}, extracted subscription {subscription} but found no resource group afterwards"
+                "Could not create subscription-scoped id from {expanded:?}, extracted subscription {subscription} but found no content afterwards"
             );
         };
         let subscription_id = subscription.parse()?;
@@ -258,18 +350,37 @@ where
 }
 pub trait TryFromManagementGroupScoped
 where
-    Self: Sized + NameValidatable + HasPrefix,
+    Self: Sized + HasPrefix + HasSlug,
 {
     fn try_from_expanded_management_group_scoped(expanded: &str) -> Result<Self> {
-        let remaining = strip_prefix_and_slug_leaving_slash(expanded, MANAGEMENT_GROUP_ID_PREFIX)?;
+        let (management_group, remaining) = strip_prefix_get_slug_and_leading_slashed_remains(
+            expanded,
+            MANAGEMENT_GROUP_ID_PREFIX,
+        )?;
+        let management_group_id = management_group.parse()?;
+        let Some(remaining) = remaining else {
+            bail!(
+                "Could not create management-group-scoped id from {expanded:?}, extracted management group {management_group} but found no content afterwards"
+            );
+        };
         let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
-        Self::validate_name(name).context("validating name")?;
-        unsafe { Ok(Self::new_management_group_scoped_unchecked(expanded)) }
+        let name = <<Self as HasSlug>::Name>::try_new(name)?;
+        unsafe {
+            Ok(Self::new_management_group_scoped_unchecked(
+                expanded,
+                management_group_id,
+                name,
+            ))
+        }
     }
     /// # Safety
     ///
     /// The try_from methods should be used instead
-    unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self;
+    unsafe fn new_management_group_scoped_unchecked(
+        _expanded: &str,
+        management_group_id: ManagementGroupId,
+        name: Self::Name,
+    ) -> Self;
 }
 
 pub fn try_from_expanded_resource_container_scoped<T>(expanded: &str) -> Result<T>
@@ -293,7 +404,7 @@ where
                                 Err(unscoped_error) => {
                                     bail!(
                                         "{}\n{:?}\n========\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}",
-                                        "Hierarchy scoped parse failed for ",
+                                        "Expanded resource container scoped parse failed for ",
                                         expanded,
                                         "management group scoped attempt: ",
                                         management_group_scoped_error,
@@ -364,85 +475,26 @@ where
 }
 
 pub trait Unscoped {}
-pub trait ManagementGroupScoped: Scope {
-    fn management_group_id(&self) -> ManagementGroupId {
-        ManagementGroupId::from_name(
-            strip_prefix_get_slug_and_leading_slashed_remains(
-                &self.expanded_form(),
-                MANAGEMENT_GROUP_ID_PREFIX,
-            )
-            .expect("management group prefix should have been validated before construction")
-            .0,
-        )
+pub trait ManagementGroupScoped {
+    fn management_group_id(&self) -> &ManagementGroupId;
+}
+pub trait SubscriptionScoped {
+    fn subscription_id(&self) -> &SubscriptionId;
+}
+pub trait ResourceGroupScoped {
+    fn resource_group_id(&self) -> &ResourceGroupId;
+}
+pub trait ResourceScoped {
+    fn resource_id(&self) -> &ResourceId;
+}
+impl<T: ResourceScoped> ResourceGroupScoped for T {
+    fn resource_group_id(&self) -> &ResourceGroupId {
+        &self.resource_id().resource_group_id
     }
 }
-pub trait SubscriptionScoped: Scope {
-    fn subscription_id(&self) -> SubscriptionId {
-        SubscriptionId::new(
-            strip_prefix_get_slug_and_leading_slashed_remains(
-                &self.expanded_form(),
-                SUBSCRIPTION_ID_PREFIX,
-            )
-            .expect("subscription prefix should have been validated before construction")
-            .0
-            .parse()
-            .expect("subscription scoped should have valid uuid as subscription slug"),
-        )
-    }
-}
-pub trait ResourceGroupScoped: SubscriptionScoped {
-    fn resource_group_id(&self) -> ResourceGroupId {
-        let expanded = self.expanded_form();
-        let Ok((subscription_id, Some(remaining))) =
-            strip_prefix_get_slug_and_leading_slashed_remains(&expanded, SUBSCRIPTION_ID_PREFIX)
-        else {
-            panic!(
-                "resource group id should have been validated before construction - expected subscription prefix with slug but got {expanded:?}"
-            );
-        };
-        let Ok(subscription_id): Result<SubscriptionId, _> = subscription_id.parse() else {
-            panic!(
-                "resource group id should have been validated before construction - subscription id malformed {subscription_id:?}"
-            );
-        };
-        let Ok((resource_group_name, _)) =
-            strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)
-        else {
-            panic!(
-                "resource group id should have been validated before construction - expected resource group prefix with slug but got {expanded:?}"
-            );
-        };
-        let resource_group_name: ResourceGroupName = resource_group_name
-        .parse()
-        .wrap_err_with(|| eyre!("resource group id should have been validated before construction - failed to validate resource group name {resource_group_name:?}"))
-        .unwrap();
-        ResourceGroupId::new(subscription_id, resource_group_name)
-    }
-}
-pub trait ResourceScoped: ResourceGroupScoped {
-    fn resource_id(&self) -> ResourceId {
-        // /subscriptions/000/resourceGroups/abc/providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
-        let expanded = self.expanded_form();
-        let remaining = strip_prefix_and_slug_leaving_slash(&expanded, SUBSCRIPTION_ID_PREFIX)
-            .expect("subscription id prefix should have been validated before construction");
-        // /resourceGroups/abc/providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
-        let remaining = strip_prefix_and_slug_leaving_slash(remaining, RESOURCE_GROUP_ID_PREFIX)
-            .expect("resource group id prefix should have been validated before construction");
-        // /providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
-        let remaining = strip_prefix_and_slug_leaving_slash(remaining, "/providers/")
-            .expect("resources should be prefixed with /providers/ after resource group stuff");
-        // Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
-        let remaining = remaining.split_once('/').expect("resources should have a subtype, /providers/Microsoft.Whatever/something_was_expected_here").1;
-        // storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/111
-        let remaining = remaining.split_once('/').expect("resources should have a subtype, /providers/Microsoft.Whatever/something_was_expected_here").1;
-        // mystorage/providers/Microsoft.Authorization/roleAssignments/111
-        let (_name, tail_len) = remaining
-            .split_once('/')
-            .map(|x| (x.0, x.1.len()))
-            .unwrap_or((remaining, 0));
-        // mystorage
-        ResourceId::from_str(&expanded[0..expanded.len() - tail_len])
-            .expect("should be able to construct expanded resource id")
+impl<T: ResourceGroupScoped> SubscriptionScoped for T {
+    fn subscription_id(&self) -> &SubscriptionId {
+        &self.resource_group_id().subscription_id
     }
 }
 
@@ -478,7 +530,8 @@ pub enum ScopeImplKind {
     Subscription,
     Test,
     ResourceTags,
-    Raw,
+    Resource,
+    Unknown,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
@@ -497,7 +550,8 @@ pub enum ScopeImpl {
     RoleManagementPolicy(RoleManagementPolicyId),
     StorageAccount(StorageAccountId),
     ResourceTags(ResourceTagsId),
-    Raw(ResourceId),
+    Resource(ResourceId),
+    Unknown(CompactString),
 }
 impl Scope for ScopeImpl {
     fn expanded_form(&self) -> String {
@@ -516,7 +570,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),
             ScopeImpl::ResourceTags(id) => id.expanded_form(),
-            ScopeImpl::Raw(id) => id.expanded_form(),
+            ScopeImpl::Resource(id) => id.expanded_form(),
+            ScopeImpl::Unknown(id) => id.to_string(),
         }
     }
 
@@ -536,7 +591,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
             ScopeImpl::StorageAccount(id) => id.short_form(),
             ScopeImpl::ResourceTags(id) => id.short_form(),
-            ScopeImpl::Raw(id) => id.short_form(),
+            ScopeImpl::Resource(id) => id.short_form(),
+            ScopeImpl::Unknown(id) => id.to_string(),
         }
     }
 
@@ -580,6 +636,9 @@ impl Scope for ScopeImpl {
         if let Ok(id) = TestResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::TestResource(id));
         }
+        if let Ok(id) = ResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::Resource(id));
+        }
         Err(ScopeError::Unrecognized.into())
     }
 
@@ -600,8 +659,9 @@ impl Scope for ScopeImpl {
                 ScopeImplKind::RoleManagementPolicyAssignment
             }
             ScopeImpl::RoleManagementPolicy(_) => ScopeImplKind::RoleManagementPolicyAssignment,
-            ScopeImpl::Raw(_) => ScopeImplKind::Raw,
+            ScopeImpl::Unknown(_) => ScopeImplKind::Unknown,
             ScopeImpl::ResourceTags(_) => ScopeImplKind::ResourceTags,
+            ScopeImpl::Resource(_) => ScopeImplKind::Resource,
         }
     }
 
@@ -664,7 +724,12 @@ impl std::fmt::Display for ScopeImpl {
             ScopeImpl::ResourceTags(x) => {
                 f.write_fmt(format_args!("ResourceTags({})", x.short_form()))
             }
-            ScopeImpl::Raw(x) => f.write_fmt(format_args!("Raw({})", x)),
+            ScopeImpl::Resource(x) => f.write_fmt(format_args!(
+                "Resource({}/{})",
+                x.resource_type,
+                x.short_form()
+            )),
+            ScopeImpl::Unknown(x) => f.write_fmt(format_args!("Raw({})", x)),
         }
     }
 }

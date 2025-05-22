@@ -1,131 +1,14 @@
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleDefinitionKind;
-use crate::scopes::HasPrefix;
+use crate::prelude::RoleEligibilityScheduleId;
 use crate::scopes::HasScope;
-use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
-use crate::scopes::ScopeImplKind;
-use crate::scopes::TryFromManagementGroupScoped;
-use crate::scopes::TryFromResourceGroupScoped;
-use crate::scopes::TryFromResourceScoped;
-use crate::scopes::TryFromSubscriptionScoped;
-use crate::scopes::TryFromUnscoped;
-use crate::scopes::try_from_expanded_hierarchy_scoped;
 use chrono::DateTime;
 use chrono::Utc;
-use eyre::Result;
 use serde::Deserialize;
-use serde::Deserializer;
 use serde::Serialize;
-use serde::Serializer;
-use serde::de::Error;
 use uuid::Uuid;
-
-pub const ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX: &str =
-    "/providers/Microsoft.Authorization/roleEligibilitySchedules/";
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum RoleEligibilityScheduleId {
-    Unscoped { expanded: String },
-    ManagementGroupScoped { expanded: String },
-    SubscriptionScoped { expanded: String },
-    ResourceGroupScoped { expanded: String },
-    ResourceScoped { expanded: String },
-}
-impl NameValidatable for RoleEligibilityScheduleId {
-    fn validate_name(name: &str) -> Result<()> {
-        Uuid::parse_str(name)?;
-        Ok(())
-    }
-}
-impl HasPrefix for RoleEligibilityScheduleId {
-    fn get_prefix() -> &'static str {
-        ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX
-    }
-}
-
-impl TryFromUnscoped for RoleEligibilityScheduleId {
-    unsafe fn new_unscoped_unchecked(expanded: &str) -> Self {
-        RoleEligibilityScheduleId::Unscoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-impl TryFromResourceGroupScoped for RoleEligibilityScheduleId {
-    unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
-        RoleEligibilityScheduleId::ResourceGroupScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-
-impl TryFromResourceScoped for RoleEligibilityScheduleId {
-    unsafe fn new_resource_scoped_unchecked(expanded: &str) -> Self {
-        RoleEligibilityScheduleId::ResourceScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-impl TryFromSubscriptionScoped for RoleEligibilityScheduleId {
-    unsafe fn new_subscription_scoped_unchecked(expanded: &str) -> Self {
-        RoleEligibilityScheduleId::SubscriptionScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-
-impl TryFromManagementGroupScoped for RoleEligibilityScheduleId {
-    unsafe fn new_management_group_scoped_unchecked(expanded: &str) -> Self {
-        RoleEligibilityScheduleId::ManagementGroupScoped {
-            expanded: expanded.to_string(),
-        }
-    }
-}
-
-impl Scope for RoleEligibilityScheduleId {
-    fn expanded_form(&self) -> String {
-        match self {
-            Self::Unscoped { expanded } => expanded,
-            Self::ResourceGroupScoped { expanded } => expanded,
-            Self::SubscriptionScoped { expanded } => expanded,
-            Self::ManagementGroupScoped { expanded } => expanded,
-            Self::ResourceScoped { expanded } => expanded,
-        }.to_owned()
-    }
-
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
-        try_from_expanded_hierarchy_scoped(expanded)
-    }
-
-    fn kind(&self) -> ScopeImplKind {
-        ScopeImplKind::RoleEligibilitySchedule
-    }
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
-        ScopeImpl::RoleEligibilitySchedule(self.clone())
-    }
-}
-
-impl Serialize for RoleEligibilityScheduleId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for RoleEligibilityScheduleId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = RoleEligibilityScheduleId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
-        Ok(id)
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum RoleEligibilityScheduleMemberType {

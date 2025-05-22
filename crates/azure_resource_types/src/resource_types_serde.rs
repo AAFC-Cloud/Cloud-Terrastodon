@@ -23,7 +23,7 @@ impl<'de> Deserialize<'de> for ResourceType {
         let value = String::deserialize(deserializer)?;
         let resource_type = value
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(resource_type)
     }
 }

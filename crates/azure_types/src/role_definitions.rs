@@ -1,4 +1,3 @@
-use crate::prelude::Fake;
 use crate::scopes::HasPrefix;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
@@ -33,11 +32,6 @@ impl RoleDefinitionId {
         RoleDefinitionId {
             expanded: format!("{ROLE_DEFINITION_ID_PREFIX}{}", uuid.as_hyphenated()),
         }
-    }
-}
-impl Fake for RoleDefinitionId {
-    fn fake() -> Self {
-        RoleDefinitionId::new(&Uuid::nil())
     }
 }
 
@@ -104,7 +98,7 @@ impl<'de> Deserialize<'de> for RoleDefinitionId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }
@@ -140,18 +134,6 @@ pub struct RoleDefinition {
     pub kind: RoleDefinitionKind,
 }
 
-impl Fake for RoleDefinition {
-    fn fake() -> Self {
-        RoleDefinition {
-            id: Fake::fake(),
-            display_name: "Fake Role".to_owned(),
-            description: "Fake role description".to_owned(),
-            assignable_scopes: vec![],
-            permissions: vec![],
-            kind: RoleDefinitionKind::CustomRole,
-        }
-    }
-}
 
 impl HasScope for RoleDefinition {
     fn scope(&self) -> &impl Scope {

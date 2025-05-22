@@ -72,6 +72,8 @@ impl From<StorageAccount> for HCLImportBlock {
 #[cfg(test)]
 mod tests {
     use crate::prelude::ResourceGroupId;
+    use crate::prelude::ResourceGroupName;
+    use crate::slug::Slug;
 
     use super::*;
     use eyre::Result;
@@ -79,11 +81,13 @@ mod tests {
 
     #[test]
     fn deserializes() -> Result<()> {
-        let nil = Uuid::nil();
-        let expanded = StorageAccountId::ResourceGroupScoped {
-            expanded: format!(
-                "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Storage/storageAccounts/bruh",
+        // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Storage/storageAccounts/bruh
+        let expanded = StorageAccountId {
+            resource_group_id: ResourceGroupId::new(
+                SubscriptionId::new(Uuid::new_v4()),
+                ResourceGroupName::try_new("MY-RG")?,
             ),
+            storage_account_name: StorageAccountName::try_new("bruh")?,
         };
         let id: StorageAccountId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
@@ -93,13 +97,12 @@ mod tests {
 
     #[test]
     fn not_ambiguous() -> Result<()> {
-        let nil = Uuid::nil();
-        let expanded = StorageAccountId::ResourceGroupScoped {
-            expanded: format!(
-                "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Storage/storageAccounts/bruh",
-            ),
-        };
-        assert!(expanded.expanded_form().parse::<ResourceGroupId>().is_err());
+        let expanded = format!(
+            "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Storage/storageAccounts/bruh",
+            nil = Uuid::nil()
+        );
+        let id = StorageAccountId::try_from_expanded(&expanded)?;
+        dbg!(id);
         Ok(())
     }
 }

@@ -1,4 +1,3 @@
-use crate::prelude::Fake;
 use crate::prelude::strip_prefix_case_insensitive;
 use crate::scopes::HasScope;
 use crate::scopes::Scope;
@@ -28,11 +27,6 @@ impl TestResourceId {
     }
 }
 
-impl Fake for TestResourceId {
-    fn fake() -> Self {
-        TestResourceId::new("MyFakeTestResource")
-    }
-}
 
 impl Scope for TestResourceId {
     fn expanded_form(&self) -> String {
@@ -77,7 +71,7 @@ impl<'de> Deserialize<'de> for TestResourceId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#?}")))?;
+            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

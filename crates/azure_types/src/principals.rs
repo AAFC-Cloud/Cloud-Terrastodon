@@ -145,13 +145,23 @@ impl std::fmt::Display for Principal {
 mod tests {
     use serde_json::Value;
 
-    use crate::prelude::Fake;
-
     use super::*;
 
     #[test]
     fn it_works() -> eyre::Result<()> {
-        let user = User::fake();
+        let user: User = User {
+            business_phones: vec![],
+            display_name: "User, Fake".to_string(),
+            given_name: Some("User".to_string()),
+            id: UserId::new(Uuid::nil()),
+            job_title: None,
+            mail: None,
+            mobile_phone: None,
+            office_location: None,
+            preferred_language: None,
+            surname: Some("Fake".to_string()),
+            user_principal_name: "fake.user@example.com".to_string(),
+        };
         let principal = Principal::from(user);
         let encoded = serde_json::to_string_pretty(&principal)?;
         println!("Encoded:\n{encoded}");
