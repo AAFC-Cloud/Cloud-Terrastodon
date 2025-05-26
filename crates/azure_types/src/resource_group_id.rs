@@ -156,7 +156,7 @@ impl Scope for ResourceGroupId {
         })
     }
 
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::ResourceGroup(self.clone())
     }
     fn kind(&self) -> ScopeImplKind {

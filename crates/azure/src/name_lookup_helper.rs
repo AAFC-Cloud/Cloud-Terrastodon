@@ -37,33 +37,33 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
         ScopeImplKind::PolicyDefinition => fetch_all_policy_definitions()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope(), x.name))
+            .map(|x| (x.id.as_scope_impl(), x.name))
             .collect(),
         ScopeImplKind::PolicySetDefinition => fetch_all_policy_set_definitions()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope(), x.name))
+            .map(|x| (x.id.as_scope_impl(), x.name))
             .collect(),
         ScopeImplKind::PolicyAssignment => fetch_all_policy_assignments()
             .await?
             .into_values()
             .flatten()
-            .map(|x| (x.id.as_scope(), x.name))
+            .map(|x| (x.id.as_scope_impl(), x.name))
             .collect(),
         ScopeImplKind::ResourceGroup => fetch_all_resource_groups()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope(), x.name))
+            .map(|x| (x.id.as_scope_impl(), x.name))
             .collect(),
         ScopeImplKind::ManagementGroup => fetch_all_management_groups()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope(), x.name().to_owned()))
+            .map(|x| (x.id.as_scope_impl(), x.name().to_owned()))
             .collect(),
         ScopeImplKind::Subscription => fetch_all_subscriptions()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope(), x.name))
+            .map(|x| (x.id.as_scope_impl(), x.name))
             .collect(),
         _ => {
             warn!(

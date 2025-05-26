@@ -23,7 +23,6 @@ use cloud_terrastodon_azure_resource_types::prelude::ResourceType;
 use compact_str::CompactString;
 use compact_str::ToCompactString;
 use eyre::Context;
-use eyre::Error;
 use eyre::Result;
 use eyre::bail;
 use eyre::eyre;
@@ -33,11 +32,13 @@ use serde::Serialize;
 use serde::Serializer;
 use serde::de::Visitor;
 use serde::de::{self};
+use std::convert::Infallible;
 use std::fmt;
 use std::str::FromStr;
 use std::str::pattern::Pattern;
 
 pub trait Scope: Sized {
+    type Error = eyre::Error;
     fn expanded_form(&self) -> String;
     fn short_form(&self) -> String {
         self.expanded_form()
@@ -45,8 +46,8 @@ pub trait Scope: Sized {
             .map(|x| x.1.to_owned())
             .unwrap_or_else(|| self.expanded_form())
     }
-    fn try_from_expanded(expanded: &str) -> Result<Self>;
-    fn as_scope(&self) -> ScopeImpl;
+    fn try_from_expanded(expanded: &str) -> Result<Self, Self::Error>;
+    fn as_scope_impl(&self) -> ScopeImpl;
     fn kind(&self) -> ScopeImplKind;
 }
 impl Scope for CompactString {
@@ -58,7 +59,7 @@ impl Scope for CompactString {
         Ok(expanded.to_compact_string())
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::Unknown(self.to_owned())
     }
 
@@ -67,18 +68,20 @@ impl Scope for CompactString {
     }
 }
 
-pub trait HasScope {
-    fn scope(&self) -> &impl Scope;
+// TODO: replace String and CompactString usage with something like this
+// pub struct ExpandedFormScope(CompactString);
+
+pub trait AsScope {
+    fn as_scope(&self) -> &impl Scope;
 }
-impl<T> HasScope for T
+impl<T> AsScope for T
 where
     T: Scope,
 {
-    fn scope(&self) -> &impl Scope {
+    fn as_scope(&self) -> &impl Scope {
         self
     }
 }
-
 pub trait NameValidatable {
     fn validate_name(name: &str) -> Result<()>;
 }
@@ -554,6 +557,7 @@ pub enum ScopeImpl {
     Unknown(CompactString),
 }
 impl Scope for ScopeImpl {
+    type Error = Infallible;
     fn expanded_form(&self) -> String {
         match self {
             ScopeImpl::ManagementGroup(id) => id.expanded_form(),
@@ -596,7 +600,7 @@ impl Scope for ScopeImpl {
         }
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> Result<Self, Self::Error> {
         if let Ok(id) = ResourceGroupId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::ResourceGroup(id));
         }
@@ -639,7 +643,7 @@ impl Scope for ScopeImpl {
         if let Ok(id) = ResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::Resource(id));
         }
-        Err(ScopeError::Unrecognized.into()).wrap_err(format!("Unable to determine kind for expanded scope: {expanded:?}"))
+        Ok(ScopeImpl::Unknown(expanded.to_compact_string()))
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -665,15 +669,15 @@ impl Scope for ScopeImpl {
         }
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         self.clone()
     }
 }
 
 impl FromStr for ScopeImpl {
-    type Err = Error;
+    type Err = Infallible;
 
-    fn from_str(s: &str) -> Result<ScopeImpl> {
+    fn from_str(s: &str) -> Result<ScopeImpl, Infallible> {
         Self::try_from_expanded(s)
     }
 }
@@ -731,6 +735,12 @@ impl std::fmt::Display for ScopeImpl {
             )),
             ScopeImpl::Unknown(x) => f.write_fmt(format_args!("Raw({})", x)),
         }
+    }
+}
+impl<T> From<T> for ScopeImpl where T: AsRef<str> {
+    fn from(value: T) -> Self {
+        let Ok(scope) = ScopeImpl::try_from_expanded(value.as_ref());
+        scope
     }
 }
 

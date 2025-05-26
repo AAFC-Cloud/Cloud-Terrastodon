@@ -1,7 +1,7 @@
 use crate::prelude::ManagementGroupAncestorsChain;
 use crate::prelude::SubscriptionId;
 use crate::prelude::TenantId;
-use crate::scopes::HasScope;
+use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderBlock;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
@@ -17,13 +17,13 @@ pub struct Subscription {
     pub management_group_ancestors_chain: ManagementGroupAncestorsChain,
 }
 
-impl HasScope for Subscription {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for Subscription {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl HasScope for &Subscription {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for &Subscription {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }

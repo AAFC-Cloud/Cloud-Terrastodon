@@ -168,7 +168,7 @@ impl Scope for RoleManagementPolicyId {
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::RoleManagementPolicy
     }
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::RoleManagementPolicy(self.clone())
     }
 }

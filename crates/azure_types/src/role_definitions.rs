@@ -1,5 +1,5 @@
 use crate::scopes::HasPrefix;
-use crate::scopes::HasScope;
+use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
@@ -76,7 +76,7 @@ impl Scope for RoleDefinitionId {
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::RoleDefinition
     }
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::RoleDefinition(self.clone())
     }
 }
@@ -135,13 +135,13 @@ pub struct RoleDefinition {
 }
 
 
-impl HasScope for RoleDefinition {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for RoleDefinition {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl HasScope for &RoleDefinition {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for &RoleDefinition {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }

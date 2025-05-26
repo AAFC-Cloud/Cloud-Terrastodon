@@ -1,5 +1,5 @@
 use crate::prelude::strip_prefix_case_insensitive;
-use crate::scopes::HasScope;
+use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
@@ -41,7 +41,7 @@ impl Scope for TestResourceId {
         ScopeImplKind::Test
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::TestResource(self.clone())
     }
 }
@@ -90,13 +90,13 @@ impl TestResource {
     }
 }
 
-impl HasScope for TestResource {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for TestResource {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl HasScope for &TestResource {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for &TestResource {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }

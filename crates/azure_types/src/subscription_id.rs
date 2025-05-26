@@ -79,7 +79,7 @@ impl Scope for SubscriptionId {
         Ok(Self(expanded.parse()?))
     }
 
-    fn as_scope(&self) -> crate::prelude::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::prelude::ScopeImpl {
         ScopeImpl::Subscription(self.clone())
     }
 

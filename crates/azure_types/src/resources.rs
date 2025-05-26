@@ -1,4 +1,4 @@
-use crate::prelude::HasScope;
+use crate::prelude::AsScope;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceType;
 use crate::prelude::Scope;
@@ -74,7 +74,7 @@ impl Scope for ResourceId {
         ResourceId::try_from_expanded_resource_scoped(expanded)
     }
 
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::Resource(self.clone())
     }
     fn kind(&self) -> ScopeImplKind {
@@ -113,14 +113,14 @@ impl<'de> Deserialize<'de> for ResourceId {
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Resource {
-    pub id: CompactString,
+    pub id: ScopeImpl,
     pub kind: ResourceType,
     pub name: String,
     pub display_name: Option<String>,
     pub tags: Option<HashMap<String, String>>,
 }
-impl HasScope for Resource {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for Resource {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }

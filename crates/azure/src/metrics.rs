@@ -2,7 +2,7 @@ use chrono::Datelike;
 use chrono::Local;
 use chrono::SecondsFormat;
 use chrono::TimeZone;
-use cloud_terrastodon_azure_types::prelude::HasScope;
+use cloud_terrastodon_azure_types::prelude::AsScope;
 use cloud_terrastodon_azure_types::prelude::Metrics;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_pathing::AppDir;
@@ -15,11 +15,11 @@ use crate::prelude::BatchRequest;
 use crate::prelude::BatchRequestEntry;
 
 pub async fn fetch_metrics(
-    resource_ids: impl IntoIterator<Item = impl HasScope>,
+    resource_ids: impl IntoIterator<Item = impl AsScope>,
 ) -> eyre::Result<Metrics> {
     let mut batch_request = BatchRequest::new();
     for id in resource_ids {
-        let id = id.scope().expanded_form();
+        let id = id.as_scope().expanded_form();
         let end = chrono::Utc::now();
         let begin = chrono::Utc
             .with_ymd_and_hms(end.year() - 7, 1, 1, 0, 0, 0)

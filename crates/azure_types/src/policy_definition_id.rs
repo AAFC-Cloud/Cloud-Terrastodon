@@ -166,7 +166,7 @@ impl Scope for PolicyDefinitionId {
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::PolicyDefinition
     }
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::PolicyDefinition(self.clone())
     }
 }

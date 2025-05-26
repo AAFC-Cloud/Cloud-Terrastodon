@@ -1,3 +1,12 @@
+# v0.10.0
+
+- Rename `HasScope::scope(&self)` to `AsScope::as_scope(&self)`
+- Rename `Scope::as_scope(&self)` to `Scope::as_scope_impl(&self)`
+- Change `Resource::id` from `CompactString` to `ScopeImpl`
+- Change `RoleAssignment::scope` from `CompactString` to `ScopeImpl`
+- Change `ScopeImpl::try_from_expanded` to return `Result<Self, Infallible>`
+- Add `impl<T> From<T> for ScopeImpl where T: AsRef<str>`
+
 # v0.9.0
 
 - The Great Big ID Rework - instead of storing simple strings to the resource, I fully parse the ID into its components.

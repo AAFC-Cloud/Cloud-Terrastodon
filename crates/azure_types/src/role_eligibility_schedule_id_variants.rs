@@ -182,7 +182,7 @@ impl Scope for UnscopedRoleEligibilityScheduleId {
         UnscopedRoleEligibilityScheduleId::try_from_expanded_unscoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::Unscoped(self.clone()))
     }
 
@@ -205,7 +205,7 @@ impl Scope for ManagementGroupScopedRoleEligibilityScheduleId {
         ManagementGroupScopedRoleEligibilityScheduleId::try_from_expanded_management_group_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::ManagementGroupScoped(self.clone()))
     }
 
@@ -227,7 +227,7 @@ impl Scope for SubscriptionScopedRoleEligibilityScheduleId {
         SubscriptionScopedRoleEligibilityScheduleId::try_from_expanded_subscription_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::SubscriptionScoped(self.clone()))
     }
 
@@ -250,7 +250,7 @@ impl Scope for ResourceGroupScopedRoleEligibilityScheduleId {
         ResourceGroupScopedRoleEligibilityScheduleId::try_from_expanded_resource_group_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::ResourceGroupScoped(self.clone()))
     }
 
@@ -273,7 +273,7 @@ impl Scope for ResourceScopedRoleEligibilityScheduleId {
         ResourceScopedRoleEligibilityScheduleId::try_from_expanded_resource_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::ResourceScoped(self.clone()))
     }
 

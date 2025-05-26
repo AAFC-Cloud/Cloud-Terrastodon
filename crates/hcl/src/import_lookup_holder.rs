@@ -3,7 +3,6 @@ use hcl::edit::structure::Block;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit::visit_block;
 use std::collections::HashMap;
-use tracing::trace;
 
 #[derive(Default)]
 pub struct ImportLookupHolder {
@@ -38,10 +37,7 @@ impl Visit for ImportLookupHolder {
         };
 
         // Add to lookup table
-        let Ok(scope) = id.parse() else {
-            trace!("Failed to interpret id as scope: {id:?}");
-            return;
-        };
+        let scope = id.into();
         self.track(scope, to);
     }
 }

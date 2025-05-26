@@ -1,33 +1,33 @@
 use crate::prelude::PrincipalId;
 use crate::prelude::RoleAssignmentId;
 use crate::prelude::RoleDefinitionId;
-use crate::scopes::HasScope;
+use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use crate::scopes::ScopeImpl;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
-use compact_str::CompactString;
 use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct RoleAssignment {
     pub id: RoleAssignmentId,
-    pub scope: CompactString,
+    pub scope: ScopeImpl,
     pub role_definition_id: RoleDefinitionId,
     pub principal_id: PrincipalId,
 }
 
 // MARK: HasScope
-impl HasScope for RoleAssignment {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for RoleAssignment {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl HasScope for &RoleAssignment {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for &RoleAssignment {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }

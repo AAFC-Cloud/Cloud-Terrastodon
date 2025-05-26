@@ -6,7 +6,6 @@ use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::visit_mut::visit_attr_mut;
 use hcl::edit::visit_mut::visit_block_mut;
 use std::collections::HashSet;
-use tracing::warn;
 
 pub struct ImportedResourceReferencePatcher {
     pub lookups: ImportLookupHolder,
@@ -43,10 +42,7 @@ impl VisitMut for ImportedResourceReferencePatcher {
         };
 
         // Lookup the key by the id
-        let Ok(scope) = id.parse() else {
-            warn!("Failed to interpret id as scope: {id:?}");
-            return;
-        };
+        let scope = id.into();
         let reference = match self.lookups.get_import_to_attribute_from_id(&scope) {
             Some(x) => x,
             None => {

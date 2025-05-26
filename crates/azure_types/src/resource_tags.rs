@@ -1,4 +1,4 @@
-use crate::prelude::HasScope;
+use crate::prelude::AsScope;
 use crate::prelude::Scope;
 use crate::prelude::ScopeImpl;
 use crate::prelude::ScopeImplKind;
@@ -19,8 +19,8 @@ pub struct ResourceTagsId {
     expanded: String,
 }
 impl ResourceTagsId {
-    pub fn from_scope(resource: &impl HasScope) -> ResourceTagsId {
-        match resource.scope().as_scope() {
+    pub fn from_scope(resource: &impl AsScope) -> ResourceTagsId {
+        match resource.as_scope().as_scope_impl() {
             ScopeImpl::ResourceTags(x) => x,
             other => ResourceTagsId {
                 expanded: format!("{}{}", other.expanded_form(), TAGS_SUFFIX),
@@ -67,7 +67,7 @@ impl Scope for ResourceTagsId {
         expanded.parse()
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::ResourceTags(self.clone())
     }
     fn kind(&self) -> ScopeImplKind {

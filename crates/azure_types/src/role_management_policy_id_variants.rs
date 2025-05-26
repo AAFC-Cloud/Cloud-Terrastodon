@@ -182,7 +182,7 @@ impl Scope for UnscopedRoleManagementPolicyId {
         UnscopedRoleManagementPolicyId::try_from_expanded_unscoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleManagementPolicy(RoleManagementPolicyId::Unscoped(self.clone()))
     }
 
@@ -207,7 +207,7 @@ impl Scope for ManagementGroupScopedRoleManagementPolicyId {
         )
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleManagementPolicy(RoleManagementPolicyId::ManagementGroupScoped(self.clone()))
     }
 
@@ -229,7 +229,7 @@ impl Scope for SubscriptionScopedRoleManagementPolicyId {
         SubscriptionScopedRoleManagementPolicyId::try_from_expanded_subscription_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleManagementPolicy(RoleManagementPolicyId::SubscriptionScoped(self.clone()))
     }
 
@@ -252,7 +252,7 @@ impl Scope for ResourceGroupScopedRoleManagementPolicyId {
         ResourceGroupScopedRoleManagementPolicyId::try_from_expanded_resource_group_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleManagementPolicy(RoleManagementPolicyId::ResourceGroupScoped(self.clone()))
     }
 
@@ -275,7 +275,7 @@ impl Scope for ResourceScopedRoleManagementPolicyId {
         ResourceScopedRoleManagementPolicyId::try_from_expanded_resource_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleManagementPolicy(RoleManagementPolicyId::ResourceScoped(self.clone()))
     }
 

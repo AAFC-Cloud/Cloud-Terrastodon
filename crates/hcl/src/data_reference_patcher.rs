@@ -29,9 +29,7 @@ impl VisitMut for DataReferencePatcher {
         };
 
         // Convert/validate strongly typed azure resource ID
-        let Ok(resource_id) = resource_id.parse() else {
-            return;
-        };
+        let resource_id = resource_id.into();
 
         // Lookup the key by the id
         let reference = match self.lookup.data_references_by_id.get(&resource_id) {

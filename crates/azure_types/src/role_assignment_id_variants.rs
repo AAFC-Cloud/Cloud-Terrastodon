@@ -182,7 +182,7 @@ impl Scope for UnscopedRoleAssignmentId {
         UnscopedRoleAssignmentId::try_from_expanded_unscoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleAssignment(RoleAssignmentId::Unscoped(self.clone()))
     }
 
@@ -205,7 +205,7 @@ impl Scope for ManagementGroupScopedRoleAssignmentId {
         ManagementGroupScopedRoleAssignmentId::try_from_expanded_management_group_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleAssignment(RoleAssignmentId::ManagementGroupScoped(self.clone()))
     }
 
@@ -227,7 +227,7 @@ impl Scope for SubscriptionScopedRoleAssignmentId {
         SubscriptionScopedRoleAssignmentId::try_from_expanded_subscription_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleAssignment(RoleAssignmentId::SubscriptionScoped(self.clone()))
     }
 
@@ -250,7 +250,7 @@ impl Scope for ResourceGroupScopedRoleAssignmentId {
         ResourceGroupScopedRoleAssignmentId::try_from_expanded_resource_group_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleAssignment(RoleAssignmentId::ResourceGroupScoped(self.clone()))
     }
 
@@ -273,7 +273,7 @@ impl Scope for ResourceScopedRoleAssignmentId {
         ResourceScopedRoleAssignmentId::try_from_expanded_resource_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::RoleAssignment(RoleAssignmentId::ResourceScoped(self.clone()))
     }
 

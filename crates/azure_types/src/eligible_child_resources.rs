@@ -93,7 +93,7 @@ mod tests {
         let resource = EligibleChildResource {
             name: String::from("Example Resource"),
             kind: EligibleChildResourceKind::ManagementGroup,
-            id: thing_id.as_scope(),
+            id: thing_id.as_scope_impl(),
         };
 
         let json = serde_json::to_string(&resource).unwrap();
@@ -115,7 +115,7 @@ mod tests {
         let resource: EligibleChildResource = serde_json::from_str(&json).unwrap();
 
         assert_eq!(resource.name, "Example Resource");
-        assert_eq!(resource.id, thing_id.as_scope());
+        assert_eq!(resource.id, thing_id.as_scope_impl());
         match resource.kind {
             EligibleChildResourceKind::ManagementGroup => {}
             _ => panic!("Expected ManagementGroup"),
@@ -128,7 +128,7 @@ mod tests {
         let resource = EligibleChildResource {
             name: String::from("Another Resource"),
             kind: EligibleChildResourceKind::Other(String::from("customtype")),
-            id: thing_id.as_scope(),
+            id: thing_id.as_scope_impl(),
         };
 
         let json = serde_json::to_string(&resource).unwrap();
@@ -150,7 +150,7 @@ mod tests {
         let resource: EligibleChildResource = serde_json::from_str(&json).unwrap();
 
         assert_eq!(resource.name, "Another Resource");
-        assert_eq!(resource.id, thing_id.as_scope());
+        assert_eq!(resource.id, thing_id.as_scope_impl());
         match resource.kind {
             EligibleChildResourceKind::Other(ref s) if s == "customtype" => {}
             _ => panic!("Expected Other with value 'customtype'"),

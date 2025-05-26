@@ -182,7 +182,7 @@ impl Scope for UnscopedPolicyAssignmentId {
         UnscopedPolicyAssignmentId::try_from_expanded_unscoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicyAssignment(PolicyAssignmentId::Unscoped(self.clone()))
     }
 
@@ -205,7 +205,7 @@ impl Scope for ManagementGroupScopedPolicyAssignmentId {
         ManagementGroupScopedPolicyAssignmentId::try_from_expanded_management_group_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicyAssignment(PolicyAssignmentId::ManagementGroupScoped(self.clone()))
     }
 
@@ -227,7 +227,7 @@ impl Scope for SubscriptionScopedPolicyAssignmentId {
         SubscriptionScopedPolicyAssignmentId::try_from_expanded_subscription_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicyAssignment(PolicyAssignmentId::SubscriptionScoped(self.clone()))
     }
 
@@ -250,7 +250,7 @@ impl Scope for ResourceGroupScopedPolicyAssignmentId {
         ResourceGroupScopedPolicyAssignmentId::try_from_expanded_resource_group_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicyAssignment(PolicyAssignmentId::ResourceGroupScoped(self.clone()))
     }
 
@@ -273,7 +273,7 @@ impl Scope for ResourceScopedPolicyAssignmentId {
         ResourceScopedPolicyAssignmentId::try_from_expanded_resource_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicyAssignment(PolicyAssignmentId::ResourceScoped(self.clone()))
     }
 

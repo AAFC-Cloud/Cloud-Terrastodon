@@ -1,7 +1,7 @@
 use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleDefinitionKind;
 use crate::prelude::RoleEligibilityScheduleId;
-use crate::scopes::HasScope;
+use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use chrono::DateTime;
@@ -96,13 +96,13 @@ impl RoleEligibilitySchedule {
     }
 }
 
-impl HasScope for RoleEligibilitySchedule {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for RoleEligibilitySchedule {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl HasScope for &RoleEligibilitySchedule {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for &RoleEligibilitySchedule {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }

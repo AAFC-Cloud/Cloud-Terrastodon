@@ -2,11 +2,12 @@ use cloud_terrastodon_azure::prelude::Group;
 use cloud_terrastodon_azure::prelude::Principal;
 use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::Resource;
+use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure::prelude::Scope;
+use cloud_terrastodon_azure::prelude::ScopeImpl;
 use cloud_terrastodon_azure::prelude::ServicePrincipal;
-use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
@@ -17,7 +18,6 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
 use cloud_terrastodon_user_input::pick_many;
-use compact_str::CompactString;
 use eyre::bail;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -161,10 +161,10 @@ impl<'a> AsRef<Clue<'a>> for ClueChain<'a> {
 #[allow(dead_code)]
 struct TraversalContext<'a> {
     pub clues: Vec<ClueChain<'a>>,
-    pub resource_map: HashMap<&'a CompactString, &'a Resource>,
+    pub resource_map: HashMap<&'a ScopeImpl, &'a Resource>,
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
     pub principal_map: HashMap<PrincipalId, &'a Principal>,
-    pub role_assignments_by_scope: HashMap<&'a CompactString, &'a RoleAssignment>,
+    pub role_assignments_by_scope: HashMap<&'a ScopeImpl, &'a RoleAssignment>,
 }
 #[derive(Debug, Clone, Copy, Eq, PartialEq, VariantArray)]
 enum Traversal {
@@ -199,8 +199,9 @@ impl Traversal {
             }
             Traversal::RoleAssignments => {
                 if let Clue::Resource { resource } = clue.as_ref() {
-                    if let Some(role_assignment) =
-                        context.role_assignments_by_scope.get(&resource.id)
+                    if let Some(role_assignment) = context
+                        .role_assignments_by_scope
+                        .get(&resource.id.as_scope_impl())
                     {
                         // Identify the role definition
                         let Some(role_definition) = context
@@ -310,7 +311,7 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
         .iter()
         .map(|p| (p.id(), p))
         .collect::<HashMap<_, _>>();
-    let role_assignments_by_scope: HashMap<&CompactString, &RoleAssignment> = role_assignments
+    let role_assignments_by_scope: HashMap<&ScopeImpl, &RoleAssignment> = role_assignments
         .iter()
         .map(|role_assignment| (&role_assignment.scope, role_assignment))
         .collect::<HashMap<_, _>>();

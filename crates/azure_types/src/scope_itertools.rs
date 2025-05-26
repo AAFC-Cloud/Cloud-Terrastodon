@@ -1,13 +1,13 @@
 use std::collections::HashSet;
 
-use crate::scopes::HasScope;
+use crate::scopes::AsScope;
 use crate::scopes::Scope;
 
 pub trait DistinctByScope: Iterator {
     fn distinct_by_scope(self) -> DistinctByScopeIterator<Self, Self::Item>
     where
         Self: Sized,
-        Self::Item: HasScope;
+        Self::Item: AsScope;
 }
 
 impl<I> DistinctByScope for I
@@ -17,7 +17,7 @@ where
     fn distinct_by_scope(self) -> DistinctByScopeIterator<Self, I::Item>
     where
         Self: Sized,
-        Self::Item: HasScope,
+        Self::Item: AsScope,
     {
         DistinctByScopeIterator {
             iter: self,
@@ -29,7 +29,7 @@ where
 pub struct DistinctByScopeIterator<I, T>
 where
     I: Iterator<Item = T>,
-    T: HasScope,
+    T: AsScope,
 {
     iter: I,
     seen: HashSet<String>,
@@ -38,13 +38,13 @@ where
 impl<I, T> Iterator for DistinctByScopeIterator<I, T>
 where
     I: Iterator<Item = T>,
-    T: HasScope,
+    T: AsScope,
 {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         for item in self.iter.by_ref() {
-            let scope = item.scope().expanded_form().to_string();
+            let scope = item.as_scope().expanded_form().to_string();
             if self.seen.insert(scope) {
                 return Some(item);
             }

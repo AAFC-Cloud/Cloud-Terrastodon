@@ -168,7 +168,7 @@ impl Scope for RoleEligibilityScheduleId {
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::RoleEligibilitySchedule
     }
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::RoleEligibilitySchedule(self.clone())
     }
 }

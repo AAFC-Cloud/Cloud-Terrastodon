@@ -85,7 +85,7 @@ impl Scope for StorageAccountId {
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::StorageAccount
     }
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::StorageAccount(self.clone())
     }
 }

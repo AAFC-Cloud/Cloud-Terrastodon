@@ -1,5 +1,5 @@
 use crate::prelude::PolicyDefinitionId;
-use crate::scopes::HasScope;
+use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
@@ -24,13 +24,13 @@ pub struct PolicyDefinition {
     pub version: String,
 }
 
-impl HasScope for PolicyDefinition {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for PolicyDefinition {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl HasScope for &PolicyDefinition {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for &PolicyDefinition {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }

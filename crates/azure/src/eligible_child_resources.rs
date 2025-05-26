@@ -2,7 +2,7 @@ use crate::management_groups::fetch_root_management_group;
 use crate::resource_groups::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResource;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResourceKind;
-use cloud_terrastodon_azure_types::prelude::HasScope;
+use cloud_terrastodon_azure_types::prelude::AsScope;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
@@ -57,7 +57,7 @@ pub async fn fetch_eligible_child_resources(
 
 pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChildResource>> {
     let root_mg = fetch_root_management_group().await?;
-    let scope = root_mg.scope();
+    let scope = root_mg.as_scope();
     let mut resource_containers =
         fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
     // this contains management groups and subscriptions
@@ -68,7 +68,7 @@ pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChil
         .map(|x| EligibleChildResource {
             name: x.name.to_owned(),
             kind: EligibleChildResourceKind::ResourceGroup,
-            id: x.scope().as_scope(),
+            id: x.as_scope().as_scope_impl(),
         });
     resource_containers.extend(rgs);
     // extend to include resource groups
@@ -81,7 +81,7 @@ mod tests {
     use super::*;
     use crate::management_groups::fetch_root_management_group;
     use crate::subscriptions::fetch_all_subscriptions;
-    use cloud_terrastodon_azure_types::prelude::HasScope;
+    use cloud_terrastodon_azure_types::prelude::AsScope;
     use cloud_terrastodon_azure_types::prelude::Scope;
     use cloud_terrastodon_user_input::Choice;
     use cloud_terrastodon_user_input::FzfArgs;
@@ -92,7 +92,7 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
         let mg = fetch_root_management_group().await?;
-        let scope = mg.scope();
+        let scope = mg.as_scope();
         let found =
             fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
         assert!(found.len() > 0);
@@ -120,7 +120,7 @@ mod tests {
             .next()
             .unwrap();
         let found =
-            fetch_eligible_child_resources(rg.scope(), FetchChildrenBehaviour::GetAllChildren)
+            fetch_eligible_child_resources(rg.as_scope(), FetchChildrenBehaviour::GetAllChildren)
                 .await;
         assert!(
             found.is_err(),
@@ -134,7 +134,7 @@ mod tests {
         let subs = fetch_all_subscriptions().await?;
         let sub = subs.first().unwrap();
         let found =
-            fetch_eligible_child_resources(sub.scope(), FetchChildrenBehaviour::GetAllChildren)
+            fetch_eligible_child_resources(sub.as_scope(), FetchChildrenBehaviour::GetAllChildren)
                 .await;
         assert!(
             found.is_err(),
@@ -147,7 +147,7 @@ mod tests {
     #[ignore]
     async fn it_works_interactive() -> Result<()> {
         let mg = fetch_root_management_group().await?;
-        let mut scope = mg.scope().as_scope().to_owned();
+        let mut scope = mg.as_scope().as_scope_impl().to_owned();
         loop {
             println!("{}", scope);
             let next_scope = pick(FzfArgs {

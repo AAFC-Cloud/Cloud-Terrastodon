@@ -182,7 +182,7 @@ impl Scope for UnscopedPolicySetDefinitionId {
         UnscopedPolicySetDefinitionId::try_from_expanded_unscoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicySetDefinition(PolicySetDefinitionId::Unscoped(self.clone()))
     }
 
@@ -205,7 +205,7 @@ impl Scope for ManagementGroupScopedPolicySetDefinitionId {
         ManagementGroupScopedPolicySetDefinitionId::try_from_expanded_management_group_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicySetDefinition(PolicySetDefinitionId::ManagementGroupScoped(self.clone()))
     }
 
@@ -227,7 +227,7 @@ impl Scope for SubscriptionScopedPolicySetDefinitionId {
         SubscriptionScopedPolicySetDefinitionId::try_from_expanded_subscription_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicySetDefinition(PolicySetDefinitionId::SubscriptionScoped(self.clone()))
     }
 
@@ -250,7 +250,7 @@ impl Scope for ResourceGroupScopedPolicySetDefinitionId {
         ResourceGroupScopedPolicySetDefinitionId::try_from_expanded_resource_group_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicySetDefinition(PolicySetDefinitionId::ResourceGroupScoped(self.clone()))
     }
 
@@ -273,7 +273,7 @@ impl Scope for ResourceScopedPolicySetDefinitionId {
         ResourceScopedPolicySetDefinitionId::try_from_expanded_resource_scoped(expanded)
     }
 
-    fn as_scope(&self) -> ScopeImpl {
+    fn as_scope_impl(&self) -> ScopeImpl {
         ScopeImpl::PolicySetDefinition(PolicySetDefinitionId::ResourceScoped(self.clone()))
     }
 

@@ -1,7 +1,7 @@
 use crate::prelude::ResourceGroupId;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
-use crate::scopes::HasScope;
+use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
@@ -23,13 +23,13 @@ pub struct ResourceGroup {
     pub tags: Option<HashMap<String, String>>,
 }
 
-impl HasScope for ResourceGroup {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for ResourceGroup {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl HasScope for &ResourceGroup {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for &ResourceGroup {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }

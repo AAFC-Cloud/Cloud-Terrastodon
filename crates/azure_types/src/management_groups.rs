@@ -4,7 +4,7 @@ use crate::prelude::ManagementGroupAncestorsChain;
 use crate::prelude::NameValidatable;
 use crate::prelude::TenantId;
 use crate::prelude::strip_prefix_case_insensitive;
-use crate::scopes::HasScope;
+use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
@@ -73,7 +73,7 @@ impl Scope for ManagementGroupId {
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::ManagementGroup
     }
-    fn as_scope(&self) -> crate::scopes::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::ManagementGroup(self.clone())
     }
 }
@@ -111,13 +111,13 @@ impl ManagementGroup {
         self.id.name()
     }
 }
-impl HasScope for ManagementGroup {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for ManagementGroup {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl HasScope for &ManagementGroup {
-    fn scope(&self) -> &impl Scope {
+impl AsScope for &ManagementGroup {
+    fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
