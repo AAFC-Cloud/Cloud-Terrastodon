@@ -639,7 +639,7 @@ impl Scope for ScopeImpl {
         if let Ok(id) = ResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::Resource(id));
         }
-        Err(ScopeError::Unrecognized.into())
+        Err(ScopeError::Unrecognized.into()).wrap_err(format!("Unable to determine kind for expanded scope: {expanded:?}"))
     }
 
     fn kind(&self) -> ScopeImplKind {
