@@ -6,6 +6,7 @@
 - Change `RoleAssignment::scope` from `CompactString` to `ScopeImpl`
 - Change `ScopeImpl::try_from_expanded` to return `Result<Self, Infallible>`
 - Add `impl<T> From<T> for ScopeImpl where T: AsRef<str>`
+- Add `fetch_storage_account_blob_container_names(id: &StorageAccountId) -> HashSet<StorageAccountBlobContainerName>`
 
 # v0.9.0
 
