@@ -10,7 +10,6 @@ use std::panic::Location;
 use std::pin::Pin;
 use std::sync::Arc;
 
-
 pub type Setter<T> = Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) + Send + Sync>;
 /// A small helper that builds a `Work` for "fetch data -> store in app field".
 pub struct LoadableWorkBuilder<T>
