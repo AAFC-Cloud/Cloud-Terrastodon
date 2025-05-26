@@ -96,7 +96,7 @@ impl<'a> std::fmt::Display for Clue<'a> {
                 f.write_fmt(format_args!("Resource [{}]", resource.id.expanded_form()))
             }
             Clue::Principal { principal, .. } => {
-                f.write_fmt(format_args!("Principal [{}]", principal))
+                f.write_fmt(format_args!("Principal [{principal}]"))
             }
             Clue::ServicePrincipalAlternativeName {
                 alternative_name,
@@ -185,8 +185,8 @@ impl Traversal {
         let mut rtn = Vec::new();
         match self {
             Traversal::Tags => {
-                if let Clue::Resource { resource } = clue.as_ref() {
-                    if let Some(tags) = &resource.tags {
+                if let Clue::Resource { resource } = clue.as_ref()
+                    && let Some(tags) = &resource.tags {
                         for (tag_key, tag_value) in tags.iter() {
                             rtn.push(clue.join(Clue::ResourceTag {
                                 resource,
@@ -195,11 +195,10 @@ impl Traversal {
                             }));
                         }
                     }
-                }
             }
             Traversal::RoleAssignments => {
-                if let Clue::Resource { resource } = clue.as_ref() {
-                    if let Some(role_assignment) = context
+                if let Clue::Resource { resource } = clue.as_ref()
+                    && let Some(role_assignment) = context
                         .role_assignments_by_scope
                         .get(&resource.id.as_scope_impl())
                     {
@@ -232,7 +231,6 @@ impl Traversal {
                         }
                         rtn.push(role_assignment_clue);
                     }
-                }
             }
             Traversal::GroupMembers => {
                 if let Clue::Principal {

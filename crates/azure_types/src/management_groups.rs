@@ -30,7 +30,7 @@ impl std::fmt::Display for ManagementGroupId {
 }
 impl ManagementGroupId {
     pub fn from_name(name: &str) -> Self {
-        let expanded = format!("{}{}", MANAGEMENT_GROUP_ID_PREFIX, name);
+        let expanded = format!("{MANAGEMENT_GROUP_ID_PREFIX}{name}");
         Self { expanded }
     }
     pub fn name(&self) -> &str {

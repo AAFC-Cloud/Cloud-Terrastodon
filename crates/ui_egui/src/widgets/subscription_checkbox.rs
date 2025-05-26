@@ -18,10 +18,10 @@ pub fn draw_subscription_checkbox(
     subscription: &Subscription,
 ) {
     let mut expando =
-        CollapsingState::load_with_default_open(ctx, Id::new(subscription.id.clone()), false);
+        CollapsingState::load_with_default_open(ctx, Id::new(subscription.id), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
-        expando.toggle(&ui);
+        expando.toggle(ui);
     }
     let is_open = expando.is_open();
     if is_open && matches!(app.resource_groups, Loadable::NotLoaded) {
@@ -44,12 +44,12 @@ fn draw_header(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
             .map(|list| list.len());
         let label = match resource_group_count {
             Some(resource_group_count) => {
-                format!("{} ({})", subscription, resource_group_count)
+                format!("{subscription} ({resource_group_count})")
             }
-            None => format!("{}", subscription),
+            None => format!("{subscription}"),
         };
 
-        let checked = app.checkbox_for(&subscription.id);
+        let checked = app.checkbox_for(subscription.id);
         if ui.image(SUBSCRIPTION_ICON).clicked() {
             debug!("Clicked on subscription icon");
             *checked ^= true;
@@ -81,7 +81,7 @@ fn draw_body(app: &mut MyApp, ctx: &Context, subscription: &Subscription, ui: &m
             });
         }
         Loadable::Failed(err) => {
-            ui.label(&format!("Error: {}", err));
+            ui.label(format!("Error: {err}"));
         }
     }
 }

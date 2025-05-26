@@ -78,7 +78,7 @@ pub async fn identify_required_providers_bulk(
     let mut join_set: JoinSet<eyre::Result<TerraformRequiredProvidersBlock>> = JoinSet::new();
     for dir in dirs {
         let dir = dir.as_ref().to_path_buf();
-        join_set.spawn(async move { Ok(identify_required_providers(dir).await?) });
+        join_set.spawn(async move { identify_required_providers(dir).await });
     }
     let mut rtn = Vec::with_capacity(join_set.len());
     while let Some(x) = join_set.join_next().await {

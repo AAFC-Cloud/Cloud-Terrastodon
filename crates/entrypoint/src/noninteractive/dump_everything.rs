@@ -93,7 +93,7 @@ pub async fn dump_everything_inner() -> eyre::Result<()> {
             .iter()
             .cloned()
             .map(|behaviour| Choice {
-                key: format!("{:?}", behaviour),
+                key: format!("{behaviour:?}"),
                 value: behaviour,
             })
             .collect(),
@@ -114,7 +114,7 @@ pub async fn dump_everything_inner() -> eyre::Result<()> {
         choices: Behaviour::VARIANTS
             .iter()
             .map(|behaviour| Choice {
-                key: format!("{:?}", behaviour),
+                key: format!("{behaviour:?}"),
                 value: behaviour,
             })
             .collect(),
@@ -340,12 +340,9 @@ async fn clean_up_generated_files(tf_work_dirs: &[InitializedTFWorkDir]) -> eyre
     for work_dir in tf_work_dirs {
         let generated_path = work_dir.join("generated.tf");
         join_set.spawn(async move {
-            match tokio::fs::try_exists(&generated_path).await {
-                Ok(true) => {
-                    warn!("Removing old generated file: {}", generated_path.display());
-                    tokio::fs::remove_file(generated_path).await?;
-                }
-                _ => {}
+            if let Ok(true) = tokio::fs::try_exists(&generated_path).await {
+                warn!("Removing old generated file: {}", generated_path.display());
+                tokio::fs::remove_file(generated_path).await?;
             }
             Ok(())
         });
@@ -658,6 +655,6 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
 
     Ok(tf_work_dirs
         .into_iter()
-        .map(|x| FreshTFWorkDir::from(x))
+        .map(FreshTFWorkDir::from)
         .collect())
 }

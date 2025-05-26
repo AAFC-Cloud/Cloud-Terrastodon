@@ -50,12 +50,12 @@ pub trait Config:
                         path.with_file_name(format!("{}-{}.json.bak", Self::FILE_SLUG, now));
                     fs::copy(&path, &backup_path).await?;
                     // For upgrade purposes, we use the default JSON.
-                    serde_json::to_value(&Self::default())?
+                    serde_json::to_value(Self::default())?
                 }
             };
 
             // Get the default config as JSON.
-            let default_json = serde_json::to_value(&Self::default())?;
+            let default_json = serde_json::to_value(Self::default())?;
             // Merge the user config (if present) into the default config.
             let merged_json = merge_json(default_json, user_json);
             // Deserialize the merged JSON.
@@ -82,7 +82,7 @@ pub trait Config:
 
     async fn modify_and_save<F>(&mut self, f: F) -> Result<()>
     where
-        F: FnOnce(&mut Self) -> () + Send,
+        F: FnOnce(&mut Self) + Send,
     {
         f(self);
         self.save().await?;

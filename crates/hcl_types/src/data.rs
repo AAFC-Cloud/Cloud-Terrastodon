@@ -71,7 +71,7 @@ impl HCLDataBlockReference {
                 ProviderKind::AzureRM.provider_prefix(),
                 kind.as_ref()
             ),
-            Self::Other { provider, kind, .. } => format!("{}_{}", provider, kind),
+            Self::Other { provider, kind, .. } => format!("{provider}_{kind}"),
         }
     }
     pub fn name_label(&self) -> &str {
@@ -128,7 +128,7 @@ impl AsHCLString for HCLDataBlock {
                         }}
                     "#,
                     label,
-                    user_principal_names.iter().map(|x| format!("      \"{}\",", x)).join("\n")
+                    user_principal_names.iter().map(|x| format!("      \"{x}\",")).join("\n")
                 }
             }
         }

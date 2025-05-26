@@ -22,41 +22,38 @@ impl VisitMut for AzureDevOpsGitRepositoryInitializationPatcher {
             return;
         };
 
-        match resource_kind {
-            ResourceBlockKind::AzureDevOps(AzureDevOpsResourceBlockKind::Repo) => {
-                let mut initialization_block = Block::builder(Ident::new("initialization"));
-                initialization_block = initialization_block
-                    .attribute(Attribute::new(Ident::new("init_type"), "Clean".to_string()));
-                if let Err(e) = node
-                    .body
-                    .try_insert(node.body.len(), initialization_block.build())
-                {
-                    warn!(
-                        "Failed to insert initialization block for resource {:?}: {:?}",
-                        node.labels, e
-                    );
-                };
+        if let ResourceBlockKind::AzureDevOps(AzureDevOpsResourceBlockKind::Repo) = resource_kind {
+            let mut initialization_block = Block::builder(Ident::new("initialization"));
+            initialization_block = initialization_block
+                .attribute(Attribute::new(Ident::new("init_type"), "Clean".to_string()));
+            if let Err(e) = node
+                .body
+                .try_insert(node.body.len(), initialization_block.build())
+            {
+                warn!(
+                    "Failed to insert initialization block for resource {:?}: {:?}",
+                    node.labels, e
+                );
+            };
 
-                let mut lifecycle_block = Block::builder(Ident::new("lifecycle"));
-                lifecycle_block = lifecycle_block.attribute(Attribute::new(
-                    Ident::new("ignore_changes"),
-                    Expression::Array((|| {
-                        let mut array = Array::new();
-                        array.push(Ident::new("initialization"));
-                        array
-                    })()),
-                ));
-                if let Err(e) = node
-                    .body
-                    .try_insert(node.body.len(), lifecycle_block.build())
-                {
-                    warn!(
-                        "Failed to insert lifecycle block for resource {:?}: {:?}",
-                        node.labels, e
-                    );
-                };
-            }
-            _ => {}
+            let mut lifecycle_block = Block::builder(Ident::new("lifecycle"));
+            lifecycle_block = lifecycle_block.attribute(Attribute::new(
+                Ident::new("ignore_changes"),
+                Expression::Array({
+                    let mut array = Array::new();
+                    array.push(Ident::new("initialization"));
+                    array
+                }),
+            ));
+            if let Err(e) = node
+                .body
+                .try_insert(node.body.len(), lifecycle_block.build())
+            {
+                warn!(
+                    "Failed to insert lifecycle block for resource {:?}: {:?}",
+                    node.labels, e
+                );
+            };
         }
     }
 }

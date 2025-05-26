@@ -307,7 +307,7 @@ impl ResourceBlockReference {
                 ProviderKind::AzureDevOps.provider_prefix(),
                 kind.as_ref()
             ),
-            Self::Other { provider, kind, .. } => format!("{}_{}", provider, kind),
+            Self::Other { provider, kind, .. } => format!("{provider}_{kind}"),
             Self::Raw(value) => value
                 .split_once(".")
                 .map(|pair| pair.0.to_owned())
@@ -340,7 +340,7 @@ impl ResourceBlockReference {
             Self::Raw(value) => {
                 if let Some((kind, name)) = value.split_once('.') {
                     let new_name = (mapper)(name);
-                    *value = format!("{}.{}", kind, new_name);
+                    *value = format!("{kind}.{new_name}");
                 }
             }
         };

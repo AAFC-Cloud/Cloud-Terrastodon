@@ -166,14 +166,13 @@ impl HCLWriter {
                             .sorted_by(|(a, _), (b, _)| a.cmp(b));
 
                         for (provider, version) in providers {
-                            if let Some(existing_provider_version) = existing.0.get(&provider) {
-                                if *existing_provider_version != version {
+                            if let Some(existing_provider_version) = existing.0.get(&provider)
+                                && *existing_provider_version != version {
                                     warn!(
                                         "Detected multiple required_provider entries for {provider}, discarding {:?} for {:?}",
                                         existing_provider_version, version
                                     );
                                 }
-                            }
                             existing.0.insert(provider, version);
                         }
                     }

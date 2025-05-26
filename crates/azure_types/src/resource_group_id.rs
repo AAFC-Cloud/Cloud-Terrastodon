@@ -89,12 +89,11 @@ impl FromStr for ResourceGroupId {
             SUBSCRIPTION_ID_PREFIX,
         )
         .context(format!(
-            "Tried to parse {:?} as resource group id, but prefix {} was missing",
-            expanded_form, SUBSCRIPTION_ID_PREFIX
+            "Tried to parse {expanded_form:?} as resource group id, but prefix {SUBSCRIPTION_ID_PREFIX} was missing"
         ))?;
 
         // "0000-000-0000" => Uuid{0000-000-0000}
-        let sub_id = sub_id.parse::<Uuid>().context(format!("Tried to parse {:?} as a resource group id, but the subscription id {:?} isn't a valid guid", expanded_form, sub_id))?;
+        let sub_id = sub_id.parse::<Uuid>().context(format!("Tried to parse {expanded_form:?} as a resource group id, but the subscription id {sub_id:?} isn't a valid guid"))?;
         let sub_id = SubscriptionId::new(sub_id);
 
         // maybe "/resourceGroups/..." => Some("/resourceGroups/...")
@@ -111,8 +110,7 @@ impl FromStr for ResourceGroupId {
             RESOURCE_GROUP_ID_PREFIX,
         )
         .context(format!(
-            "Tried to parse {:?} as a resource group id, but chunk {:?} was missing prefix {:?}",
-            expanded_form, remaining, RESOURCE_GROUP_ID_PREFIX
+            "Tried to parse {expanded_form:?} as a resource group id, but chunk {remaining:?} was missing prefix {RESOURCE_GROUP_ID_PREFIX:?}"
         ))?;
         let rg_name: ResourceGroupName = rg_name.parse()?;
 

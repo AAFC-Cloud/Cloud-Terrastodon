@@ -31,7 +31,7 @@ impl From<Vec<ResourceGroup>> for ResourceGroupMap {
             .collect();
         let resource_groups_by_subscription = resource_groups
             .values()
-            .map(|rg| (rg.subscription_id.clone(), rg.id.clone()))
+            .map(|rg| (rg.subscription_id, rg.id.clone()))
             .into_group_map();
         Self {
             resource_groups,

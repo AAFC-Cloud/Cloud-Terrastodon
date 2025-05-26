@@ -143,12 +143,12 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         };
 
         // Only import role assignments targetting a resource group being imported
-        if !used_resource_groups.contains(&ra_id.resource_group_id()) {
+        if !used_resource_groups.contains(ra_id.resource_group_id()) {
             continue;
         }
 
         // Identify subscription
-        let Some(sub) = subscriptions.get(&ra_id.subscription_id()) else {
+        let Some(sub) = subscriptions.get(ra_id.subscription_id()) else {
             bail!(
                 "Could not find subscription for role assignment {}",
                 ra_id.expanded_form()

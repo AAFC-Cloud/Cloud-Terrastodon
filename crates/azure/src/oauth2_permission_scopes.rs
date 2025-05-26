@@ -17,8 +17,7 @@ pub async fn fetch_oauth2_permission_scopes(
         service_principal_id
     );
     let url = format!(
-        "https://graph.microsoft.com/v1.0/servicePrincipals/{}?$select=oauth2PermissionScopes",
-        service_principal_id
+        "https://graph.microsoft.com/v1.0/servicePrincipals/{service_principal_id}?$select=oauth2PermissionScopes"
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", url.as_ref()]);

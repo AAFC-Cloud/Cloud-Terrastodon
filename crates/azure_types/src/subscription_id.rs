@@ -80,7 +80,7 @@ impl Scope for SubscriptionId {
     }
 
     fn as_scope_impl(&self) -> crate::prelude::ScopeImpl {
-        ScopeImpl::Subscription(self.clone())
+        ScopeImpl::Subscription(*self)
     }
 
     fn kind(&self) -> crate::prelude::ScopeImplKind {
@@ -140,7 +140,7 @@ impl FromStr for SubscriptionId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.strip_prefix(SUBSCRIPTION_ID_PREFIX).unwrap_or(s);
-        let id: eyre::Result<Uuid, _> = s.parse().into();
+        let id: eyre::Result<Uuid, _> = s.parse();
         let id = id.wrap_err_with(|| format!("Parsing subscription id from {s:?}"))?;
         Ok(Self(id))
     }

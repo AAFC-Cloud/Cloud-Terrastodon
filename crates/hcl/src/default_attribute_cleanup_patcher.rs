@@ -18,35 +18,30 @@ fn is_null_or_empty(attrib: &Attribute) -> bool {
 }
 
 fn remove_if_null_or_empty(body: &mut Body, key: &str) {
-    if let Some(attrib) = body.get_attribute(key) {
-        if is_null_or_empty(attrib) {
+    if let Some(attrib) = body.get_attribute(key)
+        && is_null_or_empty(attrib) {
             body.remove_attribute(key).unwrap();
         }
-    }
 }
 fn replace_if_null_or_empty(body: &mut Body, key: &str, default: impl Into<String>) {
-    if let Some(mut attrib) = body.get_attribute_mut(key) {
-        if is_null_or_empty(&attrib) {
+    if let Some(mut attrib) = body.get_attribute_mut(key)
+        && is_null_or_empty(&attrib) {
             *attrib.value_mut() = Expression::String(Decorated::new(default.into()));
         }
-    }
 }
 fn remove_if_false(body: &mut Body, key: &str) {
-    if let Some(attrib) = body.get_attribute(key) {
-        if let Some(false) = attrib.value.as_bool() {
+    if let Some(attrib) = body.get_attribute(key)
+        && let Some(false) = attrib.value.as_bool() {
             body.remove_attribute(key).unwrap();
         }
-    }
 }
 
 fn remove_if_empty_array(body: &mut Body, key: &str) {
-    if let Some(attrib) = body.get_attribute(key) {
-        if let Some(x) = attrib.value.as_array() {
-            if x.is_empty() {
+    if let Some(attrib) = body.get_attribute(key)
+        && let Some(x) = attrib.value.as_array()
+            && x.is_empty() {
                 body.remove_attribute(key).unwrap();
             }
-        }
-    }
 }
 
 fn remove_second_if_both_present(body: &mut Body, keep: &str, remove: &str) {
@@ -120,21 +115,19 @@ impl VisitMut for DefaultAttributeCleanupPatcher {
                 fn is_default_nick(s: &str) -> bool {
                     s.parse::<Uuid>().is_ok()
                 }
-                if let Some(attrib) = body.get_attribute("mail_nickname") {
-                    if let Some(nick) = attrib.value.as_str() {
-                        if is_default_nick(nick) {
+                if let Some(attrib) = body.get_attribute("mail_nickname")
+                    && let Some(nick) = attrib.value.as_str()
+                        && is_default_nick(nick) {
                             body.remove_attribute("mail_nickname").unwrap();
                         }
-                    }
-                }
             }
             ResourceBlockKind::AzureRM(AzureRMResourceBlockKind::ResourceGroup) => {
                 remove_if_null_or_empty(body, "managed_by");
             }
             ResourceBlockKind::AzureDevOps(AzureDevOpsResourceBlockKind::Project) => {
                 let features = body.get_attribute("features");
-                if let Some(features) = features {
-                    if features
+                if let Some(features) = features
+                    && features
                         .value
                         .as_object()
                         .map(|x| x.is_empty())
@@ -142,7 +135,6 @@ impl VisitMut for DefaultAttributeCleanupPatcher {
                     {
                         body.remove_attribute("features");
                     }
-                }
             }
             ResourceBlockKind::AzureRM(AzureRMResourceBlockKind::PolicyDefinition)
             | ResourceBlockKind::AzureRM(AzureRMResourceBlockKind::PolicySetDefinition) => {

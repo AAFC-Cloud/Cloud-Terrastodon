@@ -27,7 +27,7 @@ pub async fn build_policy_imports() -> Result<()> {
 
     let subscriptions = subscriptions
         .into_iter()
-        .map(|sub| (sub.id.clone(), sub))
+        .map(|sub| (sub.id, sub))
         .collect::<HashMap<_, _>>();
 
     let mut imports: Vec<HCLImportBlock> = Default::default();

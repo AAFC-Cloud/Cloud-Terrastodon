@@ -14,7 +14,7 @@ pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
         ScrollArea::both().show(ui, |ui| {
             if let Loadable::Loaded(subscriptions) = &app.subscriptions {
                 for subscription in subscriptions.clone().iter() {
-                    let checked = app.checkbox_for(&subscription.id);
+                    let checked = app.checkbox_for(subscription.id);
                     if !*checked {
                         continue;
                     }

@@ -26,7 +26,7 @@ impl<T: AsRef<str>> Sanitizable for T {
         // Then check if we need to prepend ZZZ_ based on the first character
         match sanitized.chars().next() {
             Some(c) if is_id_start(c) => sanitized,
-            Some(_) => format!("ZZZ_{}", sanitized),
+            Some(_) => format!("ZZZ_{sanitized}"),
             None => "ZZZ_".to_string(),
         }
     }

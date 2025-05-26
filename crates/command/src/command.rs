@@ -394,7 +394,7 @@ impl CommandBuilder {
     #[track_caller]
     pub fn use_cache_behaviour(&mut self, mut behaviour: CacheBehaviour) -> &mut Self {
         if let CacheBehaviour::Some { ref mut path, .. } = behaviour {
-            if path.as_os_str().as_encoded_bytes().contains(&(' ' as u8)) {
+            if path.as_os_str().as_encoded_bytes().contains(&b' ') {
                 warn!(
                     "Cache path contains a space which is discouraged because VSCode's terminal ctrl-click behaviour reliability suffers\nPath: {}\nAt: {}",
                     path.display(),
@@ -686,8 +686,8 @@ impl CommandBuilder {
         let mut child = command.spawn().wrap_err("Failed to spawn command")?;
 
         // Send stdin content if provided
-        if let Some(content) = &self.stdin_content {
-            if let Some(mut stdin) = child.stdin.take() {
+        if let Some(content) = &self.stdin_content
+            && let Some(mut stdin) = child.stdin.take() {
                 let content = content.to_owned();
                 tokio::spawn(async move {
                     // Spawn a task to avoid blocking the main thread while writing to stdin
@@ -697,7 +697,6 @@ impl CommandBuilder {
                     // stdin.shutdown().await.ok(); // Not strictly needed, stdin will close when dropped
                 });
             }
-        }
 
         // Wait for it to finish
         let timeout_duration = self.timeout.unwrap_or(Duration::MAX);
@@ -800,8 +799,7 @@ impl CommandBuilder {
                 _ => {
                     let dir = self.write_failure(&output).await?;
                     let mut error = Err(eyre::Error::from(output).wrap_err(format!(
-                        "Command did not execute successfully, dumped to {:?}",
-                        dir
+                        "Command did not execute successfully, dumped to {dir:?}"
                     )));
                     if matches!(self.output_behaviour, OutputBehaviour::Display) {
                         error = error.wrap_err(format!(
@@ -821,11 +819,9 @@ impl CommandBuilder {
             && let CacheBehaviour::Some {
                 path: cache_dir, ..
             } = &self.cache_behaviour
-        {
-            if let Err(e) = self.write_output(&output, cache_dir).await {
+            && let Err(e) = self.write_output(&output, cache_dir).await {
                 error!("Encountered problem saving cache: {:?}", e);
             }
-        }
 
         // Return success
         Ok(output)

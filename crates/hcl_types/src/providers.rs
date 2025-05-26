@@ -27,11 +27,11 @@ impl ProviderKind {
         }
     }
     pub fn well_known_variants() -> [ProviderKind; 3] {
-        return [
+        [
             ProviderKind::AzureRM,
             ProviderKind::AzureAD,
             ProviderKind::AzureDevOps,
-        ];
+        ]
     }
 }
 impl std::fmt::Display for ProviderKind {

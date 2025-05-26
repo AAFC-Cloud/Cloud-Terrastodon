@@ -28,7 +28,7 @@ Resources
 
 pub async fn is_storage_account_name_available(name: &StorageAccountName) -> eyre::Result<bool> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["storage", "account", "check-name", "--name", &name]);
+    cmd.args(["storage", "account", "check-name", "--name", name]);
     #[derive(Deserialize)]
     #[allow(unused)]
     struct Response {

@@ -16,7 +16,7 @@ pub fn draw_devops_project_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut
         CollapsingState::load_with_default_open(ctx, "azure devops projects".into(), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
-        expando.toggle(&ui);
+        expando.toggle(ui);
     }
     let is_open = expando.is_open();
     if is_open && matches!(app.azure_devops_projects, Loadable::NotLoaded) {
@@ -77,7 +77,7 @@ fn draw_expando_body(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
             }
         }
         Loadable::Failed(err) => {
-            ui.label(&format!("Error: {}", err));
+            ui.label(format!("Error: {err}"));
         }
     });
 }

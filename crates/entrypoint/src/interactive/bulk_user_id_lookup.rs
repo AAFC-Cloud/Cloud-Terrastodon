@@ -22,13 +22,13 @@ pub async fn bulk_user_id_lookup() -> Result<()> {
         .await?
         .into_iter()
         .filter(|x| user_ids.contains(&x.id))
-        .map(|x| (x.id.clone(), x))
+        .map(|x| (x.id, x))
         .collect::<HashMap<_, _>>();
 
     // we want to print in the order which the IDs were provided
     for user_id in user_ids {
         let Some(user) = users.get(&user_id) else {
-            println!("{} - no user found", user_id);
+            println!("{user_id} - no user found");
             continue;
         };
         println!("{} - {}", user_id, user.user_principal_name)

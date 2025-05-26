@@ -8,7 +8,7 @@ use tracing::error;
 
 pub struct Work<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
 where
-    OnEnqueue: Fn(&mut MyApp) -> (),
+    OnEnqueue: Fn(&mut MyApp),
     OnWork: Future<Output = eyre::Result<WorkSuccess>> + Send + 'static,
     OnWork::Output: Send + 'static,
     WorkSuccess: StateMutator + 'static,
@@ -33,7 +33,7 @@ pub struct WorkHandle {
 impl<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
     Work<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
 where
-    OnEnqueue: Fn(&mut MyApp) -> (),
+    OnEnqueue: Fn(&mut MyApp),
     OnWork: Future<Output = eyre::Result<WorkSuccess>> + Send + 'static,
     OnWork::Output: Send + 'static,
     WorkSuccess: StateMutator + 'static,
@@ -42,7 +42,7 @@ where
 {
     pub fn enqueue(self, app: &mut MyApp)
     where
-        OnEnqueue: Fn(&mut MyApp) -> (),
+        OnEnqueue: Fn(&mut MyApp),
         OnWork: Future<Output = eyre::Result<WorkSuccess>> + Send + 'static,
         OnWork::Output: Send + 'static,
         WorkSuccess: StateMutator + 'static,
@@ -57,11 +57,10 @@ where
             match work.on_work.await {
                 Ok(result) => {
                     let msg = AppMessage::StateChange(Box::new(result));
-                    if let Err(e) = tx.send(msg) {
-                        if work.is_err_if_discarded {
+                    if let Err(e) = tx.send(msg)
+                        && work.is_err_if_discarded {
                             return Err(eyre!("Error sending message for work success: {}", e));
                         }
-                    }
                 }
                 Err(error) => {
                     let error = error

@@ -23,7 +23,7 @@ pub async fn write_imports_for_all_role_assignments() -> Result<()> {
     let subscriptions = fetch_all_subscriptions()
         .await?
         .into_iter()
-        .map(|sub| (sub.id.clone(), sub))
+        .map(|sub| (sub.id, sub))
         .collect::<HashMap<SubscriptionId, Subscription>>();
     let role_assignments = fetch_all_role_assignments().await?;
 

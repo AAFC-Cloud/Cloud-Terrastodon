@@ -43,7 +43,7 @@ pub async fn browse_security_groups() -> Result<()> {
         choices: SecurityGroupAction::VARIANTS
             .iter()
             .map(|action| Choice {
-                key: format!("{:?}", action),
+                key: format!("{action:?}"),
                 value: action,
             })
             .collect_vec(),

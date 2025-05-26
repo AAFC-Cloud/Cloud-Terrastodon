@@ -54,7 +54,7 @@ impl ProviderManager {
         let home_dir = env::home_dir();
 
         if let Some(home_dir) = home_dir {
-            let mut path = PathBuf::from(home_dir);
+            let mut path = home_dir;
             path.push(".terraform.d/plugin-cache");
             return Ok(path);
         }
@@ -69,11 +69,11 @@ impl ProviderManager {
         #[cfg(windows)]
         {
             // Windows: %APPDATA%/terraform.d/plugins
-            return Ok(BaseDirs::new()
+            Ok(BaseDirs::new()
                 .ok_or_eyre("Failed to get base dirs")?
                 .config_dir()
                 .join("terraform.d/plugins")
-                .to_path_buf());
+                .to_path_buf())
         }
         #[cfg(not(windows))]
         {
@@ -149,7 +149,7 @@ impl ProviderManager {
                                         tokio::fs::read_dir(&platform.path()).await?;
                                     while let Some(file) = platform_children.next_entry().await? {
                                         if file.file_type().await?.is_file()
-                                            && PathBuf::from(file.path())
+                                            && file.path()
                                                 .extension()
                                                 .filter(|x| *x == "exe")
                                                 .is_some()

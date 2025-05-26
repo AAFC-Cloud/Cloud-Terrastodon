@@ -46,19 +46,17 @@ impl PolicyDefinitionId {
             PolicyDefinitionId::Unscoped(_) => None,
             PolicyDefinitionId::ManagementGroupScoped(_) => None,
             PolicyDefinitionId::SubscriptionScoped(subscription_scoped_role_assignment_id) => Some(
-                subscription_scoped_role_assignment_id
-                    .subscription_id()
-                    .clone(),
+                *subscription_scoped_role_assignment_id
+                    .subscription_id(),
             ),
             PolicyDefinitionId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
                 Some(
-                    resource_group_scoped_role_assignment_id
-                        .subscription_id()
-                        .clone(),
+                    *resource_group_scoped_role_assignment_id
+                        .subscription_id(),
                 )
             }
             PolicyDefinitionId::ResourceScoped(resource_scoped_role_assignment_id) => {
-                Some(resource_scoped_role_assignment_id.subscription_id().clone())
+                Some(*resource_scoped_role_assignment_id.subscription_id())
             }
         }
     }

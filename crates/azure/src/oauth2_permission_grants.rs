@@ -61,7 +61,7 @@ pub async fn create_oauth2_permission_grant(
     };
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "POST"]);
-    cmd.args(["--url", &url]);
+    cmd.args(["--url", url]);
     cmd.arg("--body");
     cmd.file_arg("body.json", serde_json::to_string_pretty(&body)?);
     cmd.run().await

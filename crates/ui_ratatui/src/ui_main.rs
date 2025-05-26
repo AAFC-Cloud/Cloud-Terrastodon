@@ -52,8 +52,8 @@ impl App {
     }
 
     fn handle_event(&mut self, event: &Event) {
-        if let Event::Key(key) = event {
-            if key.kind == KeyEventKind::Press {
+        if let Event::Key(key) = event
+            && key.kind == KeyEventKind::Press {
                 match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
                     KeyCode::Char('h') => info!("hi!"),
@@ -61,6 +61,5 @@ impl App {
                     _ => {}
                 }
             }
-        }
     }
 }

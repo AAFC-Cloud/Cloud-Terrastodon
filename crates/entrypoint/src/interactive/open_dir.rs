@@ -14,7 +14,7 @@ pub async fn open_dir() -> Result<()> {
         let display = if exists {
             dir.to_string()
         } else {
-            format!("{} (does not exist yet)", dir)
+            format!("{dir} (does not exist yet)")
         };
         choices.push(Choice {
             key: display,

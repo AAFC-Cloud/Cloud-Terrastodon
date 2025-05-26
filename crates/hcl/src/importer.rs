@@ -41,7 +41,7 @@ impl GenerateConfigOutHelper {
         let Some(ref work_dir) = self.run_dir else {
             return Err(eyre!("Run dir not set!"));
         };
-        let result: eyre::Result<()> = (async ||{
+        let result: eyre::Result<()> = async {
             let provider_manager = ProviderManager::try_new()?;
             provider_manager.write_default_provider_configs(&work_dir).await?;
             // provider_manager.populate_provider_cache(&TerraformRequiredProvidersBlock::common()).await?;
@@ -162,7 +162,7 @@ impl GenerateConfigOutHelper {
             // Success!
             info!("🚀 Successfully generated tf files from imports!");
             Ok(())
-        })().await;
+        }.await;
         result
             .wrap_err(format!(
                 "GenerateConfigOutHelper::run called from {}",

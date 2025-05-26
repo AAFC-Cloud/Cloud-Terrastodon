@@ -54,7 +54,7 @@ impl From<AzureDevOpsTeam> for HCLImportBlock {
     fn from(team: AzureDevOpsTeam) -> Self {
         HCLImportBlock {
             provider: HCLProviderReference::Inherited,
-            id: format!("{}/{}", team.project_id.to_string(), team.id.to_string()),
+            id: format!("{}/{}", team.project_id, *team.id),
             to: ResourceBlockReference::AzureDevOps {
                 kind: AzureDevOpsResourceBlockKind::Team,
                 name: format!("project_{}_team_{}", team.project_name, team.name).sanitize(),

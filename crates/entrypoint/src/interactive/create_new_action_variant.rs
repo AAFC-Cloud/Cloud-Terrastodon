@@ -94,8 +94,7 @@ async fn update_menu_action_rs_file(
         for stmt in &mut method.block.stmts {
             if let Stmt::Expr(Expr::Match(match_expr), _) = stmt {
                 let new_arm: Arm = parse_str(&format!(
-                    "MenuAction::{} => \"{}\",",
-                    variant_ident, display_name
+                    "MenuAction::{variant_ident} => \"{display_name}\","
                 ))?;
                 match_expr.arms.push(new_arm);
                 break;
@@ -112,8 +111,7 @@ async fn update_menu_action_rs_file(
         for stmt in &mut method.block.stmts {
             if let Stmt::Expr(Expr::Match(match_expr), _) = stmt {
                 let new_arm: Arm = parse_str(&format!(
-                    "MenuAction::{} => {}().await?,",
-                    variant_ident, function_name
+                    "MenuAction::{variant_ident} => {function_name}().await?,"
                 ))?;
                 match_expr.arms.push(new_arm);
                 break;
@@ -124,7 +122,7 @@ async fn update_menu_action_rs_file(
 
     mutate_file(menu_action::THIS_FILE, |ast| {
         // Parse the new variant declaration into a syn::Variant
-        let new_variant: Variant = syn::parse_str(&new_variant_decl)?;
+        let new_variant: Variant = syn::parse_str(new_variant_decl)?;
         let new_variant_ident = new_variant.ident.clone(); // Clone ident before moving new_variant
 
         // Add the new variant to the MenuAction enum
@@ -135,13 +133,11 @@ async fn update_menu_action_rs_file(
                 variants,
                 ..
             }) = item
-            {
-                if ident == "MenuAction" {
+                && ident == "MenuAction" {
                     variants.push(new_variant);
                     variant_added = true;
                     break; // Ensure we only push once
                 }
-            }
         }
 
         if !variant_added {
@@ -152,9 +148,9 @@ async fn update_menu_action_rs_file(
         for item in &mut ast.items {
             if let Item::Impl(impl_item) = item {
                 // Ensure we're modifying impl MenuAction, not any trait implementation
-                if impl_item.trait_.is_none() {
-                    if let Type::Path(ref type_path) = *impl_item.self_ty {
-                        if type_path.path.is_ident("MenuAction") {
+                if impl_item.trait_.is_none()
+                    && let Type::Path(ref type_path) = *impl_item.self_ty
+                        && type_path.path.is_ident("MenuAction") {
                             for impl_item in &mut impl_item.items {
                                 if let ImplItem::Fn(method) = impl_item {
                                     // Modify the name() method
@@ -162,7 +158,7 @@ async fn update_menu_action_rs_file(
                                         add_name_match_arm(
                                             method,
                                             &new_variant_ident,
-                                            &new_variant_display,
+                                            new_variant_display,
                                         )?;
                                     }
                                     // Modify the invoke() method
@@ -170,14 +166,12 @@ async fn update_menu_action_rs_file(
                                         add_invoke_match_arm(
                                             method,
                                             &new_variant_ident,
-                                            &function_name,
+                                            function_name,
                                         )?;
                                     }
                                 }
                             }
                         }
-                    }
-                }
             }
         }
         Ok(())
@@ -191,7 +185,7 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
     mutate_file(crate::interactive::THIS_FILE, |ast| {
         // --- Add the new mod statement at the top ---
         // You may want to determine the proper location for the mod statement.
-        let new_mod_code = format!("mod {};", function_name);
+        let new_mod_code = format!("mod {function_name};");
         let new_mod: syn::ItemMod =
             parse_str(&new_mod_code).wrap_err("Failed to parse new mod statement")?;
         // For example, insert at the beginning (or after other mod statements)
@@ -199,20 +193,19 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
 
         // --- Add the new pub use statement in the prelude module ---
         for item in &mut ast.items {
-            if let Item::Mod(item_mod) = item {
-                if item_mod.ident == "prelude" {
+            if let Item::Mod(item_mod) = item
+                && item_mod.ident == "prelude" {
                     // Ensure that the module is inline (has a body)
                     let (_, body) = item_mod
                         .content
                         .as_mut()
                         .ok_or_else(|| eyre::eyre!("prelude module has no inline content"))?;
-                    let new_use_code = format!("pub use crate::interactive::{}::*;", function_name);
+                    let new_use_code = format!("pub use crate::interactive::{function_name}::*;");
                     let new_use: ItemUse =
                         parse_str(&new_use_code).wrap_err("Failed to parse new use statement")?;
                     body.push(Item::Use(new_use));
                     break;
                 }
-            }
         }
         Ok(())
     })
@@ -221,7 +214,7 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
 
 async fn add_import_statement_to_menu_action_rs(function_name: &str) -> eyre::Result<()> {
     mutate_file(crate::menu_action::THIS_FILE, |ast| {
-        let use_statement = format!("use crate::interactive::prelude::{};", function_name);
+        let use_statement = format!("use crate::interactive::prelude::{function_name};");
         let use_statement = parse_str(&use_statement)?;
         ast.items.insert(0, use_statement);
         Ok(())
@@ -244,7 +237,7 @@ async fn create_new_function_file(function_name: &str) -> eyre::Result<()> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
     let mut crate_dir = PathBuf::from(&manifest_dir).join(crate::interactive::THIS_FILE);
     crate_dir.pop();
-    let file_path = crate_dir.join(format!("{}.rs", function_name));
+    let file_path = crate_dir.join(format!("{function_name}.rs"));
 
     // Create the boilerplate code using a raw string literal.
     let boilerplate = format!(
@@ -253,8 +246,7 @@ async fn create_new_function_file(function_name: &str) -> eyre::Result<()> {
 pub async fn {function_name}() -> Result<()> {{
     Ok(())
 }}
-"#,
-        function_name = function_name
+"#
     );
 
     // Write the file asynchronously.

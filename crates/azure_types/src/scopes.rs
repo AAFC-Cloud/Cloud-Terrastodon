@@ -733,7 +733,7 @@ impl std::fmt::Display for ScopeImpl {
                 x.resource_type,
                 x.short_form()
             )),
-            ScopeImpl::Unknown(x) => f.write_fmt(format_args!("Raw({})", x)),
+            ScopeImpl::Unknown(x) => f.write_fmt(format_args!("Raw({x})")),
         }
     }
 }

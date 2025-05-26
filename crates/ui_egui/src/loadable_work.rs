@@ -16,7 +16,7 @@ where
     T: Debug + Send,
 {
     /// A function that, given `&mut MyApp`, returns the `&mut Loadable<T,E>` that we want to update.
-    setter: Option<Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) -> () + Send + Sync>>,
+    setter: Option<Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) + Send + Sync>>,
     /// The async work that fetches a `T` or errors with `E`.
     on_work: Option<(
         &'static Location<'static>,
@@ -24,6 +24,15 @@ where
     )>,
     is_err_if_discarded: bool,
     description: String,
+}
+
+impl<T> Default for LoadableWorkBuilder<T>
+where
+    T: Debug + Send,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T> LoadableWorkBuilder<T>
@@ -51,7 +60,7 @@ where
 
     pub fn setter<G>(mut self, setter: G) -> Self
     where
-        G: Fn(&mut MyApp, Loadable<T, eyre::Error>) -> () + Send + Sync + 'static,
+        G: Fn(&mut MyApp, Loadable<T, eyre::Error>) + Send + Sync + 'static,
     {
         self.setter = Some(Arc::new(setter));
         self
@@ -121,7 +130,7 @@ where
 /// A success mutator that just sets the chosen field to Loaded(data).
 pub struct FieldUpdaterWorkSuccessMutator<T> {
     pub data: T,
-    pub setter: Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) -> () + Send + Sync>,
+    pub setter: Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) + Send + Sync>,
 }
 impl<T> Debug for FieldUpdaterWorkSuccessMutator<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -135,7 +144,7 @@ impl<T> Debug for FieldUpdaterWorkSuccessMutator<T> {
 /// A failure mutator that sets the chosen field to Failed(err).
 pub struct FieldUpdaterWorkFailureMutator<T> {
     pub err: eyre::Error,
-    pub setter: Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) -> () + Send + Sync>,
+    pub setter: Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) + Send + Sync>,
 }
 impl<T> Debug for FieldUpdaterWorkFailureMutator<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

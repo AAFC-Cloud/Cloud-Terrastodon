@@ -39,8 +39,7 @@ impl FromStr for ResourceTagsId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         strip_suffix_case_insensitive(s, TAGS_SUFFIX).context(format!(
-            "Id {} should end with {} to be a valid ResourceTagsId",
-            s, TAGS_SUFFIX
+            "Id {s} should end with {TAGS_SUFFIX} to be a valid ResourceTagsId"
         ))?;
         Ok(ResourceTagsId {
             expanded: s.to_string(),

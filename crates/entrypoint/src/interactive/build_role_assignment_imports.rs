@@ -26,7 +26,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     let subscriptions = fetch_all_subscriptions()
         .await?
         .into_iter()
-        .map(|sub| (sub.id.clone(), sub))
+        .map(|sub| (sub.id, sub))
         .collect::<HashMap<_, _>>();
 
     for role_assignment in role_assignments {

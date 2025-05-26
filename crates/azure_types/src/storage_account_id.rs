@@ -58,7 +58,7 @@ impl TryFromResourceGroupScoped for StorageAccountId {
     ) -> Self {
         StorageAccountId {
             resource_group_id,
-            storage_account_name: name.into(),
+            storage_account_name: name,
         }
     }
     // unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {

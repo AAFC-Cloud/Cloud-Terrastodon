@@ -21,7 +21,7 @@ pub async fn write_imports_for_all_resource_groups() -> Result<()> {
     let subscriptions = fetch_all_subscriptions()
         .await?
         .into_iter()
-        .map(|sub| (sub.id.clone(), sub))
+        .map(|sub| (sub.id, sub))
         .collect::<HashMap<SubscriptionId, Subscription>>();
 
     let resource_groups = fetch_all_resource_groups().await?;

@@ -48,7 +48,7 @@ impl UserIdReferencePatcher {
         if let Some(value) = expr.as_str()
             && let Ok(id) = value.parse::<UserId>()
             && let Some(mail) = self.user_principal_name_by_user_id.get(&id)
-            && let Ok(new_expr) = format!("local.users[\"{}\"]", mail).parse::<Expression>()
+            && let Ok(new_expr) = format!("local.users[\"{mail}\"]").parse::<Expression>()
         {
             *expr = new_expr;
             self.used.insert(id);
@@ -90,11 +90,9 @@ impl VisitMut for UserIdReferencePatcher {
                     .get_attribute("principal_type")
                     .and_then(|x| x.value.as_str())
                     == Some("User")
-                {
-                    if let Some(mut attr) = node.body.get_attribute_mut("principal_id") {
+                    && let Some(mut attr) = node.body.get_attribute_mut("principal_id") {
                         self.convert_expr_if_user_id(attr.value_mut());
                     }
-                }
             }
             _ => {}
         }

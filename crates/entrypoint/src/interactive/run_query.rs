@@ -57,7 +57,7 @@ resources
             .suffix(".jsonc")
             .tempfile_in(temp_dir)?
             .into_temp_path();
-        let results_string = format!("/*\n{}\n*/\n{}", query, rows_json);
+        let results_string = format!("/*\n{query}\n*/\n{rows_json}");
         tokio::fs::write(&results_path, results_string).await?;
 
         info!("Displaying results");

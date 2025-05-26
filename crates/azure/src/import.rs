@@ -22,7 +22,7 @@ pub enum HCLImportable {
 }
 impl std::fmt::Display for HCLImportable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 impl HCLImportable {
@@ -40,7 +40,7 @@ impl HCLImportable {
                              key,
                              value: (rg, sub),
                          }| Choice {
-                            key: key,
+                            key,
                             value: (
                                 {
                                     let mut import_block: HCLImportBlock = rg.into();

@@ -80,7 +80,7 @@ impl From<AzureDevOpsRepo> for HCLImportBlock {
     fn from(repo: AzureDevOpsRepo) -> Self {
         HCLImportBlock {
             provider: HCLProviderReference::Inherited,
-            id: format!("{}/{}", repo.project.id.to_string(), repo.id.to_string()),
+            id: format!("{}/{}", repo.project.id, *repo.id),
             to: ResourceBlockReference::AzureDevOps {
                 kind: AzureDevOpsResourceBlockKind::Repo,
                 name: format!("project_{}_repo_{}", repo.project.name, repo.name).sanitize(),

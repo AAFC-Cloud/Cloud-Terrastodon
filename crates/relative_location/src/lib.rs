@@ -35,11 +35,7 @@ impl std::fmt::Display for RelativeLocation {
         let retain_n_parents = 1;
         // We'll skip only the components that are not part of the last two common components.
         // If there are fewer common components than retain_n_parents, we skip none.
-        let skip = if common > retain_n_parents {
-            common - retain_n_parents
-        } else {
-            0
-        };
+        let skip = common.saturating_sub(retain_n_parents);
 
         // Build the resulting relative path:
         let mut relative_path = PathBuf::new();

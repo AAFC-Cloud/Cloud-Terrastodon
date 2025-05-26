@@ -20,7 +20,7 @@ pub fn draw_subscription_checkbox_list(app: &mut MyApp, ctx: &Context, ui: &mut 
             }
         }
         Loadable::Failed(err) => {
-            ui.label(&format!("Error: {}", err));
+            ui.label(format!("Error: {err}"));
         }
     });
 }

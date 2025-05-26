@@ -22,7 +22,7 @@ pub struct TestResourceId {
 impl TestResourceId {
     pub fn new(slug: &str) -> Self {
         Self {
-            expanded: format!("{}{}", TEST_ID_PREFIX, slug),
+            expanded: format!("{TEST_ID_PREFIX}{slug}"),
         }
     }
 }

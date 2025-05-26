@@ -14,7 +14,7 @@ pub fn draw_subscription_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut U
     let mut expando = CollapsingState::load_with_default_open(ctx, "subscriptions".into(), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
-        expando.toggle(&ui);
+        expando.toggle(ui);
     }
     if expando.is_open() && matches!(app.subscriptions, Loadable::NotLoaded) {
         load_subscriptions(app);
@@ -33,15 +33,15 @@ fn draw_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
                 app.toggle_intents.insert(toggle_key);
             }
 
-            let mut all = subs.iter().all(|sub| *app.checkbox_for(&sub.id));
-            let any = subs.iter().any(|sub| *app.checkbox_for(&sub.id));
+            let mut all = subs.iter().all(|sub| *app.checkbox_for(sub.id));
+            let any = subs.iter().any(|sub| *app.checkbox_for(sub.id));
             let indeterminate = any && !all;
             let elem = Checkbox::new(&mut all, "Subscriptions")
                 .indeterminate(indeterminate)
                 .ui(ui);
             if elem.changed() {
                 for sub in subs.iter() {
-                    *app.checkbox_for(&sub.id) = all
+                    *app.checkbox_for(sub.id) = all
                 }
             }
         }
