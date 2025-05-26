@@ -46,7 +46,7 @@ pub async fn get_active_subscription_id() -> Result<SubscriptionId> {
         "--output",
         "json",
     ]);
-    let rtn = cmd.run::<[SubscriptionId;1]>().await?[0];
+    let rtn = cmd.run::<[SubscriptionId; 1]>().await?[0];
     Ok(rtn)
 }
 

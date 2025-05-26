@@ -5,21 +5,21 @@ use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_repos_batch;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_teams_batch;
 use cloud_terrastodon_azure_devops::prelude::get_personal_access_token;
-use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_hcl::prelude::FreshTFWorkDir;
 use cloud_terrastodon_hcl::prelude::GeneratedConfigOutTFWorkDir;
-use cloud_terrastodon_hcl::prelude::InitializedTFWorkDir;
-use cloud_terrastodon_hcl::prelude::ProcessedTFWorkDir;
-use cloud_terrastodon_hcl::prelude::ProviderManager;
 use cloud_terrastodon_hcl::prelude::HCLBlock;
 use cloud_terrastodon_hcl::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::InitializedTFWorkDir;
+use cloud_terrastodon_hcl::prelude::ProcessedTFWorkDir;
+use cloud_terrastodon_hcl::prelude::ProviderManager;
 use cloud_terrastodon_hcl::prelude::ValidatedTFWorkDir;
 use cloud_terrastodon_hcl::prelude::generate_config_out_bulk;
 use cloud_terrastodon_hcl::prelude::initialize_work_dirs;
 use cloud_terrastodon_hcl::prelude::reflow_workspace;
 use cloud_terrastodon_hcl::prelude::validate_work_dirs;
+use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
@@ -653,8 +653,5 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
     }
     info!("All done!");
 
-    Ok(tf_work_dirs
-        .into_iter()
-        .map(FreshTFWorkDir::from)
-        .collect())
+    Ok(tf_work_dirs.into_iter().map(FreshTFWorkDir::from).collect())
 }

@@ -687,16 +687,17 @@ impl CommandBuilder {
 
         // Send stdin content if provided
         if let Some(content) = &self.stdin_content
-            && let Some(mut stdin) = child.stdin.take() {
-                let content = content.to_owned();
-                tokio::spawn(async move {
-                    // Spawn a task to avoid blocking the main thread while writing to stdin
-                    if let Err(e) = stdin.write_all(content.as_bytes()).await {
-                        error!("Failed to write to stdin: {:?}", e);
-                    }
-                    // stdin.shutdown().await.ok(); // Not strictly needed, stdin will close when dropped
-                });
-            }
+            && let Some(mut stdin) = child.stdin.take()
+        {
+            let content = content.to_owned();
+            tokio::spawn(async move {
+                // Spawn a task to avoid blocking the main thread while writing to stdin
+                if let Err(e) = stdin.write_all(content.as_bytes()).await {
+                    error!("Failed to write to stdin: {:?}", e);
+                }
+                // stdin.shutdown().await.ok(); // Not strictly needed, stdin will close when dropped
+            });
+        }
 
         // Wait for it to finish
         let timeout_duration = self.timeout.unwrap_or(Duration::MAX);
@@ -819,9 +820,10 @@ impl CommandBuilder {
             && let CacheBehaviour::Some {
                 path: cache_dir, ..
             } = &self.cache_behaviour
-            && let Err(e) = self.write_output(&output, cache_dir).await {
-                error!("Encountered problem saving cache: {:?}", e);
-            }
+            && let Err(e) = self.write_output(&output, cache_dir).await
+        {
+            error!("Encountered problem saving cache: {:?}", e);
+        }
 
         // Return success
         Ok(output)

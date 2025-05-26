@@ -1,14 +1,14 @@
 use crate::prelude::ManagementGroupId;
 use crate::prelude::ManagementGroupScoped;
+use crate::prelude::POLICY_DEFINITION_ID_PREFIX;
+use crate::prelude::PolicyDefinitionId;
+use crate::prelude::PolicyDefinitionName;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceId;
-use crate::prelude::PolicyDefinitionId;
-use crate::prelude::PolicyDefinitionName;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::Unscoped;
-use crate::prelude::POLICY_DEFINITION_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::ResourceScoped;
@@ -114,9 +114,7 @@ impl SubscriptionScoped for SubscriptionScopedPolicyDefinitionId {
 // MARK: TryFrom
 impl TryFromUnscoped for UnscopedPolicyDefinitionId {
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
-        Self {
-            name,
-        }
+        Self { name }
     }
 }
 impl TryFromManagementGroupScoped for ManagementGroupScopedPolicyDefinitionId {
@@ -161,10 +159,7 @@ impl TryFromResourceScoped for ResourceScopedPolicyDefinitionId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        Self {
-            resource_id,
-            name,
-        }
+        Self { resource_id, name }
     }
 }
 
@@ -172,10 +167,7 @@ impl TryFromResourceScoped for ResourceScopedPolicyDefinitionId {
 
 impl Scope for UnscopedPolicyDefinitionId {
     fn expanded_form(&self) -> String {
-        format!(
-            "{POLICY_DEFINITION_ID_PREFIX}{}",
-            self.name
-        )
+        format!("{POLICY_DEFINITION_ID_PREFIX}{}", self.name)
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {

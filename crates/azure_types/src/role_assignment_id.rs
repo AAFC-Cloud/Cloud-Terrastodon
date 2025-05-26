@@ -44,15 +44,11 @@ impl RoleAssignmentId {
         match self {
             RoleAssignmentId::Unscoped(_) => None,
             RoleAssignmentId::ManagementGroupScoped(_) => None,
-            RoleAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => Some(
-                *subscription_scoped_role_assignment_id
-                    .subscription_id(),
-            ),
+            RoleAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
+                Some(*subscription_scoped_role_assignment_id.subscription_id())
+            }
             RoleAssignmentId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                Some(
-                    *resource_group_scoped_role_assignment_id
-                        .subscription_id(),
-                )
+                Some(*resource_group_scoped_role_assignment_id.subscription_id())
             }
             RoleAssignmentId::ResourceScoped(resource_scoped_role_assignment_id) => {
                 Some(*resource_scoped_role_assignment_id.subscription_id())
@@ -113,10 +109,7 @@ impl TryFromResourceScoped for RoleAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        RoleAssignmentId::ResourceScoped(ResourceScopedRoleAssignmentId {
-            resource_id,
-            name,
-        })
+        RoleAssignmentId::ResourceScoped(ResourceScopedRoleAssignmentId { resource_id, name })
     }
 }
 impl TryFromSubscriptionScoped for RoleAssignmentId {
@@ -143,7 +136,6 @@ impl TryFromManagementGroupScoped for RoleAssignmentId {
         })
     }
 }
-
 
 // MARK: impl Scope
 impl Scope for RoleAssignmentId {
@@ -186,8 +178,6 @@ impl HasPrefix for RoleAssignmentId {
     }
 }
 
-
-
 // MARK: Serialize
 impl Serialize for RoleAssignmentId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -210,11 +200,10 @@ impl<'de> Deserialize<'de> for RoleAssignmentId {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::ResourceGroupName, slug::Slug};
+    use crate::prelude::ResourceGroupName;
+    use crate::slug::Slug;
 
     use super::*;
     use cloud_terrastodon_azure_resource_types::prelude::ResourceType;

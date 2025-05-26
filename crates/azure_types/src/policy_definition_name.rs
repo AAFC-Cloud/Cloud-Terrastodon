@@ -16,14 +16,14 @@ pub struct PolicyDefinitionName {
 }
 impl PolicyDefinitionName {
     pub fn new(inner: CompactString) -> Self {
-        Self {
-            inner
-        }
+        Self { inner }
     }
 }
 impl Slug for PolicyDefinitionName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into().parse()? };
+        let rtn = Self {
+            inner: name.into().parse()?,
+        };
         rtn.validate()?;
         Ok(rtn)
     }

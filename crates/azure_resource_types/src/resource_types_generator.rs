@@ -137,8 +137,8 @@ mod tests {
         let formatted_code = prettyplease::unparse(&syn::parse2(all_together)?);
 
         // Write the generated code to a file
-        let target = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?)
-            .join("src/resource_types.rs");
+        let target =
+            PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?).join("src/resource_types.rs");
         println!("Writing to {}", target.display());
         let mut file = File::create(&target)?;
         write!(

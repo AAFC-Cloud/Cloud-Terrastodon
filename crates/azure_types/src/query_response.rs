@@ -91,7 +91,7 @@ where
         #[cfg(debug_assertions)]
         let record = serde_json::from_value(Value::Object(map.clone())).wrap_err(format!(
             "failed to deserialize entry {i} as {}, map={map:#?}",
-            std::any::type_name:: <T>()
+            std::any::type_name::<T>()
         ))?;
         #[cfg(not(debug_assertions))]
         let record = serde_json::from_value(Value::Object(map))

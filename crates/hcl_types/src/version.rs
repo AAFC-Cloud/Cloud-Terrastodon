@@ -266,9 +266,7 @@ impl ProviderVersionConstraintClause {
             ProviderVersionConstraintClause::GreaterOrEqual(sem_ver) => sem_ver <= other,
             ProviderVersionConstraintClause::Lesser(sem_ver) => sem_ver > other,
             ProviderVersionConstraintClause::LesserOrEqual(sem_ver) => sem_ver >= other,
-            ProviderVersionConstraintClause::PatchIncrement(sem_ver) => {
-                sem_ver.patch > other.patch
-            }
+            ProviderVersionConstraintClause::PatchIncrement(sem_ver) => sem_ver.patch > other.patch,
         }
     }
 }
@@ -348,9 +346,7 @@ impl From<ProviderVersionObject> for Object {
 
 /// https://developer.hashicorp.com/terraform/language/providers/requirements#version-constraints
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TerraformRequiredProvidersBlock(
-    pub HashMap<String, ProviderVersionObject>,
-);
+pub struct TerraformRequiredProvidersBlock(pub HashMap<String, ProviderVersionObject>);
 impl TerraformRequiredProvidersBlock {
     pub fn empty() -> Self {
         Self(Default::default())
@@ -532,11 +528,11 @@ impl TerraformRequiredProvidersBlock {
 #[cfg(test)]
 mod test {
     use super::ProviderAvailability;
-    use super::SemVer;
     use super::ProviderHostname;
     use super::ProviderNamespace;
     use super::ProviderSource;
     use super::ProviderVersionObject;
+    use super::SemVer;
     use crate::prelude::ProviderKind;
     use crate::prelude::TerraformRequiredProvidersBlock;
     use crate::version::ProviderVersionConstraint;

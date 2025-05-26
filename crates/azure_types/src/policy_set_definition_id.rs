@@ -1,10 +1,10 @@
 use crate::prelude::ManagementGroupId;
 use crate::prelude::ManagementGroupScopedPolicySetDefinitionId;
+use crate::prelude::PolicySetDefinitionName;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceGroupScopedPolicySetDefinitionId;
 use crate::prelude::ResourceId;
 use crate::prelude::ResourceScopedPolicySetDefinitionId;
-use crate::prelude::PolicySetDefinitionName;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::SubscriptionScopedPolicySetDefinitionId;
@@ -31,7 +31,7 @@ use uuid::Uuid;
 
 pub const POLICY_SET_DEFINITION_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policySetDefinitions/";
-    
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PolicySetDefinitionId {
     Unscoped(UnscopedPolicySetDefinitionId),
@@ -45,16 +45,12 @@ impl PolicySetDefinitionId {
         match self {
             PolicySetDefinitionId::Unscoped(_) => None,
             PolicySetDefinitionId::ManagementGroupScoped(_) => None,
-            PolicySetDefinitionId::SubscriptionScoped(subscription_scoped_role_assignment_id) => Some(
-                *subscription_scoped_role_assignment_id
-                    .subscription_id(),
-            ),
-            PolicySetDefinitionId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                Some(
-                    *resource_group_scoped_role_assignment_id
-                        .subscription_id(),
-                )
+            PolicySetDefinitionId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
+                Some(*subscription_scoped_role_assignment_id.subscription_id())
             }
+            PolicySetDefinitionId::ResourceGroupScoped(
+                resource_group_scoped_role_assignment_id,
+            ) => Some(*resource_group_scoped_role_assignment_id.subscription_id()),
             PolicySetDefinitionId::ResourceScoped(resource_scoped_role_assignment_id) => {
                 Some(*resource_scoped_role_assignment_id.subscription_id())
             }
@@ -71,15 +67,15 @@ impl HasSlug for PolicySetDefinitionId {
             PolicySetDefinitionId::Unscoped(unscoped_role_assignment_id) => {
                 unscoped_role_assignment_id.name()
             }
-            PolicySetDefinitionId::ManagementGroupScoped(management_group_scoped_role_assignment_id) => {
-                management_group_scoped_role_assignment_id.name()
-            }
+            PolicySetDefinitionId::ManagementGroupScoped(
+                management_group_scoped_role_assignment_id,
+            ) => management_group_scoped_role_assignment_id.name(),
             PolicySetDefinitionId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
                 subscription_scoped_role_assignment_id.name()
             }
-            PolicySetDefinitionId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                resource_group_scoped_role_assignment_id.name()
-            }
+            PolicySetDefinitionId::ResourceGroupScoped(
+                resource_group_scoped_role_assignment_id,
+            ) => resource_group_scoped_role_assignment_id.name(),
             PolicySetDefinitionId::ResourceScoped(resource_scoped_role_assignment_id) => {
                 resource_scoped_role_assignment_id.name()
             }
@@ -91,9 +87,7 @@ impl HasSlug for PolicySetDefinitionId {
 
 impl TryFromUnscoped for PolicySetDefinitionId {
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
-        PolicySetDefinitionId::Unscoped(UnscopedPolicySetDefinitionId {
-            name,
-        })
+        PolicySetDefinitionId::Unscoped(UnscopedPolicySetDefinitionId { name })
     }
 }
 impl TryFromResourceGroupScoped for PolicySetDefinitionId {
@@ -145,7 +139,6 @@ impl TryFromManagementGroupScoped for PolicySetDefinitionId {
     }
 }
 
-
 // MARK: impl Scope
 impl Scope for PolicySetDefinitionId {
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -187,8 +180,6 @@ impl HasPrefix for PolicySetDefinitionId {
     }
 }
 
-
-
 // MARK: Serialize
 impl Serialize for PolicySetDefinitionId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -211,11 +202,10 @@ impl<'de> Deserialize<'de> for PolicySetDefinitionId {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::ResourceGroupName, slug::Slug};
+    use crate::prelude::ResourceGroupName;
+    use crate::slug::Slug;
 
     use super::*;
     use cloud_terrastodon_azure_resource_types::prelude::ResourceType;

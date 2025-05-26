@@ -45,15 +45,11 @@ impl PolicyDefinitionId {
         match self {
             PolicyDefinitionId::Unscoped(_) => None,
             PolicyDefinitionId::ManagementGroupScoped(_) => None,
-            PolicyDefinitionId::SubscriptionScoped(subscription_scoped_role_assignment_id) => Some(
-                *subscription_scoped_role_assignment_id
-                    .subscription_id(),
-            ),
+            PolicyDefinitionId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
+                Some(*subscription_scoped_role_assignment_id.subscription_id())
+            }
             PolicyDefinitionId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                Some(
-                    *resource_group_scoped_role_assignment_id
-                        .subscription_id(),
-                )
+                Some(*resource_group_scoped_role_assignment_id.subscription_id())
             }
             PolicyDefinitionId::ResourceScoped(resource_scoped_role_assignment_id) => {
                 Some(*resource_scoped_role_assignment_id.subscription_id())
@@ -91,9 +87,7 @@ impl HasSlug for PolicyDefinitionId {
 
 impl TryFromUnscoped for PolicyDefinitionId {
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
-        PolicyDefinitionId::Unscoped(UnscopedPolicyDefinitionId {
-            name,
-        })
+        PolicyDefinitionId::Unscoped(UnscopedPolicyDefinitionId { name })
     }
 }
 impl TryFromResourceGroupScoped for PolicyDefinitionId {
@@ -114,10 +108,7 @@ impl TryFromResourceScoped for PolicyDefinitionId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        PolicyDefinitionId::ResourceScoped(ResourceScopedPolicyDefinitionId {
-            resource_id,
-            name,
-        })
+        PolicyDefinitionId::ResourceScoped(ResourceScopedPolicyDefinitionId { resource_id, name })
     }
 }
 impl TryFromSubscriptionScoped for PolicyDefinitionId {

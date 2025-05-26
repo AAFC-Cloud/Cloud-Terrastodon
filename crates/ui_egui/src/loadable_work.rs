@@ -29,7 +29,7 @@ where
 impl<T> Default for LoadableWorkBuilder<T>
 where
     T: Debug + Send,
- {
+{
     fn default() -> Self {
         Self::new()
     }

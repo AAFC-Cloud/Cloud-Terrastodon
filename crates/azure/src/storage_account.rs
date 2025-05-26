@@ -43,7 +43,8 @@ pub async fn is_storage_account_name_available(name: &StorageAccountName) -> eyr
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::{fetch_all_storage_accounts, is_storage_account_name_available};
+    use crate::prelude::fetch_all_storage_accounts;
+    use crate::prelude::is_storage_account_name_available;
     use validator::Validate;
 
     #[tokio::test]

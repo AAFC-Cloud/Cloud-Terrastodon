@@ -1,8 +1,8 @@
 use cloud_terrastodon_azure::prelude::UserId;
-use cloud_terrastodon_hcl_types::prelude::UsersLookupBody;
 use cloud_terrastodon_hcl_types::prelude::AzureADResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::UsersLookupBody;
 use eyre::Result;
 use hcl::edit::Decorate;
 use hcl::edit::expr::Array;
@@ -90,9 +90,10 @@ impl VisitMut for UserIdReferencePatcher {
                     .get_attribute("principal_type")
                     .and_then(|x| x.value.as_str())
                     == Some("User")
-                    && let Some(mut attr) = node.body.get_attribute_mut("principal_id") {
-                        self.convert_expr_if_user_id(attr.value_mut());
-                    }
+                    && let Some(mut attr) = node.body.get_attribute_mut("principal_id")
+                {
+                    self.convert_expr_if_user_id(attr.value_mut());
+                }
             }
             _ => {}
         }

@@ -210,9 +210,10 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         .await?;
         for policy in policies {
             if let Some(duration) = policy.get_maximum_activation_duration()
-                && duration < maximum_duration {
-                    maximum_duration = duration;
-                }
+                && duration < maximum_duration
+            {
+                maximum_duration = duration;
+            }
         }
     }
 

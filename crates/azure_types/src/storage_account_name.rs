@@ -21,9 +21,7 @@ pub struct StorageAccountName {
 }
 impl Slug for StorageAccountName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self {
-            inner: name.into(),
-        };
+        let rtn = Self { inner: name.into() };
         rtn.validate()?;
         Ok(rtn)
     }
@@ -34,14 +32,23 @@ impl Slug for StorageAccountName {
     }
 }
 fn validate_lowercase_alphanumeric(value: &CompactString) -> Result<(), ValidationError> {
-    for (i,char) in value.chars().enumerate() {
+    for (i, char) in value.chars().enumerate() {
         if !char.is_ascii_alphanumeric() {
-            return Err(ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL)
-                .with_message(format!("Char {char} as position {i} in {value:?} must be lowercase alphanumeric").into()));
+            return Err(
+                ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL).with_message(
+                    format!(
+                        "Char {char} as position {i} in {value:?} must be lowercase alphanumeric"
+                    )
+                    .into(),
+                ),
+            );
         }
         if char.is_uppercase() {
-            return Err(ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL)
-                .with_message(format!("Char {char} as position {i} in {value:?} must be lowercase").into()));
+            return Err(
+                ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL).with_message(
+                    format!("Char {char} as position {i} in {value:?} must be lowercase").into(),
+                ),
+            );
         }
     }
     Ok(())
@@ -149,7 +156,7 @@ mod test {
 
     #[test]
     #[ignore]
-    pub fn preview_failure()->eyre::Result<()>{
+    pub fn preview_failure() -> eyre::Result<()> {
         StorageAccountName::try_new("abc123B321")?;
         Ok(())
     }

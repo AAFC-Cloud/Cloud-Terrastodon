@@ -1,10 +1,10 @@
 use crate::prelude::ManagementGroupId;
 use crate::prelude::ManagementGroupScopedPolicyAssignmentId;
+use crate::prelude::PolicyAssignmentName;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceGroupScopedPolicyAssignmentId;
 use crate::prelude::ResourceId;
 use crate::prelude::ResourceScopedPolicyAssignmentId;
-use crate::prelude::PolicyAssignmentName;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::SubscriptionScopedPolicyAssignmentId;
@@ -29,7 +29,6 @@ use serde::Serializer;
 use serde::de::Error;
 use uuid::Uuid;
 
-
 pub const POLICY_ASSIGNMENT_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyAssignments/";
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -45,15 +44,11 @@ impl PolicyAssignmentId {
         match self {
             PolicyAssignmentId::Unscoped(_) => None,
             PolicyAssignmentId::ManagementGroupScoped(_) => None,
-            PolicyAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => Some(
-                *subscription_scoped_role_assignment_id
-                    .subscription_id(),
-            ),
+            PolicyAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
+                Some(*subscription_scoped_role_assignment_id.subscription_id())
+            }
             PolicyAssignmentId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                Some(
-                    *resource_group_scoped_role_assignment_id
-                        .subscription_id(),
-                )
+                Some(*resource_group_scoped_role_assignment_id.subscription_id())
             }
             PolicyAssignmentId::ResourceScoped(resource_scoped_role_assignment_id) => {
                 Some(*resource_scoped_role_assignment_id.subscription_id())
@@ -71,9 +66,9 @@ impl HasSlug for PolicyAssignmentId {
             PolicyAssignmentId::Unscoped(unscoped_role_assignment_id) => {
                 unscoped_role_assignment_id.name()
             }
-            PolicyAssignmentId::ManagementGroupScoped(management_group_scoped_role_assignment_id) => {
-                management_group_scoped_role_assignment_id.name()
-            }
+            PolicyAssignmentId::ManagementGroupScoped(
+                management_group_scoped_role_assignment_id,
+            ) => management_group_scoped_role_assignment_id.name(),
             PolicyAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
                 subscription_scoped_role_assignment_id.name()
             }
@@ -114,10 +109,7 @@ impl TryFromResourceScoped for PolicyAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        PolicyAssignmentId::ResourceScoped(ResourceScopedPolicyAssignmentId {
-            resource_id,
-            name,
-        })
+        PolicyAssignmentId::ResourceScoped(ResourceScopedPolicyAssignmentId { resource_id, name })
     }
 }
 impl TryFromSubscriptionScoped for PolicyAssignmentId {
@@ -144,7 +136,6 @@ impl TryFromManagementGroupScoped for PolicyAssignmentId {
         })
     }
 }
-
 
 // MARK: impl Scope
 impl Scope for PolicyAssignmentId {
@@ -187,8 +178,6 @@ impl HasPrefix for PolicyAssignmentId {
     }
 }
 
-
-
 // MARK: Serialize
 impl Serialize for PolicyAssignmentId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -211,11 +200,11 @@ impl<'de> Deserialize<'de> for PolicyAssignmentId {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eyre::{bail, Result};
+    use eyre::Result;
+    use eyre::bail;
 
     #[test]
     fn unscoped() -> Result<()> {

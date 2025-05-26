@@ -1,5 +1,6 @@
 use crate::prelude::ManagementGroupId;
 use crate::prelude::ManagementGroupScoped;
+use crate::prelude::ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceId;
@@ -8,7 +9,6 @@ use crate::prelude::RoleEligibilityScheduleName;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::Unscoped;
-use crate::prelude::ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::ResourceScoped;
@@ -114,9 +114,7 @@ impl SubscriptionScoped for SubscriptionScopedRoleEligibilityScheduleId {
 // MARK: TryFrom
 impl TryFromUnscoped for UnscopedRoleEligibilityScheduleId {
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
-        Self {
-            name,
-        }
+        Self { name }
     }
 }
 impl TryFromManagementGroupScoped for ManagementGroupScopedRoleEligibilityScheduleId {
@@ -161,10 +159,7 @@ impl TryFromResourceScoped for ResourceScopedRoleEligibilityScheduleId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        Self {
-            resource_id,
-            name,
-        }
+        Self { resource_id, name }
     }
 }
 
@@ -202,11 +197,15 @@ impl Scope for ManagementGroupScopedRoleEligibilityScheduleId {
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        ManagementGroupScopedRoleEligibilityScheduleId::try_from_expanded_management_group_scoped(expanded)
+        ManagementGroupScopedRoleEligibilityScheduleId::try_from_expanded_management_group_scoped(
+            expanded,
+        )
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
-        ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::ManagementGroupScoped(self.clone()))
+        ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::ManagementGroupScoped(
+            self.clone(),
+        ))
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -228,7 +227,9 @@ impl Scope for SubscriptionScopedRoleEligibilityScheduleId {
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
-        ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::SubscriptionScoped(self.clone()))
+        ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::SubscriptionScoped(
+            self.clone(),
+        ))
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -247,11 +248,15 @@ impl Scope for ResourceGroupScopedRoleEligibilityScheduleId {
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        ResourceGroupScopedRoleEligibilityScheduleId::try_from_expanded_resource_group_scoped(expanded)
+        ResourceGroupScopedRoleEligibilityScheduleId::try_from_expanded_resource_group_scoped(
+            expanded,
+        )
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
-        ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::ResourceGroupScoped(self.clone()))
+        ScopeImpl::RoleEligibilitySchedule(RoleEligibilityScheduleId::ResourceGroupScoped(
+            self.clone(),
+        ))
     }
 
     fn kind(&self) -> ScopeImplKind {

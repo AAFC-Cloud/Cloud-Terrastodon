@@ -1,5 +1,6 @@
 use crate::prelude::ManagementGroupId;
 use crate::prelude::ManagementGroupScoped;
+use crate::prelude::ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceId;
@@ -8,7 +9,6 @@ use crate::prelude::RoleManagementPolicyAssignmentName;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::Unscoped;
-use crate::prelude::ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::ResourceScoped;
@@ -114,9 +114,7 @@ impl SubscriptionScoped for SubscriptionScopedRoleManagementPolicyAssignmentId {
 // MARK: TryFrom
 impl TryFromUnscoped for UnscopedRoleManagementPolicyAssignmentId {
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
-        Self {
-            name,
-        }
+        Self { name }
     }
 }
 impl TryFromManagementGroupScoped for ManagementGroupScopedRoleManagementPolicyAssignmentId {
@@ -161,10 +159,7 @@ impl TryFromResourceScoped for ResourceScopedRoleManagementPolicyAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        Self {
-            resource_id,
-            name,
-        }
+        Self { resource_id, name }
     }
 }
 
@@ -172,10 +167,7 @@ impl TryFromResourceScoped for ResourceScopedRoleManagementPolicyAssignmentId {
 
 impl Scope for UnscopedRoleManagementPolicyAssignmentId {
     fn expanded_form(&self) -> String {
-        format!(
-            "{ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX}{}",
-            self.name
-        )
+        format!("{ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX}{}", self.name)
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -183,7 +175,9 @@ impl Scope for UnscopedRoleManagementPolicyAssignmentId {
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
-        ScopeImpl::RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId::Unscoped(self.clone()))
+        ScopeImpl::RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId::Unscoped(
+            self.clone(),
+        ))
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -206,7 +200,9 @@ impl Scope for ManagementGroupScopedRoleManagementPolicyAssignmentId {
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
-        ScopeImpl::RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId::ManagementGroupScoped(self.clone()))
+        ScopeImpl::RoleManagementPolicyAssignment(
+            RoleManagementPolicyAssignmentId::ManagementGroupScoped(self.clone()),
+        )
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -224,11 +220,15 @@ impl Scope for SubscriptionScopedRoleManagementPolicyAssignmentId {
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        SubscriptionScopedRoleManagementPolicyAssignmentId::try_from_expanded_subscription_scoped(expanded)
+        SubscriptionScopedRoleManagementPolicyAssignmentId::try_from_expanded_subscription_scoped(
+            expanded,
+        )
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
-        ScopeImpl::RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId::SubscriptionScoped(self.clone()))
+        ScopeImpl::RoleManagementPolicyAssignment(
+            RoleManagementPolicyAssignmentId::SubscriptionScoped(self.clone()),
+        )
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -247,11 +247,15 @@ impl Scope for ResourceGroupScopedRoleManagementPolicyAssignmentId {
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        ResourceGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded_resource_group_scoped(expanded)
+        ResourceGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded_resource_group_scoped(
+            expanded,
+        )
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
-        ScopeImpl::RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId::ResourceGroupScoped(self.clone()))
+        ScopeImpl::RoleManagementPolicyAssignment(
+            RoleManagementPolicyAssignmentId::ResourceGroupScoped(self.clone()),
+        )
     }
 
     fn kind(&self) -> ScopeImplKind {
@@ -274,7 +278,9 @@ impl Scope for ResourceScopedRoleManagementPolicyAssignmentId {
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
-        ScopeImpl::RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId::ResourceScoped(self.clone()))
+        ScopeImpl::RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId::ResourceScoped(
+            self.clone(),
+        ))
     }
 
     fn kind(&self) -> ScopeImplKind {

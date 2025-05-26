@@ -1,14 +1,14 @@
-use crate::scopes::HasPrefix;
 use crate::scopes::AsScope;
+use crate::scopes::HasPrefix;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::strip_prefix_case_insensitive;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use eyre::Result;
 use eyre::bail;
 use serde::Deserialize;
@@ -133,7 +133,6 @@ pub struct RoleDefinition {
     pub permissions: Vec<RolePermission>,
     pub kind: RoleDefinitionKind,
 }
-
 
 impl AsScope for RoleDefinition {
     fn as_scope(&self) -> &impl Scope {

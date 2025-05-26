@@ -27,7 +27,6 @@ impl TestResourceId {
     }
 }
 
-
 impl Scope for TestResourceId {
     fn expanded_form(&self) -> String {
         self.expanded.to_owned()

@@ -16,6 +16,9 @@ mod pim_entra_role_assignment_requests;
 mod pim_entra_role_assignments;
 mod pim_entra_role_definitions;
 mod pim_entra_role_settings;
+mod policy_assignment_id;
+mod policy_assignment_id_variants;
+mod policy_assignment_name;
 mod policy_assignments;
 mod policy_definition_id;
 mod policy_definition_id_variants;
@@ -63,15 +66,9 @@ mod test_resource;
 mod users;
 mod uuid_macros;
 mod uuid_wrapper;
-mod policy_assignment_name;
-mod policy_assignment_id_variants;
-mod policy_assignment_id;
 
 pub mod prelude {
     pub use crate::accounts::*;
-    pub use crate::policy_assignment_name::*;
-    pub use crate::policy_assignment_id::*;
-    pub use crate::policy_assignment_id_variants::*;
     pub use crate::app::*;
     pub use crate::duration::*;
     pub use crate::eligible_child_resources::*;
@@ -87,6 +84,9 @@ pub mod prelude {
     pub use crate::pim_entra_role_assignments::*;
     pub use crate::pim_entra_role_definitions::*;
     pub use crate::pim_entra_role_settings::*;
+    pub use crate::policy_assignment_id::*;
+    pub use crate::policy_assignment_id_variants::*;
+    pub use crate::policy_assignment_name::*;
     pub use crate::policy_assignments::*;
     pub use crate::policy_definition_id::*;
     pub use crate::policy_definition_id_variants::*;

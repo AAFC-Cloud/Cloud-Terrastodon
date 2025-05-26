@@ -737,7 +737,10 @@ impl std::fmt::Display for ScopeImpl {
         }
     }
 }
-impl<T> From<T> for ScopeImpl where T: AsRef<str> {
+impl<T> From<T> for ScopeImpl
+where
+    T: AsRef<str>,
+{
     fn from(value: T) -> Self {
         let Ok(scope) = ScopeImpl::try_from_expanded(value.as_ref());
         scope

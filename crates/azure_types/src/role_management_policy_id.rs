@@ -29,7 +29,6 @@ use serde::Serializer;
 use serde::de::Error;
 use uuid::Uuid;
 
-
 pub const ROLE_MANAGEMENT_POLICY_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/roleManagementPolicies/";
 
@@ -46,16 +45,12 @@ impl RoleManagementPolicyId {
         match self {
             RoleManagementPolicyId::Unscoped(_) => None,
             RoleManagementPolicyId::ManagementGroupScoped(_) => None,
-            RoleManagementPolicyId::SubscriptionScoped(subscription_scoped_role_assignment_id) => Some(
-                *subscription_scoped_role_assignment_id
-                    .subscription_id(),
-            ),
-            RoleManagementPolicyId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                Some(
-                    *resource_group_scoped_role_assignment_id
-                        .subscription_id(),
-                )
+            RoleManagementPolicyId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
+                Some(*subscription_scoped_role_assignment_id.subscription_id())
             }
+            RoleManagementPolicyId::ResourceGroupScoped(
+                resource_group_scoped_role_assignment_id,
+            ) => Some(*resource_group_scoped_role_assignment_id.subscription_id()),
             RoleManagementPolicyId::ResourceScoped(resource_scoped_role_assignment_id) => {
                 Some(*resource_scoped_role_assignment_id.subscription_id())
             }
@@ -72,15 +67,15 @@ impl HasSlug for RoleManagementPolicyId {
             RoleManagementPolicyId::Unscoped(unscoped_role_assignment_id) => {
                 unscoped_role_assignment_id.name()
             }
-            RoleManagementPolicyId::ManagementGroupScoped(management_group_scoped_role_assignment_id) => {
-                management_group_scoped_role_assignment_id.name()
-            }
+            RoleManagementPolicyId::ManagementGroupScoped(
+                management_group_scoped_role_assignment_id,
+            ) => management_group_scoped_role_assignment_id.name(),
             RoleManagementPolicyId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
                 subscription_scoped_role_assignment_id.name()
             }
-            RoleManagementPolicyId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                resource_group_scoped_role_assignment_id.name()
-            }
+            RoleManagementPolicyId::ResourceGroupScoped(
+                resource_group_scoped_role_assignment_id,
+            ) => resource_group_scoped_role_assignment_id.name(),
             RoleManagementPolicyId::ResourceScoped(resource_scoped_role_assignment_id) => {
                 resource_scoped_role_assignment_id.name()
             }
@@ -92,9 +87,7 @@ impl HasSlug for RoleManagementPolicyId {
 
 impl TryFromUnscoped for RoleManagementPolicyId {
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
-        RoleManagementPolicyId::Unscoped(UnscopedRoleManagementPolicyId {
-            name,
-        })
+        RoleManagementPolicyId::Unscoped(UnscopedRoleManagementPolicyId { name })
     }
 }
 impl TryFromResourceGroupScoped for RoleManagementPolicyId {
@@ -146,7 +139,6 @@ impl TryFromManagementGroupScoped for RoleManagementPolicyId {
     }
 }
 
-
 // MARK: impl Scope
 impl Scope for RoleManagementPolicyId {
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -188,8 +180,6 @@ impl HasPrefix for RoleManagementPolicyId {
     }
 }
 
-
-
 // MARK: Serialize
 impl Serialize for RoleManagementPolicyId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -211,8 +201,6 @@ impl<'de> Deserialize<'de> for RoleManagementPolicyId {
         Ok(id)
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

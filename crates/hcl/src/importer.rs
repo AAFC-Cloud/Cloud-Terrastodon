@@ -134,7 +134,6 @@ impl GenerateConfigOutHelper {
                         BString::from("Insufficient initialization blocks"),
                         BString::from("Feature map must contain at least on entry"),
                         BString::from("expected \"display_name\" to not be an empty string, got"),
-                        
                     ]);
                     let mut unfixable_error_count = 0;
                     for error in seen_errors {
@@ -179,11 +178,11 @@ impl GenerateConfigOutHelper {
 mod test {
     use std::sync::Arc;
 
-    use crate::prelude::ProviderManager;
     use crate::prelude::GenerateConfigOutHelper;
+    use crate::prelude::ProviderManager;
+    use cloud_terrastodon_hcl_types::prelude::TerraformRequiredProvidersBlock;
     use cloud_terrastodon_pathing::AppDir;
     use cloud_terrastodon_pathing::Existy;
-    use cloud_terrastodon_hcl_types::prelude::TerraformRequiredProvidersBlock;
     use tempfile::Builder;
     use tokio::sync::Semaphore;
     use tokio::task::JoinSet;

@@ -161,10 +161,7 @@ impl TryFromResourceScoped for ResourceScopedRoleAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        Self {
-            resource_id,
-            name,
-        }
+        Self { resource_id, name }
     }
 }
 

@@ -38,7 +38,9 @@ impl FromStr for ResourceBlockKind {
         if let Ok(kind) = s.parse::<AzureDevOpsResourceBlockKind>() {
             return Ok(ResourceBlockKind::AzureDevOps(kind));
         }
-        Ok(ResourceBlockKind::Other(OtherResourceBlockKind::from_str(s)?))
+        Ok(ResourceBlockKind::Other(OtherResourceBlockKind::from_str(
+            s,
+        )?))
     }
 }
 

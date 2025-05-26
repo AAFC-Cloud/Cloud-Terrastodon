@@ -66,10 +66,18 @@ impl From<PolicyDefinition> for HCLImportBlock {
                         ),
                         PolicyDefinitionId::SubscriptionScoped(
                             subscription_scoped_policy_definition_id,
-                        ) => Some(subscription_scoped_policy_definition_id.subscription_id.short_form()),
+                        ) => Some(
+                            subscription_scoped_policy_definition_id
+                                .subscription_id
+                                .short_form(),
+                        ),
                         PolicyDefinitionId::ResourceGroupScoped(
                             resource_group_scoped_policy_definition_id,
-                        ) => Some(resource_group_scoped_policy_definition_id.resource_group_id.short_form()),
+                        ) => Some(
+                            resource_group_scoped_policy_definition_id
+                                .resource_group_id
+                                .short_form(),
+                        ),
                         PolicyDefinitionId::ResourceScoped(
                             resource_scoped_policy_definition_id,
                         ) => Some(

@@ -1,14 +1,14 @@
 use crate::prelude::ManagementGroupId;
 use crate::prelude::ManagementGroupScoped;
+use crate::prelude::POLICY_ASSIGNMENT_ID_PREFIX;
+use crate::prelude::PolicyAssignmentId;
+use crate::prelude::PolicyAssignmentName;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceId;
-use crate::prelude::PolicyAssignmentId;
-use crate::prelude::PolicyAssignmentName;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::Unscoped;
-use crate::prelude::POLICY_ASSIGNMENT_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::ResourceScoped;
@@ -161,10 +161,7 @@ impl TryFromResourceScoped for ResourceScopedPolicyAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        Self {
-            resource_id,
-            name,
-        }
+        Self { resource_id, name }
     }
 }
 
@@ -172,10 +169,7 @@ impl TryFromResourceScoped for ResourceScopedPolicyAssignmentId {
 
 impl Scope for UnscopedPolicyAssignmentId {
     fn expanded_form(&self) -> String {
-        format!(
-            "{POLICY_ASSIGNMENT_ID_PREFIX}{}",
-            self.role_assignment_name
-        )
+        format!("{POLICY_ASSIGNMENT_ID_PREFIX}{}", self.role_assignment_name)
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {

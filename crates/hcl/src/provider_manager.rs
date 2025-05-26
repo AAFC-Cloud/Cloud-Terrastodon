@@ -149,7 +149,8 @@ impl ProviderManager {
                                         tokio::fs::read_dir(&platform.path()).await?;
                                     while let Some(file) = platform_children.next_entry().await? {
                                         if file.file_type().await?.is_file()
-                                            && file.path()
+                                            && file
+                                                .path()
                                                 .extension()
                                                 .filter(|x| *x == "exe")
                                                 .is_some()

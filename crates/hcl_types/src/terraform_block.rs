@@ -254,13 +254,13 @@ mod tests {
     use indoc::indoc;
 
     use crate::prelude::ProviderKind;
-    use crate::version::SemVer;
     use crate::version::ProviderHostname;
     use crate::version::ProviderNamespace;
     use crate::version::ProviderSource;
     use crate::version::ProviderVersionConstraint;
     use crate::version::ProviderVersionConstraintClause;
     use crate::version::ProviderVersionObject;
+    use crate::version::SemVer;
 
     use super::*;
 

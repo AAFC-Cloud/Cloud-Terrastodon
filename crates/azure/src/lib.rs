@@ -1,4 +1,9 @@
-#![feature(impl_trait_in_assoc_type, duration_constructors_lite,duration_constructors, async_fn_track_caller)]
+#![feature(
+    impl_trait_in_assoc_type,
+    duration_constructors_lite,
+    duration_constructors,
+    async_fn_track_caller
+)]
 mod accounts;
 mod auth;
 mod batch_api;
@@ -7,6 +12,7 @@ mod create_role_assignment;
 mod eligible_child_resources;
 mod evaluate_policy_assignment_compliance;
 mod groups;
+mod import;
 mod management_groups;
 mod metrics;
 mod microsoft_graph;
@@ -26,12 +32,15 @@ mod principals;
 mod remediate_policy_assignment;
 pub mod remove_oauth2_permission_grant;
 mod resource_graph;
+mod resource_group_choices;
 mod resource_groups;
 mod resources;
+mod role_assignment_choices;
 mod role_assignments;
 mod role_definitions;
 mod role_eligibility_schedules;
 mod role_management_policy_assignments;
+mod security_group_choices;
 mod security_groups;
 mod service_principals;
 mod storage_account;
@@ -39,23 +48,16 @@ mod subscriptions;
 mod tags;
 mod tenants;
 mod users;
-mod import;
-mod resource_group_choices;
-mod security_group_choices;
-mod role_assignment_choices;
 pub mod prelude {
     pub use crate::accounts::*;
-    pub use crate::resource_group_choices::*;
-    pub use crate::role_assignment_choices::*;
-    pub use crate::security_group_choices::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
-    pub use crate::import::*;
     pub use crate::cost_management::*;
     pub use crate::create_role_assignment::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
     pub use crate::groups::*;
+    pub use crate::import::*;
     pub use crate::management_groups::*;
     pub use crate::metrics::*;
     pub use crate::microsoft_graph::*;
@@ -75,12 +77,15 @@ pub mod prelude {
     pub use crate::remediate_policy_assignment::*;
     pub use crate::remove_oauth2_permission_grant::*;
     pub use crate::resource_graph::*;
+    pub use crate::resource_group_choices::*;
     pub use crate::resource_groups::*;
     pub use crate::resources::*;
+    pub use crate::role_assignment_choices::*;
     pub use crate::role_assignments::*;
     pub use crate::role_definitions::*;
     pub use crate::role_eligibility_schedules::*;
     pub use crate::role_management_policy_assignments::*;
+    pub use crate::security_group_choices::*;
     pub use crate::security_groups::*;
     pub use crate::service_principals::*;
     pub use crate::storage_account::*;

@@ -59,13 +59,8 @@ impl FromStr for ProviderKind {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum HCLProviderReference {
-    Alias {
-        kind: ProviderKind,
-        name: String,
-    },
-    Default {
-        kind: ProviderKind,
-    },
+    Alias { kind: ProviderKind, name: String },
+    Default { kind: ProviderKind },
     Inherited,
 }
 impl HCLProviderReference {
@@ -81,9 +76,7 @@ impl HCLProviderReference {
             HCLProviderReference::Alias { kind, name } => {
                 Some(format!("{kind}.{name}").parse::<Expression>())
             }
-            HCLProviderReference::Default { kind } => {
-                Some(format!("{kind}").parse::<Expression>())
-            }
+            HCLProviderReference::Default { kind } => Some(format!("{kind}").parse::<Expression>()),
             HCLProviderReference::Inherited => None,
         }
     }

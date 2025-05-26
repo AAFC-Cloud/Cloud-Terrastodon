@@ -17,14 +17,14 @@ pub struct RoleAssignmentName {
 }
 impl RoleAssignmentName {
     pub fn new(inner: Uuid) -> Self {
-        Self {
-            inner
-        }
+        Self { inner }
     }
 }
 impl Slug for RoleAssignmentName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into().parse()? };
+        let rtn = Self {
+            inner: name.into().parse()?,
+        };
         rtn.validate()?;
         Ok(rtn)
     }

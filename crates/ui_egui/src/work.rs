@@ -58,9 +58,10 @@ where
                 Ok(result) => {
                     let msg = AppMessage::StateChange(Box::new(result));
                     if let Err(e) = tx.send(msg)
-                        && work.is_err_if_discarded {
-                            return Err(eyre!("Error sending message for work success: {}", e));
-                        }
+                        && work.is_err_if_discarded
+                    {
+                        return Err(eyre!("Error sending message for work success: {}", e));
+                    }
                 }
                 Err(error) => {
                     let error = error

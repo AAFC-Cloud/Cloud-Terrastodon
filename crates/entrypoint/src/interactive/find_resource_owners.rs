@@ -186,51 +186,52 @@ impl Traversal {
         match self {
             Traversal::Tags => {
                 if let Clue::Resource { resource } = clue.as_ref()
-                    && let Some(tags) = &resource.tags {
-                        for (tag_key, tag_value) in tags.iter() {
-                            rtn.push(clue.join(Clue::ResourceTag {
-                                resource,
-                                tag_key,
-                                tag_value,
-                            }));
-                        }
+                    && let Some(tags) = &resource.tags
+                {
+                    for (tag_key, tag_value) in tags.iter() {
+                        rtn.push(clue.join(Clue::ResourceTag {
+                            resource,
+                            tag_key,
+                            tag_value,
+                        }));
                     }
+                }
             }
             Traversal::RoleAssignments => {
                 if let Clue::Resource { resource } = clue.as_ref()
                     && let Some(role_assignment) = context
                         .role_assignments_by_scope
                         .get(&resource.id.as_scope_impl())
-                    {
-                        // Identify the role definition
-                        let Some(role_definition) = context
-                            .role_definition_map
-                            .get(&role_assignment.role_definition_id)
-                        else {
-                            bail!(
-                                "Failed to find role definition for role assignment {:?}",
-                                role_assignment
-                            );
-                        };
+                {
+                    // Identify the role definition
+                    let Some(role_definition) = context
+                        .role_definition_map
+                        .get(&role_assignment.role_definition_id)
+                    else {
+                        bail!(
+                            "Failed to find role definition for role assignment {:?}",
+                            role_assignment
+                        );
+                    };
 
-                        // Identify the principal
-                        let principal = context
-                            .principal_map
-                            .get(&role_assignment.principal_id)
-                            .map(|v| &**v);
+                    // Identify the principal
+                    let principal = context
+                        .principal_map
+                        .get(&role_assignment.principal_id)
+                        .map(|v| &**v);
 
-                        // Build the clue
-                        let role_assignment_clue = clue.join(Clue::RoleAssignment {
-                            resource,
-                            role_assignment,
-                            role_definition,
-                            principal,
-                        });
-                        if let Some(principal) = principal {
-                            rtn.push(role_assignment_clue.join(Clue::Principal { principal }));
-                        }
-                        rtn.push(role_assignment_clue);
+                    // Build the clue
+                    let role_assignment_clue = clue.join(Clue::RoleAssignment {
+                        resource,
+                        role_assignment,
+                        role_definition,
+                        principal,
+                    });
+                    if let Some(principal) = principal {
+                        rtn.push(role_assignment_clue.join(Clue::Principal { principal }));
                     }
+                    rtn.push(role_assignment_clue);
+                }
             }
             Traversal::GroupMembers => {
                 if let Clue::Principal {

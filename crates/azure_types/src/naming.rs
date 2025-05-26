@@ -43,9 +43,10 @@ pub fn validate_management_group_name(name: &str) -> Result<()> {
     // }
 
     if let Some(first_char) = name.chars().next()
-        && !first_char.is_alphanumeric() {
-            bail!("Name must start with a letter or number");
-        }
+        && !first_char.is_alphanumeric()
+    {
+        bail!("Name must start with a letter or number");
+    }
 
     if name.ends_with('.') {
         bail!("Name must not end with a period");

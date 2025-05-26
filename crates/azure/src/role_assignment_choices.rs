@@ -1,7 +1,7 @@
 use crate::prelude::PrincipalId;
+use crate::prelude::RoleAssignment;
 use crate::prelude::RoleDefinition;
 use crate::prelude::RoleDefinitionId;
-use crate::prelude::RoleAssignment;
 use crate::prelude::fetch_all_role_assignments;
 use crate::prelude::fetch_all_role_definitions;
 use crate::prelude::fetch_all_users;

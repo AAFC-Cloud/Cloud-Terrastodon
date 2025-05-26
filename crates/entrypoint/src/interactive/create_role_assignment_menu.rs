@@ -67,9 +67,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
             for principal in &principals {
                 info!(
                     "Assigning {} to {} on {}",
-                    role.display_name,
-                    principal.user_principal_name,
-                    res.id
+                    role.display_name, principal.user_principal_name, res.id
                 );
                 create_role_assignment(&res.id, &role.id, &principal.id).await?;
                 total += 1;

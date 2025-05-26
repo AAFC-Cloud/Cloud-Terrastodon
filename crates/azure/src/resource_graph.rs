@@ -75,9 +75,10 @@ impl ResourceGraphHelper {
     ) -> Result<Option<ResourceGraphQueryResponse<T>>> {
         #[cfg(debug_assertions)]
         if let Some((_, token)) = &self.skip
-            && !self.seen_skip_tokens.insert(token.to_owned()) {
-                bail!("Saw the same skip token twice, infinite loop detected");
-            }
+            && !self.seen_skip_tokens.insert(token.to_owned())
+        {
+            bail!("Saw the same skip token twice, infinite loop detected");
+        }
 
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         // Previously tried using `az graph query` but hit issues with scopes

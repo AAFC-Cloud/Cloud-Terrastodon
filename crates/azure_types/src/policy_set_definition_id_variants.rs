@@ -1,14 +1,14 @@
 use crate::prelude::ManagementGroupId;
 use crate::prelude::ManagementGroupScoped;
+use crate::prelude::POLICY_SET_DEFINITION_ID_PREFIX;
+use crate::prelude::PolicySetDefinitionId;
+use crate::prelude::PolicySetDefinitionName;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceId;
-use crate::prelude::PolicySetDefinitionId;
-use crate::prelude::PolicySetDefinitionName;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::Unscoped;
-use crate::prelude::POLICY_SET_DEFINITION_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::ResourceScoped;
@@ -114,9 +114,7 @@ impl SubscriptionScoped for SubscriptionScopedPolicySetDefinitionId {
 // MARK: TryFrom
 impl TryFromUnscoped for UnscopedPolicySetDefinitionId {
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
-        Self {
-            name,
-        }
+        Self { name }
     }
 }
 impl TryFromManagementGroupScoped for ManagementGroupScopedPolicySetDefinitionId {
@@ -161,10 +159,7 @@ impl TryFromResourceScoped for ResourceScopedPolicySetDefinitionId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        Self {
-            resource_id,
-            name,
-        }
+        Self { resource_id, name }
     }
 }
 
@@ -172,10 +167,7 @@ impl TryFromResourceScoped for ResourceScopedPolicySetDefinitionId {
 
 impl Scope for UnscopedPolicySetDefinitionId {
     fn expanded_form(&self) -> String {
-        format!(
-            "{POLICY_SET_DEFINITION_ID_PREFIX}{}",
-            self.name
-        )
+        format!("{POLICY_SET_DEFINITION_ID_PREFIX}{}", self.name)
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
@@ -202,7 +194,9 @@ impl Scope for ManagementGroupScopedPolicySetDefinitionId {
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        ManagementGroupScopedPolicySetDefinitionId::try_from_expanded_management_group_scoped(expanded)
+        ManagementGroupScopedPolicySetDefinitionId::try_from_expanded_management_group_scoped(
+            expanded,
+        )
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {

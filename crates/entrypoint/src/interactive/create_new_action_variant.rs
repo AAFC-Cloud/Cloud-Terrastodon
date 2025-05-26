@@ -129,15 +129,14 @@ async fn update_menu_action_rs_file(
         let mut variant_added = false;
         for item in &mut ast.items {
             if let Item::Enum(ItemEnum {
-                ident,
-                variants,
-                ..
+                ident, variants, ..
             }) = item
-                && ident == "MenuAction" {
-                    variants.push(new_variant);
-                    variant_added = true;
-                    break; // Ensure we only push once
-                }
+                && ident == "MenuAction"
+            {
+                variants.push(new_variant);
+                variant_added = true;
+                break; // Ensure we only push once
+            }
         }
 
         if !variant_added {
@@ -150,28 +149,25 @@ async fn update_menu_action_rs_file(
                 // Ensure we're modifying impl MenuAction, not any trait implementation
                 if impl_item.trait_.is_none()
                     && let Type::Path(ref type_path) = *impl_item.self_ty
-                        && type_path.path.is_ident("MenuAction") {
-                            for impl_item in &mut impl_item.items {
-                                if let ImplItem::Fn(method) = impl_item {
-                                    // Modify the name() method
-                                    if method.sig.ident == "name" {
-                                        add_name_match_arm(
-                                            method,
-                                            &new_variant_ident,
-                                            new_variant_display,
-                                        )?;
-                                    }
-                                    // Modify the invoke() method
-                                    else if method.sig.ident == "invoke" {
-                                        add_invoke_match_arm(
-                                            method,
-                                            &new_variant_ident,
-                                            function_name,
-                                        )?;
-                                    }
-                                }
+                    && type_path.path.is_ident("MenuAction")
+                {
+                    for impl_item in &mut impl_item.items {
+                        if let ImplItem::Fn(method) = impl_item {
+                            // Modify the name() method
+                            if method.sig.ident == "name" {
+                                add_name_match_arm(
+                                    method,
+                                    &new_variant_ident,
+                                    new_variant_display,
+                                )?;
+                            }
+                            // Modify the invoke() method
+                            else if method.sig.ident == "invoke" {
+                                add_invoke_match_arm(method, &new_variant_ident, function_name)?;
                             }
                         }
+                    }
+                }
             }
         }
         Ok(())
@@ -194,18 +190,19 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
         // --- Add the new pub use statement in the prelude module ---
         for item in &mut ast.items {
             if let Item::Mod(item_mod) = item
-                && item_mod.ident == "prelude" {
-                    // Ensure that the module is inline (has a body)
-                    let (_, body) = item_mod
-                        .content
-                        .as_mut()
-                        .ok_or_else(|| eyre::eyre!("prelude module has no inline content"))?;
-                    let new_use_code = format!("pub use crate::interactive::{function_name}::*;");
-                    let new_use: ItemUse =
-                        parse_str(&new_use_code).wrap_err("Failed to parse new use statement")?;
-                    body.push(Item::Use(new_use));
-                    break;
-                }
+                && item_mod.ident == "prelude"
+            {
+                // Ensure that the module is inline (has a body)
+                let (_, body) = item_mod
+                    .content
+                    .as_mut()
+                    .ok_or_else(|| eyre::eyre!("prelude module has no inline content"))?;
+                let new_use_code = format!("pub use crate::interactive::{function_name}::*;");
+                let new_use: ItemUse =
+                    parse_str(&new_use_code).wrap_err("Failed to parse new use statement")?;
+                body.push(Item::Use(new_use));
+                break;
+            }
         }
         Ok(())
     })

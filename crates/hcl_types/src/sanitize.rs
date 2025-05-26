@@ -9,7 +9,7 @@ pub trait Sanitizable {
 impl<T: AsRef<str>> Sanitizable for T {
     fn sanitize(&self) -> String {
         let s = self.as_ref();
-        
+
         // First, sanitize all characters
         let sanitized: String = s
             .chars()
@@ -22,7 +22,7 @@ impl<T: AsRef<str>> Sanitizable for T {
                 }
             })
             .collect();
-        
+
         // Then check if we need to prepend ZZZ_ based on the first character
         match sanitized.chars().next() {
             Some(c) if is_id_start(c) => sanitized,

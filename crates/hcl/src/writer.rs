@@ -1,10 +1,10 @@
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_hcl_types::prelude::AsHCLString;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderBlock;
 use cloud_terrastodon_hcl_types::prelude::TerraformBlock;
+use cloud_terrastodon_pathing::Existy;
 use eyre::Context;
 use eyre::Result;
 use hcl::edit::structure::Block;
@@ -36,7 +36,8 @@ impl HCLWriter {
         }
     }
 
-    pub fn format_on_write(mut self) -> Self { // TODO: make this true by default with the method to turn off if desired
+    pub fn format_on_write(mut self) -> Self {
+        // TODO: make this true by default with the method to turn off if desired
         self.format_on_write = true;
         self
     }
@@ -167,12 +168,13 @@ impl HCLWriter {
 
                         for (provider, version) in providers {
                             if let Some(existing_provider_version) = existing.0.get(&provider)
-                                && *existing_provider_version != version {
-                                    warn!(
-                                        "Detected multiple required_provider entries for {provider}, discarding {:?} for {:?}",
-                                        existing_provider_version, version
-                                    );
-                                }
+                                && *existing_provider_version != version
+                            {
+                                warn!(
+                                    "Detected multiple required_provider entries for {provider}, discarding {:?} for {:?}",
+                                    existing_provider_version, version
+                                );
+                            }
                             existing.0.insert(provider, version);
                         }
                     }

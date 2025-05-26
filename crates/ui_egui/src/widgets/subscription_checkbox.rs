@@ -17,8 +17,7 @@ pub fn draw_subscription_checkbox(
     ui: &mut Ui,
     subscription: &Subscription,
 ) {
-    let mut expando =
-        CollapsingState::load_with_default_open(ctx, Id::new(subscription.id), false);
+    let mut expando = CollapsingState::load_with_default_open(ctx, Id::new(subscription.id), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
         expando.toggle(ui);

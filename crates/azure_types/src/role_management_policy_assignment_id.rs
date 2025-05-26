@@ -45,19 +45,15 @@ impl RoleManagementPolicyAssignmentId {
         match self {
             RoleManagementPolicyAssignmentId::Unscoped(_) => None,
             RoleManagementPolicyAssignmentId::ManagementGroupScoped(_) => None,
-            RoleManagementPolicyAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => Some(
-                *subscription_scoped_role_assignment_id
-                    .subscription_id(),
-            ),
-            RoleManagementPolicyAssignmentId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                Some(
-                    *resource_group_scoped_role_assignment_id
-                        .subscription_id(),
-                )
-            }
-            RoleManagementPolicyAssignmentId::ResourceScoped(resource_scoped_role_assignment_id) => {
-                Some(*resource_scoped_role_assignment_id.subscription_id())
-            }
+            RoleManagementPolicyAssignmentId::SubscriptionScoped(
+                subscription_scoped_role_assignment_id,
+            ) => Some(*subscription_scoped_role_assignment_id.subscription_id()),
+            RoleManagementPolicyAssignmentId::ResourceGroupScoped(
+                resource_group_scoped_role_assignment_id,
+            ) => Some(*resource_group_scoped_role_assignment_id.subscription_id()),
+            RoleManagementPolicyAssignmentId::ResourceScoped(
+                resource_scoped_role_assignment_id,
+            ) => Some(*resource_scoped_role_assignment_id.subscription_id()),
         }
     }
 }
@@ -71,18 +67,18 @@ impl HasSlug for RoleManagementPolicyAssignmentId {
             RoleManagementPolicyAssignmentId::Unscoped(unscoped_role_assignment_id) => {
                 unscoped_role_assignment_id.name()
             }
-            RoleManagementPolicyAssignmentId::ManagementGroupScoped(management_group_scoped_role_assignment_id) => {
-                management_group_scoped_role_assignment_id.name()
-            }
-            RoleManagementPolicyAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
-                subscription_scoped_role_assignment_id.name()
-            }
-            RoleManagementPolicyAssignmentId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                resource_group_scoped_role_assignment_id.name()
-            }
-            RoleManagementPolicyAssignmentId::ResourceScoped(resource_scoped_role_assignment_id) => {
-                resource_scoped_role_assignment_id.name()
-            }
+            RoleManagementPolicyAssignmentId::ManagementGroupScoped(
+                management_group_scoped_role_assignment_id,
+            ) => management_group_scoped_role_assignment_id.name(),
+            RoleManagementPolicyAssignmentId::SubscriptionScoped(
+                subscription_scoped_role_assignment_id,
+            ) => subscription_scoped_role_assignment_id.name(),
+            RoleManagementPolicyAssignmentId::ResourceGroupScoped(
+                resource_group_scoped_role_assignment_id,
+            ) => resource_group_scoped_role_assignment_id.name(),
+            RoleManagementPolicyAssignmentId::ResourceScoped(
+                resource_scoped_role_assignment_id,
+            ) => resource_scoped_role_assignment_id.name(),
         }
     }
 }
@@ -102,10 +98,12 @@ impl TryFromResourceGroupScoped for RoleManagementPolicyAssignmentId {
         resource_group_id: ResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        RoleManagementPolicyAssignmentId::ResourceGroupScoped(ResourceGroupScopedRoleManagementPolicyAssignmentId {
-            resource_group_id,
-            name,
-        })
+        RoleManagementPolicyAssignmentId::ResourceGroupScoped(
+            ResourceGroupScopedRoleManagementPolicyAssignmentId {
+                resource_group_id,
+                name,
+            },
+        )
     }
 }
 impl TryFromResourceScoped for RoleManagementPolicyAssignmentId {
@@ -114,10 +112,9 @@ impl TryFromResourceScoped for RoleManagementPolicyAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        RoleManagementPolicyAssignmentId::ResourceScoped(ResourceScopedRoleManagementPolicyAssignmentId {
-            resource_id,
-            name,
-        })
+        RoleManagementPolicyAssignmentId::ResourceScoped(
+            ResourceScopedRoleManagementPolicyAssignmentId { resource_id, name },
+        )
     }
 }
 impl TryFromSubscriptionScoped for RoleManagementPolicyAssignmentId {
@@ -126,10 +123,12 @@ impl TryFromSubscriptionScoped for RoleManagementPolicyAssignmentId {
         subscription_id: SubscriptionId,
         name: Self::Name,
     ) -> Self {
-        RoleManagementPolicyAssignmentId::SubscriptionScoped(SubscriptionScopedRoleManagementPolicyAssignmentId {
-            subscription_id,
-            name,
-        })
+        RoleManagementPolicyAssignmentId::SubscriptionScoped(
+            SubscriptionScopedRoleManagementPolicyAssignmentId {
+                subscription_id,
+                name,
+            },
+        )
     }
 }
 impl TryFromManagementGroupScoped for RoleManagementPolicyAssignmentId {
@@ -138,13 +137,14 @@ impl TryFromManagementGroupScoped for RoleManagementPolicyAssignmentId {
         management_group_id: ManagementGroupId,
         name: Self::Name,
     ) -> Self {
-        RoleManagementPolicyAssignmentId::ManagementGroupScoped(ManagementGroupScopedRoleManagementPolicyAssignmentId {
-            management_group_id,
-            name,
-        })
+        RoleManagementPolicyAssignmentId::ManagementGroupScoped(
+            ManagementGroupScopedRoleManagementPolicyAssignmentId {
+                management_group_id,
+                name,
+            },
+        )
     }
 }
-
 
 // MARK: impl Scope
 impl Scope for RoleManagementPolicyAssignmentId {
@@ -186,8 +186,6 @@ impl HasPrefix for RoleManagementPolicyAssignmentId {
         ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX
     }
 }
-
-
 
 // MARK: Serialize
 impl Serialize for RoleManagementPolicyAssignmentId {

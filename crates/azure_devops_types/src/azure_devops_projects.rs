@@ -3,11 +3,11 @@ use std::str::FromStr;
 
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;

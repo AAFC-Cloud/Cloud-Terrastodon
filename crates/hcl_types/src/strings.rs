@@ -1,10 +1,10 @@
-use std::collections::HashSet;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::IntoBlocks;
+use std::collections::HashSet;
 
 #[async_trait::async_trait]
 pub trait AsHCLString {

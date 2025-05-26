@@ -7,7 +7,7 @@ pub fn it_works() -> eyre::Result<()> {
     a.insert("a".to_string());
     a.insert("b".to_string());
     let mut b = a.clone();
-    b.swap_indices(0,1);
-    assert_ne!(a,b);
+    b.swap_indices(0, 1);
+    assert_ne!(a, b);
     Ok(())
 }

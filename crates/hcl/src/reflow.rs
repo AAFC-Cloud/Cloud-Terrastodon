@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure::prelude::fetch_all_users;
-use cloud_terrastodon_hcl_types::prelude::UsersLookupBody;
 use cloud_terrastodon_hcl_types::prelude::TerraformBlock;
+use cloud_terrastodon_hcl_types::prelude::UsersLookupBody;
 use eyre::Context;
 use eyre::Result;
 use hcl::edit::structure::Body;

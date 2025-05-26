@@ -1,13 +1,13 @@
-use cloud_terrastodon_azure::prelude::get_security_group_choices;
 use cloud_terrastodon_azure::prelude::PrincipalId;
+use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
 use cloud_terrastodon_azure::prelude::fetch_group_owners;
+use cloud_terrastodon_azure::prelude::get_security_group_choices;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::are_you_sure;
@@ -93,10 +93,8 @@ pub async fn browse_security_groups() -> Result<()> {
                     "Fetching role assignments and definitions to filter for {} groups",
                     security_groups.len()
                 );
-                let (role_assignments, role_definitions) = try_join!(
-                    fetch_all_role_assignments(),
-                    fetch_all_role_definitions(),
-                )?;
+                let (role_assignments, role_definitions) =
+                    try_join!(fetch_all_role_assignments(), fetch_all_role_definitions(),)?;
                 let role_assignments_by_principal: HashMap<&PrincipalId, Vec<&RoleAssignment>> =
                     role_assignments
                         .iter()

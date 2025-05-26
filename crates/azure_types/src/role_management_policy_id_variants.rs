@@ -114,9 +114,7 @@ impl SubscriptionScoped for SubscriptionScopedRoleManagementPolicyId {
 // MARK: TryFrom
 impl TryFromUnscoped for UnscopedRoleManagementPolicyId {
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
-        Self {
-            name,
-        }
+        Self { name }
     }
 }
 impl TryFromManagementGroupScoped for ManagementGroupScopedRoleManagementPolicyId {
@@ -161,10 +159,7 @@ impl TryFromResourceScoped for ResourceScopedRoleManagementPolicyId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        Self {
-            resource_id,
-            name,
-        }
+        Self { resource_id, name }
     }
 }
 
@@ -172,10 +167,7 @@ impl TryFromResourceScoped for ResourceScopedRoleManagementPolicyId {
 
 impl Scope for UnscopedRoleManagementPolicyId {
     fn expanded_form(&self) -> String {
-        format!(
-            "{ROLE_MANAGEMENT_POLICY_ID_PREFIX}{}",
-            self.name
-        )
+        format!("{ROLE_MANAGEMENT_POLICY_ID_PREFIX}{}", self.name)
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {

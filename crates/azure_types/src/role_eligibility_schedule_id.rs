@@ -29,7 +29,6 @@ use serde::Serializer;
 use serde::de::Error;
 use uuid::Uuid;
 
-
 pub const ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/roleEligibilitySchedules/";
 
@@ -46,16 +45,12 @@ impl RoleEligibilityScheduleId {
         match self {
             RoleEligibilityScheduleId::Unscoped(_) => None,
             RoleEligibilityScheduleId::ManagementGroupScoped(_) => None,
-            RoleEligibilityScheduleId::SubscriptionScoped(subscription_scoped_role_assignment_id) => Some(
-                *subscription_scoped_role_assignment_id
-                    .subscription_id(),
-            ),
-            RoleEligibilityScheduleId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                Some(
-                    *resource_group_scoped_role_assignment_id
-                        .subscription_id(),
-                )
-            }
+            RoleEligibilityScheduleId::SubscriptionScoped(
+                subscription_scoped_role_assignment_id,
+            ) => Some(*subscription_scoped_role_assignment_id.subscription_id()),
+            RoleEligibilityScheduleId::ResourceGroupScoped(
+                resource_group_scoped_role_assignment_id,
+            ) => Some(*resource_group_scoped_role_assignment_id.subscription_id()),
             RoleEligibilityScheduleId::ResourceScoped(resource_scoped_role_assignment_id) => {
                 Some(*resource_scoped_role_assignment_id.subscription_id())
             }
@@ -72,15 +67,15 @@ impl HasSlug for RoleEligibilityScheduleId {
             RoleEligibilityScheduleId::Unscoped(unscoped_role_assignment_id) => {
                 unscoped_role_assignment_id.name()
             }
-            RoleEligibilityScheduleId::ManagementGroupScoped(management_group_scoped_role_assignment_id) => {
-                management_group_scoped_role_assignment_id.name()
-            }
-            RoleEligibilityScheduleId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
-                subscription_scoped_role_assignment_id.name()
-            }
-            RoleEligibilityScheduleId::ResourceGroupScoped(resource_group_scoped_role_assignment_id) => {
-                resource_group_scoped_role_assignment_id.name()
-            }
+            RoleEligibilityScheduleId::ManagementGroupScoped(
+                management_group_scoped_role_assignment_id,
+            ) => management_group_scoped_role_assignment_id.name(),
+            RoleEligibilityScheduleId::SubscriptionScoped(
+                subscription_scoped_role_assignment_id,
+            ) => subscription_scoped_role_assignment_id.name(),
+            RoleEligibilityScheduleId::ResourceGroupScoped(
+                resource_group_scoped_role_assignment_id,
+            ) => resource_group_scoped_role_assignment_id.name(),
             RoleEligibilityScheduleId::ResourceScoped(resource_scoped_role_assignment_id) => {
                 resource_scoped_role_assignment_id.name()
             }
@@ -92,9 +87,7 @@ impl HasSlug for RoleEligibilityScheduleId {
 
 impl TryFromUnscoped for RoleEligibilityScheduleId {
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
-        RoleEligibilityScheduleId::Unscoped(UnscopedRoleEligibilityScheduleId {
-            name,
-        })
+        RoleEligibilityScheduleId::Unscoped(UnscopedRoleEligibilityScheduleId { name })
     }
 }
 impl TryFromResourceGroupScoped for RoleEligibilityScheduleId {
@@ -103,10 +96,12 @@ impl TryFromResourceGroupScoped for RoleEligibilityScheduleId {
         resource_group_id: ResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        RoleEligibilityScheduleId::ResourceGroupScoped(ResourceGroupScopedRoleEligibilityScheduleId {
-            resource_group_id,
-            name,
-        })
+        RoleEligibilityScheduleId::ResourceGroupScoped(
+            ResourceGroupScopedRoleEligibilityScheduleId {
+                resource_group_id,
+                name,
+            },
+        )
     }
 }
 impl TryFromResourceScoped for RoleEligibilityScheduleId {
@@ -139,13 +134,14 @@ impl TryFromManagementGroupScoped for RoleEligibilityScheduleId {
         management_group_id: ManagementGroupId,
         name: Self::Name,
     ) -> Self {
-        RoleEligibilityScheduleId::ManagementGroupScoped(ManagementGroupScopedRoleEligibilityScheduleId {
-            management_group_id,
-            name,
-        })
+        RoleEligibilityScheduleId::ManagementGroupScoped(
+            ManagementGroupScopedRoleEligibilityScheduleId {
+                management_group_id,
+                name,
+            },
+        )
     }
 }
-
 
 // MARK: impl Scope
 impl Scope for RoleEligibilityScheduleId {
@@ -188,8 +184,6 @@ impl HasPrefix for RoleEligibilityScheduleId {
     }
 }
 
-
-
 // MARK: Serialize
 impl Serialize for RoleEligibilityScheduleId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -212,11 +206,10 @@ impl<'de> Deserialize<'de> for RoleEligibilityScheduleId {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::ResourceGroupName, slug::Slug};
+    use crate::prelude::ResourceGroupName;
+    use crate::slug::Slug;
 
     use super::*;
     use cloud_terrastodon_azure_resource_types::prelude::ResourceType;
@@ -235,19 +228,20 @@ mod tests {
     #[test]
     fn deserializes2() -> Result<()> {
         // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Network/virtualNetworks/MY-VNET/subnets/MY-Subnet/providers/Microsoft.Authorization/RoleEligibilitySchedules/{nil}
-        let expanded = RoleEligibilityScheduleId::ResourceScoped(ResourceScopedRoleEligibilityScheduleId {
-            resource_id: ResourceId::new(
-                ResourceGroupId::new(
-                    SubscriptionId::new(Uuid::new_v4()),
-                    ResourceGroupName::try_new("MY-RG")?,
+        let expanded =
+            RoleEligibilityScheduleId::ResourceScoped(ResourceScopedRoleEligibilityScheduleId {
+                resource_id: ResourceId::new(
+                    ResourceGroupId::new(
+                        SubscriptionId::new(Uuid::new_v4()),
+                        ResourceGroupName::try_new("MY-RG")?,
+                    ),
+                    ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
+                    "MY-VNET",
                 ),
-                ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
-                "MY-VNET",
-            ),
-            name: RoleEligibilityScheduleName {
-                inner: Uuid::new_v4(),
-            },
-        });
+                name: RoleEligibilityScheduleName {
+                    inner: Uuid::new_v4(),
+                },
+            });
         let id: RoleEligibilityScheduleId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(id, expanded);
