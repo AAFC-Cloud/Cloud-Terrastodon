@@ -95,9 +95,9 @@ impl GenerateConfigOutHelper {
                 Ok(_) => {
                     info!("Import success!");
                 }
-                Err(e) => {
+                Err(mut e) => {
                     let output = e
-                        .downcast_ref::<CommandOutput>()
+                        .downcast_mut::<CommandOutput>()
                         .ok_or_eyre("Failed to get command output details from error report")?;
                     let mut errors = Vec::new();
                     let needle_error_prefix =
@@ -122,7 +122,7 @@ impl GenerateConfigOutHelper {
                             .strip_prefix(needle_error_prefix)
                             .and_then(|x| x.strip_suffix(needle_error_suffix))
                         {
-                            seen_errors.insert(BString::from(error_text));
+                            seen_errors.insert(BString::from(error_text.trim()));
                         }
                     }
                     info!(
@@ -133,13 +133,15 @@ impl GenerateConfigOutHelper {
                     let fixable_errors: HashSet<BString> = HashSet::from_iter([
                         BString::from("Insufficient initialization blocks"),
                         BString::from("Feature map must contain at least on entry"),
+                        BString::from("expected \"display_name\" to not be an empty string, got"),
+                        
                     ]);
                     let mut unfixable_error_count = 0;
                     for error in seen_errors {
                         if fixable_errors.contains(&error) {
                             warn!("(auto-fixable) {}", error);
                         } else {
-                            warn!("{}", error);
+                            warn!("{error}\n\t{error:?}");
                             if error.contains_str("No valid credentials found") {
                                 warn!(
                                     "Did you forget to set your devops access token?\n```pwsh\n$env:AZDO_PERSONAL_ACCESS_TOKEN=Read-Host -MaskInput \"Enter PAT\"\n```"
@@ -149,6 +151,7 @@ impl GenerateConfigOutHelper {
                         }
                     }
                     if unfixable_error_count > 0 {
+                        output.shorten();
                         return Err(e.wrap_err(format!(
                             "Errors present during import, found {unfixable_error_count} errors that are not fixable by the fixer-upper.",
                         )));

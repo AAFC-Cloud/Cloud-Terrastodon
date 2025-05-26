@@ -5,6 +5,7 @@ mod data;
 mod imports;
 mod providers;
 mod resources;
+mod sanitize;
 mod strings;
 mod terraform_block;
 mod tf_work_dir;
@@ -18,6 +19,7 @@ pub mod prelude {
     pub use crate::imports::*;
     pub use crate::providers::*;
     pub use crate::resources::*;
+    pub use crate::sanitize::*;
     pub use crate::strings::*;
     pub use crate::terraform_block::*;
     pub use crate::tf_work_dir::*;

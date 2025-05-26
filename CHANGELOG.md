@@ -1,6 +1,9 @@
 # v0.9.0
 
 - The Great Big ID Rework - instead of storing simple strings to the resource, I fully parse the ID into its components.
+- Fix policy import builder
+- Fix name sanitization when reflowing Terraform workspaces
+- Truncate command output when displaying errors, only shows first and last 500 lines
 
 # v0.8.0
 

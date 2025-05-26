@@ -1,19 +1,19 @@
-use cloud_terrastodon_azure_types::prelude::Scope;
-use cloud_terrastodon_azure_types::prelude::ScopeImpl;
-use cloud_terrastodon_azure_types::prelude::ScopeImplKind;
-use eyre::Context;
-use eyre::Result;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
-use tracing::info;
-use tracing::warn;
-
 use crate::prelude::fetch_all_management_groups;
 use crate::prelude::fetch_all_policy_assignments;
 use crate::prelude::fetch_all_policy_definitions;
 use crate::prelude::fetch_all_policy_set_definitions;
 use crate::prelude::fetch_all_resource_groups;
 use crate::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure_types::prelude::Scope;
+use cloud_terrastodon_azure_types::prelude::ScopeImpl;
+use cloud_terrastodon_azure_types::prelude::ScopeImplKind;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use eyre::Context;
+use eyre::Result;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use tracing::debug;
+use tracing::warn;
 
 #[derive(Default)]
 pub struct NameLookupHelper {
@@ -33,8 +33,8 @@ impl NameLookupHelper {
 }
 
 pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, String>> {
-    info!("Fetching names to populate cache for {kind:?}");
-    Ok(match kind {
+    debug!("Fetching names to populate cache for {kind:?}");
+    let rtn: HashMap<ScopeImpl, String> = match kind {
         ScopeImplKind::PolicyDefinition => fetch_all_policy_definitions()
             .await?
             .into_iter()
@@ -75,5 +75,6 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
             );
             Default::default()
         }
-    })
+    };
+    Ok(rtn)
 }

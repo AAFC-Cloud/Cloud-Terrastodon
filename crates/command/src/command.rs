@@ -55,7 +55,7 @@ pub enum CommandKind {
     Echo,
     Pwsh,
     Git,
-    Other(String)
+    Other(String),
 }
 
 pub const USE_TOFU_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TOFU";
@@ -255,6 +255,32 @@ impl CommandOutput {
                     )))
             }
         }
+    }
+    /// Keeps only the first and last 500 lines of stdout and stderr
+    pub fn shorten(&mut self) {
+        fn keep_first_and_last_500_lines_with_warning(output: BString) -> BString {
+            let lines: Vec<&[u8]> = output.lines().collect();
+            let total = lines.len();
+
+            if total <= 1000 {
+                output
+            } else {
+                let mut trimmed = Vec::new();
+                trimmed.extend_from_slice(&lines[..500]);
+
+                // Add truncation warning
+                let warning = b"...[output truncated: middle lines omitted]...";
+                trimmed.push(warning);
+
+                trimmed.extend_from_slice(&lines[total - 500..]);
+                BString::from(trimmed.join(&b'\n'))
+            }
+        }
+        let stdout = std::mem::take(&mut self.stdout);
+        self.stdout = keep_first_and_last_500_lines_with_warning(stdout);
+
+        let stderr = std::mem::take(&mut self.stderr);
+        self.stderr = keep_first_and_last_500_lines_with_warning(stderr);
     }
 }
 impl std::error::Error for CommandOutput {}
@@ -598,6 +624,7 @@ impl CommandBuilder {
     }
 
     #[async_recursion]
+    #[track_caller]
     pub async fn run_raw_inner(&self) -> Result<CommandOutput> {
         // Check cache
         match self.get_cached_output().await {

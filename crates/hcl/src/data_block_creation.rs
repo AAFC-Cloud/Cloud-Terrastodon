@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::prelude::ScopeImpl;
 use cloud_terrastodon_hcl_types::prelude::AzureRMProviderDataBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLDataBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLDataBlockReference;
+use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use cloud_terrastodon_hcl_types::prelude::TryAsHCLBlocks;
 use eyre::Result;
 use hcl::edit::structure::Body;
@@ -28,15 +29,15 @@ pub async fn create_data_blocks_for_ids(
         let reference = match &scope {
             ScopeImpl::PolicyDefinition(_) => HCLDataBlockReference::AzureRM {
                 kind: AzureRMProviderDataBlockKind::PolicyDefinition,
-                name: name.to_owned(),
+                name: name.to_owned().sanitize(),
             },
             ScopeImpl::PolicySetDefinition(_) => HCLDataBlockReference::AzureRM {
                 kind: AzureRMProviderDataBlockKind::PolicySetDefinition,
-                name: name.to_owned(),
+                name: name.to_owned().sanitize(),
             },
             ScopeImpl::ResourceGroup(_) => HCLDataBlockReference::AzureRM {
                 kind: AzureRMProviderDataBlockKind::ResourceGroup,
-                name: name.to_owned(),
+                name: name.to_owned().sanitize(),
             },
             x => {
                 warn!(

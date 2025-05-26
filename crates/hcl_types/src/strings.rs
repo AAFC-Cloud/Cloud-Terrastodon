@@ -1,13 +1,10 @@
 use std::collections::HashSet;
-
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::IntoBlocks;
-use hcl_primitives::ident::is_id_continue;
-use hcl_primitives::ident::is_id_start;
 
 #[async_trait::async_trait]
 pub trait AsHCLString {
@@ -28,36 +25,6 @@ impl AsHCLString for String {
 impl AsHCLString for &str {
     fn as_hcl_string(&self) -> String {
         self.to_string()
-    }
-}
-
-pub trait Sanitizable {
-    fn sanitize(&self) -> String;
-}
-
-impl<T: AsRef<str>> Sanitizable for T {
-    fn sanitize(&self) -> String {
-        let mut rtn: String = self
-            .as_ref()
-            .chars()
-            // .flat_map(|c| unidecode_char(c).chars())
-            .enumerate()
-            .map(|(i, c)| {
-                if i == 0 && is_id_start(c) || i > 0 && is_id_continue(c) {
-                    c
-                } else {
-                    '_'
-                }
-            })
-            .skip_while(|c| *c == '_')
-            .collect();
-        match rtn.chars().next() {
-            Some(x) if !is_id_start(x) => {
-                rtn.insert_str(0, "ZZZ_");
-            }
-            _ => {}
-        };
-        rtn
     }
 }
 

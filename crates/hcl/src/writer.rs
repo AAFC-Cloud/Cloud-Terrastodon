@@ -36,7 +36,7 @@ impl HCLWriter {
         }
     }
 
-    pub fn format_on_write(mut self) -> Self {
+    pub fn format_on_write(mut self) -> Self { // TODO: make this true by default with the method to turn off if desired
         self.format_on_write = true;
         self
     }

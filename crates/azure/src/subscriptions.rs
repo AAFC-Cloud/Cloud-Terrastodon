@@ -1,5 +1,8 @@
 use cloud_terrastodon_azure_types::prelude::Subscription;
+use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
@@ -33,6 +36,20 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
     Ok(subscriptions)
 }
 
+pub async fn get_active_subscription_id() -> Result<SubscriptionId> {
+    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+    cmd.args([
+        "account",
+        "list",
+        "--query",
+        "[?isDefault].id",
+        "--output",
+        "json",
+    ]);
+    let rtn = cmd.run::<[SubscriptionId;1]>().await?[0];
+    Ok(rtn)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -49,6 +66,12 @@ mod tests {
                 sub.management_group_ancestors_chain.first().unwrap().name
             );
         }
+        Ok(())
+    }
+
+    #[tokio::test]
+    pub async fn get_active() -> eyre::Result<()> {
+        println!("{}", get_active_subscription_id().await?);
         Ok(())
     }
 }

@@ -19,7 +19,7 @@ use crate::azuredevops_git_repository_initialization_patcher::AzureDevOpsGitRepo
 use crate::body_formatter::PrettyBody;
 use crate::data_block_creation::create_data_blocks_for_ids;
 use crate::data_reference_patcher::DataReferencePatcher;
-use crate::default_attribute_removal_patcher::DefaultAttributeRemovalPatcher;
+use crate::default_attribute_cleanup_patcher::DefaultAttributeCleanupPatcher;
 use crate::import_lookup_holder::ImportLookupHolder;
 use crate::imported_resource_reference_patcher::ImportedResourceReferencePatcher;
 use crate::json_patcher::JsonPatcher;
@@ -132,7 +132,7 @@ pub async fn reflow_workspace(source_dir: &Path) -> Result<ReflowedTFWorkspace> 
 
     {
         debug!("Pruning default/conflicting properties");
-        let mut patcher = DefaultAttributeRemovalPatcher {};
+        let mut patcher = DefaultAttributeCleanupPatcher {};
         patcher.visit_body_mut(&mut main_body);
     }
 

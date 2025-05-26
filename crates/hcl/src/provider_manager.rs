@@ -1,18 +1,20 @@
 use crate::writer::HCLWriter;
+use cloud_terrastodon_azure::prelude::Scope;
+use cloud_terrastodon_azure::prelude::get_active_subscription_id;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_name;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
-use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_hcl_types::prelude::AsHCLString;
+use cloud_terrastodon_hcl_types::prelude::HCLProviderBlock;
 use cloud_terrastodon_hcl_types::prelude::ProviderAvailability;
 use cloud_terrastodon_hcl_types::prelude::ProviderHostname;
-use cloud_terrastodon_hcl_types::prelude::ProviderNamespace;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderBlock;
 use cloud_terrastodon_hcl_types::prelude::ProviderKind;
+use cloud_terrastodon_hcl_types::prelude::ProviderNamespace;
 use cloud_terrastodon_hcl_types::prelude::TerraformBlock;
 use cloud_terrastodon_hcl_types::prelude::TerraformRequiredProvidersBlock;
+use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_pathing::Existy;
 use directories_next::BaseDirs;
 use eyre::Context;
 use eyre::OptionExt;
@@ -251,6 +253,9 @@ impl ProviderManager {
             name = get_default_organization_name().await?
         );
 
+        // Get active sub
+        let active_sub_id = get_active_subscription_id().await?;
+
         // Open boilerplate file
         debug!("Writing default provider configs in {}", work_dir.display());
         let boilerplate_path = work_dir.join("boilerplate.tf");
@@ -261,10 +266,16 @@ impl ProviderManager {
             }])
             .await
             .wrap_err("Writing terraform block")?
-            .merge(vec![HCLProviderBlock::AzureDevOps {
-                alias: None,
-                org_service_url,
-            }])
+            .merge(vec![
+                HCLProviderBlock::AzureDevOps {
+                    alias: None,
+                    org_service_url,
+                },
+                HCLProviderBlock::AzureRM {
+                    alias: None,
+                    subscription_id: Some(active_sub_id.short_form()),
+                },
+            ])
             .await
             .wrap_err("Writing default provider blocks")?
             .format_file()

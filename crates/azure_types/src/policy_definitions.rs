@@ -54,7 +54,37 @@ impl From<PolicyDefinition> for HCLImportBlock {
             id: policy_definition.id.expanded_form().to_string(),
             to: ResourceBlockReference::AzureRM {
                 kind: AzureRMResourceBlockKind::PolicyDefinition,
-                name: policy_definition.name.sanitize(),
+                name: {
+                    let prefix = match policy_definition.id {
+                        PolicyDefinitionId::Unscoped(_) => None,
+                        PolicyDefinitionId::ManagementGroupScoped(
+                            management_group_scoped_policy_definition_id,
+                        ) => Some(
+                            management_group_scoped_policy_definition_id
+                                .management_group_id
+                                .short_form(),
+                        ),
+                        PolicyDefinitionId::SubscriptionScoped(
+                            subscription_scoped_policy_definition_id,
+                        ) => Some(subscription_scoped_policy_definition_id.subscription_id.short_form()),
+                        PolicyDefinitionId::ResourceGroupScoped(
+                            resource_group_scoped_policy_definition_id,
+                        ) => Some(resource_group_scoped_policy_definition_id.resource_group_id.short_form()),
+                        PolicyDefinitionId::ResourceScoped(
+                            resource_scoped_policy_definition_id,
+                        ) => Some(
+                            resource_scoped_policy_definition_id
+                                .resource_id
+                                .short_form(),
+                        ),
+                    };
+
+                    match prefix {
+                        None => policy_definition.name,
+                        Some(prefix) => format!("{}_{}", prefix, policy_definition.name),
+                    }
+                    .sanitize()
+                },
             },
         }
     }
