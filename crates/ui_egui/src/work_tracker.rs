@@ -7,6 +7,7 @@ use crate::work::WorkHandle;
 
 #[derive(Debug, Default)]
 pub struct WorkTracker {
+    // We use interior mutability here to avoid annoyances when passing around context when doing immediate mode UI stuff
     remaining_work: RefCell<Vec<WorkHandle>>,
 }
 
@@ -23,8 +24,8 @@ impl WorkTracker {
         let mut remaining_work = self.remaining_work.borrow_mut();
         remaining_work.retain(|work| !work.join_handle.is_finished());
     }
-    pub async fn finish(&self) -> eyre::Result<()> {
-        let mut remaining_work = self.remaining_work.borrow_mut();
+    pub async fn finish(self) -> eyre::Result<()> {
+        let mut remaining_work = self.remaining_work.take();
         if remaining_work.is_empty() {
             return Ok(());
         }

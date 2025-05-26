@@ -29,54 +29,47 @@ impl HCLImportable {
     pub async fn try_into_import_blocks(
         &self,
     ) -> eyre::Result<Vec<Choice<(HCLImportBlock, Option<HCLProviderBlock>)>>> {
-        let rtn: Vec<Choice<(HCLImportBlock, Option<HCLProviderBlock>)>>;
-        match self {
-            HCLImportable::ResourceGroup => {
-                rtn = get_resource_group_choices()
-                    .await?
-                    .into_iter()
-                    .map(
-                        |Choice {
-                             key,
-                             value: (rg, sub),
-                         }| Choice {
-                            key,
-                            value: (
-                                {
-                                    let mut import_block: HCLImportBlock = rg.into();
-                                    import_block.provider = HCLProviderReference::Alias {
-                                        kind: ProviderKind::AzureRM,
-                                        name: sub.name.clone(),
-                                    };
-                                    import_block
-                                },
-                                Some(sub.into_provider_block()),
-                            ),
-                        },
-                    )
-                    .collect();
-            }
-            HCLImportable::SecurityGroup => {
-                rtn = get_security_group_choices()
-                    .await?
-                    .into_iter()
-                    .map(|choice| Choice {
-                        key: choice.key,
-                        value: (choice.value.into(), None),
-                    })
-                    .collect();
-            }
-            HCLImportable::RoleAssignment => {
-                rtn = get_role_assignment_choices()
-                    .await?
-                    .into_iter()
-                    .map(|choice| Choice {
-                        key: choice.key,
-                        value: (choice.value.into(), None),
-                    })
-                    .collect();
-            }
-        }
+        let rtn: Vec<Choice<(HCLImportBlock, Option<HCLProviderBlock>)>> = match self {
+            HCLImportable::ResourceGroup => get_resource_group_choices()
+                .await?
+                .into_iter()
+                .map(
+                    |Choice {
+                         key,
+                         value: (rg, sub),
+                     }| Choice {
+                        key,
+                        value: (
+                            {
+                                let mut import_block: HCLImportBlock = rg.into();
+                                import_block.provider = HCLProviderReference::Alias {
+                                    kind: ProviderKind::AzureRM,
+                                    name: sub.name.clone(),
+                                };
+                                import_block
+                            },
+                            Some(sub.into_provider_block()),
+                        ),
+                    },
+                )
+                .collect(),
+            HCLImportable::SecurityGroup => get_security_group_choices()
+                .await?
+                .into_iter()
+                .map(|choice| Choice {
+                    key: choice.key,
+                    value: (choice.value.into(), None),
+                })
+                .collect(),
+            HCLImportable::RoleAssignment => get_role_assignment_choices()
+                .await?
+                .into_iter()
+                .map(|choice| Choice {
+                    key: choice.key,
+                    value: (choice.value.into(), None),
+                })
+                .collect(),
+        };
         Ok(rtn)
     }
     pub fn pick() -> eyre::Result<HCLImportable> {

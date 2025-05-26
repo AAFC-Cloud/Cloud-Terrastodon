@@ -3,16 +3,19 @@ use crate::work_tracker::WorkTracker;
 use cloud_terrastodon_pathing::AppDir;
 use eframe::NativeOptions;
 use eyre::bail;
+use eyre::eyre;
 use std::rc::Rc;
 use tokio::runtime;
 use tokio::task::block_in_place;
 use tracing::info;
 
 pub async fn run_app() -> eyre::Result<()> {
-    let mut native_options = NativeOptions::default();
-    native_options.persist_window = true;
-    native_options.persistence_path = Some(AppDir::Config.join("egui_window_state.ron"));
-    native_options.run_and_return = true;
+    let native_options = NativeOptions {
+        persist_window: true,
+        persistence_path: Some(AppDir::Config.join("egui_window_state.ron")),
+        run_and_return: true,
+        ..Default::default()
+    };
 
     let work_tracker = Rc::new(WorkTracker::new());
 
@@ -31,9 +34,13 @@ pub async fn run_app() -> eyre::Result<()> {
                 }),
             )
         }) {
+            let work_tracker =
+                Rc::try_unwrap(work_tracker).map_err(|_| eyre!("Failed to take work_tracker"))?;
             work_tracker.finish().await?;
             bail!("Failed to run app: {e:#?}");
         } else {
+            let work_tracker =
+                Rc::try_unwrap(work_tracker).map_err(|_| eyre!("Failed to take work_tracker"))?;
             work_tracker.finish().await?;
         };
     }

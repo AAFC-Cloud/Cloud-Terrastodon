@@ -10,14 +10,17 @@ use std::panic::Location;
 use std::pin::Pin;
 use std::sync::Arc;
 
+
+pub type Setter<T> = Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) + Send + Sync>;
 /// A small helper that builds a `Work` for "fetch data -> store in app field".
 pub struct LoadableWorkBuilder<T>
 where
     T: Debug + Send,
 {
     /// A function that, given `&mut MyApp`, returns the `&mut Loadable<T,E>` that we want to update.
-    setter: Option<Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) + Send + Sync>>,
+    setter: Option<Setter<T>>,
     /// The async work that fetches a `T` or errors with `E`.
+    #[allow(clippy::type_complexity)]
     on_work: Option<(
         &'static Location<'static>,
         Pin<Box<dyn Future<Output = eyre::Result<T>> + Send>>,
@@ -79,6 +82,7 @@ where
 
     /// Build a `Work` that, when enqueued, sets the chosen field to Loading,
     /// calls the async future, then sets the field to Loaded or Failed.
+    #[allow(clippy::type_complexity)]
     pub fn build(
         self,
     ) -> eyre::Result<
@@ -130,7 +134,7 @@ where
 /// A success mutator that just sets the chosen field to Loaded(data).
 pub struct FieldUpdaterWorkSuccessMutator<T> {
     pub data: T,
-    pub setter: Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) + Send + Sync>,
+    pub setter: Setter<T>,
 }
 impl<T> Debug for FieldUpdaterWorkSuccessMutator<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -144,7 +148,7 @@ impl<T> Debug for FieldUpdaterWorkSuccessMutator<T> {
 /// A failure mutator that sets the chosen field to Failed(err).
 pub struct FieldUpdaterWorkFailureMutator<T> {
     pub err: eyre::Error,
-    pub setter: Arc<dyn Fn(&mut MyApp, Loadable<T, eyre::Error>) + Send + Sync>,
+    pub setter: Setter<T>,
 }
 impl<T> Debug for FieldUpdaterWorkFailureMutator<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -1,11 +1,9 @@
-use std::path::PathBuf;
-
+use crate::app::MyApp;
 use eframe::egui::Context;
 use eframe::egui::Id;
 use eframe::egui::Ui;
 use eframe::egui::Window;
-
-use crate::app::MyApp;
+use std::path::Path;
 
 pub fn ui_dir_windows(app: &mut MyApp, ctx: &Context) {
     for (dir, rect) in app.egui_config.open_dirs.clone().into_iter() {
@@ -28,6 +26,6 @@ pub fn ui_dir_windows(app: &mut MyApp, ctx: &Context) {
     }
 }
 
-pub fn ui_dir_window_body(_app: &mut MyApp, _ctx: &Context, ui: &mut Ui, _dir: &PathBuf) {
+pub fn ui_dir_window_body(_app: &mut MyApp, _ctx: &Context, ui: &mut Ui, _dir: &Path) {
     ui.label("bruh");
 }

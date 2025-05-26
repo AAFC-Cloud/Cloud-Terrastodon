@@ -1,9 +1,7 @@
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
-
-use std::cell::LazyCell;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::time::Duration;
-
 use cloud_terrastodon_azure_types::prelude::ConsentType;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
@@ -15,8 +13,8 @@ use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
 use tracing::info;
 
-pub const FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyCell<PathBuf> =
-    LazyCell::new(|| PathBuf::from_iter(["ms", "graph", "GET", "oauth2PermissionGrants"]));
+pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| PathBuf::from_iter(["ms", "graph", "GET", "oauth2PermissionGrants"]));
 
 pub async fn fetch_oauth2_permission_grants() -> eyre::Result<Vec<OAuth2PermissionGrant>> {
     let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";

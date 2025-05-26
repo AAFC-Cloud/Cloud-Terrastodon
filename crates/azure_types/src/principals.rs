@@ -80,7 +80,7 @@ pub enum Principal {
     #[serde(rename = "#microsoft.graph.group")]
     Group(Group),
     #[serde(rename = "#microsoft.graph.servicePrincipal")]
-    ServicePrincipal(ServicePrincipal),
+    ServicePrincipal(Box<ServicePrincipal>),
     // #[serde(rename = "#microsoft.graph.device")]
     // Device(Value),
 }
@@ -96,7 +96,7 @@ impl From<Group> for Principal {
 }
 impl From<ServicePrincipal> for Principal {
     fn from(value: ServicePrincipal) -> Self {
-        Self::ServicePrincipal(value)
+        Self::ServicePrincipal(Box::new(value))
     }
 }
 impl AsRef<Uuid> for Principal {

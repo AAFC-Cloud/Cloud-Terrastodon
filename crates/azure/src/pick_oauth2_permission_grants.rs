@@ -25,7 +25,7 @@ pub struct Grant {
 #[derive(Debug)]
 pub enum Target {
     AllPrincipals,
-    User(User),
+    User(Box<User>),
 }
 
 pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Choice<Grant>>> {
@@ -62,7 +62,7 @@ pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Choice<Grant>>>
                     Grant {
                         grant,
                         service_principal: (*service_principal).clone(),
-                        target: Target::User((*user).clone()),
+                        target: Target::User(Box::new((*user).clone())),
                     }
                 }
                 _ => bail!(

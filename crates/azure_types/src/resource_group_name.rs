@@ -3,6 +3,7 @@ use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
 use serde::de::Error;
+use std::hash::Hash;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::str::FromStr;
@@ -23,7 +24,7 @@ use validator::ValidationError;
 /// DecimalDigitNumber.
 ///
 /// Can't end with period.
-#[derive(Debug, Clone, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, Validate, PartialOrd, Ord)]
 pub struct ResourceGroupName {
     #[validate(
         length(min = 1, max = 90),
@@ -34,6 +35,11 @@ pub struct ResourceGroupName {
 impl PartialEq for ResourceGroupName {
     fn eq(&self, other: &Self) -> bool {
         self.inner.eq_ignore_ascii_case(&other.inner)
+    }
+}
+impl Hash for ResourceGroupName {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.inner.to_ascii_lowercase().hash(state);
     }
 }
 impl Slug for ResourceGroupName {

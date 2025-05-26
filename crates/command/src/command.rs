@@ -60,7 +60,7 @@ pub enum CommandKind {
 
 pub const USE_TOFU_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TOFU";
 
-const CONFIG: OnceCell<CommandsConfig> = OnceCell::const_new();
+static CONFIG: OnceCell<CommandsConfig> = OnceCell::const_new();
 
 async fn get_config(cache: &OnceCell<CommandsConfig>) -> &CommandsConfig {
     let config: &CommandsConfig = cache

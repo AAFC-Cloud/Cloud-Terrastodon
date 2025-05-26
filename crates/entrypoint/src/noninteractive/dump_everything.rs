@@ -240,7 +240,11 @@ async fn process_generated_many(
         tokio::fs::remove_dir_all(&out_dir).await?;
     }
     let imports_dir = AppDir::Imports.as_path_buf().canonicalize()?;
-    let mut reflow_jobs: JoinSet<eyre::Result<(PathBuf, Vec<(PathBuf, String)>)>> = JoinSet::new();
+    struct WorkOutcome {
+        out_dir: PathBuf,
+        file_contents: Vec<(PathBuf, String)>,
+    }
+    let mut reflow_jobs: JoinSet<eyre::Result<WorkOutcome>> = JoinSet::new();
     let rate_limit = Arc::new(Semaphore::new(16));
     for work_dir in tf_work_dirs {
         let imports_dir_clone = imports_dir.clone();
@@ -255,14 +259,20 @@ async fn process_generated_many(
             );
             let reflowed = reflow_workspace(&work_dir).await?;
             drop(permit);
-            Ok((out_dir.clone(), reflowed.get_file_contents(&out_dir)?))
+            Ok(WorkOutcome {
+                out_dir: out_dir.clone(),
+                file_contents: reflowed.get_file_contents(&out_dir)?,
+            })
         });
     }
 
     let mut write_jobs: JoinSet<eyre::Result<()>> = JoinSet::new();
     let rate_limit = Arc::new(Semaphore::new(16));
     while let Some(reflow_result) = reflow_jobs.join_next().await {
-        let (out_dir, files) = reflow_result??;
+        let WorkOutcome {
+            out_dir,
+            file_contents,
+        } = reflow_result??;
 
         info!(
             "Reflowing workspace and spawning write tasks, {} remain",
@@ -271,7 +281,7 @@ async fn process_generated_many(
 
         rtn.push(ProcessedTFWorkDir::new(out_dir.clone()));
 
-        for (path, content) in files {
+        for (path, content) in file_contents {
             let path_clone = path.clone();
             let rate_limit = rate_limit.clone();
             write_jobs.spawn(async move {

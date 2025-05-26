@@ -56,6 +56,7 @@ mod scopes;
 mod service_principal;
 mod slug;
 mod storage_account;
+mod storage_account_blob_container_name;
 mod storage_account_id;
 mod storage_account_name;
 mod subscription;
@@ -124,6 +125,7 @@ pub mod prelude {
     pub use crate::service_principal::*;
     pub use crate::slug::*;
     pub use crate::storage_account::*;
+    pub use crate::storage_account_blob_container_name::*;
     pub use crate::storage_account_id::*;
     pub use crate::storage_account_name::*;
     pub use crate::subscription::*;

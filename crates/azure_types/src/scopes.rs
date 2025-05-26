@@ -46,8 +46,15 @@ pub trait Scope: Sized {
             .map(|x| x.1.to_owned())
             .unwrap_or_else(|| self.expanded_form())
     }
+
+    // TODO: replace String and CompactString usage with something like this
+    // pub struct ExpandedFormScope(CompactString);
+    // replace this fn with inheriting from TryFrom<ExpandedFormScope>
     fn try_from_expanded(expanded: &str) -> Result<Self, Self::Error>;
+
+    // TODO: maybe replace with Into impl to avoid always cloning
     fn as_scope_impl(&self) -> ScopeImpl;
+
     fn kind(&self) -> ScopeImplKind;
 }
 impl Scope for CompactString {
@@ -67,9 +74,6 @@ impl Scope for CompactString {
         ScopeImplKind::Unknown
     }
 }
-
-// TODO: replace String and CompactString usage with something like this
-// pub struct ExpandedFormScope(CompactString);
 
 pub trait AsScope {
     fn as_scope(&self) -> &impl Scope;
