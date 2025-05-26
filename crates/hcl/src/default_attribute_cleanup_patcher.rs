@@ -62,7 +62,7 @@ impl VisitMut for DefaultAttributeCleanupPatcher {
             return;
         }
         visit_block_mut(self, node);
-        let [resource_kind, name] = node.labels.as_slice() else {
+        let [resource_kind, _name] = node.labels.as_slice() else {
             return;
         };
         let Ok(resource_kind) = resource_kind.parse() else {
@@ -70,7 +70,6 @@ impl VisitMut for DefaultAttributeCleanupPatcher {
             return;
         };
 
-        let name = name.as_str();
         let body = &mut node.body;
         match resource_kind {
             ResourceBlockKind::AzureRM(AzureRMResourceBlockKind::RoleAssignment) => {

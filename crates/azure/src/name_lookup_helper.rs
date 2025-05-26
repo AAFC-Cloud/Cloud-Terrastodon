@@ -7,7 +7,6 @@ use crate::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_azure_types::prelude::ScopeImpl;
 use cloud_terrastodon_azure_types::prelude::ScopeImplKind;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use eyre::Context;
 use eyre::Result;
 use std::collections::HashMap;
