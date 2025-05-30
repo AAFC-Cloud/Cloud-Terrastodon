@@ -30,6 +30,14 @@ impl FromStr for SubscriptionName {
         SubscriptionName::try_new(s)
     }
 }
+impl TryFrom<&str> for SubscriptionName {
+    type Error = eyre::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        SubscriptionName::try_new(value)
+    }
+}
+
 impl std::fmt::Display for SubscriptionName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)

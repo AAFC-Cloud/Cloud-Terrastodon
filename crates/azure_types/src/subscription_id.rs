@@ -21,9 +21,12 @@ impl SubscriptionId {
     pub fn try_new<T>(uuid: T) -> eyre::Result<Self>
     where
         T: TryInto<Uuid>,
-        T::Error: std::error::Error + Send + Sync + 'static,
+        T::Error: Into<eyre::Error>,
     {
-        let uuid = uuid.try_into().wrap_err("Failed to convert to Uuid")?;
+        let uuid = uuid
+            .try_into()
+            .map_err(Into::into)
+            .wrap_err("Failed to convert to Uuid")?;
         Ok(Self(uuid))
     }
 }
@@ -153,6 +156,13 @@ impl FromStr for SubscriptionId {
         Ok(Self(id))
     }
 }
+impl TryFrom<&str> for SubscriptionId {
+    type Error = eyre::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_str(value)
+    }
+}
 // #[cfg(test)]
 // mod test {
 //     use nom::combinator::all_consuming;
@@ -167,3 +177,15 @@ impl FromStr for SubscriptionId {
 //         Ok(())
 //     }
 // }
+
+#[cfg(test)]
+mod test {
+    use super::SubscriptionId;
+
+    #[test]
+    pub fn it_works() -> eyre::Result<()> {
+        // a random guid
+        let _id = SubscriptionId::try_new("ba53fb6a-867e-413b-8c91-53fb5ff77d70")?;
+        Ok(())
+    }
+}

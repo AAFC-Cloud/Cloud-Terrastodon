@@ -61,6 +61,13 @@ impl FromStr for StorageAccountName {
         StorageAccountName::try_new(s)
     }
 }
+impl TryFrom<&str> for StorageAccountName {
+    type Error = eyre::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        StorageAccountName::try_new(value)
+    }
+}
 impl std::fmt::Display for StorageAccountName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)

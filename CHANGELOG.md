@@ -1,3 +1,14 @@
+# v0.12.0
+
+- Fix trait bounds on `ResourceGroupId::try_new` to allow passing `&str`
+- Fix trait bounds on `StorageAccountId::try_new` to allow passing `&str`
+- Fix trait bounds on `SubscriptionId::try_new` to allow passing `&str`
+- Added `impl TryFrom<&str> for ResourceGroupName`
+- Added `impl TryFrom<&str> for StorageAccountName`
+- Added `impl TryFrom<&str> for SubscriptionName`
+- Added `impl TryFrom<&str> for StorageAccountBlobContainerName`
+
+
 # v0.11.0
 
 - Impl `Arbitrary` for ResourceGroupId

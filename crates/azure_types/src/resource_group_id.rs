@@ -43,15 +43,17 @@ impl ResourceGroupId {
     pub fn try_new<S, N>(subscription_id: S, resource_group_name: N) -> Result<Self>
     where
         S: TryInto<SubscriptionId>,
-        S::Error: std::error::Error + Send + Sync + 'static,
+        S::Error: Into<eyre::Error>,
         N: TryInto<ResourceGroupName>,
-        N::Error: std::error::Error + Send + Sync + 'static,
+        N::Error: Into<eyre::Error>,
     {
         let subscription_id = subscription_id
             .try_into()
+            .map_err(Into::into)
             .wrap_err("Failed to convert subscription_id")?;
         let resource_group_name = resource_group_name
             .try_into()
+            .map_err(Into::into)
             .wrap_err("Failed to convert resource_group_name")?;
         Ok(ResourceGroupId {
             subscription_id,
@@ -145,6 +147,13 @@ impl FromStr for ResourceGroupId {
         Ok(ResourceGroupId::new(sub_id, rg_name.to_owned()))
     }
 }
+impl TryFrom<&str> for ResourceGroupId {
+    type Error = eyre::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        ResourceGroupId::from_str(value)
+    }
+}
 
 impl Scope for ResourceGroupId {
     fn expanded_form(&self) -> String {
@@ -201,5 +210,18 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
             .parse()
             .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(id)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::ResourceGroupId;
+
+    #[test]
+    pub fn it_works() -> eyre::Result<()> {
+        // a random guid
+        let _id =
+            ResourceGroupId::try_new("d8e27b8a-2513-45f5-9ae7-10fcb50e645e", "My-Resource-Group")?;
+        Ok(())
     }
 }

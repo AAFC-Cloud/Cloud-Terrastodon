@@ -38,15 +38,17 @@ impl StorageAccountId {
     pub fn try_new<R, N>(resource_group_id: R, storage_account_name: N) -> Result<Self>
     where
         R: TryInto<ResourceGroupId>,
-        R::Error: std::error::Error + Send + Sync + 'static,
+        R::Error: Into<eyre::Error>,
         N: TryInto<StorageAccountName>,
-        N::Error: std::error::Error + Send + Sync + 'static,
+        N::Error: Into<eyre::Error>,
     {
         let resource_group_id = resource_group_id
             .try_into()
+            .map_err(Into::into)
             .wrap_err("Failed to convert resource_group_id")?;
         let storage_account_name = storage_account_name
             .try_into()
+            .map_err(Into::into)
             .wrap_err("Failed to convert storage_account_name")?;
         Ok(StorageAccountId {
             resource_group_id,
@@ -136,5 +138,42 @@ impl<'de> Deserialize<'de> for StorageAccountId {
         let id = StorageAccountId::try_from_expanded(expanded.as_str())
             .map_err(|e| D::Error::custom(format!("{e:?}")))?;
         Ok(id)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::StorageAccountId;
+    use crate::prelude::ResourceGroupId;
+    use crate::prelude::StorageAccountName;
+    use crate::prelude::SubscriptionId;
+    use crate::slug::Slug;
+
+    #[test]
+    pub fn it_works() -> eyre::Result<()> {
+        assert!(StorageAccountId::try_new("", "").is_err());
+        StorageAccountId::try_new(
+            "/subscriptions/eefb00d7-c277-4c2c-a7de-ba3a11cf2110/resourceGroups/myRG",
+            "aaa",
+        )?;
+        StorageAccountId::try_new(
+            ResourceGroupId::try_new("95c30970-3b9b-47d6-84a2-31f0e0cdfc8e", "myRG")?,
+            "aaa",
+        )?;
+        StorageAccountId::try_new(
+            ResourceGroupId::try_new(
+                SubscriptionId::try_new("d4917068-8792-4f47-9a6d-330f202cd438")?,
+                "myRG",
+            )?,
+            "aaa",
+        )?;
+        StorageAccountId::new(
+            ResourceGroupId::try_new(
+                "/subscriptions/ac9c7dce-2d4e-4bd2-865d-4a2de1ff5df4",
+                "MyRG",
+            )?,
+            StorageAccountName::try_new("aaa")?,
+        );
+        Ok(())
     }
 }
