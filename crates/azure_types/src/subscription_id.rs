@@ -18,6 +18,14 @@ impl SubscriptionId {
     pub fn new(uuid: Uuid) -> Self {
         Self(uuid)
     }
+    pub fn try_new<T>(uuid: T) -> eyre::Result<Self>
+    where
+        T: TryInto<Uuid>,
+        T::Error: std::error::Error + Send + Sync + 'static,
+    {
+        let uuid = uuid.try_into().wrap_err("Failed to convert to Uuid")?;
+        Ok(Self(uuid))
+    }
 }
 impl std::fmt::Display for SubscriptionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

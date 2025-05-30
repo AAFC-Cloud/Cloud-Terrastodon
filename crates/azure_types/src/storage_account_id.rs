@@ -8,6 +8,8 @@ use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromResourceGroupScoped;
 use crate::slug::HasSlug;
 use crate::slug::Slug;
+use arbitrary::Arbitrary;
+use eyre::Context;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -17,11 +19,42 @@ use serde::de::Error;
 
 pub const STORAGE_ACCOUNT_ID_PREFIX: &str = "/providers/Microsoft.Storage/storageAccounts/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
 pub struct StorageAccountId {
     pub resource_group_id: ResourceGroupId,
     pub storage_account_name: StorageAccountName,
 }
+impl StorageAccountId {
+    pub fn new(
+        resource_group_id: impl Into<ResourceGroupId>,
+        storage_account_name: impl Into<StorageAccountName>,
+    ) -> StorageAccountId {
+        StorageAccountId {
+            resource_group_id: resource_group_id.into(),
+            storage_account_name: storage_account_name.into(),
+        }
+    }
+
+    pub fn try_new<R, N>(resource_group_id: R, storage_account_name: N) -> Result<Self>
+    where
+        R: TryInto<ResourceGroupId>,
+        R::Error: std::error::Error + Send + Sync + 'static,
+        N: TryInto<StorageAccountName>,
+        N::Error: std::error::Error + Send + Sync + 'static,
+    {
+        let resource_group_id = resource_group_id
+            .try_into()
+            .wrap_err("Failed to convert resource_group_id")?;
+        let storage_account_name = storage_account_name
+            .try_into()
+            .wrap_err("Failed to convert storage_account_name")?;
+        Ok(StorageAccountId {
+            resource_group_id,
+            storage_account_name,
+        })
+    }
+}
+
 impl HasSlug for StorageAccountId {
     type Name = StorageAccountName;
 
@@ -61,11 +94,6 @@ impl TryFromResourceGroupScoped for StorageAccountId {
             storage_account_name: name,
         }
     }
-    // unsafe fn new_resource_group_scoped_unchecked(expanded: &str) -> Self {
-    //     StorageAccountId::ResourceGroupScoped {
-    //         expanded: expanded.to_string(),
-    //     }
-    // }
 }
 
 impl Scope for StorageAccountId {

@@ -10,6 +10,7 @@ use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::strip_prefix_case_insensitive;
 use crate::slug::HasSlug;
+use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -24,7 +25,7 @@ use uuid::Uuid;
 
 pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
 pub struct ResourceGroupId {
     pub subscription_id: SubscriptionId,
     pub resource_group_name: ResourceGroupName,
@@ -39,7 +40,26 @@ impl ResourceGroupId {
             resource_group_name: resource_group_name.into(),
         }
     }
+    pub fn try_new<S, N>(subscription_id: S, resource_group_name: N) -> Result<Self>
+    where
+        S: TryInto<SubscriptionId>,
+        S::Error: std::error::Error + Send + Sync + 'static,
+        N: TryInto<ResourceGroupName>,
+        N::Error: std::error::Error + Send + Sync + 'static,
+    {
+        let subscription_id = subscription_id
+            .try_into()
+            .wrap_err("Failed to convert subscription_id")?;
+        let resource_group_name = resource_group_name
+            .try_into()
+            .wrap_err("Failed to convert resource_group_name")?;
+        Ok(ResourceGroupId {
+            subscription_id,
+            resource_group_name,
+        })
+    }
 }
+
 impl HasSlug for ResourceGroupId {
     type Name = ResourceGroupName;
 

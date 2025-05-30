@@ -1,3 +1,11 @@
+# v0.11.0
+
+- Impl `Arbitrary` for ResourceGroupId
+- Impl `Arbitrary` for StorageAccountId
+- Add `StorageAccountId::new` and `StorageAccountId::try_new`
+- Add `ResourceGroupId::try_new`
+- Add `SubscriptionId::try_new`
+
 # v0.10.0
 
 - Rename `HasScope::scope(&self)` to `AsScope::as_scope(&self)`
