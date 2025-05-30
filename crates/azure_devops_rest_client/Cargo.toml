@@ -1,6 +1,6 @@
 [package]
 name = "cloud_terrastodon_azure_devops_rest_client"
-version = "0.12.0" # CT_VERSION
+version = "0.13.0" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
