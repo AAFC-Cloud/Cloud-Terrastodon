@@ -66,7 +66,7 @@ pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChil
         .await?
         .into_iter()
         .map(|x| EligibleChildResource {
-            name: x.name.to_owned(),
+            name: x.name.to_string(),
             kind: EligibleChildResourceKind::ResourceGroup,
             id: x.as_scope().as_scope_impl(),
         });

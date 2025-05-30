@@ -37,7 +37,7 @@ pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
                         if ui.image(RESOURCE_GROUP_ICON).clicked() {
                             *checked ^= true;
                         }
-                        ui.checkbox(checked, &resource_group.name);
+                        ui.checkbox(checked, resource_group.name.as_str());
                     });
                 }
             }

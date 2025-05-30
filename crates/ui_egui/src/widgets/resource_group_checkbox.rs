@@ -18,6 +18,6 @@ pub fn draw_resource_group_checkbox(
             *checked ^= true;
         }
 
-        ui.checkbox(checked, &resource_group.name);
+        ui.checkbox(checked, resource_group.name.as_str());
     });
 }

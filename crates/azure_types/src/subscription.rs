@@ -1,5 +1,6 @@
 use crate::prelude::ManagementGroupAncestorsChain;
 use crate::prelude::SubscriptionId;
+use crate::prelude::SubscriptionName;
 use crate::prelude::TenantId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
@@ -12,7 +13,7 @@ use std::hash::Hash;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subscription {
     pub id: SubscriptionId,
-    pub name: String,
+    pub name: SubscriptionName,
     pub tenant_id: TenantId,
     pub management_group_ancestors_chain: ManagementGroupAncestorsChain,
 }

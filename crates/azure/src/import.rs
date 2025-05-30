@@ -44,7 +44,7 @@ impl HCLImportable {
                                 let mut import_block: HCLImportBlock = rg.into();
                                 import_block.provider = HCLProviderReference::Alias {
                                     kind: ProviderKind::AzureRM,
-                                    name: sub.name.clone(),
+                                    name: sub.name.to_string(),
                                 };
                                 import_block
                             },

@@ -3,6 +3,7 @@ use crate::prelude::fetch_all_policy_assignments;
 use crate::prelude::fetch_all_policy_definitions;
 use crate::prelude::fetch_all_policy_set_definitions;
 use crate::prelude::fetch_all_resource_groups;
+use crate::prelude::fetch_all_storage_accounts;
 use crate::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_azure_types::prelude::ScopeImpl;
@@ -53,7 +54,7 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
         ScopeImplKind::ResourceGroup => fetch_all_resource_groups()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope_impl(), x.name))
+            .map(|x| (x.id.as_scope_impl(), x.name.to_string()))
             .collect(),
         ScopeImplKind::ManagementGroup => fetch_all_management_groups()
             .await?
@@ -63,7 +64,12 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
         ScopeImplKind::Subscription => fetch_all_subscriptions()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope_impl(), x.name))
+            .map(|x| (x.id.as_scope_impl(), x.name.to_string()))
+            .collect(),
+        ScopeImplKind::StorageAccount => fetch_all_storage_accounts()
+            .await?
+            .into_iter()
+            .map(|x| (x.id.as_scope_impl(), x.name.to_string()))
             .collect(),
         _ => {
             warn!(

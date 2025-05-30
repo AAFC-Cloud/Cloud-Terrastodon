@@ -1,4 +1,5 @@
 use crate::prelude::ResourceGroupId;
+use crate::prelude::ResourceGroupName;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::scopes::AsScope;
@@ -18,7 +19,7 @@ pub struct ResourceGroup {
     pub subscription_id: SubscriptionId,
     pub location: String,
     pub managed_by: Option<String>,
-    pub name: String,
+    pub name: ResourceGroupName,
     pub properties: HashMap<String, String>,
     pub tags: Option<HashMap<String, String>>,
 }

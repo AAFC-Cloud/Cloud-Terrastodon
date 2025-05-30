@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure::prelude::SubscriptionName;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_user_input::Choice;
@@ -32,7 +33,7 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
                 let sub_name = subscriptions
                     .get(&sa.subscription_id)
                     .map(|sub| sub.name.to_owned())
-                    .unwrap_or_else(|| "Unknown Subscription".to_string());
+                    .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
                 let key = format!("{:32}\t{:64}\t{}", sub_name, sa.resource_group, sa.name);
                 let key_short = format!("{} {} {}", sub_name, sa.resource_group, sa.name);
                 Choice {
@@ -95,4 +96,15 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
     info!("You chose:\n{output}");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use cloud_terrastodon_azure::prelude::SubscriptionName;
+
+    #[test]
+    pub fn it_works() -> eyre::Result<()> {
+        SubscriptionName::try_new("Unknown Subscription")?;
+        Ok(())
+    }
 }

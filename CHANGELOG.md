@@ -1,3 +1,9 @@
+# v0.13.0
+
+- Change `Subscription { name: String }` to `Subscription { name: SubscriptionName }`
+- Change `ResourceGroup { name: String }` to `ResourceGroup { name: ResourceGroupName }`
+- Add `ScopeImplKind::StorageAccount` support in `name_lookup_helper::fetch_names_for`
+
 # v0.12.0
 
 - Fix trait bounds on `ResourceGroupId::try_new` to allow passing `&str`
@@ -7,7 +13,6 @@
 - Added `impl TryFrom<&str> for StorageAccountName`
 - Added `impl TryFrom<&str> for SubscriptionName`
 - Added `impl TryFrom<&str> for StorageAccountBlobContainerName`
-
 
 # v0.11.0
 
