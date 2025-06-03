@@ -1,5 +1,6 @@
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
 use crate::management_groups::ManagementGroupId;
+use crate::prelude::ContainerRegistryId;
 use crate::prelude::PolicyAssignmentId;
 use crate::prelude::PolicyDefinitionId;
 use crate::prelude::PolicySetDefinitionId;
@@ -534,6 +535,7 @@ pub enum ScopeImplKind {
     RoleDefinition,
     RoleEligibilitySchedule,
     StorageAccount,
+    ContainerRegistry,
     Subscription,
     Test,
     ResourceTags,
@@ -557,6 +559,7 @@ pub enum ScopeImpl {
     RoleManagementPolicy(RoleManagementPolicyId),
     StorageAccount(StorageAccountId),
     ResourceTags(ResourceTagsId),
+    ContainerRegistry(ContainerRegistryId),
     Resource(ResourceId),
     Unknown(CompactString),
 }
@@ -580,7 +583,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceTags(id) => id.expanded_form(),
             ScopeImpl::Resource(id) => id.expanded_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
-        }
+            ScopeImpl::ContainerRegistry(id) => id.expanded_form(),
+                    }
     }
 
     fn short_form(&self) -> String {
@@ -600,6 +604,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::StorageAccount(id) => id.short_form(),
             ScopeImpl::ResourceTags(id) => id.short_form(),
             ScopeImpl::Resource(id) => id.short_form(),
+            ScopeImpl::ContainerRegistry(id) => id.short_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
         }
     }
@@ -616,6 +621,9 @@ impl Scope for ScopeImpl {
         }
         if let Ok(id) = StorageAccountId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::StorageAccount(id));
+        }
+        if let Ok(id) = ContainerRegistryId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::ContainerRegistry(id));
         }
         if let Ok(id) = PolicyDefinitionId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::PolicyDefinition(id));
@@ -669,6 +677,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(_) => ScopeImplKind::RoleManagementPolicyAssignment,
             ScopeImpl::Unknown(_) => ScopeImplKind::Unknown,
             ScopeImpl::ResourceTags(_) => ScopeImplKind::ResourceTags,
+            ScopeImpl::ContainerRegistry(_) => ScopeImplKind::ContainerRegistry,
             ScopeImpl::Resource(_) => ScopeImplKind::Resource,
         }
     }
@@ -721,6 +730,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::StorageAccount(x) => {
                 f.write_fmt(format_args!("StorageAccount({})", x.short_form()))
+            }
+            ScopeImpl::ContainerRegistry(x) => {
+                f.write_fmt(format_args!("ContainerRegistry({})", x.short_form()))
             }
             ScopeImpl::RoleManagementPolicyAssignment(x) => f.write_fmt(format_args!(
                 "RoleManagementPolicyAssignment({})",

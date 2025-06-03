@@ -1,6 +1,9 @@
 #![feature(pattern, duration_constructors_lite, associated_type_defaults)]
 mod accounts;
 mod app;
+mod container_registry;
+mod container_registry_id;
+mod container_registry_name;
 pub mod cost_management;
 mod duration;
 mod eligible_child_resources;
@@ -67,10 +70,15 @@ mod test_resource;
 mod users;
 mod uuid_macros;
 mod uuid_wrapper;
+mod container_registry_repository_name;
 
 pub mod prelude {
     pub use crate::accounts::*;
     pub use crate::app::*;
+    pub use crate::container_registry::*;
+    pub use crate::container_registry_repository_name::*;
+    pub use crate::container_registry_id::*;
+    pub use crate::container_registry_name::*;
     pub use crate::duration::*;
     pub use crate::eligible_child_resources::*;
     pub use crate::groups::*;

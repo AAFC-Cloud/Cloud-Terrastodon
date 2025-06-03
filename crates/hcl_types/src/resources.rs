@@ -82,6 +82,7 @@ pub enum AzureRMResourceBlockKind {
     PolicySetDefinition,
     RoleAssignment,
     RoleDefinition,
+    ContainerRegistry,
     StorageAccount,
     Other(String),
 }
@@ -110,6 +111,7 @@ impl AsRef<str> for AzureRMResourceBlockKind {
             Self::RoleAssignment => "role_assignment",
             Self::RoleDefinition => "role_definition",
             Self::StorageAccount => "storage_account",
+            Self::ContainerRegistry => "container_registry",
             Self::Other(s) => s.as_ref(),
         }
     }

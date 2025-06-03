@@ -7,6 +7,7 @@
 mod accounts;
 mod auth;
 mod batch_api;
+mod container_registry;
 mod cost_management;
 mod create_role_assignment;
 mod eligible_child_resources;
@@ -52,6 +53,7 @@ pub mod prelude {
     pub use crate::accounts::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
+    pub use crate::container_registry::*;
     pub use crate::cost_management::*;
     pub use crate::create_role_assignment::*;
     pub use crate::eligible_child_resources::*;
