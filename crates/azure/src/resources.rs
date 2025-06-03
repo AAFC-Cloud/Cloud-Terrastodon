@@ -36,6 +36,11 @@ resources
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use cloud_terrastodon_azure_types::prelude::ResourceType;
+    use cloud_terrastodon_azure_types::prelude::Scope;
+    use cloud_terrastodon_azure_types::prelude::ScopeImplKind;
     use itertools::Itertools;
 
     use super::*;
@@ -62,6 +67,52 @@ mod tests {
             println!("{res:?}");
         }
         assert!(resources.len() > 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn count() -> Result<()> {
+        let resources = fetch_all_resources().await?;
+        let ids: HashMap<ScopeImplKind, i32> =
+            resources
+                .iter()
+                .map(|res| res.id.kind())
+                .fold(HashMap::default(), |mut acc, kind| {
+                    *acc.entry(kind).or_insert(0) += 1;
+                    acc
+                });
+
+        for (k, v) in ids
+            .iter()
+            .filter(|x| *x.0 != ScopeImplKind::Unknown)
+            .sorted_by(|a, b| b.1.cmp(a.1))
+        {
+            println!("{:?}: {}", k, v);
+        }
+
+        // print unknown count
+        println!();
+        println!(
+            "{:?}: {}",
+            ScopeImplKind::Unknown,
+            ids.get(&ScopeImplKind::Unknown)
+                .cloned()
+                .unwrap_or_default()
+        );
+
+        let unknown_kinds: HashMap<ResourceType, i32> = resources
+            .iter()
+            .filter(|res| res.id.kind() == ScopeImplKind::Unknown)
+            .map(|res| res.kind.clone())
+            .fold(HashMap::new(), |mut acc, kind| {
+                *acc.entry(kind).or_insert(0) += 1;
+                acc
+            });
+        // print descending order
+        for (k, v) in unknown_kinds.iter().sorted_by(|a, b| b.1.cmp(a.1)) {
+            println!("{k}: {v}");
+        }
+
         Ok(())
     }
 }

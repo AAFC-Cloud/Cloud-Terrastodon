@@ -16,6 +16,10 @@ use serde::Serializer;
 use serde::de::Error;
 use std::collections::HashMap;
 use std::str::FromStr;
+
+/// This is the ID for an ill-defined resource that is specifically the child of a resource group.
+/// Some things are children of things that are children of resource groups, which this would not apply to.
+/// At some point, this should be replaced with ScopeImpl or something in the fields where this type is used.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ResourceId {
     pub resource_group_id: ResourceGroupId,
