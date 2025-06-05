@@ -7,9 +7,11 @@ mod azure_devops_work_item_queries_invoke;
 mod get_default_organization_name;
 mod get_default_project_name;
 mod get_pat;
+mod azure_devops_service_endpoint;
 
 pub mod prelude {
     pub use crate::azure_devops_projects::*;
+    pub use crate::azure_devops_service_endpoint::*;
     pub use crate::azure_devops_repos::*;
     pub use crate::azure_devops_teams::*;
     pub use crate::azure_devops_work_item_queries::*;
