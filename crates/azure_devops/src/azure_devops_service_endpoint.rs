@@ -1,28 +1,42 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationName;
+use std::path::PathBuf;
+use std::time::Duration;
+
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsServiceEndpoint;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 
 pub async fn fetch_all_azure_devops_service_endpoints(
-    organization: &AzureDevOpsOrganizationUrl,
+    org_url: &AzureDevOpsOrganizationUrl,
     project: &AzureDevOpsProjectName,
-) -> eyre::Result<Vec<serde_json::Value>> {
+) -> eyre::Result<Vec<AzureDevOpsServiceEndpoint>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args([
         "devops",
         "service-endpoint",
         "list",
         "--organization",
-        &organization.to_string(),
+        &org_url.to_string(),
         "--project",
         &project.to_string(),
         "--output",
         "json",
     ]);
+    cmd.use_cache_behaviour(cloud_terrastodon_command::CacheBehaviour::Some {
+        path: PathBuf::from_iter([
+            "az",
+            "devops",
+            "service-endpoint",
+            "list",
+            &org_url.organization_name,
+            &project,
+        ]),
+        valid_for: Duration::from_hours(8),
+    });
 
     let response = cmd.run_raw().await?;
-    let endpoints: Vec<serde_json::Value> = serde_json::from_slice(&response.stdout)?;
+    let endpoints: Vec<AzureDevOpsServiceEndpoint> = serde_json::from_slice(&response.stdout)?;
 
     Ok(endpoints)
 }
@@ -39,7 +53,7 @@ mod test {
         let service_endpoints =
             super::fetch_all_azure_devops_service_endpoints(&org, &proj).await?;
 
-        println!("{:?}", service_endpoints);
+        println!("{:#?}", service_endpoints);
 
         Ok(())
     }

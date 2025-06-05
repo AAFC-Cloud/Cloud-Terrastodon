@@ -35,29 +35,7 @@ pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizat
 }
 
 pub async fn get_default_organization_name() -> eyre::Result<AzureDevOpsOrganizationName> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["devops", "configure", "--list"]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
-        path: PathBuf::from_iter(["az", "devops", "configure", "--list"]),
-        valid_for: Duration::from_hours(8),
-    });
-    let resp = cmd.run_raw().await?;
-    let resp = resp.stdout.to_str()?;
-    let rtn: String = (|| {
-        let org = resp
-        .lines()
-        .find(|line| line.contains("organization"))
-        .ok_or_eyre("Expected organization to be configured using `az devops configure --defaults organization=https://dev.azure.com/myorg/`")?;
-        let Some(org) = org.strip_suffix('/') else {
-            bail!("Expected org to end with a slash, found {org:?}");
-        };
-        let Some((_,org)) = org.rsplit_once('/') else {
-            bail!("Expected org to have a slash before the name, found {org:?}");
-        };
-        Ok(org.to_string())
-    })()
-    .wrap_err(format!("Failed to extract value from config:\n===\n{resp}\n==="))?;
-    Ok(AzureDevOpsOrganizationName::try_new(rtn)?)
+    Ok(get_default_organization_url().await?.organization_name)
 }
 
 #[cfg(test)]

@@ -136,9 +136,9 @@ mod test {
                     pass = true;
                 }
                 // comment this out to display all tags
-                if !tags.is_empty() {
-                    return Ok(());
-                }
+                // if !tags.is_empty() {
+                //     return Ok(());
+                // }
             }
         }
         if !pass {
