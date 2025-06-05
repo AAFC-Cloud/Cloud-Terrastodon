@@ -23,3 +23,10 @@ chrono = { workspace = true }
 clap = { workspace = true } 
 iso8601-duration = { workspace = true }
 itertools = { workspace = true }
+compact_str = { workspace = true, features = ["serde"] }
+arbitrary = { workspace = true }
+validator = { workspace = true }
+unicode_categories = { workspace = true }
+
+[dev-dependencies]
+rand.workspace=true
