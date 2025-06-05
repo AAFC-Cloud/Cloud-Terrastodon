@@ -71,6 +71,7 @@ mod users;
 mod uuid_macros;
 mod uuid_wrapper;
 mod container_registry_repository_name;
+mod container_registry_repository_tag;
 
 pub mod prelude {
     pub use crate::accounts::*;
@@ -102,6 +103,7 @@ pub mod prelude {
     pub use crate::policy_definition_name::*;
     pub use crate::policy_definitions::*;
     pub use crate::policy_set_definition_id::*;
+    pub use crate::container_registry_repository_tag::*;
     pub use crate::policy_set_definition_id_variants::*;
     pub use crate::policy_set_definition_name::*;
     pub use crate::policy_set_definitions::*;

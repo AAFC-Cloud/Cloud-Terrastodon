@@ -25,7 +25,7 @@ indexmap = { version = "2.2.6", features = ["serde"] }
 ordermap = { version = "0.5.0", features = ["serde"] }
 hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["serde", "v4", "arbitrary"] }
-chrono = { version = "0.4.38", features = ["serde"] }
+chrono = { version = "0.4.38", features = ["serde", "arbitrary"] }
 rand = "0.8.5"
 test-log = { version = "0.2.16", features = ["trace"] }
 clap = { version = "4.5.9", features = ["derive", "string"] }

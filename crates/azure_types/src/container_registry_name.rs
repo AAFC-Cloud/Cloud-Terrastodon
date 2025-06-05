@@ -40,6 +40,19 @@ fn validate_alphanumeric(value: &CompactString) -> Result<(), ValidationError> {
     }
     Ok(())
 }
+impl<'a> Arbitrary<'a> for ContainerRegistryName {
+    fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        // Get length in 3-24
+        let len = u.int_in_range(5..=50)?;
+        // Use only [a-z]
+        let choices = ('a'..='z').chain('A'..='Z').chain('1'..='9').collect::<Vec<_>>();
+        let name: String = (0..len)
+            .map(|_| Ok(*u.choose(&choices)?))
+            .collect::<Result<String, _>>()?;
+        ContainerRegistryName::try_new(CompactString::from(name))
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 
 impl FromStr for ContainerRegistryName {
     type Err = eyre::Error;
@@ -103,24 +116,6 @@ impl From<ContainerRegistryName> for CompactString {
     }
 }
 
-impl<'a> Arbitrary<'a> for ContainerRegistryName {
-    fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
-        // Get length in 3-24
-        let len = u.int_in_range(3..=24)?;
-        // Use only [a-z]
-        let choices = ('a'..='Z').chain('1'..='9').collect::<Vec<_>>();
-        let name: String = (0..len)
-            .map(|_| {
-                // Safe since 'a'..'z' is always valid
-                let c = u.choose(&choices)?;
-                Ok(*c)
-            })
-            .collect::<Result<String, _>>()?;
-        ContainerRegistryName::try_new(CompactString::from(name))
-            .map_err(|_| arbitrary::Error::IncorrectFormat)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::prelude::ContainerRegistryName;
@@ -132,7 +127,7 @@ mod test {
 
     #[test]
     pub fn validation() -> eyre::Result<()> {
-        assert!(ContainerRegistryName::try_new("bruh").is_ok());
+        assert!(ContainerRegistryName::try_new("bruhs").is_ok());
         assert!(ContainerRegistryName::try_new("-").is_err());
         assert!(ContainerRegistryName::try_new("a-b-c").is_err());
         assert!(ContainerRegistryName::try_new("hi+hi").is_err());
@@ -141,10 +136,10 @@ mod test {
         assert!(ContainerRegistryName::try_new("aa").is_err());
         assert!(ContainerRegistryName::try_new("JEOFF").is_ok());
         assert!(ContainerRegistryName::try_new("caPital").is_ok());
-        assert!(ContainerRegistryName::try_new("aaaa").is_ok());
+        assert!(ContainerRegistryName::try_new("aaaa").is_err());
         assert!(ContainerRegistryName::try_new("a".repeat(23)).is_ok());
-        assert!(ContainerRegistryName::try_new("a".repeat(24)).is_ok());
-        assert!(ContainerRegistryName::try_new("a".repeat(25)).is_err());
+        assert!(ContainerRegistryName::try_new("a".repeat(49)).is_ok());
+        assert!(ContainerRegistryName::try_new("a".repeat(55)).is_err());
         Ok(())
     }
 
@@ -156,7 +151,7 @@ mod test {
     }
 
     #[test]
-    pub fn fuzz() -> eyre::Result<()> { // TODO: figure out Error: The raw data is not of the correct format to construct this type
+    pub fn fuzz() -> eyre::Result<()> {
         let mut found_uppercase = false;
         for _ in 0..100 {
             let mut raw = [0u8; 64];

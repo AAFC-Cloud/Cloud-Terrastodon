@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_types::prelude::ContainerRegistry;
 use cloud_terrastodon_azure_types::prelude::ContainerRegistryId;
 use cloud_terrastodon_azure_types::prelude::ContainerRegistryRepositoryName;
+use cloud_terrastodon_azure_types::prelude::ContainerRegistryRepositoryTag;
 use cloud_terrastodon_azure_types::prelude::HasSlug;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheBehaviour;
@@ -26,7 +27,7 @@ Resources
     query.collect_all().await
 }
 
-pub async fn fetch_all_repositories_for_container_registry(
+pub async fn fetch_container_registry_repository_names(
     registry_id: &ContainerRegistryId,
 ) -> Result<Vec<ContainerRegistryRepositoryName>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -44,7 +45,40 @@ pub async fn fetch_all_repositories_for_container_registry(
         "json",
     ]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
-        path: PathBuf::from_iter(["container_registry_repositories", &registry_id.container_registry_name]),
+        path: PathBuf::from_iter([
+            "container_registry_repositories",
+            &registry_id.container_registry_name,
+        ]),
+        valid_for: Duration::from_hours(8),
+    });
+    Ok(cmd.run().await?)
+}
+
+pub async fn fetch_container_registry_repository_tags(
+    registry_id: &ContainerRegistryId,
+    repository_name: &ContainerRegistryRepositoryName,
+) -> Result<Vec<ContainerRegistryRepositoryTag>> {
+    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+    cmd.args([
+        "acr",
+        "repository",
+        "show-tags",
+        "--detail",
+        "--name",
+        &registry_id.container_registry_name,
+        "--repository",
+        &repository_name,
+        "--subscription",
+        &registry_id.resource_group_id.subscription_id.short_form(),
+        "--output",
+        "json",
+    ]);
+    cmd.use_cache_behaviour(CacheBehaviour::Some {
+        path: PathBuf::from_iter([
+            "container_registry_repository_tags",
+            &registry_id.container_registry_name,
+            &repository_name,
+        ]),
         valid_for: Duration::from_hours(8),
     });
     Ok(cmd.run().await?)
@@ -52,8 +86,10 @@ pub async fn fetch_all_repositories_for_container_registry(
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::{fetch_all_container_registries, fetch_all_repositories_for_container_registry};
-    use cloud_terrastodon_azure_types::prelude::{ContainerRegistryId, Scope};
+    use crate::prelude::fetch_all_container_registries;
+    use crate::prelude::fetch_container_registry_repository_names;
+    use crate::prelude::fetch_container_registry_repository_tags;
+    use cloud_terrastodon_azure_types::prelude::Scope;
     use validator::Validate;
 
     #[tokio::test]
@@ -68,12 +104,46 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works2() -> eyre::Result<()> {
-        let container_registry_id = ContainerRegistryId::try_from_expanded(
-            todo!("just iterate over registries until one has repositories"),
-        )?;
-        let repositories = fetch_all_repositories_for_container_registry(&container_registry_id).await?;
+        println!("Fetching container registries...");
+        let mut pass = false;
+        let found = fetch_all_container_registries().await?;
+        let found_count = found.len();
+        for (i, container_registry) in found.into_iter().enumerate() {
+            let repository_names =
+                fetch_container_registry_repository_names(&container_registry.id).await?;
+            println!(
+                "[{}/{found_count}] Found {} repositories for {}",
+                i + 1,
+                repository_names.len(),
+                container_registry.id.short_form()
+            );
 
-        println!("{:?}", repositories);
+            let found = repository_names.iter();
+            let found_count = found.len();
+            for (i, repository) in found.enumerate() {
+                println!("  - [{}/{found_count}] {}", i + 1, repository);
+                repository.validate()?;
+                let tags =
+                    fetch_container_registry_repository_tags(&container_registry.id, repository)
+                        .await?;
+                println!("    Found {} tags", tags.len());
+                for tag in tags.iter() {
+                    println!(
+                        "      - {} updated at {}",
+                        tag.name,
+                        tag.last_update_time.naive_local()
+                    );
+                    pass = true;
+                }
+                // comment this out to display all tags
+                if !tags.is_empty() {
+                    return Ok(());
+                }
+            }
+        }
+        if !pass {
+            eyre::bail!("No container registries with tags found.");
+        }
         Ok(())
     }
 }
