@@ -50,8 +50,9 @@ Get-ChildItem -Path $cratesDir -Directory | ForEach-Object {
     $crateTomlPath = Join-Path $_.FullName "Cargo.toml"
     if (Test-Path $crateTomlPath) {
         $crateContent = Get-Content $crateTomlPath -Raw
-        $patternCrate = '(?m)^(version\s*=\s*)"\d+\.\d+\.\d+"'
-        $replacementCrate = '$1"' + $newVersion + '"'
+        # Only update version lines that have the # CT_VERSION comment
+        $patternCrate = '(?m)^(version\s*=\s*)"\d+\.\d+\.\d+"(\s*#\s*CT_VERSION)'
+        $replacementCrate = '$1"' + $newVersion + '"$2'
         $updatedCrateContent = $crateContent -replace $patternCrate, $replacementCrate
         Set-Content -Path $crateTomlPath -Value $updatedCrateContent
         Write-Host "Updated $crateTomlPath to version $newVersion"
