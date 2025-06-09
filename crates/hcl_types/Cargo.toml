@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_hcl_types"
 description = "Helper types for interacting with HCL for the Cloud Terrastodon project"
-version = "0.13.0" # CT_VERSION
+version = "0.14.0" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -22,4 +22,5 @@ tracing = { workspace = true }
 # unidecode = { workspace = true }
 hcl-primitives = { workspace = true }
 async-trait = { workspace = true }
+
 

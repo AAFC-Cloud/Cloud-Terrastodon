@@ -1,6 +1,6 @@
 [package]
 name = "cloud_terrastodon_ui_ratatui"
-version = "0.13.0" # CT_VERSION
+version = "0.14.0" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -16,3 +16,4 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 crossterm = { workspace = true }
 futures = { workspace = true }
+
