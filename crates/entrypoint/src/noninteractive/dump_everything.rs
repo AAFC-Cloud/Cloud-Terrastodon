@@ -1,10 +1,11 @@
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_teams_for_project;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_repos_batch;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_teams_batch;
 use cloud_terrastodon_azure_devops::prelude::get_personal_access_token;
+use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_hcl::prelude::FreshTFWorkDir;
 use cloud_terrastodon_hcl::prelude::GeneratedConfigOutTFWorkDir;
 use cloud_terrastodon_hcl::prelude::HCLBlock;
@@ -480,7 +481,20 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
     let mut azure_devops_project_repos =
         fetch_azure_devops_repos_batch(project_ids.clone()).await?;
 
-    let mut azure_devops_project_teams = fetch_azure_devops_teams_batch(project_ids).await?;
+    let mut azure_devops_project_teams = {
+        async move {
+            let mut work = ParallelFallibleWorkQueue::new("Fetching Azure DevOps teams", 10);
+            for project_id in project_ids {
+                work.enqueue(async move {
+                    let teams = fetch_azure_devops_teams_for_project(&project_id);
+                    teams.await.map(|teams| (project_id.clone(), teams))
+                });
+            }
+            let results = work.join().await?.into_iter().collect::<HashMap<_, _>>();
+            eyre::Ok(results)
+        }
+    }
+    .await?;
 
     let azure_devops_dir = AppDir::Imports.join("AzureDevOps");
 
