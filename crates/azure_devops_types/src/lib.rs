@@ -10,11 +10,25 @@ mod azure_devops_organization_url;
 mod azure_devops_service_endpoint;
 mod azure_devops_service_endpoint_id;
 mod azure_devops_service_endpoint_name;
+mod azure_devops_project_argument;
+mod azure_devops_team_member;
+mod azure_devops_user_id;
+mod azure_devops_descriptor;
+mod azure_devops_group;
+mod azure_devops_group_member;
+mod azure_devops_entra_user_descriptor;
 
 pub mod prelude {
     pub use crate::azure_devops_organization_name::*;
+    pub use crate::azure_devops_entra_user_descriptor::*;
+    pub use crate::azure_devops_group::*;
+    pub use crate::azure_devops_group_member::*;
+    pub use crate::azure_devops_descriptor::*;
+    pub use crate::azure_devops_user_id::*;
     pub use crate::azure_devops_service_endpoint_id::*;
+    pub use crate::azure_devops_team_member::*;
     pub use crate::azure_devops_project::*;
+    pub use crate::azure_devops_project_argument::*;
     pub use crate::azure_devops_organization_url::*;
     pub use crate::azure_devops_service_endpoint::*;
     pub use crate::azure_devops_project_id::*;

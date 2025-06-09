@@ -1,8 +1,6 @@
 use serde::de::Error;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
-use serde::Deserialize;
-use serde::Serialize;
 use std::ops::Deref;
 use std::str::FromStr;
 use validator::Validate;

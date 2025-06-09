@@ -38,16 +38,16 @@ impl FromStr for AzureDevOpsTeamId {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AzureDevOpsTeam {
-    description: String,
-    id: AzureDevOpsTeamId,
+    pub description: String,
+    pub id: AzureDevOpsTeamId,
     #[serde(rename = "identityUrl")]
-    identity_url: String,
-    name: String,
+    pub identity_url: String,
+    pub name: String,
     #[serde(rename = "projectId")]
-    project_id: AzureDevOpsProjectId,
+    pub project_id: AzureDevOpsProjectId,
     #[serde(rename = "projectName")]
-    project_name: String,
-    url: String,
+    pub project_name: String,
+    pub url: String,
 }
 
 impl From<AzureDevOpsTeam> for HCLImportBlock {

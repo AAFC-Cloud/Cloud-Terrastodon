@@ -26,4 +26,4 @@ bstr = { workspace = true }
 
 [dev-dependencies]
 cloud_terrastodon_user_input = { workspace = true }
-
+tracing-subscriber.workspace=true

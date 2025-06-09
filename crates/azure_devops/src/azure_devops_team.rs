@@ -1,20 +1,18 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectId;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeam;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use eyre::Context;
 use eyre::Result;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
-use tokio::task::JoinSet;
 use tracing::info;
 
 pub async fn fetch_azure_devops_teams_for_project(
-    project_id: &AzureDevOpsProjectId,
+    project: impl Into<AzureDevOpsProjectArgument<'_>>,
 ) -> Result<Vec<AzureDevOpsTeam>> {
-    info!("Fetching Azure DevOps teams for project {project_id}");
+    let project: AzureDevOpsProjectArgument = project.into();
+    info!("Fetching Azure DevOps teams for project {project}");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args([
         "devops",
@@ -23,7 +21,7 @@ pub async fn fetch_azure_devops_teams_for_project(
         "--output",
         "json",
         "--project",
-        &project_id.to_string(),
+        &project.to_string(),
     ]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter([
@@ -32,50 +30,23 @@ pub async fn fetch_azure_devops_teams_for_project(
             "team",
             "list",
             "--project",
-            &project_id.to_string(),
+            &project.to_string(),
         ]),
         valid_for: Duration::from_hours(8),
     });
 
     let response = cmd.run::<Vec<AzureDevOpsTeam>>().await?;
     info!(
-        "Found {} Azure DevOps teams for project {project_id}",
+        "Found {} Azure DevOps teams for project {project}",
         response.len()
     );
     Ok(response)
 }
 
-pub async fn fetch_azure_devops_teams_batch(
-    project_ids: Vec<AzureDevOpsProjectId>,
-) -> Result<HashMap<AzureDevOpsProjectId, Vec<AzureDevOpsTeam>>> {
-    info!("Fetching teams for {} projects", project_ids.len());
-    let mut rtn: HashMap<AzureDevOpsProjectId, Vec<AzureDevOpsTeam>> = HashMap::new();
-    let mut set = JoinSet::new();
-    let project_count = project_ids.len();
-    for project_id in project_ids {
-        set.spawn(async move {
-            let teams = fetch_azure_devops_teams_for_project(&project_id).await;
-            (project_id, teams)
-        });
-    }
-    while let Some(res) = set.join_next().await {
-        let (project_id, repos) = res?;
-        let teams = repos.wrap_err(format!("Fetching repos for project {project_id:?}"))?;
-        rtn.insert(project_id, teams);
-    }
-    info!(
-        "Found {} teams across {} projects",
-        rtn.values().map(|x| x.len()).sum::<usize>(),
-        project_count
-    );
-    Ok(rtn)
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::prelude::fetch_all_azure_devops_projects;
-
     use super::*;
+    use crate::prelude::fetch_all_azure_devops_projects;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

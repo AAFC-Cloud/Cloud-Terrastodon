@@ -1,11 +1,10 @@
 use std::ops::Deref;
 use std::str::FromStr;
-use serde::Deserialize;
-use serde::Serialize;
 use validator::Validate;
 use validator::ValidationError;
 use compact_str::CompactString;
 use arbitrary::Arbitrary;
+use serde::de::Error;
 
 /// https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#organization-names
 /// 
@@ -18,7 +17,7 @@ use arbitrary::Arbitrary;
 /// Ensure that your organization doesn't exceed 50 Unicode characters
 /// 
 /// End with a letter or number
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone, Validate, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Validate, Hash)]
 pub struct AzureDevOpsOrganizationName {
     #[validate(
         length(min = 1, max = 50),
@@ -184,6 +183,25 @@ impl<'a> Arbitrary<'a> for AzureDevOpsOrganizationName {
             }
         }
         Err(arbitrary::Error::IncorrectFormat)
+    }
+}
+
+impl serde::Serialize for AzureDevOpsOrganizationName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.inner.serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AzureDevOpsOrganizationName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
+        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:?}")))
     }
 }
 

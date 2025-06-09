@@ -1,20 +1,26 @@
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
-use serde::Deserialize;
-use serde::Serialize;
 use std::ops::Deref;
 use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
+use serde::de::Error;
 
 /// https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#project-names
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Validate, Clone)]
+#[derive(Debug, Eq, PartialEq, Validate, Clone)]
 pub struct AzureDevOpsProjectName {
     #[validate(
         length(min = 1, max = 64),
         custom(function = "validate_azure_devops_project_name_contents")
     )]
     pub inner: CompactString,
+}
+impl AzureDevOpsProjectName {
+    pub fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
+        let org = Self { inner: name.into() };
+        org.validate()?;
+        Ok(org)
+    }
 }
 
 /// Uniqueness
@@ -252,6 +258,25 @@ impl FromStr for AzureDevOpsProjectName {
 impl AsRef<str> for AzureDevOpsProjectName {
     fn as_ref(&self) -> &str {
         &self.inner
+    }
+}
+
+impl serde::Serialize for AzureDevOpsProjectName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.inner.serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AzureDevOpsProjectName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
+        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:?}")))
     }
 }
 
