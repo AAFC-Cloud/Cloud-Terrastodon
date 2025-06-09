@@ -1,3 +1,9 @@
+# v0.14.0
+
+- Add azure devops groups and teams and membership helpers for each
+- Add `browse azure devops projects` command
+- Add `browse azure devops teams` command
+
 # v0.13.0
 
 - Change `Subscription { name: String }` to `Subscription { name: SubscriptionName }`
