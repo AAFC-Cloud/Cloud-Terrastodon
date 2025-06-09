@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use cloud_terrastodon_azure::prelude::Scope;
+use cloud_terrastodon_azure::prelude::SubscriptionName;
 use cloud_terrastodon_azure::prelude::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_azure::prelude::SubscriptionName;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_user_input::Choice;

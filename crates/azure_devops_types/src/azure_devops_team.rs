@@ -14,6 +14,12 @@ use crate::prelude::AzureDevOpsProjectId;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub struct AzureDevOpsTeamId(Uuid);
+impl std::fmt::Display for AzureDevOpsTeamId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl Deref for AzureDevOpsTeamId {
     type Target = Uuid;
 

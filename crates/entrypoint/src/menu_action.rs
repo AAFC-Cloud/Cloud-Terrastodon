@@ -1,5 +1,7 @@
 use crate::interactive::prelude::apply_processed;
 use crate::interactive::prelude::azure_devops_project_import_wizard_menu;
+use crate::interactive::prelude::browse_azure_devops_project_teams;
+use crate::interactive::prelude::browse_azure_devops_projects;
 use crate::interactive::prelude::browse_oauth2_permission_grants;
 use crate::interactive::prelude::browse_policy_assignments;
 use crate::interactive::prelude::browse_policy_definitions;
@@ -102,6 +104,8 @@ pub enum MenuAction {
     RemoveOAuth2PermissionGrants,
     CreateOAuth2PermissionGrants,
     AzureDevOpsProjectImportWizard,
+    BrowseAzureDevOpsProjects,
+    BrowseAzureDevOpsProjectTeams,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -167,6 +171,8 @@ impl MenuAction {
             MenuAction::AzureDevOpsProjectImportWizard => {
                 "build imports - azure devops project import wizard"
             }
+            MenuAction::BrowseAzureDevOpsProjects => "browse azure devops projects",
+            MenuAction::BrowseAzureDevOpsProjectTeams => "browse azure devops project teams",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -231,6 +237,10 @@ impl MenuAction {
             MenuAction::CreateOAuth2PermissionGrants => create_oauth2_permission_grants().await?,
             MenuAction::AzureDevOpsProjectImportWizard => {
                 azure_devops_project_import_wizard_menu().await?
+            }
+            MenuAction::BrowseAzureDevOpsProjects => browse_azure_devops_projects().await?,
+            MenuAction::BrowseAzureDevOpsProjectTeams => {
+                browse_azure_devops_project_teams().await?
             }
         }
         Ok(MenuActionResult::PauseAndContinue)
