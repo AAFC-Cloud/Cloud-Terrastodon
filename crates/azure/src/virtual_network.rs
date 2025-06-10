@@ -47,7 +47,7 @@ mod tests {
         println!("Found {} virtual networks:", result.len());
         for vnet in result {
             assert!(!vnet.name.is_empty());
-            println!(" - {} {:?}", vnet.name, vnet.properties.address_space);
+            println!(" - {} {:?}", vnet.name, vnet.properties.address_space.address_prefixes);
         }
         Ok(())
     }

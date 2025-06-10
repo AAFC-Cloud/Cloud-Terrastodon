@@ -1,4 +1,5 @@
 use crate::prelude::Subnet;
+use ipnetwork::Ipv4Network;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -16,7 +17,7 @@ pub struct VirtualNetworkProperties {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct AddressSpace {
     #[serde(rename = "addressPrefixes")]
-    pub address_prefixes: Vec<String>,
+    pub address_prefixes: Vec<Ipv4Network>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]

@@ -926,6 +926,7 @@ dependencies = [
  "cloud_terrastodon_user_input",
  "compact_str 0.9.0",
  "eyre",
+ "ipnetwork",
  "iso8601-duration",
  "itertools 0.12.1",
  "nom 8.0.0",
@@ -2684,6 +2685,15 @@ name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
+
+[[package]]
+name = "ipnetwork"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf370abdafd54d13e54a620e8c3e1145f28e46cc9d704bc6d94414559df41763"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "is_terminal_polyfill"
