@@ -17,6 +17,7 @@ use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::prelude::StorageAccountId;
 use crate::prelude::SubscriptionId;
 use crate::prelude::TestResourceId;
+use crate::prelude::VirtualNetworkId;
 use crate::slug::HasSlug;
 use crate::slug::Slug;
 use clap::ValueEnum;
@@ -535,6 +536,7 @@ pub enum ScopeImplKind {
     RoleDefinition,
     RoleEligibilitySchedule,
     StorageAccount,
+    VirtualNetwork,
     ContainerRegistry,
     Subscription,
     Test,
@@ -558,6 +560,7 @@ pub enum ScopeImpl {
     RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId),
     RoleManagementPolicy(RoleManagementPolicyId),
     StorageAccount(StorageAccountId),
+    VirtualNetwork(VirtualNetworkId),
     ResourceTags(ResourceTagsId),
     ContainerRegistry(ContainerRegistryId),
     Resource(ResourceId),
@@ -580,6 +583,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),
+            ScopeImpl::VirtualNetwork(id) => id.expanded_form(),
             ScopeImpl::ResourceTags(id) => id.expanded_form(),
             ScopeImpl::Resource(id) => id.expanded_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
@@ -602,6 +606,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.short_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
             ScopeImpl::StorageAccount(id) => id.short_form(),
+            ScopeImpl::VirtualNetwork(id) => id.short_form(),
             ScopeImpl::ResourceTags(id) => id.short_form(),
             ScopeImpl::Resource(id) => id.short_form(),
             ScopeImpl::ContainerRegistry(id) => id.short_form(),
@@ -621,6 +626,9 @@ impl Scope for ScopeImpl {
         }
         if let Ok(id) = StorageAccountId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::StorageAccount(id));
+        }
+        if let Ok(id) = VirtualNetworkId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::VirtualNetwork(id));
         }
         if let Ok(id) = ContainerRegistryId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::ContainerRegistry(id));
@@ -670,6 +678,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
             ScopeImpl::StorageAccount(_) => ScopeImplKind::StorageAccount,
+            ScopeImpl::VirtualNetwork(_) => ScopeImplKind::VirtualNetwork,
             ScopeImpl::RoleEligibilitySchedule(_) => ScopeImplKind::RoleEligibilitySchedule,
             ScopeImpl::RoleManagementPolicyAssignment(_) => {
                 ScopeImplKind::RoleManagementPolicyAssignment
@@ -730,6 +739,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::StorageAccount(x) => {
                 f.write_fmt(format_args!("StorageAccount({})", x.short_form()))
+            }
+            ScopeImpl::VirtualNetwork(x) => {
+                f.write_fmt(format_args!("VirtualNetwork({})", x.short_form()))
             }
             ScopeImpl::ContainerRegistry(x) => {
                 f.write_fmt(format_args!("ContainerRegistry({})", x.short_form()))

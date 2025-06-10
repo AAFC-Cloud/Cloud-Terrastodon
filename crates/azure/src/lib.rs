@@ -49,8 +49,10 @@ mod subscriptions;
 mod tags;
 mod tenants;
 mod users;
+mod virtual_network;
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::virtual_network::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::container_registry::*;

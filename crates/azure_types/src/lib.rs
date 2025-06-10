@@ -70,6 +70,9 @@ mod test_resource;
 mod users;
 mod uuid_macros;
 mod uuid_wrapper;
+mod virtual_network;
+mod virtual_network_id;
+mod virtual_network_name;
 mod container_registry_repository_name;
 mod container_registry_repository_tag;
 
@@ -145,6 +148,9 @@ pub mod prelude {
     pub use crate::test_resource::*;
     pub use crate::users::*;
     pub use crate::uuid_wrapper::*;
+    pub use crate::virtual_network::*;
+    pub use crate::virtual_network_id::*;
+    pub use crate::virtual_network_name::*;
     pub use cloud_terrastodon_azure_resource_types::prelude::*;
     pub use uuid;
 }
