@@ -73,6 +73,11 @@ mod uuid_wrapper;
 mod virtual_network;
 mod virtual_network_id;
 mod virtual_network_name;
+mod virtual_network_properties;
+mod subnet;
+mod subnet_id;
+mod subnet_name;
+mod subnet_properties;
 mod container_registry_repository_name;
 mod container_registry_repository_tag;
 
@@ -151,6 +156,11 @@ pub mod prelude {
     pub use crate::virtual_network::*;
     pub use crate::virtual_network_id::*;
     pub use crate::virtual_network_name::*;
+    pub use crate::virtual_network_properties::*;
+    pub use crate::subnet::*;
+    pub use crate::subnet_id::*;
+    pub use crate::subnet_name::*;
+    pub use crate::subnet_properties::*;
     pub use cloud_terrastodon_azure_resource_types::prelude::*;
     pub use uuid;
 }

@@ -1,6 +1,6 @@
 use crate::prelude::ResourceGroupId;
-use crate::prelude::SubscriptionId;
 use crate::prelude::VirtualNetworkId;
+use crate::prelude::VirtualNetworkProperties;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -11,32 +11,8 @@ pub struct VirtualNetwork {
     pub name: String, // This is the name from Azure, distinct from VirtualNetworkName in ID
     pub location: String,
     pub tags: Option<HashMap<String, String>>,
-    // Add other relevant fields from the Azure API response for Virtual Network
-    // For example:
-    // pub properties: VirtualNetworkProperties,
+    pub properties: VirtualNetworkProperties,
 }
-
-// Placeholder for actual properties if needed
-// #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-// pub struct VirtualNetworkProperties {
-//     #[serde(rename = "addressSpace")]
-//     pub address_space: Option<AddressSpace>,
-//     pub subnets: Option<Vec<Subnet>>,
-//     // Add other properties as needed
-// }
-
-// #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-// pub struct AddressSpace {
-//     #[serde(rename = "addressPrefixes")]
-//     pub address_prefixes: Option<Vec<String>>,
-// }
-
-// #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-// pub struct Subnet {
-//     pub id: Option<String>, // Subnet ID
-//     pub name: Option<String>,
-//     // Add other subnet properties as needed
-// }
 
 impl VirtualNetwork {
     // Helper to get the ResourceGroupId from the VirtualNetworkId
@@ -46,9 +22,9 @@ impl VirtualNetwork {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+mod tests {    use super::*;
     use crate::prelude::ResourceGroupName;
+    use crate::prelude::SubscriptionId;
     use crate::prelude::VirtualNetworkName;
     use crate::scopes::Scope;
     use crate::slug::Slug;
@@ -61,9 +37,7 @@ mod tests {
         let rg_name = ResourceGroupName::try_new("test-rg")?;
         let rg_id = ResourceGroupId::new(sub_id.clone(), rg_name.clone());
         let vnet_name_slug = VirtualNetworkName::try_new("test-vnet")?;
-        let vnet_id = VirtualNetworkId::new(rg_id, vnet_name_slug.clone());
-
-        let json_data = serde_json::json!({
+        let vnet_id = VirtualNetworkId::new(rg_id, vnet_name_slug.clone());        let json_data = serde_json::json!({
             "id": vnet_id.expanded_form(),
             "name": "test-vnet-azure-name",
             "location": "eastus",
@@ -71,18 +45,24 @@ mod tests {
             "subscription_id": sub_id.as_hyphenated().to_string(),
             "tags": {
                 "environment": "test"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": ["10.0.0.0/16"]
+                },
+                "subnets": []
             }
         });
 
-        let deserialized_vnet: VirtualNetwork = serde_json::from_value(json_data)?;
-
-        assert_eq!(deserialized_vnet.id, vnet_id);
+        let deserialized_vnet: VirtualNetwork = serde_json::from_value(json_data)?;        assert_eq!(deserialized_vnet.id, vnet_id);
         assert_eq!(deserialized_vnet.name, "test-vnet-azure-name");
         assert_eq!(deserialized_vnet.location, "eastus");
         assert_eq!(
             deserialized_vnet.tags.unwrap().get("environment").unwrap(),
             "test"
         );
+        assert_eq!(deserialized_vnet.properties.address_space.address_prefixes, vec!["10.0.0.0/16"]);
+        assert!(deserialized_vnet.properties.subnets.is_empty());
 
         Ok(())
     }

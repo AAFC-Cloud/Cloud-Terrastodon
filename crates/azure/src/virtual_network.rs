@@ -8,8 +8,7 @@ use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_all_virtual_networks() -> Result<Vec<VirtualNetwork>> {
-    info!("Fetching virtual networks");
-    let query = indoc! {r#"
+    info!("Fetching virtual networks");    let query = indoc! {r#"
         Resources
         | where type == "microsoft.network/virtualnetworks"
         | project
@@ -18,7 +17,8 @@ pub async fn fetch_all_virtual_networks() -> Result<Vec<VirtualNetwork>> {
             location,
             resource_group_name=resourceGroup,
             subscription_id=subscriptionId,
-            tags
+            tags,
+            properties
     "#}
     .to_owned();
 
@@ -46,7 +46,7 @@ mod tests {
         println!("Found {} virtual networks:", result.len());
         for vnet in result {
             assert!(!vnet.name.is_empty());
-            println!(" - {}", vnet.name);
+            println!(" - {} {:?}", vnet.name, vnet.properties.address_space);
         }
         Ok(())
     }

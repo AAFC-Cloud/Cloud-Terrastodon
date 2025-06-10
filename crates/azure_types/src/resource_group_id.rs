@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct ResourceGroupId {
     pub subscription_id: SubscriptionId,
     pub resource_group_name: ResourceGroupName,

@@ -16,6 +16,7 @@ use crate::prelude::RoleManagementPolicyId;
 use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::prelude::StorageAccountId;
 use crate::prelude::SubscriptionId;
+use crate::prelude::SubnetId;
 use crate::prelude::TestResourceId;
 use crate::prelude::VirtualNetworkId;
 use crate::slug::HasSlug;
@@ -392,6 +393,16 @@ where
     ) -> Self;
 }
 
+pub trait TryFromVirtualNetworkScoped
+where
+    Self: Sized,
+{
+    fn try_from_virtual_network_scoped(
+        virtual_network_id: &VirtualNetworkId,
+        name: &str,
+    ) -> eyre::Result<Self>;
+}
+
 pub fn try_from_expanded_resource_container_scoped<T>(expanded: &str) -> Result<T>
 where
     T: TryFromUnscoped
@@ -537,6 +548,7 @@ pub enum ScopeImplKind {
     RoleEligibilitySchedule,
     StorageAccount,
     VirtualNetwork,
+    Subnet,
     ContainerRegistry,
     Subscription,
     Test,
@@ -561,6 +573,7 @@ pub enum ScopeImpl {
     RoleManagementPolicy(RoleManagementPolicyId),
     StorageAccount(StorageAccountId),
     VirtualNetwork(VirtualNetworkId),
+    Subnet(SubnetId),
     ResourceTags(ResourceTagsId),
     ContainerRegistry(ContainerRegistryId),
     Resource(ResourceId),
@@ -584,6 +597,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),
             ScopeImpl::VirtualNetwork(id) => id.expanded_form(),
+            ScopeImpl::Subnet(id) => id.expanded_form(),
             ScopeImpl::ResourceTags(id) => id.expanded_form(),
             ScopeImpl::Resource(id) => id.expanded_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
@@ -607,6 +621,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
             ScopeImpl::StorageAccount(id) => id.short_form(),
             ScopeImpl::VirtualNetwork(id) => id.short_form(),
+            ScopeImpl::Subnet(id) => id.short_form(),
             ScopeImpl::ResourceTags(id) => id.short_form(),
             ScopeImpl::Resource(id) => id.short_form(),
             ScopeImpl::ContainerRegistry(id) => id.short_form(),
@@ -629,6 +644,9 @@ impl Scope for ScopeImpl {
         }
         if let Ok(id) = VirtualNetworkId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::VirtualNetwork(id));
+        }
+        if let Ok(id) = SubnetId::try_from(expanded) {
+            return Ok(ScopeImpl::Subnet(id));
         }
         if let Ok(id) = ContainerRegistryId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::ContainerRegistry(id));
@@ -679,6 +697,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
             ScopeImpl::StorageAccount(_) => ScopeImplKind::StorageAccount,
             ScopeImpl::VirtualNetwork(_) => ScopeImplKind::VirtualNetwork,
+            ScopeImpl::Subnet(_) => ScopeImplKind::Subnet,
             ScopeImpl::RoleEligibilitySchedule(_) => ScopeImplKind::RoleEligibilitySchedule,
             ScopeImpl::RoleManagementPolicyAssignment(_) => {
                 ScopeImplKind::RoleManagementPolicyAssignment
@@ -742,6 +761,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::VirtualNetwork(x) => {
                 f.write_fmt(format_args!("VirtualNetwork({})", x.short_form()))
+            }
+            ScopeImpl::Subnet(x) => {
+                f.write_fmt(format_args!("Subnet({})", x.short_form()))
             }
             ScopeImpl::ContainerRegistry(x) => {
                 f.write_fmt(format_args!("ContainerRegistry({})", x.short_form()))

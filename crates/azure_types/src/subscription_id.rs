@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 pub const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord)]
 pub struct SubscriptionId(Uuid);
 impl SubscriptionId {
     pub fn new(uuid: Uuid) -> Self {

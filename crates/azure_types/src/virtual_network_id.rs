@@ -18,7 +18,7 @@ use serde::de::Error;
 
 pub const VIRTUAL_NETWORK_ID_PREFIX: &str = "/providers/Microsoft.Network/virtualNetworks/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct VirtualNetworkId {
     pub resource_group_id: ResourceGroupId,
     pub virtual_network_name: VirtualNetworkName,
