@@ -9,7 +9,6 @@ pub struct AzureDevOpsTeamMember {
     pub is_team_admin: Option<bool>,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AzureDevOpsTeamMemberIdentity {

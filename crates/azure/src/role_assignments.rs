@@ -30,8 +30,8 @@ authorizationresources
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::fetch_all_role_definitions;
     use super::*;
+    use crate::prelude::fetch_all_role_definitions;
     use cloud_terrastodon_azure_types::prelude::RoleAssignmentId;
 
     #[tokio::test]
@@ -41,32 +41,32 @@ mod tests {
         assert!(result.len() > 25);
         for role_assignment in result {
             match role_assignment.id {
-                RoleAssignmentId::Unscoped(_) => {
-                    match fetch_all_role_definitions().await {
-                        Ok(role_definitions) => {
-                            match role_definitions
-                                .iter()
-                                .find(|rd| rd.id == role_assignment.role_definition_id)
-                            {
-                                Some(role_definition) => {
-                                    eprintln!("Unscoped role assignment found: {role_definition:#?}\n{role_assignment:#?}");
-                                }
-                                None => {
-                                    eprintln!(
-                                        "Found unscoped role assignment, but couldn't find role definition D:\n{:#?}",
-                                        role_assignment
-                                    );
-                                }
+                RoleAssignmentId::Unscoped(_) => match fetch_all_role_definitions().await {
+                    Ok(role_definitions) => {
+                        match role_definitions
+                            .iter()
+                            .find(|rd| rd.id == role_assignment.role_definition_id)
+                        {
+                            Some(role_definition) => {
+                                eprintln!(
+                                    "Unscoped role assignment found: {role_definition:#?}\n{role_assignment:#?}"
+                                );
+                            }
+                            None => {
+                                eprintln!(
+                                    "Found unscoped role assignment, but couldn't find role definition D:\n{:#?}",
+                                    role_assignment
+                                );
                             }
                         }
-                        Err(e) => {
-                            eprintln!(
-                                "Found unscoped role assignment, couldn't fetch role definitions D:\n{:#?}\nrole definition fetch error: {e:?}",
-                                role_assignment
-                            );
-                        }
                     }
-                }
+                    Err(e) => {
+                        eprintln!(
+                            "Found unscoped role assignment, couldn't fetch role definitions D:\n{:#?}\nrole definition fetch error: {e:?}",
+                            role_assignment
+                        );
+                    }
+                },
                 _ => {}
             }
         }

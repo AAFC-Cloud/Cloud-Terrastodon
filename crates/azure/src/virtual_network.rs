@@ -8,7 +8,8 @@ use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_all_virtual_networks() -> Result<Vec<VirtualNetwork>> {
-    info!("Fetching virtual networks");    let query = indoc! {r#"
+    info!("Fetching virtual networks");
+    let query = indoc! {r#"
         Resources
         | where type == "microsoft.network/virtualnetworks"
         | project

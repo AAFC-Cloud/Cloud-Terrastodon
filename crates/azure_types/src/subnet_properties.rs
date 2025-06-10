@@ -5,27 +5,27 @@ use serde::Serialize;
 pub struct SubnetProperties {
     #[serde(rename = "addressPrefix")]
     pub address_prefix: Option<String>,
-    
+
     #[serde(rename = "networkSecurityGroup")]
     pub network_security_group: Option<NetworkSecurityGroupReference>,
-    
+
     #[serde(rename = "routeTable")]
     pub route_table: Option<RouteTableReference>,
-    
+
     #[serde(rename = "privateEndpointNetworkPolicies")]
     pub private_endpoint_network_policies: Option<String>,
-    
+
     #[serde(rename = "privateLinkServiceNetworkPolicies")]
     pub private_link_service_network_policies: Option<String>,
-    
+
     pub delegations: Option<Vec<Delegation>>,
-    
+
     #[serde(rename = "serviceEndpoints")]
     pub service_endpoints: Option<Vec<ServiceEndpoint>>,
-    
+
     #[serde(rename = "serviceEndpointPolicies")]
     pub service_endpoint_policies: Option<Vec<ServiceEndpointPolicyReference>>,
-    
+
     #[serde(rename = "natGateway")]
     pub nat_gateway: Option<NatGatewayReference>,
 }

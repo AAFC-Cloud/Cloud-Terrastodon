@@ -1,9 +1,13 @@
-use cloud_terrastodon_azure_devops::prelude::{fetch_all_azure_devops_projects, fetch_azure_devops_teams_for_project};
-use cloud_terrastodon_user_input::{pick, pick_many, Choice, FzfArgs};
+use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_teams_for_project;
+use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::pick_many;
 use eyre::Result;
 
 pub async fn browse_azure_devops_project_teams() -> Result<()> {
-     let projects = fetch_all_azure_devops_projects().await?;
+    let projects = fetch_all_azure_devops_projects().await?;
     let project = pick(FzfArgs {
         choices: projects
             .into_iter()

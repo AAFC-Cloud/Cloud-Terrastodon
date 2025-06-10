@@ -25,24 +25,32 @@ impl SubnetId {
 
 impl Scope for SubnetId {
     fn expanded_form(&self) -> String {
-        format!("{}/subnets/{}", self.virtual_network_id.expanded_form(), self.subnet_name)
+        format!(
+            "{}/subnets/{}",
+            self.virtual_network_id.expanded_form(),
+            self.subnet_name
+        )
     }
 
     fn short_form(&self) -> String {
-        format!("{}/{}", self.virtual_network_id.short_form(), self.subnet_name)
-    }    
-    
+        format!(
+            "{}/{}",
+            self.virtual_network_id.short_form(),
+            self.subnet_name
+        )
+    }
+
     fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         // Parse subnet ID format: /subscriptions/{subId}/resourceGroups/{rgName}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}
-        
+
         // Find the last "/subnets/" occurrence
         if let Some(subnets_pos) = expanded.rfind("/subnets/") {
             let vnet_part = &expanded[..subnets_pos];
             let subnet_name_part = &expanded[subnets_pos + "/subnets/".len()..];
-            
+
             let virtual_network_id = VirtualNetworkId::try_from_expanded(vnet_part)?;
             let subnet_name = SubnetName::try_new(subnet_name_part)?;
-            
+
             Ok(Self::new(virtual_network_id, subnet_name))
         } else {
             Err(eyre::eyre!("Invalid subnet ID format: {}", expanded))

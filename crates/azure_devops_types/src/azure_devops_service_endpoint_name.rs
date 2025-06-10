@@ -1,6 +1,6 @@
-use serde::de::Error;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use serde::de::Error;
 use std::ops::Deref;
 use std::str::FromStr;
 use validator::Validate;
@@ -67,7 +67,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsServiceEndpointName {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         // Generate length between 1 and 64 (reasonable for service endpoint names)
         let len = u.int_in_range(1..=64)?;
-        
+
         // Generate only printable ASCII characters (32-126)
         let chars: Result<String, _> = (0..len)
             .map(|_| {
@@ -75,8 +75,10 @@ impl<'a> Arbitrary<'a> for AzureDevOpsServiceEndpointName {
                 Ok(byte as char)
             })
             .collect();
-            
-        let name = AzureDevOpsServiceEndpointName { inner: chars?.into() };
+
+        let name = AzureDevOpsServiceEndpointName {
+            inner: chars?.into(),
+        };
         if name.validate().is_ok() {
             Ok(name)
         } else {
@@ -103,7 +105,6 @@ impl<'de> serde::Deserialize<'de> for AzureDevOpsServiceEndpointName {
         Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:?}")))
     }
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -45,7 +45,10 @@ impl<'a> Arbitrary<'a> for ContainerRegistryName {
         // Get length in 3-24
         let len = u.int_in_range(5..=50)?;
         // Use only [a-z]
-        let choices = ('a'..='z').chain('A'..='Z').chain('1'..='9').collect::<Vec<_>>();
+        let choices = ('a'..='z')
+            .chain('A'..='Z')
+            .chain('1'..='9')
+            .collect::<Vec<_>>();
         let name: String = (0..len)
             .map(|_| Ok(*u.choose(&choices)?))
             .collect::<Result<String, _>>()?;

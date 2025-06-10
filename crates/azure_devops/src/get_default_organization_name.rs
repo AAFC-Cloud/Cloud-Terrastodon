@@ -40,7 +40,8 @@ pub async fn get_default_organization_name() -> eyre::Result<AzureDevOpsOrganiza
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::{get_default_organization_name, get_default_organization_url};
+    use crate::prelude::get_default_organization_name;
+    use crate::prelude::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

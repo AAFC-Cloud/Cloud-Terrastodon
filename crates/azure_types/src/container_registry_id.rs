@@ -144,8 +144,8 @@ impl<'de> Deserialize<'de> for ContainerRegistryId {
 #[cfg(test)]
 mod test {
     use super::ContainerRegistryId;
-    use crate::prelude::ResourceGroupId;
     use crate::prelude::ContainerRegistryName;
+    use crate::prelude::ResourceGroupId;
     use crate::prelude::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;

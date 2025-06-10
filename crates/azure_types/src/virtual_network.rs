@@ -22,7 +22,8 @@ impl VirtualNetwork {
 }
 
 #[cfg(test)]
-mod tests {    use super::*;
+mod tests {
+    use super::*;
     use crate::prelude::ResourceGroupName;
     use crate::prelude::SubscriptionId;
     use crate::prelude::VirtualNetworkName;
@@ -37,7 +38,8 @@ mod tests {    use super::*;
         let rg_name = ResourceGroupName::try_new("test-rg")?;
         let rg_id = ResourceGroupId::new(sub_id.clone(), rg_name.clone());
         let vnet_name_slug = VirtualNetworkName::try_new("test-vnet")?;
-        let vnet_id = VirtualNetworkId::new(rg_id, vnet_name_slug.clone());        let json_data = serde_json::json!({
+        let vnet_id = VirtualNetworkId::new(rg_id, vnet_name_slug.clone());
+        let json_data = serde_json::json!({
             "id": vnet_id.expanded_form(),
             "name": "test-vnet-azure-name",
             "location": "eastus",
@@ -54,14 +56,18 @@ mod tests {    use super::*;
             }
         });
 
-        let deserialized_vnet: VirtualNetwork = serde_json::from_value(json_data)?;        assert_eq!(deserialized_vnet.id, vnet_id);
+        let deserialized_vnet: VirtualNetwork = serde_json::from_value(json_data)?;
+        assert_eq!(deserialized_vnet.id, vnet_id);
         assert_eq!(deserialized_vnet.name, "test-vnet-azure-name");
         assert_eq!(deserialized_vnet.location, "eastus");
         assert_eq!(
             deserialized_vnet.tags.unwrap().get("environment").unwrap(),
             "test"
         );
-        assert_eq!(deserialized_vnet.properties.address_space.address_prefixes, vec!["10.0.0.0/16"]);
+        assert_eq!(
+            deserialized_vnet.properties.address_space.address_prefixes,
+            vec!["10.0.0.0/16"]
+        );
         assert!(deserialized_vnet.properties.subnets.is_empty());
 
         Ok(())

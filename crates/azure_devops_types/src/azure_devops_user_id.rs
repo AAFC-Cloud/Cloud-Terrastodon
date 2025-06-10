@@ -33,7 +33,6 @@ impl FromStr for AzureDevOpsUserId {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

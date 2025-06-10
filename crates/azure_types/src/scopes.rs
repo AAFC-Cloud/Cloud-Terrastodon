@@ -15,8 +15,8 @@ use crate::prelude::RoleManagementPolicyAssignmentId;
 use crate::prelude::RoleManagementPolicyId;
 use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::prelude::StorageAccountId;
-use crate::prelude::SubscriptionId;
 use crate::prelude::SubnetId;
+use crate::prelude::SubscriptionId;
 use crate::prelude::TestResourceId;
 use crate::prelude::VirtualNetworkId;
 use crate::slug::HasSlug;
@@ -602,7 +602,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::Resource(id) => id.expanded_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
             ScopeImpl::ContainerRegistry(id) => id.expanded_form(),
-                    }
+        }
     }
 
     fn short_form(&self) -> String {
@@ -762,9 +762,7 @@ impl std::fmt::Display for ScopeImpl {
             ScopeImpl::VirtualNetwork(x) => {
                 f.write_fmt(format_args!("VirtualNetwork({})", x.short_form()))
             }
-            ScopeImpl::Subnet(x) => {
-                f.write_fmt(format_args!("Subnet({})", x.short_form()))
-            }
+            ScopeImpl::Subnet(x) => f.write_fmt(format_args!("Subnet({})", x.short_form())),
             ScopeImpl::ContainerRegistry(x) => {
                 f.write_fmt(format_args!("ContainerRegistry({})", x.short_form()))
             }

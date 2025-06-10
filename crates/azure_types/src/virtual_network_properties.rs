@@ -33,22 +33,22 @@ pub struct VirtualNetworkPeering {
 pub struct VirtualNetworkPeeringProperties {
     #[serde(rename = "allowVirtualNetworkAccess")]
     pub allow_virtual_network_access: Option<bool>,
-    
+
     #[serde(rename = "allowForwardedTraffic")]
     pub allow_forwarded_traffic: Option<bool>,
-    
+
     #[serde(rename = "allowGatewayTransit")]
     pub allow_gateway_transit: Option<bool>,
-    
+
     #[serde(rename = "useRemoteGateways")]
     pub use_remote_gateways: Option<bool>,
-    
+
     #[serde(rename = "remoteVirtualNetwork")]
     pub remote_virtual_network: Option<RemoteVirtualNetworkReference>,
-    
+
     #[serde(rename = "peeringState")]
     pub peering_state: Option<String>,
-    
+
     #[serde(rename = "provisioningState")]
     pub provisioning_state: Option<String>,
 }

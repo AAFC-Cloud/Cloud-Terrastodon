@@ -1,11 +1,11 @@
-use std::path::PathBuf;
-use std::time::Duration;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsGroup;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
+use std::path::PathBuf;
+use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_azure_devops_groups(

@@ -1,10 +1,10 @@
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use serde::de::Error;
 use std::ops::Deref;
 use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
-use serde::de::Error;
 
 /// https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#project-names
 #[derive(Debug, Eq, PartialEq, Validate, Clone)]

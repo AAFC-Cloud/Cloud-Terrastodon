@@ -1,21 +1,21 @@
+use arbitrary::Arbitrary;
+use compact_str::CompactString;
+use serde::de::Error;
 use std::ops::Deref;
 use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
-use compact_str::CompactString;
-use arbitrary::Arbitrary;
-use serde::de::Error;
 
 /// https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#organization-names
-/// 
+///
 /// Use only letters from the English alphabet
-/// 
+///
 /// Start your organization name with a letter or number
-/// 
+///
 /// Use letters, numbers, or hyphens after the initial character
-/// 
+///
 /// Ensure that your organization doesn't exceed 50 Unicode characters
-/// 
+///
 /// End with a letter or number
 #[derive(Debug, Eq, PartialEq, Clone, Validate, Hash)]
 pub struct AzureDevOpsOrganizationName {
@@ -46,20 +46,31 @@ fn is_valid_last_char(ch: char) -> bool {
     is_english_letter(ch) || is_digit(ch)
 }
 
-fn validate_azure_devops_organization_name_contents(value: &CompactString) -> Result<(), ValidationError> {
+fn validate_azure_devops_organization_name_contents(
+    value: &CompactString,
+) -> Result<(), ValidationError> {
     let s: &str = value;
-    
+
     if s.is_empty() || s.len() > 50 {
-        return Err(ValidationError::new("length must be between 1 and 50 characters"));
+        return Err(ValidationError::new(
+            "length must be between 1 and 50 characters",
+        ));
     }
 
     let chars: Vec<char> = s.chars().collect();
-    
+
     // Check first character
     if let Some(&first_char) = chars.first() {
         if !is_valid_first_char(first_char) {
-            return Err(ValidationError::new("must start with English letter or number")
-                .with_message(format!("First character '{}' is not an English letter or digit", first_char).into()));
+            return Err(
+                ValidationError::new("must start with English letter or number").with_message(
+                    format!(
+                        "First character '{}' is not an English letter or digit",
+                        first_char
+                    )
+                    .into(),
+                ),
+            );
         }
     }
 
@@ -67,8 +78,15 @@ fn validate_azure_devops_organization_name_contents(value: &CompactString) -> Re
     if chars.len() > 1 {
         if let Some(&last_char) = chars.last() {
             if !is_valid_last_char(last_char) {
-                return Err(ValidationError::new("must end with English letter or number")
-                    .with_message(format!("Last character '{}' is not an English letter or digit", last_char).into()));
+                return Err(
+                    ValidationError::new("must end with English letter or number").with_message(
+                        format!(
+                            "Last character '{}' is not an English letter or digit",
+                            last_char
+                        )
+                        .into(),
+                    ),
+                );
             }
         }
     }
@@ -170,16 +188,22 @@ impl<'a> Arbitrary<'a> for AzureDevOpsOrganizationName {
                 chars.push(rand_valid_first_char(u)?);
             } else {
                 chars.push(rand_valid_first_char(u)?);
-                for _ in 1..len-1 {
+                for _ in 1..len - 1 {
                     chars.push(rand_valid_middle_char(u)?);
                 }
                 chars.push(rand_valid_last_char(u)?);
             }
 
             let candidate: String = chars.into_iter().collect();
-            
-            if validate_azure_devops_organization_name_contents(&CompactString::from(candidate.as_str())).is_ok() {
-                return Ok(AzureDevOpsOrganizationName { inner: CompactString::from(candidate) });
+
+            if validate_azure_devops_organization_name_contents(&CompactString::from(
+                candidate.as_str(),
+            ))
+            .is_ok()
+            {
+                return Ok(AzureDevOpsOrganizationName {
+                    inner: CompactString::from(candidate),
+                });
             }
         }
         Err(arbitrary::Error::IncorrectFormat)
@@ -208,7 +232,8 @@ impl<'de> serde::Deserialize<'de> for AzureDevOpsOrganizationName {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arbitrary::{Arbitrary, Unstructured};
+    use arbitrary::Arbitrary;
+    use arbitrary::Unstructured;
 
     #[test]
     fn test_length_bounds() {

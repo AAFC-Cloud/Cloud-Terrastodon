@@ -1,6 +1,7 @@
 use serde_json::Value;
 
-use crate::prelude::{AzureDevOpsServiceEndpointId, AzureDevOpsServiceEndpointName};
+use crate::prelude::AzureDevOpsServiceEndpointId;
+use crate::prelude::AzureDevOpsServiceEndpointName;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

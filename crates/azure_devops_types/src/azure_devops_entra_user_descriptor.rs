@@ -25,7 +25,6 @@ impl AzureDevOpsEntraUserDescriptor {
     }
 }
 
-
 impl std::fmt::Display for AzureDevOpsEntraUserDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
@@ -82,8 +81,7 @@ mod test {
         let descriptor = AzureDevOpsEntraUserDescriptor::try_new("aad.bruh")?;
         let serialized = serde_json::to_string(&descriptor)?;
         assert_eq!(serialized, "\"aad.bruh\"");
-        let deserialized: AzureDevOpsEntraUserDescriptor =
-            serde_json::from_str(&serialized)?;
+        let deserialized: AzureDevOpsEntraUserDescriptor = serde_json::from_str(&serialized)?;
         assert_eq!(descriptor, deserialized);
         Ok(())
     }

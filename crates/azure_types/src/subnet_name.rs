@@ -23,9 +23,7 @@ pub struct SubnetName {
 
 impl Slug for SubnetName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let s = Self {
-            inner: name.into(),
-        };
+        let s = Self { inner: name.into() };
         s.validate_slug()?;
         Ok(s)
     }
@@ -47,7 +45,7 @@ fn validate_subnet_name_contents(value: &CompactString) -> Result<(), Validation
     }
 
     let chars: Vec<char> = value.chars().collect();
-    
+
     // Must start with alphanumeric
     let first_char = chars.first().ok_or_else(|| {
         let mut err = ValidationError::new("first_char");
@@ -57,9 +55,7 @@ fn validate_subnet_name_contents(value: &CompactString) -> Result<(), Validation
 
     if !first_char.is_alphanumeric() {
         let mut err = ValidationError::new("first_char_alphanumeric");
-        err.message = Some(std::borrow::Cow::from(
-            "Name must start with alphanumeric.",
-        ));
+        err.message = Some(std::borrow::Cow::from("Name must start with alphanumeric."));
         return Err(err);
     }
 
@@ -69,7 +65,7 @@ fn validate_subnet_name_contents(value: &CompactString) -> Result<(), Validation
         err.message = Some(std::borrow::Cow::from("Name cannot be empty"));
         err
     })?;
-    
+
     if !(last_char.is_alphanumeric() || *last_char == '_') {
         let mut err = ValidationError::new("last_char_invalid");
         err.message = Some(std::borrow::Cow::from(
@@ -80,7 +76,11 @@ fn validate_subnet_name_contents(value: &CompactString) -> Result<(), Validation
 
     // All characters must be alphanumeric, underscore, period, or hyphen
     for char_code in &chars {
-        if !(char_code.is_alphanumeric() || *char_code == '_' || *char_code == '.' || *char_code == '-') {
+        if !(char_code.is_alphanumeric()
+            || *char_code == '_'
+            || *char_code == '.'
+            || *char_code == '-')
+        {
             let mut err = ValidationError::new("invalid_char");
             err.message = Some(std::borrow::Cow::from(
                 "Name can only contain alphanumerics, underscores, periods, and hyphens.",
@@ -165,7 +165,7 @@ impl<'a> Arbitrary<'a> for SubnetName {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         // Generate a length between 1 and 80
         let len = u.int_in_range(1..=80)?;
-        
+
         // Start with an alphanumeric character
         let first_char = if u.ratio(1, 2)? {
             // Generate a letter
@@ -178,15 +178,15 @@ impl<'a> Arbitrary<'a> for SubnetName {
             // Generate a digit
             u.int_in_range(b'0'..=b'9')? as char
         };
-        
+
         let mut name = String::with_capacity(len);
         name.push(first_char);
-        
+
         // Generate middle characters (if any)
         for _ in 1..len.saturating_sub(1) {
             let char = match u.int_in_range(0..=5)? {
                 0..=1 => u.int_in_range(b'a'..=b'z')? as char, // lowercase letter
-                2..=3 => u.int_in_range(b'A'..=b'Z')? as char, // uppercase letter  
+                2..=3 => u.int_in_range(b'A'..=b'Z')? as char, // uppercase letter
                 4 => u.int_in_range(b'0'..=b'9')? as char,     // digit
                 5 => match u.int_in_range(0..=2)? {
                     0 => '_',
@@ -197,7 +197,7 @@ impl<'a> Arbitrary<'a> for SubnetName {
             };
             name.push(char);
         }
-        
+
         // Ensure we end with alphanumeric or underscore (if length > 1)
         if len > 1 {
             let last_char = if u.ratio(3, 4)? {
@@ -218,7 +218,7 @@ impl<'a> Arbitrary<'a> for SubnetName {
             };
             name.push(last_char);
         }
-        
+
         SubnetName::try_new(name).map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
@@ -253,7 +253,9 @@ mod test {
 
     #[test]
     fn validate_slug_method() -> eyre::Result<()> {
-        let name = SubnetName { inner: "my-subnet".into() };
+        let name = SubnetName {
+            inner: "my-subnet".into(),
+        };
         name.validate_slug()?;
         Ok(())
     }
