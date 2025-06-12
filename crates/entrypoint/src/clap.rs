@@ -31,6 +31,7 @@ pub enum Commands {
     AddWorkDir {
         dir: PathBuf,
     },
+    #[command(alias = "tf")]
     Terraform {
         #[command(subcommand)]
         command: TerraformCommand,
@@ -43,4 +44,13 @@ pub enum TerraformCommand {
         #[arg(long, default_value = ".")]
         work_dir: PathBuf,
     },
+    /// Identify if any providers have been specified as required but are not being used.
+    /// 
+    /// Identify if any providers are not using the latest version.
+    Audit {
+        #[arg(default_value = ".")]
+        source_dir: PathBuf,
+        #[arg(long, default_value_t = false, help = "Recursively audit subdirectories")]
+        recursive: bool,
+    }
 }

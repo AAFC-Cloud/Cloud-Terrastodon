@@ -1,0 +1,1405 @@
+{
+  "id": "microsoft/azuredevops/1.10.0",
+  "owner": "xuzhang3",
+  "namespace": "microsoft",
+  "name": "azuredevops",
+  "alias": null,
+  "version": "1.10.0",
+  "tag": "1.10.0",
+  "description": "Terraform Azure DevOps provider",
+  "source": "https://github.com/microsoft/terraform-provider-azuredevops",
+  "published_at": "2025-05-30T07:23:34Z",
+  "downloads": 48026435,
+  "tier": "partner",
+  "logo_url": "https://avatars3.githubusercontent.com/microsoft",
+  "versions": [
+    "0.1.0",
+    "0.1.1",
+    "0.1.2",
+    "0.1.3",
+    "0.1.4",
+    "0.1.5",
+    "0.1.6",
+    "0.1.7",
+    "0.1.8",
+    "0.2.0",
+    "0.2.1",
+    "0.2.2",
+    "0.3.0",
+    "0.4.0",
+    "0.5.0",
+    "0.6.0",
+    "0.7.0",
+    "0.8.0",
+    "0.9.0",
+    "0.9.1",
+    "0.10.0",
+    "0.11.0",
+    "1.0.0",
+    "1.0.1",
+    "1.1.0",
+    "1.1.1",
+    "1.2.0",
+    "1.3.0",
+    "1.4.0",
+    "1.5.0",
+    "1.6.0",
+    "1.7.0",
+    "1.8.0",
+    "1.8.1",
+    "1.9.0",
+    "1.10.0"
+  ],
+  "docs": [
+    {
+      "id": "9140207",
+      "title": "agent_pool",
+      "path": "website/docs/d/agent_pool.html.markdown",
+      "slug": "agent_pool",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140208",
+      "title": "agent_pools",
+      "path": "website/docs/d/agent_pools.html.markdown",
+      "slug": "agent_pools",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140209",
+      "title": "agent_queue",
+      "path": "website/docs/d/agent_queue.html.markdown",
+      "slug": "agent_queue",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140210",
+      "title": "area",
+      "path": "website/docs/d/area.html.markdown",
+      "slug": "area",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140211",
+      "title": "build_definition",
+      "path": "website/docs/d/build_definition.html.markdown",
+      "slug": "build_definition",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140212",
+      "title": "client_config",
+      "path": "website/docs/d/client_config.html.markdown",
+      "slug": "client_config",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140213",
+      "title": "descriptor",
+      "path": "website/docs/d/descriptor.html.markdown",
+      "slug": "descriptor",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140214",
+      "title": "environment",
+      "path": "website/docs/d/environment.html.markdown",
+      "slug": "environment",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140215",
+      "title": "feed",
+      "path": "website/docs/d/feed.html.markdown",
+      "slug": "feed",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140216",
+      "title": "git_repositories",
+      "path": "website/docs/d/git_repositories.html.markdown",
+      "slug": "git_repositories",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140217",
+      "title": "git_repository",
+      "path": "website/docs/d/git_repository.html.markdown",
+      "slug": "git_repository",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140218",
+      "title": "git_repository_file",
+      "path": "website/docs/d/git_repository_file.html.markdown",
+      "slug": "git_repository_file",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140219",
+      "title": "group",
+      "path": "website/docs/d/group.html.markdown",
+      "slug": "group",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140220",
+      "title": "group_membership",
+      "path": "website/docs/d/group_membership.html.markdown",
+      "slug": "group_membership",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140221",
+      "title": "groups",
+      "path": "website/docs/d/groups.html.markdown",
+      "slug": "groups",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140222",
+      "title": "identity_group",
+      "path": "website/docs/d/identity_group.html.markdown",
+      "slug": "identity_group",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140223",
+      "title": "identity_groups",
+      "path": "website/docs/d/identity_groups.html.markdown",
+      "slug": "identity_groups",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140224",
+      "title": "identity_user",
+      "path": "website/docs/d/identity_user.html.markdown",
+      "slug": "identity_user",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140225",
+      "title": "iteration",
+      "path": "website/docs/d/iteration.html.markdown",
+      "slug": "iteration",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140226",
+      "title": "project",
+      "path": "website/docs/d/project.html.markdown",
+      "slug": "project",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140227",
+      "title": "projects",
+      "path": "website/docs/d/projects.html.markdown",
+      "slug": "projects",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140228",
+      "title": "securityrole_definitions",
+      "path": "website/docs/d/securityrole_definitions.html.markdown",
+      "slug": "securityrole_definitions",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140230",
+      "title": "serviceendpoint_azurecr",
+      "path": "website/docs/d/serviceendpoint_azurecr.html.markdown",
+      "slug": "serviceendpoint_azurecr",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140231",
+      "title": "serviceendpoint_azurerm",
+      "path": "website/docs/d/serviceendpoint_azurerm.html.markdown",
+      "slug": "serviceendpoint_azurerm",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140232",
+      "title": "serviceendpoint_bitbucket",
+      "path": "website/docs/d/serviceendpoint_bitbucket.html.markdown",
+      "slug": "serviceendpoint_bitbucket",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140233",
+      "title": "serviceendpoint_dockerregistry",
+      "path": "website/docs/d/serviceendpoint_dockerregistry.html.markdown",
+      "slug": "serviceendpoint_dockerregistry",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140234",
+      "title": "serviceendpoint_github",
+      "path": "website/docs/d/serviceendpoint_github.html.markdown",
+      "slug": "serviceendpoint_github",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140235",
+      "title": "serviceendpoint_npm",
+      "path": "website/docs/d/serviceendpoint_npm.html.markdown",
+      "slug": "serviceendpoint_npm",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140236",
+      "title": "serviceendpoint_sonarcloud",
+      "path": "website/docs/d/serviceendpoint_sonarcloud.html.markdown",
+      "slug": "serviceendpoint_sonarcloud",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140229",
+      "title": "service_principal",
+      "path": "website/docs/d/service_principal.html.markdown",
+      "slug": "service_principal",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140237",
+      "title": "storage_key",
+      "path": "website/docs/d/storage_key.html.markdown",
+      "slug": "storage_key",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140238",
+      "title": "team",
+      "path": "website/docs/d/team.html.markdown",
+      "slug": "team",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140239",
+      "title": "teams",
+      "path": "website/docs/d/teams.html.markdown",
+      "slug": "teams",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140240",
+      "title": "user",
+      "path": "website/docs/d/user.html.markdown",
+      "slug": "user",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140241",
+      "title": "users",
+      "path": "website/docs/d/users.html.markdown",
+      "slug": "users",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140242",
+      "title": "variable_group",
+      "path": "website/docs/d/variable_group.html.markdown",
+      "slug": "variable_group",
+      "category": "data-sources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140094",
+      "title": "Azure DevOps Provider: Authenticating via Managed Identity",
+      "path": "website/docs/guides/authenticating_managed_identity.html.md",
+      "slug": "authenticating_managed_identity",
+      "category": "guides",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140095",
+      "title": "Azure DevOps Provider: Authenticating to a Service Principal with a Client Certificate",
+      "path": "website/docs/guides/authenticating_service_principal_using_a_client_certificate.html.md",
+      "slug": "authenticating_service_principal_using_a_client_certificate",
+      "category": "guides",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140096",
+      "title": "Azure DevOps Provider: Authenticating to a Service Principal with a Client Secret",
+      "path": "website/docs/guides/authenticating_service_principal_using_a_client_secret.html.md",
+      "slug": "authenticating_service_principal_using_a_client_secret",
+      "category": "guides",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140097",
+      "title": "Azure DevOps Provider: Authenticating to a Service Principal with an OIDC Token",
+      "path": "website/docs/guides/authenticating_service_principal_using_an_oidc_token.html.md",
+      "slug": "authenticating_service_principal_using_an_oidc_token",
+      "category": "guides",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140098",
+      "title": "Azure DevOps Provider: Authenticating with Personal Access Token",
+      "path": "website/docs/guides/authenticating_using_the_personal_access_token.html.md",
+      "slug": "authenticating_using_the_personal_access_token",
+      "category": "guides",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140093",
+      "title": "overview",
+      "path": "website/docs/index.html.markdown",
+      "slug": "index",
+      "category": "overview",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140099",
+      "title": "agent_pool",
+      "path": "website/docs/r/agent_pool.html.markdown",
+      "slug": "agent_pool",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140100",
+      "title": "agent_queue",
+      "path": "website/docs/r/agent_queue.html.markdown",
+      "slug": "agent_queue",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140101",
+      "title": "area_permissions",
+      "path": "website/docs/r/area_permissions.html.markdown",
+      "slug": "area_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140102",
+      "title": "branch_policy_auto_reviewers",
+      "path": "website/docs/r/branch_policy_auto_reviewers.html.markdown",
+      "slug": "branch_policy_auto_reviewers",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140103",
+      "title": "branch_policy_build_validation",
+      "path": "website/docs/r/branch_policy_build_validation.html.markdown",
+      "slug": "branch_policy_build_validation",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140104",
+      "title": "branch_policy_comment_resolution",
+      "path": "website/docs/r/branch_policy_comment_resolution.html.markdown",
+      "slug": "branch_policy_comment_resolution",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140105",
+      "title": "branch_policy_merge_types",
+      "path": "website/docs/r/branch_policy_merge_types.html.markdown",
+      "slug": "branch_policy_merge_types",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140106",
+      "title": "branch_policy_min_reviewers",
+      "path": "website/docs/r/branch_policy_min_reviewers.html.markdown",
+      "slug": "branch_policy_min_reviewers",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140107",
+      "title": "branch_policy_status_check",
+      "path": "website/docs/r/branch_policy_status_check.html.markdown",
+      "slug": "branch_policy_status_check",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140108",
+      "title": "branch_policy_work_item_linking",
+      "path": "website/docs/r/branch_policy_work_item_linking.html.markdown",
+      "slug": "branch_policy_work_item_linking",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140109",
+      "title": "build_definition",
+      "path": "website/docs/r/build_definition.html.markdown",
+      "slug": "build_definition",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140110",
+      "title": "build_definition_permissions",
+      "path": "website/docs/r/build_definition_permissions.html.markdown",
+      "slug": "build_definition_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140111",
+      "title": "build_folder",
+      "path": "website/docs/r/build_folder.html.markdown",
+      "slug": "build_folder",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140112",
+      "title": "build_folder_permissions",
+      "path": "website/docs/r/build_folder_permissions.html.markdown",
+      "slug": "build_folder_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140113",
+      "title": "check_approval",
+      "path": "website/docs/r/check_approval.html.markdown",
+      "slug": "check_approval",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140114",
+      "title": "check_branch_control",
+      "path": "website/docs/r/check_branch_control.html.markdown",
+      "slug": "check_branch_control",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140115",
+      "title": "check_business_hours",
+      "path": "website/docs/r/check_business_hours.html.markdown",
+      "slug": "check_business_hours",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140116",
+      "title": "check_exclusive_lock",
+      "path": "website/docs/r/check_exclusive_lock.html.markdown",
+      "slug": "check_exclusive_lock",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140117",
+      "title": "check_required_template",
+      "path": "website/docs/r/check_required_template.html.markdown",
+      "slug": "check_required_template",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140118",
+      "title": "check_rest_api",
+      "path": "website/docs/r/check_rest_api.html.markdown",
+      "slug": "check_rest_api",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140119",
+      "title": "dashboard",
+      "path": "website/docs/r/dashboard.html.markdown",
+      "slug": "dashboard",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140120",
+      "title": "elastic_pool",
+      "path": "website/docs/r/elastic_pool.html.markdown",
+      "slug": "elastic_pool",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140121",
+      "title": "environment",
+      "path": "website/docs/r/environment.html.markdown",
+      "slug": "environment",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140122",
+      "title": "environment_kubernetes_resource",
+      "path": "website/docs/r/environment_kubernetes_resource.html.markdown",
+      "slug": "environment_kubernetes_resource",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140123",
+      "title": "extension",
+      "path": "website/docs/r/extension.html.markdown",
+      "slug": "extension",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140124",
+      "title": "feed",
+      "path": "website/docs/r/feed.html.markdown",
+      "slug": "feed",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140125",
+      "title": "feed_permission",
+      "path": "website/docs/r/feed_permission.html.markdown",
+      "slug": "feed_permission",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140126",
+      "title": "feed_retention_policy",
+      "path": "website/docs/r/feed_retention_policy.html.markdown",
+      "slug": "feed_retention_policy",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140127",
+      "title": "git_permissions",
+      "path": "website/docs/r/git_permissions.html.markdown",
+      "slug": "git_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140128",
+      "title": "git_repository",
+      "path": "website/docs/r/git_repository.html.markdown",
+      "slug": "git_repository",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140129",
+      "title": "git_repository_branch",
+      "path": "website/docs/r/git_repository_branch.html.markdown",
+      "slug": "git_repository_branch",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140130",
+      "title": "git_repository_file",
+      "path": "website/docs/r/git_repository_file.html.markdown",
+      "slug": "git_repository_file",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140131",
+      "title": "group",
+      "path": "website/docs/r/group.html.markdown",
+      "slug": "group",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140132",
+      "title": "group_entitlement",
+      "path": "website/docs/r/group_entitlement.html.markdown",
+      "slug": "group_entitlement",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140133",
+      "title": "group_membership",
+      "path": "website/docs/r/group_membership.html.markdown",
+      "slug": "group_membership",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140134",
+      "title": "iteration_permissions",
+      "path": "website/docs/r/iteration_permissions.html.markdown",
+      "slug": "iteration_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140135",
+      "title": "library_permissions",
+      "path": "website/docs/r/library_permissions.html.markdown",
+      "slug": "library_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140136",
+      "title": "pipeline_authorization",
+      "path": "website/docs/r/pipeline_authorization.html.markdown",
+      "slug": "pipeline_authorization",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140137",
+      "title": "project",
+      "path": "website/docs/r/project.html.markdown",
+      "slug": "project",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140138",
+      "title": "project_features",
+      "path": "website/docs/r/project_features.html.markdown",
+      "slug": "project_features",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140139",
+      "title": "project_permissions",
+      "path": "website/docs/r/project_permissions.html.markdown",
+      "slug": "project_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140140",
+      "title": "project_pipeline_settings",
+      "path": "website/docs/r/project_pipeline_settings.html.markdown",
+      "slug": "project_pipeline_settings",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140141",
+      "title": "project_tags",
+      "path": "website/docs/r/project_tags.html.markdown",
+      "slug": "project_tags",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140142",
+      "title": "repository_policy_author_email_pattern",
+      "path": "website/docs/r/repository_policy_author_email_pattern.html.markdown",
+      "slug": "repository_policy_author_email_pattern",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140143",
+      "title": "repository_policy_case_enforcement",
+      "path": "website/docs/r/repository_policy_case_enforcement.html.markdown",
+      "slug": "repository_policy_case_enforcement",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140144",
+      "title": "repository_policy_check_credentials",
+      "path": "website/docs/r/repository_policy_check_credentials.html.markdown",
+      "slug": "repository_policy_check_credentials",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140145",
+      "title": "repository_policy_file_path_pattern",
+      "path": "website/docs/r/repository_policy_file_path_pattern.html.markdown",
+      "slug": "repository_policy_file_path_pattern",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140146",
+      "title": "repository_policy_max_file_size",
+      "path": "website/docs/r/repository_policy_max_file_size.html.markdown",
+      "slug": "repository_policy_max_file_size",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140147",
+      "title": "repository_policy_max_path_length",
+      "path": "website/docs/r/repository_policy_max_path_length.html.markdown",
+      "slug": "repository_policy_max_path_length",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140148",
+      "title": "repository_policy_reserved_names",
+      "path": "website/docs/r/repository_policy_reserved_names.html.markdown",
+      "slug": "repository_policy_reserved_names",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140149",
+      "title": "resource_authorization",
+      "path": "website/docs/r/resource_authorization.html.markdown",
+      "slug": "resource_authorization",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140150",
+      "title": "securityrole_assignment",
+      "path": "website/docs/r/securityrole_assignment.html.markdown",
+      "slug": "securityrole_assignment",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140152",
+      "title": "serviceendpoint_argocd",
+      "path": "website/docs/r/serviceendpoint_argocd.html.markdown",
+      "slug": "serviceendpoint_argocd",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140153",
+      "title": "serviceendpoint_artifactory",
+      "path": "website/docs/r/serviceendpoint_artifactory.html.markdown",
+      "slug": "serviceendpoint_artifactory",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140154",
+      "title": "serviceendpoint_aws",
+      "path": "website/docs/r/serviceendpoint_aws.html.markdown",
+      "slug": "serviceendpoint_aws",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140156",
+      "title": "serviceendpoint_azurecr",
+      "path": "website/docs/r/serviceendpoint_azurecr.html.markdown",
+      "slug": "serviceendpoint_azurecr",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140157",
+      "title": "serviceendpoint_azuredevops",
+      "path": "website/docs/r/serviceendpoint_azuredevops.html.markdown",
+      "slug": "serviceendpoint_azuredevops",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140158",
+      "title": "serviceendpoint_azurerm",
+      "path": "website/docs/r/serviceendpoint_azurerm.html.markdown",
+      "slug": "serviceendpoint_azurerm",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140155",
+      "title": "serviceendpoint_azure_service_bus",
+      "path": "website/docs/r/serviceendpoint_azure_service_bus.html.markdown",
+      "slug": "serviceendpoint_azure_service_bus",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140159",
+      "title": "serviceendpoint_bitbucket",
+      "path": "website/docs/r/serviceendpoint_bitbucket.html.markdown",
+      "slug": "serviceendpoint_bitbucket",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140160",
+      "title": "serviceendpoint_black_duck",
+      "path": "website/docs/r/serviceendpoint_black_duck.html.markdown",
+      "slug": "serviceendpoint_black_duck",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140161",
+      "title": "serviceendpoint_checkmarx_one",
+      "path": "website/docs/r/serviceendpoint_checkmarx_one.html.markdown",
+      "slug": "serviceendpoint_checkmarx_one",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140162",
+      "title": "serviceendpoint_checkmarx_sast",
+      "path": "website/docs/r/serviceendpoint_checkmarx_sast.html.markdown",
+      "slug": "serviceendpoint_checkmarx_sast",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140163",
+      "title": "serviceendpoint_checkmarx_sca",
+      "path": "website/docs/r/serviceendpoint_checkmarx_sca.html.markdown",
+      "slug": "serviceendpoint_checkmarx_sca",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140164",
+      "title": "serviceendpoint_dockerregistry",
+      "path": "website/docs/r/serviceendpoint_dockerregistry.html.markdown",
+      "slug": "serviceendpoint_dockerregistry",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140165",
+      "title": "serviceendpoint_dynamics_lifecycle_services",
+      "path": "website/docs/r/serviceendpoint_dynamics_lifecycle_services.html.markdown",
+      "slug": "serviceendpoint_dynamics_lifecycle_services",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140166",
+      "title": "serviceendpoint_externaltfs",
+      "path": "website/docs/r/serviceendpoint_externaltfs.html.markdown",
+      "slug": "serviceendpoint_externaltfs",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140167",
+      "title": "serviceendpoint_gcp_terraform",
+      "path": "website/docs/r/serviceendpoint_gcp_terraform.html.markdown",
+      "slug": "serviceendpoint_gcp_terraform",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140168",
+      "title": "serviceendpoint_generic",
+      "path": "website/docs/r/serviceendpoint_generic.html.markdown",
+      "slug": "serviceendpoint_generic",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140169",
+      "title": "serviceendpoint_generic_git",
+      "path": "website/docs/r/serviceendpoint_generic_git.html.markdown",
+      "slug": "serviceendpoint_generic_git",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140170",
+      "title": "serviceendpoint_github",
+      "path": "website/docs/r/serviceendpoint_github.html.markdown",
+      "slug": "serviceendpoint_github",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140171",
+      "title": "serviceendpoint_github_enterprise",
+      "path": "website/docs/r/serviceendpoint_github_enterprise.html.markdown",
+      "slug": "serviceendpoint_github_enterprise",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140172",
+      "title": "serviceendpoint_gitlab",
+      "path": "website/docs/r/serviceendpoint_gitlab.html.markdown",
+      "slug": "serviceendpoint_gitlab",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140173",
+      "title": "serviceendpoint_incomingwebhook",
+      "path": "website/docs/r/serviceendpoint_incomingwebhook.html.markdown",
+      "slug": "serviceendpoint_incomingwebhook",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140174",
+      "title": "serviceendpoint_jenkins",
+      "path": "website/docs/r/serviceendpoint_jenkins.html.markdown",
+      "slug": "serviceendpoint_jenkins",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140175",
+      "title": "serviceendpoint_jfrog_artifactory_v2",
+      "path": "website/docs/r/serviceendpoint_jfrog_artifactory_v2.html.markdown",
+      "slug": "serviceendpoint_jfrog_artifactory_v2",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140176",
+      "title": "serviceendpoint_jfrog_distribution_v2",
+      "path": "website/docs/r/serviceendpoint_jfrog_distribution_v2.html.markdown",
+      "slug": "serviceendpoint_jfrog_distribution_v2",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140177",
+      "title": "serviceendpoint_jfrog_platform_v2",
+      "path": "website/docs/r/serviceendpoint_jfrog_platform_v2.html.markdown",
+      "slug": "serviceendpoint_jfrog_platform_v2",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140178",
+      "title": "serviceendpoint_jfrog_xray_v2",
+      "path": "website/docs/r/serviceendpoint_jfrog_xray_v2.html.markdown",
+      "slug": "serviceendpoint_jfrog_xray_v2",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140179",
+      "title": "serviceendpoint_kubernetes",
+      "path": "website/docs/r/serviceendpoint_kubernetes.html.markdown",
+      "slug": "serviceendpoint_kubernetes",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140180",
+      "title": "serviceendpoint_maven",
+      "path": "website/docs/r/serviceendpoint_maven.html.markdown",
+      "slug": "serviceendpoint_maven",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140181",
+      "title": "serviceendpoint_nexus",
+      "path": "website/docs/r/serviceendpoint_nexus.html.markdown",
+      "slug": "serviceendpoint_nexus",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140182",
+      "title": "serviceendpoint_npm",
+      "path": "website/docs/r/serviceendpoint_npm.html.markdown",
+      "slug": "serviceendpoint_npm",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140183",
+      "title": "serviceendpoint_nuget",
+      "path": "website/docs/r/serviceendpoint_nuget.html.markdown",
+      "slug": "serviceendpoint_nuget",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140184",
+      "title": "serviceendpoint_octopusdeploy",
+      "path": "website/docs/r/serviceendpoint_octopusdeploy.html.markdown",
+      "slug": "serviceendpoint_octopusdeploy",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140185",
+      "title": "serviceendpoint_openshift",
+      "path": "website/docs/r/serviceendpoint_openshift.html.markdown",
+      "slug": "serviceendpoint_openshift",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140186",
+      "title": "serviceendpoint_permissions",
+      "path": "website/docs/r/serviceendpoint_permissions.html.markdown",
+      "slug": "serviceendpoint_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140187",
+      "title": "serviceendpoint_runpipeline",
+      "path": "website/docs/r/serviceendpoint_runpipeline.html.markdown",
+      "slug": "serviceendpoint_runpipeline",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140188",
+      "title": "serviceendpoint_servicefabric",
+      "path": "website/docs/r/serviceendpoint_servicefabric.html.markdown",
+      "slug": "serviceendpoint_servicefabric",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140189",
+      "title": "serviceendpoint_snyk",
+      "path": "website/docs/r/serviceendpoint_snyk.html.markdown",
+      "slug": "serviceendpoint_snyk",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140190",
+      "title": "serviceendpoint_sonarcloud",
+      "path": "website/docs/r/serviceendpoint_sonarcloud.html.markdown",
+      "slug": "serviceendpoint_sonarcloud",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140191",
+      "title": "serviceendpoint_sonarqube",
+      "path": "website/docs/r/serviceendpoint_sonarqube.html.markdown",
+      "slug": "serviceendpoint_sonarqube",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140192",
+      "title": "serviceendpoint_ssh",
+      "path": "website/docs/r/serviceendpoint_ssh.html.markdown",
+      "slug": "serviceendpoint_ssh",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140193",
+      "title": "serviceendpoint_visualstudiomarketplace",
+      "path": "website/docs/r/serviceendpoint_visualstudiomarketplace.html.markdown",
+      "slug": "serviceendpoint_visualstudiomarketplace",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140194",
+      "title": "servicehook_permissions",
+      "path": "website/docs/r/servicehook_permissions.html.markdown",
+      "slug": "servicehook_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140195",
+      "title": "servicehook_storage_queue_pipelines",
+      "path": "website/docs/r/servicehook_storage_queue_pipelines.html.markdown",
+      "slug": "servicehook_storage_queue_pipelines",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140151",
+      "title": "service_principal_entitlement",
+      "path": "website/docs/r/service_principal_entitlement.html.markdown",
+      "slug": "service_principal_entitlement",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140196",
+      "title": "tagging_permissions",
+      "path": "website/docs/r/tagging_permissions.html.markdown",
+      "slug": "tagging_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140197",
+      "title": "team",
+      "path": "website/docs/r/team.html.markdown",
+      "slug": "team",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140198",
+      "title": "team_administrators",
+      "path": "website/docs/r/team_administrators.html.markdown",
+      "slug": "team_administrators",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140199",
+      "title": "team_members",
+      "path": "website/docs/r/team_members.html.markdown",
+      "slug": "team_members",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140200",
+      "title": "user_entitlement",
+      "path": "website/docs/r/user_entitlement.html.markdown",
+      "slug": "user_entitlement",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140201",
+      "title": "variable_group",
+      "path": "website/docs/r/variable_group.html.markdown",
+      "slug": "variable_group",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140202",
+      "title": "variable_group_permissions",
+      "path": "website/docs/r/variable_group_permissions.html.markdown",
+      "slug": "variable_group_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140203",
+      "title": "wiki",
+      "path": "website/docs/r/wiki.html.markdown",
+      "slug": "wiki",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140204",
+      "title": "wiki_page",
+      "path": "website/docs/r/wiki_page.html.markdown",
+      "slug": "wiki_page",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140205",
+      "title": "workitem",
+      "path": "website/docs/r/workitem.html.markdown",
+      "slug": "workitem",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    },
+    {
+      "id": "9140206",
+      "title": "workitemquery_permissions",
+      "path": "website/docs/r/workitemquery_permissions.html.markdown",
+      "slug": "workitemquery_permissions",
+      "category": "resources",
+      "subcategory": "",
+      "language": "hcl"
+    }
+  ]
+}

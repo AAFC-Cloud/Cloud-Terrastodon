@@ -18,6 +18,7 @@ use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::WorkDirsConfig;
 use cloud_terrastodon_hcl::prelude::GenerateConfigOutHelper;
 use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::discover_terraform_source_dirs;
 use cloud_terrastodon_hcl::prelude::reflow_workspace;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
@@ -197,6 +198,19 @@ pub async fn handle(command: Option<Commands>) -> eyre::Result<()> {
                             .format_on_write()
                             .overwrite(contents)
                             .await?;
+                    }
+                }
+                TerraformCommand::Audit {
+                    source_dir,
+                    recursive,
+                } => {
+                    if recursive {
+                        let source_dirs = discover_terraform_source_dirs(source_dir).await?;
+                        for dir in source_dirs {
+                            cloud_terrastodon_hcl::prelude::audit(&dir).await?;
+                        }
+                    } else {
+                        cloud_terrastodon_hcl::prelude::audit(&source_dir).await?;
                     }
                 }
             },

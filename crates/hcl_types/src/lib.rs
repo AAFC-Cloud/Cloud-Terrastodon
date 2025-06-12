@@ -11,11 +11,13 @@ mod terraform_block;
 mod tf_work_dir;
 mod users_lookup_body;
 mod version;
+mod terraform_registry_provider;
 
 pub mod prelude {
     pub use crate::block::*;
     pub use crate::code_reference::*;
     pub use crate::data::*;
+    pub use crate::terraform_registry_provider::*;
     pub use crate::imports::*;
     pub use crate::providers::*;
     pub use crate::resources::*;

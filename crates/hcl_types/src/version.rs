@@ -10,6 +10,7 @@ use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl_primitives::Ident;
 use itertools::Itertools;
+use serde::de::Error;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -196,6 +197,25 @@ impl FromStr for SemVer {
     }
 }
 
+impl serde::Serialize for SemVer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SemVer {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <String as serde::Deserialize>::deserialize(deserializer)?;
+        Self::from_str(&value).map_err(|e| D::Error::custom(format!("{e:?}")))
+    }
+}
+
 /// https://developer.hashicorp.com/terraform/language/expressions/version-constraints#operators
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ProviderVersionConstraintClause {
@@ -244,7 +264,7 @@ impl FromStr for ProviderVersionConstraintClause {
         let remaining = &s[prefix.len()..];
         let sem_ver: SemVer = remaining.parse()?;
         Ok(match prefix.as_str() {
-            "=" => ProviderVersionConstraintClause::Equals(sem_ver),
+            "" | "=" => ProviderVersionConstraintClause::Equals(sem_ver),
             "!=" => ProviderVersionConstraintClause::NotEquals(sem_ver),
             ">" => ProviderVersionConstraintClause::Greater(sem_ver),
             ">=" => ProviderVersionConstraintClause::GreaterOrEqual(sem_ver),
@@ -535,6 +555,7 @@ mod test {
     use super::SemVer;
     use crate::prelude::ProviderKind;
     use crate::prelude::TerraformRequiredProvidersBlock;
+    use crate::strings::AsHCLString;
     use crate::version::ProviderVersionConstraint;
     use crate::version::ProviderVersionConstraintClause;
     use hcl::edit::structure::Body;

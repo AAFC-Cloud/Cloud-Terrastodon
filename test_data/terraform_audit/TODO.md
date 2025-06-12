@@ -1,0 +1,2 @@
+- Traverse module source for determining provider usage
+- Audit modules missing required provider block
