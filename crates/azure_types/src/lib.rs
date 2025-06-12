@@ -80,9 +80,14 @@ mod virtual_network;
 mod virtual_network_id;
 mod virtual_network_name;
 mod virtual_network_properties;
+mod uuid_parser_nom;
+mod subscription_id_parser_nom;
+mod subscription_id_parser_winnow;
 
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::subscription_id_parser_nom::*;
+    pub use crate::subscription_id_parser_winnow::*;
     pub use crate::app::*;
     pub use crate::container_registry::*;
     pub use crate::container_registry_id::*;
@@ -161,6 +166,7 @@ pub mod prelude {
     pub use crate::virtual_network_id::*;
     pub use crate::virtual_network_name::*;
     pub use crate::virtual_network_properties::*;
+    pub use crate::uuid_parser_nom::*;
     pub use cloud_terrastodon_azure_resource_types::prelude::*;
     pub use uuid;
 }

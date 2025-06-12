@@ -22,5 +22,6 @@ tracing = { workspace = true }
 # unidecode = { workspace = true }
 hcl-primitives = { workspace = true }
 async-trait = { workspace = true }
+serde = { workspace = true }
 
 

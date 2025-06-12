@@ -23,6 +23,8 @@ impl VirtualNetwork {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use crate::prelude::ResourceGroupName;
     use crate::prelude::SubscriptionId;
@@ -30,6 +32,7 @@ mod tests {
     use crate::scopes::Scope;
     use crate::slug::Slug;
     use eyre::Result;
+    use ipnetwork::Ipv4Network;
     use uuid::Uuid;
 
     #[test]
@@ -66,7 +69,7 @@ mod tests {
         );
         assert_eq!(
             deserialized_vnet.properties.address_space.address_prefixes,
-            vec!["10.0.0.0/16"]
+            vec![Ipv4Network::from_str("10.0.0.0/16")?]
         );
         assert!(deserialized_vnet.properties.subnets.is_empty());
 

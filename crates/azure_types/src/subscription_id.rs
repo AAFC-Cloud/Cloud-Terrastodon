@@ -99,53 +99,6 @@ impl Scope for SubscriptionId {
     }
 }
 
-// =====
-// Parsing
-// =====
-
-// use nom::IResult;
-// use nom::bytes::complete::tag;
-// use nom::bytes::complete::tag_no_case;
-// use nom::bytes::complete::take_while1;
-// use nom::character::complete::char;
-// use nom::combinator::all_consuming;
-// use nom::combinator::map;
-// use nom::combinator::map_res;
-// use nom::combinator::recognize;
-// use nom::error::ParseError;
-// use nom_language::error::VerboseError;
-
-// // UUID (with dashes, canonical format)
-// fn guid<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, Uuid, E> {
-//     map_res(
-//         recognize((
-//             take_while1(|c: char| c.is_ascii_hexdigit()),
-//             char('-'),
-//             take_while1(|c: char| c.is_ascii_hexdigit()),
-//             char('-'),
-//             take_while1(|c: char| c.is_ascii_hexdigit()),
-//             char('-'),
-//             take_while1(|c: char| c.is_ascii_hexdigit()),
-//             char('-'),
-//             take_while1(|c: char| c.is_ascii_hexdigit()),
-//         )),
-//         Uuid::parse_str,
-//     )(i)
-// }
-// // /subscriptions/{guid}
-// fn parse_subscription_id<'a>(
-//     i: &'a str,
-// ) -> IResult<&'a str, SubscriptionId, VerboseError<&'a str>> {
-//     all_consuming(subscription_id)(i)
-// }
-// // Parse a subscription id URI
-// fn subscription_id<'a>(i: &'a str) -> IResult<&'a str, SubscriptionId, VerboseError<&'a str>> {
-//     let (i, _) = tag("/")(i)?;
-//     let (i, _) = tag_no_case("subscriptions")(i)?;
-//     let (i, _) = tag("/")(i)?;
-//     map(guid, SubscriptionId)(i)
-// }
-
 impl FromStr for SubscriptionId {
     type Err = eyre::Error;
 
@@ -163,20 +116,6 @@ impl TryFrom<&str> for SubscriptionId {
         Self::from_str(value)
     }
 }
-// #[cfg(test)]
-// mod test {
-//     use nom::combinator::all_consuming;
-
-//     use super::parse_subscription_id;
-
-//     #[test]
-//     pub fn it_works() -> eyre::Result<()> {
-//         let subscription_id = "/subscriptions/11112222-3333-4444-aaaa-bbbbccccdddd";
-//         let x = all_consuming(parse_subscription_id)(subscription_id)?;
-//         dbg!(x);
-//         Ok(())
-//     }
-// }
 
 #[cfg(test)]
 mod test {
