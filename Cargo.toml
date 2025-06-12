@@ -63,6 +63,7 @@ unicode_categories = "0.1.1"
 nom = "8.0.0"
 nom-language = "0.1.0"
 ipnetwork = {version="0.21.1",features=["serde"]}
+winnow = "0.7.11"
 
 [workspace.dependencies.cloud_terrastodon_pathing]
 version = "0.14.0" # CT_VERSION
@@ -135,7 +136,7 @@ path = "./crates/ui_egui"
 
 [package]
 name = "cloud_terrastodon"
-version = "0.14.0" # CT_VERSION
+version = "0.15.0-pre" # CT_VERSION
 description = "A command-line tool for interacting with cloud ecosystems"
 edition.workspace = true
 authors.workspace = true
