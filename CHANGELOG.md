@@ -1,3 +1,7 @@
+# v0.15.0
+
+- Add `cloud_terrastodon terraform audit --recursive` command
+
 # v0.14.0
 
 - Add azure devops groups and teams and membership helpers for each
