@@ -1,3 +1,5 @@
+cargo build --release
+
 $old_exe = Get-Command cloud_terrastodon.exe | Select-Object -ExpandProperty Source
 if (-not (Test-Path $old_exe)) {
     Write-Error "Could not find cloud_terrastodon.exe in your path!"
