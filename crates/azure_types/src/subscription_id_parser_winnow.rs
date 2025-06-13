@@ -1,10 +1,11 @@
 #![allow(dead_code, unused, unused_imports)]
+use uuid::Uuid;
+use winnow::ascii::alpha1;
+use winnow::combinator::preceded;
+use winnow::combinator::terminated;
 use winnow::prelude::*;
 use winnow::token::literal;
-use winnow::combinator::{preceded, terminated};
-use winnow::ascii::alpha1;
 use winnow::token::take;
-use uuid::Uuid;
 
 use crate::prelude::SubscriptionId;
 
@@ -46,12 +47,15 @@ pub fn parse_subscription_id_winnow<'a>(input: &mut &'a str) -> winnow::Result<S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use eyre::eyre;
     use winnow::Parser;
 
     #[test]
     fn test_valid_subscription_id() -> eyre::Result<()> {
         let input = "/subscriptions/11112222-3333-4444-aaaa-bbbbccccdddd";
-        let result = parse_subscription_id_winnow.parse(input)?;
+        let result = parse_subscription_id_winnow
+            .parse(input)
+            .map_err(|e| eyre!("Failed to parse subscription id: {e:#}"))?;
         println!("Parsed subscription ID: {:?}", result);
         Ok(())
     }
@@ -76,7 +80,9 @@ mod tests {
     #[test]
     fn test_uppercase_uuid() -> eyre::Result<()> {
         let input = "/subscriptions/11112222-3333-4444-AAAA-BBBBCCCCDDDD";
-        let result = parse_subscription_id_winnow.parse(input)?;
+        let result = parse_subscription_id_winnow
+            .parse(input)
+            .map_err(|e| eyre!("Failed to parse subscription id: {e:#}"))?;
         println!("Parsed subscription ID with uppercase UUID: {:?}", result);
         Ok(())
     }
@@ -84,7 +90,9 @@ mod tests {
     #[test]
     fn test_mixed_case_uuid() -> eyre::Result<()> {
         let input = "/subscriptions/11112222-3333-4444-AaAa-BbBbCcCcDdDd";
-        let result = parse_subscription_id_winnow.parse(input)?;
+        let result = parse_subscription_id_winnow
+            .parse(input)
+            .map_err(|e| eyre!("Failed to parse subscription id: {e:#}"))?;
         println!("Parsed subscription ID with mixed case UUID: {:?}", result);
         Ok(())
     }
@@ -93,13 +101,13 @@ mod tests {
     fn test_invalid_cases() {
         let invalid_inputs = vec![
             "subscriptions/11112222-3333-4444-aaaa-bbbbccccdddd", // missing leading slash
-            "/subscription/11112222-3333-4444-aaaa-bbbbccccdddd",  // wrong singular form
-            "/subscriptions11112222-3333-4444-aaaa-bbbbccccdddd",  // missing slash after subscriptions
-            "/subscriptions/",                                      // missing UUID
-            "/subscriptions/invalid-uuid",                          // invalid UUID format
+            "/subscription/11112222-3333-4444-aaaa-bbbbccccdddd", // wrong singular form
+            "/subscriptions11112222-3333-4444-aaaa-bbbbccccdddd", // missing slash after subscriptions
+            "/subscriptions/",                                    // missing UUID
+            "/subscriptions/invalid-uuid",                        // invalid UUID format
             "/subscriptions/11112222-3333-4444-aaaa-bbbbccccdddd-extra", // UUID too long
-            "",                                                     // empty string
-            "random text",                                          // completely wrong
+            "",                                                   // empty string
+            "random text",                                        // completely wrong
         ];
 
         for input in invalid_inputs {
@@ -114,7 +122,9 @@ mod tests {
         for _ in 0..5 {
             let random_uuid = uuid::Uuid::new_v4();
             let input = format!("/subscriptions/{}", random_uuid);
-            let result = parse_subscription_id_winnow.parse(&input)?;
+            let result = parse_subscription_id_winnow
+                .parse(&input)
+                .map_err(|e| eyre!("Failed to parse subscription id: {e:#}"))?;
             assert_eq!(*result, random_uuid);
             println!("Successfully roundtripped: {}", input);
         }
@@ -126,7 +136,7 @@ mod tests {
         let input = "/subscriptions/11112222-3333-4444-aaaa-bbbbccccdddd/extra/content";
         let mut input_mut = input;
         let result = parse_subscription_id_winnow.parse_next(&mut input_mut);
-        
+
         // Should successfully parse the subscription ID part
         assert!(result.is_ok());
         // Should leave the rest unparsed

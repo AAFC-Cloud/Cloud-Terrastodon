@@ -69,6 +69,20 @@ impl TryFrom<&str> for ResourceGroupName {
         ResourceGroupName::try_new(value)
     }
 }
+impl TryFrom<String> for ResourceGroupName {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
+    }
+}
+impl TryFrom<&String> for ResourceGroupName {
+    type Error = eyre::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Self::from_str(value)
+    }
+}
 
 fn is_valid_rg_char(ch: char) -> bool {
     matches!(ch, '_' | '-' | '.' | '(' | ')')

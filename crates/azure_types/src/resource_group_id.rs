@@ -154,6 +154,20 @@ impl TryFrom<&str> for ResourceGroupId {
         ResourceGroupId::from_str(value)
     }
 }
+impl TryFrom<String> for ResourceGroupId {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
+    }
+}
+impl TryFrom<&String> for ResourceGroupId {
+    type Error = eyre::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Self::from_str(value)
+    }
+}
 
 impl Scope for ResourceGroupId {
     fn expanded_form(&self) -> String {
@@ -215,6 +229,8 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
 
 #[cfg(test)]
 mod test {
+    use uuid::Uuid;
+
     use super::ResourceGroupId;
 
     #[test]
@@ -222,6 +238,15 @@ mod test {
         // a random guid
         let _id =
             ResourceGroupId::try_new("d8e27b8a-2513-45f5-9ae7-10fcb50e645e", "My-Resource-Group")?;
+        Ok(())
+    }
+
+    #[test]
+    pub fn easy_construct() -> eyre::Result<()> {
+        let subscription_id = Uuid::nil().to_string();
+        let resource_group_name = "My-RG".to_string();
+        let id = ResourceGroupId::try_new(subscription_id, resource_group_name)?;
+        println!("{id}");
         Ok(())
     }
 }

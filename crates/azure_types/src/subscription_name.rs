@@ -37,6 +37,20 @@ impl TryFrom<&str> for SubscriptionName {
         SubscriptionName::try_new(value)
     }
 }
+impl TryFrom<String> for SubscriptionName {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
+    }
+}
+impl TryFrom<&String> for SubscriptionName {
+    type Error = eyre::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Self::from_str(value)
+    }
+}
 
 impl std::fmt::Display for SubscriptionName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -116,6 +116,20 @@ impl TryFrom<&str> for SubscriptionId {
         Self::from_str(value)
     }
 }
+impl TryFrom<String> for SubscriptionId {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
+    }
+}
+impl TryFrom<&String> for SubscriptionId {
+    type Error = eyre::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Self::from_str(value)
+    }
+}
 
 #[cfg(test)]
 mod test {
