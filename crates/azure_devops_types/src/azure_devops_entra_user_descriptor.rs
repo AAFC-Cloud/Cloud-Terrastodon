@@ -9,7 +9,7 @@ pub struct AzureDevOpsEntraUserDescriptor {
     #[validate(custom(function = "validate_has_prefix"))]
     inner: String,
 }
-fn validate_has_prefix(value: &String) -> Result<(), ValidationError> {
+fn validate_has_prefix(value: &str) -> Result<(), ValidationError> {
     if value.starts_with("aad.") {
         Ok(())
     } else {

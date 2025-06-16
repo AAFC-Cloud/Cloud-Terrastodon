@@ -17,10 +17,10 @@ pub enum AzureDevOpsDescriptor {
 impl std::fmt::Display for AzureDevOpsDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AzureDevOpsDescriptor::EntraUser(id) => write!(f, "{}", id),
-            AzureDevOpsDescriptor::EntraGroup(id) => write!(f, "{}", id),
-            AzureDevOpsDescriptor::AzureDevOpsGroup(id) => write!(f, "{}", id),
-            AzureDevOpsDescriptor::Other(id) => write!(f, "{}", id),
+            AzureDevOpsDescriptor::EntraUser(id) => write!(f, "{id}"),
+            AzureDevOpsDescriptor::EntraGroup(id) => write!(f, "{id}"),
+            AzureDevOpsDescriptor::AzureDevOpsGroup(id) => write!(f, "{id}"),
+            AzureDevOpsDescriptor::Other(id) => write!(f, "{id}"),
         }
     }
 }

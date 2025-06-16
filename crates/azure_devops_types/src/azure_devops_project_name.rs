@@ -61,7 +61,7 @@ fn validate_azure_devops_project_name_contents(
         if is_control_or_surrogate(ch) {
             return Err(
                 ValidationError::new("contains Unicode control or surrogate character")
-                    .with_message(format!("Control/surrogate char '{}' at index {}", ch, i).into()),
+                    .with_message(format!("Control/surrogate char '{ch}' at index {i}").into()),
             );
         }
     }
@@ -70,7 +70,7 @@ fn validate_azure_devops_project_name_contents(
     for (i, ch) in s.chars().enumerate() {
         if FORBIDDEN_CHARS.contains(&ch) {
             return Err(ValidationError::new("contains forbidden character in name")
-                .with_message(format!("Forbidden character '{}' at index {}", ch, i).into()));
+                .with_message(format!("Forbidden character '{ch}' at index {i}").into()));
         }
     }
 

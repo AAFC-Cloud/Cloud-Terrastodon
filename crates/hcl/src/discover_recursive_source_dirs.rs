@@ -33,11 +33,10 @@ pub async fn discover_terraform_source_dirs<P: AsRef<Path>>(dir_path: P) -> Resu
             let metadata = entry.metadata().await?;
 
             if metadata.is_file() {
-                if let Some(extension) = path.extension() {
-                    if extension == "tf" {
+                if let Some(extension) = path.extension()
+                    && extension == "tf" {
                         has_tf_files = true;
                     }
-                }
             } else if metadata.is_dir() {
                 dirs_to_process.push(path);
             }

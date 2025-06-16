@@ -9,7 +9,7 @@ use winnow::token::literal;
 use winnow::token::take;
 
 // Helper function to parse a UUID using winnow
-fn parse_uuid_winnow<'a>(input: &mut &'a str) -> winnow::Result<Uuid> {
+fn parse_uuid_winnow(input: &mut &str) -> winnow::Result<Uuid> {
     take(36usize)
         .verify_map(|s: &str| Uuid::parse_str(s).ok())
         .parse_next(input)
@@ -35,7 +35,7 @@ fn parse_uuid_winnow<'a>(input: &mut &'a str) -> winnow::Result<Uuid> {
 //     // }
 // }
 
-pub fn parse_subscription_id_winnow<'a>(input: &mut &'a str) -> winnow::Result<SubscriptionId> {
+pub fn parse_subscription_id_winnow(input: &mut &str) -> winnow::Result<SubscriptionId> {
     todo!()
     // preceded(
     //     (literal("/"), literal_no_case("subscriptions"), literal("/")),

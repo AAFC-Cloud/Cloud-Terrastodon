@@ -37,7 +37,7 @@ pub async fn fetch_container_registry_repository_names(
         "--name",
         &registry_id.container_registry_name,
         "--resource-group",
-        &registry_id.resource_group_id.name(),
+        registry_id.resource_group_id.name(),
         "--subscription",
         &registry_id.resource_group_id.subscription_id.short_form(),
         "--output",
@@ -50,7 +50,7 @@ pub async fn fetch_container_registry_repository_names(
         ]),
         valid_for: Duration::from_hours(8),
     });
-    Ok(cmd.run().await?)
+    cmd.run().await
 }
 
 pub async fn fetch_container_registry_repository_tags(
@@ -66,7 +66,7 @@ pub async fn fetch_container_registry_repository_tags(
         "--name",
         &registry_id.container_registry_name,
         "--repository",
-        &repository_name,
+        repository_name,
         "--subscription",
         &registry_id.resource_group_id.subscription_id.short_form(),
         "--output",
@@ -76,11 +76,11 @@ pub async fn fetch_container_registry_repository_tags(
         path: PathBuf::from_iter([
             "container_registry_repository_tags",
             &registry_id.container_registry_name,
-            &repository_name,
+            repository_name,
         ]),
         valid_for: Duration::from_hours(8),
     });
-    Ok(cmd.run().await?)
+    cmd.run().await
 }
 
 #[cfg(test)]

@@ -18,7 +18,7 @@ pub async fn fetch_all_azure_devops_service_endpoints(
         "--organization",
         &org_url.to_string(),
         "--project",
-        &project.to_string(),
+        project.as_ref(),
         "--output",
         "json",
     ]);
@@ -29,7 +29,7 @@ pub async fn fetch_all_azure_devops_service_endpoints(
             "service-endpoint",
             "list",
             &org_url.organization_name,
-            &project,
+            project,
         ]),
         valid_for: Duration::from_hours(8),
     });

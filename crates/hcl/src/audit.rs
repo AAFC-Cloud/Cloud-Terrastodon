@@ -100,7 +100,7 @@ pub async fn audit(source_dir: &Path) -> eyre::Result<()> {
                 .json::<TerraformProviderInfo>()
                 .await?;
             let latest_version = json.versions.last().unwrap();
-            let satisfies = provider.version.is_satisfied_by(&latest_version);
+            let satisfies = provider.version.is_satisfied_by(latest_version);
             if !satisfies {
                 warn!(
                     "Provider `{key}` version `{}` does not satisfy the latest version `{}`. Please update your configuration.",

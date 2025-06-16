@@ -60,36 +60,31 @@ fn validate_azure_devops_organization_name_contents(
     let chars: Vec<char> = s.chars().collect();
 
     // Check first character
-    if let Some(&first_char) = chars.first() {
-        if !is_valid_first_char(first_char) {
+    if let Some(&first_char) = chars.first()
+        && !is_valid_first_char(first_char) {
             return Err(
                 ValidationError::new("must start with English letter or number").with_message(
                     format!(
-                        "First character '{}' is not an English letter or digit",
-                        first_char
+                        "First character '{first_char}' is not an English letter or digit"
                     )
                     .into(),
                 ),
             );
         }
-    }
 
     // Check last character (if different from first)
-    if chars.len() > 1 {
-        if let Some(&last_char) = chars.last() {
-            if !is_valid_last_char(last_char) {
+    if chars.len() > 1
+        && let Some(&last_char) = chars.last()
+            && !is_valid_last_char(last_char) {
                 return Err(
                     ValidationError::new("must end with English letter or number").with_message(
                         format!(
-                            "Last character '{}' is not an English letter or digit",
-                            last_char
+                            "Last character '{last_char}' is not an English letter or digit"
                         )
                         .into(),
                     ),
                 );
             }
-        }
-    }
 
     // Check all characters
     for (i, &ch) in chars.iter().enumerate() {
@@ -103,7 +98,7 @@ fn validate_azure_devops_organization_name_contents(
             // Middle characters
             if !is_valid_middle_char(ch) {
                 return Err(ValidationError::new("invalid character")
-                    .with_message(format!("Character '{}' at position {} is not allowed. Only English letters, digits, and hyphens are allowed", ch, i).into()));
+                    .with_message(format!("Character '{ch}' at position {i} is not allowed. Only English letters, digits, and hyphens are allowed").into()));
             }
         }
     }

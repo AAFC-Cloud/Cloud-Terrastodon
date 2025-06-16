@@ -30,7 +30,7 @@ pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizat
         Ok(org.trim().to_string())
     })()
     .wrap_err(format!("Failed to extract value from config:\n===\n{resp}\n==="))?;
-    Ok(rtn.parse()?)
+    rtn.parse()
 }
 
 pub async fn get_default_organization_name() -> eyre::Result<AzureDevOpsOrganizationName> {

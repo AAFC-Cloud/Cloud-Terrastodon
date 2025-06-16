@@ -131,7 +131,7 @@ impl FromStr for AzureDevOpsOrganizationUrl {
             }
 
             let organization_name = AzureDevOpsOrganizationName::try_new(org_name).context(
-                format!("Invalid organization name '{}' in URL: {}", org_name, url),
+                format!("Invalid organization name '{org_name}' in URL: {url}"),
             )?;
 
             return Ok(Self::new("https://dev.azure.com", organization_name));
@@ -147,7 +147,7 @@ impl FromStr for AzureDevOpsOrganizationUrl {
             }
 
             let organization_name = AzureDevOpsOrganizationName::try_new(org_name).context(
-                format!("Invalid organization name '{}' in URL: {}", org_name, url),
+                format!("Invalid organization name '{org_name}' in URL: {url}"),
             )?;
 
             return Ok(Self::new_visual_studio_com(organization_name));

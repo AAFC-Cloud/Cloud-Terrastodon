@@ -37,6 +37,6 @@ pub async fn browse_azure_devops_project_teams() -> Result<()> {
         prompt: Some("Azure DevOps Teams: ".to_string()),
         ..Default::default()
     })?;
-    println!("{:#?}", teams);
+    println!("{teams:#?}");
     Ok(())
 }

@@ -11,10 +11,10 @@ pub enum AzureDevOpsProjectArgument<'a> {
 impl std::fmt::Display for AzureDevOpsProjectArgument<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AzureDevOpsProjectArgument::Id(id) => write!(f, "{}", id),
-            AzureDevOpsProjectArgument::Name(name) => write!(f, "{}", name),
-            AzureDevOpsProjectArgument::IdRef(id) => write!(f, "{}", id),
-            AzureDevOpsProjectArgument::NameRef(name) => write!(f, "{}", name),
+            AzureDevOpsProjectArgument::Id(id) => write!(f, "{id}"),
+            AzureDevOpsProjectArgument::Name(name) => write!(f, "{name}"),
+            AzureDevOpsProjectArgument::IdRef(id) => write!(f, "{id}"),
+            AzureDevOpsProjectArgument::NameRef(name) => write!(f, "{name}"),
         }
     }
 }
