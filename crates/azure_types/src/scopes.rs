@@ -13,6 +13,7 @@ use crate::prelude::RoleDefinitionId;
 use crate::prelude::RoleEligibilityScheduleId;
 use crate::prelude::RoleManagementPolicyAssignmentId;
 use crate::prelude::RoleManagementPolicyId;
+use crate::prelude::RouteTableId;
 use crate::prelude::SUBSCRIPTION_ID_PREFIX;
 use crate::prelude::StorageAccountId;
 use crate::prelude::SubnetId;
@@ -22,7 +23,7 @@ use crate::prelude::VirtualNetworkId;
 use crate::slug::HasSlug;
 use crate::slug::Slug;
 use clap::ValueEnum;
-use cloud_terrastodon_azure_resource_types::prelude::ResourceType;
+use cloud_terrastodon_azure_resource_types::ResourceType;
 use compact_str::CompactString;
 use compact_str::ToCompactString;
 use eyre::Context;
@@ -554,6 +555,7 @@ pub enum ScopeImplKind {
     Test,
     ResourceTags,
     Resource,
+    RouteTable,
     Unknown,
 }
 
@@ -577,6 +579,7 @@ pub enum ScopeImpl {
     ResourceTags(ResourceTagsId),
     ContainerRegistry(ContainerRegistryId),
     Resource(ResourceId),
+    RouteTable(RouteTableId),
     Unknown(CompactString),
 }
 impl Scope for ScopeImpl {
@@ -601,6 +604,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceTags(id) => id.expanded_form(),
             ScopeImpl::Resource(id) => id.expanded_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
+            ScopeImpl::RouteTable(id) => id.expanded_form(),
             ScopeImpl::ContainerRegistry(id) => id.expanded_form(),
         }
     }
@@ -625,6 +629,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceTags(id) => id.short_form(),
             ScopeImpl::Resource(id) => id.short_form(),
             ScopeImpl::ContainerRegistry(id) => id.short_form(),
+            ScopeImpl::RouteTable(id) => id.short_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
         }
     }
@@ -678,6 +683,9 @@ impl Scope for ScopeImpl {
         if let Ok(id) = TestResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::TestResource(id));
         }
+        if let Ok(id) = RouteTableId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::RouteTable(id));
+        }
         if let Ok(id) = ResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::Resource(id));
         }
@@ -706,6 +714,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::Unknown(_) => ScopeImplKind::Unknown,
             ScopeImpl::ResourceTags(_) => ScopeImplKind::ResourceTags,
             ScopeImpl::ContainerRegistry(_) => ScopeImplKind::ContainerRegistry,
+            ScopeImpl::RouteTable(_) => ScopeImplKind::RouteTable,
             ScopeImpl::Resource(_) => ScopeImplKind::Resource,
         }
     }
@@ -776,6 +785,7 @@ impl std::fmt::Display for ScopeImpl {
             ScopeImpl::ResourceTags(x) => {
                 f.write_fmt(format_args!("ResourceTags({})", x.short_form()))
             }
+            ScopeImpl::RouteTable(x) => f.write_fmt(format_args!("RouteTable({})", x.short_form())),
             ScopeImpl::Resource(x) => f.write_fmt(format_args!(
                 "Resource({}/{})",
                 x.resource_type,

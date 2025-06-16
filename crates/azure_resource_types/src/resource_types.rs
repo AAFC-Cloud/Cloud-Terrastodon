@@ -4757,7 +4757,7 @@ pub enum ResourceType {
     Other(String),
 }
 impl std::str::FromStr for ResourceType {
-    type Err = !;
+    type Err = std::convert::Infallible;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_lowercase().as_str() {
             "arizeai.observabilityeval/operations" => {

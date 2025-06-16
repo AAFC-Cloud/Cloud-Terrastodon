@@ -22,36 +22,36 @@ pub struct AddressSpace {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct VirtualNetworkPeering {
-    pub id: Option<String>,
-    pub name: Option<String>,
+    pub id: String,
+    pub name: String,
     #[serde(rename = "type")]
-    pub resource_type: Option<String>,
-    pub etag: Option<String>,
-    pub properties: Option<VirtualNetworkPeeringProperties>,
+    pub resource_type: String,
+    pub etag: String,
+    pub properties: VirtualNetworkPeeringProperties,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct VirtualNetworkPeeringProperties {
     #[serde(rename = "allowVirtualNetworkAccess")]
-    pub allow_virtual_network_access: Option<bool>,
+    pub allow_virtual_network_access: bool,
 
     #[serde(rename = "allowForwardedTraffic")]
-    pub allow_forwarded_traffic: Option<bool>,
+    pub allow_forwarded_traffic: bool,
 
     #[serde(rename = "allowGatewayTransit")]
-    pub allow_gateway_transit: Option<bool>,
+    pub allow_gateway_transit: bool,
 
     #[serde(rename = "useRemoteGateways")]
-    pub use_remote_gateways: Option<bool>,
+    pub use_remote_gateways: bool,
 
     #[serde(rename = "remoteVirtualNetwork")]
-    pub remote_virtual_network: Option<RemoteVirtualNetworkReference>,
+    pub remote_virtual_network: RemoteVirtualNetworkReference,
 
     #[serde(rename = "peeringState")]
-    pub peering_state: Option<String>,
+    pub peering_state: String,
 
     #[serde(rename = "provisioningState")]
-    pub provisioning_state: Option<String>,
+    pub provisioning_state: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
