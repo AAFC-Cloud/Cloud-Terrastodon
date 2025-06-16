@@ -13,7 +13,7 @@ pub struct AzureDevOpsProjectName {
         length(min = 1, max = 64),
         custom(function = "validate_azure_devops_project_name_contents")
     )]
-    pub inner: CompactString,
+    inner: CompactString,
 }
 impl AzureDevOpsProjectName {
     pub fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {

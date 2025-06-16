@@ -3,14 +3,13 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]
 pub struct RoleManagementPolicyAssignmentName {
-    pub inner: CompactString,
+    inner: CompactString,
 }
 impl RoleManagementPolicyAssignmentName {
     pub fn new(inner: CompactString) -> Self {
@@ -68,11 +67,6 @@ impl Deref for RoleManagementPolicyAssignmentName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for RoleManagementPolicyAssignmentName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 impl TryFrom<CompactString> for RoleManagementPolicyAssignmentName {

@@ -4,14 +4,13 @@ use compact_str::CompactString;
 use compact_str::ToCompactString;
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]
 pub struct PolicyDefinitionName {
-    pub inner: CompactString,
+    inner: CompactString,
 }
 impl PolicyDefinitionName {
     pub fn new(inner: CompactString) -> Self {
@@ -69,11 +68,6 @@ impl Deref for PolicyDefinitionName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for PolicyDefinitionName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 impl TryFrom<CompactString> for PolicyDefinitionName {

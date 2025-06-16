@@ -5,7 +5,6 @@ use compact_str::CompactString;
 use serde::de::Error;
 use std::hash::Hash;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use unicode_categories::UnicodeCategories;
 use validator::Validate;
@@ -30,7 +29,7 @@ pub struct ResourceGroupName {
         length(min = 1, max = 90),
         custom(function = "validate_resource_group_name_contents")
     )]
-    pub inner: CompactString,
+    inner: CompactString,
 }
 impl PartialEq for ResourceGroupName {
     fn eq(&self, other: &Self) -> bool {
@@ -153,11 +152,6 @@ impl Deref for ResourceGroupName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for ResourceGroupName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 impl TryFrom<CompactString> for ResourceGroupName {

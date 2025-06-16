@@ -4,7 +4,6 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
@@ -16,7 +15,7 @@ pub struct StorageAccountName {
         length(min = 3, max = 24),
         custom(function = "validate_lowercase_alphanumeric")
     )]
-    pub inner: CompactString,
+    inner: CompactString,
 }
 impl Slug for StorageAccountName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -95,11 +94,6 @@ impl Deref for StorageAccountName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for StorageAccountName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 impl TryFrom<CompactString> for StorageAccountName {

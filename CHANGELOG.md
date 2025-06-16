@@ -3,6 +3,7 @@
 - Fix subnet types to not use optionals
 - Fix subnet `addressPrefixes` and `addressPrefix` variant deserializing
 - Fix subnet id constructors and serialization
+- Remove interior mutability from Name types to prevent subverting validation after construction
 
 # v0.15.0
 

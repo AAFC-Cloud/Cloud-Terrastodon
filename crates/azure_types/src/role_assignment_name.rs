@@ -4,7 +4,6 @@ use compact_str::CompactString;
 use compact_str::ToCompactString;
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use uuid::Uuid;
 use validator::Validate;
@@ -12,7 +11,7 @@ use validator::Validate;
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]
 pub struct RoleAssignmentName {
-    pub inner: Uuid,
+    inner: Uuid,
 }
 impl RoleAssignmentName {
     pub fn new(inner: Uuid) -> Self {
@@ -70,11 +69,6 @@ impl Deref for RoleAssignmentName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for RoleAssignmentName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 impl TryFrom<CompactString> for RoleAssignmentName {

@@ -1,6 +1,5 @@
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use validator::Validate;
 use validator::ValidationError;
 
@@ -53,11 +52,6 @@ impl Deref for AzureDevOpsEntraUserDescriptor {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for AzureDevOpsEntraUserDescriptor {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 

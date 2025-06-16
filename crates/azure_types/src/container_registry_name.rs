@@ -4,7 +4,6 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
@@ -13,7 +12,7 @@ const CONTAINER_REGISTRY_NAMING_RULES_URL: &str = "https://learn.microsoft.com/e
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
 pub struct ContainerRegistryName {
     #[validate(length(min = 5, max = 50), custom(function = "validate_alphanumeric"))]
-    pub inner: CompactString,
+    inner: CompactString,
 }
 impl Slug for ContainerRegistryName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -98,11 +97,6 @@ impl Deref for ContainerRegistryName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for ContainerRegistryName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 impl TryFrom<CompactString> for ContainerRegistryName {

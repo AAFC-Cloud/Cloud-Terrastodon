@@ -3,7 +3,6 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
@@ -17,7 +16,7 @@ use validator::ValidationError;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
 pub struct VirtualNetworkName {
     #[validate(custom(function = "validate_virtual_network_name_contents"))]
-    pub inner: CompactString,
+    inner: CompactString,
 }
 
 impl Slug for VirtualNetworkName {
@@ -137,12 +136,6 @@ impl Deref for VirtualNetworkName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-
-impl DerefMut for VirtualNetworkName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 

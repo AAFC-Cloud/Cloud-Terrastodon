@@ -3,7 +3,6 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 
@@ -17,7 +16,7 @@ use validator::Validate;
 // https://github.com/moby/moby/blob/be97c66708c24727836a22247319ff2943d91a03/daemon/names/names.go
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]
 pub struct ContainerRegistryRepositoryName {
-    pub inner: CompactString,
+    inner: CompactString,
 }
 impl Slug for ContainerRegistryRepositoryName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -74,11 +73,6 @@ impl Deref for ContainerRegistryRepositoryName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for ContainerRegistryRepositoryName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 impl TryFrom<CompactString> for ContainerRegistryRepositoryName {

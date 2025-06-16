@@ -3,7 +3,6 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 
@@ -11,7 +10,7 @@ use validator::Validate;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
 pub struct SubscriptionName {
     #[validate(length(min = 1, max = 50))]
-    pub inner: CompactString,
+    inner: CompactString,
 }
 impl SubscriptionName {
     pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -80,11 +79,6 @@ impl Deref for SubscriptionName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for SubscriptionName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 impl TryFrom<CompactString> for SubscriptionName {

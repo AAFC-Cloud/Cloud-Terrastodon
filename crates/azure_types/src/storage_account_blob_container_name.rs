@@ -4,7 +4,6 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use serde::de::Error;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
@@ -14,7 +13,7 @@ const STORAGE_ACCOUNT_NAMING_RULES_URL: &str = "https://learn.microsoft.com/en-u
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
 pub struct StorageAccountBlobContainerName {
     #[validate(length(min = 3, max = 63), custom(function = "validate_name"))]
-    pub inner: CompactString,
+    inner: CompactString,
 }
 impl Slug for StorageAccountBlobContainerName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -124,11 +123,6 @@ impl Deref for StorageAccountBlobContainerName {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl DerefMut for StorageAccountBlobContainerName {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 impl TryFrom<CompactString> for StorageAccountBlobContainerName {
