@@ -88,6 +88,7 @@ mod virtual_network;
 mod virtual_network_id;
 mod virtual_network_name;
 mod virtual_network_properties;
+pub mod serde_helpers;
 
 pub mod prelude {
     pub use crate::accounts::*;

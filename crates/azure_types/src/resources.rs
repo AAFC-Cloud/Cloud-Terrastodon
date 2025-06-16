@@ -121,7 +121,8 @@ pub struct Resource {
     pub kind: ResourceType,
     pub name: String,
     pub display_name: Option<String>,
-    pub tags: Option<HashMap<String, String>>,
+    #[serde(deserialize_with="crate::serde_helpers::deserialize_null_default")]
+    pub tags: HashMap<String, String>,
 }
 impl AsScope for Resource {
     fn as_scope(&self) -> &impl Scope {

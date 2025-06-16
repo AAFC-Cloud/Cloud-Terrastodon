@@ -21,7 +21,8 @@ pub struct ResourceGroup {
     pub managed_by: Option<String>,
     pub name: ResourceGroupName,
     pub properties: HashMap<String, String>,
-    pub tags: Option<HashMap<String, String>>, // TODO: deserialize as empty map when null or missing
+    #[serde(deserialize_with="crate::serde_helpers::deserialize_null_default")]
+    pub tags: HashMap<String, String>,
 }
 
 impl AsScope for ResourceGroup {

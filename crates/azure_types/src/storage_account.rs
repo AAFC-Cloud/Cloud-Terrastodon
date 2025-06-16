@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::prelude::StorageAccountId;
 use crate::prelude::StorageAccountName;
 use crate::prelude::SubscriptionId;
@@ -38,6 +40,8 @@ pub struct StorageAccount {
     pub subscription_id: SubscriptionId,
     pub sku: StorageAccountSKU,
     pub properties: Value,
+    #[serde(deserialize_with="crate::serde_helpers::deserialize_null_default")]
+    pub tags: HashMap<String, String>,
 }
 
 impl AsScope for StorageAccount {

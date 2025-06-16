@@ -184,10 +184,8 @@ impl Traversal {
         let mut rtn = Vec::new();
         match self {
             Traversal::Tags => {
-                if let Clue::Resource { resource } = clue.as_ref()
-                    && let Some(tags) = &resource.tags
-                {
-                    for (tag_key, tag_value) in tags.iter() {
+                if let Clue::Resource { resource } = clue.as_ref() {
+                    for (tag_key, tag_value) in resource.tags.iter() {
                         rtn.push(clue.join(Clue::ResourceTag {
                             resource,
                             tag_key,
