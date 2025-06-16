@@ -212,7 +212,7 @@ mod tests {
     use crate::slug::Slug;
 
     use super::*;
-    use cloud_terrastodon_azure_resource_types::prelude::ResourceType;
+    use cloud_terrastodon_azure_resource_types::ResourceType;
     use eyre::Result;
 
     #[test]

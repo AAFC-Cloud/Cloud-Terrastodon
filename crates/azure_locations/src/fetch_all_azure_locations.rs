@@ -1,6 +1,6 @@
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
-use serde::Deserialize;
+// use cloud_terrastodon_command::CommandBuilder;
+// use cloud_terrastodon_command::CommandKind;
+// use serde::Deserialize;
 
 // pub async fn fetch_all_azure_locations() -> eyre::Result<Vec<String>> {
 //     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);

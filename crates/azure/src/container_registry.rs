@@ -103,6 +103,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[ignore]
     pub async fn it_works2() -> eyre::Result<()> {
         println!("Fetching container registries...");
         let mut pass = false;

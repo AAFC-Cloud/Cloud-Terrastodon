@@ -139,7 +139,7 @@ impl std::fmt::Display for Resource {
 
 #[cfg(test)]
 mod test {
-    use cloud_terrastodon_azure_resource_types::prelude::ResourceType;
+    use cloud_terrastodon_azure_resource_types::ResourceType;
     use uuid::Uuid;
 
     use crate::prelude::ResourceGroupId;

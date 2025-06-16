@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::prelude::ResourceType;
+    use crate::ResourceType;
 
     #[test]
     fn resource_group() {

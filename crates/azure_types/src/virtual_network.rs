@@ -10,7 +10,7 @@ pub struct VirtualNetwork {
     pub id: VirtualNetworkId,
     pub name: String, // This is the name from Azure, distinct from VirtualNetworkName in ID
     pub location: String,
-    pub tags: HashMap<String, String>,
+    pub tags: Option<HashMap<String, String>>,
     pub properties: VirtualNetworkProperties,
 }
 

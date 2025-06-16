@@ -177,7 +177,7 @@ fn get_provider_and_resource_type_and_resource_and_remaining(
 
 #[cfg(test)]
 mod test {
-    use cloud_terrastodon_azure_resource_types::prelude::ResourceType;
+    use cloud_terrastodon_azure_resource_types::ResourceType;
 
     use super::get_provider_and_resource_type_and_resource_and_remaining;
 

@@ -21,7 +21,7 @@ pub struct ResourceGroup {
     pub managed_by: Option<String>,
     pub name: ResourceGroupName,
     pub properties: HashMap<String, String>,
-    pub tags: Option<HashMap<String, String>>,
+    pub tags: Option<HashMap<String, String>>, // TODO: deserialize as empty map when null or missing
 }
 
 impl AsScope for ResourceGroup {
