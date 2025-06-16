@@ -4,22 +4,45 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::TryFromVirtualNetworkScoped;
 use crate::slug::Slug;
-use serde::Deserialize;
-use serde::Serialize;
+use eyre::Context;
 use std::fmt::Display;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SubnetId {
     pub virtual_network_id: VirtualNetworkId,
     pub subnet_name: SubnetName,
 }
 
 impl SubnetId {
-    pub fn new(virtual_network_id: VirtualNetworkId, subnet_name: SubnetName) -> Self {
+    pub fn new(
+        virtual_network_id: impl Into<VirtualNetworkId>,
+        subnet_name: impl Into<SubnetName>,
+    ) -> Self {
         Self {
+            virtual_network_id: virtual_network_id.into(),
+            subnet_name: subnet_name.into(),
+        }
+    }
+
+    pub fn try_new<V, N>(virtual_network_id: V, subnet_name: N) -> eyre::Result<Self>
+    where
+        V: TryInto<VirtualNetworkId>,
+        V::Error: Into<eyre::Error>,
+        N: TryInto<SubnetName>,
+        N::Error: Into<eyre::Error>,
+    {
+        let virtual_network_id = virtual_network_id
+            .try_into()
+            .map_err(Into::into)
+            .wrap_err("Failed to convert virtual_network_id")?;
+        let subnet_name = subnet_name
+            .try_into()
+            .map_err(Into::into)
+            .wrap_err("Failed to convert subnet_name")?;
+        Ok(Self {
             virtual_network_id,
             subnet_name,
-        }
+        })
     }
 }
 
@@ -104,6 +127,29 @@ impl From<SubnetId> for ScopeImpl {
 impl Display for SubnetId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.expanded_form())
+    }
+}
+
+impl serde::Serialize for SubnetId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.expanded_form())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SubnetId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let expanded = String::deserialize(deserializer)?;
+        let id = SubnetId::try_from_expanded(expanded.as_str()).map_err(|e| {
+            use serde::de::Error;
+            D::Error::custom(format!("{e:?}"))
+        })?;
+        Ok(id)
     }
 }
 
