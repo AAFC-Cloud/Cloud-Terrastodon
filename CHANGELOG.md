@@ -1,6 +1,13 @@
+# v0.16.0
+
+- Fix subnet types to not use optionals
+- Fix subnet `addressPrefixes` and `addressPrefix` variant deserializing
+- Fix subnet id constructors and serialization
+
 # v0.15.0
 
 - Add `cloud_terrastodon terraform audit --recursive` command
+- Add virtual network and subnetwork and route table types
 
 # v0.14.0
 

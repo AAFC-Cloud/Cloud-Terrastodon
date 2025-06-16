@@ -87,9 +87,11 @@ mod route_table;
 mod route_table_properties;
 mod route_table_name;
 mod route_table_id;
+mod address_prefixes;
 
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::address_prefixes::*;
     pub use crate::route_table::*;
     pub use crate::route_table_id::*;
     pub use crate::route_table_name::*;

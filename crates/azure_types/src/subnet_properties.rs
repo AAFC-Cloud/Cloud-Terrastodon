@@ -1,10 +1,11 @@
+use crate::prelude::AddressPrefixes;
 use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct SubnetProperties {
-    #[serde(rename = "addressPrefix")]
-    pub address_prefix: Option<String>,
+    #[serde(flatten)]
+    pub address_prefixes: AddressPrefixes,
 
     #[serde(rename = "networkSecurityGroup")]
     pub network_security_group: Option<NetworkSecurityGroupReference>,
@@ -13,18 +14,20 @@ pub struct SubnetProperties {
     pub route_table: Option<RouteTableReference>,
 
     #[serde(rename = "privateEndpointNetworkPolicies")]
-    pub private_endpoint_network_policies: Option<String>,
+    pub private_endpoint_network_policies: String,
 
     #[serde(rename = "privateLinkServiceNetworkPolicies")]
-    pub private_link_service_network_policies: Option<String>,
+    pub private_link_service_network_policies: String,
 
-    pub delegations: Option<Vec<Delegation>>,
+    pub delegations: Vec<Delegation>,
 
     #[serde(rename = "serviceEndpoints")]
-    pub service_endpoints: Option<Vec<ServiceEndpoint>>,
+    #[serde(default)]
+    pub service_endpoints: Vec<ServiceEndpoint>,
 
     #[serde(rename = "serviceEndpointPolicies")]
-    pub service_endpoint_policies: Option<Vec<ServiceEndpointPolicyReference>>,
+    #[serde(default)]
+    pub service_endpoint_policies: Vec<ServiceEndpointPolicyReference>,
 
     #[serde(rename = "natGateway")]
     pub nat_gateway: Option<NatGatewayReference>,
@@ -32,39 +35,39 @@ pub struct SubnetProperties {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct NetworkSecurityGroupReference {
-    pub id: Option<String>,
+    pub id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct RouteTableReference {
-    pub id: Option<String>,
+    pub id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Delegation {
-    pub name: Option<String>,
-    pub properties: Option<DelegationProperties>,
+    pub name: String,
+    pub properties: DelegationProperties,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct DelegationProperties {
     #[serde(rename = "serviceName")]
-    pub service_name: Option<String>,
-    pub actions: Option<Vec<String>>,
+    pub service_name: String,
+    pub actions: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ServiceEndpoint {
-    pub service: Option<String>,
-    pub locations: Option<Vec<String>>,
+    pub service: String,
+    pub locations: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ServiceEndpointPolicyReference {
-    pub id: Option<String>,
+    pub id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct NatGatewayReference {
-    pub id: Option<String>,
+    pub id: String,
 }
