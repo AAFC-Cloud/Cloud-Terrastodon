@@ -1,0 +1,23 @@
+[package]
+name = "cloud_terrastodon_azure_locations"
+description = "Generated enum for Azure location type for use in the Cloud Terrastodon project"
+version = "0.14.0" # CT_VERSION
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+
+[dependencies]
+cloud_terrastodon_command = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+eyre = { workspace = true }
+serde_json = { workspace = true }
+syn = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+prettyplease = { workspace = true }
+

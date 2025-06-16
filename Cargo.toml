@@ -133,6 +133,10 @@ path = "./crates/ui_ratatui"
 version = "0.14.0" # CT_VERSION
 path = "./crates/ui_egui"
 
+[workspace.dependencies.cloud_terrastodon_azure_locations]
+version = "0.14.0" # CT_VERSION
+path = "./crates/azure_locations"
+
 
 [package]
 name = "cloud_terrastodon"

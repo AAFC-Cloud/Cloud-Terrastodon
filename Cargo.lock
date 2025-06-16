@@ -899,6 +899,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_azure_locations"
+version = "0.14.0"
+dependencies = [
+ "cloud_terrastodon_command",
+ "eyre",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+ "tokio",
+]
+
+[[package]]
 name = "cloud_terrastodon_azure_resource_types"
 version = "0.14.0"
 dependencies = [
