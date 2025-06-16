@@ -1,9 +1,8 @@
-use std::path::PathBuf;
-
 use cloud_terrastodon_azure_types::prelude::User;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
+use std::path::PathBuf;
 use tracing::debug;
 
 pub async fn fetch_all_users() -> Result<Vec<User>> {

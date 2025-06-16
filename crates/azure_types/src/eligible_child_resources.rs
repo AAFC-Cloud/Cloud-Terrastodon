@@ -1,3 +1,4 @@
+use crate::scopes::ScopeImpl;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -5,8 +6,6 @@ use serde::Serializer;
 use serde::de::Visitor;
 use serde::de::{self};
 use std::fmt;
-
-use crate::scopes::ScopeImpl;
 
 // TODO: this should be converted to an enum to prevent states where `kind` doesn't match `id`
 //#[serde(tag = "type")]
@@ -80,11 +79,10 @@ impl<'de> Deserialize<'de> for EligibleChildResourceKind {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::management_groups::ManagementGroupId;
     use crate::prelude::TestResourceId;
     use crate::scopes::Scope;
-
-    use super::*;
     use serde_json;
 
     #[test]

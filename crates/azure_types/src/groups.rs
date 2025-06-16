@@ -1,3 +1,5 @@
+use crate::impl_uuid_traits;
+use crate::prelude::UuidWrapper;
 use cloud_terrastodon_hcl_types::prelude::AzureADResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
@@ -7,9 +9,6 @@ use eyre::Result;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
-
-use crate::impl_uuid_traits;
-use crate::prelude::UuidWrapper;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct GroupId(pub Uuid);

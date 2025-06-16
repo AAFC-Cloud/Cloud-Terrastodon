@@ -71,11 +71,10 @@ impl From<StorageAccount> for HCLImportBlock {
 }
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::prelude::ResourceGroupId;
     use crate::prelude::ResourceGroupName;
     use crate::slug::Slug;
-
-    use super::*;
     use eyre::Result;
     use uuid::Uuid;
 

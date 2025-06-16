@@ -1,6 +1,3 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheBehaviour;
@@ -10,6 +7,8 @@ use cloud_terrastodon_command::bstr::ByteSlice;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
+use std::path::PathBuf;
+use std::time::Duration;
 
 pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizationUrl> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);

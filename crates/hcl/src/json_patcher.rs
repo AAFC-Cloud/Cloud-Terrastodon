@@ -42,9 +42,8 @@ impl VisitMut for JsonPatcher {
 
 #[cfg(test)]
 mod tests {
-    use indoc::indoc;
-
     use super::*;
+    use indoc::indoc;
     #[test]
     fn it_works() -> Result<()> {
         // A json example

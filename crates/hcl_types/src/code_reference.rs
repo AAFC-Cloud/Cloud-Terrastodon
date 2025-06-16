@@ -1,9 +1,8 @@
+use crate::prelude::HCLBlock;
 use eyre::Result;
 use hcl::edit::prelude::Span;
 use hcl::edit::structure::Block;
 use std::path::PathBuf;
-
-use crate::prelude::HCLBlock;
 
 #[derive(Debug, Clone)]
 pub struct CodeReference {

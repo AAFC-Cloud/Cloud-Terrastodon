@@ -1,6 +1,3 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_command::CacheBehaviour;
@@ -8,6 +5,8 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
 use serde_json::Value;
+use std::path::PathBuf;
+use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_queries_for_project(
@@ -55,10 +54,9 @@ pub async fn fetch_queries_for_project(
 
 #[cfg(test)]
 mod test {
-    use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
-
     use crate::prelude::fetch_queries_for_project;
     use crate::prelude::get_default_project_name;
+    use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

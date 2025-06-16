@@ -1,10 +1,9 @@
-use std::path::PathBuf;
-
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
+use std::path::PathBuf;
 use tracing::warn;
 pub async fn plan_processed() -> Result<()> {
     let processed_dir: PathBuf = AppDir::Processed.into();

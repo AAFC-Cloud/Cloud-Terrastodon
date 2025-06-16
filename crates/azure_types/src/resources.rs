@@ -139,15 +139,14 @@ impl std::fmt::Display for Resource {
 
 #[cfg(test)]
 mod test {
-    use cloud_terrastodon_azure_resource_types::ResourceType;
-    use uuid::Uuid;
-
     use crate::prelude::ResourceGroupId;
     use crate::prelude::ResourceGroupName;
     use crate::prelude::ResourceId;
     use crate::prelude::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
+    use cloud_terrastodon_azure_resource_types::ResourceType;
+    use uuid::Uuid;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

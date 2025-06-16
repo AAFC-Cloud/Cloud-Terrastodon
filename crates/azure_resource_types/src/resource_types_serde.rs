@@ -1,10 +1,9 @@
+use crate::resource_types::ResourceType;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use serde::de::Error;
-
-use crate::resource_types::ResourceType;
 
 impl Serialize for ResourceType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

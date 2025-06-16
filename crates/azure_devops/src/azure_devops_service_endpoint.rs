@@ -1,11 +1,10 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsServiceEndpoint;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use std::path::PathBuf;
+use std::time::Duration;
 
 pub async fn fetch_all_azure_devops_service_endpoints(
     org_url: &AzureDevOpsOrganizationUrl,

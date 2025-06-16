@@ -1,13 +1,11 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-
+use crate::config::Config;
 use emath::Pos2;
 use emath::Rect;
 use emath::Vec2;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::config::Config;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct EguiConfig {

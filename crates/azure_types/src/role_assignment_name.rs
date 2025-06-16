@@ -1,3 +1,4 @@
+use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use compact_str::ToCompactString;
@@ -7,8 +8,6 @@ use std::ops::DerefMut;
 use std::str::FromStr;
 use uuid::Uuid;
 use validator::Validate;
-
-use crate::slug::Slug;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]

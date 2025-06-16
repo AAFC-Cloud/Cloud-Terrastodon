@@ -1,3 +1,4 @@
+use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
@@ -7,8 +8,6 @@ use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
-
-use crate::slug::Slug;
 
 const STORAGE_ACCOUNT_NAMING_RULES_URL: &str = "https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage";
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]

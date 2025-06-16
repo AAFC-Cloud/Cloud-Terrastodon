@@ -1,3 +1,5 @@
+use crate::prelude::HCLBlock;
+use crate::sorting::HCLBlockSortable;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_hcl_types::prelude::AsHCLString;
@@ -20,9 +22,6 @@ use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::warn;
-
-use crate::prelude::HCLBlock;
-use crate::sorting::HCLBlockSortable;
 
 pub struct HCLWriter {
     path: PathBuf,
@@ -221,9 +220,8 @@ impl HCLWriter {
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
-
     use super::*;
+    use itertools::Itertools;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

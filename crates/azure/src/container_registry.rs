@@ -1,3 +1,4 @@
+use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ContainerRegistry;
 use cloud_terrastodon_azure_types::prelude::ContainerRegistryId;
 use cloud_terrastodon_azure_types::prelude::ContainerRegistryRepositoryName;
@@ -10,8 +11,6 @@ use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
-
-use crate::prelude::ResourceGraphHelper;
 
 pub async fn fetch_all_container_registries() -> Result<Vec<ContainerRegistry>> {
     let mut query = ResourceGraphHelper::new(

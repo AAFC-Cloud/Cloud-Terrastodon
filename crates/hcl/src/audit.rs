@@ -63,7 +63,9 @@ pub async fn audit(source_dir: &Path) -> eyre::Result<()> {
 
     // If no backend is specified, warn about it
     if terraform_block.backend.is_none() {
-        warn!("No backend is specified in the Terraform configuration. If you lose your state file, you're pooched .");
+        warn!(
+            "No backend is specified in the Terraform configuration. If you lose your state file, you're pooched ."
+        );
         warned = true;
     }
 

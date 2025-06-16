@@ -1,3 +1,4 @@
+use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ManagementGroup;
 use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
@@ -15,8 +16,6 @@ use tokio::task::JoinSet;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
-
-use crate::prelude::ResourceGraphHelper;
 
 pub async fn fetch_root_management_group() -> Result<ManagementGroup> {
     info!("Fetching root management group");

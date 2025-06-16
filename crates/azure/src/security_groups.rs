@@ -1,11 +1,10 @@
+use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::Group;
 use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
-
-use crate::prelude::MicrosoftGraphHelper;
 
 pub async fn fetch_all_security_groups() -> Result<Vec<Group>> {
     info!("Fetching security groups");

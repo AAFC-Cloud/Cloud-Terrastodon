@@ -1,12 +1,11 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionScope;
 use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
+use std::path::PathBuf;
+use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_oauth2_permission_scopes(
@@ -45,11 +44,9 @@ pub async fn fetch_oauth2_permission_scopes(
 
 #[cfg(test)]
 mod tests {
-    use eyre::OptionExt;
-
-    use crate::prelude::fetch_all_service_principals;
-
     use super::*;
+    use crate::prelude::fetch_all_service_principals;
+    use eyre::OptionExt;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {

@@ -1,9 +1,8 @@
+use crate::work::WorkHandle;
 use eyre::bail;
 use std::cell::RefCell;
 use tracing::error;
 use tracing::info;
-
-use crate::work::WorkHandle;
 
 #[derive(Debug, Default)]
 pub struct WorkTracker {

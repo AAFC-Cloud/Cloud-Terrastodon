@@ -202,10 +202,9 @@ impl<'de> Deserialize<'de> for RoleAssignmentId {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::prelude::ResourceGroupName;
     use crate::slug::Slug;
-
-    use super::*;
     use cloud_terrastodon_azure_resource_types::ResourceType;
     use eyre::Result;
 

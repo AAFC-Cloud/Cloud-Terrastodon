@@ -1,11 +1,9 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
+use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
 use cloud_terrastodon_command::CacheBehaviour;
+use std::path::PathBuf;
+use std::time::Duration;
 use tracing::info;
-
-use crate::prelude::MicrosoftGraphHelper;
 
 pub async fn fetch_all_service_principals() -> eyre::Result<Vec<ServicePrincipal>> {
     info!("Fetching service principals");
@@ -23,9 +21,8 @@ pub async fn fetch_all_service_principals() -> eyre::Result<Vec<ServicePrincipal
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
-
     use crate::prelude::fetch_all_service_principals;
+    use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {

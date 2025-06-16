@@ -1,3 +1,4 @@
+use crate::sorting::HCLBlockSortable;
 use cloud_terrastodon_hcl_types::prelude::AsHCLString;
 use eyre::Result;
 use eyre::eyre;
@@ -10,8 +11,6 @@ use indoc::formatdoc;
 use itertools::Itertools;
 use std::collections::HashMap;
 use tracing::error;
-
-use crate::sorting::HCLBlockSortable;
 
 #[derive(Default, Clone)]
 pub struct BodyFormatter {

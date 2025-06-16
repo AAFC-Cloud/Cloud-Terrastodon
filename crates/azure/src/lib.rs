@@ -41,6 +41,7 @@ mod role_assignments;
 mod role_definitions;
 mod role_eligibility_schedules;
 mod role_management_policy_assignments;
+mod route_table;
 mod security_group_choices;
 mod security_groups;
 mod service_principals;
@@ -50,10 +51,8 @@ mod tags;
 mod tenants;
 mod users;
 mod virtual_network;
-mod route_table;
 pub mod prelude {
     pub use crate::accounts::*;
-    pub use crate::route_table::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::container_registry::*;
@@ -90,6 +89,7 @@ pub mod prelude {
     pub use crate::role_definitions::*;
     pub use crate::role_eligibility_schedules::*;
     pub use crate::role_management_policy_assignments::*;
+    pub use crate::route_table::*;
     pub use crate::security_group_choices::*;
     pub use crate::security_groups::*;
     pub use crate::service_principals::*;

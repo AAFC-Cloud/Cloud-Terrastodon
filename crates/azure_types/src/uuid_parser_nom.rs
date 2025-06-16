@@ -1,11 +1,14 @@
-use nom::bytes::take;
 use nom::IResult;
 use nom::Parser;
+use nom::bytes::take;
 use nom::combinator::map_res;
 use nom::error::ParseError;
 use uuid::Uuid;
 
-pub fn parse_uuid_nom<'a, E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, uuid::Error>>(
+pub fn parse_uuid_nom<
+    'a,
+    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, uuid::Error>,
+>(
     i: &'a str,
 ) -> IResult<&'a str, Uuid, E> {
     let mut parser = map_res(take(36usize), Uuid::parse_str);

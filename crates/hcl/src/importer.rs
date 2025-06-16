@@ -176,13 +176,12 @@ impl GenerateConfigOutHelper {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
     use crate::prelude::GenerateConfigOutHelper;
     use crate::prelude::ProviderManager;
     use cloud_terrastodon_hcl_types::prelude::TerraformRequiredProvidersBlock;
     use cloud_terrastodon_pathing::AppDir;
     use cloud_terrastodon_pathing::Existy;
+    use std::sync::Arc;
     use tempfile::Builder;
     use tokio::sync::Semaphore;
     use tokio::task::JoinSet;

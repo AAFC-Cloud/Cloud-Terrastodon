@@ -1,3 +1,4 @@
+use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::Subscription;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheBehaviour;
@@ -8,8 +9,6 @@ use indoc::indoc;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
-
-use crate::prelude::ResourceGraphHelper;
 
 pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
     info!("Fetching subscriptions");

@@ -251,8 +251,7 @@ impl TryFrom<Block> for TerraformAzureRMBackendBlock {
 
 #[cfg(test)]
 mod tests {
-    use indoc::indoc;
-
+    use super::*;
     use crate::prelude::ProviderKind;
     use crate::version::ProviderHostname;
     use crate::version::ProviderNamespace;
@@ -261,8 +260,7 @@ mod tests {
     use crate::version::ProviderVersionConstraintClause;
     use crate::version::ProviderVersionObject;
     use crate::version::SemVer;
-
-    use super::*;
+    use indoc::indoc;
 
     #[test]
     fn it_works() -> eyre::Result<()> {

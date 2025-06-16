@@ -116,10 +116,9 @@ impl IntoHCLBlocks for Body {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::prelude::HCLProviderReference;
     use crate::prelude::ResourceBlockReference;
-
-    use super::*;
 
     #[test]
     fn it_works() -> Result<()> {

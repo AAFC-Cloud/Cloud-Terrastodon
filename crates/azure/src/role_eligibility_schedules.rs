@@ -1,12 +1,11 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
 use cloud_terrastodon_azure_types::prelude::RoleEligibilitySchedule;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use serde::Deserialize;
+use std::path::PathBuf;
+use std::time::Duration;
 
 pub async fn fetch_my_role_eligibility_schedules() -> Result<Vec<RoleEligibilitySchedule>> {
     let url = "https://management.azure.com/providers/Microsoft.Authorization/roleEligibilitySchedules?api-version=2020-10-01&$filter=asTarget()";

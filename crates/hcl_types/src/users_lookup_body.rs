@@ -1,9 +1,8 @@
-use eyre::Context;
-use hcl::edit::structure::Body;
-
 use crate::data::HCLDataBlock;
 use crate::strings::AsHCLString;
 use crate::strings::TryAsHCLBlocks;
+use eyre::Context;
+use hcl::edit::structure::Body;
 
 #[derive(Debug, Default)]
 pub struct UsersLookupBody {

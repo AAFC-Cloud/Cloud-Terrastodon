@@ -196,11 +196,9 @@ impl RoleManagementPolicyAssignment {
 
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
-
-    use crate::scopes::Scope;
-
     use super::*;
+    use crate::scopes::Scope;
+    use uuid::Uuid;
     #[test]
     fn it_works() -> Result<()> {
         let id = format!(

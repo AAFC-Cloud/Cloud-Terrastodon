@@ -1,8 +1,7 @@
+use crate::prelude::AzureDevOpsDescriptor;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
-
-use crate::prelude::AzureDevOpsDescriptor;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

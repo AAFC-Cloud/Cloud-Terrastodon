@@ -1,9 +1,8 @@
+use crate::prelude::fetch_root_management_group;
 use cloud_terrastodon_azure_types::cost_management::QueryDefinition;
 use cloud_terrastodon_azure_types::cost_management::QueryResult;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-
-use crate::prelude::fetch_root_management_group;
 
 pub async fn fetch_cost_query_results(query: &QueryDefinition) -> eyre::Result<QueryResult> {
     let root = fetch_root_management_group().await?;

@@ -177,9 +177,8 @@ fn get_provider_and_resource_type_and_resource_and_remaining(
 
 #[cfg(test)]
 mod test {
-    use cloud_terrastodon_azure_resource_types::ResourceType;
-
     use super::get_provider_and_resource_type_and_resource_and_remaining;
+    use cloud_terrastodon_azure_resource_types::ResourceType;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
@@ -842,10 +841,9 @@ impl<'de> Deserialize<'de> for ScopeImpl {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use itertools::Itertools;
     use uuid::Uuid;
-
-    use super::*;
 
     #[test]
     fn it_works() -> Result<()> {

@@ -1,6 +1,4 @@
-use std::ops::Deref;
-use std::str::FromStr;
-
+use crate::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
@@ -8,9 +6,9 @@ use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
+use std::ops::Deref;
+use std::str::FromStr;
 use uuid::Uuid;
-
-use crate::prelude::AzureDevOpsProjectId;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub struct AzureDevOpsTeamId(Uuid);

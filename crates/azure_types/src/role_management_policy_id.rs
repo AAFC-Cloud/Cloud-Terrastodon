@@ -204,9 +204,8 @@ impl<'de> Deserialize<'de> for RoleManagementPolicyId {
 
 #[cfg(test)]
 mod tests {
-    use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
-
     use super::*;
+    use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
     #[test]
     fn it_works() -> Result<()> {
         let id = format!(

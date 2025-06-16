@@ -1,13 +1,12 @@
+use crate::app::MyApp;
+use crate::icons::RESOURCE_GROUP_ICON;
+use crate::icons::SUBSCRIPTION_ICON;
+use crate::loadable::Loadable;
 use eframe::egui;
 use eframe::egui::Context;
 use eframe::egui::ScrollArea;
 use eframe::egui::Window;
 use tracing::debug;
-
-use crate::app::MyApp;
-use crate::icons::RESOURCE_GROUP_ICON;
-use crate::icons::SUBSCRIPTION_ICON;
-use crate::loadable::Loadable;
 
 pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
     Window::new("Selected Items").show(ctx, |ui| {

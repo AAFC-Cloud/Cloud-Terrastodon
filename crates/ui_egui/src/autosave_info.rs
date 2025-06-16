@@ -1,3 +1,5 @@
+use crate::work::WorkHandle;
+use crate::work_tracker::WorkTracker;
 use cloud_terrastodon_config::Config;
 use std::any::type_name;
 use std::rc::Rc;
@@ -5,9 +7,6 @@ use std::time::Duration;
 use std::time::Instant;
 use tracing::debug;
 use tracing::error;
-
-use crate::work::WorkHandle;
-use crate::work_tracker::WorkTracker;
 
 #[derive(Debug)]
 pub struct AutoSaveBehaviour<T: Config> {

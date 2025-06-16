@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use cloud_terrastodon_azure::prelude::create_oauth2_permission_grant;
 use cloud_terrastodon_azure::prelude::fetch_all_service_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
@@ -10,6 +8,7 @@ use cloud_terrastodon_user_input::pick;
 use cloud_terrastodon_user_input::pick_many;
 use eyre::Result;
 use itertools::Itertools;
+use std::collections::HashSet;
 use tracing::info;
 
 pub async fn create_oauth2_permission_grants() -> Result<()> {

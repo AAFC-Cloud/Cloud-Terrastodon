@@ -1,11 +1,10 @@
-use std::collections::HashSet;
-use std::path::Path;
-
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick_many;
 use eyre::Context;
 use eyre::bail;
+use std::collections::HashSet;
+use std::path::Path;
 use tracing::debug;
 use tracing::info;
 
@@ -81,9 +80,8 @@ pub fn prompt_kill_processes_using_dirs(
 
 #[cfg(test)]
 mod test {
-    use cloud_terrastodon_pathing::AppDir;
-
     use crate::prompt_kill_processes_using_dirs;
+    use cloud_terrastodon_pathing::AppDir;
 
     #[test]
     fn main() {

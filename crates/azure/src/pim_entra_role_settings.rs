@@ -51,9 +51,8 @@ pub async fn fetch_entra_pim_role_settings(
 
 #[cfg(test)]
 mod tests {
-    use crate::pim_entra_role_assignments::fetch_my_entra_pim_role_assignments;
-
     use super::*;
+    use crate::pim_entra_role_assignments::fetch_my_entra_pim_role_assignments;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

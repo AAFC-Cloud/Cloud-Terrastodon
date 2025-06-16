@@ -1,3 +1,4 @@
+use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use serde::de::Error;
@@ -6,8 +7,6 @@ use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
 use validator::ValidationError;
-
-use crate::slug::Slug;
 
 // Rules from: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork
 // Route tables:

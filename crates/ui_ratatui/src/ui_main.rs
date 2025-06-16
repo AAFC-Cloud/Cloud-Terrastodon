@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use crossterm::event::EventStream;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEventKind;
@@ -12,6 +10,7 @@ use ratatui::prelude::Constraint;
 use ratatui::prelude::Layout;
 use ratatui::prelude::Line;
 use ratatui::prelude::Stylize;
+use std::time::Duration;
 use tracing::info;
 
 pub async fn ui_main() -> Result<()> {

@@ -1,7 +1,6 @@
+use crate::prelude::az_account_list;
 use cloud_terrastodon_azure_types::prelude::TenantId;
 use eyre::bail;
-
-use crate::prelude::az_account_list;
 
 pub async fn get_default_tenant_id() -> eyre::Result<TenantId> {
     let accounts = az_account_list().await?;

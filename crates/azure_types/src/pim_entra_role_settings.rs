@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use eyre::Result;
 use eyre::bail;
 use serde::Deserialize;
@@ -8,6 +6,7 @@ use serde::Serialize;
 use serde::de;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use std::time::Duration;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]

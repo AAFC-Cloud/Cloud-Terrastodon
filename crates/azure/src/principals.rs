@@ -1,11 +1,10 @@
+use crate::prelude::fetch_all_security_groups;
+use crate::prelude::fetch_all_service_principals;
+use crate::prelude::fetch_all_users;
 use cloud_terrastodon_azure_types::prelude::Principal;
 use itertools::Itertools;
 use tokio::try_join;
 use tracing::info;
-
-use crate::prelude::fetch_all_security_groups;
-use crate::prelude::fetch_all_service_principals;
-use crate::prelude::fetch_all_users;
 
 pub async fn fetch_all_principals() -> eyre::Result<Vec<Principal>> {
     info!("Fetching principals (users, security groups, and service principals)");

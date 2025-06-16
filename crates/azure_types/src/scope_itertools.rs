@@ -1,7 +1,6 @@
-use std::collections::HashSet;
-
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use std::collections::HashSet;
 
 pub trait DistinctByScope: Iterator {
     fn distinct_by_scope(self) -> DistinctByScopeIterator<Self, Self::Item>

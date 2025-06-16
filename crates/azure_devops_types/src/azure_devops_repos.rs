@@ -1,3 +1,4 @@
+use crate::prelude::AzureDevOpsProject;
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
@@ -9,8 +10,6 @@ use serde_json::Value;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
-
-use crate::prelude::AzureDevOpsProject;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub struct AzureDevOpsRepoId(Uuid);

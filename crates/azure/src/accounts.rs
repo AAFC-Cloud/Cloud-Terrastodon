@@ -1,10 +1,9 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
 use cloud_terrastodon_azure_types::prelude::Account;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use std::path::PathBuf;
+use std::time::Duration;
 
 pub async fn az_account_list() -> eyre::Result<Vec<Account>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);

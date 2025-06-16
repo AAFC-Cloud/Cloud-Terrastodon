@@ -1,7 +1,6 @@
+use crate::config::Config;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::config::Config;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct CommandsConfig {

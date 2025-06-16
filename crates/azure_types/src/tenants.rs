@@ -1,11 +1,10 @@
-use serde::de::Error;
-use std::ops::Deref;
-use std::str::FromStr;
-
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::Error;
+use std::ops::Deref;
+use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

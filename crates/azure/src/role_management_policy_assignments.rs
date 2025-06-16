@@ -43,11 +43,9 @@ pub async fn fetch_role_management_policy_assignments(
 
 #[cfg(test)]
 mod tests {
-    use humantime::format_duration;
-
-    use crate::role_eligibility_schedules::fetch_my_role_eligibility_schedules;
-
     use super::*;
+    use crate::role_eligibility_schedules::fetch_my_role_eligibility_schedules;
+    use humantime::format_duration;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

@@ -23,8 +23,6 @@ impl VirtualNetwork {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
     use super::*;
     use crate::prelude::ResourceGroupName;
     use crate::prelude::SubscriptionId;
@@ -33,6 +31,7 @@ mod tests {
     use crate::slug::Slug;
     use eyre::Result;
     use ipnetwork::Ipv4Network;
+    use std::str::FromStr;
     use uuid::Uuid;
 
     #[test]

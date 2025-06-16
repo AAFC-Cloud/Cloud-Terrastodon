@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::SubscriptionName;
 use cloud_terrastodon_azure::prelude::fetch_all_storage_accounts;
@@ -11,6 +9,7 @@ use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
 use eyre::Result;
 use eyre::bail;
+use std::collections::HashMap;
 use tokio::join;
 use tracing::info;
 

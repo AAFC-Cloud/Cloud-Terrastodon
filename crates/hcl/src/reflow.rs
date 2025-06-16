@@ -1,3 +1,13 @@
+use crate::azuredevops_git_repository_initialization_patcher::AzureDevOpsGitRepositoryInitializationPatcher;
+use crate::body_formatter::PrettyBody;
+use crate::data_block_creation::create_data_blocks_for_ids;
+use crate::data_reference_patcher::DataReferencePatcher;
+use crate::default_attribute_cleanup_patcher::DefaultAttributeCleanupPatcher;
+use crate::import_lookup_holder::ImportLookupHolder;
+use crate::imported_resource_reference_patcher::ImportedResourceReferencePatcher;
+use crate::json_patcher::JsonPatcher;
+use crate::terraform_block_extracter_patcher::TerraformBlockExtracterPatcher;
+use crate::user_id_reference_patcher::UserIdReferencePatcher;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
 use cloud_terrastodon_hcl_types::prelude::TerraformBlock;
 use cloud_terrastodon_hcl_types::prelude::UsersLookupBody;
@@ -14,17 +24,6 @@ use std::path::PathBuf;
 use tokio::fs;
 use tracing::debug;
 use tracing::instrument;
-
-use crate::azuredevops_git_repository_initialization_patcher::AzureDevOpsGitRepositoryInitializationPatcher;
-use crate::body_formatter::PrettyBody;
-use crate::data_block_creation::create_data_blocks_for_ids;
-use crate::data_reference_patcher::DataReferencePatcher;
-use crate::default_attribute_cleanup_patcher::DefaultAttributeCleanupPatcher;
-use crate::import_lookup_holder::ImportLookupHolder;
-use crate::imported_resource_reference_patcher::ImportedResourceReferencePatcher;
-use crate::json_patcher::JsonPatcher;
-use crate::terraform_block_extracter_patcher::TerraformBlockExtracterPatcher;
-use crate::user_id_reference_patcher::UserIdReferencePatcher;
 
 pub struct ReflowedTFWorkspace {
     pub main: Body,

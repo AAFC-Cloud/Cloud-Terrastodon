@@ -1,4 +1,5 @@
 #![feature(let_chains, async_fn_track_caller)]
+mod audit;
 mod azuredevops_git_repository_initialization_patcher;
 mod block_lister;
 mod body_formatter;
@@ -6,6 +7,7 @@ mod data_block_creation;
 mod data_lookup_holder;
 mod data_reference_patcher;
 mod default_attribute_cleanup_patcher;
+mod discover_recursive_source_dirs;
 mod import_builder;
 mod import_lookup_holder;
 mod imported_resource_reference_patcher;
@@ -18,14 +20,13 @@ mod terraform_block_extracter_patcher;
 mod user_id_reference_patcher;
 mod work_dir_lifecycle;
 mod writer;
-mod audit;
-mod discover_recursive_source_dirs;
 pub mod prelude {
+    pub use crate::audit::*;
     pub use crate::azuredevops_git_repository_initialization_patcher::*;
     pub use crate::block_lister::*;
     pub use crate::data_reference_patcher::*;
-    pub use crate::discover_recursive_source_dirs::*;
     pub use crate::default_attribute_cleanup_patcher::*;
+    pub use crate::discover_recursive_source_dirs::*;
     pub use crate::import_builder::*;
     pub use crate::imported_resource_reference_patcher::*;
     pub use crate::importer::*;
@@ -36,6 +37,5 @@ pub mod prelude {
     pub use crate::user_id_reference_patcher::*;
     pub use crate::work_dir_lifecycle::*;
     pub use crate::writer::*;
-    pub use crate::audit::*;
     pub use cloud_terrastodon_hcl_types::prelude::*;
 }

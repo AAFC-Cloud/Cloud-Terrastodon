@@ -1,6 +1,3 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQueryId;
@@ -9,6 +6,8 @@ use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::bstr::ByteSlice;
+use std::path::PathBuf;
+use std::time::Duration;
 use tracing::debug;
 
 #[deprecated(note = "WIP, the return type and behaviour isn't in a good spot yet.")]

@@ -1,9 +1,8 @@
+use super::subscription_checkbox::draw_subscription_checkbox;
 use crate::app::MyApp;
 use crate::loadable::Loadable;
 use eframe::egui::Context;
 use eframe::egui::Ui;
-
-use super::subscription_checkbox::draw_subscription_checkbox;
 
 pub fn draw_subscription_checkbox_list(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
     ui.vertical(|ui| match &app.subscriptions {

@@ -1,3 +1,4 @@
+use super::resource_group_checkbox::draw_resource_group_checkbox;
 use crate::app::MyApp;
 use crate::icons::SUBSCRIPTION_ICON;
 use crate::loadable::Loadable;
@@ -8,8 +9,6 @@ use eframe::egui::Id;
 use eframe::egui::Ui;
 use eframe::egui::collapsing_header::CollapsingState;
 use tracing::debug;
-
-use super::resource_group_checkbox::draw_resource_group_checkbox;
 
 pub fn draw_subscription_checkbox(
     app: &mut MyApp,

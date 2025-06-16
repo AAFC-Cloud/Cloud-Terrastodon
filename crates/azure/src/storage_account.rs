@@ -1,7 +1,4 @@
-use std::collections::HashSet;
-use std::path::PathBuf;
-use std::time::Duration;
-
+use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::StorageAccount;
 use cloud_terrastodon_azure_types::prelude::StorageAccountBlobContainerName;
 use cloud_terrastodon_azure_types::prelude::StorageAccountId;
@@ -12,8 +9,9 @@ use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use serde::Deserialize;
 use serde_json::Value;
-
-use crate::prelude::ResourceGraphHelper;
+use std::collections::HashSet;
+use std::path::PathBuf;
+use std::time::Duration;
 
 pub async fn fetch_all_storage_accounts() -> Result<Vec<StorageAccount>> {
     let mut query = ResourceGraphHelper::new(

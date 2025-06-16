@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use crate::impl_uuid_traits;
 use crate::prelude::Group;
 use crate::prelude::GroupId;
@@ -10,6 +8,7 @@ use crate::prelude::UserId;
 use crate::prelude::UuidWrapper;
 use serde::Deserialize;
 use serde::Serialize;
+use std::hash::Hash;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy)]
@@ -143,9 +142,8 @@ impl std::fmt::Display for Principal {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
-
     use super::*;
+    use serde_json::Value;
 
     #[test]
     fn it_works() -> eyre::Result<()> {

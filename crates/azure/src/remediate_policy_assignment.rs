@@ -1,3 +1,5 @@
+use crate::prelude::fetch_all_policy_assignments;
+use crate::prelude::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure_types::prelude::DistinctByScope;
 use cloud_terrastodon_azure_types::prelude::ManagementGroupId;
 use cloud_terrastodon_azure_types::prelude::PolicyAssignment;
@@ -17,9 +19,6 @@ use eyre::eyre;
 use itertools::Itertools;
 use rand::RngCore;
 use tracing::info;
-
-use crate::prelude::fetch_all_policy_assignments;
-use crate::prelude::fetch_all_policy_set_definitions;
 
 pub async fn remediate_policy_assignment() -> Result<()> {
     info!("Fetching policy assignments");

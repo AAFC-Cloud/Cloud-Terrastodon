@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::prelude::AsHCLString;
 use crate::prelude::ProviderKind;
 use crate::prelude::ResourceBlockReference;
@@ -12,6 +10,7 @@ use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl_primitives::Ident;
 use indoc::formatdoc;
+use std::str::FromStr;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct HCLImportBlock {
@@ -163,11 +162,10 @@ impl TryFrom<Block> for HCLImportBlock {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::prelude::TryAsHCLBlocks;
     use crate::providers::ProviderKind;
     use crate::resources::AzureRMResourceBlockKind;
-
-    use super::*;
 
     #[test]
     fn conversaion_parity1() -> eyre::Result<()> {

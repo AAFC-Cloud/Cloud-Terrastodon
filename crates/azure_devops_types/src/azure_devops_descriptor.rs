@@ -1,12 +1,10 @@
-use std::str::FromStr;
-
+use crate::prelude::AzureDevOpsEntraUserDescriptor;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use serde::de::Error;
-
-use crate::prelude::AzureDevOpsEntraUserDescriptor;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AzureDevOpsDescriptor {
@@ -68,9 +66,8 @@ impl<'de> Deserialize<'de> for AzureDevOpsDescriptor {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::AzureDevOpsEntraUserDescriptor;
-
     use super::AzureDevOpsDescriptor;
+    use crate::prelude::AzureDevOpsEntraUserDescriptor;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

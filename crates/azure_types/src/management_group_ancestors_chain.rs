@@ -1,10 +1,8 @@
-use std::ops::Deref;
-use std::ops::DerefMut;
-
+use crate::prelude::ManagementGroupId;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::prelude::ManagementGroupId;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ManagementGroupAncestorsChain(Vec<ManagementGroupAncestorsChainEntry>);

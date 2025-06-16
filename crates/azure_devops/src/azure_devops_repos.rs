@@ -67,9 +67,8 @@ pub async fn fetch_azure_devops_repos_batch(
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::fetch_all_azure_devops_projects;
-
     use super::*;
+    use crate::prelude::fetch_all_azure_devops_projects;
 
     #[tokio::test]
     async fn test_fetch_all_azure_devops_repos() -> Result<()> {

@@ -1,3 +1,4 @@
+use crate::menu::press_enter_to_continue;
 use cloud_terrastodon_azure::prelude::Group;
 use cloud_terrastodon_azure::prelude::Principal;
 use cloud_terrastodon_azure::prelude::PrincipalId;
@@ -27,8 +28,6 @@ use std::rc::Rc;
 use strum::VariantArray;
 use tokio::try_join;
 use tracing::info;
-
-use crate::menu::press_enter_to_continue;
 
 #[derive(Debug, Eq, PartialEq)]
 enum Clue<'a> {

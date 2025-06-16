@@ -1,13 +1,11 @@
-use std::time::Duration;
-
-use serde::Deserialize;
-use serde::Serialize;
-use uuid::Uuid;
-
 use crate::prelude::EligiblePimEntraRoleAssignment;
 use crate::prelude::PrincipalId;
 use crate::prelude::TenantId;
 use crate::prelude::to_iso8601;
+use serde::Deserialize;
+use serde::Serialize;
+use std::time::Duration;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoleAssignmentRequest {

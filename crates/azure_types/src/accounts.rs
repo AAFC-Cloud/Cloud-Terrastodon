@@ -1,9 +1,8 @@
+use crate::tenants::TenantId;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
-
-use crate::tenants::TenantId;
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Account {

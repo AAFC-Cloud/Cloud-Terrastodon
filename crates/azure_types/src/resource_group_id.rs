@@ -229,9 +229,8 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
 
 #[cfg(test)]
 mod test {
-    use uuid::Uuid;
-
     use super::ResourceGroupId;
+    use uuid::Uuid;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

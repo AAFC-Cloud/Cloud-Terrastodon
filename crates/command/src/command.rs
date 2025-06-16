@@ -942,11 +942,10 @@ impl CommandBuilder {
 /// You have been warned.
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::thread;
     use tokio::time::Instant;
     use tokio::time::sleep_until;
-
-    use super::*;
 
     #[test]
     fn encoding() {

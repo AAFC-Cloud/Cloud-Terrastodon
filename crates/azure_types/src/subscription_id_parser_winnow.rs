@@ -1,4 +1,5 @@
 #![allow(dead_code, unused, unused_imports)]
+use crate::prelude::SubscriptionId;
 use uuid::Uuid;
 use winnow::ascii::alpha1;
 use winnow::combinator::preceded;
@@ -6,8 +7,6 @@ use winnow::combinator::terminated;
 use winnow::prelude::*;
 use winnow::token::literal;
 use winnow::token::take;
-
-use crate::prelude::SubscriptionId;
 
 // Helper function to parse a UUID using winnow
 fn parse_uuid_winnow<'a>(input: &mut &'a str) -> winnow::Result<Uuid> {

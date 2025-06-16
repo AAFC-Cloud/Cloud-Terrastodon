@@ -1,3 +1,5 @@
+use crate::prelude::AzureDevOpsProjectId;
+use crate::prelude::AzureDevOpsProjectName;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
@@ -7,9 +9,6 @@ use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::prelude::AzureDevOpsProjectId;
-use crate::prelude::AzureDevOpsProjectName;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub enum AzureDevOpsProjectState {

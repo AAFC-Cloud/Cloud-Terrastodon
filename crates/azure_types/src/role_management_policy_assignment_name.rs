@@ -1,3 +1,4 @@
+use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use serde::de::Error;
@@ -5,8 +6,6 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::str::FromStr;
 use validator::Validate;
-
-use crate::slug::Slug;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]

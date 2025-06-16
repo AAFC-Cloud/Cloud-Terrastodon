@@ -1,3 +1,4 @@
+use crate::management_groups::fetch_root_management_group;
 use cloud_terrastodon_azure_types::prelude::EligiblePimEntraRoleAssignment;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_azure_types::prelude::RoleAssignmentRequest;
@@ -7,8 +8,6 @@ use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
-
-use crate::management_groups::fetch_root_management_group;
 
 pub async fn activate_pim_entra_role(
     principal_id: impl Into<PrincipalId>,

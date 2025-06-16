@@ -23,15 +23,14 @@ impl RouteTable {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
     use super::*;
     use crate::prelude::ResourceGroupName;
-    use crate::prelude::SubscriptionId;
     use crate::prelude::RouteTableName;
+    use crate::prelude::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
     use eyre::Result;
+    use std::str::FromStr;
     use uuid::Uuid;
 
     #[test]
@@ -63,15 +62,18 @@ mod tests {
         assert_eq!(deserialized_rt.id, rt_id);
         assert_eq!(deserialized_rt.name, "test-route-table-azure-name");
         assert_eq!(deserialized_rt.location, "eastus");
-        assert_eq!(
-            deserialized_rt.tags.get("environment").unwrap(),
-            "test"
-        );
+        assert_eq!(deserialized_rt.tags.get("environment").unwrap(), "test");
         assert!(deserialized_rt.properties.routes.is_empty());
         assert!(deserialized_rt.properties.subnets.is_empty());
-        assert_eq!(deserialized_rt.properties.resource_guid, "12345678-1234-1234-1234-123456789012");
+        assert_eq!(
+            deserialized_rt.properties.resource_guid,
+            "12345678-1234-1234-1234-123456789012"
+        );
         assert_eq!(deserialized_rt.properties.provisioning_state, "Succeeded");
-        assert_eq!(deserialized_rt.properties.disable_bgp_route_propagation, Some(false));
+        assert_eq!(
+            deserialized_rt.properties.disable_bgp_route_propagation,
+            Some(false)
+        );
 
         Ok(())
     }

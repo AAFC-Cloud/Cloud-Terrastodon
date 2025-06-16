@@ -40,11 +40,10 @@ pub async fn fetch_azure_devops_group_members(
 
 #[cfg(test)]
 mod test {
-    use eyre::bail;
-
     use crate::prelude::fetch_all_azure_devops_projects;
     use crate::prelude::fetch_azure_devops_group_members;
     use crate::prelude::fetch_azure_devops_groups;
+    use eyre::bail;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

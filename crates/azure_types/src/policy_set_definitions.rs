@@ -122,10 +122,9 @@ impl From<PolicySetDefinition> for HCLImportBlock {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::scopes::TryFromManagementGroupScoped;
     use crate::scopes::TryFromSubscriptionScoped;
-
-    use super::*;
     use eyre::Result;
     use eyre::bail;
 

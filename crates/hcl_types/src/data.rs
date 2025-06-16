@@ -1,11 +1,10 @@
-use std::str::FromStr;
-
 use crate::prelude::AsHCLString;
 use crate::providers::ProviderKind;
 use eyre::Result;
 use eyre::eyre;
 use indoc::formatdoc;
 use itertools::Itertools;
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub enum AzureRMProviderDataBlockKind {

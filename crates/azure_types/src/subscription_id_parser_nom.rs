@@ -1,11 +1,11 @@
+use crate::prelude::SubscriptionId;
+use crate::prelude::parse_uuid_nom;
 use nom::IResult;
 use nom::Parser;
 use nom::bytes::complete::tag;
 use nom::bytes::complete::tag_no_case;
 use nom::combinator::map;
 use nom_language::error::VerboseError;
-use crate::prelude::parse_uuid_nom;
-use crate::prelude::SubscriptionId;
 
 pub fn parse_subscription_id_nom<'a>(
     i: &'a str,
@@ -20,7 +20,8 @@ pub fn parse_subscription_id_nom<'a>(
 #[cfg(test)]
 mod test {
     use crate::prelude::parse_subscription_id_nom;
-    use nom::{combinator::all_consuming, Parser};
+    use nom::Parser;
+    use nom::combinator::all_consuming;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

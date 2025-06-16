@@ -1,15 +1,13 @@
 // $x = az rest --method GET --url 'https://management.azure.com/subscriptions/{subscription_id}/providers?api-version=2021-04-01&' | ConvertFrom-Json
 // $x.value | % { $n = $_.namespace; $_.resourceTypes | % { "$n/$($_.resourceType)" } } | fzf
 
-use std::path::PathBuf;
-use std::time::Duration;
-
+use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::Resource;
 use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
+use std::path::PathBuf;
+use std::time::Duration;
 use tracing::info;
-
-use crate::prelude::ResourceGraphHelper;
 
 pub async fn fetch_all_resources() -> Result<Vec<Resource>> {
     let resources = ResourceGraphHelper::new(
@@ -36,14 +34,12 @@ resources
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
+    use super::*;
     use cloud_terrastodon_azure_types::prelude::ResourceType;
     use cloud_terrastodon_azure_types::prelude::Scope;
     use cloud_terrastodon_azure_types::prelude::ScopeImplKind;
     use itertools::Itertools;
-
-    use super::*;
+    use std::collections::HashMap;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

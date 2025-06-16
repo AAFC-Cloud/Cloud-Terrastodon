@@ -1,12 +1,11 @@
+use crate::impl_uuid_traits;
+use crate::prelude::UuidWrapper;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
-
-use crate::impl_uuid_traits;
-use crate::prelude::UuidWrapper;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct ServicePrincipalId(Uuid);

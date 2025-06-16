@@ -169,11 +169,9 @@ impl ResourceGraphHelper {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
-    use serde::Deserialize;
-
     use super::*;
+    use serde::Deserialize;
+    use std::time::Duration;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

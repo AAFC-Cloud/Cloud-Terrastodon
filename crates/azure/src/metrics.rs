@@ -1,3 +1,5 @@
+use crate::prelude::BatchRequest;
+use crate::prelude::BatchRequestEntry;
 use chrono::Datelike;
 use chrono::Local;
 use chrono::SecondsFormat;
@@ -10,9 +12,6 @@ use eyre::OptionExt;
 use tempfile::Builder;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
-
-use crate::prelude::BatchRequest;
-use crate::prelude::BatchRequestEntry;
 
 pub async fn fetch_metrics(
     resource_ids: impl IntoIterator<Item = impl AsScope>,
@@ -56,9 +55,8 @@ pub async fn fetch_metrics(
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::fetch_all_storage_accounts;
-
     use super::*;
+    use crate::prelude::fetch_all_storage_accounts;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {

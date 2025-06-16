@@ -31,10 +31,9 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use cloud_terrastodon_azure_types::prelude::Scope;
     use eyre::eyre;
-
-    use super::*;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

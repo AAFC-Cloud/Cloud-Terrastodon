@@ -1,6 +1,6 @@
-use std::cmp::Ordering;
-use std::collections::HashMap;
-
+use crate::prelude::fetch_all_service_principals;
+use crate::prelude::fetch_all_users;
+use crate::prelude::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure_types::prelude::ConsentType;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
@@ -10,11 +10,9 @@ use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick_many;
 use eyre::bail;
 use itertools::Itertools;
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use tokio::try_join;
-
-use crate::prelude::fetch_all_service_principals;
-use crate::prelude::fetch_all_users;
-use crate::prelude::fetch_oauth2_permission_grants;
 
 #[derive(Debug)]
 pub struct Grant {
