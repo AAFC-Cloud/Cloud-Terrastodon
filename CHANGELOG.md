@@ -4,6 +4,7 @@
 - Fix subnet `addressPrefixes` and `addressPrefix` variant deserializing
 - Fix subnet id constructors and serialization
 - Remove interior mutability from Name types to prevent subverting validation after construction
+- Make tags deserialize into `HashMap` instead of `Optional<HashMap>`
 
 # v0.15.0
 
