@@ -7,9 +7,7 @@ use nom::bytes::complete::tag_no_case;
 use nom::combinator::map;
 use nom_language::error::VerboseError;
 
-pub fn parse_subscription_id_nom(
-    i: &str,
-) -> IResult<&str, SubscriptionId, VerboseError<&str>> {
+pub fn parse_subscription_id_nom(i: &str) -> IResult<&str, SubscriptionId, VerboseError<&str>> {
     let (i, _) = tag("/")(i)?;
     let (i, _) = tag_no_case("subscriptions")(i)?;
     let (i, _) = tag("/")(i)?;

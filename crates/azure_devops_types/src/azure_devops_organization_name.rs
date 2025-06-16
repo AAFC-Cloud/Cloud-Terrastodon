@@ -61,30 +61,26 @@ fn validate_azure_devops_organization_name_contents(
 
     // Check first character
     if let Some(&first_char) = chars.first()
-        && !is_valid_first_char(first_char) {
-            return Err(
-                ValidationError::new("must start with English letter or number").with_message(
-                    format!(
-                        "First character '{first_char}' is not an English letter or digit"
-                    )
-                    .into(),
-                ),
-            );
-        }
+        && !is_valid_first_char(first_char)
+    {
+        return Err(
+            ValidationError::new("must start with English letter or number").with_message(
+                format!("First character '{first_char}' is not an English letter or digit").into(),
+            ),
+        );
+    }
 
     // Check last character (if different from first)
     if chars.len() > 1
         && let Some(&last_char) = chars.last()
-            && !is_valid_last_char(last_char) {
-                return Err(
-                    ValidationError::new("must end with English letter or number").with_message(
-                        format!(
-                            "Last character '{last_char}' is not an English letter or digit"
-                        )
-                        .into(),
-                    ),
-                );
-            }
+        && !is_valid_last_char(last_char)
+    {
+        return Err(
+            ValidationError::new("must end with English letter or number").with_message(
+                format!("Last character '{last_char}' is not an English letter or digit").into(),
+            ),
+        );
+    }
 
     // Check all characters
     for (i, &ch) in chars.iter().enumerate() {
