@@ -4,6 +4,7 @@ use crate::prelude::ContainerRegistryId;
 use crate::prelude::PolicyAssignmentId;
 use crate::prelude::PolicyDefinitionId;
 use crate::prelude::PolicySetDefinitionId;
+use crate::prelude::VirtualNetworkPeeringId;
 use crate::prelude::RESOURCE_GROUP_ID_PREFIX;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceId;
@@ -143,7 +144,7 @@ pub fn strip_prefix_get_slug_and_leading_slashed_remains<'a>(
     Ok((slug, Some(remaining)))
 }
 
-fn get_provider_and_resource_type_and_resource_and_remaining(
+pub fn get_provider_and_resource_type_and_resource_and_remaining(
     expanded: &str,
 ) -> Result<(ResourceType, &str, &str)> {
     // /providers/Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
@@ -555,6 +556,7 @@ pub enum ScopeImplKind {
     ResourceTags,
     Resource,
     RouteTable,
+    VirtualNetworkPeering,
     Unknown,
 }
 
@@ -579,6 +581,7 @@ pub enum ScopeImpl {
     ContainerRegistry(ContainerRegistryId),
     Resource(ResourceId),
     RouteTable(RouteTableId),
+    VirtualNetworkPeering(VirtualNetworkPeeringId),
     Unknown(CompactString),
 }
 impl Scope for ScopeImpl {
@@ -604,6 +607,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::Resource(id) => id.expanded_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
             ScopeImpl::RouteTable(id) => id.expanded_form(),
+            ScopeImpl::VirtualNetworkPeering(id) => id.expanded_form(),
             ScopeImpl::ContainerRegistry(id) => id.expanded_form(),
         }
     }
@@ -629,6 +633,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::Resource(id) => id.short_form(),
             ScopeImpl::ContainerRegistry(id) => id.short_form(),
             ScopeImpl::RouteTable(id) => id.short_form(),
+            ScopeImpl::VirtualNetworkPeering(id) => id.short_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
         }
     }
@@ -685,6 +690,9 @@ impl Scope for ScopeImpl {
         if let Ok(id) = RouteTableId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RouteTable(id));
         }
+        if let Ok(id) = VirtualNetworkPeeringId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::VirtualNetworkPeering(id));
+        }
         if let Ok(id) = ResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::Resource(id));
         }
@@ -714,6 +722,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceTags(_) => ScopeImplKind::ResourceTags,
             ScopeImpl::ContainerRegistry(_) => ScopeImplKind::ContainerRegistry,
             ScopeImpl::RouteTable(_) => ScopeImplKind::RouteTable,
+            ScopeImpl::VirtualNetworkPeering(_) => ScopeImplKind::VirtualNetworkPeering,
             ScopeImpl::Resource(_) => ScopeImplKind::Resource,
         }
     }
@@ -766,6 +775,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::StorageAccount(x) => {
                 f.write_fmt(format_args!("StorageAccount({})", x.short_form()))
+            }
+            ScopeImpl::VirtualNetworkPeering(x) => {
+                f.write_fmt(format_args!("VirtualNetworkPeering({})", x.short_form()))
             }
             ScopeImpl::VirtualNetwork(x) => {
                 f.write_fmt(format_args!("VirtualNetwork({})", x.short_form()))

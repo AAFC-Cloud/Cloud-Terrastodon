@@ -1,4 +1,7 @@
 use crate::prelude::Subnet;
+use crate::prelude::VirtualNetworkId;
+use crate::prelude::VirtualNetworkPeeringId;
+use crate::prelude::VirtualNetworkPeeringName;
 use ipnetwork::Ipv4Network;
 use serde::Deserialize;
 use serde::Serialize;
@@ -22,11 +25,8 @@ pub struct AddressSpace {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct VirtualNetworkPeering {
-    pub id: String,
-    pub name: String,
-    #[serde(rename = "type")]
-    pub resource_type: String,
-    pub etag: String,
+    pub id: VirtualNetworkPeeringId,
+    pub name: VirtualNetworkPeeringName,
     pub properties: VirtualNetworkPeeringProperties,
 }
 
@@ -56,5 +56,5 @@ pub struct VirtualNetworkPeeringProperties {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct RemoteVirtualNetworkReference {
-    pub id: Option<String>,
+    pub id: VirtualNetworkId,
 }

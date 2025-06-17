@@ -97,10 +97,14 @@ mod virtual_network;
 mod virtual_network_id;
 mod virtual_network_name;
 mod virtual_network_properties;
+mod virtual_network_peering_id;
+mod virtual_network_peering_name;
 
 pub mod prelude {
     pub use crate::accounts::*;
     pub use crate::address_prefixes::*;
+    pub use crate::virtual_network_peering_name::*;
+    pub use crate::virtual_network_peering_id::*;
     pub use crate::all_or::*;
     pub use crate::app::*;
     pub use crate::conditional_access_named_location::*;
