@@ -2,6 +2,7 @@
 
 - Add conditional access policy stuff
 - Introduce variants for RoleDefinitionId
+- Add virtual network peering and name types
 
 # v0.16.1
 
