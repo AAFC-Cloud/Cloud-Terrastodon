@@ -1,5 +1,6 @@
 use crate::prelude::ManagementGroupId;
 use crate::prelude::ManagementGroupScoped;
+use crate::prelude::ROLE_DEFINITION_ID_PREFIX;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceGroupScoped;
 use crate::prelude::ResourceId;
@@ -8,7 +9,6 @@ use crate::prelude::RoleDefinitionName;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::Unscoped;
-use crate::prelude::ROLE_DEFINITION_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::ResourceScoped;

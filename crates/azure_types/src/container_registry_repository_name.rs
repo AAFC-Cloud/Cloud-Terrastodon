@@ -15,7 +15,7 @@ use validator::Validate;
 // https://kubernetes.io/docs/concepts/containers/images/
 // https://github.com/moby/moby/blob/be97c66708c24727836a22247319ff2943d91a03/daemon/names/names.go
 /// I was unable to find a definitive source for the rules governing container registry repository names.
-/// 
+///
 /// For now, this type will always successfully validate.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]
 pub struct ContainerRegistryRepositoryName {

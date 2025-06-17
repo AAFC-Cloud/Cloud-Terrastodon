@@ -79,9 +79,8 @@ impl From<RoleDefinition> for HCLImportBlock {
 }
 #[cfg(test)]
 mod tests {
-    use crate::prelude::ROLE_DEFINITION_ID_PREFIX;
-
     use super::*;
+    use crate::prelude::ROLE_DEFINITION_ID_PREFIX;
     use eyre::Result;
     use uuid::Uuid;
 
