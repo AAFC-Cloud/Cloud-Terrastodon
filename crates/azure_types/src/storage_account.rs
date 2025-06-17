@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::prelude::StorageAccountId;
 use crate::prelude::StorageAccountName;
 use crate::prelude::SubscriptionId;
@@ -13,6 +11,7 @@ use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct StorageAccountSKU {
@@ -40,7 +39,7 @@ pub struct StorageAccount {
     pub subscription_id: SubscriptionId,
     pub sku: StorageAccountSKU,
     pub properties: Value,
-    #[serde(deserialize_with="crate::serde_helpers::deserialize_null_default")]
+    #[serde(deserialize_with = "crate::serde_helpers::deserialize_null_default")]
     pub tags: HashMap<String, String>,
 }
 

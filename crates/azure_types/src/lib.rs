@@ -1,7 +1,12 @@
 #![feature(pattern, duration_constructors_lite, associated_type_defaults)]
 mod accounts;
 mod address_prefixes;
+mod all_or;
 mod app;
+mod conditional_access_named_location;
+mod conditional_access_named_location_id;
+mod conditional_access_policy;
+mod conditional_access_policy_id;
 mod container_registry;
 mod container_registry_id;
 mod container_registry_name;
@@ -63,6 +68,7 @@ mod route_table_name;
 mod route_table_properties;
 mod scope_itertools;
 mod scopes;
+pub mod serde_helpers;
 mod service_principal;
 mod slug;
 mod storage_account;
@@ -88,22 +94,16 @@ mod virtual_network;
 mod virtual_network_id;
 mod virtual_network_name;
 mod virtual_network_properties;
-pub mod serde_helpers;
-mod conditional_access_named_location_id;
-mod conditional_access_named_location;
-mod conditional_access_policy_id;
-mod conditional_access_policy;
-mod all_or;
 
 pub mod prelude {
     pub use crate::accounts::*;
-    pub use crate::all_or::*;
-    pub use crate::conditional_access_policy_id::*;
-    pub use crate::conditional_access_policy::*;
-    pub use crate::conditional_access_named_location_id::*;
-    pub use crate::conditional_access_named_location::*;
     pub use crate::address_prefixes::*;
+    pub use crate::all_or::*;
     pub use crate::app::*;
+    pub use crate::conditional_access_named_location::*;
+    pub use crate::conditional_access_named_location_id::*;
+    pub use crate::conditional_access_policy::*;
+    pub use crate::conditional_access_policy_id::*;
     pub use crate::container_registry::*;
     pub use crate::container_registry_id::*;
     pub use crate::container_registry_name::*;
@@ -189,6 +189,6 @@ pub mod prelude {
     pub use crate::virtual_network_name::*;
     pub use crate::virtual_network_properties::*;
     pub use cloud_terrastodon_azure_resource_types::*;
-    pub use uuid;
     pub use ipnetwork;
+    pub use uuid;
 }

@@ -32,7 +32,9 @@ impl ConditionalAccessNamedLocation {
     pub fn display_name(&self) -> &CompactString {
         match self {
             ConditionalAccessNamedLocation::IpNamedLocation(location) => &location.display_name,
-            ConditionalAccessNamedLocation::CountryNamedLocation(location) => &location.display_name,
+            ConditionalAccessNamedLocation::CountryNamedLocation(location) => {
+                &location.display_name
+            }
         }
     }
 }

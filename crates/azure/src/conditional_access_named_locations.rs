@@ -4,7 +4,8 @@ use cloud_terrastodon_command::CacheBehaviour;
 use std::path::PathBuf;
 use std::time::Duration;
 
-pub async fn fetch_all_conditional_access_named_locations() -> eyre::Result<Vec<ConditionalAccessNamedLocation>> {
+pub async fn fetch_all_conditional_access_named_locations()
+-> eyre::Result<Vec<ConditionalAccessNamedLocation>> {
     let query = MicrosoftGraphHelper::new(
         "https://graph.microsoft.com/beta/identity/conditionalAccess/namedLocations",
         CacheBehaviour::Some {
@@ -20,7 +21,6 @@ pub async fn fetch_all_conditional_access_named_locations() -> eyre::Result<Vec<
 #[cfg(test)]
 mod test {
     use crate::prelude::fetch_all_conditional_access_named_locations;
-
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

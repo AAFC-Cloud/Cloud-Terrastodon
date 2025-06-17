@@ -7,6 +7,8 @@
 mod accounts;
 mod auth;
 mod batch_api;
+mod conditional_access_named_locations;
+mod conditional_access_policies;
 mod container_registry;
 mod cost_management;
 mod create_role_assignment;
@@ -51,14 +53,12 @@ mod tags;
 mod tenants;
 mod users;
 mod virtual_network;
-mod conditional_access_policies;
-mod conditional_access_named_locations;
 pub mod prelude {
     pub use crate::accounts::*;
-    pub use crate::conditional_access_named_locations::*;
-    pub use crate::conditional_access_policies::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
+    pub use crate::conditional_access_named_locations::*;
+    pub use crate::conditional_access_policies::*;
     pub use crate::container_registry::*;
     pub use crate::cost_management::*;
     pub use crate::create_role_assignment::*;

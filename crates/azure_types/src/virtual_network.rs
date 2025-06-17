@@ -10,7 +10,7 @@ pub struct VirtualNetwork {
     pub id: VirtualNetworkId,
     pub name: String, // This is the name from Azure, distinct from VirtualNetworkName in ID
     pub location: String,
-    #[serde(deserialize_with="crate::serde_helpers::deserialize_null_default")]
+    #[serde(deserialize_with = "crate::serde_helpers::deserialize_null_default")]
     pub tags: HashMap<String, String>,
     pub properties: VirtualNetworkProperties,
 }
@@ -63,10 +63,7 @@ mod tests {
         assert_eq!(deserialized_vnet.id, vnet_id);
         assert_eq!(deserialized_vnet.name, "test-vnet-azure-name");
         assert_eq!(deserialized_vnet.location, "eastus");
-        assert_eq!(
-            deserialized_vnet.tags.get("environment").unwrap(),
-            "test"
-        );
+        assert_eq!(deserialized_vnet.tags.get("environment").unwrap(), "test");
         assert_eq!(
             deserialized_vnet.properties.address_space.address_prefixes,
             vec![Ipv4Network::from_str("10.0.0.0/16")?]
