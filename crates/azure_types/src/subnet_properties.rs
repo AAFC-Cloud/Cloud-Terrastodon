@@ -1,4 +1,5 @@
 use crate::prelude::AddressPrefixes;
+use crate::prelude::RouteTable;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -40,7 +41,7 @@ pub struct NetworkSecurityGroupReference {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct RouteTableReference {
-    pub id: String,
+    pub id: RouteTable,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]

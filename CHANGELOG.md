@@ -5,6 +5,7 @@
 - Fix subnet id constructors and serialization
 - Remove interior mutability from Name types to prevent subverting validation after construction
 - Make tags deserialize into `HashMap` instead of `Optional<HashMap>`
+- Fix subnet properties route table reference to use RouteTableId instead of String
 
 # v0.15.0
 
