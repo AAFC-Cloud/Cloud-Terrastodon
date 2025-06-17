@@ -51,13 +51,13 @@ where
             where
                 E: serde::de::Error,
             {
-                if value.to_ascii_lowercase() == "all" {
+                if value.eq_ignore_ascii_case("all") {
                     Ok(AllOr::All)
-                } else if value.to_ascii_lowercase() == "none" {
+                } else if value.eq_ignore_ascii_case("none") {
                     Ok(AllOr::None)
-                } else if value.to_ascii_lowercase() == "alltrusted" {
+                } else if value.eq_ignore_ascii_case("alltrusted") {
                     Ok(AllOr::AllTrusted)
-                } else if value.to_ascii_lowercase() == "microsoftadminportals" {
+                } else if value.eq_ignore_ascii_case("microsoftadminportals") {
                     Ok(AllOr::MicrosoftAdminPortals)
                 } else {
                     // If it's a string but not "all", try to deserialize the string as T
