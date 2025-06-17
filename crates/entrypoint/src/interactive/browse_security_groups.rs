@@ -129,7 +129,7 @@ pub async fn browse_security_groups() -> Result<()> {
                             } else {
                                 bail!(
                                     "Failed to find role definition with id {} for assignment {}",
-                                    role_assignment.role_definition_id,
+                                    role_assignment.role_definition_id.expanded_form(),
                                     role_assignment.id.expanded_form()
                                 );
                             };

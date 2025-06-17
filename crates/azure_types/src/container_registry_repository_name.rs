@@ -14,6 +14,9 @@ use validator::Validate;
 // https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
 // https://kubernetes.io/docs/concepts/containers/images/
 // https://github.com/moby/moby/blob/be97c66708c24727836a22247319ff2943d91a03/daemon/names/names.go
+/// I was unable to find a definitive source for the rules governing container registry repository names.
+/// 
+/// For now, this type will always successfully validate.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]
 pub struct ContainerRegistryRepositoryName {
     inner: CompactString,
@@ -95,25 +98,18 @@ mod test {
     #[test]
     pub fn validation() -> eyre::Result<()> {
         assert!(ContainerRegistryRepositoryName::try_new("bruh").is_ok());
-        assert!(ContainerRegistryRepositoryName::try_new("-").is_err());
-        assert!(ContainerRegistryRepositoryName::try_new("a-b-c").is_err());
-        assert!(ContainerRegistryRepositoryName::try_new("hi+hi").is_err());
-        assert!(ContainerRegistryRepositoryName::try_new("").is_err());
-        assert!(ContainerRegistryRepositoryName::try_new("a").is_err());
-        assert!(ContainerRegistryRepositoryName::try_new("aa").is_err());
+        assert!(ContainerRegistryRepositoryName::try_new("-").is_ok());
+        assert!(ContainerRegistryRepositoryName::try_new("a-b-c").is_ok());
+        assert!(ContainerRegistryRepositoryName::try_new("hi+hi").is_ok());
+        assert!(ContainerRegistryRepositoryName::try_new("").is_ok());
+        assert!(ContainerRegistryRepositoryName::try_new("a").is_ok());
+        assert!(ContainerRegistryRepositoryName::try_new("aa").is_ok());
         assert!(ContainerRegistryRepositoryName::try_new("JEOFF").is_ok());
         assert!(ContainerRegistryRepositoryName::try_new("caPital").is_ok());
         assert!(ContainerRegistryRepositoryName::try_new("aaaa").is_ok());
         assert!(ContainerRegistryRepositoryName::try_new("a".repeat(23)).is_ok());
         assert!(ContainerRegistryRepositoryName::try_new("a".repeat(24)).is_ok());
-        assert!(ContainerRegistryRepositoryName::try_new("a".repeat(25)).is_err());
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    pub fn preview_failure() -> eyre::Result<()> {
-        ContainerRegistryRepositoryName::try_new("abc123---B321")?;
+        assert!(ContainerRegistryRepositoryName::try_new("a".repeat(25)).is_ok());
         Ok(())
     }
 }

@@ -51,6 +51,8 @@ mod role_assignment_id;
 mod role_assignment_id_variants;
 mod role_assignment_name;
 mod role_assignments;
+mod role_definition_id;
+mod role_definition_id_variants;
 mod role_definitions;
 mod role_eligibility_schedule_id;
 mod role_eligibility_schedule_id_variants;
@@ -94,9 +96,11 @@ mod virtual_network;
 mod virtual_network_id;
 mod virtual_network_name;
 mod virtual_network_properties;
+mod role_definition_name;
 
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::role_definition_name::*;
     pub use crate::address_prefixes::*;
     pub use crate::all_or::*;
     pub use crate::app::*;
@@ -147,6 +151,8 @@ pub mod prelude {
     pub use crate::role_assignment_id_variants::*;
     pub use crate::role_assignment_name::*;
     pub use crate::role_assignments::*;
+    pub use crate::role_definition_id::*;
+    pub use crate::role_definition_id_variants::*;
     pub use crate::role_definitions::*;
     pub use crate::role_eligibility_schedule_id::*;
     pub use crate::role_eligibility_schedule_id_variants::*;

@@ -1,107 +1,13 @@
+use crate::prelude::RoleDefinitionId;
 use crate::scopes::AsScope;
-use crate::scopes::HasPrefix;
 use crate::scopes::Scope;
-use crate::scopes::ScopeImpl;
-use crate::scopes::ScopeImplKind;
-use crate::scopes::strip_prefix_case_insensitive;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
-use eyre::Result;
-use eyre::bail;
 use serde::Deserialize;
-use serde::Deserializer;
 use serde::Serialize;
-use serde::Serializer;
-use serde::de::Error;
-use std::str::FromStr;
-use uuid::Uuid;
-
-pub const ROLE_DEFINITION_ID_PREFIX: &str = "/providers/Microsoft.Authorization/RoleDefinitions/";
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct RoleDefinitionId {
-    expanded: String,
-}
-
-// TODO: shouldn't this be NameValidatable as a guid?
-impl RoleDefinitionId {
-    pub fn new(uuid: &Uuid) -> Self {
-        RoleDefinitionId {
-            expanded: format!("{ROLE_DEFINITION_ID_PREFIX}{}", uuid.as_hyphenated()),
-        }
-    }
-}
-
-impl HasPrefix for RoleDefinitionId {
-    fn get_prefix() -> &'static str {
-        ROLE_DEFINITION_ID_PREFIX
-    }
-}
-
-impl std::fmt::Display for RoleDefinitionId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.expanded_form())
-    }
-}
-
-impl FromStr for RoleDefinitionId {
-    type Err = eyre::Error;
-
-    fn from_str(expanded: &str) -> Result<Self, Self::Err> {
-        if strip_prefix_case_insensitive(expanded, ROLE_DEFINITION_ID_PREFIX).is_err() {
-            bail!(
-                "Missing prefix {ROLE_DEFINITION_ID_PREFIX} trying to parse {expanded} as {:?}",
-                ScopeImplKind::RoleDefinition
-            );
-        }
-
-        Ok(RoleDefinitionId {
-            expanded: expanded.to_owned(),
-        })
-    }
-}
-
-impl Scope for RoleDefinitionId {
-    fn expanded_form(&self) -> String {
-        self.expanded.to_owned()
-    }
-
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
-        expanded.parse()
-    }
-
-    fn kind(&self) -> ScopeImplKind {
-        ScopeImplKind::RoleDefinition
-    }
-    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
-        ScopeImpl::RoleDefinition(self.clone())
-    }
-}
-
-impl Serialize for RoleDefinitionId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for RoleDefinitionId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct RolePermission {
@@ -158,7 +64,7 @@ impl From<RoleDefinition> for HCLImportBlock {
     fn from(role_definition: RoleDefinition) -> Self {
         HCLImportBlock {
             provider: HCLProviderReference::Inherited,
-            id: role_definition.id.to_string(),
+            id: role_definition.id.expanded_form(),
             to: ResourceBlockReference::AzureRM {
                 kind: AzureRMResourceBlockKind::RoleDefinition,
                 name: format!(
@@ -173,6 +79,8 @@ impl From<RoleDefinition> for HCLImportBlock {
 }
 #[cfg(test)]
 mod tests {
+    use crate::prelude::ROLE_DEFINITION_ID_PREFIX;
+
     use super::*;
     use eyre::Result;
     use uuid::Uuid;
@@ -182,7 +90,7 @@ mod tests {
         let expanded = format!("{}{}", ROLE_DEFINITION_ID_PREFIX, Uuid::default());
         let id: RoleDefinitionId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
-        assert_eq!(id.to_string(), expanded);
+        assert_eq!(id.expanded_form(), expanded);
 
         Ok(())
     }

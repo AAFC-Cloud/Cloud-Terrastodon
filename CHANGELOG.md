@@ -1,6 +1,7 @@
 # v0.17.0
 
 - Add conditional access policy stuff
+- Introduce variants for RoleDefinitionId
 
 # v0.16.1
 
