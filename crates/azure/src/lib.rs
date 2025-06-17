@@ -51,8 +51,12 @@ mod tags;
 mod tenants;
 mod users;
 mod virtual_network;
+mod conditional_access_policies;
+mod conditional_access_named_locations;
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::conditional_access_named_locations::*;
+    pub use crate::conditional_access_policies::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::container_registry::*;

@@ -89,9 +89,19 @@ mod virtual_network_id;
 mod virtual_network_name;
 mod virtual_network_properties;
 pub mod serde_helpers;
+mod conditional_access_named_location_id;
+mod conditional_access_named_location;
+mod conditional_access_policy_id;
+mod conditional_access_policy;
+mod all_or;
 
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::all_or::*;
+    pub use crate::conditional_access_policy_id::*;
+    pub use crate::conditional_access_policy::*;
+    pub use crate::conditional_access_named_location_id::*;
+    pub use crate::conditional_access_named_location::*;
     pub use crate::address_prefixes::*;
     pub use crate::app::*;
     pub use crate::container_registry::*;
@@ -180,4 +190,5 @@ pub mod prelude {
     pub use crate::virtual_network_properties::*;
     pub use cloud_terrastodon_azure_resource_types::*;
     pub use uuid;
+    pub use ipnetwork;
 }

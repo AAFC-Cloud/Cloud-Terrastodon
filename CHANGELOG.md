@@ -1,3 +1,7 @@
+# v0.17.0
+
+- Add conditional access policy stuff
+
 # v0.16.1
 
 - Fix subnet properties route table reference using `RouteTable`, now is `RouteTableId`
