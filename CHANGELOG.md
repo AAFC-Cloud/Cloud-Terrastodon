@@ -1,3 +1,7 @@
+# v0.16.1
+
+- Fix subnet properties route table reference using `RouteTable`, now is `RouteTableId`
+
 # v0.16.0
 
 - Fix subnet types to not use optionals

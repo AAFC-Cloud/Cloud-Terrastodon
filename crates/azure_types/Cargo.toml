@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_azure_types"
 description = "Types for modelling Azure stuff for the Cloud Terrastodon project"
-version = "0.16.0" # CT_VERSION
+version = "0.16.1" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -37,6 +37,7 @@ winnow = { workspace = true }
 
 [dev-dependencies]
 rand.workspace=true
+
 
 
 
