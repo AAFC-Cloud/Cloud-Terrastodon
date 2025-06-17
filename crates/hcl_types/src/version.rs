@@ -555,7 +555,6 @@ mod test {
     use super::SemVer;
     use crate::prelude::ProviderKind;
     use crate::prelude::TerraformRequiredProvidersBlock;
-    use crate::strings::AsHCLString;
     use crate::version::ProviderVersionConstraint;
     use crate::version::ProviderVersionConstraintClause;
     use hcl::edit::structure::Body;

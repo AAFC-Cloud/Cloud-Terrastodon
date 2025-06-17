@@ -72,7 +72,7 @@ mod test {
     #[test]
     pub fn it_works() -> eyre::Result<()> {
         let descriptor = "aad.bruh";
-        let parsed: AzureDevOpsDescriptor = descriptor.parse()?;
+        let _parsed: AzureDevOpsDescriptor = descriptor.parse()?;
         Ok(())
     }
 
