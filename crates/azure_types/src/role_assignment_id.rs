@@ -230,9 +230,7 @@ mod tests {
                 ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
                 "MY-VNET",
             ),
-            name: RoleAssignmentName {
-                inner: Uuid::new_v4(),
-            },
+            name: RoleAssignmentName::new(Uuid::new_v4()),
         });
         let id: RoleAssignmentId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;

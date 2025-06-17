@@ -237,9 +237,7 @@ mod tests {
                     ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
                     "MY-VNET",
                 ),
-                name: RoleEligibilityScheduleName {
-                    inner: Uuid::new_v4(),
-                },
+                name: RoleEligibilityScheduleName::new(Uuid::new_v4()),
             });
         let id: RoleEligibilityScheduleId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;

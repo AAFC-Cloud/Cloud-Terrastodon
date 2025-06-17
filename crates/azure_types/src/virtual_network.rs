@@ -64,7 +64,7 @@ mod tests {
         assert_eq!(deserialized_vnet.name, "test-vnet-azure-name");
         assert_eq!(deserialized_vnet.location, "eastus");
         assert_eq!(
-            deserialized_vnet.tags.unwrap().get("environment").unwrap(),
+            deserialized_vnet.tags.get("environment").unwrap(),
             "test"
         );
         assert_eq!(

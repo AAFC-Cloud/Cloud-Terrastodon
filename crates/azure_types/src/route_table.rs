@@ -30,7 +30,6 @@ mod tests {
     use crate::scopes::Scope;
     use crate::slug::Slug;
     use eyre::Result;
-    use std::str::FromStr;
     use uuid::Uuid;
 
     #[test]
