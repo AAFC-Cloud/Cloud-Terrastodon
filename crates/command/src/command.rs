@@ -16,7 +16,6 @@ use eyre::bail;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use std::backtrace::Backtrace;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
@@ -45,6 +44,8 @@ use tracing::debug;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
+
+use crate::NoSpaces;
 
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub enum CommandKind {
@@ -394,15 +395,8 @@ impl CommandBuilder {
     #[track_caller]
     pub fn use_cache_behaviour(&mut self, mut behaviour: CacheBehaviour) -> &mut Self {
         if let CacheBehaviour::Some { ref mut path, .. } = behaviour {
-            if path.as_os_str().as_encoded_bytes().contains(&b' ') {
-                warn!(
-                    "Cache path contains a space which is discouraged because VSCode's terminal ctrl-click behaviour reliability suffers\nPath: {}\nAt: {}",
-                    path.display(),
-                    // RelativeLocation::from(std::panic::Location::caller())
-                    Backtrace::force_capture(),
-                );
-            }
-            *path = AppDir::Commands.join(&path);
+            // add app dir prefix and remove spaces
+            *path = AppDir::Commands.join(path.no_spaces());
         }
         self.cache_behaviour = behaviour;
         self
