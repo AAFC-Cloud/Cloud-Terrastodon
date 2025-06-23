@@ -29,7 +29,7 @@ pub async fn fetch_queries_for_project(
             "devops",
             "query",
             "list",
-            project_name.replace(" ", "_").as_ref(),
+            project_name.as_ref(),
         ]),
         valid_for: Duration::from_hours(8),
     });

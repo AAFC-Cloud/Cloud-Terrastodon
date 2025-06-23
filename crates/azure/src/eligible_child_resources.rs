@@ -39,7 +39,7 @@ pub async fn fetch_eligible_child_resources(
     scope
         .split("/")
         .filter(|x| !x.is_empty())
-        .for_each(|x| cache_chunks.push(x.replace(" ", "_")));
+        .for_each(|x| cache_chunks.push(x));
 
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: cache_chunks,

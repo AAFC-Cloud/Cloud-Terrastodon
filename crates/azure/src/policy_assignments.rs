@@ -38,19 +38,19 @@ pub async fn fetch_policy_assignments(
             cmd.args(["--subscription", &subscription_id.short_form()]);
             cmd.args(["--scope", &scope.expanded_form()]);
             cache_key.push("subscription");
-            cache_key.push(subscription_id.short_form().replace(" ", "_"));
+            cache_key.push(subscription_id.short_form());
             cache_key.push("scope");
-            cache_key.push(scope.short_form().replace(" ", "_"));
+            cache_key.push(scope.short_form());
         }
         (Some(scope), None) => {
             cmd.args(["--scope", &scope.expanded_form()]);
             cache_key.push("scope");
-            cache_key.push(scope.short_form().replace(" ", "_"));
+            cache_key.push(scope.short_form());
         }
         (None, Some(subscription_id)) => {
             cmd.args(["--subscription", &subscription_id.short_form()]);
             cache_key.push("subscription");
-            cache_key.push(subscription_id.short_form().replace(" ", "_"));
+            cache_key.push(subscription_id.short_form());
         }
         (None, None) => {
             cache_key.push("unscoped_default_subscription");

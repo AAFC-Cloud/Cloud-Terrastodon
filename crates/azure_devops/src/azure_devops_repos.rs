@@ -30,7 +30,7 @@ pub async fn fetch_all_azure_devops_repos_for_project(
             "az",
             "repos",
             "list",
-            project_id.to_string().replace(" ", "_").as_ref(),
+            project_id.to_string().as_ref(),
         ]),
         valid_for: Duration::from_hours(8),
     });

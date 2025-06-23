@@ -27,7 +27,7 @@ pub async fn fetch_role_management_policy_assignments(
             "GET",
             "roleManagementPolicyAssignments",
             "roleDefinitionId",
-            role_definition_id.short_form().replace(" ", "_").as_ref(),
+            role_definition_id.short_form().as_ref(),
         ]),
         valid_for: Duration::from_hours(1),
     });

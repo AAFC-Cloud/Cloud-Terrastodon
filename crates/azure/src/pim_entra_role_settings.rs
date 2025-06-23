@@ -28,7 +28,7 @@ pub async fn fetch_entra_pim_role_settings(
         "rest",
         "GET",
         "pim_roleSettings",
-        role_definition_id.to_string().replace(" ", "_").as_ref(),
+        role_definition_id.to_string().as_ref(),
     ]));
 
     #[derive(Deserialize)]
