@@ -313,7 +313,7 @@ impl TryFrom<Output> for CommandOutput {
 pub enum RetryBehaviour {
     Fail,
     #[default]
-    Reauth,
+    Retry,
 }
 #[derive(Clone, Copy, Default, Debug)]
 pub enum OutputBehaviour {
@@ -712,7 +712,26 @@ impl CommandBuilder {
         // Return if errored
         if !output.success() {
             match self.retry_behaviour {
-                RetryBehaviour::Reauth
+                 RetryBehaviour::Retry
+                    if [
+                        "ERROR: Too Many Requests",
+                    ]
+                    .into_iter()
+                    .any(|x| output.stderr.contains_str(x)) =>
+                {
+                    // Retry the failed command, no further retries
+                    warn!("Rate limit detected ⏳ Retrying command after 30 second wait...");
+                    tokio::time::sleep(Duration::from_secs(30)).await;
+
+                    info!("It's been 30 seconds, retrying command `{}`", self.summarize().await);
+                    let mut retry = self.clone();
+                    retry.use_retry_behaviour(RetryBehaviour::Fail);
+                    let output = retry.run_raw().await;
+
+                    // Return the result
+                    return output;
+                },
+                RetryBehaviour::Retry
                     if [
                         "AADSTS70043",
                         "No subscription found. Run 'az account set' to select a subscription.",
