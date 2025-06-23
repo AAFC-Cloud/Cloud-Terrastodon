@@ -22,6 +22,7 @@ pub struct ResourceGroup {
     pub name: ResourceGroupName,
     pub properties: HashMap<String, String>,
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_null_default")]
+    #[serde(default)]
     pub tags: HashMap<String, String>,
 }
 

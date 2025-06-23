@@ -12,6 +12,7 @@ pub struct VirtualNetwork {
     pub name: VirtualNetworkName,
     pub location: String,
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_null_default")]
+    #[serde(default)]
     pub tags: HashMap<String, String>,
     pub properties: VirtualNetworkProperties,
 }

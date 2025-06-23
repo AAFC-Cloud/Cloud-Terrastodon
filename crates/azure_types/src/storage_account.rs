@@ -40,6 +40,7 @@ pub struct StorageAccount {
     pub sku: StorageAccountSKU,
     pub properties: Value,
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_null_default")]
+    #[serde(default)]
     pub tags: HashMap<String, String>,
 }
 
