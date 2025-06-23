@@ -802,7 +802,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cloud_terrastodon_entrypoint",
  "color-eyre",
@@ -813,7 +813,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_azure"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "chrono",
  "cloud_terrastodon_azure_types",
@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_azure_devops"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_command",
@@ -862,7 +862,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_azure_devops_rest_client"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "base64 0.22.1",
  "cloud_terrastodon_azure_types",
@@ -876,7 +876,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_azure_devops_types"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "arbitrary",
  "chrono",
@@ -901,7 +901,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_azure_locations"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cloud_terrastodon_command",
  "eyre",
@@ -916,7 +916,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_azure_resource_types"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cloud_terrastodon_command",
  "eyre",
@@ -931,7 +931,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_azure_types"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "arbitrary",
  "chrono",
@@ -960,7 +960,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_command"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "async-recursion",
  "bstr",
@@ -982,7 +982,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_config"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -998,7 +998,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_entrypoint"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "async-recursion",
  "chrono",
@@ -1039,7 +1039,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_hcl"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
@@ -1065,7 +1065,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_hcl_types"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "async-trait",
  "cloud_terrastodon_command",
@@ -1083,7 +1083,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_pathing"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "async-trait",
  "clap",
@@ -1095,14 +1095,14 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_relative_location"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "eyre",
 ]
 
 [[package]]
 name = "cloud_terrastodon_ui_egui"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
@@ -1127,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_ui_ratatui"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "crossterm",
  "eyre",
@@ -1142,7 +1142,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_user_input"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "eyre",
  "indexmap",
@@ -1152,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_zombies"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_user_input",

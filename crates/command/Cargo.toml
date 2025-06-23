@@ -1,6 +1,6 @@
 [package]
 name = "cloud_terrastodon_command"
-version = "0.17.0" # CT_VERSION
+version = "0.18.0" # CT_VERSION
 description = "Command running helpers for the Cloud Terrastodon project"
 edition.workspace = true
 authors.workspace = true
