@@ -18,7 +18,7 @@ pub async fn fetch_all_azure_devops_service_endpoints(
         "--organization",
         &org_url.to_string(),
         "--project",
-        project.as_ref(),
+        project,
         "--output",
         "json",
     ]);
@@ -34,10 +34,8 @@ pub async fn fetch_all_azure_devops_service_endpoints(
         valid_for: Duration::from_hours(8),
     });
 
-    let response = cmd.run_raw().await?;
-    let endpoints: Vec<AzureDevOpsServiceEndpoint> = serde_json::from_slice(&response.stdout)?;
-
-    Ok(endpoints)
+    let response = cmd.run::<Vec<AzureDevOpsServiceEndpoint>>().await?;
+    Ok(response)
 }
 
 #[cfg(test)]
