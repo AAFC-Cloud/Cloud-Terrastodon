@@ -1,3 +1,9 @@
+# v0.18.0
+
+- Add stronger types for azure devops service endpoint
+- Add cache bust when failed to find default azure devops project or organization
+- Add automatic no_space conversion for command cache keys
+
 # v0.17.0
 
 - Add conditional access policy stuff
