@@ -1,3 +1,8 @@
+# v0.19.0
+
+- `cloud_terrastodon clean` no longer shows warnings for directories not present
+- Add `--debug` argument always for azure CLI commands
+
 # v0.18.0
 
 - Add stronger types for azure devops service endpoint
