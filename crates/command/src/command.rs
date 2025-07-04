@@ -95,6 +95,13 @@ impl CommandKind {
     ) -> Result<Vec<TempPath>> {
         let mut rtn = Vec::new();
         let mut args = this.args.clone();
+        // Always add --debug for AzureCLI if not present
+        if let CommandKind::AzureCLI = self {
+            let has_debug = args.iter().any(|a| a == "--debug");
+            if !has_debug {
+                args.push("--debug".into());
+            }
+        }
         // Write azure args to files
         match (self, this.file_args.is_empty()) {
             (CommandKind::AzureCLI, false) => {
@@ -467,10 +474,17 @@ impl CommandBuilder {
     }
 
     pub async fn summarize(&self) -> String {
+        let mut args = self.args.clone();
+        if self.kind == CommandKind::AzureCLI {
+            let has_debug = args.iter().any(|a| a == "--debug");
+            if !has_debug {
+                args.push("--debug".into());
+            }
+        }
         format!(
             "{} {}",
             self.kind.program().await,
-            self.args.join(&OsString::from(" ")).to_string_lossy()
+            args.join(&OsString::from(" ")).to_string_lossy()
         )
     }
 
