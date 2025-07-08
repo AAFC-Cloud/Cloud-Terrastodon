@@ -1,5 +1,8 @@
 # v0.20.0
 
+- Add `fetch_azure_devops_user_entitlements()` function to retrieve Azure DevOps user entitlements
+- Add strongly-typed enums for Azure DevOps user entitlement fields (status, license, origin, assignmentSource)
+- Add `AzureDevOpsAccountId` and `AzureDevOpsUserEntitlementUserReference` types
 - Add "Invalid combination of arguments" to list of fixable errors for GenerateConfigOutHelper
 
 # v0.19.0

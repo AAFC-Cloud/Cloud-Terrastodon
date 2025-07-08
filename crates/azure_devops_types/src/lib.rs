@@ -1,4 +1,5 @@
 mod azure_devops_descriptor;
+mod azure_devops_account_id;
 mod azure_devops_entra_user_descriptor;
 mod azure_devops_group;
 mod azure_devops_group_member;
@@ -17,6 +18,7 @@ mod azure_devops_service_endpoint_kind;
 mod azure_devops_service_endpoint_name;
 mod azure_devops_team;
 mod azure_devops_team_member;
+mod azure_devops_user_entitlement;
 mod azure_devops_user_id;
 mod azure_devops_work_item_query;
 mod azure_devops_work_items;
@@ -28,6 +30,7 @@ mod azure_devops_service_endpoint_project_reference;
 
 pub mod prelude {
     pub use crate::azure_devops_descriptor::*;
+    pub use crate::azure_devops_account_id::*;
     pub use crate::azure_devops_service_endpoint_project_reference::*;
     pub use crate::azure_devops_service_endpoint_owner::*;
     pub use crate::azure_devops_service_endpoint_operation_status::*;
@@ -51,6 +54,7 @@ pub mod prelude {
     pub use crate::azure_devops_service_endpoint_name::*;
     pub use crate::azure_devops_team::*;
     pub use crate::azure_devops_team_member::*;
+    pub use crate::azure_devops_user_entitlement::*;
     pub use crate::azure_devops_user_id::*;
     pub use crate::azure_devops_work_item_query::*;
     pub use crate::azure_devops_work_items::*;
