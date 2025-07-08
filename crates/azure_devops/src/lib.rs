@@ -6,7 +6,7 @@ mod azure_devops_repos;
 mod azure_devops_service_endpoint;
 mod azure_devops_team;
 mod azure_devops_team_member;
-mod azure_devops_user_entitlements;
+mod azure_devops_user_license_entitlements;
 mod azure_devops_work_item_queries;
 mod azure_devops_work_item_queries_invoke;
 mod get_default_organization_name;
@@ -23,7 +23,7 @@ pub mod prelude {
     pub use crate::azure_devops_service_endpoint::*;
     pub use crate::azure_devops_team::*;
     pub use crate::azure_devops_team_member::*;
-    pub use crate::azure_devops_user_entitlements::*;
+    pub use crate::azure_devops_user_license_entitlements::*;
     pub use crate::azure_devops_work_item_queries::*;
     pub use crate::azure_devops_work_item_queries_invoke::*;
     pub use crate::get_default_organization_name::*;

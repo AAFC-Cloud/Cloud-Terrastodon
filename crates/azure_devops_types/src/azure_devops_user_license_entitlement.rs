@@ -4,17 +4,18 @@ use serde::Deserialize;
 use serde::Serialize;
 use crate::azure_devops_account_id::AzureDevOpsAccountId;
 use crate::azure_devops_user_id::AzureDevOpsUserId;
+use crate::prelude::AzureDevOpsDescriptor;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
-pub enum AzureDevOpsUserEntitlementStatus {
+pub enum AzureDevOpsUserLicenseEntitlementStatus {
     Active,
     Pending,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "PascalCase")]
-pub enum AzureDevOpsUserEntitlementLicense {
+pub enum AzureDevOpsUserLicenseEntitlementLicense {
     #[serde(rename = "Account-Express")]
     AccountExpress,
     #[serde(rename = "Account-Stakeholder")]
@@ -29,24 +30,24 @@ pub enum AzureDevOpsUserEntitlementLicense {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
-pub enum AzureDevOpsUserEntitlementOrigin {
+pub enum AzureDevOpsUserLicenseEntitlementOrigin {
     None,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
-pub enum AzureDevOpsUserEntitlementAssignmentSource {
+pub enum AzureDevOpsUserLicenseEntitlementAssignmentSource {
     Unknown,
     GroupRule,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AzureDevOpsUserEntitlement {
+pub struct AzureDevOpsUserLicenseEntitlement {
     #[serde(rename = "accountId")]
     pub account_id: AzureDevOpsAccountId,
     #[serde(rename = "assignmentDate")]
     pub assignment_date: DateTime<Utc>,    #[serde(rename = "assignmentSource")]
-    pub assignment_source: AzureDevOpsUserEntitlementAssignmentSource,
+    pub assignment_source: AzureDevOpsUserLicenseEntitlementAssignmentSource,
     #[serde(rename = "dateCreated")]
     pub date_created: DateTime<Utc>,
     #[serde(rename = "lastAccessedDate")]
@@ -54,21 +55,21 @@ pub struct AzureDevOpsUserEntitlement {
     #[serde(rename = "lastUpdated")]
     pub last_updated: DateTime<Utc>,
     #[serde(rename = "license")]
-    pub license: AzureDevOpsUserEntitlementLicense,
+    pub license: AzureDevOpsUserLicenseEntitlementLicense,
     #[serde(rename = "origin")]
-    pub origin: AzureDevOpsUserEntitlementOrigin,
+    pub origin: AzureDevOpsUserLicenseEntitlementOrigin,
     #[serde(rename = "status")]
-    pub status: AzureDevOpsUserEntitlementStatus,
+    pub status: AzureDevOpsUserLicenseEntitlementStatus,
     #[serde(rename = "user")]
-    pub user: AzureDevOpsUserEntitlementUserReference,
+    pub user: AzureDevOpsUserLicenseEntitlementUserReference,
     #[serde(rename = "userId")]
     pub user_id: AzureDevOpsUserId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AzureDevOpsUserEntitlementUserReference {
+pub struct AzureDevOpsUserLicenseEntitlementUserReference {
     #[serde(rename = "descriptor")]
-    pub descriptor: String,
+    pub descriptor: AzureDevOpsDescriptor,
     #[serde(rename = "displayName")]
     pub display_name: String,
     #[serde(rename = "id")]
