@@ -1,6 +1,6 @@
 [package]
 name = "cloud_terrastodon_entrypoint"
-version = "0.18.0" # CT_VERSION
+version = "0.20.0" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -54,6 +54,7 @@ windows = { version = "0.58.0", features = [
 
 [dev-dependencies]
 test-log = { workspace = true }
+
 
 
 

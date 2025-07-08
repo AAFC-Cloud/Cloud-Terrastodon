@@ -1,3 +1,7 @@
+# v0.20.0
+
+- Add "Invalid combination of arguments" to list of fixable errors for GenerateConfigOutHelper
+
 # v0.19.0
 
 - `cloud_terrastodon clean` no longer shows warnings for directories not present

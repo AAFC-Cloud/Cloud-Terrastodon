@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_azure_devops_types"
 description = "Types for modelling Azure DevOps for the Cloud Terrastodon project"
-version = "0.18.0" # CT_VERSION
+version = "0.20.0" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -31,6 +31,7 @@ unicode_categories = { workspace = true }
 
 [dev-dependencies]
 rand.workspace=true
+
 
 
 
