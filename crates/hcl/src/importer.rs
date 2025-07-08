@@ -132,6 +132,7 @@ impl GenerateConfigOutHelper {
                     );
                     let fixable_errors: HashSet<BString> = HashSet::from_iter([
                         BString::from("Insufficient initialization blocks"),
+                        BString::from("Invalid combination of arguments"),
                         BString::from("Feature map must contain at least on entry"),
                         BString::from("expected \"display_name\" to not be an empty string, got"),
                     ]);
