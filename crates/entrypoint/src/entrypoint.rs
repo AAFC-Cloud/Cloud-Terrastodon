@@ -180,7 +180,7 @@ pub async fn handle(command: Option<Commands>) -> eyre::Result<()> {
                         ))
                         .suffix(".tf")
                         .tempdir_in(&work_dir)?
-                        .into_path();
+                        .keep();
                     HCLWriter::new(work_dir.join("imports.tf"))
                         .format_on_write()
                         .overwrite(imports)
