@@ -6,13 +6,13 @@ use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
 pub async fn fetch_azure_devops_groups(
     project: impl Into<AzureDevOpsProjectArgument<'_>>,
 ) -> eyre::Result<Vec<AzureDevOpsGroup>> {
     let project: AzureDevOpsProjectArgument = project.into();
-    info!("Fetching Azure DevOps groups for project {project}");
+    debug!("Fetching Azure DevOps groups for project {project}");
 
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args([
@@ -49,6 +49,12 @@ pub async fn fetch_azure_devops_groups(
     assert!(
         response.continuation_token.is_none(),
         "Continuation token found in Azure DevOps group list response"
+    );
+
+    debug!(
+        "Found {} Azure DevOps groups for project {}",
+        response.graph_groups.len(),
+        project
     );
     Ok(response.graph_groups)
 }

@@ -4,9 +4,10 @@ use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
 pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
+    debug!("Fetching role definitions");
     let role_definitions = ResourceGraphHelper::new(
         r#"authorizationresources
 | where type =~ "microsoft.authorization/roledefinitions"
@@ -25,7 +26,7 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     )
     .collect_all()
     .await?;
-    info!("Found {} role definitions", role_definitions.len());
+    debug!("Found {} role definitions", role_definitions.len());
     Ok(role_definitions)
 }
 

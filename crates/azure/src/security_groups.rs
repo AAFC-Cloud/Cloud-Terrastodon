@@ -4,10 +4,10 @@ use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
 pub async fn fetch_all_security_groups() -> Result<Vec<Group>> {
-    info!("Fetching security groups");
+    debug!("Fetching security groups");
     let query = MicrosoftGraphHelper::new(
         "https://graph.microsoft.com/v1.0/groups?$select=id,displayName,description,securityEnabled,isAssignableToRole&$filter=securityEnabled eq true",
         CacheBehaviour::Some {
@@ -16,6 +16,7 @@ pub async fn fetch_all_security_groups() -> Result<Vec<Group>> {
         },
     );
     let groups: Vec<Group> = query.fetch_all().await?;
+    debug!("Found {} security groups", groups.len());
     Ok(groups)
 }
 

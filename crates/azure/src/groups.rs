@@ -6,18 +6,22 @@ use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
+use tracing::debug;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
 
 pub async fn fetch_groups() -> Result<Vec<Group>> {
+    debug!("Fetching Azure AD groups");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["ad", "group", "list", "--output", "json"]);
     cmd.use_cache_dir(PathBuf::from_iter(["az", "ad", "group", "list"]));
-    cmd.run().await
+    let rtn: Vec<Group> = cmd.run().await?;
+    debug!("Found {} groups", rtn.len());
+    Ok(rtn)
 }
 
 pub async fn fetch_group_members(group_id: GroupId) -> Result<Vec<Principal>> {
+    debug!("Fetching members for group {}", group_id);
     let members = MicrosoftGraphHelper::new(
         format!("https://graph.microsoft.com/v1.0/groups/{group_id}/members"),
         CacheBehaviour::Some {
@@ -30,10 +34,11 @@ pub async fn fetch_group_members(group_id: GroupId) -> Result<Vec<Principal>> {
     )
     .fetch_all::<Principal>()
     .await?;
-    info!("Found {} members for group {}", members.len(), group_id);
+    debug!("Found {} members for group {}", members.len(), group_id);
     Ok(members)
 }
 pub async fn fetch_group_owners(group_id: GroupId) -> Result<Vec<Principal>> {
+    debug!("Fetching owners for group {}", group_id);
     let owners = MicrosoftGraphHelper::new(
         format!("https://graph.microsoft.com/v1.0/groups/{group_id}/owners"),
         CacheBehaviour::Some {
@@ -46,7 +51,7 @@ pub async fn fetch_group_owners(group_id: GroupId) -> Result<Vec<Principal>> {
     )
     .fetch_all::<Principal>()
     .await?;
-    info!("Found {} owners for group {}", owners.len(), group_id);
+    debug!("Found {} owners for group {}", owners.len(), group_id);
     Ok(owners)
 }
 

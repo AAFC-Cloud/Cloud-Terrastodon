@@ -5,10 +5,10 @@ use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
 pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
-    info!("Fetching resource groups");
+    debug!("Fetching resource groups");
     let query = indoc! {r#"
         resourcecontainers
         | where type =~ "microsoft.resources/subscriptions/resourcegroups"
@@ -32,7 +32,7 @@ pub async fn fetch_all_resource_groups() -> Result<Vec<ResourceGroup>> {
     )
     .collect_all::<ResourceGroup>()
     .await?;
-    info!("Found {} resource groups", resource_groups.len());
+    debug!("Found {} resource groups", resource_groups.len());
     Ok(resource_groups)
 }
 

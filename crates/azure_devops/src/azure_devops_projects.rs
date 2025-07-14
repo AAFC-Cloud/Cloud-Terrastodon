@@ -8,10 +8,10 @@ use serde::Serialize;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::field::debug;
-use tracing::info;
+use tracing::debug;
 
 pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevOpsProject>> {
-    info!("Fetching Azure DevOps projects");
+    debug!("Fetching Azure DevOps projects");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "project", "list", "--output", "json"]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
@@ -39,7 +39,7 @@ pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevOpsProject>
         projects.extend(response.value);
     }
 
-    info!("Found {} Azure DevOps projects", projects.len());
+    debug!("Found {} Azure DevOps projects", projects.len());
     Ok(projects)
 }
 

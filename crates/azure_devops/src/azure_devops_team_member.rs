@@ -6,14 +6,14 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
 pub async fn fetch_azure_devops_team_members(
     project: impl Into<AzureDevOpsProjectArgument<'_>>,
     team_id: &AzureDevOpsTeamId,
 ) -> eyre::Result<Vec<AzureDevOpsTeamMember>> {
     let project: AzureDevOpsProjectArgument = project.into();
-    info!("Fetching Azure DevOps teams for project {project}");
+    debug!("Fetching Azure DevOps teams for project {project}");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args([
         "devops",
@@ -41,7 +41,7 @@ pub async fn fetch_azure_devops_team_members(
     });
 
     let response = cmd.run::<Vec<AzureDevOpsTeamMember>>().await?;
-    info!(
+    debug!(
         "Found {} Azure DevOps team members for project {project} team {team_id:?}",
         response.len()
     );

@@ -8,10 +8,10 @@ use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
 pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
-    info!("Fetching subscriptions");
+    debug!("Fetching subscriptions");
     let query = indoc! {r#"
         resourcecontainers
         | where type =~ "Microsoft.Resources/subscriptions"
@@ -31,7 +31,7 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
     )
     .collect_all::<Subscription>()
     .await?;
-    info!("Found {} subscriptions", subscriptions.len());
+    debug!("Found {} subscriptions", subscriptions.len());
     Ok(subscriptions)
 }
 
