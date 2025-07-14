@@ -4,6 +4,7 @@
 - Add "Invalid combination of arguments" to list of fixable errors for GenerateConfigOutHelper
 - Add `get_azure_devops_user_onboarding_statuses(user_emails)` function
 - Reduce log level for fetch helpers to DEBUG from INFO
+- Updated dependencies via `cargo update`
 
 # v0.19.0
 
