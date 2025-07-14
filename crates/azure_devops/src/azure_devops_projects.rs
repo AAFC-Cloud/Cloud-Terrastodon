@@ -7,8 +7,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::field::debug;
 use tracing::debug;
+use tracing::field::debug;
 
 pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevOpsProject>> {
     debug!("Fetching Azure DevOps projects");

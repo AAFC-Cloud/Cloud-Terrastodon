@@ -1,6 +1,8 @@
-use std::{path::PathBuf, time::Duration};
-
-use cloud_terrastodon_command::{CacheBehaviour, CommandBuilder, CommandKind};
+use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
+use std::path::PathBuf;
+use std::time::Duration;
 
 pub fn get_azure_devops_configuration_command() -> CommandBuilder {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);

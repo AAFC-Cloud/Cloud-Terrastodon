@@ -18,11 +18,12 @@ pub async fn az_account_list() -> eyre::Result<Vec<Account>> {
 
 #[cfg(test)]
 mod test {
-    use std::{path::PathBuf, time::Duration};
-
-    use cloud_terrastodon_command::{CacheBehaviour, CommandBuilder, CommandKind};
-
     use crate::prelude::az_account_list;
+    use cloud_terrastodon_command::CacheBehaviour;
+    use cloud_terrastodon_command::CommandBuilder;
+    use cloud_terrastodon_command::CommandKind;
+    use std::path::PathBuf;
+    use std::time::Duration;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -34,7 +35,6 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works_raw() -> eyre::Result<()> {
-            
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["account", "list", "--output", "json"]);
         cmd.use_cache_behaviour(CacheBehaviour::Some {

@@ -23,7 +23,7 @@ use validator::ValidationError;
 /// DecimalDigitNumber.
 ///
 /// Can't end with period.
-/// 
+///
 /// See also: https://github.com/Azure/azure-rest-api-specs/blob/6c548b0bd279f5e233661b1c81fb5b61b19965cd/specification/storage/resource-manager/Microsoft.Storage/stable/2025-01-01/storage.json#L5841-L5852
 #[derive(Debug, Clone, Eq, Validate, PartialOrd, Ord)]
 pub struct ResourceGroupName {

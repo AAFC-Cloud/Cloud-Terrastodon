@@ -37,7 +37,7 @@ impl NoSpaces for &CompactString {
     type Output = CompactString;
 
     fn no_spaces(self) -> Self::Output {
-         CompactString::from_utf8(self.as_bytes().no_spaces().into_iter()).unwrap()
+        CompactString::from_utf8(self.as_bytes().no_spaces().into_iter()).unwrap()
     }
 }
 impl NoSpaces for String {
@@ -68,8 +68,7 @@ impl NoSpaces for &PathBuf {
         self.to_path_buf().no_spaces()
     }
 }
-impl NoSpaces for &mut PathBuf
-{
+impl NoSpaces for &mut PathBuf {
     type Output = PathBuf;
 
     fn no_spaces(self) -> Self::Output {

@@ -6,9 +6,9 @@ use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
-use tracing::debug;
 use std::path::PathBuf;
 use std::time::Duration;
+use tracing::debug;
 
 pub async fn fetch_groups() -> Result<Vec<Group>> {
     debug!("Fetching Azure AD groups");

@@ -1,10 +1,9 @@
+use crate::prelude::get_azure_devops_configuration_command;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_command::bstr::ByteSlice;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
-
-use crate::prelude::get_azure_devops_configuration_command;
 
 pub async fn get_default_project_name() -> eyre::Result<AzureDevOpsProjectName> {
     let cmd = get_azure_devops_configuration_command();

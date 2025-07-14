@@ -1,3 +1,4 @@
+use crate::NoSpaces;
 use async_recursion::async_recursion;
 pub use bstr;
 use bstr::BString;
@@ -44,8 +45,6 @@ use tracing::debug;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
-
-use crate::NoSpaces;
 
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub enum CommandKind {

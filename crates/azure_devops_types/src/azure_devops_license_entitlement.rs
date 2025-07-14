@@ -1,10 +1,10 @@
+use crate::azure_devops_account_id::AzureDevOpsAccountId;
+use crate::azure_devops_user_id::AzureDevOpsUserId;
+use crate::prelude::AzureDevOpsDescriptor;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
-use crate::azure_devops_account_id::AzureDevOpsAccountId;
-use crate::azure_devops_user_id::AzureDevOpsUserId;
-use crate::prelude::AzureDevOpsDescriptor;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
@@ -46,7 +46,8 @@ pub struct AzureDevOpsLicenseEntitlement {
     #[serde(rename = "accountId")]
     pub account_id: AzureDevOpsAccountId,
     #[serde(rename = "assignmentDate")]
-    pub assignment_date: DateTime<Utc>,    #[serde(rename = "assignmentSource")]
+    pub assignment_date: DateTime<Utc>,
+    #[serde(rename = "assignmentSource")]
     pub assignment_source: AzureDevOpsLicenseEntitlementAssignmentSource,
     #[serde(rename = "dateCreated")]
     pub date_created: DateTime<Utc>,

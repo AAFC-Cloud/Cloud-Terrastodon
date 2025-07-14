@@ -59,7 +59,9 @@ impl<'de> Deserialize<'de> for AzureDevOpsServiceEndpointKind {
                     "dockerregistry" => Ok(AzureDevOpsServiceEndpointKind::DockerRegistry),
                     "externaltfs" => Ok(AzureDevOpsServiceEndpointKind::ExternalTFS),
                     "ssh" => Ok(AzureDevOpsServiceEndpointKind::SSH),
-                    other => Ok(AzureDevOpsServiceEndpointKind::Other(CompactString::from(other))),
+                    other => Ok(AzureDevOpsServiceEndpointKind::Other(CompactString::from(
+                        other,
+                    ))),
                 }
             }
         }
@@ -115,7 +117,8 @@ mod tests {
             AzureDevOpsServiceEndpointKind::AWS
         );
         assert_eq!(
-            serde_json::from_str::<AzureDevOpsServiceEndpointKind>("\"awsserviceendpoint\"").unwrap(),
+            serde_json::from_str::<AzureDevOpsServiceEndpointKind>("\"awsserviceendpoint\"")
+                .unwrap(),
             AzureDevOpsServiceEndpointKind::AWSServiceEndpoint
         );
         assert_eq!(

@@ -1,9 +1,9 @@
+use crate::prelude::AzureDevOpsDescriptor;
 use compact_str::CompactString;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
-
-use crate::prelude::AzureDevOpsDescriptor;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

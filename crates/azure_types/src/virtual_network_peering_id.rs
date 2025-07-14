@@ -167,10 +167,10 @@ impl<'de> Deserialize<'de> for VirtualNetworkPeeringId {
 
 #[cfg(test)]
 mod test {
+    use super::VirtualNetworkPeeringId;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::Rng;
-    use super::VirtualNetworkPeeringId;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
