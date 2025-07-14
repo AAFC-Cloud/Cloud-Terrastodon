@@ -66,81 +66,81 @@ ipnetwork = {version="0.21.1",features=["serde"]}
 winnow = "0.7.11"
 
 [workspace.dependencies.cloud_terrastodon_pathing]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/pathing"
 
 [workspace.dependencies.cloud_terrastodon_config]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/config"
 
 [workspace.dependencies.cloud_terrastodon_azure]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/azure"
 
 [workspace.dependencies.cloud_terrastodon_azure_types]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/azure_types"
 
 [workspace.dependencies.cloud_terrastodon_azure_resource_types]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/azure_resource_types"
 
 [workspace.dependencies.cloud_terrastodon_azure_devops]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/azure_devops"
 
 [workspace.dependencies.cloud_terrastodon_azure_devops_types]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/azure_devops_types"
 
 [workspace.dependencies.cloud_terrastodon_azure_devops_rest_client]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/azure_devops_rest_client"
 
 [workspace.dependencies.cloud_terrastodon_hcl]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/hcl"
 
 [workspace.dependencies.cloud_terrastodon_hcl_types]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/hcl_types"
 
 [workspace.dependencies.cloud_terrastodon_user_input]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/user_input"
 
 [workspace.dependencies.cloud_terrastodon_command]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/command"
 
 [workspace.dependencies.cloud_terrastodon_entrypoint]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/entrypoint"
 
 [workspace.dependencies.cloud_terrastodon_zombies]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/zombies"
 
 [workspace.dependencies.cloud_terrastodon_relative_location]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/relative_location"
 
 [workspace.dependencies.cloud_terrastodon_ui_ratatui]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/ui_ratatui"
 
 [workspace.dependencies.cloud_terrastodon_ui_egui]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/ui_egui"
 
 [workspace.dependencies.cloud_terrastodon_azure_locations]
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 path = "./crates/azure_locations"
 
 
 [package]
 name = "cloud_terrastodon"
-version = "0.20.0" # CT_VERSION
+version = "0.21.0" # CT_VERSION
 description = "A command-line tool for interacting with cloud ecosystems"
 edition.workspace = true
 authors.workspace = true
@@ -155,6 +155,7 @@ cloud_terrastodon_entrypoint = { workspace = true }
 tokio = { workspace = true }
 eyre = { workspace = true }
 color-eyre = { workspace = true }
+
 
 
 
