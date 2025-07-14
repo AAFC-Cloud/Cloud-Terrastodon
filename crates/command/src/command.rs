@@ -943,7 +943,7 @@ impl CommandBuilder {
         let dir = Builder::new()
             .prefix(Local::now().format("%Y%m%d_%H%M%S_").to_string().as_str())
             .tempdir_in(dir)?
-            .into_path();
+            .keep();
         self.write_output(output, &dir).await?;
         if write_file_args {
             for arg in self.file_args.values() {

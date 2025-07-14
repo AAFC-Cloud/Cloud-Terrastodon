@@ -9,6 +9,7 @@ use crate::interactive::prelude::browse_resource_groups;
 use crate::interactive::prelude::browse_resources_menu;
 use crate::interactive::prelude::browse_role_assignments;
 use crate::interactive::prelude::browse_security_groups;
+use crate::interactive::prelude::browse_service_principals;
 use crate::interactive::prelude::browse_users;
 use crate::interactive::prelude::build_group_imports;
 use crate::interactive::prelude::build_imports_from_existing;
@@ -106,6 +107,7 @@ pub enum MenuAction {
     AzureDevOpsProjectImportWizard,
     BrowseAzureDevOpsProjects,
     BrowseAzureDevOpsProjectTeams,
+    BrowseServicePrincipals,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -173,6 +175,7 @@ impl MenuAction {
             }
             MenuAction::BrowseAzureDevOpsProjects => "browse azure devops projects",
             MenuAction::BrowseAzureDevOpsProjectTeams => "browse azure devops project teams",
+            MenuAction::BrowseServicePrincipals => "browse service principals",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -242,6 +245,7 @@ impl MenuAction {
             MenuAction::BrowseAzureDevOpsProjectTeams => {
                 browse_azure_devops_project_teams().await?
             }
+            MenuAction::BrowseServicePrincipals => browse_service_principals().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }

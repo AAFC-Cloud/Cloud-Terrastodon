@@ -2,6 +2,8 @@
 
 - Add `fetch_azure_devops_user_license_entitlements()` function to retrieve Azure DevOps user entitlements
 - Add "Invalid combination of arguments" to list of fixable errors for GenerateConfigOutHelper
+- Add `get_azure_devops_user_onboarding_statuses(user_emails)` function
+- Reduce log level for fetch helpers to DEBUG from INFO
 
 # v0.19.0
 

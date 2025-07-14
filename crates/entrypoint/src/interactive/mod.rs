@@ -9,6 +9,7 @@ mod browse_resource_groups;
 mod browse_resources;
 mod browse_role_assignments;
 mod browse_security_groups;
+mod browse_service_principals;
 mod browse_users;
 mod build_group_imports;
 mod build_imports_from_existing;
@@ -51,6 +52,7 @@ pub mod prelude {
     pub use crate::interactive::browse_resources::*;
     pub use crate::interactive::browse_role_assignments::*;
     pub use crate::interactive::browse_security_groups::*;
+    pub use crate::interactive::browse_service_principals::*;
     pub use crate::interactive::browse_users::*;
     pub use crate::interactive::build_group_imports::*;
     pub use crate::interactive::build_imports_from_existing::*;

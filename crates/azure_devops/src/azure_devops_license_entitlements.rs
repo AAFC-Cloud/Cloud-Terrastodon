@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsUserLicenseEntitlement;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseEntitlement;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -6,10 +6,10 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
-pub async fn fetch_azure_devops_user_license_entitlements() -> eyre::Result<Vec<AzureDevOpsUserLicenseEntitlement>> {
-    info!("Fetching Azure DevOps user entitlements");
+pub async fn fetch_azure_devops_license_entitlements() -> eyre::Result<Vec<AzureDevOpsLicenseEntitlement>> {
+    debug!("Fetching Azure DevOps user entitlements");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "invoke"]);
     cmd.args(["--area", "licensing"]);
@@ -30,13 +30,13 @@ pub async fn fetch_azure_devops_user_license_entitlements() -> eyre::Result<Vec<
     struct InvokeResponse {
         continuation_token: Option<Value>,
         count: u32,
-        value: Vec<AzureDevOpsUserLicenseEntitlement>,
+        value: Vec<AzureDevOpsLicenseEntitlement>,
     }
     
     let resp = cmd.run::<InvokeResponse>().await?;
     let entitlements = resp.value;
     
-    info!(
+    debug!(
         "Found {} Azure DevOps user entitlements",
         resp.count
     );
@@ -54,7 +54,7 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let entitlements = fetch_azure_devops_user_license_entitlements().await?;
+        let entitlements = fetch_azure_devops_license_entitlements().await?;
         println!("Found {} user entitlements", entitlements.len());
           for entitlement in entitlements.iter().take(5) {
             println!(
