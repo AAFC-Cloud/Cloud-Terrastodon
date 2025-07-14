@@ -1,3 +1,7 @@
+# v0.21.0
+
+- Fix conditional access policy struct where included/excluded applications aren't always UUIDs
+
 # v0.20.0
 
 - Add `fetch_azure_devops_user_license_entitlements()` function to retrieve Azure DevOps user entitlements

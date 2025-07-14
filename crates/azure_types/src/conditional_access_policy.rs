@@ -1,5 +1,4 @@
 use crate::all_or::AllOr;
-use crate::app::AppId;
 use crate::groups::GroupId;
 use crate::prelude::ConditionalAccessNamedLocationId;
 use crate::prelude::ConditionalAccessPolicyId;
@@ -53,8 +52,8 @@ pub struct ConditionalAccessPolicyConditions {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsApplications {
-    pub include_applications: Vec<AllOr<AppId>>,
-    pub exclude_applications: Vec<AllOr<AppId>>,
+    pub include_applications: Vec<AllOr<String>>, // commonly a Uuid, but may be a literal like "Office365"
+    pub exclude_applications: Vec<AllOr<String>>, // commonly a Uuid, but may be a literal like "Office365"
     pub include_user_actions: Vec<Value>,
     pub include_authentication_context_class_references: Vec<Value>,
     pub application_filter: Option<Value>,
