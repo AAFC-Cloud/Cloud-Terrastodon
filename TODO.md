@@ -1,3 +1,10 @@
+- Enhanced discovery navigation
+"My website https://blah.agr.gc.ca/ is down"
+-> discover application-gateway.listeners and app-services.custom_domains that match
+-> app gateway backend pools gives IPs
+-> IPs give private endpoint
+-> private endpoint gives resource
+
 - Nice docs like Winnow https://docs.rs/winnow/latest/winnow/_tutorial/index.html
 
 
