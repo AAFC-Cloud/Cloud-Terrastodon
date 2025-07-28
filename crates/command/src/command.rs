@@ -826,7 +826,8 @@ impl CommandBuilder {
                 _ => {
                     let dir = self.write_failure(&output).await?;
                     let mut error = Err(eyre::Error::from(output).wrap_err(format!(
-                        "Command did not execute successfully, dumped to {dir:?}"
+                        "Command did not execute successfully, using retry behaviour {:?}, dumped to {dir:?}",
+                        self.retry_behaviour
                     )));
                     if matches!(self.output_behaviour, OutputBehaviour::Display) {
                         error = error.wrap_err(format!(

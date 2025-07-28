@@ -23,6 +23,14 @@ impl<T> std::fmt::Display for Choice<T> {
         f.write_str(&self.key)
     }
 }
+impl<T: Clone> Clone for Choice<T> {
+    fn clone(&self) -> Self {
+        Choice {
+            key: self.key.clone(),
+            value: self.value.clone(),
+        }
+    }
+}
 
 impl<T> From<T> for Choice<T>
 where
