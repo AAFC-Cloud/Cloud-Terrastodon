@@ -1,13 +1,11 @@
 use cloud_terrastodon_azure_types::prelude::User;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_command::RetryBehaviour;
 use eyre::Result;
 use tracing::warn;
 
 pub async fn fetch_current_user() -> Result<User> {
     CommandBuilder::new(CommandKind::AzureCLI)
-        .use_retry_behaviour(RetryBehaviour::Fail)
         .args(["ad", "signed-in-user", "show"])
         .run()
         .await
