@@ -26,46 +26,6 @@ use std::sync::Arc;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
 
-#[derive(Default)]
-pub struct PickerTuiBuilder<T: Send + Sync + 'static> {
-    pub choices: Vec<Choice<T>>,
-    pub header: Option<String>,
-    pub query: Option<String>,
-}
-impl<T: Send + Sync + 'static> PickerTuiBuilder<T> {
-    pub fn new<E: Into<Choice<T>>>(choices: impl IntoIterator<Item = E>) -> Self {
-        PickerTuiBuilder {
-            choices: choices.into_iter().map(Into::into).collect(),
-            header: None,
-            query: None,
-        }
-    }
-
-    pub fn header<S: Into<String>>(mut self, header: S) -> Self {
-        self.header = Some(header.into());
-        self
-    }
-
-    pub fn initial_query<S: Into<String>>(mut self, query: S) -> Self {
-        self.query = Some(query.into());
-        self
-    }
-
-    pub fn build(self) -> PickerTui<T> {
-        PickerTui {
-            choices: self.choices,
-            previous_query: None,
-            header: self.header,
-            query_text_area: {
-                let mut text_area = TextArea::new(vec![self.query.unwrap_or_default()]);
-                text_area.move_cursor(CursorMove::End);
-                text_area.set_block(Block::bordered());
-                text_area
-            },
-        }
-    }
-}
-
 pub struct PickerTui<T: Send + Sync + 'static> {
     /// The list of items being chosen from
     pub choices: Vec<Choice<T>>,
@@ -75,6 +35,8 @@ pub struct PickerTui<T: Send + Sync + 'static> {
     pub previous_query: Option<String>,
     /// The header text to indicate to the user what is being chosen
     pub header: Option<String>,
+    /// Determines if the query should be pushed to the search engine
+    pub query_changed: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -91,11 +53,37 @@ pub enum PickManyResponse<T> {
 type Key = CompactString;
 
 impl<T: Send + Sync + 'static> PickerTui<T> {
-    pub fn builder<E: Into<Choice<T>>>(
+    pub fn new<E: Into<Choice<T>>>(
         choices: impl IntoIterator<Item = E>,
-    ) -> PickerTuiBuilder<T> {
-        PickerTuiBuilder::new(choices)
+    ) -> Self {
+        Self {
+            choices: choices.into_iter().map(Into::into).collect(),
+            query_text_area: Self::build_text_area(""),
+            previous_query: Default::default(),
+            header: Default::default(),
+            query_changed: false,
+        }
     }
+
+    fn build_text_area(query: &str) -> TextArea<'static> {
+        let mut text_area = TextArea::new(vec![query.to_string()]);
+        text_area.move_cursor(CursorMove::End);
+        text_area.set_block(Block::bordered());
+        text_area
+    }
+
+    pub fn set_header(mut self, header: impl Into<String>) -> Self {
+        self.header = Some(header.into());
+        self
+    }
+
+    pub fn set_query(mut self, query: impl Into<String>) -> Self {
+        self.query_text_area = Self::build_text_area(query.into().as_str());
+        self.previous_query = None;
+        self.query_changed = true;
+        self
+    }
+
     pub fn pick_one(self) -> eyre::Result<PickResponse<T>> {
         match self.pick_inner(false)? {
             PickManyResponse::Some(mut items) => Ok(PickResponse::Some(items.pop().unwrap())),
@@ -144,8 +132,6 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
         list_state.select(Some(0));
         let mut search_results_list: List = Default::default();
         let mut search_results_keys: Vec<Key> = Vec::new();
-
-        let mut search_query_changed = true; // force initial parse of query
 
         // Main event loop
         loop {
@@ -237,14 +223,9 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
                     }
                     _ => {
                         // Send the key to the search box
-                        search_query_changed = self.query_text_area.input(key);
-                    }
                 }
             }
 
-            if search_query_changed {
-                search_query_changed = false;
-                // Reparse the query in the search engine
                 let new_query = self.query_text_area.lines().join("\n");
                 nucleo.pattern.reparse(
                     0,
@@ -371,9 +352,8 @@ mod test {
     #[ignore]
     pub fn it_works() -> eyre::Result<()> {
         let items = vec!["dog", "cat", "house", "pickle", "mouse"];
-        let results = PickerTui::builder(items)
-            .header("Select an item")
-            .build()
+        let results = PickerTui::new(items)
+            .set_header("Select an item")
             .pick_one()?;
         dbg!(results);
         Ok(())
@@ -400,9 +380,8 @@ mod test {
                 value: 4,
             },
         ];
-        let results = PickerTui::builder(items)
-            .header("Select an item")
-            .build()
+        let results = PickerTui::new(items)
+            .set_header("Select an item")
             .pick_many()?;
         dbg!(results);
         Ok(())
@@ -411,10 +390,9 @@ mod test {
     #[test]
     #[ignore]
     pub fn it_works3() -> eyre::Result<()> {
-        let results = PickerTui::builder(1..10_000_000)
-            .header("Select some numbers")
-            .initial_query("100")
-            .build()
+        let results = PickerTui::new(1..10_000_000)
+            .set_header("Select some numbers")
+            .set_query("100")
             .pick_many()?;
         dbg!(results);
         Ok(())
