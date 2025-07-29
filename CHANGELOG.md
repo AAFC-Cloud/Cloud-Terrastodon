@@ -1,3 +1,7 @@
+# v0.22.0
+
+- Add `PickerTui` to `cloud_terrastodon_user_input`
+
 # v0.21.0
 
 - Fix conditional access policy struct where included/excluded applications aren't always UUIDs

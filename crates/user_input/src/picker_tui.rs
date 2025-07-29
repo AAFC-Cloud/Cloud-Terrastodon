@@ -78,13 +78,13 @@ pub struct PickerTui<T: Send + Sync + 'static> {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum PickResult<T> {
-    Ok(T),
+pub enum PickResponse<T> {
+    Some(T),
     Cancelled,
 }
 #[derive(Debug, Eq, PartialEq)]
-pub enum PickManyResult<T> {
-    Ok(Vec<T>),
+pub enum PickManyResponse<T> {
+    Some(Vec<T>),
     Cancelled,
 }
 
@@ -96,23 +96,23 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
     ) -> PickerTuiBuilder<T> {
         PickerTuiBuilder::new(choices)
     }
-    pub fn pick_one(self) -> eyre::Result<PickResult<T>> {
+    pub fn pick_one(self) -> eyre::Result<PickResponse<T>> {
         match self.pick_inner(false)? {
-            PickManyResult::Ok(mut items) => Ok(PickResult::Ok(items.pop().unwrap())),
-            PickManyResult::Cancelled => Ok(PickResult::Cancelled),
+            PickManyResponse::Some(mut items) => Ok(PickResponse::Some(items.pop().unwrap())),
+            PickManyResponse::Cancelled => Ok(PickResponse::Cancelled),
         }
     }
-    pub fn pick_many(self) -> eyre::Result<PickManyResult<T>> {
+    pub fn pick_many(self) -> eyre::Result<PickManyResponse<T>> {
         self.pick_inner(true)
     }
 
-    fn pick_inner(mut self, many: bool) -> eyre::Result<PickManyResult<T>> {
+    fn pick_inner(mut self, many: bool) -> eyre::Result<PickManyResponse<T>> {
         // Short circuit if applicable
         match self.choices.len() {
-            0 => return Ok(PickManyResult::Cancelled),
+            0 => return Ok(PickManyResponse::Cancelled),
             1 => {
                 let choice = self.choices.remove(0);
-                return Ok(PickManyResult::Ok(vec![choice.value]));
+                return Ok(PickManyResponse::Some(vec![choice.value]));
             }
             _ => {}
         }
@@ -338,7 +338,7 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
         ratatui::restore();
 
         if marked_for_return.is_empty() {
-            return Ok(PickManyResult::Cancelled);
+            return Ok(PickManyResponse::Cancelled);
         }
 
         let mut rtn: Vec<T> = Vec::with_capacity(marked_for_return.len());
@@ -347,7 +347,7 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
                 rtn.push(value);
             }
         }
-        Ok(PickManyResult::Ok(rtn))
+        Ok(PickManyResponse::Some(rtn))
     }
 }
 

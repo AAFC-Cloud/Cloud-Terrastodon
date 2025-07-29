@@ -260,6 +260,16 @@ impl AsRef<str> for AzureDevOpsProjectName {
         &self.inner
     }
 }
+impl Into<CompactString> for AzureDevOpsProjectName {
+    fn into(self) -> CompactString {
+        self.inner
+    }
+}
+impl Into<String> for AzureDevOpsProjectName {
+    fn into(self) -> String {
+        self.inner.into()
+    }
+}
 
 impl serde::Serialize for AzureDevOpsProjectName {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
