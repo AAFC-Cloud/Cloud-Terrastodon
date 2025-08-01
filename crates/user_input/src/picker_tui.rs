@@ -37,6 +37,8 @@ pub struct PickerTui<T: Send + Sync + 'static> {
     pub header: Option<String>,
     /// Determines if the query should be pushed to the search engine
     pub query_changed: bool,
+    /// If there is zero or one options, automatically accept the choice
+    pub auto_accept: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -53,15 +55,14 @@ pub enum PickManyResponse<T> {
 type Key = CompactString;
 
 impl<T: Send + Sync + 'static> PickerTui<T> {
-    pub fn new<E: Into<Choice<T>>>(
-        choices: impl IntoIterator<Item = E>,
-    ) -> Self {
+    pub fn new<E: Into<Choice<T>>>(choices: impl IntoIterator<Item = E>) -> Self {
         Self {
             choices: choices.into_iter().map(Into::into).collect(),
             query_text_area: Self::build_text_area(""),
             previous_query: Default::default(),
             header: Default::default(),
             query_changed: false,
+            auto_accept: true,
         }
     }
 
@@ -74,6 +75,11 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
 
     pub fn set_header(mut self, header: impl Into<String>) -> Self {
         self.header = Some(header.into());
+        self
+    }
+
+    pub fn set_auto_accept(mut self, auto_accept: bool) -> Self {
+        self.auto_accept = auto_accept;
         self
     }
 
@@ -96,13 +102,15 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
 
     fn pick_inner(mut self, many: bool) -> eyre::Result<PickManyResponse<T>> {
         // Short circuit if applicable
-        match self.choices.len() {
-            0 => return Ok(PickManyResponse::Cancelled),
-            1 => {
-                let choice = self.choices.remove(0);
-                return Ok(PickManyResponse::Some(vec![choice.value]));
+        if self.auto_accept {
+            match self.choices.len() {
+                0 => return Ok(PickManyResponse::Cancelled),
+                1 => {
+                    let choice = self.choices.remove(0);
+                    return Ok(PickManyResponse::Some(vec![choice.value]));
+                }
+                _ => {}
             }
-            _ => {}
         }
 
         // Prepare the search engine
@@ -223,9 +231,12 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
                     }
                     _ => {
                         // Send the key to the search box
+                        self.query_changed = self.query_text_area.input(key);
+                    }
                 }
             }
 
+            if self.query_changed {
                 let new_query = self.query_text_area.lines().join("\n");
                 nucleo.pattern.reparse(
                     0,
