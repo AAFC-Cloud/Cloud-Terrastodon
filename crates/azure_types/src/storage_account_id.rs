@@ -16,6 +16,7 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use serde::de::Error;
+use std::str::FromStr;
 
 pub const STORAGE_ACCOUNT_ID_PREFIX: &str = "/providers/Microsoft.Storage/storageAccounts/";
 
@@ -98,6 +99,14 @@ impl TryFromResourceGroupScoped for StorageAccountId {
     }
 }
 
+impl FromStr for StorageAccountId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        StorageAccountId::try_from_expanded(s)
+    }
+}
+
 impl Scope for StorageAccountId {
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         StorageAccountId::try_from_expanded_resource_group_scoped(expanded)
@@ -147,7 +156,10 @@ mod test {
     use crate::prelude::ResourceGroupId;
     use crate::prelude::StorageAccountName;
     use crate::prelude::SubscriptionId;
+    use crate::scopes::Scope;
     use crate::slug::Slug;
+    use arbitrary::Arbitrary;
+    use arbitrary::Unstructured;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
@@ -174,6 +186,20 @@ mod test {
             )?,
             StorageAccountName::try_new("aaa")?,
         );
+        Ok(())
+    }
+
+    #[test]
+    pub fn round_trip() -> eyre::Result<()> {
+        for i in 0..100 {
+            // construct arbitrary id
+            let data = &[i; 16];
+            let mut data = Unstructured::new(data);
+            let id = StorageAccountId::arbitrary(&mut data)?;
+            let serialized = id.expanded_form();
+            let deserialized: StorageAccountId = serialized.parse()?;
+            assert_eq!(id, deserialized);
+        }
         Ok(())
     }
 }
