@@ -1,7 +1,7 @@
 use crate::writer::HCLWriter;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::get_active_subscription_id;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_name;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
@@ -251,7 +251,7 @@ impl ProviderManager {
         // Get devops url
         let org_service_url = format!(
             "https://dev.azure.com/{name}/",
-            name = get_default_organization_name().await?
+            name = get_default_organization_url().await?.organization_name
         );
 
         // Get active sub
@@ -328,7 +328,7 @@ mod test {
             Some(x) => x,
         };
 
-        let persist = temp_dir.into_path();
+        let persist = temp_dir.keep();
         println!("Persisting dir for testing at {}", persist.display());
         Ok(())
     }
@@ -348,7 +348,7 @@ mod test {
             Some(x) => x,
         };
 
-        let persist = temp_dir.into_path();
+        let persist = temp_dir.keep();
         println!("Persisting dir for testing at {}", persist.display());
         Ok(())
     }

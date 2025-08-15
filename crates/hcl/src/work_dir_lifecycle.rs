@@ -337,7 +337,7 @@ mod test {
         generate_config_out_bulk(work_dirs).await?;
 
         println!("Check out the dirs at {}", temp_dir.path().display());
-        _ = temp_dir.into_path(); // keep it around
+        _ = temp_dir.keep(); // keep it around
         Ok(())
     }
 

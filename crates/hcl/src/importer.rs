@@ -248,7 +248,7 @@ mod test {
             });
         }
 
-        _ = temp_dir.into_path(); // keep it around
+        _ = temp_dir.keep(); // keep it around
 
         while let Some(x) = join_set.join_next().await {
             x??;
