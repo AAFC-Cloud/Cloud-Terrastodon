@@ -1,5 +1,4 @@
 use crate::prelude::get_azure_devops_configuration_command;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::bstr::ByteSlice;
 use eyre::Context;
@@ -37,24 +36,12 @@ pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizat
     }
 }
 
-pub async fn get_default_organization_name() -> eyre::Result<AzureDevOpsOrganizationName> {
-    Ok(get_default_organization_url().await?.organization_name)
-}
-
 #[cfg(test)]
 mod test {
-    use crate::prelude::get_default_organization_name;
     use crate::prelude::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let x = get_default_organization_name().await?;
-        println!("The default org is {x:?}");
-        Ok(())
-    }
-
-    #[tokio::test]
-    pub async fn it_works2() -> eyre::Result<()> {
         let x = get_default_organization_url().await?;
         println!("The default org is {x}");
         Ok(())

@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsGroup;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
@@ -9,6 +10,7 @@ use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_azure_devops_groups(
+    org_url: &AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'_>>,
 ) -> eyre::Result<Vec<AzureDevOpsGroup>> {
     let project: AzureDevOpsProjectArgument = project.into();
@@ -20,6 +22,8 @@ pub async fn fetch_azure_devops_groups(
         "security",
         "group",
         "list",
+        "--organization",
+        org_url.to_string().as_str(),
         "--project",
         &project.to_string(),
         "--output",
@@ -63,15 +67,17 @@ pub async fn fetch_azure_devops_groups(
 mod test {
     use crate::prelude::fetch_all_azure_devops_projects;
     use crate::prelude::fetch_azure_devops_groups;
+    use crate::prelude::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let project = fetch_all_azure_devops_projects()
+        let org_url = get_default_organization_url().await?;
+        let project = fetch_all_azure_devops_projects(&org_url)
             .await?
             .into_iter()
             .next()
             .expect("No Azure DevOps projects found");
-        let groups = fetch_azure_devops_groups(&project).await?;
+        let groups = fetch_azure_devops_groups(&org_url, &project).await?;
         assert!(
             !groups.is_empty(),
             "Expected at least one Azure DevOps group"

@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_teams_for_project;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
@@ -7,7 +8,8 @@ use cloud_terrastodon_user_input::pick_many;
 use eyre::Result;
 
 pub async fn browse_azure_devops_project_teams() -> Result<()> {
-    let projects = fetch_all_azure_devops_projects().await?;
+    let org_url = get_default_organization_url().await?;
+    let projects = fetch_all_azure_devops_projects(&org_url).await?;
     let project = pick(FzfArgs {
         choices: projects
             .into_iter()
@@ -25,7 +27,7 @@ pub async fn browse_azure_devops_project_teams() -> Result<()> {
         ..Default::default()
     })?;
 
-    let teams = fetch_azure_devops_teams_for_project(&project.value).await?;
+    let teams = fetch_azure_devops_teams_for_project(&org_url, &project.value).await?;
     let teams = pick_many(FzfArgs {
         choices: teams
             .into_iter()

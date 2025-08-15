@@ -11,8 +11,8 @@ mod azure_devops_team_member;
 mod azure_devops_user_onboarding_statuses;
 mod azure_devops_work_item_queries;
 mod azure_devops_work_item_queries_invoke;
-mod get_default_organization_name;
-mod get_default_project_name;
+mod default_organization;
+mod default_project;
 mod get_pat;
 
 pub mod prelude {
@@ -28,8 +28,8 @@ pub mod prelude {
     pub use crate::azure_devops_user_onboarding_statuses::*;
     pub use crate::azure_devops_work_item_queries::*;
     pub use crate::azure_devops_work_item_queries_invoke::*;
-    pub use crate::get_default_organization_name::*;
-    pub use crate::get_default_project_name::*;
+    pub use crate::default_organization::*;
+    pub use crate::default_project::*;
     pub use crate::get_pat::*;
     pub use cloud_terrastodon_azure_devops_types::prelude::*;
 }

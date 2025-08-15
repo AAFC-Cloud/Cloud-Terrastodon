@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProject;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
@@ -10,10 +11,20 @@ use std::time::Duration;
 use tracing::debug;
 use tracing::field::debug;
 
-pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevOpsProject>> {
+pub async fn fetch_all_azure_devops_projects(
+    org_url: &AzureDevOpsOrganizationUrl,
+) -> Result<Vec<AzureDevOpsProject>> {
     debug!("Fetching Azure DevOps projects");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["devops", "project", "list", "--output", "json"]);
+    cmd.args([
+        "devops",
+        "project",
+        "list",
+        "--organization",
+        org_url.to_string().as_str(),
+        "--output",
+        "json",
+    ]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter(["az", "devops", "project", "list"]),
         valid_for: Duration::from_hours(8),
@@ -45,11 +56,14 @@ pub async fn fetch_all_azure_devops_projects() -> Result<Vec<AzureDevOpsProject>
 
 #[cfg(test)]
 mod tests {
+    use crate::prelude::get_default_organization_url;
+
     use super::*;
 
     #[tokio::test]
     async fn test_fetch_all_azure_devops_projects() -> Result<()> {
-        let projects = fetch_all_azure_devops_projects().await?;
+        let org_url = get_default_organization_url().await?;
+        let projects = fetch_all_azure_devops_projects(&org_url).await?;
         assert!(projects.len() > 0);
         for project in projects.iter().take(5) {
             println!("Found project: {project:#?}");

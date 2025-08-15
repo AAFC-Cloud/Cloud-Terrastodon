@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseEntitlement;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -8,11 +9,13 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tracing::debug;
 
-pub async fn fetch_azure_devops_license_entitlements()
--> eyre::Result<Vec<AzureDevOpsLicenseEntitlement>> {
+pub async fn fetch_azure_devops_license_entitlements(
+    org_url: &AzureDevOpsOrganizationUrl,
+) -> eyre::Result<Vec<AzureDevOpsLicenseEntitlement>> {
     debug!("Fetching Azure DevOps user entitlements");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "invoke"]);
+    cmd.args(["--organization", org_url.to_string().as_str()]);
     cmd.args(["--area", "licensing"]);
     cmd.args(["--resource", "entitlements"]);
     cmd.args(["--api-version", "7.2-preview"]);
@@ -43,11 +46,14 @@ pub async fn fetch_azure_devops_license_entitlements()
 
 #[cfg(test)]
 mod test {
+    use crate::prelude::get_default_organization_url;
+
     use super::*;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let entitlements = fetch_azure_devops_license_entitlements().await?;
+        let org_url = get_default_organization_url().await?;
+        let entitlements = fetch_azure_devops_license_entitlements(&org_url).await?;
         println!("Found {} user entitlements", entitlements.len());
         for entitlement in entitlements.iter().take(5) {
             println!(

@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeamId;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeamMember;
@@ -9,6 +10,7 @@ use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_azure_devops_team_members(
+    org_url: &AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'_>>,
     team_id: &AzureDevOpsTeamId,
 ) -> eyre::Result<Vec<AzureDevOpsTeamMember>> {
@@ -19,6 +21,8 @@ pub async fn fetch_azure_devops_team_members(
         "devops",
         "team",
         "list-member",
+        "--organization",
+        org_url.to_string().as_str(),
         "--team",
         &team_id.to_string(),
         "--project",
@@ -53,22 +57,24 @@ mod test {
     use crate::prelude::fetch_all_azure_devops_projects;
     use crate::prelude::fetch_azure_devops_team_members;
     use crate::prelude::fetch_azure_devops_teams_for_project;
+    use crate::prelude::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let project = fetch_all_azure_devops_projects()
+        let org_url = get_default_organization_url().await?;
+        let project = fetch_all_azure_devops_projects(&org_url)
             .await?
             .into_iter()
             .next()
             .unwrap();
-        let teams = fetch_azure_devops_teams_for_project(&project.id).await?;
+        let teams = fetch_azure_devops_teams_for_project(&org_url, &project.id).await?;
         let team = teams
             .into_iter()
             .next()
             .expect("Expected at least one team in the project");
 
         println!("{team:?}");
-        let members = fetch_azure_devops_team_members(&project.id, &team.id).await?;
+        let members = fetch_azure_devops_team_members(&org_url, &project.id, &team.id).await?;
 
         assert!(
             members.len() > 0,

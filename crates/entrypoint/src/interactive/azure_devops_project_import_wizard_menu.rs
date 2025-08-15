@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
@@ -35,7 +36,8 @@ pub async fn azure_devops_project_import_wizard_menu() -> Result<()> {
         _ => unreachable!(),
     }
 
-    let projects = fetch_all_azure_devops_projects().await?;
+    let org_url = get_default_organization_url().await?;
+    let projects = fetch_all_azure_devops_projects(&org_url).await?;
     let projects = pick_many(FzfArgs {
         choices: projects
             .into_iter()

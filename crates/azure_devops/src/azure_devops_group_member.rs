@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsGroupMember;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 pub async fn fetch_azure_devops_group_members(
+    org_url: &AzureDevOpsOrganizationUrl,
     group_id: &AzureDevOpsDescriptor,
 ) -> eyre::Result<HashMap<AzureDevOpsDescriptor, AzureDevOpsGroupMember>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -17,6 +19,8 @@ pub async fn fetch_azure_devops_group_members(
         "group",
         "membership",
         "list",
+        "--organization",
+        org_url.to_string().as_str(),
         "--id",
         &group_id.to_string(),
         "--output",
@@ -43,15 +47,17 @@ mod test {
     use crate::prelude::fetch_all_azure_devops_projects;
     use crate::prelude::fetch_azure_devops_group_members;
     use crate::prelude::fetch_azure_devops_groups;
+    use crate::prelude::get_default_organization_url;
     use eyre::bail;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let projects = fetch_all_azure_devops_projects().await?;
+        let org_url = get_default_organization_url().await?;
+        let projects = fetch_all_azure_devops_projects(&org_url).await?;
         for project in &projects {
-            let groups = fetch_azure_devops_groups(project).await?;
+            let groups = fetch_azure_devops_groups(&org_url, project).await?;
             for group in &groups {
-                let members = fetch_azure_devops_group_members(&group.descriptor).await?;
+                let members = fetch_azure_devops_group_members(&org_url, &group.descriptor).await?;
                 if !members.is_empty() {
                     println!(
                         "Found group with members in project '{}': group '{}'",

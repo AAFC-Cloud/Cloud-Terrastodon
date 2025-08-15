@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_command::CacheBehaviour;
@@ -10,11 +11,13 @@ use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_queries_for_project(
+    org_url: &AzureDevOpsOrganizationUrl,
     project_name: &AzureDevOpsProjectName,
 ) -> eyre::Result<Vec<AzureDevOpsWorkItemQuery>> {
     info!("Fetching queries for Azure DevOps project {project_name}");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["devops", "invoke"]);
+    cmd.args(["--organization", org_url.to_string().as_str()]);
     cmd.args(["--area", "wit"]);
     cmd.args(["--resource", "queries"]);
     cmd.args(["--encoding", "utf-8"]);
@@ -49,14 +52,16 @@ pub async fn fetch_queries_for_project(
 #[cfg(test)]
 mod test {
     use crate::prelude::fetch_queries_for_project;
+    use crate::prelude::get_default_organization_url;
     use crate::prelude::get_default_project_name;
     use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
+        let org_url = get_default_organization_url().await?;
         let project_name = get_default_project_name().await?;
         println!("Fetching queries for {project_name:?}");
-        let queries = fetch_queries_for_project(&project_name).await?;
+        let queries = fetch_queries_for_project(&org_url, &project_name).await?;
         for entry in AzureDevOpsWorkItemQuery::flatten_many(&queries) {
             println!(
                 "{}{} ({})",

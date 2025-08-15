@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsRepo;
 use cloud_terrastodon_command::CacheBehaviour;
@@ -13,6 +14,7 @@ use tracing::debug;
 use tracing::info;
 
 pub async fn fetch_all_azure_devops_repos_for_project(
+    org_url: &AzureDevOpsOrganizationUrl,
     project_id: &AzureDevOpsProjectId,
 ) -> Result<Vec<AzureDevOpsRepo>> {
     debug!("Fetching repos for project {project_id:?}");
@@ -20,6 +22,8 @@ pub async fn fetch_all_azure_devops_repos_for_project(
     cmd.args([
         "repos",
         "list",
+        "--organization",
+        org_url.to_string().as_ref(),
         "--output",
         "json",
         "--project",
@@ -35,6 +39,7 @@ pub async fn fetch_all_azure_devops_repos_for_project(
 }
 
 pub async fn fetch_azure_devops_repos_batch(
+    org_url: &AzureDevOpsOrganizationUrl,
     project_ids: Vec<AzureDevOpsProjectId>,
 ) -> Result<HashMap<AzureDevOpsProjectId, Vec<AzureDevOpsRepo>>> {
     info!("Fetching repos for {} projects", project_ids.len());
@@ -42,8 +47,9 @@ pub async fn fetch_azure_devops_repos_batch(
     let mut set = JoinSet::new();
     let project_count = project_ids.len();
     for project_id in project_ids {
+        let org_url = org_url.clone();
         set.spawn(async move {
-            let repos = fetch_all_azure_devops_repos_for_project(&project_id).await;
+            let repos = fetch_all_azure_devops_repos_for_project(&org_url, &project_id).await;
             (project_id, repos)
         });
     }
@@ -63,14 +69,15 @@ pub async fn fetch_azure_devops_repos_batch(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::fetch_all_azure_devops_projects;
+    use crate::prelude::{fetch_all_azure_devops_projects, get_default_organization_url};
 
     #[tokio::test]
     async fn test_fetch_all_azure_devops_repos() -> Result<()> {
-        let projects = fetch_all_azure_devops_projects().await?;
+        let org_url = get_default_organization_url().await?;
+        let projects = fetch_all_azure_devops_projects(&org_url).await?;
         let mut repo_counts = Vec::new();
         for project in projects.into_iter().take(5) {
-            let repos = fetch_all_azure_devops_repos_for_project(&project.id).await?;
+            let repos = fetch_all_azure_devops_repos_for_project(&org_url, &project.id).await?;
             for repo in repos.iter().take(3) {
                 println!("Found project {} repo: {}", project.name, repo.name);
             }

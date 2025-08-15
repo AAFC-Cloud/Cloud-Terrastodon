@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeam;
 use cloud_terrastodon_command::CacheBehaviour;
@@ -9,6 +10,7 @@ use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_azure_devops_teams_for_project(
+    org_url: &AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'_>>,
 ) -> Result<Vec<AzureDevOpsTeam>> {
     let project: AzureDevOpsProjectArgument = project.into();
@@ -18,6 +20,8 @@ pub async fn fetch_azure_devops_teams_for_project(
         "devops",
         "team",
         "list",
+        "--organization",
+        org_url.to_string().as_str(),
         "--output",
         "json",
         "--project",
@@ -46,16 +50,17 @@ pub async fn fetch_azure_devops_teams_for_project(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::fetch_all_azure_devops_projects;
+    use crate::prelude::{fetch_all_azure_devops_projects, get_default_organization_url};
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let project = fetch_all_azure_devops_projects()
+        let org_url = get_default_organization_url().await?;
+        let project = fetch_all_azure_devops_projects(&org_url)
             .await?
             .into_iter()
             .next()
             .unwrap();
-        let results = fetch_azure_devops_teams_for_project(&project.id).await?;
+        let results = fetch_azure_devops_teams_for_project(&org_url, &project.id).await?;
         assert!(results.len() > 0);
         for value in results.iter().take(5) {
             println!("Found value: {value:#?}");

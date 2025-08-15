@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_queries_for_project;
@@ -8,7 +9,8 @@ use itertools::Itertools;
 use tracing::info;
 
 pub async fn dump_work_items() -> eyre::Result<()> {
-    let projects = fetch_all_azure_devops_projects().await?;
+    let org_url = get_default_organization_url().await?;
+    let projects = fetch_all_azure_devops_projects(&org_url).await?;
     let projects = pick_many(FzfArgs {
         choices: projects
             .into_iter()
@@ -23,7 +25,7 @@ pub async fn dump_work_items() -> eyre::Result<()> {
     })?;
     let mut queries = Vec::new();
     for proj in &projects {
-        let found = fetch_queries_for_project(&proj.name).await?;
+        let found = fetch_queries_for_project(&org_url, &proj.name).await?;
         queries.extend(found);
     }
     let queries = AzureDevOpsWorkItemQuery::flatten_many(&queries);

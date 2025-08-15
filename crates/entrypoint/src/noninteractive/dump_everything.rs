@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_repos_batch;
@@ -464,8 +465,9 @@ async fn discover_existing_dirs(strategy: Strategy) -> eyre::Result<Vec<FreshTFW
 
 async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Writing all import blocks; fetching a lot of data");
+    let org_url = get_default_organization_url().await?;
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
-        fetch_all_azure_devops_projects(),
+        fetch_all_azure_devops_projects(&org_url),
         fetch_all_subscriptions(),
         fetch_all_resource_groups(),
     )?;
@@ -479,14 +481,15 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
         .map(|project| project.id.clone())
         .collect();
     let mut azure_devops_project_repos =
-        fetch_azure_devops_repos_batch(project_ids.clone()).await?;
+        fetch_azure_devops_repos_batch(&org_url, project_ids.clone()).await?;
 
     let mut azure_devops_project_teams = {
         async move {
             let mut work = ParallelFallibleWorkQueue::new("Fetching Azure DevOps teams", 10);
             for project_id in project_ids {
+                let org_url = org_url.clone();
                 work.enqueue(async move {
-                    let teams = fetch_azure_devops_teams_for_project(&project_id);
+                    let teams = fetch_azure_devops_teams_for_project(&org_url, &project_id);
                     teams.await.map(|teams| (project_id.clone(), teams))
                 });
             }
