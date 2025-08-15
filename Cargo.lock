@@ -850,12 +850,14 @@ dependencies = [
  "indoc",
  "itertools 0.12.1",
  "rand",
+ "ratatui",
  "serde",
  "serde_json",
  "tempfile",
  "test-log",
  "tokio",
  "tracing",
+ "tui-textarea",
 ]
 
 [[package]]

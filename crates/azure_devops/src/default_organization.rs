@@ -1,12 +1,14 @@
-use crate::prelude::get_azure_devops_configuration_command;
+use crate::prelude::get_azure_devops_configuration_list_command;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind::AzureCLI;
 use cloud_terrastodon_command::bstr::ByteSlice;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
 
 pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizationUrl> {
-    let cmd = get_azure_devops_configuration_command();
+    let cmd = get_azure_devops_configuration_list_command();
     let resp = cmd.run_raw().await?;
     let resp = match resp.stdout.to_str() {
         Ok(s) => s,
@@ -34,6 +36,25 @@ pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizat
             );
         }
     }
+}
+
+pub async fn set_default_organization_url(org: AzureDevOpsOrganizationUrl) -> eyre::Result<()> {
+    let mut cmd = CommandBuilder::new(AzureCLI);
+    cmd.args([
+        "devops",
+        "configure",
+        "--defaults",
+        format!("organization={}", org).as_str(),
+    ]);
+    let resp = cmd.run_raw().await?;
+    if !resp.success() {
+        bail!(
+            "Failed to set default organization: {}",
+            resp.stderr.to_str()?
+        );
+    }
+    get_azure_devops_configuration_list_command().bust_cache().await?;
+    Ok(())
 }
 
 #[cfg(test)]
