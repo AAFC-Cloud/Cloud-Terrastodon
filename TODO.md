@@ -1,5 +1,6 @@
 - Enhanced discovery navigation
 "My website https://blah.agr.gc.ca/ is down"
+-> NSLOOKUP
 -> discover application-gateway.listeners and app-services.custom_domains that match
 -> app gateway backend pools gives IPs
 -> IPs give private endpoint
