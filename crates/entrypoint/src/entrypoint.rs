@@ -75,6 +75,7 @@ pub fn entrypoint(version: Version) -> Result<()> {
         .with_file(true)
         .with_target(false)
         .with_line_number(true)
+        .with_writer(std::io::stdout)
         .without_time()
         .init();
 
