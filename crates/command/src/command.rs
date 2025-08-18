@@ -522,6 +522,12 @@ impl CommandBuilder {
         let load_from_path =
             async |path: &str| -> Result<BString> { load_from_pathbuf(&PathBuf::from(path)).await };
 
+        // Check if cache is busted
+        if !matches!(tokio::fs::try_exists(cache_dir.join("busted")).await, Ok(false)) {
+            debug!("Cache is busted");
+            return Ok(None);
+        }
+
         // Validate cache matches expectations
         let expect_files: [(&PathBuf, &String); 1] = [
             // Command summary must match
