@@ -1,4 +1,3 @@
-#![feature(let_chains)]
 mod block;
 mod code_reference;
 mod data;

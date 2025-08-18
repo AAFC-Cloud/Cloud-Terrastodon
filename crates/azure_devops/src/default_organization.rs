@@ -6,6 +6,7 @@ use cloud_terrastodon_command::bstr::ByteSlice;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
+use tracing::info;
 
 pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizationUrl> {
     let cmd = get_azure_devops_configuration_list_command();
@@ -39,6 +40,7 @@ pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizat
 }
 
 pub async fn set_default_organization_url(org: AzureDevOpsOrganizationUrl) -> eyre::Result<()> {
+    info!("Setting default organization to {}", org);
     let mut cmd = CommandBuilder::new(AzureCLI);
     cmd.args([
         "devops",

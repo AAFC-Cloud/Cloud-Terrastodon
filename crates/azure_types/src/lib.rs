@@ -1,4 +1,4 @@
-#![feature(pattern, duration_constructors_lite, associated_type_defaults)]
+#![feature(pattern, associated_type_defaults)]
 mod accounts;
 mod address_prefixes;
 mod all_or;

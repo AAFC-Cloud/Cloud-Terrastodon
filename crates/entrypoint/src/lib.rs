@@ -1,4 +1,4 @@
-#![feature(let_chains, iter_collect_into, duration_constructors_lite, try_blocks)]
+#![feature(iter_collect_into, try_blocks)]
 mod clap;
 mod entrypoint;
 mod interactive;

@@ -1,4 +1,4 @@
-#![feature(let_chains, async_fn_track_caller)]
+#![feature(async_fn_track_caller)]
 mod audit;
 mod azuredevops_git_repository_initialization_patcher;
 mod block_lister;

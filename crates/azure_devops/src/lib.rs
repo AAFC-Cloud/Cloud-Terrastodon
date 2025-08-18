@@ -1,4 +1,3 @@
-#![feature(duration_constructors_lite)]
 mod azure_devops_configure;
 mod azure_devops_group;
 mod azure_devops_group_member;

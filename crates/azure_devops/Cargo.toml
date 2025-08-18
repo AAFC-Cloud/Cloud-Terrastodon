@@ -37,6 +37,7 @@ test-log = { workspace = true }
 [features]
 # Enables text user interface support
 tui = ["ratatui", "tui-textarea"]
+default = ["tui"]
 
 
 
