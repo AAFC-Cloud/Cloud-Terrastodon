@@ -1,4 +1,4 @@
-use ipnetwork::Ipv4Network;
+use crate::prelude::AddressPrefix;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -7,7 +7,7 @@ use serde::de::{self};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AddressPrefixes {
-    pub address_prefixes: Vec<Ipv4Network>,
+    pub address_prefixes: Vec<AddressPrefix>,
 }
 
 impl Serialize for AddressPrefixes {

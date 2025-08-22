@@ -3,6 +3,8 @@
 - Fix command cache busting
 - Add `AzureDevOpsDefaultOrganizationUrlTui` to `cloud_terrastodon_azure_devops`
 - Add `MessageBoxTui` to `cloud_terrastodon_user_input`
+- Add `cloud_terrastodon_credentials` crate for exploration into using our own REST client instead of `az rest` and `az devops invoke` due to auth being annoying
+- Fix route table deserialization using new `AddressPrefix` type
 
 # v0.23.0
 

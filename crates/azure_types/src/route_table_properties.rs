@@ -1,4 +1,4 @@
-use ipnetwork::Ipv4Network;
+use crate::prelude::AddressPrefix;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -27,7 +27,7 @@ pub struct Route {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RouteProperties {
-    pub address_prefix: Ipv4Network,
+    pub address_prefix: AddressPrefix,
     pub next_hop_type: NextHopType,
     pub next_hop_ip_address: Option<String>,
     pub provisioning_state: String,
