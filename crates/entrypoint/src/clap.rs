@@ -22,6 +22,7 @@ pub enum Commands {
     WriteAllImports,
     PerformCodeGenerationFromImports,
     DumpEverything,
+    DumpAzureDevOps,
     GetPath {
         dir: AppDir,
     },

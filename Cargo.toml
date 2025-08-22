@@ -96,10 +96,6 @@ path = "./crates/azure_devops"
 version = "0.23.0" # CT_VERSION
 path = "./crates/azure_devops_types"
 
-[workspace.dependencies.cloud_terrastodon_azure_devops_rest_client]
-version = "0.23.0" # CT_VERSION
-path = "./crates/azure_devops_rest_client"
-
 [workspace.dependencies.cloud_terrastodon_hcl]
 version = "0.23.0" # CT_VERSION
 path = "./crates/hcl"
@@ -139,6 +135,10 @@ path = "./crates/ui_egui"
 [workspace.dependencies.cloud_terrastodon_azure_locations]
 version = "0.23.0" # CT_VERSION
 path = "./crates/azure_locations"
+
+[workspace.dependencies.cloud_terrastodon_credentials]
+version = "0.23.0" # CT_VERSION
+path = "./crates/credentials"
 
 
 [package]

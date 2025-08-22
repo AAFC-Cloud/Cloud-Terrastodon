@@ -3,6 +3,7 @@ use crate::clap::Commands;
 use crate::clap::TerraformCommand;
 use crate::menu::menu_loop;
 use crate::noninteractive::prelude::clean;
+use crate::noninteractive::prelude::dump_azure_devops;
 use crate::noninteractive::prelude::dump_everything;
 use crate::noninteractive::prelude::perform_import;
 use crate::noninteractive::prelude::process_generated;
@@ -75,7 +76,7 @@ pub fn entrypoint(version: Version) -> Result<()> {
         .with_file(true)
         .with_target(false)
         .with_line_number(true)
-        .with_writer(std::io::stdout)
+        .with_writer(std::io::stderr)
         .without_time()
         .init();
 
@@ -122,6 +123,9 @@ pub async fn handle(command: Option<Commands>) -> eyre::Result<()> {
                 write_imports_for_all_resource_groups().await?;
                 write_imports_for_all_security_groups().await?;
                 write_imports_for_all_role_assignments().await?;
+            }
+            Commands::DumpAzureDevOps => {
+                dump_azure_devops().await?;
             }
             Commands::PerformCodeGenerationFromImports => {
                 perform_import().await?;
