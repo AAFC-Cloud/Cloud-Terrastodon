@@ -67,12 +67,30 @@ foreach ($pkg_name in $sorted_packages) {
     # Check if package exists on crates.io
     Write-Host "  Checking if package exists on crates.io..."
     $checkResult = cargo info $package.name --registry crates-io 2>$null
+
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  Package not found on crates.io, skipping..." -ForegroundColor Yellow
         continue
     }
-    
+
+    # Extract the latest version reported by crates.io
+    $checkVersion = $checkResult `
+        | Select-String "(?<=^version: )(\d+\.\d+\.\d+.*)" `
+        | Select-Object -First 1 -ExpandProperty Matches `
+        | Select-Object -ExpandProperty Value
+
+    if (-not $checkVersion) {
+        Write-Warning "  Could not determine crates.io version for $($package.name); skipping publish."
+        continue
+    }
+
+    # Compare with local version from cargo metadata
+    if ($checkVersion -eq $package.version) {
+        Write-Host "  Version $($package.version) already on crates.io, skipping publish." -ForegroundColor Yellow
+        continue
+    }
+
     Write-Host "  Package exists on crates.io, publishing..." -ForegroundColor Green
     
     # Navigate to package directory and publish
