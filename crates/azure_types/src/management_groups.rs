@@ -56,7 +56,9 @@ impl NameValidatable for ManagementGroupId {
     }
 }
 impl Scope for ManagementGroupId {
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    type Err = eyre::Error;
+    
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         // this doesn't use TryFromManagementGroupScoped because it itself is the scope, the management group isn't a prefix
         let name = strip_prefix_case_insensitive(expanded, MANAGEMENT_GROUP_ID_PREFIX)?;
         validate_management_group_name(name)?;

@@ -42,7 +42,7 @@ use std::str::FromStr;
 use std::str::pattern::Pattern;
 
 pub trait Scope: Sized + FromStr {
-    type Error = eyre::Error;
+    type Err = <Self as FromStr>::Err;
     fn expanded_form(&self) -> String;
     fn short_form(&self) -> String {
         self.expanded_form()
@@ -54,7 +54,7 @@ pub trait Scope: Sized + FromStr {
     // TODO: replace String and CompactString usage with something like this
     // pub struct ExpandedFormScope(CompactString);
     // replace this fn with inheriting from TryFrom<ExpandedFormScope>
-    fn try_from_expanded(expanded: &str) -> Result<Self, Self::Error>;
+    fn try_from_expanded(expanded: &str) -> Result<Self, <Self as Scope>::Err>;
 
     // TODO: maybe replace with Into impl to avoid always cloning
     fn as_scope_impl(&self) -> ScopeImpl;
@@ -62,12 +62,11 @@ pub trait Scope: Sized + FromStr {
     fn kind(&self) -> ScopeImplKind;
 }
 impl Scope for CompactString {
-    type Error = Infallible;
     fn expanded_form(&self) -> String {
         self.to_string()
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self, Self::Error> {
+    fn try_from_expanded(expanded: &str) -> Result<Self, Infallible> {
         Ok(expanded.to_compact_string())
     }
 
@@ -585,7 +584,7 @@ pub enum ScopeImpl {
     Unknown(CompactString),
 }
 impl Scope for ScopeImpl {
-    type Error = Infallible;
+    type Err = Infallible;
     fn expanded_form(&self) -> String {
         match self {
             ScopeImpl::ManagementGroup(id) => id.expanded_form(),
@@ -638,7 +637,7 @@ impl Scope for ScopeImpl {
         }
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self, Self::Error> {
+    fn try_from_expanded(expanded: &str) -> Result<Self, <Self as Scope>::Err> {
         if let Ok(id) = ResourceGroupId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::ResourceGroup(id));
         }
@@ -858,21 +857,21 @@ mod tests {
     use uuid::Uuid;
 
     #[test]
-    fn it_works() -> Result<()> {
+    fn it_works() -> eyre::Result<()> {
         let scope = ScopeImpl::TestResource(TestResourceId::new("bruh"));
         let expected = format!("{:?}", scope.expanded_form());
         assert_eq!(serde_json::to_string(&scope)?, expected);
         Ok(())
     }
     #[test]
-    fn it_works2() -> Result<()> {
+    fn it_works2() -> eyre::Result<()> {
         let scope = ScopeImpl::Subscription(SubscriptionId::new(Uuid::nil()));
         let expected = format!("{:?}", scope.expanded_form());
         assert_eq!(serde_json::to_string(&scope)?, expected);
         Ok(())
     }
     #[test]
-    fn rg_id_equality_case_silly() -> Result<()> {
+    fn rg_id_equality_case_silly() -> eyre::Result<()> {
         // Azure cannot be relied upon for consistency in resource group IDs
         let zero = Uuid::nil();
         let ids = [
@@ -898,7 +897,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn rg_id_equality_negative() -> Result<()> {
+    fn rg_id_equality_negative() -> eyre::Result<()> {
         // Azure cannot be relied upon for consistency in resource group IDs
         let zero = Uuid::nil();
         let ids = [
@@ -919,7 +918,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_strip_suffix() -> Result<()> {
+    fn test_strip_suffix() -> eyre::Result<()> {
         let x = "abcde";
         let suffix = "CDE";
         let stripped = strip_suffix_case_insensitive(&x, suffix)?;

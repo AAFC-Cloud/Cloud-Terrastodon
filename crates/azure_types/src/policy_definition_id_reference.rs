@@ -15,8 +15,6 @@ pub enum PolicyDefinitionIdReference {
     PolicySetDefinitionId(PolicySetDefinitionId),
 }
 impl Scope for PolicyDefinitionIdReference {
-    type Error = eyre::Error;
-
     fn expanded_form(&self) -> String {
         match self {
             PolicyDefinitionIdReference::PolicyDefinitionId(policy_definition_id) => {
@@ -28,7 +26,7 @@ impl Scope for PolicyDefinitionIdReference {
         }
     }
 
-    fn try_from_expanded(expanded: &str) -> eyre::Result<Self, Self::Error> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         Self::from_str(expanded)
     }
 
