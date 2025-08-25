@@ -1,3 +1,8 @@
+# v0.25.0
+
+- Revert virtual network address space back to `Ipv4Network`
+- Revamp fetch_all_policy_assignments to use resource graph
+
 # v0.24.0
 
 - Fix command cache busting
