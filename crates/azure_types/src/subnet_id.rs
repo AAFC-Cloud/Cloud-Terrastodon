@@ -6,6 +6,7 @@ use crate::scopes::TryFromVirtualNetworkScoped;
 use crate::slug::Slug;
 use eyre::Context;
 use std::fmt::Display;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SubnetId {
@@ -89,6 +90,14 @@ impl Scope for SubnetId {
     }
 }
 
+impl FromStr for SubnetId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        SubnetId::try_from_expanded(s)
+    }
+}
+
 impl TryFromVirtualNetworkScoped for SubnetId {
     fn try_from_virtual_network_scoped(
         virtual_network_id: &VirtualNetworkId,
@@ -145,9 +154,8 @@ impl<'de> serde::Deserialize<'de> for SubnetId {
         D: serde::Deserializer<'de>,
     {
         let expanded = String::deserialize(deserializer)?;
-        let id = SubnetId::try_from_expanded(expanded.as_str()).map_err(|e| {
-            serde::de::Error::custom(format!("{e:?}"))
-        })?;
+        let id = SubnetId::try_from_expanded(expanded.as_str())
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

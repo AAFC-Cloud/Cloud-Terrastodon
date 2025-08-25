@@ -21,7 +21,7 @@ use crate::scopes::TryFromResourceScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::slug::HasSlug;
-use eyre::Result;
+use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -172,7 +172,7 @@ impl Scope for UnscopedPolicyAssignmentId {
         format!("{POLICY_ASSIGNMENT_ID_PREFIX}{}", self.role_assignment_name)
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         UnscopedPolicyAssignmentId::try_from_expanded_unscoped(expanded)
     }
 
@@ -195,7 +195,7 @@ impl Scope for ManagementGroupScopedPolicyAssignmentId {
         )
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         ManagementGroupScopedPolicyAssignmentId::try_from_expanded_management_group_scoped(expanded)
     }
 
@@ -217,7 +217,7 @@ impl Scope for SubscriptionScopedPolicyAssignmentId {
         )
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         SubscriptionScopedPolicyAssignmentId::try_from_expanded_subscription_scoped(expanded)
     }
 
@@ -240,7 +240,7 @@ impl Scope for ResourceGroupScopedPolicyAssignmentId {
         )
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         ResourceGroupScopedPolicyAssignmentId::try_from_expanded_resource_group_scoped(expanded)
     }
 
@@ -263,7 +263,7 @@ impl Scope for ResourceScopedPolicyAssignmentId {
         )
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         ResourceScopedPolicyAssignmentId::try_from_expanded_resource_scoped(expanded)
     }
 
@@ -279,32 +279,32 @@ impl Scope for ResourceScopedPolicyAssignmentId {
 // MARK: NameValidatable
 
 impl NameValidatable for UnscopedPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
 }
 
 impl NameValidatable for ManagementGroupScopedPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
 }
 impl NameValidatable for SubscriptionScopedPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
 }
 impl NameValidatable for ResourceGroupScopedPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
 }
 impl NameValidatable for ResourceScopedPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
@@ -334,5 +334,42 @@ impl HasPrefix for ResourceGroupScopedPolicyAssignmentId {
 impl HasPrefix for ResourceScopedPolicyAssignmentId {
     fn get_prefix() -> &'static str {
         POLICY_ASSIGNMENT_ID_PREFIX
+    }
+}
+
+// MARK: FromStr
+
+impl FromStr for UnscopedPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        UnscopedPolicyAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ManagementGroupScopedPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ManagementGroupScopedPolicyAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for SubscriptionScopedPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        SubscriptionScopedPolicyAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ResourceGroupScopedPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ResourceGroupScopedPolicyAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ResourceScopedPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ResourceScopedPolicyAssignmentId::try_from_expanded(s)
     }
 }

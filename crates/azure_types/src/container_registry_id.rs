@@ -15,6 +15,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::str::FromStr;
 
 pub const CONTAINER_REGISTRY_ID_PREFIX: &str = "/providers/Microsoft.ContainerRegistry/registries/";
 
@@ -116,6 +117,14 @@ impl Scope for ContainerRegistryId {
     }
     fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::ContainerRegistry(self.clone())
+    }
+}
+
+impl FromStr for ContainerRegistryId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        ContainerRegistryId::try_from_expanded(s)
     }
 }
 

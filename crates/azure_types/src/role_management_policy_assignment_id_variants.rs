@@ -21,7 +21,7 @@ use crate::scopes::TryFromResourceScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::slug::HasSlug;
-use eyre::Result;
+use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -170,7 +170,7 @@ impl Scope for UnscopedRoleManagementPolicyAssignmentId {
         format!("{ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX}{}", self.name)
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         UnscopedRoleManagementPolicyAssignmentId::try_from_expanded_unscoped(expanded)
     }
 
@@ -195,7 +195,7 @@ impl Scope for ManagementGroupScopedRoleManagementPolicyAssignmentId {
         )
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         ManagementGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded_management_group_scoped(expanded)
     }
 
@@ -219,7 +219,7 @@ impl Scope for SubscriptionScopedRoleManagementPolicyAssignmentId {
         )
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         SubscriptionScopedRoleManagementPolicyAssignmentId::try_from_expanded_subscription_scoped(
             expanded,
         )
@@ -246,7 +246,7 @@ impl Scope for ResourceGroupScopedRoleManagementPolicyAssignmentId {
         )
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         ResourceGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded_resource_group_scoped(
             expanded,
         )
@@ -273,7 +273,7 @@ impl Scope for ResourceScopedRoleManagementPolicyAssignmentId {
         )
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         ResourceScopedRoleManagementPolicyAssignmentId::try_from_expanded_resource_scoped(expanded)
     }
 
@@ -291,32 +291,32 @@ impl Scope for ResourceScopedRoleManagementPolicyAssignmentId {
 // MARK: NameValidatable
 
 impl NameValidatable for UnscopedRoleManagementPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
 }
 
 impl NameValidatable for ManagementGroupScopedRoleManagementPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
 }
 impl NameValidatable for SubscriptionScopedRoleManagementPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
 }
 impl NameValidatable for ResourceGroupScopedRoleManagementPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
 }
 impl NameValidatable for ResourceScopedRoleManagementPolicyAssignmentId {
-    fn validate_name(name: &str) -> Result<()> {
+    fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
     }
@@ -346,5 +346,42 @@ impl HasPrefix for ResourceGroupScopedRoleManagementPolicyAssignmentId {
 impl HasPrefix for ResourceScopedRoleManagementPolicyAssignmentId {
     fn get_prefix() -> &'static str {
         ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX
+    }
+}
+
+// MARK: FromStr
+
+impl FromStr for UnscopedRoleManagementPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        UnscopedRoleManagementPolicyAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ManagementGroupScopedRoleManagementPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ManagementGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for SubscriptionScopedRoleManagementPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        SubscriptionScopedRoleManagementPolicyAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ResourceGroupScopedRoleManagementPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ResourceGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ResourceScopedRoleManagementPolicyAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ResourceScopedRoleManagementPolicyAssignmentId::try_from_expanded(s)
     }
 }

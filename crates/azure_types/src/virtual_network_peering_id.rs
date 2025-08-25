@@ -23,6 +23,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
 pub struct VirtualNetworkPeeringId {
@@ -140,6 +141,14 @@ impl Scope for VirtualNetworkPeeringId {
     }
     fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::VirtualNetworkPeering(self.clone())
+    }
+}
+
+impl FromStr for VirtualNetworkPeeringId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        VirtualNetworkPeeringId::try_from_expanded(s)
     }
 }
 

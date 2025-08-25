@@ -22,6 +22,7 @@ use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::slug::HasSlug;
 use eyre::Result;
+use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -345,5 +346,42 @@ impl HasPrefix for ResourceGroupScopedRoleEligibilityScheduleId {
 impl HasPrefix for ResourceScopedRoleEligibilityScheduleId {
     fn get_prefix() -> &'static str {
         ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX
+    }
+}
+
+// MARK: FromStr
+
+impl FromStr for UnscopedRoleEligibilityScheduleId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        UnscopedRoleEligibilityScheduleId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ManagementGroupScopedRoleEligibilityScheduleId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        ManagementGroupScopedRoleEligibilityScheduleId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for SubscriptionScopedRoleEligibilityScheduleId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        SubscriptionScopedRoleEligibilityScheduleId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ResourceGroupScopedRoleEligibilityScheduleId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        ResourceGroupScopedRoleEligibilityScheduleId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ResourceScopedRoleEligibilityScheduleId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        ResourceScopedRoleEligibilityScheduleId::try_from_expanded(s)
     }
 }

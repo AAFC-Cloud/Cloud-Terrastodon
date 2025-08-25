@@ -14,6 +14,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::str::FromStr;
 pub const ROUTE_TABLE_ID_PREFIX: &str = "/providers/Microsoft.Network/routeTables/";
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
@@ -118,6 +119,14 @@ impl Scope for RouteTableId {
 
     fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         crate::scopes::ScopeImpl::RouteTable(self.clone())
+    }
+}
+
+impl FromStr for RouteTableId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        RouteTableId::try_from_expanded(s)
     }
 }
 

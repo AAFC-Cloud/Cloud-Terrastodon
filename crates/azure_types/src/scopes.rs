@@ -28,7 +28,6 @@ use cloud_terrastodon_azure_resource_types::ResourceType;
 use compact_str::CompactString;
 use compact_str::ToCompactString;
 use eyre::Context;
-use eyre::Result;
 use eyre::bail;
 use eyre::eyre;
 use serde::Deserialize;
@@ -42,7 +41,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::str::pattern::Pattern;
 
-pub trait Scope: Sized {
+pub trait Scope: Sized + FromStr {
     type Error = eyre::Error;
     fn expanded_form(&self) -> String;
     fn short_form(&self) -> String {
@@ -63,11 +62,12 @@ pub trait Scope: Sized {
     fn kind(&self) -> ScopeImplKind;
 }
 impl Scope for CompactString {
+    type Error = Infallible;
     fn expanded_form(&self) -> String {
         self.to_string()
     }
 
-    fn try_from_expanded(expanded: &str) -> Result<Self> {
+    fn try_from_expanded(expanded: &str) -> Result<Self, Self::Error> {
         Ok(expanded.to_compact_string())
     }
 
@@ -92,13 +92,13 @@ where
     }
 }
 pub trait NameValidatable {
-    fn validate_name(name: &str) -> Result<()>;
+    fn validate_name(name: &str) -> eyre::Result<()>;
 }
 pub trait HasPrefix {
     fn get_prefix() -> &'static str;
 }
 
-pub fn strip_prefix_case_insensitive<'a>(expanded: &'a str, prefix: &str) -> Result<&'a str> {
+pub fn strip_prefix_case_insensitive<'a>(expanded: &'a str, prefix: &str) -> eyre::Result<&'a str> {
     if !prefix.to_lowercase().is_prefix_of(&expanded.to_lowercase()) {
         return Err(ScopeError::Malformed).context(format!(
             "String {expanded:?} must begin with {prefix:?} (case insensitive)"
@@ -108,7 +108,7 @@ pub fn strip_prefix_case_insensitive<'a>(expanded: &'a str, prefix: &str) -> Res
     Ok(remaining)
 }
 
-pub fn strip_suffix_case_insensitive<'a>(expanded: &'a str, suffix: &str) -> Result<&'a str> {
+pub fn strip_suffix_case_insensitive<'a>(expanded: &'a str, suffix: &str) -> eyre::Result<&'a str> {
     if !suffix.to_lowercase().is_suffix_of(&expanded.to_lowercase()) {
         return Err(ScopeError::Malformed).context(format!(
             "String {expanded:?} must end with {suffix:?} (case insensitive)"
@@ -121,7 +121,7 @@ pub fn strip_suffix_case_insensitive<'a>(expanded: &'a str, suffix: &str) -> Res
 pub fn strip_prefix_get_slug_and_leading_slashed_remains<'a>(
     expanded: &'a str,
     prefix: &str,
-) -> Result<(&'a str, Option<&'a str>)> {
+) -> eyre::Result<(&'a str, Option<&'a str>)> {
     // /subscription/abc/resourceGroups/def
     // /subscription/abc
     // Remove prefix
@@ -146,7 +146,7 @@ pub fn strip_prefix_get_slug_and_leading_slashed_remains<'a>(
 
 pub fn get_provider_and_resource_type_and_resource_and_remaining(
     expanded: &str,
-) -> Result<(ResourceType, &str, &str)> {
+) -> eyre::Result<(ResourceType, &str, &str)> {
     // /providers/Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
     // /providers/Microsoft.Network/bastionHosts/my-bst/providers/Microsoft.Authorization/roleAssignments/0000
     // /providers/Microsoft.Storage/storageAccounts/mystorage/providers/Microsoft.Authorization/roleAssignments/0000
@@ -203,7 +203,7 @@ pub trait TryFromUnscoped
 where
     Self: Sized + HasPrefix + HasSlug,
 {
-    fn try_from_expanded_unscoped(expanded_unscoped: &str) -> Result<Self> {
+    fn try_from_expanded_unscoped(expanded_unscoped: &str) -> eyre::Result<Self> {
         // Get name without prefix
         let prefix = Self::get_prefix();
         let name = strip_prefix_case_insensitive(expanded_unscoped, prefix)?;
@@ -220,7 +220,7 @@ pub trait TryFromResourceGroupScoped
 where
     Self: Sized + HasPrefix + HasSlug,
 {
-    fn try_from_expanded_resource_group_scoped(expanded: &str) -> Result<Self> {
+    fn try_from_expanded_resource_group_scoped(expanded: &str) -> eyre::Result<Self> {
         let (subscription, remaining) =
             strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;
         let subscription_id = subscription.parse()?;
@@ -267,7 +267,7 @@ pub trait TryFromResourceScoped
 where
     Self: Sized + HasPrefix + HasSlug,
 {
-    fn try_from_expanded_resource_scoped(expanded: &str) -> Result<Self> {
+    fn try_from_expanded_resource_scoped(expanded: &str) -> eyre::Result<Self> {
         let (subscription_id, remaining) =
             strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;
         let subscription_id = subscription_id.parse()?;
@@ -330,7 +330,7 @@ pub trait TryFromSubscriptionScoped
 where
     Self: Sized + HasPrefix + HasSlug,
 {
-    fn try_from_expanded_subscription_scoped(expanded: &str) -> Result<Self> {
+    fn try_from_expanded_subscription_scoped(expanded: &str) -> eyre::Result<Self> {
         let (subscription, remaining) =
             strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;
         let Some(remaining) = remaining else {
@@ -363,7 +363,7 @@ pub trait TryFromManagementGroupScoped
 where
     Self: Sized + HasPrefix + HasSlug,
 {
-    fn try_from_expanded_management_group_scoped(expanded: &str) -> Result<Self> {
+    fn try_from_expanded_management_group_scoped(expanded: &str) -> eyre::Result<Self> {
         let (management_group, remaining) = strip_prefix_get_slug_and_leading_slashed_remains(
             expanded,
             MANAGEMENT_GROUP_ID_PREFIX,
@@ -404,7 +404,7 @@ where
     ) -> eyre::Result<Self>;
 }
 
-pub fn try_from_expanded_resource_container_scoped<T>(expanded: &str) -> Result<T>
+pub fn try_from_expanded_resource_container_scoped<T>(expanded: &str) -> eyre::Result<T>
 where
     T: TryFromUnscoped
         + TryFromManagementGroupScoped
@@ -445,7 +445,7 @@ where
         }
     }
 }
-pub fn try_from_expanded_hierarchy_scoped<T>(expanded: &str) -> Result<T>
+pub fn try_from_expanded_hierarchy_scoped<T>(expanded: &str) -> eyre::Result<T>
 where
     T: TryFromUnscoped
         + TryFromManagementGroupScoped

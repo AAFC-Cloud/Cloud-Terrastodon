@@ -22,6 +22,7 @@ use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::slug::HasSlug;
 use eyre::Result;
+use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -271,6 +272,40 @@ impl Scope for ResourceScopedPolicyDefinitionId {
 
     fn kind(&self) -> ScopeImplKind {
         ScopeImplKind::PolicyDefinition
+    }
+}
+
+// MARK: FromStr
+
+impl FromStr for UnscopedPolicyDefinitionId {
+    type Err = eyre::Error;
+    fn from_str(expanded: &str) -> Result<Self> {
+        UnscopedPolicyDefinitionId::try_from_expanded_unscoped(expanded)
+    }
+}
+
+impl FromStr for ManagementGroupScopedPolicyDefinitionId {
+    type Err = eyre::Error;
+    fn from_str(expanded: &str) -> Result<Self> {
+        ManagementGroupScopedPolicyDefinitionId::try_from_expanded_management_group_scoped(expanded)
+    }
+}
+impl FromStr for SubscriptionScopedPolicyDefinitionId {
+    type Err = eyre::Error;
+    fn from_str(expanded: &str) -> Result<Self> {
+        SubscriptionScopedPolicyDefinitionId::try_from_expanded_subscription_scoped(expanded)
+    }
+}
+impl FromStr for ResourceGroupScopedPolicyDefinitionId {
+    type Err = eyre::Error;
+    fn from_str(expanded: &str) -> Result<Self> {
+        ResourceGroupScopedPolicyDefinitionId::try_from_expanded_resource_group_scoped(expanded)
+    }
+}
+impl FromStr for ResourceScopedPolicyDefinitionId {
+    type Err = eyre::Error;
+    fn from_str(expanded: &str) -> Result<Self> {
+        ResourceScopedPolicyDefinitionId::try_from_expanded_resource_scoped(expanded)
     }
 }
 

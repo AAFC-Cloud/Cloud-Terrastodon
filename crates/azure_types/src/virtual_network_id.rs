@@ -14,6 +14,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::str::FromStr;
 
 pub const VIRTUAL_NETWORK_ID_PREFIX: &str = "/providers/Microsoft.Network/virtualNetworks/";
 
@@ -114,6 +115,14 @@ impl Scope for VirtualNetworkId {
 
     fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         crate::scopes::ScopeImpl::VirtualNetwork(self.clone())
+    }
+}
+
+impl FromStr for VirtualNetworkId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        VirtualNetworkId::try_from_expanded(s)
     }
 }
 

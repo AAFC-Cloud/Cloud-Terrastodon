@@ -22,6 +22,7 @@ use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::slug::HasSlug;
 use eyre::Result;
+use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -337,5 +338,42 @@ impl HasPrefix for ResourceGroupScopedRoleAssignmentId {
 impl HasPrefix for ResourceScopedRoleAssignmentId {
     fn get_prefix() -> &'static str {
         ROLE_ASSIGNMENT_ID_PREFIX
+    }
+}
+
+// MARK: FromStr
+
+impl FromStr for UnscopedRoleAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        UnscopedRoleAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ManagementGroupScopedRoleAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        ManagementGroupScopedRoleAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for SubscriptionScopedRoleAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        SubscriptionScopedRoleAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ResourceGroupScopedRoleAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        ResourceGroupScopedRoleAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for ResourceScopedRoleAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        ResourceScopedRoleAssignmentId::try_from_expanded(s)
     }
 }

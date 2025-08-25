@@ -26,6 +26,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::str::FromStr;
 use uuid::Uuid;
 
 pub const ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX: &str =
@@ -163,6 +164,14 @@ impl Scope for RoleEligibilityScheduleId {
     }
     fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::RoleEligibilitySchedule(self.clone())
+    }
+}
+
+impl FromStr for RoleEligibilityScheduleId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        RoleEligibilityScheduleId::try_from_expanded(s)
     }
 }
 

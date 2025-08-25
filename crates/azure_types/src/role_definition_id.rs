@@ -26,6 +26,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::str::FromStr;
 use uuid::Uuid;
 
 pub const ROLE_DEFINITION_ID_PREFIX: &str = "/providers/Microsoft.Authorization/RoleDefinitions/";
@@ -157,6 +158,14 @@ impl Scope for RoleDefinitionId {
     }
     fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::RoleDefinition(self.clone())
+    }
+}
+
+impl FromStr for RoleDefinitionId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        RoleDefinitionId::try_from_expanded(s)
     }
 }
 

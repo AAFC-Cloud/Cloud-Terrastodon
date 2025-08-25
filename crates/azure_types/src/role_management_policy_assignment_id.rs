@@ -26,6 +26,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use std::str::FromStr;
 use uuid::Uuid;
 
 pub const ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX: &str =
@@ -166,6 +167,14 @@ impl Scope for RoleManagementPolicyAssignmentId {
     }
     fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
         ScopeImpl::RoleManagementPolicyAssignment(self.clone())
+    }
+}
+
+impl FromStr for RoleManagementPolicyAssignmentId {
+    type Err = eyre::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        RoleManagementPolicyAssignmentId::try_from_expanded(s)
     }
 }
 
