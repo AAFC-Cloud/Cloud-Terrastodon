@@ -1,6 +1,5 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-
 use crate::prelude::fetch_azure_devops_license_entitlements;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use std::collections::HashSet;
 
 pub enum UserOnboardingStatus {

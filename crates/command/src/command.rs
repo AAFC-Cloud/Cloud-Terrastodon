@@ -523,7 +523,10 @@ impl CommandBuilder {
             async |path: &str| -> Result<BString> { load_from_pathbuf(&PathBuf::from(path)).await };
 
         // Check if cache is busted
-        if !matches!(tokio::fs::try_exists(cache_dir.join("busted")).await, Ok(false)) {
+        if !matches!(
+            tokio::fs::try_exists(cache_dir.join("busted")).await,
+            Ok(false)
+        ) {
             debug!("Cache is busted");
             return Ok(None);
         }

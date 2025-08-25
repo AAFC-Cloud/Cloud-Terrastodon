@@ -5,7 +5,6 @@ use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
 
-
 pub async fn fetch_all_policy_assignments() -> Result<Vec<PolicyAssignment>> {
     let mut qb = ResourceGraphHelper::new(
         r#"

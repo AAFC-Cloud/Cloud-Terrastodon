@@ -116,7 +116,8 @@ mod test {
         let resp = fetch_azure_devops_group_members_v2(
             &AzureDevOpsOrganizationUrl::from_str("https://dev.azure.com/aafc/")?,
             &AzureDevOpsDescriptor::AzureDevOpsGroup("vssgp.redacted".to_string()),
-        ).await?;
+        )
+        .await?;
         println!("{resp:#?}");
         Ok(())
     }

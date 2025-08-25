@@ -1,5 +1,6 @@
 #![feature(pattern, associated_type_defaults)]
 mod accounts;
+mod address_prefix;
 mod address_prefixes;
 mod all_or;
 mod app;
@@ -32,6 +33,7 @@ mod policy_assignment_id_variants;
 mod policy_assignment_name;
 mod policy_assignments;
 mod policy_definition_id;
+mod policy_definition_id_reference;
 mod policy_definition_id_variants;
 mod policy_definition_name;
 mod policy_definitions;
@@ -99,14 +101,11 @@ mod virtual_network_name;
 mod virtual_network_peering_id;
 mod virtual_network_peering_name;
 mod virtual_network_properties;
-mod address_prefix;
-mod policy_definition_id_reference;
 
 pub mod prelude {
     pub use crate::accounts::*;
-    pub use crate::policy_definition_id_reference::*;
-    pub use crate::address_prefixes::*;
     pub use crate::address_prefix::*;
+    pub use crate::address_prefixes::*;
     pub use crate::all_or::*;
     pub use crate::app::*;
     pub use crate::conditional_access_named_location::*;
@@ -137,6 +136,7 @@ pub mod prelude {
     pub use crate::policy_assignment_name::*;
     pub use crate::policy_assignments::*;
     pub use crate::policy_definition_id::*;
+    pub use crate::policy_definition_id_reference::*;
     pub use crate::policy_definition_id_variants::*;
     pub use crate::policy_definition_name::*;
     pub use crate::policy_definitions::*;

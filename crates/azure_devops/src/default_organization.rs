@@ -55,7 +55,9 @@ pub async fn set_default_organization_url(org: AzureDevOpsOrganizationUrl) -> ey
             resp.stderr.to_str()?
         );
     }
-    get_azure_devops_configuration_list_command().bust_cache().await?;
+    get_azure_devops_configuration_list_command()
+        .bust_cache()
+        .await?;
     Ok(())
 }
 

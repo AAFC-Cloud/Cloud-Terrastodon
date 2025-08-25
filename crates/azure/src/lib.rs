@@ -1,8 +1,4 @@
-#![feature(
-    impl_trait_in_assoc_type,
-    duration_constructors,
-    async_fn_track_caller
-)]
+#![feature(impl_trait_in_assoc_type, duration_constructors, async_fn_track_caller)]
 mod accounts;
 mod auth;
 mod batch_api;

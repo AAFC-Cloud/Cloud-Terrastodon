@@ -73,7 +73,7 @@ mod test {
         serde_json::from_str::<Value>(&content)?;
         Ok(())
     }
-    
+
     #[tokio::test]
     pub async fn it_works_projects() -> eyre::Result<()> {
         // this endpoint only works with the `az account get-access-token`, not with a raw PAT

@@ -46,9 +46,8 @@ pub async fn fetch_azure_devops_license_entitlements(
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::get_default_organization_url;
-
     use super::*;
+    use crate::prelude::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

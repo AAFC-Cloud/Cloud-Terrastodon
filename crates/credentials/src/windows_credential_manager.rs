@@ -1,10 +1,9 @@
+use crate::AzureDevOpsPersonalAccessToken;
 use eyre::bail;
 use windows::Win32::Security::Credentials::CRED_TYPE_GENERIC;
 use windows::Win32::Security::Credentials::CREDENTIALA;
 use windows::Win32::Security::Credentials::CredFree;
 use windows::Win32::Security::Credentials::CredReadA;
-
-use crate::AzureDevOpsPersonalAccessToken;
 
 /// Read a specific credential from Windows Credential Manager
 pub fn read_credential_from_manager(target_name: &str) -> eyre::Result<Option<String>> {

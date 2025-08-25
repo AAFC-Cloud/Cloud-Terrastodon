@@ -129,10 +129,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
             "ass dispaly name",
             ass.properties.display_name.as_str().to_owned(),
         );
-        row.insert(
-            "ass scope",
-            ass.properties.scope.expanded_form()
-        );
+        row.insert("ass scope", ass.properties.scope.expanded_form());
         match &ass.properties.policy_definition_id {
             PolicyDefinitionIdReference::PolicyDefinitionId(policy_definition_id) => {
                 let Some(policy_definition) = policy_definition_map.get(&policy_definition_id)

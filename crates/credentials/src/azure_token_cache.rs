@@ -160,7 +160,7 @@
 //                     }
 //                     Err(e) => {
 //                         tracing::warn!("Failed to parse token cache as MSAL structure: {}", e);
-//                         println!("Raw JSON structure (first 500 chars): {}", 
+//                         println!("Raw JSON structure (first 500 chars): {}",
 //                             &json_str[..json_str.len().min(500)]);
 //                     }
 //                 }
@@ -180,7 +180,7 @@
 //                 tracing::debug!("Binary data length: {} bytes", decrypted_data.len());
 //             }
 //         }
-//     } 
+//     }
 
 //     // Free the allocated memory from DPAPI
 //     // Note: In practice, Windows manages this memory automatically
@@ -239,7 +239,7 @@
 // /// Display a summary of the token cache without sensitive information
 // fn display_token_cache_summary(cache: &MsalTokenCache) {
 //     println!("\n=== MSAL Token Cache Summary ===");
-    
+
 //     // Access Tokens Summary
 //     println!("\n📋 Access Tokens: {}", cache.access_tokens.len());
 //     for (key, token) in &cache.access_tokens {
@@ -248,7 +248,7 @@
 //         println!("     Environment: {}", token.environment);
 //         println!("     Target: {}", truncate_target(&token.target));
 //         println!("     Token Type: {}", token.token_type);
-        
+
 //         // Parse and display timestamps
 //         if let Ok(cached_at) = token.cached_at_datetime() {
 //             println!("     Cached At: {}", cached_at.format("%Y-%m-%d %H:%M:%S UTC"));
@@ -259,7 +259,7 @@
 //         }
 //         println!();
 //     }
-    
+
 //     // Accounts Summary
 //     println!("\n👤 Accounts: {}", cache.accounts.len());
 //     for (key, account) in &cache.accounts {
@@ -270,7 +270,7 @@
 //         println!("     Account Source: {}", account.account_source);
 //         println!();
 //     }
-    
+
 //     // ID Tokens Summary
 //     println!("\n🆔 ID Tokens: {}", cache.id_tokens.len());
 //     for (key, token) in &cache.id_tokens {
@@ -279,7 +279,7 @@
 //         println!("     Environment: {}", token.environment);
 //         println!();
 //     }
-    
+
 //     // App Metadata Summary
 //     println!("\n📱 App Metadata: {}", cache.app_metadata.len());
 //     for (key, metadata) in &cache.app_metadata {
@@ -312,14 +312,14 @@
 // pub fn test_azure_credentials(cache_bytes: &[u8], global_args: &GlobalArgs) -> eyre::Result<()> {
 //     // Decrypt the cache
 //     let decrypted_data = decrypt_msal_cache_to_string(cache_bytes)?;
-    
+
 //     // Parse the decrypted JSON
 //     let cache: MsalTokenCache = from_str(&decrypted_data).map_err(|e| eyre!("Failed to deserialize: {e:?}"))?;
-    
+
 //     // Find valid access tokens
 //     let mut tested_tokens = 0;
 //     let mut successful_tests = 0;
-    
+
 //     for (key, access_token) in &cache.access_tokens {
 //         // Skip expired tokens
 //         if let Ok(expires_on) = access_token.expires_on.parse::<i64>() {
@@ -330,14 +330,14 @@
 //                 continue;
 //             }
 //         }
-        
+
 //         tested_tokens += 1;
-        
+
 //         println!("\n🧪 Testing token for:");
 //         println!("   Target: {}", truncate_target(&access_token.target));
 //         println!("   Environment: {}", access_token.environment);
 //         println!("   Username: {}", get_username_for_token(&cache, &access_token.home_account_id));
-        
+
 //         // Test the token against Microsoft Graph /me endpoint
 //         match test_microsoft_graph_token(&access_token.secret, global_args) {
 //             Ok(user_info) => {
@@ -349,29 +349,29 @@
 //             }
 //         }
 //     }
-    
+
 //     println!("\n📊 Test Summary:");
 //     println!("   Tokens tested: {}", tested_tokens);
 //     println!("   Successful: {}", successful_tests);
 //     println!("   Failed: {}", tested_tokens - successful_tests);
-    
+
 //     if tested_tokens == 0 {
 //         println!("   ℹ️  No valid tokens found to test");
 //     }
-    
+
 //     Ok(())
 // }
 
 // /// Test a token against Microsoft Graph API
 // fn test_microsoft_graph_token(token: &str, global_args: &GlobalArgs) -> eyre::Result<GraphUserInfo> {
 //     let client = reqwest::blocking::Client::new();
-    
+
 //     let response = client
 //         .get("https://graph.microsoft.com/v1.0/me")
 //         .header("Authorization", format!("Bearer {}", token))
 //         .header("Accept", "application/json")
 //         .send()?;
-    
+
 //     if response.status().is_success() {
 //         let json_text = response.text()?;
 
@@ -380,16 +380,16 @@
 //     } else {
 //         let status = response.status();
 //         let error_text = response.text()?;
-        
+
 //         if global_args.debug {
 //             tracing::debug!("HTTP {}: {}", status, error_text);
 //         }
-        
-//         Err(eyre::eyre!("HTTP {} - {}", status, 
-//             if error_text.len() > 100 { 
-//                 format!("{}...", &error_text[..97]) 
-//             } else { 
-//                 error_text 
+
+//         Err(eyre::eyre!("HTTP {} - {}", status,
+//             if error_text.len() > 100 {
+//                 format!("{}...", &error_text[..97])
+//             } else {
+//                 error_text
 //             }))
 //     }
 // }

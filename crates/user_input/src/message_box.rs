@@ -2,7 +2,10 @@ use ratatui::crossterm::event;
 use ratatui::crossterm::event::Event;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::event::KeyEventKind;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout};
+use ratatui::layout::Alignment;
+use ratatui::layout::Constraint;
+use ratatui::layout::Direction;
+use ratatui::layout::Layout;
 use ratatui::style::Color;
 use ratatui::style::Style;
 use ratatui::text::Line;
@@ -18,7 +21,10 @@ pub struct MessageBoxTui {
 }
 impl MessageBoxTui {
     pub fn new(message: impl Into<Text<'static>>) -> Self {
-    Self { message: message.into(), title: None }
+        Self {
+            message: message.into(),
+            title: None,
+        }
     }
 
     #[allow(dead_code)]
@@ -43,7 +49,10 @@ impl MessageBoxTui {
                 if let Event::Key(key) = event::read()? {
                     if key.kind == KeyEventKind::Press {
                         match key.code {
-                            KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Char('q') => {
+                            KeyCode::Enter
+                            | KeyCode::Char(' ')
+                            | KeyCode::Esc
+                            | KeyCode::Char('q') => {
                                 break;
                             }
                             _ => {}

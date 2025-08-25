@@ -4,6 +4,7 @@ use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use crate::serde_helpers::deserialize_default_if_null;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
@@ -12,7 +13,6 @@ use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
-use crate::serde_helpers::deserialize_default_if_null;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ResourceGroup {
     pub id: ResourceGroupId,

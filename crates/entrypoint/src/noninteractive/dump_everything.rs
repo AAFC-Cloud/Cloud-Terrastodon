@@ -1,10 +1,10 @@
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_repos_batch;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_teams_for_project;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_azure_devops::prelude::get_personal_access_token;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_hcl::prelude::FreshTFWorkDir;

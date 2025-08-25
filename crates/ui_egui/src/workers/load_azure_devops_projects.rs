@@ -1,8 +1,8 @@
 use crate::app::MyApp;
 use crate::loadable_work::LoadableWorkBuilder;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use std::rc::Rc;
 use tracing::info;
 

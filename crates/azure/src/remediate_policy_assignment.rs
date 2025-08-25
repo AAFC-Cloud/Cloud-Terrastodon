@@ -115,18 +115,18 @@ pub async fn remediate_policy_assignment() -> Result<()> {
 
             let scope = &policy_assignment.properties.scope;
             match scope {
-                    ScopeImpl::ManagementGroup(management_group_id) => {
-                        cmd.args(["--management-group", &management_group_id.short_form()]);
-                    }
-                    ScopeImpl::ResourceGroup(resource_group_id) => {
-                        cmd.args(["--resource-group", &resource_group_id.short_form()]);
-                    }
-                    x => {
-                        bail!(
-                            "Scope is of unsupported kind, expected management group or resource group, got {x:?}"
-                        );
-                    }
+                ScopeImpl::ManagementGroup(management_group_id) => {
+                    cmd.args(["--management-group", &management_group_id.short_form()]);
                 }
+                ScopeImpl::ResourceGroup(resource_group_id) => {
+                    cmd.args(["--resource-group", &resource_group_id.short_form()]);
+                }
+                x => {
+                    bail!(
+                        "Scope is of unsupported kind, expected management group or resource group, got {x:?}"
+                    );
+                }
+            }
             cmd.should_announce(true);
             cmd.run_raw().await?;
         }
