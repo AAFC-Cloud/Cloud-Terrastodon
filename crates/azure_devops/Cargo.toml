@@ -21,7 +21,6 @@ serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 tracing.workspace = true
-indicatif.workspace = true
 itertools.workspace = true
 rand.workspace = true
 indoc.workspace = true

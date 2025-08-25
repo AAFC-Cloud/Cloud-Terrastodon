@@ -24,7 +24,6 @@ reqwest = { workspace = true }
 hcl-rs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-indicatif = { workspace = true }
 tracing = { workspace = true }
 tempfile = { workspace = true }
 rand.workspace = true
