@@ -8,7 +8,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
@@ -191,7 +190,7 @@ impl<'de> Deserialize<'de> for AzureDevOpsOrganizationUrl {
         D: Deserializer<'de>,
     {
         let url = String::deserialize(deserializer)?;
-        Self::from_str(&url).map_err(|e| D::Error::custom(format!("{e:?}")))
+        Self::from_str(&url).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 

@@ -2,7 +2,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -54,7 +53,7 @@ impl<'de> Deserialize<'de> for TenantId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

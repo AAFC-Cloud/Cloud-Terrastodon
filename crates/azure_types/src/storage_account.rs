@@ -1,3 +1,4 @@
+use crate::serde_helpers::deserialize_default_if_null;
 use crate::prelude::StorageAccountId;
 use crate::prelude::StorageAccountName;
 use crate::prelude::SubscriptionId;
@@ -39,7 +40,7 @@ pub struct StorageAccount {
     pub subscription_id: SubscriptionId,
     pub sku: StorageAccountSKU,
     pub properties: Value,
-    #[serde(deserialize_with = "crate::serde_helpers::deserialize_null_default")]
+    #[serde(deserialize_with = "deserialize_default_if_null")]
     #[serde(default)]
     pub tags: HashMap<String, String>,
 }

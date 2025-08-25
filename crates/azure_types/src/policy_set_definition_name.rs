@@ -2,7 +2,6 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use compact_str::ToCompactString;
-use serde::de::Error;
 use std::ops::Deref;
 use std::str::FromStr;
 use validator::Validate;
@@ -62,7 +61,7 @@ impl<'de> serde::Deserialize<'de> for PolicySetDefinitionName {
         D: serde::Deserializer<'de>,
     {
         let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:?}")))
+        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for PolicySetDefinitionName {

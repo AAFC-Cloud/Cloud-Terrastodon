@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_types::prelude::ScopeImpl;
 use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::TenantId;
-use cloud_terrastodon_azure_types::serde_helpers::deserialize_none_if_empty;
+use cloud_terrastodon_azure_types::serde_helpers::deserialize_none_if_empty_string;
 use compact_str::CompactString;
 use serde::Deserialize;
 use serde::Serialize;
@@ -54,7 +54,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
     #[serde(rename = "servicePrincipalId")]
     #[serde(alias = "serviceprincipalid")]
     #[serde(default)]
-    #[serde(deserialize_with = "deserialize_none_if_empty")]
+    #[serde(deserialize_with = "deserialize_none_if_empty_string")]
     pub service_principal_id: Option<ServicePrincipalId>,
     #[serde(rename = "tenantId")]
     #[serde(alias = "tenantid")]

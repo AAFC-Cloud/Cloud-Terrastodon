@@ -12,7 +12,7 @@ use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
-
+use crate::serde_helpers::deserialize_default_if_null;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ResourceGroup {
     pub id: ResourceGroupId,
@@ -21,7 +21,7 @@ pub struct ResourceGroup {
     pub managed_by: Option<String>,
     pub name: ResourceGroupName,
     pub properties: HashMap<String, String>,
-    #[serde(deserialize_with = "crate::serde_helpers::deserialize_null_default")]
+    #[serde(deserialize_with = "deserialize_default_if_null")]
     #[serde(default)]
     pub tags: HashMap<String, String>,
 }

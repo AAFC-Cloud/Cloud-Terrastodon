@@ -26,7 +26,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use uuid::Uuid;
 
 pub const ROLE_MANAGEMENT_POLICY_ID_PREFIX: &str =
@@ -197,7 +196,7 @@ impl<'de> Deserialize<'de> for RoleManagementPolicyId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = RoleManagementPolicyId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

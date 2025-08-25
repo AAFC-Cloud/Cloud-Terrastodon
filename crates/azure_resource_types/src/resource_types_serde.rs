@@ -3,7 +3,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 
 impl Serialize for ResourceType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -22,7 +21,7 @@ impl<'de> Deserialize<'de> for ResourceType {
         let value = String::deserialize(deserializer)?;
         let resource_type = value
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(resource_type)
     }
 }

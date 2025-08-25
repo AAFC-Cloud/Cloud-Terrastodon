@@ -146,8 +146,7 @@ impl<'de> serde::Deserialize<'de> for SubnetId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = SubnetId::try_from_expanded(expanded.as_str()).map_err(|e| {
-            use serde::de::Error;
-            D::Error::custom(format!("{e:?}"))
+            serde::de::Error::custom(format!("{e:?}"))
         })?;
         Ok(id)
     }

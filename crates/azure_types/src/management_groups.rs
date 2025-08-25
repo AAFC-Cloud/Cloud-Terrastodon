@@ -13,7 +13,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use std::hash::Hash;
 use std::str::FromStr;
 
@@ -94,7 +93,7 @@ impl<'de> Deserialize<'de> for ManagementGroupId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = ManagementGroupId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

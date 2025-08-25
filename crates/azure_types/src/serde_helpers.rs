@@ -3,7 +3,7 @@ use serde::Deserializer;
 use std::str::FromStr;
 
 /// https://github.com/serde-rs/serde/issues/1098 - Ability to use default value even if set to null
-pub fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+pub fn deserialize_default_if_null<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     T: Default + Deserialize<'de>,
     D: Deserializer<'de>,
@@ -13,14 +13,14 @@ where
 }
 
 /// Deserialize a string into an `Option<T>`, returning `None` if the string is empty.
-pub fn deserialize_none_if_empty<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+pub fn deserialize_none_if_empty_string<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     T: FromStr,
     T::Err: std::fmt::Display,
     D: Deserializer<'de>,
 {
     // let str = String::deserialize(deserializer)?;
-    let str: Option<String> = deserialize_null_default(deserializer)?;
+    let str: Option<String> = deserialize_default_if_null(deserializer)?;
     match str {
         None => Ok(None),
         Some(s) if s.is_empty() => Ok(None),

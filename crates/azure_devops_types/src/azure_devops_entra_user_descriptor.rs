@@ -1,4 +1,3 @@
-use serde::de::Error;
 use std::ops::Deref;
 use validator::Validate;
 use validator::ValidationError;
@@ -44,7 +43,7 @@ impl<'de> serde::Deserialize<'de> for AzureDevOpsEntraUserDescriptor {
         D: serde::Deserializer<'de>,
     {
         let value = <String as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:?}")))
+        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for AzureDevOpsEntraUserDescriptor {

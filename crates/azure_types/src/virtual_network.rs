@@ -2,6 +2,7 @@ use crate::prelude::ResourceGroupId;
 use crate::prelude::VirtualNetworkId;
 use crate::prelude::VirtualNetworkName;
 use crate::prelude::VirtualNetworkProperties;
+use crate::serde_helpers::deserialize_default_if_null;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -11,7 +12,7 @@ pub struct VirtualNetwork {
     pub id: VirtualNetworkId,
     pub name: VirtualNetworkName,
     pub location: String,
-    #[serde(deserialize_with = "crate::serde_helpers::deserialize_null_default")]
+    #[serde(deserialize_with = "deserialize_default_if_null")]
     #[serde(default)]
     pub tags: HashMap<String, String>,
     pub properties: VirtualNetworkProperties,

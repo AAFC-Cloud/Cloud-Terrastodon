@@ -3,7 +3,6 @@ use eyre::Result;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
-use serde::de::Error;
 use serde_json::Value;
 
 #[derive(Debug, Serialize)]
@@ -52,7 +51,7 @@ where
         let good: ResourceGraphQueryResponse<T> = raw
             .try_into()
             .wrap_err("Converting from RawResourceGraphQueryResponse to ResourceGraphQueryResponse failed")
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(good)
     }
 }

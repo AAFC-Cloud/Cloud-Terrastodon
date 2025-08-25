@@ -10,7 +10,6 @@ use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl_primitives::Ident;
 use itertools::Itertools;
-use serde::de::Error;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -212,7 +211,7 @@ impl<'de> serde::Deserialize<'de> for SemVer {
         D: serde::Deserializer<'de>,
     {
         let value = <String as serde::Deserialize>::deserialize(deserializer)?;
-        Self::from_str(&value).map_err(|e| D::Error::custom(format!("{e:?}")))
+        Self::from_str(&value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 

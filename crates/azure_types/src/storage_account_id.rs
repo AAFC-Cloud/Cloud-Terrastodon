@@ -15,7 +15,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use std::str::FromStr;
 
 pub const STORAGE_ACCOUNT_ID_PREFIX: &str = "/providers/Microsoft.Storage/storageAccounts/";
@@ -145,7 +144,7 @@ impl<'de> Deserialize<'de> for StorageAccountId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = StorageAccountId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

@@ -2,7 +2,6 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
-use serde::de::Error;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -146,7 +145,7 @@ impl<'de> serde::Deserialize<'de> for ResourceGroupName {
         D: serde::Deserializer<'de>,
     {
         let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| D::Error::custom(format!("{e:?}")))
+        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for ResourceGroupName {

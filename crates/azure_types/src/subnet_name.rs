@@ -1,7 +1,6 @@
 use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
-use serde::de::Error;
 use std::ops::Deref;
 use std::str::FromStr;
 use validator::Validate;
@@ -127,7 +126,7 @@ impl<'de> serde::Deserialize<'de> for SubnetName {
         D: serde::Deserializer<'de>,
     {
         let s = CompactString::deserialize(deserializer)?;
-        Self::try_new(s).map_err(D::Error::custom)
+        Self::try_new(s).map_err(serde::de::Error::custom)
     }
 }
 

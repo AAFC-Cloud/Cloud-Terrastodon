@@ -14,7 +14,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 
 pub const VIRTUAL_NETWORK_ID_PREFIX: &str = "/providers/Microsoft.Network/virtualNetworks/";
 
@@ -133,7 +132,7 @@ impl<'de> Deserialize<'de> for VirtualNetworkId {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Self::try_from_expanded(&s).map_err(D::Error::custom)
+        Self::try_from_expanded(&s).map_err(serde::de::Error::custom)
     }
 }
 

@@ -18,7 +18,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use std::hash::Hash;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -222,7 +221,7 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

@@ -26,7 +26,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use uuid::Uuid;
 
 pub const ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX: &str =
@@ -201,7 +200,7 @@ impl<'de> Deserialize<'de> for RoleEligibilityScheduleId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = RoleEligibilityScheduleId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

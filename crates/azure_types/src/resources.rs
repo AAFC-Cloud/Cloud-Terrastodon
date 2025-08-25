@@ -1,3 +1,4 @@
+use crate::serde_helpers::deserialize_default_if_null;
 use crate::prelude::AsScope;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceType;
@@ -13,7 +14,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -110,7 +110,7 @@ impl<'de> Deserialize<'de> for ResourceId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }
@@ -121,7 +121,7 @@ pub struct Resource {
     pub kind: ResourceType,
     pub name: String,
     pub display_name: Option<String>,
-    #[serde(deserialize_with = "crate::serde_helpers::deserialize_null_default")]
+    #[serde(deserialize_with = "deserialize_default_if_null")]
     #[serde(default)]
     pub tags: HashMap<String, String>,
 }

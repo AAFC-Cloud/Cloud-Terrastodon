@@ -9,7 +9,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use std::str::FromStr;
 
 pub const TAGS_SUFFIX: &str = "/providers/Microsoft.Resources/tags/default";
@@ -91,7 +90,7 @@ impl<'de> Deserialize<'de> for ResourceTagsId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

@@ -14,8 +14,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
-
 pub const ROUTE_TABLE_ID_PREFIX: &str = "/providers/Microsoft.Network/routeTables/";
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
@@ -138,7 +136,7 @@ impl<'de> Deserialize<'de> for RouteTableId {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Self::try_from_expanded(&s).map_err(D::Error::custom)
+        Self::try_from_expanded(&s).map_err(serde::de::Error::custom)
     }
 }
 

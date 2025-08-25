@@ -3,7 +3,6 @@ use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use arbitrary::Arbitrary;
 use eyre::Context;
-use serde::de::Error;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -68,7 +67,7 @@ impl<'de> serde::Deserialize<'de> for SubscriptionId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:#}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:#}")))?;
         Ok(id)
     }
 }

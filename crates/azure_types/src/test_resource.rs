@@ -8,7 +8,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use std::str::FromStr;
 
 pub const TEST_ID_PREFIX: &str = "/CloudTerrastodon/testResources/";
@@ -70,7 +69,7 @@ impl<'de> Deserialize<'de> for TestResourceId {
         let expanded = String::deserialize(deserializer)?;
         let id = expanded
             .parse()
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

@@ -26,7 +26,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 use uuid::Uuid;
 
 pub const ROLE_ASSIGNMENT_ID_PREFIX: &str = "/providers/Microsoft.Authorization/roleAssignments/";
@@ -195,7 +194,7 @@ impl<'de> Deserialize<'de> for RoleAssignmentId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = RoleAssignmentId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }

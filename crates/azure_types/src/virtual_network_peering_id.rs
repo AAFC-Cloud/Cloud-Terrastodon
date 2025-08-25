@@ -23,7 +23,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-use serde::de::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
 pub struct VirtualNetworkPeeringId {
@@ -160,7 +159,7 @@ impl<'de> Deserialize<'de> for VirtualNetworkPeeringId {
     {
         let expanded = String::deserialize(deserializer)?;
         let id = VirtualNetworkPeeringId::try_from_expanded(expanded.as_str())
-            .map_err(|e| D::Error::custom(format!("{e:?}")))?;
+            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
         Ok(id)
     }
 }
