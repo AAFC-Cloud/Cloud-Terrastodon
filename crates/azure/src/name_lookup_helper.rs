@@ -47,9 +47,8 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
             .collect(),
         ScopeImplKind::PolicyAssignment => fetch_all_policy_assignments()
             .await?
-            .into_values()
-            .flatten()
-            .map(|x| (x.id.as_scope_impl(), x.name))
+            .into_iter()
+            .map(|x| (x.id.as_scope_impl(), x.name.to_string()))
             .collect(),
         ScopeImplKind::ResourceGroup => fetch_all_resource_groups()
             .await?

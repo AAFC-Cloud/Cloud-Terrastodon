@@ -1,8 +1,7 @@
 use cloud_terrastodon_azure::prelude::PolicyAssignmentId;
+use cloud_terrastodon_azure::prelude::PolicyDefinitionIdReference;
 use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::ScopeImpl;
-use cloud_terrastodon_azure::prelude::SomePolicyDefinitionId;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_set_definitions;
@@ -120,26 +119,22 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
     );
 
     let mut choices = HashSet::new();
-    for ass in policy_assignments.values().flatten() {
-        let policy_definition_id = ass.policy_definition_id()?;
+    for ass in policy_assignments {
         let mut row = IndexMap::<&str, String>::new();
         row.insert("ass id", ass.id.expanded_form().to_owned());
-        if let Some(desc) = &ass.description {
-            row.insert("ass desc", desc.to_owned());
+        if !ass.properties.description.is_empty() {
+            row.insert("ass desc", ass.properties.description.to_string());
         }
         row.insert(
-            "ass name",
-            ass.display_name.as_ref().unwrap_or(&ass.name).to_owned(),
+            "ass dispaly name",
+            ass.properties.display_name.as_str().to_owned(),
         );
         row.insert(
             "ass scope",
-            ass.scope
-                .parse::<ScopeImpl>()
-                .map(|x| x.expanded_form().to_owned())
-                .unwrap_or(ass.scope.to_owned()),
+            ass.properties.scope.expanded_form()
         );
-        match policy_definition_id {
-            SomePolicyDefinitionId::PolicyDefinitionId(policy_definition_id) => {
+        match &ass.properties.policy_definition_id {
+            PolicyDefinitionIdReference::PolicyDefinitionId(policy_definition_id) => {
                 let Some(policy_definition) = policy_definition_map.get(&policy_definition_id)
                 else {
                     warn!(
@@ -187,7 +182,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
                         .join("\n"),
                 );
             }
-            SomePolicyDefinitionId::PolicySetDefinitionId(policy_set_definition_id) => {
+            PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
                 let Some(policy_set_definition) =
                     policy_set_definition_map.get(&policy_set_definition_id)
                 else {

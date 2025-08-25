@@ -1,44 +1,75 @@
 use crate::prelude::PolicyAssignmentId;
-use crate::prelude::PolicyDefinitionId;
-use crate::prelude::PolicySetDefinitionId;
+use crate::prelude::PolicyAssignmentName;
+use crate::prelude::PolicyDefinitionIdReference;
+use crate::prelude::PrincipalId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use crate::scopes::ScopeImpl;
+use crate::serde_helpers::deserialize_default_if_null;
+use chrono::DateTime;
+use chrono::Utc;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
-use eyre::Result;
-use eyre::bail;
+use compact_str::CompactString;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
-use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PolicyAssignment {
-    pub description: Option<String>,
-    #[serde(rename = "displayName")]
-    pub display_name: Option<String>,
-    #[serde(rename = "enforcementMode")]
-    pub enforcement_mode: String,
     pub id: PolicyAssignmentId,
-    pub identity: Option<HashMap<String, Value>>,
-    pub location: Option<String>,
-    pub metadata: HashMap<String, Value>,
-    pub name: String,
-    #[serde(rename = "nonComplianceMessages")]
-    pub non_compliance_messages: Option<Value>,
-    #[serde(rename = "notScopes")]
-    pub not_scopes: Option<Vec<String>>,
+    pub name: PolicyAssignmentName,
+    pub location: CompactString,
+    pub identity: Option<Value>,
+    pub properties: PolicyAssignmentProperties,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PolicyAssignmentProperties {
+    pub policy_definition_id: PolicyDefinitionIdReference,
+    #[serde(deserialize_with = "deserialize_default_if_null")]
+    pub non_compliance_messages: Vec<Value>,
+    pub definition_version: CompactString,
+    #[serde(deserialize_with = "deserialize_default_if_null")]
+    pub resource_selectors: Vec<Value>,
+    pub enforcement_mode: PolicyAssignmentEnforcementMode,
+    #[serde(deserialize_with = "deserialize_default_if_null")]
+    pub display_name: CompactString,
+    #[serde(deserialize_with = "deserialize_default_if_null")]
+    pub description: CompactString,
     pub parameters: Option<Value>,
-    #[serde(rename = "policyDefinitionId")]
-    pub policy_definition_id: String,
-    pub scope: String,
-    #[serde(rename = "systemData")]
-    pub system_data: Value,
-    #[serde(rename = "type")]
-    pub kind: String,
+    #[serde(deserialize_with = "deserialize_default_if_null")]
+    pub not_scopes: Vec<String>,
+    pub metadata: PolicyAssignmentMetadata,
+    pub scope: ScopeImpl,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PolicyAssignmentEnforcementMode {
+    Default,
+    DoNotEnforce,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PolicyAssignmentMetadata {
+    pub created_on: DateTime<Utc>,
+    pub created_by: PrincipalId,
+    pub assigned_by: Option<CompactString>,
+    pub parameter_scopes: Option<Value>,
+    pub updated_by: Option<PrincipalId>,
+    pub updated_on: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PolicyAssignmentNonComplianceMessage {
+    pub policy_definition_reference_id: CompactString,
+    pub message: CompactString,
 }
 
 impl AsScope for PolicyAssignment {
@@ -56,7 +87,7 @@ impl std::fmt::Display for PolicyAssignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;
         f.write_str(" (")?;
-        f.write_fmt(format_args!("{:?}", &self.display_name))?;
+        f.write_fmt(format_args!("{:?}", &self.properties.display_name))?;
         f.write_str(")")?;
         Ok(())
     }
@@ -71,32 +102,6 @@ impl From<PolicyAssignment> for HCLImportBlock {
                 kind: AzureRMResourceBlockKind::ManagementGroupPolicyAssignment,
                 name: policy_assignment.name.sanitize(),
             },
-        }
-    }
-}
-
-pub enum SomePolicyDefinitionId {
-    PolicyDefinitionId(PolicyDefinitionId),
-    PolicySetDefinitionId(PolicySetDefinitionId),
-}
-impl PolicyAssignment {
-    pub fn policy_definition_id(&self) -> Result<SomePolicyDefinitionId> {
-        match (
-            PolicySetDefinitionId::try_from_expanded(&self.policy_definition_id),
-            PolicyDefinitionId::try_from_expanded(&self.policy_definition_id),
-        ) {
-            (Ok(a), Ok(b)) => {
-                bail!(
-                    "Matched both types of policy definition id, this shouldnt happen. Got {} and {}",
-                    a.expanded_form(),
-                    b.expanded_form()
-                );
-            }
-            (Ok(a), Err(_)) => Ok(SomePolicyDefinitionId::PolicySetDefinitionId(a)),
-            (Err(_), Ok(b)) => Ok(SomePolicyDefinitionId::PolicyDefinitionId(b)),
-            (Err(a), Err(b)) => {
-                bail!("Failed to determine policy definition id kind. a={a}, b={b}")
-            }
         }
     }
 }

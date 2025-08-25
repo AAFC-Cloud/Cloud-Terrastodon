@@ -1,12 +1,10 @@
 use crate::prelude::fetch_all_policy_assignments;
 use crate::prelude::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure_types::prelude::DistinctByScope;
-use cloud_terrastodon_azure_types::prelude::ManagementGroupId;
 use cloud_terrastodon_azure_types::prelude::PolicyAssignment;
-use cloud_terrastodon_azure_types::prelude::PolicyDefinitionId;
-use cloud_terrastodon_azure_types::prelude::PolicySetDefinitionId;
-use cloud_terrastodon_azure_types::prelude::ResourceGroupId;
+use cloud_terrastodon_azure_types::prelude::PolicyDefinitionIdReference;
 use cloud_terrastodon_azure_types::prelude::Scope;
+use cloud_terrastodon_azure_types::prelude::ScopeImpl;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_user_input::Choice;
@@ -26,11 +24,10 @@ pub async fn remediate_policy_assignment() -> Result<()> {
 
     info!("Building choices of policies to remediate");
     let choices = policy_assignments
-        .into_values()
-        .flatten()
+        .into_iter()
         .distinct_by_scope()
         .map(|ass| Choice::<PolicyAssignment> {
-            key: format!("{} {:?}", ass.name, ass.display_name),
+            key: format!("{} {:?}", ass.name, ass.properties.display_name),
             value: ass,
         })
         .collect();
@@ -46,11 +43,8 @@ pub async fn remediate_policy_assignment() -> Result<()> {
     })?;
 
     info!("Finding policy definition for chosen");
-    match (
-        PolicySetDefinitionId::try_from_expanded(&policy_assignment.policy_definition_id),
-        PolicyDefinitionId::try_from_expanded(&policy_assignment.policy_definition_id),
-    ) {
-        (Ok(policy_set_definition_id), Err(_)) => {
+    match policy_assignment.properties.policy_definition_id {
+        PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
             info!("Remediating a policy set - must prompt for inner choice");
             let Some(policy_set_definition) = fetch_all_policy_set_definitions()
                 .await?
@@ -91,21 +85,25 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                     "--definition-reference-id",
                     choice.value.policy_definition_reference_id.as_ref(),
                 ]);
-                let scope = &policy_assignment.scope;
-                if let Ok(management_group_id) = ManagementGroupId::try_from_expanded(scope) {
-                    cmd.args(["--management-group", &management_group_id.short_form()]);
-                } else if let Ok(resource_group_id) = ResourceGroupId::try_from_expanded(scope) {
-                    cmd.args(["--resource-group", &resource_group_id.short_form()]);
-                } else {
-                    bail!(
-                        "Could not identify kind of scope (management group, resource group) for scope {scope}"
-                    );
+                let scope = &policy_assignment.properties.scope;
+                match scope {
+                    ScopeImpl::ManagementGroup(management_group_id) => {
+                        cmd.args(["--management-group", &management_group_id.short_form()]);
+                    }
+                    ScopeImpl::ResourceGroup(resource_group_id) => {
+                        cmd.args(["--resource-group", &resource_group_id.short_form()]);
+                    }
+                    x => {
+                        bail!(
+                            "Scope is of unsupported kind, expected management group or resource group, got {x:?}"
+                        );
+                    }
                 }
                 cmd.should_announce(true);
                 cmd.run_raw().await?;
             }
         }
-        (Err(_), Ok(_policy_definition_id)) => {
+        PolicyDefinitionIdReference::PolicyDefinitionId(_policy_definition_id) => {
             info!("Remediating a policy definition");
             let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
             cmd.args(["policy", "remediation", "create"]);
@@ -115,24 +113,22 @@ pub async fn remediate_policy_assignment() -> Result<()> {
             ]);
             cmd.args(["--policy-assignment", &policy_assignment.id.expanded_form()]);
 
-            let scope = &policy_assignment.scope;
-            if let Ok(management_group_id) = ManagementGroupId::try_from_expanded(scope) {
-                cmd.args(["--management-group", &management_group_id.short_form()]);
-            } else if let Ok(resource_group_id) = ResourceGroupId::try_from_expanded(scope) {
-                cmd.args(["--resource-group", &resource_group_id.short_form()]);
-            } else {
-                bail!(
-                    "Could not identify kind of scope (management group, resource group) for scope {scope}"
-                );
-            }
+            let scope = &policy_assignment.properties.scope;
+            match scope {
+                    ScopeImpl::ManagementGroup(management_group_id) => {
+                        cmd.args(["--management-group", &management_group_id.short_form()]);
+                    }
+                    ScopeImpl::ResourceGroup(resource_group_id) => {
+                        cmd.args(["--resource-group", &resource_group_id.short_form()]);
+                    }
+                    x => {
+                        bail!(
+                            "Scope is of unsupported kind, expected management group or resource group, got {x:?}"
+                        );
+                    }
+                }
             cmd.should_announce(true);
             cmd.run_raw().await?;
-        }
-        (Ok(policy_set_definition_id), Ok(policy_definition_id)) => unreachable!(
-            "ID must not be of two kinds: {policy_set_definition_id:?} and {policy_definition_id:?}"
-        ),
-        (Err(e_set), Err(e_def)) => {
-            bail!("Could not determine policy definition kind: {e_set:?} and {e_def:?}");
         }
     }
 

@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::prelude::PolicyAssignment;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_set_definitions;
@@ -85,23 +84,17 @@ pub async fn build_policy_imports() -> Result<()> {
     }
 
     info!("Writing policy assignment import blocks");
-    for (management_group, policy_assignments) in policy_assignments {
-        policy_assignments
-            .into_iter()
-            .map(|policy_assignment: PolicyAssignment| {
-                //todo: filter out inherited assignments that cause the terraform block label to contain a mismatched management group name
-                let import_block: HCLImportBlock = policy_assignment.into();
-                let provider = import_block.provider;
-                let id = import_block.id;
-                let mut to = import_block.to;
-                to.use_name(|name| format!("{}_{}", name, management_group.name()).sanitize());
-                HCLImportBlock { provider, id, to }
-            })
-            .for_each(|block: HCLImportBlock| {
-                if seen_ids.insert(block.id.clone()) {
-                    imports.push(block);
-                }
-            });
+    for policy_assignment in policy_assignments {
+        //todo: filter out inherited assignments that cause the terraform block label to contain a mismatched management group name
+        let import_block: HCLImportBlock = policy_assignment.into();
+        let provider = import_block.provider;
+        let id = import_block.id;
+        let to = import_block.to;
+        // to.use_name(|name| format!("{}_{}", name, management_group.name()).sanitize());
+        let block = HCLImportBlock { provider, id, to };
+        if seen_ids.insert(block.id.clone()) {
+            imports.push(block);
+        }
     }
 
     if imports.is_empty() {

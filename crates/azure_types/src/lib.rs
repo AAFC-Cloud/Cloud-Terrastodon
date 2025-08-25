@@ -100,9 +100,11 @@ mod virtual_network_peering_id;
 mod virtual_network_peering_name;
 mod virtual_network_properties;
 mod address_prefix;
+mod policy_definition_id_reference;
 
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::policy_definition_id_reference::*;
     pub use crate::address_prefixes::*;
     pub use crate::address_prefix::*;
     pub use crate::all_or::*;

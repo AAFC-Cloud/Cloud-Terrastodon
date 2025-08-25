@@ -1,15 +1,15 @@
-use crate::prelude::AddressPrefix;
 use crate::prelude::Subnet;
 use crate::prelude::VirtualNetworkId;
 use crate::prelude::VirtualNetworkPeeringId;
 use crate::prelude::VirtualNetworkPeeringName;
+use ipnetwork::Ipv4Network;
 use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualNetworkProperties {
-    pub address_space: AddressSpace,
+    pub address_space: VirtualNetworkAddressSpace,
     pub subnets: Vec<Subnet>,
     pub virtual_network_peerings: Vec<VirtualNetworkPeering>,
     pub resource_guid: String,
@@ -18,9 +18,9 @@ pub struct VirtualNetworkProperties {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct AddressSpace {
+pub struct VirtualNetworkAddressSpace {
     #[serde(rename = "addressPrefixes")]
-    pub address_prefixes: Vec<AddressPrefix>,
+    pub address_prefixes: Vec<Ipv4Network>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]

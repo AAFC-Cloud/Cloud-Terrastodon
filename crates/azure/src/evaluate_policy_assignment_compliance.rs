@@ -25,11 +25,10 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
         ..
     } = pick(FzfArgs {
         choices: policy_assignments
-            .into_values()
-            .flatten()
+            .into_iter()
             .distinct_by_scope()
             .map(|ass| Choice::<PolicyAssignment> {
-                key: format!("{} {:?}", ass.name, ass.display_name),
+                key: format!("{} {:?}", ass.name, ass.properties.display_name),
                 value: ass,
             })
             .collect(),
@@ -39,7 +38,7 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
 
     info!(
         "Querying policy compliance for {} ({:?})",
-        policy_assignment.name, policy_assignment.display_name
+        policy_assignment.name, policy_assignment.properties.display_name
     );
 
     let query = formatdoc! {
