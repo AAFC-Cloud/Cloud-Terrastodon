@@ -6,6 +6,7 @@
 mod command;
 mod no_spaces;
 mod work;
+pub mod app_work;
 
 pub use crate::command::*;
 pub use crate::no_spaces::*;

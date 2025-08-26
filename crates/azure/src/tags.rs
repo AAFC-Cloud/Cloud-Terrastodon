@@ -47,6 +47,7 @@ pub async fn get_tags_for_resources(
     Ok(results)
 }
 
+/// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn replace_tags_for_resources(
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
@@ -73,6 +74,7 @@ pub async fn replace_tags_for_resources(
     Ok(tags)
 }
 
+/// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn merge_tags_for_resources(
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
@@ -99,6 +101,7 @@ pub async fn merge_tags_for_resources(
     Ok(tags)
 }
 
+/// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn delete_tags_for_resources(
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {

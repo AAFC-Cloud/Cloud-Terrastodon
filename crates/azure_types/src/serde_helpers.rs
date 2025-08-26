@@ -39,7 +39,7 @@ mod tests {
     #[derive(Deserialize, Debug)]
     struct MyThing {
         #[serde(default)]
-        #[serde(deserialize_with = "super::deserialize_none_if_empty")]
+        #[serde(deserialize_with = "super::deserialize_none_if_empty_string")]
         pub my_option: Option<SubscriptionId>,
     }
 

@@ -1016,8 +1016,10 @@ mod tests {
     /// The Azure CLI uses system locale by default, which is latin-1 instead of UTF-8
     /// https://github.com/Azure/azure-cli/issues/22616
     async fn encoding_3() -> eyre::Result<()> {
-        // let user_id = prompt_line("Enter the ID for the user who is experiencing encoding issues:").await?;
-        let user_id = include_str!("test_user_id.txt");
+        let user_id = cloud_terrastodon_user_input::prompt_line(
+            "Enter the ID for the user who is experiencing encoding issues:",
+        )
+        .await?;
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args([
             "ad",
