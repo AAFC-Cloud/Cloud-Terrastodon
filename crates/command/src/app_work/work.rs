@@ -42,27 +42,27 @@ pub struct WorkHandle {
 
 pub trait AcceptsWork<State>: Sized {
     fn work_tracker(&self) -> AppWorkTracker<State>;
-    fn work_sender(&self) -> impl WorkMessageSender<State>;
+    fn work_finished_message_sender(&self) -> impl AppboundWorkFinishedMessageSender<State>;
     fn runtime(&self) -> tokio::runtime::Handle {
         tokio::runtime::Handle::current()
     }
 }
 
-pub trait WorkMessageSender<State>: Sized + Send + 'static {
+pub trait AppboundWorkFinishedMessageSender<State>: Sized + Send + 'static {
     fn send(&self, msg: AppboundWorkFinishedMessage<State>) -> eyre::Result<()>;
 }
 
-pub struct UnboundedWorkMessageSender<State> {
+pub struct UnboundedWorkFinishedMessageSender<State> {
     sender: tokio::sync::mpsc::UnboundedSender<AppboundWorkFinishedMessage<State>>,
 }
-impl<T> UnboundedWorkMessageSender<T> {
+impl<T> UnboundedWorkFinishedMessageSender<T> {
     pub fn new(
         sender: tokio::sync::mpsc::UnboundedSender<AppboundWorkFinishedMessage<T>>,
-    ) -> UnboundedWorkMessageSender<T> {
-        UnboundedWorkMessageSender { sender }
+    ) -> UnboundedWorkFinishedMessageSender<T> {
+        UnboundedWorkFinishedMessageSender { sender }
     }
 }
-impl<State: 'static> WorkMessageSender<State> for UnboundedWorkMessageSender<State> {
+impl<State: 'static> AppboundWorkFinishedMessageSender<State> for UnboundedWorkFinishedMessageSender<State> {
     fn send(&self, msg: AppboundWorkFinishedMessage<State>) -> eyre::Result<()> {
         self.sender
             .send(msg)
@@ -91,7 +91,7 @@ where
     {
         let work = self;
         let runtime = work_acceptor.runtime();
-        let tx = work_acceptor.work_sender();
+        let tx = work_acceptor.work_finished_message_sender();
         let description = work.description;
         let join_handle = runtime.spawn(async move {
             match work.on_work.await {

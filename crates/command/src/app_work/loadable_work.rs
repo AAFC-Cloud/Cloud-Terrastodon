@@ -8,8 +8,10 @@ use std::future::Future;
 use std::panic::Location;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Instant;
 
-pub type Setter<State, FinishedWorkData> = Arc<dyn Fn(&mut State, Loadable<FinishedWorkData, eyre::Error>) + Send + Sync>;
+pub type Setter<State, FinishedWorkData> =
+    Arc<dyn Fn(&mut State, Loadable<FinishedWorkData, eyre::Error>) + Send + Sync>;
 /// A small helper that builds a `Work` for "fetch data -> store in app field".
 pub struct LoadableWorkBuilder<State, FinishedWorkData>
 where
@@ -92,7 +94,8 @@ where
             // on_enqueue
             impl Fn(&mut State),
             // on_work
-            impl Future<Output = eyre::Result<FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>>> + Send,
+            impl Future<Output = eyre::Result<FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>>>
+            + Send,
             // WorkSuccess
             FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>,
             // WorkFailureMutator
@@ -113,18 +116,24 @@ where
         let setter_for_failure = setter.clone();
 
         // Build the final `Work`:
+        let started_at = Instant::now();
         let work = Work {
             location,
             on_enqueue: move |app: &mut State| {
-                (setter_for_enqueue)(app, Loadable::Loading);
+                (setter_for_enqueue)(app, Loadable::Loading { started_at });
             },
             on_work: async move {
                 let data = on_work.await?;
-                Ok(FieldUpdaterWorkSuccessMutator { data, setter })
+                Ok(FieldUpdaterWorkSuccessMutator {
+                    data,
+                    setter,
+                    started_at,
+                })
             },
             on_failure: move |err| FieldUpdaterWorkFailureMutator {
                 err,
                 setter: setter_for_failure.clone(),
+                started_at,
             },
             is_err_if_discarded: self.is_err_if_discarded,
             description: self.description,
@@ -138,6 +147,7 @@ where
 pub struct FieldUpdaterWorkSuccessMutator<State, FinishedWorkData> {
     pub data: FinishedWorkData,
     pub setter: Setter<State, FinishedWorkData>,
+    pub started_at: Instant,
 }
 impl<State, FinishedWorkData> Debug for FieldUpdaterWorkSuccessMutator<State, FinishedWorkData> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -152,6 +162,7 @@ impl<State, FinishedWorkData> Debug for FieldUpdaterWorkSuccessMutator<State, Fi
 pub struct FieldUpdaterWorkFailureMutator<State, FinishedWorkData> {
     pub err: eyre::Error,
     pub setter: Setter<State, FinishedWorkData>,
+    pub started_at: Instant,
 }
 impl<State, FinishedWorkData> Debug for FieldUpdaterWorkFailureMutator<State, FinishedWorkData> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -162,20 +173,36 @@ impl<State, FinishedWorkData> Debug for FieldUpdaterWorkFailureMutator<State, Fi
     }
 }
 
-impl<State: 'static, FinishedWorkData> StateMutator<State> for FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>
+impl<State: 'static, FinishedWorkData> StateMutator<State>
+    for FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>
 where
     FinishedWorkData: std::fmt::Debug + Send + 'static,
 {
     fn mutate_state(self: Box<Self>, state: &mut State) {
-        (self.setter)(state, Loadable::Loaded(self.data))
+        (self.setter)(
+            state,
+            Loadable::Loaded {
+                started_at: self.started_at,
+                finished_at: Instant::now(),
+                value: self.data,
+            },
+        )
     }
 }
 
-impl<State: 'static, FinishedWorkData> StateMutator<State> for FieldUpdaterWorkFailureMutator<State, FinishedWorkData>
+impl<State: 'static, FinishedWorkData> StateMutator<State>
+    for FieldUpdaterWorkFailureMutator<State, FinishedWorkData>
 where
     FinishedWorkData: std::fmt::Debug + Send + 'static,
 {
     fn mutate_state(self: Box<Self>, state: &mut State) {
-        (self.setter)(state, Loadable::Failed(self.err))
+        (self.setter)(
+            state,
+            Loadable::Failed {
+                error: self.err,
+                started_at: self.started_at,
+                finished_at: Instant::now(),
+            },
+        )
     }
 }

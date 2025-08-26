@@ -43,6 +43,15 @@ impl<State> AppWorkTracker<State> {
         remaining_work.push(work);
         Ok(())
     }
+    pub fn len(&self) -> eyre::Result<usize> {
+        let remaining_work = self
+            .remaining_work
+            .lock()
+            .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
+        let remaining_work = remaining_work
+            .borrow();
+        Ok(remaining_work.len())
+    }
     pub fn prune(&self) -> eyre::Result<()> {
         let remaining_work = self
             .remaining_work

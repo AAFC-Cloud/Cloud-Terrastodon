@@ -1,7 +1,7 @@
 use crate::app_work::AcceptsWork;
 use crate::app_work::AppWorkTracker;
 use crate::app_work::AppboundWorkFinishedMessage;
-use crate::app_work::UnboundedWorkMessageSender;
+use crate::app_work::UnboundedWorkFinishedMessageSender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -25,7 +25,7 @@ impl<State: 'static> AppWorkState<State> {
             work_tracker: AppWorkTracker::new(),
         }
     }
-    pub fn handle_messages(&mut self, state: &mut State) {
+    pub fn handle_messages(&mut self, state: &mut State) -> eyre::Result<()> {
         while let Ok(msg) = self.work_response_receiver.try_recv() {
             match msg {
                 AppboundWorkFinishedMessage::StateChange(mutator) => {
@@ -33,6 +33,8 @@ impl<State: 'static> AppWorkState<State> {
                 }
             }
         }
+        self.work_tracker.prune()?;
+        Ok(())
     }
 }
 
@@ -41,7 +43,7 @@ impl<State: 'static> AcceptsWork<State> for AppWorkState<State> {
         self.work_tracker.clone()
     }
 
-    fn work_sender(&self) -> impl crate::app_work::WorkMessageSender<State> {
-        UnboundedWorkMessageSender::new(self.work_response_sender.clone())
+    fn work_finished_message_sender(&self) -> impl crate::app_work::AppboundWorkFinishedMessageSender<State> {
+        UnboundedWorkFinishedMessageSender::new(self.work_response_sender.clone())
     }
 }
