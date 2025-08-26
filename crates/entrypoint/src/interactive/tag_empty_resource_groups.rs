@@ -2,7 +2,7 @@ use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure::prelude::ResourceGroupId;
 use cloud_terrastodon_azure::prelude::ResourceTagsId;
 use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::set_tags_for_resources;
+use cloud_terrastodon_azure::prelude::replace_tags_for_resources;
 use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
 use serde::Deserialize;
@@ -50,7 +50,7 @@ ResourceContainers
     let tag_key = "CleanupAutomationFlag";
     let tag_value = "ThisResourceContainerIsEmpty";
     info!("Adding tag {}={} to each", tag_key, tag_value);
-    let result = set_tags_for_resources(
+    let result = replace_tags_for_resources(
         empty_resource_groups
             .into_iter()
             .map(|mut rg| {

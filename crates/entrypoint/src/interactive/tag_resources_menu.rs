@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::get_tags_for_resources;
-use cloud_terrastodon_azure::prelude::set_tags_for_resources;
+use cloud_terrastodon_azure::prelude::replace_tags_for_resources;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::FzfArgs;
 use cloud_terrastodon_user_input::pick;
@@ -54,7 +54,7 @@ pub async fn tag_resources_menu() -> eyre::Result<()> {
     .await?;
     let tag_key = prompt_line("Enter tag key: ").await?;
     let tag_value = prompt_line("Enter tag value: ").await?;
-    let result = set_tags_for_resources(
+    let result = replace_tags_for_resources(
         resource_tags
             .into_iter()
             .map(|(id, mut tags)| {

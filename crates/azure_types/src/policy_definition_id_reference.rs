@@ -98,3 +98,24 @@ impl<'de> Deserialize<'de> for PolicyDefinitionIdReference {
         Ok(id)
     }
 }
+
+impl PartialEq<PolicyDefinitionId> for PolicyDefinitionIdReference {
+    fn eq(&self, other: &PolicyDefinitionId) -> bool {
+        match self {
+            PolicyDefinitionIdReference::PolicyDefinitionId(policy_definition_id) => {
+                policy_definition_id == other
+            }
+            _ => false,
+        }
+    }
+}
+impl PartialEq<PolicySetDefinitionId> for PolicyDefinitionIdReference {
+    fn eq(&self, other: &PolicySetDefinitionId) -> bool {
+        match self {
+            PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
+                policy_set_definition_id == other
+            }
+            _ => false,
+        }
+    }
+}

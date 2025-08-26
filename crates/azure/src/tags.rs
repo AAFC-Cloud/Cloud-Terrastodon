@@ -47,18 +47,7 @@ pub async fn get_tags_for_resources(
     Ok(results)
 }
 
-fn extract_tags_from_response(
-    resp: BatchResponse<TagContent>,
-) -> HashMap<ResourceTagsId, HashMap<String, String>> {
-    let mut results = HashMap::with_capacity(resp.responses.len());
-    for response in resp.responses {
-        response.content.validate();
-        results.insert(response.content.id, response.content.properties.tags);
-    }
-    results
-}
-
-pub async fn set_tags_for_resources(
+pub async fn replace_tags_for_resources(
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
@@ -82,6 +71,69 @@ pub async fn set_tags_for_resources(
     let resp = invoke_batch_request(&batch).await?;
     let tags = extract_tags_from_response(resp);
     Ok(tags)
+}
+
+pub async fn merge_tags_for_resources(
+    resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
+) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
+    let url_tail = "?api-version=2022-09-01";
+    let batch = BatchRequest {
+        requests: resource_tags
+            .into_iter()
+            .map(|(resource_id, tags)| {
+                BatchRequestEntry::new(
+                    HttpMethod::PATCH,
+                    format!("{}{}", resource_id.expanded_form(), url_tail),
+                    Some(json!({
+                        "operation": "Merge",
+                        "properties": json!({
+                            "tags": tags,
+                        }),
+                    })),
+                )
+            })
+            .collect_vec(),
+    };
+    let resp = invoke_batch_request(&batch).await?;
+    let tags = extract_tags_from_response(resp);
+    Ok(tags)
+}
+
+pub async fn delete_tags_for_resources(
+    resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
+) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
+    let url_tail = "?api-version=2022-09-01";
+    let batch = BatchRequest {
+        requests: resource_tags
+            .into_iter()
+            .map(|(resource_id, tags)| {
+                BatchRequestEntry::new(
+                    HttpMethod::PATCH,
+                    format!("{}{}", resource_id.expanded_form(), url_tail),
+                    Some(json!({
+                        "operation": "Delete",
+                        "properties": json!({
+                            "tags": tags,
+                        }),
+                    })),
+                )
+            })
+            .collect_vec(),
+    };
+    let resp = invoke_batch_request(&batch).await?;
+    let tags = extract_tags_from_response(resp);
+    Ok(tags)
+}
+
+fn extract_tags_from_response(
+    resp: BatchResponse<TagContent>,
+) -> HashMap<ResourceTagsId, HashMap<String, String>> {
+    let mut results = HashMap::with_capacity(resp.responses.len());
+    for response in resp.responses {
+        response.content.validate();
+        results.insert(response.content.id, response.content.properties.tags);
+    }
+    results
 }
 
 #[cfg(test)]
