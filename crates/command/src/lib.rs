@@ -5,10 +5,10 @@
 )]
 pub mod app_work;
 mod command;
+mod command_kind;
+mod command_output;
 mod no_spaces;
 mod work;
-mod command_output;
-mod command_kind;
 
 pub use crate::command::*;
 pub use crate::command_kind::*;
