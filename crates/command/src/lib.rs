@@ -3,10 +3,10 @@
     string_from_utf8_lossy_owned,
     async_fn_track_caller
 )]
+pub mod app_work;
 mod command;
 mod no_spaces;
 mod work;
-pub mod app_work;
 
 pub use crate::command::*;
 pub use crate::no_spaces::*;

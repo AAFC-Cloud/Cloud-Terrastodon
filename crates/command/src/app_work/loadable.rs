@@ -19,7 +19,6 @@ pub enum Loadable<T, E = eyre::Error> {
     },
 }
 impl<T, E> Loadable<T, E> {
-    
     pub fn map<N, F>(self, mapper: F) -> Loadable<N, E>
     where
         F: FnOnce(T) -> N,

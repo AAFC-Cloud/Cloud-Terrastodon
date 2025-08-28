@@ -43,7 +43,9 @@ impl<State: 'static> AcceptsWork<State> for AppWorkState<State> {
         self.work_tracker.clone()
     }
 
-    fn work_finished_message_sender(&self) -> impl crate::app_work::AppboundWorkFinishedMessageSender<State> {
+    fn work_finished_message_sender(
+        &self,
+    ) -> impl crate::app_work::AppboundWorkFinishedMessageSender<State> {
         UnboundedWorkFinishedMessageSender::new(self.work_response_sender.clone())
     }
 }

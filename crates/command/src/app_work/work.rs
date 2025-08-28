@@ -62,7 +62,9 @@ impl<T> UnboundedWorkFinishedMessageSender<T> {
         UnboundedWorkFinishedMessageSender { sender }
     }
 }
-impl<State: 'static> AppboundWorkFinishedMessageSender<State> for UnboundedWorkFinishedMessageSender<State> {
+impl<State: 'static> AppboundWorkFinishedMessageSender<State>
+    for UnboundedWorkFinishedMessageSender<State>
+{
     fn send(&self, msg: AppboundWorkFinishedMessage<State>) -> eyre::Result<()> {
         self.sender
             .send(msg)
@@ -80,7 +82,11 @@ where
     OnFailure: Fn(eyre::Error) -> WorkFailureMutator + Send + 'static,
     WorkFailureMutator: StateMutator<State> + 'static,
 {
-    pub fn enqueue(self, work_acceptor: &impl AcceptsWork<State>, state: &mut State) -> eyre::Result<()>
+    pub fn enqueue(
+        self,
+        work_acceptor: &impl AcceptsWork<State>,
+        state: &mut State,
+    ) -> eyre::Result<()>
     where
         OnEnqueue: Fn(&mut State),
         OnWork: Future<Output = eyre::Result<WorkSuccess>> + Send + 'static,

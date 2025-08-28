@@ -38,8 +38,7 @@ impl<State> AppWorkTracker<State> {
             .remaining_work
             .lock()
             .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
-        let mut remaining_work = remaining_work
-            .borrow_mut();
+        let mut remaining_work = remaining_work.borrow_mut();
         remaining_work.push(work);
         Ok(())
     }
@@ -48,8 +47,7 @@ impl<State> AppWorkTracker<State> {
             .remaining_work
             .lock()
             .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
-        let remaining_work = remaining_work
-            .borrow();
+        let remaining_work = remaining_work.borrow();
         Ok(remaining_work.len())
     }
     pub fn prune(&self) -> eyre::Result<()> {
@@ -57,8 +55,7 @@ impl<State> AppWorkTracker<State> {
             .remaining_work
             .lock()
             .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
-        let mut remaining_work = remaining_work
-            .borrow_mut();
+        let mut remaining_work = remaining_work.borrow_mut();
         remaining_work.retain(|work| !work.join_handle.is_finished());
         Ok(())
     }
@@ -67,8 +64,7 @@ impl<State> AppWorkTracker<State> {
             .remaining_work
             .lock()
             .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
-        let mut remaining_work = remaining_work
-            .take();
+        let mut remaining_work = remaining_work.take();
         if remaining_work.is_empty() {
             return Ok(());
         }
