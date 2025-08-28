@@ -52,4 +52,10 @@ impl<T, E> Loadable<T, E> {
             Self::Loaded { value, .. } => Some(value),
         }
     }
+    pub fn as_loaded_mut(&mut self) -> Option<&mut T> {
+        match self {
+            Self::NotLoaded | Self::Loading { .. } | Self::Failed { .. } => None,
+            Self::Loaded { value, .. } => Some(value),
+        }
+    }
 }
