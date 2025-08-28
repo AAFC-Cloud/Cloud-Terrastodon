@@ -1,3 +1,5 @@
+use crate::CommandKind;
+use crate::CommandOutput;
 use crate::NoSpaces;
 use async_recursion::async_recursion;
 pub use bstr;
@@ -5,35 +7,22 @@ use bstr::BString;
 use bstr::ByteSlice;
 use chrono::DateTime;
 use chrono::Local;
-use cloud_terrastodon_config::CommandsConfig;
-use cloud_terrastodon_config::Config;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
-use eyre::Error;
 use eyre::Result;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
-use std::env;
 use std::ffi::OsStr;
 use std::ffi::OsString;
-#[cfg(not(windows))]
-use std::os::unix::process::ExitStatusExt;
-#[cfg(windows)]
-use std::os::windows::process::ExitStatusExt;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::ExitStatus;
-use std::process::Output;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::Builder;
-use tempfile::TempPath;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -45,275 +34,6 @@ use tracing::debug;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
-
-#[derive(Clone, Default, Debug, Eq, PartialEq)]
-pub enum CommandKind {
-    #[default]
-    AzureCLI,
-    Terraform,
-    VSCode,
-    Echo,
-    Pwsh,
-    Git,
-    Other(String),
-}
-
-pub const USE_TOFU_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TOFU";
-
-static CONFIG: OnceCell<CommandsConfig> = OnceCell::const_new();
-
-async fn get_config(cache: &OnceCell<CommandsConfig>) -> &CommandsConfig {
-    let config: &CommandsConfig = cache
-        .get_or_init(|| async {
-            let config: CommandsConfig = CommandsConfig::load().await.unwrap();
-            config
-        })
-        .await;
-    config
-}
-
-impl CommandKind {
-    async fn program(&self) -> String {
-        match self {
-            CommandKind::AzureCLI => get_config(&CONFIG).await.azure_cli.to_owned(),
-            CommandKind::Terraform => match env::var(USE_TOFU_FLAG_KEY) {
-                Err(_) => get_config(&CONFIG).await.terraform.to_owned(),
-                Ok(_) => get_config(&CONFIG).await.tofu.to_owned(),
-            },
-            CommandKind::VSCode => get_config(&CONFIG).await.vscode.to_owned(),
-            CommandKind::Echo => "pwsh".to_string(),
-            CommandKind::Pwsh => "pwsh".to_string(),
-            CommandKind::Git => "git".to_string(),
-            CommandKind::Other(x) => x.to_owned(),
-        }
-    }
-    async fn apply_args_and_envs(
-        &self,
-        this: &CommandBuilder,
-        cmd: &mut Command,
-    ) -> Result<Vec<TempPath>> {
-        let mut rtn = Vec::new();
-        let mut args = this.args.clone();
-        // Always add --debug for AzureCLI if not present
-        if let CommandKind::AzureCLI = self {
-            let has_debug = args.iter().any(|a| a == "--debug");
-            if !has_debug {
-                args.push("--debug".into());
-            }
-        }
-        // Write azure args to files
-        match (self, this.file_args.is_empty()) {
-            (CommandKind::AzureCLI, false) => {
-                // todo: add tests
-                for (i, arg) in this.file_args.iter() {
-                    debug!("Writing arg {}", arg.path.to_string_lossy());
-                    let mut patch_arg = async |i: usize, file_path: &PathBuf| -> Result<()> {
-                        // Get the arg from the array
-                        // We are converting @myfile.txt to @/path/to/myfile.txt
-                        let arg_to_update =
-                            args.get_mut(i).expect("azure arg must match an argument");
-
-                        // Check assumption - it should already begin with an @
-                        let check = arg_to_update.to_string_lossy();
-                        let first_char = check.chars().next().unwrap();
-                        if first_char != '@' {
-                            bail!(
-                                "First character in file arg for {:?} must be '@', got {}",
-                                this.kind,
-                                check
-                            )
-                        }
-
-                        // Write the file
-                        let mut file = OpenOptions::new()
-                            .create(true)
-                            .truncate(true)
-                            .write(true)
-                            .open(&file_path)
-                            .await
-                            .context(format!("Opening azure arg file {}", file_path.display()))?;
-                        file.write_all(arg.content.as_bytes())
-                            .await
-                            .context(format!("Writing azure arg file {}", file_path.display()))?;
-
-                        // Update the value
-                        arg_to_update.clear();
-                        arg_to_update.push("@");
-                        arg_to_update.push(file_path.canonicalize().context(
-                            "azure arg file must be written before absolute path can be determined",
-                        )?);
-                        Ok(())
-                    };
-                    let mut file = match &this.cache_behaviour {
-                        CacheBehaviour::Some {
-                            path: cache_dir, ..
-                        } => {
-                            // Cache dir has been provided
-                            // we won't use temp files
-                            cache_dir.ensure_dir_exists().await?;
-                            let file_path = cache_dir.join(&arg.path);
-                            patch_arg(*i, &file_path).await?;
-                            tokio::fs::OpenOptions::new()
-                                .write(true)
-                                .create(true)
-                                .truncate(true)
-                                .open(&file_path)
-                                .await
-                                .context(format!(
-                                    "opening azure arg file {}",
-                                    arg.path.to_string_lossy()
-                                ))?
-                        }
-                        CacheBehaviour::None => {
-                            // No cache dir
-                            // We will write azure args to temp files
-                            let temp_dir = AppDir::Temp.as_path_buf();
-                            temp_dir.ensure_dir_exists().await?;
-                            let path = tempfile::Builder::new()
-                                .suffix(&arg.path)
-                                .tempfile_in(temp_dir)
-                                .context(format!(
-                                    "creating temp file {}",
-                                    arg.path.to_string_lossy()
-                                ))?
-                                .into_temp_path();
-                            patch_arg(*i, &path.to_path_buf()).await?;
-                            let file = tokio::fs::OpenOptions::new()
-                                .write(true)
-                                .open(&path)
-                                .await
-                                .context(format!(
-                                    "opening azure arg file {}",
-                                    arg.path.to_string_lossy()
-                                ))?;
-                            rtn.push(path); // add to rtn list so its not dropped+cleaned immediately
-                            file
-                        }
-                    };
-                    file.write_all(arg.content.as_bytes())
-                        .await
-                        .context(format!(
-                            "writing azure arg file {}",
-                            arg.path.to_string_lossy()
-                        ))?;
-                }
-            }
-            (_, false) => {
-                bail!("Only {:?} can use Azure args", CommandKind::AzureCLI);
-            }
-            (CommandKind::Echo, true) => {
-                let mut new_args: Vec<OsString> = Vec::with_capacity(3);
-                new_args.push("-NoProfile".into());
-                new_args.push("-Command".into());
-                // new_args.push("echo".into());
-                let mut guh = OsString::new();
-                guh.push("[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new();'");
-                let space: OsString = " ".into();
-                guh.push(
-                    args.join(&space)
-                        .as_encoded_bytes()
-                        .replace(b"'", b"''")
-                        .to_os_str()?,
-                );
-                guh.push("'");
-                new_args.push(guh);
-                args = new_args;
-            }
-            (_, true) => {}
-        }
-        // Apply args and envs to tokio Command
-        cmd.args(args);
-        cmd.envs(&this.env);
-        Ok(rtn)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct CommandOutput {
-    pub stdout: BString,
-    pub stderr: BString,
-    pub status: i32,
-}
-impl CommandOutput {
-    pub fn success(&self) -> bool {
-        #[cfg(windows)]
-        return ExitStatus::from_raw(self.status as u32).success();
-        #[cfg(not(windows))]
-        return ExitStatus::from_raw(self.status).success();
-    }
-    #[track_caller]
-    pub async fn try_interpret<T: DeserializeOwned>(
-        &self,
-        command: &CommandBuilder,
-    ) -> eyre::Result<T> {
-        match serde_json::from_slice(self.stdout.to_str_lossy().as_bytes()) {
-            Ok(results) => Ok(results),
-            Err(e) => {
-                let dir = command.write_failure(self).await?;
-                Err(eyre::Error::new(e)
-                    .wrap_err(format!(
-                        "Called from {}",
-                        RelativeLocation::from(std::panic::Location::caller())
-                    ))
-                    .wrap_err(format!(
-                        "deserializing `{}` failed, dumped to {:?}",
-                        command.summarize().await,
-                        dir
-                    )))
-            }
-        }
-    }
-    /// Keeps only the first and last 500 lines of stdout and stderr
-    pub fn shorten(&mut self) {
-        fn keep_first_and_last_500_lines_with_warning(output: BString) -> BString {
-            let lines: Vec<&[u8]> = output.lines().collect();
-            let total = lines.len();
-
-            if total <= 1000 {
-                output
-            } else {
-                let mut trimmed = Vec::new();
-                trimmed.extend_from_slice(&lines[..500]);
-
-                // Add truncation warning
-                let warning = b"...[output truncated: middle lines omitted]...";
-                trimmed.push(warning);
-
-                trimmed.extend_from_slice(&lines[total - 500..]);
-                BString::from(trimmed.join(&b'\n'))
-            }
-        }
-        let stdout = std::mem::take(&mut self.stdout);
-        self.stdout = keep_first_and_last_500_lines_with_warning(stdout);
-
-        let stderr = std::mem::take(&mut self.stderr);
-        self.stderr = keep_first_and_last_500_lines_with_warning(stderr);
-    }
-}
-impl std::error::Error for CommandOutput {}
-impl std::fmt::Display for CommandOutput {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "status={}\nstdout={}\nstderr={}",
-            self.status, self.stdout, self.stderr
-        ))
-    }
-}
-impl TryFrom<Output> for CommandOutput {
-    type Error = Error;
-    fn try_from(value: Output) -> Result<Self> {
-        Ok(CommandOutput {
-            // stdout: String::from_utf8_lossy_owned(value.stdout),
-            // stderr: String::from_utf8_lossy_owned(value.stderr),
-            stdout: BString::from(value.stdout),
-            stderr: BString::from(value.stderr),
-            status: match value.status.code().unwrap_or(1) {
-                x if x < 0 => 1,
-                x => x,
-            },
-        })
-    }
-}
 
 #[derive(Clone, Copy, Default, Debug)]
 pub enum RetryBehaviour {
@@ -339,24 +59,24 @@ pub enum CacheBehaviour {
 }
 
 #[derive(Debug, Clone)]
-struct FileArg {
-    path: PathBuf,
-    content: String,
+pub struct FileArg {
+    pub path: PathBuf,
+    pub content: String,
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct CommandBuilder {
-    kind: CommandKind,
-    args: Vec<OsString>,
-    file_args: HashMap<usize, FileArg>,
-    env: HashMap<String, String>,
-    run_dir: Option<PathBuf>,
-    retry_behaviour: RetryBehaviour,
-    output_behaviour: OutputBehaviour,
-    cache_behaviour: CacheBehaviour,
-    should_announce: bool,
-    timeout: Option<Duration>,
-    stdin_content: Option<String>, // Added field for stdin content
+    pub(crate) kind: CommandKind,
+    pub(crate) args: Vec<OsString>,
+    pub(crate) file_args: HashMap<usize, FileArg>,
+    pub(crate) env: HashMap<String, String>,
+    pub(crate) run_dir: Option<PathBuf>,
+    pub(crate) retry_behaviour: RetryBehaviour,
+    pub(crate) output_behaviour: OutputBehaviour,
+    pub(crate) cache_behaviour: CacheBehaviour,
+    pub(crate) should_announce: bool,
+    pub(crate) timeout: Option<Duration>,
+    pub(crate) stdin_content: Option<String>, // Added field for stdin content
 }
 
 static LOGIN_LOCK: OnceCell<Arc<Mutex<()>>> = OnceCell::const_new();

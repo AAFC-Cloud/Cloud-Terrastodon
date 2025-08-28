@@ -7,8 +7,12 @@ pub mod app_work;
 mod command;
 mod no_spaces;
 mod work;
+mod command_output;
+mod command_kind;
 
 pub use crate::command::*;
+pub use crate::command_kind::*;
+pub use crate::command_output::*;
 pub use crate::no_spaces::*;
 pub use crate::work::*;
 
