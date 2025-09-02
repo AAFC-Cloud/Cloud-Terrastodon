@@ -16,6 +16,8 @@ pub async fn fetch_key_vault_secrets(key_vault_id: &KeyVaultId) -> Result<Vec<Ke
         "list",
         "--vault-name",
         key_vault_id.key_vault_name.as_str(),
+        "--subscription",
+        key_vault_id.resource_group_id.subscription_id.to_string().as_str(),
         "--output",
         "json",
     ]);
