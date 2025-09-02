@@ -20,6 +20,7 @@ mod groups;
 mod key_vault;
 mod key_vault_id;
 mod key_vault_name;
+mod key_vault_properties;
 mod management_group_ancestors_chain;
 mod management_groups;
 mod metrics;
@@ -104,11 +105,9 @@ mod virtual_network_name;
 mod virtual_network_peering_id;
 mod virtual_network_peering_name;
 mod virtual_network_properties;
-mod key_vault_properties;
 
 pub mod prelude {
     pub use crate::accounts::*;
-    pub use crate::key_vault_properties::*;
     pub use crate::address_prefix::*;
     pub use crate::address_prefixes::*;
     pub use crate::all_or::*;
@@ -128,6 +127,7 @@ pub mod prelude {
     pub use crate::key_vault::*;
     pub use crate::key_vault_id::*;
     pub use crate::key_vault_name::*;
+    pub use crate::key_vault_properties::*;
     pub use crate::management_group_ancestors_chain::*;
     pub use crate::management_groups::*;
     pub use crate::metrics::*;

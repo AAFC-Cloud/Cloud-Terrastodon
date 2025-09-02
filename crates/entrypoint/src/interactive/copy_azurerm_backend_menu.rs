@@ -33,8 +33,14 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
                     .get(&sa.id.resource_group_id.subscription_id)
                     .map(|sub| sub.name.to_owned())
                     .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
-                let key = format!("{:32}\t{:64}\t{}", sub_name, sa.id.resource_group_id.resource_group_name, sa.name);
-                let key_short = format!("{} {} {}", sub_name, sa.id.resource_group_id.resource_group_name, sa.name);
+                let key = format!(
+                    "{:32}\t{:64}\t{}",
+                    sub_name, sa.id.resource_group_id.resource_group_name, sa.name
+                );
+                let key_short = format!(
+                    "{} {} {}",
+                    sub_name, sa.id.resource_group_id.resource_group_name, sa.name
+                );
                 Choice {
                     key,
                     value: (sa, key_short, sub_name),
@@ -51,7 +57,14 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
     cmd.args(["storage", "container", "list", "--account-name"]);
     cmd.arg(&*chosen_storage_account.0.name);
     cmd.arg("--subscription");
-    cmd.arg(chosen_storage_account.0.id.resource_group_id.subscription_id.short_form());
+    cmd.arg(
+        chosen_storage_account
+            .0
+            .id
+            .resource_group_id
+            .subscription_id
+            .short_form(),
+    );
     cmd.args(["--query", "[].name", "--output", "json"]);
     let blob_container_names = cmd.run::<Vec<String>>().await?;
 
@@ -85,10 +98,19 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
     container_name       = "{}"
     subscription_id      = "{}" # {}
     "#,
-        chosen_storage_account.0.id.resource_group_id.resource_group_name,
+        chosen_storage_account
+            .0
+            .id
+            .resource_group_id
+            .resource_group_name,
         chosen_storage_account.0.name,
         chosen_blob_container,
-        chosen_storage_account.0.id.resource_group_id.subscription_id.short_form(),
+        chosen_storage_account
+            .0
+            .id
+            .resource_group_id
+            .subscription_id
+            .short_form(),
         chosen_storage_account.2
     );
 

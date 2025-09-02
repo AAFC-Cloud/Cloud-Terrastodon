@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
 use crate::tenants::TenantId;
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::Value;
 
 /// Selected Key Vault properties as returned by Azure. Some complex nested collections remain
 /// loosely typed (`Value`) until modeled (see TODOs).

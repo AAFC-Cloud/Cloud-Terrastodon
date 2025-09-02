@@ -72,8 +72,7 @@ mod tests {
             ),
             key_vault_name: KeyVaultName::try_new("bruh")?,
         };
-        let id: KeyVaultId =
-            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let id: KeyVaultId = serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(id, expanded);
         Ok(())
     }

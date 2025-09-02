@@ -1,5 +1,5 @@
-use crate::prelude::ResourceGroupId;
 use crate::prelude::KeyVaultName;
+use crate::prelude::ResourceGroupId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -27,7 +27,7 @@ pub struct KeyVaultId {
 impl KeyVaultId {
     pub fn new(
         resource_group_id: impl Into<ResourceGroupId>,
-    key_vault_name: impl Into<KeyVaultName>,
+        key_vault_name: impl Into<KeyVaultName>,
     ) -> KeyVaultId {
         KeyVaultId {
             resource_group_id: resource_group_id.into(),
@@ -39,7 +39,7 @@ impl KeyVaultId {
     where
         R: TryInto<ResourceGroupId>,
         R::Error: Into<eyre::Error>,
-    N: TryInto<KeyVaultName>,
+        N: TryInto<KeyVaultName>,
         N::Error: Into<eyre::Error>,
     {
         let resource_group_id = resource_group_id

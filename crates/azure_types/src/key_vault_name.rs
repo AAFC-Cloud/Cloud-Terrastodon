@@ -85,18 +85,19 @@ fn validate_key_vault_name_contents(value: &CompactString) -> Result<(), Validat
     // Start with a letter
     let first = s.chars().next().unwrap();
     if !first.is_ascii_alphabetic() {
-        return Err(ValidationError::new("keyvaultname_start").with_message(
-            format!("Key Vault name must start with a letter: {s:?}").into(),
-        ));
+        return Err(ValidationError::new("keyvaultname_start")
+            .with_message(format!("Key Vault name must start with a letter: {s:?}").into()));
     }
     // Allowed chars and no consecutive hyphens
     let mut prev_hyphen = false;
     for (i, ch) in s.chars().enumerate() {
         if ch == '-' {
             if prev_hyphen {
-                return Err(ValidationError::new("keyvaultname_consecutive_hyphens").with_message(
-                    format!("Consecutive hyphens at position {}-{i} in {s:?}", i-1).into(),
-                ));
+                return Err(
+                    ValidationError::new("keyvaultname_consecutive_hyphens").with_message(
+                        format!("Consecutive hyphens at position {}-{i} in {s:?}", i - 1).into(),
+                    ),
+                );
             }
             prev_hyphen = true;
             continue;
@@ -175,9 +176,11 @@ impl<'a> Arbitrary<'a> for KeyVaultName {
         let mut s = String::with_capacity(len as usize);
         s.push(first);
         let mut prev_hyphen = false;
-        while s.len() < len as usize - 1 { // leave space for last char decision
+        while s.len() < len as usize - 1 {
+            // leave space for last char decision
             let choice: u8 = u.arbitrary()?; // random byte
-            let ch = match choice % 63 { // enough spread
+            let ch = match choice % 63 {
+                // enough spread
                 0 => '-',
                 n if n < 10 + 1 => (b'0' + (n - 1)) as char, // digits bucket
                 n if n < 10 + 1 + 26 => (b'a' + (n - 11)) as char,
@@ -185,7 +188,9 @@ impl<'a> Arbitrary<'a> for KeyVaultName {
                 _ => 'a',
             };
             if ch == '-' {
-                if prev_hyphen { continue; }
+                if prev_hyphen {
+                    continue;
+                }
                 // Don't allow hyphen as penultimate if last will also be hyphen (we'll ensure last not hyphen anyway)
                 prev_hyphen = true;
                 s.push('-');
@@ -195,7 +200,7 @@ impl<'a> Arbitrary<'a> for KeyVaultName {
             }
         }
         // Last char: letter or digit (not hyphen)
-    let last_bucket: u8 = u.arbitrary::<u8>()? % 62; // 0-61
+        let last_bucket: u8 = u.arbitrary::<u8>()? % 62; // 0-61
         let last = match last_bucket {
             n if n < 10 => (b'0' + n) as char,
             n if n < 36 => (b'a' + (n - 10)) as char,

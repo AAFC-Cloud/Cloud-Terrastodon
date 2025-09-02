@@ -180,10 +180,11 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
                     KeyCode::Enter => {
                         // Submit the selected item if no items marked, submit existing marked items otherwise (do not mark the selected item)
                         if (!many || marked_for_return.is_empty())
-                            && let Some(selected_index) = list_state.selected() {
-                                let selected_key = search_results_keys.swap_remove(selected_index);
-                                marked_for_return.insert(selected_key);
-                            }
+                            && let Some(selected_index) = list_state.selected()
+                        {
+                            let selected_key = search_results_keys.swap_remove(selected_index);
+                            marked_for_return.insert(selected_key);
+                        }
                         break;
                     }
                     KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => {

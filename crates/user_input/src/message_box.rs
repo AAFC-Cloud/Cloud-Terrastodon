@@ -47,17 +47,15 @@ impl MessageBoxTui {
             // Input handling
             if event::poll(std::time::Duration::from_millis(100))?
                 && let Event::Key(key) = event::read()?
-                    && key.kind == KeyEventKind::Press {
-                        match key.code {
-                            KeyCode::Enter
-                            | KeyCode::Char(' ')
-                            | KeyCode::Esc
-                            | KeyCode::Char('q') => {
-                                break;
-                            }
-                            _ => {}
-                        }
+                && key.kind == KeyEventKind::Press
+            {
+                match key.code {
+                    KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Char('q') => {
+                        break;
                     }
+                    _ => {}
+                }
+            }
 
             // Draw
             terminal.draw(|f| {
