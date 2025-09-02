@@ -21,6 +21,8 @@ mod key_vault;
 mod key_vault_id;
 mod key_vault_name;
 mod key_vault_properties;
+mod key_vault_secret;
+mod key_vault_secret_name;
 mod management_group_ancestors_chain;
 mod management_groups;
 mod metrics;
@@ -128,6 +130,8 @@ pub mod prelude {
     pub use crate::key_vault_id::*;
     pub use crate::key_vault_name::*;
     pub use crate::key_vault_properties::*;
+    pub use crate::key_vault_secret::*;
+    pub use crate::key_vault_secret_name::*;
     pub use crate::management_group_ancestors_chain::*;
     pub use crate::management_groups::*;
     pub use crate::metrics::*;

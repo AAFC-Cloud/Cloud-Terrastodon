@@ -12,6 +12,7 @@ mod evaluate_policy_assignment_compliance;
 mod groups;
 mod import;
 mod key_vaults;
+mod key_vault_secrets;
 mod management_groups;
 mod metrics;
 mod microsoft_graph;
@@ -63,6 +64,7 @@ pub mod prelude {
     pub use crate::groups::*;
     pub use crate::import::*;
     pub use crate::key_vaults::*;
+    pub use crate::key_vault_secrets::*;
     pub use crate::management_groups::*;
     pub use crate::metrics::*;
     pub use crate::microsoft_graph::*;

@@ -58,6 +58,7 @@ mod tests {
     use super::*;
     use crate::prelude::ResourceGroupId;
     use crate::prelude::ResourceGroupName;
+    use crate::prelude::SubscriptionId;
     use crate::slug::Slug;
     use eyre::Result;
     use uuid::Uuid;
