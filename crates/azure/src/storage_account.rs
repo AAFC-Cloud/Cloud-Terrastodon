@@ -18,6 +18,7 @@ pub async fn fetch_all_storage_accounts() -> Result<Vec<StorageAccount>> {
         r#"
 Resources
 | where type == "microsoft.storage/storageaccounts"
+| project id,name,kind,location,sku,properties,tags
         "#,
         CacheBehaviour::Some {
             path: PathBuf::from("storage_accounts"),

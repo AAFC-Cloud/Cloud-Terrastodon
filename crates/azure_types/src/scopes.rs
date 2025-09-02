@@ -1,6 +1,7 @@
 use crate::management_groups::MANAGEMENT_GROUP_ID_PREFIX;
 use crate::management_groups::ManagementGroupId;
 use crate::prelude::ContainerRegistryId;
+use crate::prelude::KeyVaultId;
 use crate::prelude::PolicyAssignmentId;
 use crate::prelude::PolicyDefinitionId;
 use crate::prelude::PolicySetDefinitionId;
@@ -556,6 +557,7 @@ pub enum ScopeImplKind {
     Resource,
     RouteTable,
     VirtualNetworkPeering,
+    KeyVault,
     Unknown,
 }
 
@@ -581,6 +583,7 @@ pub enum ScopeImpl {
     Resource(ResourceId),
     RouteTable(RouteTableId),
     VirtualNetworkPeering(VirtualNetworkPeeringId),
+    KeyVault(KeyVaultId),
     Unknown(CompactString),
 }
 impl Scope for ScopeImpl {
@@ -608,6 +611,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RouteTable(id) => id.expanded_form(),
             ScopeImpl::VirtualNetworkPeering(id) => id.expanded_form(),
             ScopeImpl::ContainerRegistry(id) => id.expanded_form(),
+            ScopeImpl::KeyVault(id) => id.expanded_form(),
         }
     }
 
@@ -634,6 +638,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RouteTable(id) => id.short_form(),
             ScopeImpl::VirtualNetworkPeering(id) => id.short_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
+            ScopeImpl::KeyVault(id) => id.short_form(),
         }
     }
 
@@ -723,6 +728,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RouteTable(_) => ScopeImplKind::RouteTable,
             ScopeImpl::VirtualNetworkPeering(_) => ScopeImplKind::VirtualNetworkPeering,
             ScopeImpl::Resource(_) => ScopeImplKind::Resource,
+            ScopeImpl::KeyVault(_) => ScopeImplKind::KeyVault,
         }
     }
 
@@ -802,6 +808,7 @@ impl std::fmt::Display for ScopeImpl {
                 x.short_form()
             )),
             ScopeImpl::Unknown(x) => f.write_fmt(format_args!("Raw({x})")),
+            ScopeImpl::KeyVault(x) => f.write_fmt(format_args!("KeyVault({})", x.short_form())),
         }
     }
 }

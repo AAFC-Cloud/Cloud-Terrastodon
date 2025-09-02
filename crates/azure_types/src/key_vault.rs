@@ -1,5 +1,6 @@
-use crate::prelude::StorageAccountId;
-use crate::prelude::StorageAccountName;
+use crate::prelude::KeyVaultId;
+use crate::prelude::KeyVaultName;
+use crate::prelude::KeyVaultProperties;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::serde_helpers::deserialize_default_if_null;
@@ -10,60 +11,43 @@ use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::Value;
 use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct StorageAccountSKU {
-    name: String,
-    tier: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub enum StorageAccountKind {
-    BlockBlobStorage,
-    BlobStorage,
-    Storage,
-    StorageV2,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct StorageAccount {
-    pub id: StorageAccountId,
-    pub name: StorageAccountName,
-    pub kind: StorageAccountKind,
+pub struct KeyVault {
+    pub id: KeyVaultId,
+    pub name: KeyVaultName,
     pub location: String,
-    pub sku: StorageAccountSKU,
-    pub properties: Value,
+    pub properties: KeyVaultProperties,
     #[serde(deserialize_with = "deserialize_default_if_null")]
     #[serde(default)]
     pub tags: HashMap<String, String>,
 }
 
-impl AsScope for StorageAccount {
+impl AsScope for KeyVault {
     fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl AsScope for &StorageAccount {
+impl AsScope for &KeyVault {
     fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
 
-impl std::fmt::Display for StorageAccount {
+impl std::fmt::Display for KeyVault {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;
         Ok(())
     }
 }
-impl From<StorageAccount> for HCLImportBlock {
-    fn from(storage_account: StorageAccount) -> Self {
+impl From<KeyVault> for HCLImportBlock {
+    fn from(storage_account: KeyVault) -> Self {
         HCLImportBlock {
             provider: HCLProviderReference::Inherited,
             id: storage_account.id.expanded_form().to_owned(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::StorageAccount,
+                kind: AzureRMResourceBlockKind::KeyVault,
                 name: storage_account.name.sanitize(),
             },
         }
@@ -80,15 +64,15 @@ mod tests {
 
     #[test]
     fn deserializes() -> Result<()> {
-        // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Storage/storageAccounts/bruh
-        let expanded = StorageAccountId {
+        // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.KeyVault/Vaults/bruh
+        let expanded = KeyVaultId {
             resource_group_id: ResourceGroupId::new(
                 SubscriptionId::new(Uuid::new_v4()),
                 ResourceGroupName::try_new("MY-RG")?,
             ),
-            storage_account_name: StorageAccountName::try_new("bruh")?,
+            key_vault_name: KeyVaultName::try_new("bruh")?,
         };
-        let id: StorageAccountId =
+        let id: KeyVaultId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(id, expanded);
         Ok(())
@@ -97,10 +81,10 @@ mod tests {
     #[test]
     fn not_ambiguous() -> Result<()> {
         let expanded = format!(
-            "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Storage/storageAccounts/bruh",
+            "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.KeyVault/Vaults/bruh",
             nil = Uuid::nil()
         );
-        let id = StorageAccountId::try_from_expanded(&expanded)?;
+        let id = KeyVaultId::try_from_expanded(&expanded)?;
         dbg!(id);
         Ok(())
     }

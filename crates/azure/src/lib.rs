@@ -11,6 +11,7 @@ mod eligible_child_resources;
 mod evaluate_policy_assignment_compliance;
 mod groups;
 mod import;
+mod key_vaults;
 mod management_groups;
 mod metrics;
 mod microsoft_graph;
@@ -61,6 +62,7 @@ pub mod prelude {
     pub use crate::evaluate_policy_assignment_compliance::*;
     pub use crate::groups::*;
     pub use crate::import::*;
+    pub use crate::key_vaults::*;
     pub use crate::management_groups::*;
     pub use crate::metrics::*;
     pub use crate::microsoft_graph::*;

@@ -26,7 +26,7 @@ pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizat
         let Some((_,org)) = org.rsplit_once('=') else {
             bail!("Expected org to have a slash before the name, found {org:?}");
         };
-        Ok(org.trim().to_string().parse()?)
+        org.trim().to_string().parse()
     })()
     .wrap_err(format!("Failed to extract value from config:\n===\n{resp}\n===")) {
         Ok(s) => Ok(s),

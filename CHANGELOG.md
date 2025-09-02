@@ -1,3 +1,9 @@
+# v0.26.0
+
+- Add `fetch_all_key_vaults` fn
+- Add `KeyVault` and `KeyVaultId` and `KeyVaultProperties` and `KeyVaultName` types
+- Remove storage account duplicate properties already exposed by the id
+
 # v0.25.0
 
 - Revert virtual network address space back to `Ipv4Network`
