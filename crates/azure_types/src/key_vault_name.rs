@@ -179,9 +179,9 @@ impl<'a> Arbitrary<'a> for KeyVaultName {
             let choice: u8 = u.arbitrary()?; // random byte
             let ch = match choice % 63 { // enough spread
                 0 => '-',
-                n if n < 10 + 1 => (b'0' + (n - 1) as u8) as char, // digits bucket
-                n if n < 10 + 1 + 26 => (b'a' + (n - 11) as u8) as char,
-                n if n < 10 + 1 + 26 + 26 => (b'A' + (n - 37) as u8) as char,
+                n if n < 10 + 1 => (b'0' + (n - 1)) as char, // digits bucket
+                n if n < 10 + 1 + 26 => (b'a' + (n - 11)) as char,
+                n if n < 10 + 1 + 26 + 26 => (b'A' + (n - 37)) as char,
                 _ => 'a',
             };
             if ch == '-' {
@@ -198,8 +198,8 @@ impl<'a> Arbitrary<'a> for KeyVaultName {
     let last_bucket: u8 = u.arbitrary::<u8>()? % 62; // 0-61
         let last = match last_bucket {
             n if n < 10 => (b'0' + n) as char,
-            n if n < 36 => (b'a' + (n - 10) as u8) as char,
-            n => (b'A' + (n - 36) as u8) as char,
+            n if n < 36 => (b'a' + (n - 10)) as char,
+            n => (b'A' + (n - 36)) as char,
         };
         s.push(last);
         debug_assert!(s.len() == len as usize);

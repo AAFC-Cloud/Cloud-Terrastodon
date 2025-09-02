@@ -24,7 +24,7 @@ impl FromStr for AddressPrefix {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(
-            match Ipv4Network::from_str(s).map(|ipv4| AddressPrefix::Ipv4(ipv4)) {
+            match Ipv4Network::from_str(s).map(AddressPrefix::Ipv4) {
                 Ok(address_prefix) => address_prefix,
                 Err(_) => AddressPrefix::Other(CompactString::new(s)),
             },

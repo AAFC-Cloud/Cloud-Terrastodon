@@ -259,14 +259,14 @@ impl AsRef<str> for AzureDevOpsProjectName {
         &self.inner
     }
 }
-impl Into<CompactString> for AzureDevOpsProjectName {
-    fn into(self) -> CompactString {
-        self.inner
+impl From<AzureDevOpsProjectName> for CompactString {
+    fn from(val: AzureDevOpsProjectName) -> Self {
+        val.inner
     }
 }
-impl Into<String> for AzureDevOpsProjectName {
-    fn into(self) -> String {
-        self.inner.into()
+impl From<AzureDevOpsProjectName> for String {
+    fn from(val: AzureDevOpsProjectName) -> Self {
+        val.inner.into()
     }
 }
 
