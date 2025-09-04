@@ -1,5 +1,6 @@
 use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::{GovernanceRoleAssignment, PrincipalId};
+use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
+use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_command::CacheBehaviour;
 use std::path::PathBuf;
 use std::time::Duration;

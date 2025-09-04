@@ -36,15 +36,16 @@ fn validate_secret_name(value: &CompactString) -> Result<(), ValidationError> {
         return Err(ValidationError::new("keyvaultsecretname_empty"));
     }
     if value.len() > 127 {
-        return Err(ValidationError::new("keyvaultsecretname_length").with_message(
-            format!("Secret name too long: {} > 127", value.len()).into(),
-        ));
+        return Err(ValidationError::new("keyvaultsecretname_length")
+            .with_message(format!("Secret name too long: {} > 127", value.len()).into()));
     }
     for (i, ch) in value.chars().enumerate() {
         if !(ch.is_ascii_alphanumeric() || ch == '-') {
-            return Err(ValidationError::new("keyvaultsecretname_char").with_message(
-                format!("Invalid character '{ch}' at position {i} in {value:?}").into(),
-            ));
+            return Err(
+                ValidationError::new("keyvaultsecretname_char").with_message(
+                    format!("Invalid character '{ch}' at position {i} in {value:?}").into(),
+                ),
+            );
         }
     }
     Ok(())
@@ -63,30 +64,44 @@ impl FromStr for KeyVaultSecretName {
 }
 impl TryFrom<&str> for KeyVaultSecretName {
     type Error = eyre::Error;
-    fn try_from(value: &str) -> Result<Self, Self::Error> { Self::try_new(value) }
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::try_new(value)
+    }
 }
 impl Deref for KeyVaultSecretName {
     type Target = CompactString;
-    fn deref(&self) -> &Self::Target { &self.inner }
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 impl serde::Serialize for KeyVaultSecretName {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         self.inner.serialize(serializer)
     }
 }
 impl<'de> serde::Deserialize<'de> for KeyVaultSecretName {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: serde::Deserializer<'de> {
+    where
+        D: serde::Deserializer<'de>,
+    {
         let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
         Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl TryFrom<CompactString> for KeyVaultSecretName {
     type Error = eyre::Error;
-    fn try_from(value: CompactString) -> Result<Self, Self::Error> { Self::try_new(value) }
+    fn try_from(value: CompactString) -> Result<Self, Self::Error> {
+        Self::try_new(value)
+    }
 }
-impl From<KeyVaultSecretName> for CompactString { fn from(v: KeyVaultSecretName) -> Self { v.inner } }
+impl From<KeyVaultSecretName> for CompactString {
+    fn from(v: KeyVaultSecretName) -> Self {
+        v.inner
+    }
+}
 
 impl<'a> Arbitrary<'a> for KeyVaultSecretName {
     fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
@@ -94,16 +109,20 @@ impl<'a> Arbitrary<'a> for KeyVaultSecretName {
         let mut s = String::with_capacity(len as usize);
         while s.len() < len as usize {
             let b: u8 = u.arbitrary()?;
-            let ch = match b % 63 { // 0..=62
+            let ch = match b % 63 {
+                // 0..=62
                 n if n < 10 => (b'0' + n) as char,
                 n if n < 36 => (b'A' + (n - 10)) as char,
                 n if n < 62 => (b'a' + (n - 36)) as char,
                 _ => '-',
             };
-            if ch == '-' && s.is_empty() { continue; } // allow leading hyphen per docs? docs say just allowed set; keep simple
+            if ch == '-' && s.is_empty() {
+                continue;
+            } // allow leading hyphen per docs? docs say just allowed set; keep simple
             s.push(ch);
         }
-        KeyVaultSecretName::try_new(CompactString::from(s)).map_err(|_| arbitrary::Error::IncorrectFormat)
+        KeyVaultSecretName::try_new(CompactString::from(s))
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 
@@ -117,16 +136,16 @@ mod test {
         assert!(KeyVaultSecretName::try_new("a").is_ok());
         assert!(KeyVaultSecretName::try_new("A-1-z").is_ok());
         assert!(KeyVaultSecretName::try_new("a".repeat(127)).is_ok());
-        assert!(KeyVaultSecretName::try_new("" ).is_err());
+        assert!(KeyVaultSecretName::try_new("").is_err());
         assert!(KeyVaultSecretName::try_new("a".repeat(128)).is_err());
         assert!(KeyVaultSecretName::try_new("bad_").is_err());
-        assert!(KeyVaultSecretName::try_new("bad." ).is_err());
+        assert!(KeyVaultSecretName::try_new("bad.").is_err());
         Ok(())
     }
 
     #[test]
     fn fuzz() -> eyre::Result<()> {
-        for _ in 0..100 { 
+        for _ in 0..100 {
             let mut raw = [0u8; 64];
             rand::thread_rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);

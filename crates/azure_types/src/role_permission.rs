@@ -107,12 +107,8 @@ mod test {
         };
         assert!(!perm.satisfies(
             &[
-                super::RolePermissionAction::new(
-                    "Microsoft.Storage/accounts/read/action",
-                ),
-                super::RolePermissionAction::new(
-                    "Microsoft.Storage/accounts/write/action",
-                ),
+                super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),
+                super::RolePermissionAction::new("Microsoft.Storage/accounts/write/action",),
             ],
             &[]
         ));
@@ -153,12 +149,8 @@ mod test {
         // Requests read + write but role only grants read.
         assert!(!perm.satisfies(
             &[
-                super::RolePermissionAction::new(
-                    "Microsoft.Storage/accounts/read/action",
-                ),
-                super::RolePermissionAction::new(
-                    "Microsoft.Storage/accounts/write/action",
-                ),
+                super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),
+                super::RolePermissionAction::new("Microsoft.Storage/accounts/write/action",),
             ],
             &[]
         ));
@@ -177,12 +169,8 @@ mod test {
         };
         assert!(perm.satisfies(
             &[
-                super::RolePermissionAction::new(
-                    "Microsoft.Storage/accounts/read/action",
-                ),
-                super::RolePermissionAction::new(
-                    "Microsoft.Storage/accounts/write/action",
-                ),
+                super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),
+                super::RolePermissionAction::new("Microsoft.Storage/accounts/write/action",),
             ],
             &[]
         ));

@@ -35,6 +35,6 @@ pub struct GovernanceRoleAssignment {
     pub status: GovernanceRoleAssignmentStatus,
     #[serde(rename = "subjectId")]
     pub subject_id: Uuid,
-    #[serde(rename="assignmentState")]
+    #[serde(rename = "assignmentState")]
     pub assignment_state: GovernanceRoleAssignmentState,
 }

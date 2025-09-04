@@ -7,7 +7,6 @@ use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
 
-
 /// Fetch all secrets (metadata only) for a given Key Vault using Azure CLI.
 /// Equivalent CLI: az keyvault secret list --vault-name <name>
 /// This intentionally does NOT fetch secret values (which would require additional calls per secret).

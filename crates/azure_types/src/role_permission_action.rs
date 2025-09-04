@@ -72,7 +72,9 @@ impl RolePermissionAction {
 mod test {
     #[test]
     pub fn it_works() -> eyre::Result<()> {
-        let a = super::RolePermissionAction::new("Microsoft.KeyVault/vaults/secrets/readMetadata/action");
+        let a = super::RolePermissionAction::new(
+            "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
+        );
         let b = super::RolePermissionAction::new("Microsoft.KeyVault/vaults/secrets/*/action");
         assert!(a.is_satisfied_by(&b));
         Ok(())
