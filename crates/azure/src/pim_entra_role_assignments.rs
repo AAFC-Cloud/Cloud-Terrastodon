@@ -1,5 +1,5 @@
 use crate::prelude::fetch_current_user;
-use cloud_terrastodon_azure_types::prelude::PimEntraRoleAssignment;
+use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -7,7 +7,7 @@ use itertools::Itertools;
 use serde::Deserialize;
 use std::path::PathBuf;
 
-pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<PimEntraRoleAssignment>> {
+pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<GovernanceRoleAssignment>> {
     let my_object_id = fetch_current_user().await?.id;
     let url = format!(
         "{}{}{}{}",
@@ -45,7 +45,7 @@ pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<PimEntraRoleAss
 
     #[derive(Deserialize)]
     struct Response {
-        value: Vec<PimEntraRoleAssignment>,
+        value: Vec<GovernanceRoleAssignment>,
     }
 
     let mut result: Result<Response, _> = cmd.run().await;

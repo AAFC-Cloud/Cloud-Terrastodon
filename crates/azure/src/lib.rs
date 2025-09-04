@@ -50,8 +50,10 @@ mod tags;
 mod tenants;
 mod users;
 mod virtual_network;
+mod governance_role_assignments;
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::governance_role_assignments::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::conditional_access_named_locations::*;

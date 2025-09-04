@@ -1,5 +1,5 @@
 use crate::management_groups::fetch_root_management_group;
-use cloud_terrastodon_azure_types::prelude::EligiblePimEntraRoleAssignment;
+use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_azure_types::prelude::RoleAssignmentRequest;
 use cloud_terrastodon_command::CacheBehaviour;
@@ -11,7 +11,7 @@ use std::time::Duration;
 
 pub async fn activate_pim_entra_role(
     principal_id: impl Into<PrincipalId>,
-    role_assignment: &EligiblePimEntraRoleAssignment,
+    role_assignment: &GovernanceRoleAssignment,
     justification: String,
     duration: Duration,
 ) -> Result<()> {

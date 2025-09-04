@@ -60,7 +60,7 @@ mod tests {
         println!("Found {} role assignments", role_assignments.len());
         for role_assignment in role_assignments {
             let role_setting =
-                fetch_entra_pim_role_settings(role_assignment.role_definition_id()).await?;
+                fetch_entra_pim_role_settings(&role_assignment.role_definition_id).await?;
             println!("- {:?}", role_setting);
             assert!(role_setting.get_maximum_grant_period()?.as_secs() % (60 * 30) == 0);
         }

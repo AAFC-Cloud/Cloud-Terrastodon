@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure::prelude::PimEntraRoleAssignment;
+use cloud_terrastodon_azure::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure::prelude::PimEntraRoleDefinition;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::activate_pim_entra_role;
@@ -72,7 +72,7 @@ pub async fn pim_activate_entra() -> Result<()> {
     let already_activated = role_assignments
         .values()
         .filter_map(|ra| {
-            let PimEntraRoleAssignment::Active(active) = ra else {
+            let GovernanceRoleAssignment::Active(active) = ra else {
                 return None;
             };
             Some(&active.linked_eligible_role_assignment_id)
@@ -84,7 +84,7 @@ pub async fn pim_activate_entra() -> Result<()> {
         .values()
         .filter_map(|ra| {
             // filter out activated
-            let PimEntraRoleAssignment::Eligible(eligible) = ra else {
+            let GovernanceRoleAssignment::Eligible(eligible) = ra else {
                 return None;
             };
             if already_activated.contains(&eligible.id) {

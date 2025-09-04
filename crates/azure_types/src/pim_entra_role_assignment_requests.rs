@@ -1,4 +1,4 @@
-use crate::prelude::EligiblePimEntraRoleAssignment;
+use crate::prelude::GovernanceRoleAssignment;
 use crate::prelude::PrincipalId;
 use crate::prelude::TenantId;
 use crate::prelude::to_iso8601;
@@ -57,7 +57,7 @@ impl RoleAssignmentRequest {
     pub fn new_self_activation(
         principal_id: PrincipalId,
         tenant_id: TenantId,
-        role_assignment: &EligiblePimEntraRoleAssignment,
+        role_assignment: &GovernanceRoleAssignment,
         justification: String,
         duration: Duration,
     ) -> Self {
