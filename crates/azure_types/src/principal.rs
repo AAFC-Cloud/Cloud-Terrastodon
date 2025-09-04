@@ -78,7 +78,6 @@ impl std::fmt::Display for Principal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::UuidWrapper;
     use crate::user_id::UserId;
     use serde_json::Value;
 

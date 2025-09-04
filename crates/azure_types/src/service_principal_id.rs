@@ -1,16 +1,4 @@
-use crate::impl_uuid_traits;
-use crate::prelude::UuidWrapper;
-use uuid::Uuid;
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct ServicePrincipalId(Uuid);
-impl UuidWrapper for ServicePrincipalId {
-    fn new(uuid: Uuid) -> Self {
-        Self(uuid)
-    }
+pub struct ServicePrincipalId(uuid::Uuid);
 
-    fn as_ref(&self) -> &Uuid {
-        &self.0
-    }
-}
-impl_uuid_traits!(ServicePrincipalId);
+crate::impl_uuid_newtype!(ServicePrincipalId);

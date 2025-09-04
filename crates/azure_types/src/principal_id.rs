@@ -1,8 +1,6 @@
-use crate::impl_uuid_traits;
 use crate::prelude::GroupId;
 use crate::prelude::ServicePrincipalId;
 use crate::prelude::UserId;
-use crate::prelude::UuidWrapper;
 use std::hash::Hash;
 use uuid::Uuid;
 
@@ -13,11 +11,13 @@ pub enum PrincipalId {
     ServicePrincipalId(ServicePrincipalId),
     Unknown(Uuid),
 }
-impl UuidWrapper for PrincipalId {
-    fn new(uuid: Uuid) -> Self {
-        Self::Unknown(uuid)
-    }
 
+impl PrincipalId {
+    pub fn new(uuid: impl Into<Uuid>) -> Self {
+        Self::Unknown(uuid.into())
+    }
+}
+impl AsRef<Uuid> for PrincipalId {
     fn as_ref(&self) -> &Uuid {
         match self {
             PrincipalId::UserId(inner) => inner.as_ref(),
@@ -27,17 +27,48 @@ impl UuidWrapper for PrincipalId {
         }
     }
 }
-impl_uuid_traits!(PrincipalId);
 
-// Because the internal uuids should be unique between categories, it's fine to compare between unknown/group/user/etc
-impl PartialEq for PrincipalId {
-    fn eq(&self, other: &Self) -> bool {
-        let left: &Uuid = self;
-        let right: &Uuid = other;
-        left == right
+impl serde::Serialize for PrincipalId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_ref().to_string().as_str())
     }
 }
-impl Eq for PrincipalId {}
+
+impl<'de> serde::Deserialize<'de> for PrincipalId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        use std::str::FromStr;
+        let uuid = Uuid::from_str(&s).map_err(serde::de::Error::custom)?;
+        Ok(Self::new(uuid))
+    }
+}
+
+impl std::fmt::Display for PrincipalId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_ref().to_string().as_str())
+    }
+}
+
+impl std::str::FromStr for PrincipalId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::new(Uuid::parse_str(s)?))
+    }
+}
+
+impl std::ops::Deref for PrincipalId {
+    type Target = Uuid;
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
 impl Hash for PrincipalId {
     fn hash<H: std::hash::Hasher>(self: &PrincipalId, state: &mut H) {
         let id: &Uuid = self;
@@ -85,6 +116,9 @@ impl From<&ServicePrincipalId> for PrincipalId {
         Self::ServicePrincipalId(*value)
     }
 }
+
+// Because the internal uuids should be unique between categories, it's fine to compare between unknown/group/user/etc
+impl Eq for PrincipalId {}
 impl<T: AsRef<Uuid>> PartialEq<T> for PrincipalId {
     fn eq(&self, other: &T) -> bool {
         let left: &Uuid = self;

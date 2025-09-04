@@ -2,7 +2,6 @@ use cloud_terrastodon_azure::prelude::ResourceGroupScoped;
 use cloud_terrastodon_azure::prelude::RoleAssignmentId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::SubscriptionScoped;
-use cloud_terrastodon_azure::prelude::UuidWrapper;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_security_groups;

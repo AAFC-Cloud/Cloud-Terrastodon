@@ -16,7 +16,7 @@ use validator::ValidationError;
 ///  * Must end with a letter or digit
 ///  * Cannot contain consecutive hyphens
 ///  * Case-insensitive (comparisons and hashing lower-case)
-/// 
+///
 /// See also: https://github.com/Azure/azure-rest-api-specs/blob/6c548b0bd279f5e233661b1c81fb5b61b19965cd/specification/keyvault/resource-manager/Microsoft.KeyVault/stable/2024-11-01/keyvault.json
 #[derive(Debug, Clone, Eq, Validate, PartialOrd, Ord)]
 pub struct KeyVaultName {
