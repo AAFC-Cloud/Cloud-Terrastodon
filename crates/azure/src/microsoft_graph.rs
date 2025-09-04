@@ -43,7 +43,8 @@ impl MicrosoftGraphHelper {
 
             // Build command
             let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-            cmd.args(["rest", "--method", "GET", "--url", url]);
+            cmd.args(["rest", "--method", "GET", "--url"]);
+            cmd.file_arg("url.txt", url.clone());
 
             // Set up caching
             if let CacheBehaviour::Some {
@@ -58,7 +59,7 @@ impl MicrosoftGraphHelper {
             }
 
             // Perform request
-            let mut response = cmd.run::<Response<T>>().await?;
+            let mut response = cmd.run::<MicrosoftGraphResponse<T>>().await?;
             request_index += 1;
 
             // Update next link for pagination
@@ -75,7 +76,7 @@ impl MicrosoftGraphHelper {
 }
 
 #[derive(Debug, Deserialize)]
-struct Response<T> {
+pub struct MicrosoftGraphResponse<T> {
     // #[serde(rename = "@odata.context")]
     // context: String,
     #[serde(rename = "@odata.nextLink")]

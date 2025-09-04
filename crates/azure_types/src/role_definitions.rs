@@ -1,4 +1,5 @@
 use crate::prelude::RoleDefinitionId;
+use crate::prelude::RolePermissions;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
@@ -9,21 +10,6 @@ use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
-pub struct RolePermission {
-    #[serde(rename = "notDataActions")]
-    #[serde(alias = "NotDataActions")]
-    not_data_actions: Vec<String>,
-    #[serde(rename = "dataActions")]
-    #[serde(alias = "DataActions")]
-    data_actions: Vec<String>,
-    #[serde(rename = "notActions")]
-    #[serde(alias = "NotActions")]
-    not_actions: Vec<String>,
-    #[serde(rename = "actions")]
-    #[serde(alias = "Actions")]
-    actions: Vec<String>,
-}
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy)]
 pub enum RoleDefinitionKind {
     BuiltInRole,
@@ -36,7 +22,7 @@ pub struct RoleDefinition {
     pub display_name: String,
     pub description: String,
     pub assignable_scopes: Vec<String>,
-    pub permissions: Vec<RolePermission>,
+    pub permissions: Vec<RolePermissions>,
     pub kind: RoleDefinitionKind,
 }
 

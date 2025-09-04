@@ -48,3 +48,12 @@ impl From<RoleAssignment> for HCLImportBlock {
         }
     }
 }
+
+impl RoleAssignment {
+    pub fn applies_to(&self, scope: &ScopeImpl) -> bool {
+        scope
+            .expanded_form()
+            .to_lowercase()
+            .starts_with(&self.scope.expanded_form().to_lowercase())
+    }
+}

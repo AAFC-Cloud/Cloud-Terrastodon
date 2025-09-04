@@ -939,6 +939,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tracing",
  "unicode_categories",
  "uuid",
  "validator",

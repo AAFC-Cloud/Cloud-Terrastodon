@@ -10,30 +10,31 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cloud_terrastodon_user_input = { workspace = true }
-cloud_terrastodon_command = { workspace = true }
-cloud_terrastodon_azure_resource_types = { workspace = true }
-cloud_terrastodon_hcl_types = { workspace = true }
-eyre = { workspace = true }
-tokio = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-tempfile = { workspace = true }
-uuid = { workspace = true }
-chrono = { workspace = true } 
-clap = { workspace = true } 
-iso8601-duration = { workspace = true }
-itertools = { workspace = true }
+cloud_terrastodon_user_input.workspace = true
+cloud_terrastodon_command.workspace = true
+cloud_terrastodon_azure_resource_types.workspace = true
+cloud_terrastodon_hcl_types.workspace = true
+eyre.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+uuid.workspace = true
+chrono.workspace = true 
+clap.workspace = true 
+iso8601-duration.workspace = true
+itertools.workspace = true
 compact_str = { workspace = true, features = ["serde"] }
-validator = { workspace = true }
-# holda = { workspace = true }
-# regex = { workspace = true }
-arbitrary = { workspace = true }
-unicode_categories = { workspace = true }
-nom = { workspace = true }
-nom-language = { workspace = true }
-ipnetwork = { workspace = true }
-winnow = { workspace = true }
+validator.workspace = true
+# holda.workspace = true
+# regex.workspace = true
+arbitrary.workspace = true
+unicode_categories.workspace = true
+nom.workspace = true
+nom-language.workspace = true
+ipnetwork.workspace = true
+winnow.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 rand.workspace=true
