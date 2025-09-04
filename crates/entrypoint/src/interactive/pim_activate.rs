@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure::prelude::GovernanceRoleAssignment;
+use cloud_terrastodon_azure::prelude::GovernanceRoleAssignmentState;
 use cloud_terrastodon_azure::prelude::PimEntraRoleDefinition;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::activate_pim_entra_role;
@@ -65,17 +65,17 @@ pub async fn pim_activate_entra() -> Result<()> {
     let role_assignments = fetch_my_entra_pim_role_assignments()
         .await?
         .into_iter()
-        .map(|ra| (ra.id().clone(), ra))
+        .map(|ra| (ra.id.clone(), ra))
         .collect::<HashMap<_, _>>();
 
     info!("Identifying already-activated assignments");
     let already_activated = role_assignments
         .values()
         .filter_map(|ra| {
-            let GovernanceRoleAssignment::Active(active) = ra else {
+            let GovernanceRoleAssignmentState::Active = ra.assignment_state else {
                 return None;
             };
-            Some(&active.linked_eligible_role_assignment_id)
+            ra.linked_eligible_role_assignment_id.clone()
         })
         .collect::<HashSet<_>>();
 
@@ -84,20 +84,20 @@ pub async fn pim_activate_entra() -> Result<()> {
         .values()
         .filter_map(|ra| {
             // filter out activated
-            let GovernanceRoleAssignment::Eligible(eligible) = ra else {
+            let GovernanceRoleAssignmentState::Eligible = ra.assignment_state else {
                 return None;
             };
-            if already_activated.contains(&eligible.id) {
+            if already_activated.contains(&ra.id) {
                 return None;
             }
 
             // get role display name
             let PimEntraRoleDefinition { display_name, .. } =
-                role_definitions.get(&eligible.role_definition_id)?;
+                role_definitions.get(&ra.role_definition_id)?;
 
             Some(Choice {
                 key: display_name.to_owned(),
-                value: eligible,
+                value: ra,
             })
         })
         .unique_by(|c| c.key.to_owned())

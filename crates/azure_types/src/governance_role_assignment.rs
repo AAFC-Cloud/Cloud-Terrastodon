@@ -14,6 +14,12 @@ pub enum GovernanceRoleAssignmentStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum GovernanceRoleAssignmentState {
+    Active,
+    Eligible,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GovernanceRoleAssignment {
     pub id: String,
     #[serde(rename = "linkedEligibleRoleAssignmentId")]
@@ -30,5 +36,5 @@ pub struct GovernanceRoleAssignment {
     #[serde(rename = "subjectId")]
     pub subject_id: Uuid,
     #[serde(rename="assignmentState")]
-    pub assignment_state: String,
+    pub assignment_state: GovernanceRoleAssignmentState,
 }
