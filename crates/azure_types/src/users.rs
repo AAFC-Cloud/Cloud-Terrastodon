@@ -1,5 +1,4 @@
-use crate::impl_uuid_traits;
-use crate::prelude::UuidWrapper;
+use crate::user_id::UserId;
 use cloud_terrastodon_hcl_types::prelude::AzureADResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
@@ -7,20 +6,6 @@ use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
-use uuid::Uuid;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct UserId(Uuid);
-impl UuidWrapper for UserId {
-    fn new(uuid: Uuid) -> Self {
-        Self(uuid)
-    }
-
-    fn as_ref(&self) -> &Uuid {
-        &self.0
-    }
-}
-impl_uuid_traits!(UserId);
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct User {

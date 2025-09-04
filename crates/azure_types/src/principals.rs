@@ -70,6 +70,33 @@ impl From<ServicePrincipalId> for PrincipalId {
         Self::ServicePrincipalId(value)
     }
 }
+impl From<&Uuid> for PrincipalId {
+    fn from(value: &Uuid) -> Self {
+        Self::Unknown(*value)
+    }
+}
+impl From<&UserId> for PrincipalId {
+    fn from(value: &UserId) -> Self {
+        Self::UserId(*value)
+    }
+}
+impl From<&GroupId> for PrincipalId {
+    fn from(value: &GroupId) -> Self {
+        Self::GroupId(*value)
+    }
+}
+impl From<&ServicePrincipalId> for PrincipalId {
+    fn from(value: &ServicePrincipalId) -> Self {
+        Self::ServicePrincipalId(*value)
+    }
+}
+impl<T: AsRef<Uuid>> PartialEq<T> for PrincipalId {
+    fn eq(&self, other: &T) -> bool {
+        let left: &Uuid = self;
+        let right: &Uuid = other.as_ref();
+        left == right
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "@odata.type")]
