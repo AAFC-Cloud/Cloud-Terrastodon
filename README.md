@@ -18,7 +18,15 @@ See also: https://github.com/Azure/aztfexport
 ## Dependencies
 
 - [Azure CLI `az`](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli#install)
-- [Fuzzy Finder `fzf`](https://github.com/junegunn/fzf?tab=readme-ov-file#installation)
+
+## Setting up your development environment
+
+Install the windows sdk and visual studio dev tools
+
+- https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/
+- https://visualstudio.microsoft.com/visual-cpp-build-tools/
+    - [x] Desktop development with C++
+
 
 ## Copyright
 
