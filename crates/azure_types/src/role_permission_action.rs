@@ -64,7 +64,7 @@ impl RolePermissionAction {
                 return self.inner.starts_with(parts[0]) && self.inner.ends_with(parts[1]);
             }
         }
-        return false;
+        false
     }
 }
 

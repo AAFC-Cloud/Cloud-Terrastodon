@@ -11,6 +11,7 @@ use validator::ValidationError;
 /// * Length: 1-127 characters
 /// * Allowed characters: alphanumerics (A-Z, a-z, 0-9) and hyphen '-'
 /// * Case-sensitive (we keep the exact casing) but validation only checks allowed set
+/// 
 /// (Docs excerpt provided by user: "vaults / secrets Vault 1-127 Alphanumerics and hyphens")
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
 pub struct KeyVaultSecretName {

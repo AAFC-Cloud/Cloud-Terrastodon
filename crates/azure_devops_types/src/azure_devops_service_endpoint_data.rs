@@ -5,6 +5,7 @@ use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(clippy::large_enum_variant)]
 pub enum AzureDevOpsServiceEndpointData {
     AzureRM(ServiceEndpointAzureRMData),
     Other(Value),
