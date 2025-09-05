@@ -1,3 +1,5 @@
+- cloud lint: assert `name.trim()==name` for all entra groups
+
 - Enhanced discovery navigation
 "My website https://blah.agr.gc.ca/ is down"
 -> NSLOOKUP
