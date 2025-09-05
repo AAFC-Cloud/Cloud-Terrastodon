@@ -1,4 +1,5 @@
 use crate::prelude::RoleDefinitionId;
+use crate::prelude::RolePermissionAction;
 use crate::prelude::RolePermissions;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
@@ -24,6 +25,21 @@ pub struct RoleDefinition {
     pub assignable_scopes: Vec<String>,
     pub permissions: Vec<RolePermissions>,
     pub kind: RoleDefinitionKind,
+}
+
+impl RoleDefinition {
+    pub fn satisfies(
+        &self,
+        actions: &[RolePermissionAction],
+        data_actions: &[RolePermissionAction],
+    ) -> bool {
+        for permission in &self.permissions {
+            if permission.satisfies(actions, data_actions) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl AsScope for RoleDefinition {

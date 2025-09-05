@@ -50,7 +50,7 @@ impl From<RoleAssignment> for HCLImportBlock {
 }
 
 impl RoleAssignment {
-    pub fn applies_to(&self, scope: &ScopeImpl) -> bool {
+    pub fn applies_to(&self, scope: &impl Scope) -> bool {
         scope
             .expanded_form()
             .to_lowercase()

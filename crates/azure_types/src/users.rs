@@ -54,6 +54,7 @@ impl From<User> for HCLImportBlock {
 mod tests {
     use super::*;
     use eyre::Result;
+    use uuid::Uuid;
 
     #[test]
     fn deserializes() -> Result<()> {

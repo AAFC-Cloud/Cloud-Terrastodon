@@ -33,7 +33,7 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloud_terrastodon_azure_types::prelude::Scope;
+    use cloud_terrastodon_azure_types::prelude::{RolePermissionAction, Scope};
     use eyre::eyre;
 
     #[tokio::test]
@@ -57,6 +57,19 @@ mod tests {
         let e2 = e1.wrap_err("e2 context");
 
         println!("{e2:#}\n=====\n{e2:#?}\n=====");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn key_vaults() -> Result<()> {
+        let role_definitions = fetch_all_role_definitions().await?;
+        let key_vault_secrets_officer_id = "b86a8fe4-44ce-4948-aee5-eccb2c155cd7";
+        let key_vault_secrets_officer = role_definitions
+            .iter()
+            .find(|rd| rd.id.short_form() == key_vault_secrets_officer_id)
+            .ok_or_else(|| eyre!("Couldn't find Key Vault Secrets Officer role definition"))?;
+        let permission = "Microsoft.KeyVault/vaults/secrets/readMetadata/action";
+        assert!(key_vault_secrets_officer.satisfies(&[], &[RolePermissionAction::new(permission)]));
         Ok(())
     }
 }
