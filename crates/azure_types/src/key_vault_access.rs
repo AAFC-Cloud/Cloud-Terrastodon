@@ -1,8 +1,9 @@
 use crate::prelude::KeyVault;
+use crate::prelude::KeyVaultAccessPolicySecretManagementOperation;
+use crate::prelude::KeyVaultAccessPolicySecretPrivilege;
 use crate::prelude::RoleDefinitionsAndAssignments;
 use crate::prelude::RoleDefinitionsAndAssignmentsIterTools;
 use crate::prelude::RolePermissionAction;
-use tracing::warn;
 use uuid::Uuid;
 
 impl KeyVault {
@@ -15,23 +16,31 @@ impl KeyVault {
             .properties
             .enable_rbac_authorization
             .unwrap_or_default();
-        if !kv_uses_rbac {
-            warn!(
-                "Key Vault {} does not use RBAC authorization, cannot determine access (not yet implemented)",
-                self.name
-            );
-            return false;
+        if kv_uses_rbac {
+            rbac.iter_role_assignments()
+                .filter_principal(principal)
+                .filter_scope(&self.id)
+                .filter_satisfying(
+                    &[],
+                    &[RolePermissionAction::new(
+                        "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
+                    )],
+                )
+                .next()
+                .is_some()
+        } else {
+            self.properties
+                .access_policies
+                .iter()
+                .filter(|policy| policy.object_id == principal)
+                .flat_map(|policy| policy.permissions.secrets.iter())
+                .any(|privilege| match privilege {
+                    KeyVaultAccessPolicySecretPrivilege::SecretManagementOperation(
+                        KeyVaultAccessPolicySecretManagementOperation::List,
+                    ) => true,
+                    KeyVaultAccessPolicySecretPrivilege::All(_) => true,
+                    _ => false,
+                })
         }
-        rbac.iter_role_assignments()
-            .filter_principal(principal)
-            .filter_scope(&self.id)
-            .filter_satisfying(
-                &[],
-                &[RolePermissionAction::new(
-                    "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
-                )],
-            )
-            .next()
-            .is_some()
     }
 }

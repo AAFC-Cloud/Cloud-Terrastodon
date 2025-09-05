@@ -9,30 +9,6 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 
-#[derive(Debug, PartialEq)]
-pub struct KeyVaultAccessPolicies {
-    pub access_policies: Vec<KeyVaultAccessPolicy>,
-}
-
-impl Serialize for KeyVaultAccessPolicies {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.access_policies.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for KeyVaultAccessPolicies {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let access_policies = Vec::deserialize(deserializer)?;
-        Ok(KeyVaultAccessPolicies { access_policies })
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct KeyVaultAccessPolicy {
