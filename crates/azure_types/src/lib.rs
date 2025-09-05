@@ -141,7 +141,7 @@ pub mod prelude {
     pub use crate::group::*;
     pub use crate::group_id::*;
     pub use crate::key_vault::*;
-    pub use crate::key_vault_access::*;
+    
     pub use crate::key_vault_access_policies::*;
     pub use crate::key_vault_access_policy_certificate_privileges::*;
     pub use crate::key_vault_access_policy_key_privilege::*;
