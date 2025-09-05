@@ -1,3 +1,4 @@
+use crate::prelude::KeyVaultAccessPolicies;
 use crate::tenants::TenantId;
 use serde::Deserialize;
 use serde::Serialize;
@@ -17,8 +18,7 @@ pub struct KeyVaultProperties {
     pub enable_soft_delete: Option<bool>,
     pub enable_rbac_authorization: Option<bool>,
     pub vault_uri: String, // URL string
-    /// Access policies (raw). TODO: Vec<AccessPolicy>
-    pub access_policies: Value,
+    pub access_policies: KeyVaultAccessPolicies,
     pub soft_delete_retention_in_days: Option<u32>,
     pub enabled_for_template_deployment: Option<bool>,
     pub enable_purge_protection: Option<bool>,
