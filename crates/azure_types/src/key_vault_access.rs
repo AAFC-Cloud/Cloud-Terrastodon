@@ -7,6 +7,9 @@ use crate::prelude::RolePermissionAction;
 use uuid::Uuid;
 
 impl KeyVault {
+    /// Determines if the given principal can list secrets in this Key Vault, either via RBAC or legacy access policies.
+    /// Note that this does not yet support transitive permissions; a user in a group with a permission will not be recognized.
+    // TODO: Implement transitive permission checks
     pub fn can_list_secrets(
         &self,
         principal: &impl AsRef<Uuid>,
