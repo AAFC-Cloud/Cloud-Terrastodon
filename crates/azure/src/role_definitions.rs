@@ -33,7 +33,8 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloud_terrastodon_azure_types::prelude::{RolePermissionAction, Scope};
+    use cloud_terrastodon_azure_types::prelude::RolePermissionAction;
+    use cloud_terrastodon_azure_types::prelude::Scope;
     use eyre::eyre;
 
     #[tokio::test]

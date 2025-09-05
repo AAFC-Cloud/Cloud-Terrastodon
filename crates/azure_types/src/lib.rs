@@ -22,10 +22,10 @@ mod group_id;
 mod key_vault;
 mod key_vault_access;
 mod key_vault_access_policies;
+mod key_vault_access_policy_all_privilege;
 mod key_vault_access_policy_certificate_privileges;
 mod key_vault_access_policy_key_privilege;
 mod key_vault_access_policy_secret_privilege;
-mod key_vault_access_policy_all_privilege;
 mod key_vault_id;
 mod key_vault_name;
 mod key_vault_properties;
@@ -141,12 +141,11 @@ pub mod prelude {
     pub use crate::group::*;
     pub use crate::group_id::*;
     pub use crate::key_vault::*;
-    
     pub use crate::key_vault_access_policies::*;
+    pub use crate::key_vault_access_policy_all_privilege::*;
     pub use crate::key_vault_access_policy_certificate_privileges::*;
     pub use crate::key_vault_access_policy_key_privilege::*;
     pub use crate::key_vault_access_policy_secret_privilege::*;
-    pub use crate::key_vault_access_policy_all_privilege::*;
     pub use crate::key_vault_id::*;
     pub use crate::key_vault_name::*;
     pub use crate::key_vault_properties::*;

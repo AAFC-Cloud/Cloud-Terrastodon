@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 /// Shared "All" privilege used across key/secret/certificate access policy privilege enums
 /// to reduce duplication. Deserializes case-insensitively for common variants of "All".
@@ -9,5 +10,7 @@ pub enum KeyVaultAccessPolicyAllPrivilege {
 }
 
 impl Default for KeyVaultAccessPolicyAllPrivilege {
-    fn default() -> Self { Self::All }
+    fn default() -> Self {
+        Self::All
+    }
 }
