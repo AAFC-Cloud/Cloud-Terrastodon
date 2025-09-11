@@ -37,12 +37,13 @@ impl KeyVault {
                 .iter()
                 .filter(|policy| policy.object_id == principal)
                 .flat_map(|policy| policy.permissions.secrets.iter())
-                .any(|privilege| match privilege {
-                    KeyVaultAccessPolicySecretPrivilege::SecretManagementOperation(
-                        KeyVaultAccessPolicySecretManagementOperation::List,
-                    ) => true,
-                    KeyVaultAccessPolicySecretPrivilege::All(_) => true,
-                    _ => false,
+                .any(|privilege| {
+                    matches!(
+                        privilege,
+                        KeyVaultAccessPolicySecretPrivilege::SecretManagementOperation(
+                            KeyVaultAccessPolicySecretManagementOperation::List,
+                        ) | KeyVaultAccessPolicySecretPrivilege::All(_)
+                    )
                 })
         }
     }
