@@ -1,3 +1,7 @@
+- fix "Direct" PIM assignment failing to deserialize
+- Add entra role definition fetch
+- Add prediction for privileged operation like creating security group
+
 - cloud lint: assert `name.trim()==name` for all entra groups
 
 - Enhanced discovery navigation
