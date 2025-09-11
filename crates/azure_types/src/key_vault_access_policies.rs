@@ -5,9 +5,7 @@ use crate::prelude::PrincipalId;
 use crate::serde_helpers::deserialize_default_if_null;
 use crate::tenants::TenantId;
 use serde::Deserialize;
-use serde::Deserializer;
 use serde::Serialize;
-use serde::Serializer;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -32,6 +30,8 @@ pub struct KeyVaultAccessPolicyPermissions {
 
 #[cfg(test)]
 mod test {
+    use crate::prelude::KeyVaultAccessPolicy;
+
     #[test]
     pub fn it_works() -> eyre::Result<()> {
         let json = r#"[
@@ -92,7 +92,7 @@ mod test {
                 }
             }
         ]"#;
-        let _access_policies: super::KeyVaultAccessPolicies = serde_json::from_str(json)?;
+        let _access_policies: Vec<KeyVaultAccessPolicy> = serde_json::from_str(json)?;
         Ok(())
     }
 }
