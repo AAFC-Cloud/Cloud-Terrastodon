@@ -1,3 +1,10 @@
+# v0.27.0
+
+- Added `KeyVaultSecretId` type
+- Added `KeyVaultSecretVersionId` type
+- Update `KeyVaultSecret` to use new `KeyVaultSecretId` type
+- Impl `Ord` for `KeyVaultId`
+
 # v0.26.0
 
 - Add `fetch_all_key_vaults` fn
