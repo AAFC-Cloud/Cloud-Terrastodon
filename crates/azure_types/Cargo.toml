@@ -26,7 +26,6 @@ iso8601-duration.workspace = true
 itertools.workspace = true
 compact_str = { workspace = true, features = ["serde"] }
 validator.workspace = true
-# holda.workspace = true
 # regex.workspace = true
 arbitrary.workspace = true
 unicode_categories.workspace = true
