@@ -1,3 +1,4 @@
+mod browse_storage_accounts;
 mod apply_processed;
 mod azure_devops_project_import_wizard_menu;
 mod browse_azure_devops_project_teams;
@@ -82,4 +83,5 @@ pub mod prelude {
     pub use crate::interactive::run_query::*;
     pub use crate::interactive::tag_empty_resource_groups::*;
     pub use crate::interactive::tag_resources_menu::*;
+    pub use crate::interactive::browse_storage_accounts::*;
 }
