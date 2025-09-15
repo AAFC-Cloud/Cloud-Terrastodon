@@ -5,6 +5,7 @@
 - Update `KeyVaultSecret` to use new `KeyVaultSecretId` type
 - Impl `Ord` for `KeyVaultId`
 - Added browse storage accounts action
+- Add `GovernanceRoleAssignmentMemberType::Direct` variant
 
 # v0.26.0
 

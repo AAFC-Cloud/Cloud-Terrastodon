@@ -7,6 +7,7 @@ use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize)]
 pub enum GovernanceRoleAssignmentMemberType {
     Group,
+    Direct,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub enum GovernanceRoleAssignmentStatus {
