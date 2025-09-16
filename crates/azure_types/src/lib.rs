@@ -118,10 +118,28 @@ mod virtual_network_name;
 mod virtual_network_peering_id;
 mod virtual_network_peering_name;
 mod virtual_network_properties;
+mod governance_role_definition;
+mod unified_role_definition;
+mod unified_role_definition_id;
+mod unified_role_definition_collection;
+mod unified_role_assignment;
+mod unified_role_assignment_id;
+mod unified_role_definitions_and_assignments;
+mod principal_collection;
+mod access_token;
 
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::access_token::*;
+    pub use crate::principal_collection::*;
+    pub use crate::unified_role_definitions_and_assignments::*;
+    pub use crate::unified_role_assignment::*;
+    pub use crate::unified_role_assignment_id::*;
+    pub use crate::unified_role_definition_id::*;
+    pub use crate::unified_role_definition_collection::*;
+    pub use crate::unified_role_definition::*;
     pub use crate::address_prefix::*;
+    pub use crate::governance_role_definition::*;
     pub use crate::address_prefixes::*;
     pub use crate::all_or::*;
     pub use crate::app::*;

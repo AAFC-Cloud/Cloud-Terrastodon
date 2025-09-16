@@ -45,23 +45,30 @@ impl RolePermissionAction {
     pub fn satisfies(&self, other: &RolePermissionAction) -> bool {
         other.is_satisfied_by(self)
     }
+    
+    /// Case insensitive match.
+    /// 
+    /// Wildcards are supported in `other`.
     pub fn is_satisfied_by(&self, other: &RolePermissionAction) -> bool {
-        if self.inner == other.inner {
+        let ours = self.inner.to_ascii_lowercase();
+        let theirs = other.inner.to_ascii_lowercase();
+
+        if ours == theirs {
             return true;
         }
         if self.contains('*') {
             warn!("Checking if action with wildcard satisfies another action is not supported");
         }
-        if other.inner.contains('*') {
+        if theirs.contains('*') {
             // action needs:
             // Microsoft.KeyVault/vaults/secrets/readMetadata/action
             // user has
             // Microsoft.KeyVault/vaults/secrets/*/action
 
             // must begin with the part before the start and end with the part after?
-            let parts: Vec<&str> = other.inner.split('*').collect();
+            let parts: Vec<&str> = theirs.split('*').collect();
             if parts.len() == 2 {
-                return self.inner.starts_with(parts[0]) && self.inner.ends_with(parts[1]);
+                return ours.starts_with(parts[0]) && ours.ends_with(parts[1]);
             }
         }
         false

@@ -7,6 +7,8 @@ https://az-vm-image.info/?cmd=--all+--publisher+center-for-internet-security-inc
     - `az rest --method get --url "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/canadacentral/publishers?api-version=2024-11-01"`
 2. Fetch offers
     - `az rest --method get --url "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/canadacentral/publishers/center-for-internet-security-inc/artifacttypes/vmimage/offers?api-version=2024-07-01"`
+3. Check `accepted` in terms
+    - `az vm image terms show --urn center-for-internet-security-inc:cis-windows-server:cis-windows-server2016-l2-gen2:latest`
 
 - fix "Direct" PIM assignment failing to deserialize
 - Add entra role definition fetch

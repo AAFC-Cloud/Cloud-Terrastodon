@@ -1,29 +1,7 @@
 use crate::AzureDevOpsPersonalAccessToken;
-use cloud_terrastodon_azure_types::prelude::SubscriptionId;
-use cloud_terrastodon_azure_types::prelude::TenantId;
+use cloud_terrastodon_azure_types::prelude::AccessToken;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-#[allow(unused)]
-pub struct AccessToken {
-    #[serde(rename = "accessToken")]
-    pub access_token: AzureDevOpsPersonalAccessToken,
-    #[serde(rename = "expiresOn")]
-    pub expires_on_string: String,
-    #[serde(rename = "expires_on")]
-    pub expires_on_ticks: u64,
-    pub subscription: SubscriptionId,
-    pub tenant: TenantId,
-    #[serde(rename = "tokenType")]
-    pub token_type: TokenType,
-}
-
-#[derive(Debug, Deserialize)]
-pub enum TokenType {
-    Bearer,
-}
 
 pub const AZURE_DEVOPS_RESOURCE_ID: &str = "499b84ac-1321-427f-aa17-267ca6975798";
 
@@ -34,7 +12,8 @@ pub const AZURE_DEVOPS_RESOURCE_ID: &str = "499b84ac-1321-427f-aa17-267ca6975798
 /// az login --scope 499b84ac-1321-427f-aa17-267ca6975798/.default
 /// ```
 #[allow(unused)]
-pub async fn get_azure_devops_access_token() -> eyre::Result<AccessToken> {
+pub async fn get_azure_devops_access_token()
+-> eyre::Result<AccessToken<AzureDevOpsPersonalAccessToken>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     // https://www.dylanberry.com/2021/02/21/how-to-get-a-pat-personal-access-token-for-azure-devops-from-the-az-cli/
     // https://learn.microsoft.com/en-us/rest/api/azure/devops/tokens/?view=azure-devops-rest-7.1&tabs=powershell

@@ -305,7 +305,7 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
         .collect::<HashMap<_, _>>();
     let principal_map: HashMap<PrincipalId, &Principal> = principals
         .iter()
-        .map(|p| (p.id(), p))
+        .map(|(id, principal)| (*id, principal))
         .collect::<HashMap<_, _>>();
     let role_assignments_by_scope: HashMap<&ScopeImpl, &RoleAssignment> = role_assignments
         .iter()
