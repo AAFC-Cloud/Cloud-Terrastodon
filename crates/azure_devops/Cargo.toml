@@ -6,7 +6,7 @@ authors.workspace = true
 repository.workspace = true
 license.workspace = true
 
-version = "0.26.0" # CT_VERSION
+version = "0.27.0" # CT_VERSION
 
 [dependencies]
 cloud_terrastodon_azure_devops_types.workspace = true
@@ -37,6 +37,8 @@ test-log.workspace = true
 # Enables text user interface support
 tui = ["ratatui", "tui-textarea"]
 default = ["tui"]
+
+
 
 
 
