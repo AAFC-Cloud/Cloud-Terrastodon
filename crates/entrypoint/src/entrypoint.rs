@@ -11,6 +11,7 @@ use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
 use crate::prelude::Version;
+use crate::tracing::init_tracing;
 use chrono::Local;
 use clap::CommandFactory;
 use clap::FromArgMatches;
@@ -33,7 +34,6 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::stdout;
 use tracing::info;
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::EnvFilter;
 
 pub fn entrypoint(version: Version) -> Result<()> {
     // let panic_hook = std::panic::take_hook();
@@ -61,24 +61,10 @@ pub fn entrypoint(version: Version) -> Result<()> {
     }
 
     // Configure tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::builder()
-                .with_default_directive(
-                    match cli.debug {
-                        true => LevelFilter::DEBUG,
-                        false => LevelFilter::INFO,
-                    }
-                    .into(),
-                )
-                .from_env_lossy(),
-        )
-        .with_file(true)
-        .with_target(false)
-        .with_line_number(true)
-        .with_writer(std::io::stderr)
-        .without_time()
-        .init();
+    init_tracing(match cli.debug {
+        true => LevelFilter::DEBUG,
+        false => LevelFilter::INFO,
+    })?;
 
     // Configure terminal colour support
     #[cfg(windows)]

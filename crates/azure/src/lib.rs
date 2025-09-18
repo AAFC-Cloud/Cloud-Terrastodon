@@ -52,8 +52,18 @@ mod tags;
 mod tenants;
 mod users;
 mod virtual_network;
+mod unified_role_definitions;
+mod unified_role_definition;
+mod unified_role_assignments;
+mod unified_role_definitions_and_assignments;
+mod access_token;
 pub mod prelude {
     pub use crate::accounts::*;
+    pub use crate::access_token::*;
+    pub use crate::unified_role_definitions::*;
+    pub use crate::unified_role_definitions_and_assignments::*;
+    pub use crate::unified_role_definition::*;
+    pub use crate::unified_role_assignments::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::conditional_access_named_locations::*;

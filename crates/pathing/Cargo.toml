@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_pathing"
 description = "Well-known paths for the Cloud Terrastodon project"
-version = "0.25.0" # CT_VERSION
+version = "0.27.0" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -14,6 +14,9 @@ tokio = { workspace = true }
 clap = { workspace = true }
 directories-next = { workspace = true }
 async-trait.workspace = true
+
+
+
 
 
 

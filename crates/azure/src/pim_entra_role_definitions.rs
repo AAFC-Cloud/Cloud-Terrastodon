@@ -40,9 +40,10 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let result = fetch_all_entra_pim_role_definitions().await?;
-        for role_definition in result {
+        for role_definition in &result {
             println!("- {:?}", role_definition)
         }
+        println!("Found {} role definitions", result.len());
         Ok(())
     }
 }

@@ -17,6 +17,9 @@ pub enum RoleDefinitionKind {
     CustomRole,
 }
 
+/// An Azure RBAC role definition.
+/// 
+/// Not to be confused with an Entra role definition.
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct RoleDefinition {
     pub id: RoleDefinitionId,

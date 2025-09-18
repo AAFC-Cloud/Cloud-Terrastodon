@@ -1,3 +1,5 @@
+use chrono::DateTime;
+use chrono::Local;
 use serde::Deserialize;
 use serde::Deserializer;
 use std::str::FromStr;
@@ -26,6 +28,24 @@ where
         Some(s) if s.is_empty() => Ok(None),
         Some(s) => T::from_str(&s).map_err(serde::de::Error::custom).map(Some),
     }
+}
+
+pub fn deserialize_local_date_time_from_epoch<'de, D>(deserializer: D) -> Result<DateTime<Local>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let epoch: i64 = Deserialize::deserialize(deserializer)?;
+    let datetime = DateTime::from_timestamp(epoch, 0).expect("invalid or out-of-range datetime");
+    Ok(datetime.with_timezone(&Local))
+}
+
+pub fn deserialize_utc_date_time_from_epoch<'de, D>(deserializer: D) -> Result<DateTime<chrono::Utc>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let epoch: i64 = Deserialize::deserialize(deserializer)?;
+    let datetime = DateTime::from_timestamp(epoch, 0).expect("invalid or out-of-range datetime");
+    Ok(datetime)
 }
 
 #[cfg(test)]

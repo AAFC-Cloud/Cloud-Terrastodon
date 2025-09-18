@@ -28,6 +28,20 @@ impl MicrosoftGraphHelper {
         }
     }
 
+    pub async fn fetch_one<T: DeserializeOwned>(self) -> Result<T> {
+        // Build command
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.args(["rest", "--method", "GET", "--url"]);
+        cmd.file_arg("url.txt", self.url);
+
+        // Set up caching
+        cmd.use_cache_behaviour(self.cache_behaviour);
+
+        // Perform request
+        let response = cmd.run::<T>().await?;
+        Ok(response)
+    }
+
     /// This doesn't handle 'singleton' responses like https://graph.microsoft.com/v1.0/me
     pub async fn fetch_all<T: DeserializeOwned>(&self) -> Result<Vec<T>> {
         let mut results = Vec::new();

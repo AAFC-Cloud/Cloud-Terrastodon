@@ -52,7 +52,6 @@ impl From<User> for HCLImportBlock {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use eyre::Result;
     use uuid::Uuid;
 

@@ -1,3 +1,15 @@
+Add virtual machine image discovery
+Include link to helper resource
+https://az-vm-image.info/?cmd=--all+--publisher+center-for-internet-security-inc
+0. Observe az cli
+    - `az vm image list --all --publisher center-for-internet-security-inc --debug`
+1. Fetch publishers
+    - `az rest --method get --url "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/canadacentral/publishers?api-version=2024-11-01"`
+2. Fetch offers
+    - `az rest --method get --url "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/canadacentral/publishers/center-for-internet-security-inc/artifacttypes/vmimage/offers?api-version=2024-07-01"`
+3. Check `accepted` in terms
+    - `az vm image terms show --urn center-for-internet-security-inc:cis-windows-server:cis-windows-server2016-l2-gen2:latest`
+
 - fix "Direct" PIM assignment failing to deserialize
 - Add entra role definition fetch
 - Add prediction for privileged operation like creating security group

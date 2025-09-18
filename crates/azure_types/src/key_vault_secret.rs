@@ -1,3 +1,4 @@
+use crate::prelude::KeyVaultSecretId;
 use crate::prelude::KeyVaultSecretName;
 use chrono::DateTime;
 use chrono::Utc;
@@ -24,7 +25,7 @@ pub struct KeyVaultSecret {
     pub attributes: KeyVaultSecretAttributes,
     #[serde(default)]
     pub content_type: Option<String>,
-    pub id: String,
+    pub id: KeyVaultSecretId,
     #[serde(default)]
     pub managed: Option<bool>,
     pub name: KeyVaultSecretName,

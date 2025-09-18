@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_azure_types"
 description = "Types for modelling Azure stuff for the Cloud Terrastodon project"
-version = "0.25.0" # CT_VERSION
+version = "0.27.0" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -26,18 +26,17 @@ iso8601-duration.workspace = true
 itertools.workspace = true
 compact_str = { workspace = true, features = ["serde"] }
 validator.workspace = true
-# holda.workspace = true
 # regex.workspace = true
 arbitrary.workspace = true
 unicode_categories.workspace = true
-nom.workspace = true
-nom-language.workspace = true
 ipnetwork.workspace = true
-winnow.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
 rand.workspace=true
+
+
+
 
 
 

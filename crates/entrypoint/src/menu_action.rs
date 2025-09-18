@@ -10,6 +10,7 @@ use crate::interactive::prelude::browse_resources_menu;
 use crate::interactive::prelude::browse_role_assignments;
 use crate::interactive::prelude::browse_security_groups;
 use crate::interactive::prelude::browse_service_principals;
+use crate::interactive::prelude::browse_storage_accounts;
 use crate::interactive::prelude::browse_users;
 use crate::interactive::prelude::build_group_imports;
 use crate::interactive::prelude::build_imports_from_existing;
@@ -108,6 +109,7 @@ pub enum MenuAction {
     BrowseAzureDevOpsProjects,
     BrowseAzureDevOpsProjectTeams,
     BrowseServicePrincipals,
+    BrowseStorageAccounts,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -176,6 +178,7 @@ impl MenuAction {
             MenuAction::BrowseAzureDevOpsProjects => "browse azure devops projects",
             MenuAction::BrowseAzureDevOpsProjectTeams => "browse azure devops project teams",
             MenuAction::BrowseServicePrincipals => "browse service principals",
+            MenuAction::BrowseStorageAccounts => "browse storage accounts",
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -246,6 +249,7 @@ impl MenuAction {
                 browse_azure_devops_project_teams().await?
             }
             MenuAction::BrowseServicePrincipals => browse_service_principals().await?,
+            MenuAction::BrowseStorageAccounts => browse_storage_accounts().await?,
         }
         Ok(MenuActionResult::PauseAndContinue)
     }

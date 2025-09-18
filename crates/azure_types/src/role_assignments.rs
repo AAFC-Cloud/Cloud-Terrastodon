@@ -12,6 +12,9 @@ use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 
+/// An Azure RBAC role assignment.
+/// 
+/// Not to be confused with an Entra role assignment.
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct RoleAssignment {
     pub id: RoleAssignmentId,

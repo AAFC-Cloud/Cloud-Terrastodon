@@ -2,11 +2,12 @@ use crate::prelude::fetch_all_security_groups;
 use crate::prelude::fetch_all_service_principals;
 use crate::prelude::fetch_all_users;
 use cloud_terrastodon_azure_types::prelude::Principal;
+use cloud_terrastodon_azure_types::prelude::PrincipalCollection;
 use itertools::Itertools;
 use tokio::try_join;
 use tracing::info;
 
-pub async fn fetch_all_principals() -> eyre::Result<Vec<Principal>> {
+pub async fn fetch_all_principals() -> eyre::Result<PrincipalCollection> {
     info!("Fetching principals (users, security groups, and service principals)");
     let (users, security_groups, service_principals) = try_join!(
         fetch_all_users(),
@@ -20,7 +21,7 @@ pub async fn fetch_all_principals() -> eyre::Result<Vec<Principal>> {
         .chain(service_principals.into_iter().map_into())
         .collect();
     info!("Found {} principals", principals.len());
-    Ok(principals)
+    Ok(PrincipalCollection::new(principals))
 }
 
 #[cfg(test)]

@@ -57,6 +57,19 @@ impl KeyVaultId {
     }
 }
 
+impl Ord for KeyVaultId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.resource_group_id
+            .cmp(&other.resource_group_id)
+            .then_with(|| self.key_vault_name.cmp(&other.key_vault_name))
+    }
+}
+impl PartialOrd for KeyVaultId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl HasSlug for KeyVaultId {
     type Name = KeyVaultName;
 
