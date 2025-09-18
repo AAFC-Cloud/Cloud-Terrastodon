@@ -156,6 +156,67 @@ tokio = { workspace = true }
 eyre = { workspace = true }
 color-eyre = { workspace = true }
 
+# Optional re-exported crates (enable via features below)
+cloud_terrastodon_pathing = { workspace = true, optional = true }
+cloud_terrastodon_config = { workspace = true, optional = true }
+cloud_terrastodon_azure = { workspace = true, optional = true }
+cloud_terrastodon_azure_types = { workspace = true, optional = true }
+cloud_terrastodon_azure_resource_types = { workspace = true, optional = true }
+cloud_terrastodon_azure_devops = { workspace = true, optional = true }
+cloud_terrastodon_azure_devops_types = { workspace = true, optional = true }
+cloud_terrastodon_hcl = { workspace = true, optional = true }
+cloud_terrastodon_hcl_types = { workspace = true, optional = true }
+cloud_terrastodon_user_input = { workspace = true, optional = true }
+cloud_terrastodon_command = { workspace = true, optional = true }
+cloud_terrastodon_zombies = { workspace = true, optional = true }
+cloud_terrastodon_relative_location = { workspace = true, optional = true }
+cloud_terrastodon_ui_ratatui = { workspace = true, optional = true }
+cloud_terrastodon_ui_egui = { workspace = true, optional = true }
+cloud_terrastodon_azure_locations = { workspace = true, optional = true }
+cloud_terrastodon_credentials = { workspace = true, optional = true }
+
+[features]
+default = ["full"]
+# One feature per optional subcrate. Each maps to its dependency via the `dep:` syntax.
+pathing = ["dep:cloud_terrastodon_pathing"]
+config = ["dep:cloud_terrastodon_config"]
+azure = ["dep:cloud_terrastodon_azure"]
+azure-types = ["dep:cloud_terrastodon_azure_types"]
+azure-resource-types = ["dep:cloud_terrastodon_azure_resource_types"]
+azure-devops = ["dep:cloud_terrastodon_azure_devops"]
+azure-devops-types = ["dep:cloud_terrastodon_azure_devops_types"]
+hcl = ["dep:cloud_terrastodon_hcl"]
+hcl-types = ["dep:cloud_terrastodon_hcl_types"]
+user-input = ["dep:cloud_terrastodon_user_input"]
+command = ["dep:cloud_terrastodon_command"]
+zombies = ["dep:cloud_terrastodon_zombies"]
+relative-location = ["dep:cloud_terrastodon_relative_location"]
+ui-ratatui = ["dep:cloud_terrastodon_ui_ratatui"]
+ui-egui = ["dep:cloud_terrastodon_ui_egui"]
+azure-locations = ["dep:cloud_terrastodon_azure_locations"]
+credentials = ["dep:cloud_terrastodon_credentials"]
+
+# Convenience feature that enables all re-exports, similar to tokio's `full`.
+full = [
+    "pathing",
+    "config",
+    "azure",
+    "azure-types",
+    "azure-resource-types",
+    "azure-devops",
+    "azure-devops-types",
+    "hcl",
+    "hcl-types",
+    "user-input",
+    "command",
+    "zombies",
+    "relative-location",
+    "ui-ratatui",
+    "ui-egui",
+    "azure-locations",
+    "credentials",
+]
+
 
 
 

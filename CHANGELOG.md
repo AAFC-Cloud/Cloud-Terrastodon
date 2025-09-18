@@ -10,6 +10,7 @@
 - Add `UnifiedRoleDefinition` and `UnifiedRoleAssignment` types for Entra RBAC
 - Move `AccessToken` type from `cloud_terrastodon_credentials` to `cloud_terrastodon_azure_types`
 - Add jwt decoding to `cloud_terrastodon_credentials` (TODO: fix fn return instead of just printing)
+- Published `cloud_terrastodon` crate to re-export other `cloud_terrastodon_*` crates
 
 
 # v0.26.0
