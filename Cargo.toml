@@ -172,7 +172,7 @@ cloud_terrastodon_zombies = { workspace = true, optional = true }
 cloud_terrastodon_relative_location = { workspace = true, optional = true }
 cloud_terrastodon_ui_ratatui = { workspace = true, optional = true }
 cloud_terrastodon_ui_egui = { workspace = true, optional = true }
-cloud_terrastodon_azure_locations = { workspace = true, optional = true }
+# cloud_terrastodon_azure_locations = { workspace = true, optional = true }
 cloud_terrastodon_credentials = { workspace = true, optional = true }
 
 [features]
@@ -193,7 +193,7 @@ zombies = ["dep:cloud_terrastodon_zombies"]
 relative-location = ["dep:cloud_terrastodon_relative_location"]
 ui-ratatui = ["dep:cloud_terrastodon_ui_ratatui"]
 ui-egui = ["dep:cloud_terrastodon_ui_egui"]
-azure-locations = ["dep:cloud_terrastodon_azure_locations"]
+# azure-locations = ["dep:cloud_terrastodon_azure_locations"]
 credentials = ["dep:cloud_terrastodon_credentials"]
 
 # Convenience feature that enables all re-exports, similar to tokio's `full`.
@@ -213,7 +213,7 @@ full = [
     "relative-location",
     "ui-ratatui",
     "ui-egui",
-    "azure-locations",
+   # "azure-locations",
     "credentials",
 ]
 

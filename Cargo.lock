@@ -799,7 +799,6 @@ dependencies = [
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_azure_devops_types",
- "cloud_terrastodon_azure_locations",
  "cloud_terrastodon_azure_resource_types",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",

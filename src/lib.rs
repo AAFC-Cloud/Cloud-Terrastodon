@@ -59,8 +59,8 @@ pub use cloud_terrastodon_ui_ratatui as ui_ratatui;
 #[cfg(feature = "ui-egui")]
 pub use cloud_terrastodon_ui_egui as ui_egui;
 
-#[cfg(feature = "azure-locations")]
-pub use cloud_terrastodon_azure_locations as azure_locations;
+// #[cfg(feature = "azure-locations")]
+// pub use cloud_terrastodon_azure_locations as azure_locations;
 
 #[cfg(feature = "credentials")]
 pub use cloud_terrastodon_credentials as credentials;
