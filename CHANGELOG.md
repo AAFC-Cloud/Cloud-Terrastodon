@@ -12,7 +12,6 @@
 - Add jwt decoding to `cloud_terrastodon_credentials` (TODO: fix fn return instead of just printing)
 - Published `cloud_terrastodon` crate to re-export other `cloud_terrastodon_*` crates
 
-
 # v0.26.0
 
 - Add `fetch_all_key_vaults` fn

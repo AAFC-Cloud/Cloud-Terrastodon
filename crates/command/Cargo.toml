@@ -1,6 +1,6 @@
 [package]
 name = "cloud_terrastodon_command"
-version = "0.25.0" # CT_VERSION
+version = "0.26.0" # CT_VERSION
 description = "Command running helpers for the Cloud Terrastodon project"
 edition.workspace = true
 authors.workspace = true
@@ -29,6 +29,7 @@ compact_str.workspace=true
 cloud_terrastodon_user_input.workspace = true
 ratatui.workspace = true
 tracing-subscriber.workspace=true
+
 
 
 
