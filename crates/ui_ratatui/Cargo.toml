@@ -1,5 +1,6 @@
 [package]
 name = "cloud_terrastodon_ui_ratatui"
+description = "User interface for the Cloud Terrastodon project leveraging Ratatui"
 version = "0.25.0" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
