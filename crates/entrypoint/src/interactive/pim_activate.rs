@@ -1,8 +1,6 @@
 use cloud_terrastodon_azure::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure::prelude::GovernanceRoleAssignmentState;
 use cloud_terrastodon_azure::prelude::PimEntraRoleDefinition;
-use cloud_terrastodon_azure::prelude::Resource;
-use cloud_terrastodon_azure::prelude::RoleEligibilitySchedule;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::activate_pim_entra_role;
 use cloud_terrastodon_azure::prelude::activate_pim_role;
@@ -150,7 +148,7 @@ pub async fn pim_activate_azurerm() -> Result<()> {
     info!("Fetching role eligibility schedules");
     let possible_roles = fetch_my_role_eligibility_schedules().await?;
     let chosen_roles =
-        PickerTui::<RoleEligibilitySchedule>::new(possible_roles.into_iter().map(|x| Choice {
+        PickerTui::from(possible_roles.into_iter().map(|x| Choice {
             key: x.to_string(),
             value: x,
         }))
@@ -183,7 +181,7 @@ pub async fn pim_activate_azurerm() -> Result<()> {
             );
             Choice { key, value: r }
         });
-    let chosen_scopes = PickerTui::<Resource>::new(possible_scopes)
+    let chosen_scopes = PickerTui::from(possible_scopes)
         .set_header(format!("Activating {chosen_roles_display}"))
         .pick_many()?;
 

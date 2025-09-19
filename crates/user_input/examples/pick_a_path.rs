@@ -1,6 +1,5 @@
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
-use std::fs::DirEntry;
 
 pub fn main() -> eyre::Result<()> {
     let mut choices = Vec::new();
@@ -10,7 +9,7 @@ pub fn main() -> eyre::Result<()> {
         choices.push(entry);
     }
 
-    let chosen = PickerTui::<DirEntry>::new(
+    let chosen = PickerTui::from(
         choices.into_iter().map(|entry| Choice {
             key: entry.path().display().to_string(), // the value shown to the user
             value: entry, // the inner value we want to have after the user picks

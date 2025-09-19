@@ -1,6 +1,3 @@
-use cloud_terrastodon_azure::prelude::Resource;
-use cloud_terrastodon_azure::prelude::RoleDefinition;
-use cloud_terrastodon_azure::prelude::User;
 use cloud_terrastodon_azure::prelude::create_role_assignment;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
@@ -15,7 +12,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
     info!("Fetching role definition list");
     let role_definitions = fetch_all_role_definitions().await?;
     let role_definitions =
-        PickerTui::<RoleDefinition>::new(role_definitions.into_iter().map(|r| Choice {
+        PickerTui::from(role_definitions.into_iter().map(|r| Choice {
             key: r.display_name.to_owned(),
             value: r,
         }))
@@ -24,7 +21,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
 
     info!("Fetching principals");
     let users = fetch_all_users().await?;
-    let principals = PickerTui::<User>::new(users.into_iter().map(|u| Choice {
+    let principals = PickerTui::from(users.into_iter().map(|u| Choice {
         key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
         value: u,
     }))
@@ -36,7 +33,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
 
     info!("Fetching resources");
     let resources = fetch_all_resources().await?;
-    let resources = PickerTui::<Resource>::new(resources.into_iter().map(|resource| Choice {
+    let resources = PickerTui::from(resources.into_iter().map(|resource| Choice {
         key: resource.id.to_string(),
         value: resource,
     }))

@@ -71,7 +71,7 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
         1 => blob_container_names.first().unwrap(),
         _ => {
             info!("Picking blob container");
-            &PickerTui::<String>::new(blob_container_names.into_iter().map(|name| Choice {
+            &PickerTui::from(blob_container_names.into_iter().map(|name| Choice {
                 key: name.to_owned(),
                 value: name,
             }))

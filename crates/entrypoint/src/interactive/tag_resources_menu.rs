@@ -33,7 +33,7 @@ pub async fn tag_resources_menu() -> eyre::Result<()> {
             key: r.id.expanded_form().to_string(),
             value: r,
         });
-    let resources = PickerTui::<Resource>::new(resources)
+    let resources = PickerTui::from(resources)
         .set_header("Choose resources to tag")
         .pick_many()?;
     let resource_tags = get_tags_for_resources(

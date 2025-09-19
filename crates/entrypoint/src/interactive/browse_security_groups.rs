@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::prelude::Group;
 use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
@@ -29,11 +28,11 @@ enum SecurityGroupAction {
 }
 
 pub async fn browse_security_groups() -> Result<()> {
-    let security_groups = PickerTui::<Group>::new(get_security_group_choices().await?)
+    let security_groups = PickerTui::from(get_security_group_choices().await?)
         .set_header("security groups")
         .pick_many()?;
 
-    let actions = PickerTui::<SecurityGroupAction>::new(
+    let actions = PickerTui::from(
         SecurityGroupAction::VARIANTS
             .iter()
             .copied()

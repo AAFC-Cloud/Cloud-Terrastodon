@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_queries_for_project;
@@ -11,7 +10,7 @@ use tracing::info;
 pub async fn dump_work_items() -> eyre::Result<()> {
     let org_url = get_default_organization_url().await?;
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
-    let projects = PickerTui::<AzureDevOpsProject>::new(projects.into_iter().map(|p| Choice {
+    let projects = PickerTui::from(projects.into_iter().map(|p| Choice {
         key: p.name.to_string(),
         value: p,
     }))

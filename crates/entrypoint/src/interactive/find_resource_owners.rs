@@ -396,7 +396,7 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
             .pick_one()?;
         match clue_source {
             ClueAction::PeekClueDetails => {
-                let clues = PickerTui::<ClueChain>::new(
+                let clues = PickerTui::from(
                     traversal_context
                         .clues
                         .iter()
