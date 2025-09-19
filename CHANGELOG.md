@@ -3,6 +3,7 @@
 - Switch from using `fzf` to `PickerTui` everywhere
 - Update `PickerTui` return types for `pick_one` and `pick_many` to return `PickResult<T>`
 - Add `PickerTui::from` for better type inference
+- Remove `fzf` module containing `pick` and `pick_many` in favour of `PickerTui`
 
 # v0.27.0
 
