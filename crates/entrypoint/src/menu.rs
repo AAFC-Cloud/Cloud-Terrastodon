@@ -5,7 +5,6 @@ use cloud_terrastodon_user_input::prompt_line;
 use eyre::Context;
 use eyre::Result;
 use strum::VariantArray;
-use tracing::error;
 use tracing::info;
 
 pub async fn menu() -> Result<MenuActionResult> {
@@ -47,8 +46,7 @@ pub async fn menu() -> Result<MenuActionResult> {
             .context(format!("invoking action \"{action}\""));
         match result {
             Err(e) => {
-                error!("Error calling action handler: {:?}", e);
-                press_enter_to_continue().await?;
+                return Err(e.wrap_err("Error calling action handler"));
             }
             Ok(MenuActionResult::PauseAndContinue) if chosen.len() == 1 => {
                 // Only pause when running a single action
