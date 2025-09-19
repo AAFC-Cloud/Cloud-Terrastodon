@@ -396,18 +396,13 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
             .pick_one()?;
         match clue_source {
             ClueAction::PeekClueDetails => {
-                let clues = PickerTui::from(
-                    traversal_context
-                        .clues
-                        .iter()
-                        .cloned()
-                        .map(|clue| Choice {
-                            key: clue.to_string(),
-                            value: clue,
-                        })
-                )
-                .set_header("What clues do you want to see the details for?")
-                .pick_many()?;
+                let clues =
+                    PickerTui::from(traversal_context.clues.iter().cloned().map(|clue| Choice {
+                        key: clue.to_string(),
+                        value: clue,
+                    }))
+                    .set_header("What clues do you want to see the details for?")
+                    .pick_many()?;
                 info!("You chose:\n{clues:#?}");
                 press_enter_to_continue().await?;
             }

@@ -11,13 +11,12 @@ use tracing::info;
 pub async fn create_role_assignment_menu() -> Result<()> {
     info!("Fetching role definition list");
     let role_definitions = fetch_all_role_definitions().await?;
-    let role_definitions =
-        PickerTui::from(role_definitions.into_iter().map(|r| Choice {
-            key: r.display_name.to_owned(),
-            value: r,
-        }))
-        .set_header("Roles to assign")
-        .pick_many()?;
+    let role_definitions = PickerTui::from(role_definitions.into_iter().map(|r| Choice {
+        key: r.display_name.to_owned(),
+        value: r,
+    }))
+    .set_header("Roles to assign")
+    .pick_many()?;
 
     info!("Fetching principals");
     let users = fetch_all_users().await?;

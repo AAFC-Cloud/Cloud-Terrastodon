@@ -7,7 +7,7 @@ use std::time::Duration;
 use tracing::debug;
 
 /// Fetches all AzureRM role definitions.
-/// 
+///
 /// Not to be confused with Entra role definitions.
 pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     debug!("Fetching role definitions");

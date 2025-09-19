@@ -26,7 +26,7 @@ impl UnifiedRoleDefinitionsAndAssignments {
                 // https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/permissions-reference#deprecated-roles
                 // We filter them out because entra no longer includes them in the role definitions list, causing validation errors.
                 let bad_ids: [UnifiedRoleDefinitionId; _] = [
-                    "d65e02d2-0214-4674-8e5d-766fb330e2c0".parse().unwrap() // Email Verified User Creator
+                    "d65e02d2-0214-4674-8e5d-766fb330e2c0".parse().unwrap(), // Email Verified User Creator
                 ];
                 !bad_ids.contains(&ra.role_definition_id)
             })

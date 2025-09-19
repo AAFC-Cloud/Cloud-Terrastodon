@@ -72,15 +72,10 @@ impl HCLImportable {
     }
     pub fn pick() -> eyre::Result<HCLImportable> {
         Ok(
-            PickerTui::new(
-                HCLImportable::VARIANTS
-                    .iter()
-                    .copied()
-                    .map(|x| Choice {
-                        key: x.to_string(),
-                        value: x,
-                    }),
-            )
+            PickerTui::new(HCLImportable::VARIANTS.iter().copied().map(|x| Choice {
+                key: x.to_string(),
+                value: x,
+            }))
             .set_header("Pick the kind of thing to import")
             .pick_one()?,
         )

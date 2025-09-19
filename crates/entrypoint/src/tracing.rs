@@ -1,8 +1,7 @@
 use eyre::Result;
+pub use tracing::Level;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::Directive;
-
-pub use tracing::Level;
 
 pub fn init_tracing(level: impl Into<Directive>) -> Result<()> {
     tracing_subscriber::fmt()

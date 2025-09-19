@@ -34,7 +34,11 @@ impl KeyVaultSecretVersionId {
         }
     }
 
-    pub fn try_new<V, S, SV>(key_vault_name: V, secret_name: S, secret_version: SV) -> eyre::Result<Self>
+    pub fn try_new<V, S, SV>(
+        key_vault_name: V,
+        secret_name: S,
+        secret_version: SV,
+    ) -> eyre::Result<Self>
     where
         V: TryInto<KeyVaultName>,
         V::Error: Into<eyre::Error>,

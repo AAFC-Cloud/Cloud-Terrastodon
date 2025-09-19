@@ -55,9 +55,7 @@ pub fn prompt_kill_processes_using_dirs(
     if to_kill.is_empty() {
         return Ok(());
     }
-    let to_kill = PickerTui::new(to_kill)
-        .set_header(header)
-        .pick_many()?;
+    let to_kill = PickerTui::new(to_kill).set_header(header).pick_many()?;
     for Choice {
         key,
         value: (_pid, process),

@@ -1,4 +1,5 @@
 #![feature(impl_trait_in_assoc_type, duration_constructors, async_fn_track_caller)]
+mod access_token;
 mod accounts;
 mod auth;
 mod batch_api;
@@ -50,20 +51,15 @@ mod storage_account;
 mod subscriptions;
 mod tags;
 mod tenants;
+mod unified_role_assignments;
+mod unified_role_definition;
+mod unified_role_definitions;
+mod unified_role_definitions_and_assignments;
 mod users;
 mod virtual_network;
-mod unified_role_definitions;
-mod unified_role_definition;
-mod unified_role_assignments;
-mod unified_role_definitions_and_assignments;
-mod access_token;
 pub mod prelude {
-    pub use crate::accounts::*;
     pub use crate::access_token::*;
-    pub use crate::unified_role_definitions::*;
-    pub use crate::unified_role_definitions_and_assignments::*;
-    pub use crate::unified_role_definition::*;
-    pub use crate::unified_role_assignments::*;
+    pub use crate::accounts::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::conditional_access_named_locations::*;
@@ -114,6 +110,10 @@ pub mod prelude {
     pub use crate::subscriptions::*;
     pub use crate::tags::*;
     pub use crate::tenants::*;
+    pub use crate::unified_role_assignments::*;
+    pub use crate::unified_role_definition::*;
+    pub use crate::unified_role_definitions::*;
+    pub use crate::unified_role_definitions_and_assignments::*;
     pub use crate::users::*;
     pub use crate::virtual_network::*;
     pub use cloud_terrastodon_azure_types::prelude::*;

@@ -1,10 +1,9 @@
+use crate::AzureDevOpsPersonalAccessToken;
 use base64::prelude::BASE64_STANDARD;
 use base64::write::EncoderWriter;
 use cloud_terrastodon_azure_types::prelude::AccessToken;
 use reqwest::header::HeaderValue;
 use std::io::Write;
-
-use crate::AzureDevOpsPersonalAccessToken;
 
 pub trait AuthBearerExt {
     fn as_authorization_header_value(&self) -> HeaderValue;
@@ -16,7 +15,9 @@ impl AuthBearerExt for str {
             let username = "";
             let password = self;
             let mut encoder = EncoderWriter::new(&mut buf, &BASE64_STANDARD);
-            encoder.write_fmt(format_args!("{username}:{password}")).unwrap();
+            encoder
+                .write_fmt(format_args!("{username}:{password}"))
+                .unwrap();
         }
         let mut header = HeaderValue::from_bytes(&buf).expect("base64 is always valid HeaderValue");
         header.set_sensitive(true);

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use tracing::warn;
 
 /// An Entra role definition.
-/// 
+///
 /// Not to be confused with an Azure RBAC role definition.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

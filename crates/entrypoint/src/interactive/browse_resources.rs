@@ -8,13 +8,10 @@ use tracing::info;
 
 pub async fn browse_resources_menu() -> Result<()> {
     info!("Fetching resources");
-    let choices = fetch_all_resources()
-        .await?
-        .into_iter()
-        .map(|x| Choice {
-            key: x.id.expanded_form().to_owned(),
-            value: x,
-        });
+    let choices = fetch_all_resources().await?.into_iter().map(|x| Choice {
+        key: x.id.expanded_form().to_owned(),
+        value: x,
+    });
     let chosen: Vec<Resource> = PickerTui::new(choices)
         .set_header("Resources")
         .pick_many()?;

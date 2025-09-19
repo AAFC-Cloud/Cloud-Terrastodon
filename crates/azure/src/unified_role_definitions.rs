@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 /// Fetch all Entra role assignments.
-/// 
+///
 /// Not to be confused with Azure RBAC role assignments.
 pub async fn fetch_all_unified_role_definitions() -> eyre::Result<UnifiedRoleDefinitionCollection> {
     let url = "https://graph.microsoft.com/beta/roleManagement/directory/roleDefinitions"; // ?$top=500
@@ -16,7 +16,10 @@ pub async fn fetch_all_unified_role_definitions() -> eyre::Result<UnifiedRoleDef
             valid_for: Duration::from_hours(24),
         },
     );
-    query.fetch_all().await.map(UnifiedRoleDefinitionCollection::new)
+    query
+        .fetch_all()
+        .await
+        .map(UnifiedRoleDefinitionCollection::new)
 }
 #[cfg(test)]
 mod test {
@@ -25,7 +28,10 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let role_definitions = fetch_all_unified_role_definitions().await?;
-        println!("Sample role definition: {:#?}", role_definitions.values().next());
+        println!(
+            "Sample role definition: {:#?}",
+            role_definitions.values().next()
+        );
         println!("Found {} role definitions", role_definitions.len());
         assert!(
             role_definitions

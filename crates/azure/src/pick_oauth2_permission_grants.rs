@@ -92,7 +92,7 @@ pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Choice<Grant>>>
                         (a, b) => a.is_some().cmp(&b.is_some()),
                     }
                 })
-            })
+            }),
     )
     .set_header("Pick the items to browse")
     .pick_many()?;

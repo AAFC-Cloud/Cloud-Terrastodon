@@ -9,7 +9,7 @@ impl PrincipalCollection {
     pub fn new(principals: impl IntoIterator<Item = Principal>) -> Self {
         let lookup = principals
             .into_iter()
-            .map(|p| (p.id().clone(), p))
+            .map(|p| (p.id(), p))
             .collect::<HashMap<_, _>>();
         Self(lookup)
     }

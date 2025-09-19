@@ -13,13 +13,19 @@ pub struct AzureClaims {
     #[serde(rename = "iss")]
     pub issuer: String,
     #[serde(rename = "iat")]
-    #[serde(deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_local_date_time_from_epoch")]
+    #[serde(
+        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_local_date_time_from_epoch"
+    )]
     pub issued_at: DateTime<Local>,
     #[serde(rename = "nbf")]
-    #[serde(deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_local_date_time_from_epoch")]
+    #[serde(
+        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_local_date_time_from_epoch"
+    )]
     pub not_before: DateTime<Local>,
     #[serde(rename = "exp")]
-    #[serde(deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_local_date_time_from_epoch")]
+    #[serde(
+        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_local_date_time_from_epoch"
+    )]
     pub expires: DateTime<Local>,
     #[serde(rename = "acr")]
     pub authentication_context_class: String,

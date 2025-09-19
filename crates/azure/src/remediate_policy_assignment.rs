@@ -58,8 +58,9 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                     value: x,
                 })
                 .collect_vec();
-            let chosen: Vec<Choice<cloud_terrastodon_azure_types::prelude::PolicySetDefinitionPolicyDefinition>> =
-                PickerTui::new(reference_ids)
+            let chosen: Vec<
+                Choice<cloud_terrastodon_azure_types::prelude::PolicySetDefinitionPolicyDefinition>,
+            > = PickerTui::new(reference_ids)
                 .set_header("Pick the inner definitions to remediate")
                 .pick_many()?;
 

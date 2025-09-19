@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 /// An Entra role assignment.
-/// 
+///
 /// Not to be confused with an Azure RBAC role assignment.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]

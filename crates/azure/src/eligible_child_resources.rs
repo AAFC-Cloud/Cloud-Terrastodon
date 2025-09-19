@@ -154,7 +154,7 @@ mod tests {
                     .map(|x| Choice {
                         key: x.name.to_owned(),
                         value: x,
-                    })
+                    }),
             )
             .set_header("Choose a scope")
             .pick_one()?;
@@ -171,7 +171,7 @@ mod tests {
                 .map(|x| Choice {
                     key: x.to_string(),
                     value: x,
-                })
+                }),
         )
         .pick_many()?;
         assert!(chosen.len() > 0);

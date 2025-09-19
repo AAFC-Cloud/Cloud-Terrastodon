@@ -24,7 +24,7 @@ pub async fn open_dir() -> Result<()> {
         .set_header("Choose directories to open")
         .pick_many()?;
     for v in dirs_to_open {
-    let (dir, exists) = v;
+        let (dir, exists) = v;
         if !exists {
             dir.as_path_buf().ensure_dir_exists().await?;
         }

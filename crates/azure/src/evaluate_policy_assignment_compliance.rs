@@ -67,17 +67,16 @@ policyResources
     .collect_all::<ReferenceIdRow>()
     .await?;
 
-    let chosen_reference_id: ReferenceIdRow = PickerTui::new(
-        reference_ids.into_iter().map(|row| Choice {
+    let chosen_reference_id: ReferenceIdRow =
+        PickerTui::new(reference_ids.into_iter().map(|row| Choice {
             key: format!(
                 "{:64} - {:64} - {} non-compliant resources",
                 row.policy_definition_reference_id, row.resource_type, row.found
             ),
             value: row,
-        }),
-    )
-    .set_header("Choose an inner policy to review")
-    .pick_one()?;
+        }))
+        .set_header("Choose an inner policy to review")
+        .pick_one()?;
 
     info!(
         "Fetching resource compliance for {}",
@@ -130,8 +129,8 @@ policyResources
     .collect_all::<ResourceRow>()
     .await?;
 
-    let chosen_resource_id: ResourceRow = PickerTui::new(
-        resource_ids.into_iter().map(|row| Choice {
+    let chosen_resource_id: ResourceRow =
+        PickerTui::new(resource_ids.into_iter().map(|row| Choice {
             key: format!(
                 "{:16} - {:64} - {}",
                 row.subscription_name,
@@ -142,13 +141,12 @@ policyResources
                     .unwrap_or(row.resource_id.as_str())
             ),
             value: row,
-        }),
-    )
-    .set_header(format!(
-        "{} - {}",
-        chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
-    ))
-    .pick_one()?;
+        }))
+        .set_header(format!(
+            "{} - {}",
+            chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
+        ))
+        .pick_one()?;
 
     info!(
         "You chose: {} - {}",

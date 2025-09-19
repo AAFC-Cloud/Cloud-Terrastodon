@@ -12,15 +12,22 @@ impl std::fmt::Display for PickError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PickError::Eyre(e) => write!(f, "PickError: {}", e),
-            PickError::Cancelled => write!(f, "PickError: The operation was cancelled by the user hitting the Esc key."),
-            PickError::NoChoicesProvided => write!(f, "PickError: The list of choices to pick from was empty."),
+            PickError::Cancelled => write!(
+                f,
+                "PickError: The operation was cancelled by the user hitting the Esc key."
+            ),
+            PickError::NoChoicesProvided => {
+                write!(f, "PickError: The list of choices to pick from was empty.")
+            }
         }
     }
 }
 impl PartialEq for PickError {
     fn eq(&self, other: &Self) -> bool {
+        #[allow(clippy::match_like_matches_macro)]
         match (self, other) {
             (PickError::Cancelled, PickError::Cancelled) => true,
+            (PickError::NoChoicesProvided, PickError::NoChoicesProvided) => true,
             _ => false,
         }
     }

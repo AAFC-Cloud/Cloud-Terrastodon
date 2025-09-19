@@ -30,7 +30,9 @@ where
     }
 }
 
-pub fn deserialize_local_date_time_from_epoch<'de, D>(deserializer: D) -> Result<DateTime<Local>, D::Error>
+pub fn deserialize_local_date_time_from_epoch<'de, D>(
+    deserializer: D,
+) -> Result<DateTime<Local>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -39,7 +41,9 @@ where
     Ok(datetime.with_timezone(&Local))
 }
 
-pub fn deserialize_utc_date_time_from_epoch<'de, D>(deserializer: D) -> Result<DateTime<chrono::Utc>, D::Error>
+pub fn deserialize_utc_date_time_from_epoch<'de, D>(
+    deserializer: D,
+) -> Result<DateTime<chrono::Utc>, D::Error>
 where
     D: Deserializer<'de>,
 {

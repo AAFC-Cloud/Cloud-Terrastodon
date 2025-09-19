@@ -6,13 +6,13 @@ use std::time::Duration;
 use tracing::debug;
 
 /// Fetches Entra role assignments.
-/// 
+///
 /// Not to be confused with Azure RBAC role assignments.
 pub async fn fetch_all_unified_role_assignments() -> eyre::Result<Vec<UnifiedRoleAssignment>> {
     debug!("Fetching all unified role assignments");
     let url = "https://graph.microsoft.com/beta/roleManagement/directory/roleAssignments";
     let query = MicrosoftGraphHelper::new(
-        &url,
+        url,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["unified_role_assignments"]),
             valid_for: Duration::from_hours(24),

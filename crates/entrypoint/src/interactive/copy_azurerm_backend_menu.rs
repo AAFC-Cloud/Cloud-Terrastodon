@@ -1,5 +1,4 @@
 use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::StorageAccount;
 use cloud_terrastodon_azure::prelude::SubscriptionName;
 use cloud_terrastodon_azure::prelude::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
@@ -25,26 +24,24 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
         .collect::<HashMap<_, _>>();
 
     info!("Picking storage account");
-    let chosen_storage_account = PickerTui::<(StorageAccount, String, SubscriptionName)>::new(
-        storage_accounts.into_iter().map(|sa| {
-            let sub_name = subscriptions
-                .get(&sa.id.resource_group_id.subscription_id)
-                .map(|sub| sub.name.to_owned())
-                .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
-            let key = format!(
-                "{:32}\t{:64}\t{}",
-                sub_name, sa.id.resource_group_id.resource_group_name, sa.name
-            );
-            let key_short = format!(
-                "{} {} {}",
-                sub_name, sa.id.resource_group_id.resource_group_name, sa.name
-            );
-            Choice {
-                key,
-                value: (sa, key_short, sub_name),
-            }
-        }),
-    )
+    let chosen_storage_account = PickerTui::from(storage_accounts.into_iter().map(|sa| {
+        let sub_name = subscriptions
+            .get(&sa.id.resource_group_id.subscription_id)
+            .map(|sub| sub.name.to_owned())
+            .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
+        let key = format!(
+            "{:32}\t{:64}\t{}",
+            sub_name, sa.id.resource_group_id.resource_group_name, sa.name
+        );
+        let key_short = format!(
+            "{} {} {}",
+            sub_name, sa.id.resource_group_id.resource_group_name, sa.name
+        );
+        Choice {
+            key,
+            value: (sa, key_short, sub_name),
+        }
+    }))
     .set_header("Picking the storage account for the state file")
     .pick_one()?;
 

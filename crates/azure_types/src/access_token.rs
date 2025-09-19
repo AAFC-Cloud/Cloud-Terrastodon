@@ -1,19 +1,20 @@
+use crate::prelude::SubscriptionId;
+use crate::tenants::TenantId;
+use chrono::DateTime;
+use chrono::Local;
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt::Debug;
-
-use chrono::{DateTime, Local};
-use serde::{Deserialize, Serialize};
-
-use crate::{prelude::SubscriptionId, tenants::TenantId};
 
 #[derive(Deserialize)]
 pub struct AccessToken<T> {
-    #[serde(rename="accessToken")]
+    #[serde(rename = "accessToken")]
     pub access_token: T,
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_local_date_time_from_epoch")]
     pub expires_on: DateTime<Local>,
     pub subscription: SubscriptionId,
     pub tenant: TenantId,
-    #[serde(rename="tokenType")]
+    #[serde(rename = "tokenType")]
     pub token_type: TokenType,
 }
 

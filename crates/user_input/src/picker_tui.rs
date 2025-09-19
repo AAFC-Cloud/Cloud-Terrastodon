@@ -43,16 +43,15 @@ pub struct PickerTui<T> {
     pub auto_accept: bool,
 }
 
-impl<T,I> From<I> for PickerTui<T>
+impl<T, I> From<I> for PickerTui<T>
 where
-I: IntoIterator<Item = Choice<T>>,
+    I: IntoIterator<Item = Choice<T>>,
 {
     /// This has stronger type inference than [`PickerTui::new`]
     fn from(choices: I) -> Self {
         Self::new(choices)
     }
 }
-
 
 type Key = CompactString;
 

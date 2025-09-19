@@ -1,4 +1,5 @@
-use cloud_terrastodon_azure::prelude::{get_role_assignment_choices, RoleAssignment};
+use cloud_terrastodon_azure::prelude::RoleAssignment;
+use cloud_terrastodon_azure::prelude::get_role_assignment_choices;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use tracing::info;

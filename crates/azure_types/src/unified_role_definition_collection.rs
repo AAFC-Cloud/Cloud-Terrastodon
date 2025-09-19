@@ -19,10 +19,7 @@ impl Deref for UnifiedRoleDefinitionCollection {
 }
 impl UnifiedRoleDefinitionCollection {
     pub fn new(roles: impl IntoIterator<Item = UnifiedRoleDefinition>) -> Self {
-        let lookup = roles
-            .into_iter()
-            .map(|r| (r.template_id.clone(), r))
-            .collect();
+        let lookup = roles.into_iter().map(|r| (r.template_id, r)).collect();
         Self {
             lookup,
             canonicalized: false,

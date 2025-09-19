@@ -5,9 +5,7 @@ use reqwest::header::AUTHORIZATION;
 use reqwest::header::HeaderMap;
 use reqwest::tls::Version;
 
-pub async fn create_azure_devops_rest_client(
-    token: &impl AuthBearerExt,
-) -> eyre::Result<Client> {
+pub async fn create_azure_devops_rest_client(token: &impl AuthBearerExt) -> eyre::Result<Client> {
     let client: Client = ClientBuilder::new()
         .default_headers({
             let mut headers = HeaderMap::new();

@@ -96,7 +96,6 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     info!("Building resource group imports");
     let mut rg_imports = Vec::new();
     for (rg, sub) in resource_groups {
-
         // Track the RG id for filtering role assignments later
         used_resource_groups.insert(rg.id.to_owned());
 

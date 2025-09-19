@@ -1,11 +1,10 @@
+use crate::AzureClaims;
+use crate::azure_access_token::AZURE_DEVOPS_RESOURCE_ID;
 use cloud_terrastodon_azure_types::prelude::AccessToken;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use jsonwebtoken::DecodingKey;
 use jsonwebtoken::Validation;
-
-use crate::azure_access_token::AZURE_DEVOPS_RESOURCE_ID;
-use crate::AzureClaims;
 
 pub async fn get_azure_access_token_jwt() -> eyre::Result<()> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -15,10 +14,14 @@ pub async fn get_azure_access_token_jwt() -> eyre::Result<()> {
     validation.insecure_disable_signature_validation();
     validation.set_audience(&[
         "https://management.core.windows.net/",
-        AZURE_DEVOPS_RESOURCE_ID
+        AZURE_DEVOPS_RESOURCE_ID,
     ]);
-    let decoding_key = DecodingKey::from_rsa_raw_components(&[],&[]);
-    let token_data = jsonwebtoken::decode::<AzureClaims>(&access_token.access_token, &decoding_key, &validation)?;
+    let decoding_key = DecodingKey::from_rsa_raw_components(&[], &[]);
+    let token_data = jsonwebtoken::decode::<AzureClaims>(
+        &access_token.access_token,
+        &decoding_key,
+        &validation,
+    )?;
     println!("{:#?}", token_data);
     Ok(())
 }

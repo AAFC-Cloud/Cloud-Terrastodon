@@ -22,7 +22,7 @@ pub async fn dump_work_items() -> eyre::Result<()> {
         queries.extend(found);
     }
     let queries = AzureDevOpsWorkItemQuery::flatten_many(&queries);
-    let queries = PickerTui::<&AzureDevOpsWorkItemQuery>::new(
+    let queries = PickerTui::from(
         queries
             .into_iter()
             .filter(|entry| !entry.child.is_folder)
@@ -34,7 +34,7 @@ pub async fn dump_work_items() -> eyre::Result<()> {
                     .map(|x| &x.name)
                     .join("/"),
                 value: entry.child,
-            })
+            }),
     )
     .set_header("Pick the queries that return the items to export")
     .pick_many()?;

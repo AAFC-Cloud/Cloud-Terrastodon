@@ -7,7 +7,7 @@ use std::time::Duration;
 use tracing::debug;
 
 /// Fetches all AzureRM role assignments.
-/// 
+///
 /// Not to be confused with Entra role assignments.
 pub async fn fetch_all_role_assignments() -> Result<Vec<RoleAssignment>> {
     debug!("Fetching role assignments");

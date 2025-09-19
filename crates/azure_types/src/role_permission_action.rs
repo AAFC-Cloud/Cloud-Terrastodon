@@ -45,9 +45,9 @@ impl RolePermissionAction {
     pub fn satisfies(&self, other: &RolePermissionAction) -> bool {
         other.is_satisfied_by(self)
     }
-    
+
     /// Case insensitive match.
-    /// 
+    ///
     /// Wildcards are supported in `other`.
     pub fn is_satisfied_by(&self, other: &RolePermissionAction) -> bool {
         let ours = self.inner.to_ascii_lowercase();

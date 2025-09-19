@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure::prelude::GovernanceRoleAssignmentState;
 use cloud_terrastodon_azure::prelude::PimEntraRoleDefinition;
 use cloud_terrastodon_azure::prelude::Scope;
@@ -102,7 +101,7 @@ pub async fn pim_activate_entra() -> Result<()> {
         .collect_vec();
 
     info!("Prompting user choice");
-    let chosen_roles = PickerTui::<&GovernanceRoleAssignment>::new(activatable_assignments)
+    let chosen_roles = PickerTui::from(activatable_assignments)
         .set_header("Choose roles to activate")
         .pick_many()?;
 
@@ -147,13 +146,12 @@ pub async fn pim_activate_entra() -> Result<()> {
 pub async fn pim_activate_azurerm() -> Result<()> {
     info!("Fetching role eligibility schedules");
     let possible_roles = fetch_my_role_eligibility_schedules().await?;
-    let chosen_roles =
-        PickerTui::from(possible_roles.into_iter().map(|x| Choice {
-            key: x.to_string(),
-            value: x,
-        }))
-        .set_header("Choose roles to activate")
-        .pick_many()?;
+    let chosen_roles = PickerTui::from(possible_roles.into_iter().map(|x| Choice {
+        key: x.to_string(),
+        value: x,
+    }))
+    .set_header("Choose roles to activate")
+    .pick_many()?;
 
     let chosen_roles_display = chosen_roles
         .iter()
@@ -167,20 +165,17 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         .join(", ");
 
     info!("Fetching eligible scopes");
-    let possible_scopes = fetch_all_resources()
-        .await?
-        .into_iter()
-        .map(|r| {
-            let key = format!(
-                "{} \"{}\"",
-                r.display_name
-                    .as_ref()
-                    .map(|display_name| format!("{} ({})", display_name, r.name))
-                    .unwrap_or_else(|| r.name.clone()),
-                r.id.expanded_form()
-            );
-            Choice { key, value: r }
-        });
+    let possible_scopes = fetch_all_resources().await?.into_iter().map(|r| {
+        let key = format!(
+            "{} \"{}\"",
+            r.display_name
+                .as_ref()
+                .map(|display_name| format!("{} ({})", display_name, r.name))
+                .unwrap_or_else(|| r.name.clone()),
+            r.id.expanded_form()
+        );
+        Choice { key, value: r }
+    });
     let chosen_scopes = PickerTui::from(possible_scopes)
         .set_header(format!("Activating {chosen_roles_display}"))
         .pick_many()?;
