@@ -1,18 +1,14 @@
 use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use eyre::bail;
 use tokio::fs;
 use tracing::info;
 pub async fn clean_all_menu() -> Result<()> {
     let choices = vec!["keep command cache (recommended)", "purge command cache"];
-    let chosen = pick(FzfArgs {
-        choices,
-
-        header: Some("Cleaning".to_string()),
-        ..Default::default()
-    })?;
+    let chosen = PickerTui::new(choices)
+        .set_header("Cleaning")
+        .pick_one()?;
     match chosen {
         "keep command cache (recommended)" => {
             info!("Cleaning everything except the command cache");

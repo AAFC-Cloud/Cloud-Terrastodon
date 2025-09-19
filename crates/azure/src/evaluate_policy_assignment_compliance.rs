@@ -6,11 +6,9 @@ use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use indoc::formatdoc;
-use itertools::Itertools;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -20,21 +18,17 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
     info!("Fetching policy assignments");
     let policy_assignments = fetch_all_policy_assignments().await?;
 
-    let Choice {
-        value: policy_assignment,
-        ..
-    } = pick(FzfArgs {
-        choices: policy_assignments
+    let policy_assignment: PolicyAssignment = PickerTui::new(
+        policy_assignments
             .into_iter()
             .distinct_by_scope()
             .map(|ass| Choice::<PolicyAssignment> {
                 key: format!("{} {:?}", ass.name, ass.properties.display_name),
                 value: ass,
-            })
-            .collect(),
-        header: Some("Choose policy to evaluate".to_string()),
-        ..Default::default()
-    })?;
+            }),
+    )
+    .set_header("Choose policy to evaluate")
+    .pick_one()?;
 
     info!(
         "Querying policy compliance for {} ({:?})",
@@ -73,23 +67,17 @@ policyResources
     .collect_all::<ReferenceIdRow>()
     .await?;
 
-    let Choice {
-        value: chosen_reference_id,
-        ..
-    } = pick(FzfArgs {
-        choices: reference_ids
-            .into_iter()
-            .map(|row| Choice {
-                key: format!(
-                    "{:64} - {:64} - {} non-compliant resources",
-                    row.policy_definition_reference_id, row.resource_type, row.found
-                ),
-                value: row,
-            })
-            .collect_vec(),
-        header: Some("Choose an inner policy to review".to_string()),
-        ..Default::default()
-    })?;
+    let chosen_reference_id: ReferenceIdRow = PickerTui::new(
+        reference_ids.into_iter().map(|row| Choice {
+            key: format!(
+                "{:64} - {:64} - {} non-compliant resources",
+                row.policy_definition_reference_id, row.resource_type, row.found
+            ),
+            value: row,
+        }),
+    )
+    .set_header("Choose an inner policy to review")
+    .pick_one()?;
 
     info!(
         "Fetching resource compliance for {}",
@@ -142,32 +130,25 @@ policyResources
     .collect_all::<ResourceRow>()
     .await?;
 
-    let Choice {
-        value: chosen_resource_id,
-        ..
-    } = pick(FzfArgs {
-        choices: resource_ids
-            .into_iter()
-            .map(|row| Choice {
-                key: format!(
-                    "{:16} - {:64} - {}",
-                    row.subscription_name,
-                    row.resource_group_name,
-                    row.resource_id
-                        .rsplit_once("/")
-                        .map(|x| x.1)
-                        .unwrap_or(row.resource_id.as_str())
-                ),
-                value: row,
-            })
-            .collect_vec(),
-        prompt: Some("Choose an inner policy to review> ".to_string()),
-        header: Some(format!(
-            "{} - {}",
-            chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
-        )),
-        ..Default::default()
-    })?;
+    let chosen_resource_id: ResourceRow = PickerTui::new(
+        resource_ids.into_iter().map(|row| Choice {
+            key: format!(
+                "{:16} - {:64} - {}",
+                row.subscription_name,
+                row.resource_group_name,
+                row.resource_id
+                    .rsplit_once("/")
+                    .map(|x| x.1)
+                    .unwrap_or(row.resource_id.as_str())
+            ),
+            value: row,
+        }),
+    )
+    .set_header(format!(
+        "{} - {}",
+        chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
+    ))
+    .pick_one()?;
 
     info!(
         "You chose: {} - {}",

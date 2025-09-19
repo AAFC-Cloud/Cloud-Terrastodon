@@ -84,10 +84,7 @@ mod tests {
     use cloud_terrastodon_azure_types::prelude::AsScope;
     use cloud_terrastodon_azure_types::prelude::Scope;
     use cloud_terrastodon_user_input::Choice;
-    use cloud_terrastodon_user_input::FzfArgs;
-    use cloud_terrastodon_user_input::pick;
-    use cloud_terrastodon_user_input::pick_many;
-    use itertools::Itertools;
+    use cloud_terrastodon_user_input::PickerTui;
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
@@ -150,35 +147,33 @@ mod tests {
         let mut scope = mg.as_scope().as_scope_impl().to_owned();
         loop {
             println!("{}", scope);
-            let next_scope = pick(FzfArgs {
-                choices: fetch_eligible_child_resources(&scope, FetchChildrenBehaviour::default())
+            let next_scope: Choice<EligibleChildResource> = PickerTui::new(
+                fetch_eligible_child_resources(&scope, FetchChildrenBehaviour::default())
                     .await?
                     .into_iter()
                     .map(|x| Choice {
                         key: x.name.to_owned(),
                         value: x,
                     })
-                    .collect_vec(),
-                header: Some("Choose a scope".to_string()),
-                ..Default::default()
-            })?;
+            )
+            .set_header("Choose a scope")
+            .pick_one()?;
             scope = next_scope.value.id;
         }
     }
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works_interactive2() -> Result<()> {
-        let chosen = pick_many(FzfArgs {
-            choices: fetch_all_eligible_resource_containers()
+        let chosen: Vec<Choice<EligibleChildResource>> = PickerTui::new(
+            fetch_all_eligible_resource_containers()
                 .await?
                 .into_iter()
                 .map(|x| Choice {
                     key: x.to_string(),
                     value: x,
                 })
-                .collect(),
-            ..Default::default()
-        })?;
+        )
+        .pick_many()?;
         assert!(chosen.len() > 0);
         Ok(())
     }

@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::Group;
 use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
@@ -9,12 +10,10 @@ use cloud_terrastodon_azure::prelude::fetch_group_members;
 use cloud_terrastodon_azure::prelude::fetch_group_owners;
 use cloud_terrastodon_azure::prelude::get_security_group_choices;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
+use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::are_you_sure;
-use cloud_terrastodon_user_input::pick_many;
 use eyre::Result;
 use eyre::bail;
-use itertools::Itertools;
 use serde_json::Value;
 use serde_json::json;
 use std::collections::HashMap;
@@ -22,7 +21,7 @@ use strum::VariantArray;
 use tokio::try_join;
 use tracing::info;
 
-#[derive(Debug, VariantArray)]
+#[derive(Debug, VariantArray, Copy, Clone)]
 enum SecurityGroupAction {
     FetchAndDisplayMembersAndOwners,
     FetchAndDisplayRoleAssignments,
@@ -30,26 +29,18 @@ enum SecurityGroupAction {
 }
 
 pub async fn browse_security_groups() -> Result<()> {
-    let security_groups = pick_many(FzfArgs {
-        choices: get_security_group_choices().await?,
-        prompt: Some("security groups: ".to_string()),
-        ..Default::default()
-    })?
-    .into_iter()
-    .map(|x| x.value)
-    .collect_vec();
+    let security_groups = PickerTui::<Group>::new(get_security_group_choices().await?)
+        .set_header("security groups")
+        .pick_many()?;
 
-    let actions = pick_many(FzfArgs {
-        choices: SecurityGroupAction::VARIANTS
+    let actions = PickerTui::<SecurityGroupAction>::new(
+        SecurityGroupAction::VARIANTS
             .iter()
-            .map(|action| Choice {
-                key: format!("{action:?}"),
-                value: action,
-            })
-            .collect_vec(),
-        header: Some("Would you like any other details?".to_string()),
-        ..Default::default()
-    })?;
+            .copied()
+            .map(|action| Choice { key: format!("{action:?}"), value: action })
+    )
+    .set_header("Would you like any other details?")
+    .pick_many()?;
 
     info!(
         "You chose:\n{}",
@@ -75,7 +66,7 @@ pub async fn browse_security_groups() -> Result<()> {
     }
 
     for action in &actions {
-        match action.value {
+        match action {
             SecurityGroupAction::FetchAndDisplayMembersAndOwners => {
                 info!(
                     "Fetching owners and members for {} groups",

@@ -6,8 +6,7 @@ use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
 use cloud_terrastodon_azure_types::prelude::User;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
 use itertools::Itertools;
 use std::cmp::Ordering;
@@ -70,8 +69,8 @@ pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Choice<Grant>>>
             })
         })
         .collect::<eyre::Result<Vec<Grant>>>()?;
-    let chosen = pick_many(FzfArgs {
-        choices: grants
+    let chosen = PickerTui::new(
+        grants
             .into_iter()
             .map(|g| Choice {
                 key: format!(
@@ -94,9 +93,8 @@ pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Choice<Grant>>>
                     }
                 })
             })
-            .collect_vec(),
-        header: Some("Pick the items to browse".to_string()),
-        ..Default::default()
-    })?;
+    )
+    .set_header("Pick the items to browse")
+    .pick_many()?;
     Ok(chosen)
 }

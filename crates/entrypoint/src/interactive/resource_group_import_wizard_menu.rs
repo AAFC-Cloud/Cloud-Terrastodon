@@ -14,9 +14,7 @@ use cloud_terrastodon_hcl::prelude::ProviderKind;
 use cloud_terrastodon_hcl::prelude::Sanitizable;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use eyre::bail;
 use std::collections::HashMap;
@@ -29,11 +27,9 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     info!("Confirming remove existing imports");
     let start_from_scratch = "start from scratch";
     let keep_existing_imports = "keep existing imports";
-    match pick(FzfArgs {
-        choices: vec![start_from_scratch, keep_existing_imports],
-        header: Some("This will wipe any existing imports from the Cloud Terrastodon work directory. Proceed?".to_string()),
-        ..Default::default()
-    })? {
+    match PickerTui::new(vec![start_from_scratch, keep_existing_imports])
+        .set_header("This will wipe any existing imports from the Cloud Terrastodon work directory. Proceed?")
+        .pick_one()? {
         x if x == start_from_scratch => {
             info!("Removing existing imports");
             let _ = remove_dir_all(AppDir::Imports.as_path_buf()).await;
@@ -89,12 +85,9 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     }
 
     info!("Picking resource groups");
-    let resource_groups = pick_many(FzfArgs {
-        choices: resource_group_choices,
-
-        header: Some("Pick which to import".to_string()),
-        ..Default::default()
-    })?;
+    let resource_groups = PickerTui::new(resource_group_choices)
+        .set_header("Pick which to import")
+        .pick_many()?;
     info!("You chose {} resource groups", resource_groups.len());
 
     let mut used_resource_groups = HashSet::new();
@@ -102,8 +95,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
 
     info!("Building resource group imports");
     let mut rg_imports = Vec::new();
-    for entry in resource_groups {
-        let (rg, sub) = entry.value;
+    for (rg, sub) in resource_groups {
 
         // Track the RG id for filtering role assignments later
         used_resource_groups.insert(rg.id.to_owned());

@@ -10,8 +10,7 @@ use cloud_terrastodon_hcl::prelude::ProviderKind;
 use cloud_terrastodon_hcl::prelude::Sanitizable;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use eyre::eyre;
 use std::collections::HashMap;
@@ -50,11 +49,9 @@ pub async fn build_resource_group_imports() -> Result<()> {
         };
         choices.push(choice.into());
     }
-    let chosen = pick_many(FzfArgs {
-        choices,
-        prompt: Some("Groups to import: ".to_string()),
-        ..Default::default()
-    })?;
+    let chosen = PickerTui::new(choices)
+        .set_header("Groups to import")
+        .pick_many()?;
 
     info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();

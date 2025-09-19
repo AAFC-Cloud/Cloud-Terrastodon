@@ -2,8 +2,7 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
 use cloud_terrastodon_hcl::prelude::list_blocks_for_dir;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
 use eyre::Result;
 use std::path::PathBuf;
@@ -14,13 +13,9 @@ pub async fn jump_to_block(dir: PathBuf) -> Result<()> {
     let choices = list_blocks_for_dir(dir).await?;
     info!("Found {} blocks", choices.len());
 
-    let chosen = pick(FzfArgs {
-        choices,
-
-        header: Some("Blocks".to_string()),
-        ..Default::default()
-    })
-    .context("picking")?;
+    let chosen = PickerTui::new(choices)
+        .set_header("Blocks")
+        .pick_one()?;
     CommandBuilder::new(CommandKind::VSCode)
         .args([
             "--goto",

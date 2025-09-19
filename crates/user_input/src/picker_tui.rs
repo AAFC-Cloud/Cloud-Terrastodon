@@ -1,4 +1,6 @@
 use crate::Choice;
+use crate::PickError;
+use crate::PickResult;
 use compact_str::CompactString;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
@@ -26,7 +28,7 @@ use std::sync::Arc;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
 
-pub struct PickerTui<T: Send + Sync + 'static> {
+pub struct PickerTui<T> {
     /// The list of items being chosen from
     pub choices: Vec<Choice<T>>,
     /// The current query
@@ -41,20 +43,11 @@ pub struct PickerTui<T: Send + Sync + 'static> {
     pub auto_accept: bool,
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum PickResponse<T> {
-    Some(T),
-    Cancelled,
-}
-#[derive(Debug, Eq, PartialEq)]
-pub enum PickManyResponse<T> {
-    Some(Vec<T>),
-    Cancelled,
-}
+
 
 type Key = CompactString;
 
-impl<T: Send + Sync + 'static> PickerTui<T> {
+impl<T> PickerTui<T> {
     pub fn new<E: Into<Choice<T>>>(choices: impl IntoIterator<Item = E>) -> Self {
         Self {
             choices: choices.into_iter().map(Into::into).collect(),
@@ -90,27 +83,25 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
         self
     }
 
-    pub fn pick_one(self) -> eyre::Result<PickResponse<T>> {
-        match self.pick_inner(false)? {
-            PickManyResponse::Some(mut items) => Ok(PickResponse::Some(items.pop().unwrap())),
-            PickManyResponse::Cancelled => Ok(PickResponse::Cancelled),
+    pub fn pick_one(self) -> PickResult<T> {
+        match self.pick_inner(false) {
+            Ok(mut items) => Ok(items.pop().unwrap()),
+            Err(e) => Err(e),
         }
     }
-    pub fn pick_many(self) -> eyre::Result<PickManyResponse<T>> {
+    pub fn pick_many(self) -> PickResult<Vec<T>> {
         self.pick_inner(true)
     }
 
-    fn pick_inner(mut self, many: bool) -> eyre::Result<PickManyResponse<T>> {
+    fn pick_inner(mut self, many: bool) -> PickResult<Vec<T>> {
         // Short circuit if applicable
-        if self.auto_accept {
-            match self.choices.len() {
-                0 => return Ok(PickManyResponse::Cancelled),
-                1 => {
-                    let choice = self.choices.remove(0);
-                    return Ok(PickManyResponse::Some(vec![choice.value]));
-                }
-                _ => {}
+        match (self.choices.len(), self.auto_accept) {
+            (0, _) => return Err(PickError::NoChoicesProvided),
+            (1, true) => {
+                let choice = self.choices.remove(0);
+                return Ok(vec![choice.value]);
             }
+            _ => {}
         }
 
         // Prepare the search engine
@@ -330,7 +321,7 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
         ratatui::restore();
 
         if marked_for_return.is_empty() {
-            return Ok(PickManyResponse::Cancelled);
+            return Err(PickError::Cancelled);
         }
 
         let mut rtn: Vec<T> = Vec::with_capacity(marked_for_return.len());
@@ -339,7 +330,7 @@ impl<T: Send + Sync + 'static> PickerTui<T> {
                 rtn.push(value);
             }
         }
-        Ok(PickManyResponse::Some(rtn))
+        Ok(rtn)
     }
 }
 

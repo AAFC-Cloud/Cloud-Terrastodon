@@ -7,12 +7,9 @@ use cloud_terrastodon_hcl::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl::prelude::HCLWriter;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
 use eyre::Result;
-use itertools::Itertools;
 use tokio::fs::remove_dir_all;
 use tracing::info;
 
@@ -20,11 +17,9 @@ pub async fn azure_devops_project_import_wizard_menu() -> Result<()> {
     info!("Confirming remove existing imports");
     let start_from_scratch = "start from scratch";
     let keep_existing_imports = "keep existing imports";
-    match pick(FzfArgs {
-        choices: vec![start_from_scratch, keep_existing_imports],
-        header: Some("This will wipe any existing imports from the Cloud Terrastodon work directory. Proceed?".to_string()),
-        ..Default::default()
-    })? {
+    match PickerTui::new(vec![start_from_scratch, keep_existing_imports])
+        .set_header("This will wipe any existing imports from the Cloud Terrastodon work directory. Proceed?")
+        .pick_one()? {
         x if x == start_from_scratch => {
             info!("Removing existing imports");
             let _ = remove_dir_all(AppDir::Imports.as_path_buf()).await;
@@ -38,21 +33,20 @@ pub async fn azure_devops_project_import_wizard_menu() -> Result<()> {
 
     let org_url = get_default_organization_url().await?;
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
-    let projects = pick_many(FzfArgs {
-        choices: projects
+    let projects: Vec<cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject> = PickerTui::new(
+        projects
             .into_iter()
             .map(|project| Choice {
                 key: project.name.to_string(),
                 value: project,
             })
-            .collect_vec(),
-        header: Some("Choose the projects to import".to_string()),
-        ..Default::default()
-    })?;
+    )
+    .set_header("Choose the projects to import")
+    .pick_many()?;
 
     let mut project_import_blocks = Vec::new();
     for project in projects {
-        let import_block: HCLImportBlock = project.value.into();
+        let import_block: HCLImportBlock = project.into();
         project_import_blocks.push(import_block);
     }
 

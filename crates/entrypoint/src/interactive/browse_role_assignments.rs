@@ -1,6 +1,5 @@
-use cloud_terrastodon_azure::prelude::get_role_assignment_choices;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_azure::prelude::{get_role_assignment_choices, RoleAssignment};
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use tracing::info;
 
@@ -8,15 +7,13 @@ pub async fn browse_role_assignments() -> Result<()> {
     let choices = get_role_assignment_choices().await?;
 
     info!("Picking");
-    let chosen = pick_many(FzfArgs {
-        choices,
-        prompt: Some("Role assignments: ".to_string()),
-        ..Default::default()
-    })?;
+    let chosen: Vec<RoleAssignment> = PickerTui::new(choices)
+        .set_header("Role assignments")
+        .pick_many()?;
 
     info!("You chose:");
-    for choice in chosen {
-        info!("{:#?}", choice.value);
+    for value in chosen {
+        info!("{:#?}", value);
     }
     Ok(())
 }

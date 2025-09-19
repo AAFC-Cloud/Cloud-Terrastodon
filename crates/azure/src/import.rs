@@ -8,9 +8,7 @@ use cloud_terrastodon_hcl_types::prelude::ProviderKind;
 use cloud_terrastodon_hcl_types::prelude::edit::structure::Block;
 use cloud_terrastodon_hcl_types::prelude::edit::structure::Body;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use std::collections::HashSet;
 use strum::VariantArray;
 
@@ -73,26 +71,25 @@ impl HCLImportable {
         Ok(rtn)
     }
     pub fn pick() -> eyre::Result<HCLImportable> {
-        Ok(*pick(FzfArgs {
-            choices: HCLImportable::VARIANTS
-                .iter()
-                .map(|x| Choice {
-                    key: x.to_string(),
-                    value: x,
-                })
-                .collect(),
-            header: Some("Pick the kind of thing to import".to_string()),
-            ..Default::default()
-        })?
-        .value)
+        Ok(
+            PickerTui::new(
+                HCLImportable::VARIANTS
+                    .iter()
+                    .copied()
+                    .map(|x| Choice {
+                        key: x.to_string(),
+                        value: x,
+                    }),
+            )
+            .set_header("Pick the kind of thing to import")
+            .pick_one()?,
+        )
     }
     pub async fn pick_into_body(self) -> eyre::Result<Body> {
         let import_blocks = self.try_into_import_blocks().await?;
-        let import_blocks = pick_many(FzfArgs {
-            choices: import_blocks,
-            header: Some("Pick the resources to import".to_string()),
-            ..Default::default()
-        })?;
+        let import_blocks = PickerTui::new(import_blocks)
+            .set_header("Pick the resources to import")
+            .pick_many()?;
         let providers = import_blocks
             .iter()
             .filter_map(

@@ -22,9 +22,7 @@ use cloud_terrastodon_hcl::prelude::reflow_workspace;
 use cloud_terrastodon_hcl::prelude::validate_work_dirs;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
-use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_zombies::prompt_kill_processes_using_dirs;
 use eyre::bail;
 use humantime::FormattedDuration;
@@ -73,6 +71,15 @@ enum Strategy {
     Split,
     Both,
 }
+impl std::fmt::Display for Strategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Strategy::AllInOne => write!(f, "All-in-one tf file"),
+            Strategy::Split => write!(f, "Split tf files by resource"),
+            Strategy::Both => write!(f, "Both all-in-one and split"),
+        }
+    }
+}
 impl Strategy {
     fn split(&self) -> bool {
         match self {
@@ -90,18 +97,9 @@ impl Strategy {
     }
 }
 pub async fn dump_everything_inner() -> eyre::Result<()> {
-    let strategy = pick(FzfArgs {
-        choices: Strategy::VARIANTS
-            .iter()
-            .cloned()
-            .map(|behaviour| Choice {
-                key: format!("{behaviour:?}"),
-                value: behaviour,
-            })
-            .collect(),
-        ..Default::default()
-    })?
-    .value;
+    let strategy = *PickerTui::new(Strategy::VARIANTS)
+        .set_header("Dump strategy")
+        .pick_one()?;
 
     #[derive(VariantArray, Debug)]
     enum Behaviour {
@@ -112,17 +110,36 @@ pub async fn dump_everything_inner() -> eyre::Result<()> {
         GenerateAndProcess,
         Process,
     }
-    let behaviour = pick(FzfArgs {
-        choices: Behaviour::VARIANTS
-            .iter()
-            .map(|behaviour| Choice {
-                key: format!("{behaviour:?}"),
-                value: behaviour,
-            })
-            .collect(),
-        ..Default::default()
-    })?
-    .value;
+    impl std::fmt::Display for Behaviour {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess => {
+                    write!(
+                        f,
+                        "Clean + Write Imports + Init + Validate + Generate + Process"
+                    )
+                }
+                Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess => {
+                    write!(f, "Write Imports + Init + Validate + Generate + Process")
+                }
+                Behaviour::InitAndValidateAndGenerateAndProcess => {
+                    write!(f, "Init + Validate + Generate + Process")
+                }
+                Behaviour::ValidateAndGenerateAndProcess => {
+                    write!(f, "Validate + Generate + Process")
+                }
+                Behaviour::GenerateAndProcess => {
+                    write!(f, "Generate + Process")
+                }
+                Behaviour::Process => {
+                    write!(f, "Process")
+                }
+            }
+        }
+    }
+    let behaviour = PickerTui::new(Behaviour::VARIANTS)
+        .set_header("What do you want to run?")
+        .pick_one()?;
 
     let should_clean = matches!(
         behaviour,

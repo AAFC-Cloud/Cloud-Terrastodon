@@ -1,7 +1,6 @@
 use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_command::CacheBehaviour;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::PickerTui;
 use serde_json::Value;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
@@ -15,14 +14,12 @@ pub async fn dump_tags() -> eyre::Result<()> {
     if try_exists(&path).await.unwrap_or(false) {
         let yes = "yes";
         let no = "no";
-        if pick(FzfArgs {
-            choices: vec![&yes, &no],
-            prompt: Some(format!(
+        if PickerTui::new(vec![yes, no])
+            .set_header(format!(
                 "Output path {} already exists, overwrite?",
                 path.display()
-            )),
-            ..Default::default()
-        })? == &no
+            ))
+            .pick_one()? == no
         {
             warn!("Chose not to overwrite, no action taken!");
             return Ok(());

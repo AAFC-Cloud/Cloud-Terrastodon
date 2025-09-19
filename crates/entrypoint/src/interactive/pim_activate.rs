@@ -1,5 +1,8 @@
+use cloud_terrastodon_azure::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure::prelude::GovernanceRoleAssignmentState;
 use cloud_terrastodon_azure::prelude::PimEntraRoleDefinition;
+use cloud_terrastodon_azure::prelude::Resource;
+use cloud_terrastodon_azure::prelude::RoleEligibilitySchedule;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::activate_pim_entra_role;
 use cloud_terrastodon_azure::prelude::activate_pim_role;
@@ -11,9 +14,7 @@ use cloud_terrastodon_azure::prelude::fetch_my_entra_pim_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_my_role_eligibility_schedules;
 use cloud_terrastodon_azure::prelude::fetch_role_management_policy_assignments;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 use humantime::format_duration;
@@ -37,11 +38,10 @@ impl std::fmt::Display for PimKind {
 }
 
 pub async fn pim_activate() -> Result<()> {
-    match pick(FzfArgs {
-        choices: vec![PimKind::Entra, PimKind::AzureRM],
-        header: Some("Choose the kind of role to activate".to_string()),
-        ..Default::default()
-    })? {
+    match PickerTui::new(vec![PimKind::Entra, PimKind::AzureRM])
+        .set_header("Choose the kind of role to activate")
+        .pick_one()?
+    {
         PimKind::Entra => pim_activate_entra().await,
         PimKind::AzureRM => pim_activate_azurerm().await,
     }
@@ -104,12 +104,9 @@ pub async fn pim_activate_entra() -> Result<()> {
         .collect_vec();
 
     info!("Prompting user choice");
-    let chosen_roles = pick_many(FzfArgs {
-        choices: activatable_assignments,
-
-        header: Some("Choose roles to activate".to_string()),
-        ..Default::default()
-    })?;
+    let chosen_roles = PickerTui::<&GovernanceRoleAssignment>::new(activatable_assignments)
+        .set_header("Choose roles to activate")
+        .pick_many()?;
 
     info!("Fetching maximum activation durations");
     let mut max_duration = Duration::MAX;
@@ -123,30 +120,28 @@ pub async fn pim_activate_entra() -> Result<()> {
     }
 
     info!("Maximum duration is {}", format_duration(max_duration));
-    let chosen_duration = pick(FzfArgs {
-        choices: build_duration_choices(&max_duration)
+    let chosen_duration: Duration = PickerTui::new(
+        build_duration_choices(&max_duration)
             .into_iter()
             .map(|d| Choice {
                 key: format_duration(d).to_string(),
                 value: d,
-            })
-            .collect(),
-
-        header: Some("Duration to activate PIM for".to_string()),
-        ..Default::default()
-    })?;
-    info!("Chosen duration is {}", format_duration(*chosen_duration));
+            }),
+    )
+    .set_header("Duration to activate PIM for")
+    .pick_one()?;
+    info!("Chosen duration is {}", format_duration(chosen_duration));
 
     let justification = prompt_line("Justification: ").await?;
 
     let principal_id = fetch_current_user().await?.id;
     for role in &chosen_roles {
         info!(
-            "Activating {role} for {}",
-            format_duration(*chosen_duration)
+            "Activating {:?} for {}",
+            role,
+            format_duration(chosen_duration)
         );
-        activate_pim_entra_role(principal_id, role, justification.clone(), *chosen_duration)
-            .await?;
+        activate_pim_entra_role(principal_id, role, justification.clone(), chosen_duration).await?;
     }
 
     Ok(())
@@ -154,17 +149,13 @@ pub async fn pim_activate_entra() -> Result<()> {
 pub async fn pim_activate_azurerm() -> Result<()> {
     info!("Fetching role eligibility schedules");
     let possible_roles = fetch_my_role_eligibility_schedules().await?;
-    let chosen_roles = pick_many(FzfArgs {
-        choices: possible_roles
-            .into_iter()
-            .map(|x| Choice {
-                key: x.to_string(),
-                value: x,
-            })
-            .collect_vec(),
-        header: Some("Choose roles to activate".to_string()),
-        ..Default::default()
-    })?;
+    let chosen_roles =
+        PickerTui::<RoleEligibilitySchedule>::new(possible_roles.into_iter().map(|x| Choice {
+            key: x.to_string(),
+            value: x,
+        }))
+        .set_header("Choose roles to activate")
+        .pick_many()?;
 
     let chosen_roles_display = chosen_roles
         .iter()
@@ -191,20 +182,16 @@ pub async fn pim_activate_azurerm() -> Result<()> {
                 r.id.expanded_form()
             );
             Choice { key, value: r }
-        })
-        .collect_vec();
-    let chosen_scopes = pick_many(FzfArgs {
-        choices: possible_scopes,
-
-        header: Some(format!("Activating {chosen_roles_display}")),
-        ..Default::default()
-    })?;
+        });
+    let chosen_scopes = PickerTui::<Resource>::new(possible_scopes)
+        .set_header(format!("Activating {chosen_roles_display}"))
+        .pick_many()?;
 
     info!("Fetching maximum eligible duration");
     let mut maximum_duration = Duration::MAX;
     for (role, scope) in chosen_roles.iter().zip(chosen_scopes.iter()) {
         let policies = fetch_role_management_policy_assignments(
-            scope.value.id.clone(),
+            scope.id.clone(),
             role.properties.role_definition_id.clone(),
         )
         .await?;
@@ -218,18 +205,17 @@ pub async fn pim_activate_azurerm() -> Result<()> {
     }
 
     info!("Maximum duration is {}", format_duration(maximum_duration));
-    let chosen_duration = pick(FzfArgs {
-        choices: build_duration_choices(&maximum_duration)
+    let chosen_duration: Duration = PickerTui::new(
+        build_duration_choices(&maximum_duration)
             .into_iter()
             .map(|d| Choice {
                 key: format_duration(d).to_string(),
                 value: d,
-            })
-            .collect(),
-        header: Some("Duration to activate PIM for".to_string()),
-        ..Default::default()
-    })?;
-    info!("Chosen duration is {}", format_duration(*chosen_duration));
+            }),
+    )
+    .set_header("Duration to activate PIM for")
+    .pick_one()?;
+    info!("Chosen duration is {}", format_duration(chosen_duration));
 
     let justification = prompt_line("Justification: ").await?;
 
@@ -237,17 +223,17 @@ pub async fn pim_activate_azurerm() -> Result<()> {
     for role in &chosen_roles {
         info!(
             "Activating {role} for {} at: ",
-            format_duration(*chosen_duration)
+            format_duration(chosen_duration)
         );
         for scope in &chosen_scopes {
-            info!("- {scope}");
+            info!("- {:?}", scope);
             activate_pim_role(
-                &scope.value.id,
+                &scope.id,
                 principal_id,
                 role.properties.role_definition_id.clone(),
                 role.id.clone(),
                 justification.clone(),
-                *chosen_duration,
+                chosen_duration,
             )
             .await?;
         }

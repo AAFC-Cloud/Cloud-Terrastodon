@@ -1,7 +1,6 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Context;
 use eyre::Result;
@@ -29,18 +28,13 @@ pub async fn menu() -> Result<MenuActionResult> {
     choices.reverse();
 
     // Prompt user for action of choice
-    let mut chosen = pick_many(FzfArgs {
-        choices,
-        header: Some(
-            if !some_unavailable {
-                "Actions"
-            } else {
-                "Actions (some unavailable items omitted)"
-            }
-            .to_string(),
-        ),
-        ..Default::default()
-    })?;
+    let mut chosen = PickerTui::new(choices)
+        .set_header(if !some_unavailable {
+            "Actions"
+        } else {
+            "Actions (some unavailable items omitted)"
+        })
+        .pick_many()?;
 
     // restore execution order
     chosen.reverse();

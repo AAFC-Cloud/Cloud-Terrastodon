@@ -4,8 +4,7 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::PickerTui;
 use serde_json::Value;
 use tracing::debug;
 use tracing::info;
@@ -67,11 +66,7 @@ resources
 
         let run_another_query = "run another query";
         let return_to_menu = "return to menu";
-        let next = pick(FzfArgs {
-            choices: vec![run_another_query, return_to_menu],
-
-            ..Default::default()
-        })?;
+        let next = PickerTui::new(vec![run_another_query, return_to_menu]).pick_one()?;
         match next {
             x if x == run_another_query => continue,
             x if x == return_to_menu => return Ok(()),

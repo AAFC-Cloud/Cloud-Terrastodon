@@ -2,7 +2,6 @@
 
 ## General
 
-- Remove dependency on `fzf`, using `PickerTui` everywhere instead
 - PickerTui highlight matching chars like fzf
 
 ## New Types

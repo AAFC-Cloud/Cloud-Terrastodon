@@ -16,11 +16,8 @@ use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
 use cloud_terrastodon_azure::prelude::fetch_group_owners;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
-use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::ops::Deref;
@@ -333,29 +330,23 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
         }
     }
 
-    let beginning = pick(FzfArgs {
-        choices: MyChoice::VARIANTS.to_vec(),
-
-        header: Some("Where should the investigation start?".to_string()),
-        ..Default::default()
-    })?;
+    let beginning = PickerTui::new(MyChoice::VARIANTS)
+        .set_header("Where should the investigation start?")
+        .pick_one()?;
 
     let resource_choices = resources.iter().map(|resource| Choice {
         key: resource.id.expanded_form().to_string(),
         value: resource,
     });
 
-    let chosen_resources = pick_many(FzfArgs {
-        choices: match beginning {
-            MyChoice::ResourceGroups => resource_choices
-                .filter(|r| r.kind.is_resource_group())
-                .collect_vec(),
-            MyChoice::AllResources => resource_choices.collect_vec(),
-        },
-
-        header: Some("Pick the resources to find the owners for".to_string()),
-        ..Default::default()
-    })?;
+    let chosen_resources: Vec<&Resource> = match beginning {
+        MyChoice::ResourceGroups => {
+            PickerTui::new(resource_choices.filter(|r| r.kind.is_resource_group()))
+        }
+        MyChoice::AllResources => PickerTui::new(resource_choices),
+    }
+    .set_header("Pick the resources to find the owners for")
+    .pick_many()?;
 
     info!("You chose:");
     for resource in chosen_resources.iter() {
@@ -400,25 +391,23 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
     }
 
     loop {
-        let clue_source = pick(FzfArgs {
-            choices: ClueAction::VARIANTS.to_vec(),
-            header: Some("What to search next?".to_string()),
-            ..Default::default()
-        })?;
+        let clue_source = PickerTui::new(ClueAction::VARIANTS)
+            .set_header("What to search next?")
+            .pick_one()?;
         match clue_source {
             ClueAction::PeekClueDetails => {
-                let clues = pick_many(FzfArgs {
-                    choices: traversal_context
+                let clues = PickerTui::<ClueChain>::new(
+                    traversal_context
                         .clues
                         .iter()
+                        .cloned()
                         .map(|clue| Choice {
                             key: clue.to_string(),
                             value: clue,
                         })
-                        .collect_vec(),
-                    header: Some("What clues do you want to see the details for?".to_string()),
-                    ..Default::default()
-                })?;
+                )
+                .set_header("What clues do you want to see the details for?")
+                .pick_many()?;
                 info!("You chose:\n{clues:#?}");
                 press_enter_to_continue().await?;
             }

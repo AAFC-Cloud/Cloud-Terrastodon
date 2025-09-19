@@ -1,6 +1,5 @@
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
 use eyre::bail;
 use std::collections::HashSet;
@@ -56,11 +55,9 @@ pub fn prompt_kill_processes_using_dirs(
     if to_kill.is_empty() {
         return Ok(());
     }
-    let to_kill = pick_many(FzfArgs {
-        choices: to_kill,
-        header: Some(header),
-        ..Default::default()
-    })?;
+    let to_kill = PickerTui::new(to_kill)
+        .set_header(header)
+        .pick_many()?;
     for Choice {
         key,
         value: (_pid, process),

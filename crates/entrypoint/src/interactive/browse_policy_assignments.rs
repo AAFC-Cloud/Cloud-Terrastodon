@@ -6,8 +6,7 @@ use cloud_terrastodon_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_set_definitions;
 use cloud_terrastodon_command::CacheBehaviour;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
 use indexmap::IndexMap;
 use indoc::indoc;
@@ -269,10 +268,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
             }
         }
     }
-    let chosen = pick_many(FzfArgs {
-        choices: choices.into_iter().collect_vec(),
-        ..Default::default()
-    })?;
+    let chosen = PickerTui::new(choices).pick_many()?;
     info!("You chose:\n{}", chosen.into_iter().join("\n=====\n"));
     Ok(())
 }

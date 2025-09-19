@@ -1,3 +1,8 @@
+# v0.28.0
+
+- Switch from using `fzf` to `PickerTui` everywhere
+- Update `PickerTui` return types for `pick_one` and `pick_many` to return `PickResult<T>`
+
 # v0.27.0
 
 - Added `KeyVaultSecretId` type

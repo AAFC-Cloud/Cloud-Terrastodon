@@ -8,9 +8,7 @@ use cloud_terrastodon_azure_types::prelude::ScopeImpl;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use eyre::bail;
 use eyre::eyre;
@@ -29,18 +27,12 @@ pub async fn remediate_policy_assignment() -> Result<()> {
         .map(|ass| Choice::<PolicyAssignment> {
             key: format!("{} {:?}", ass.name, ass.properties.display_name),
             value: ass,
-        })
-        .collect();
+        });
 
     info!("Prompting for user choice");
-    let Choice {
-        value: policy_assignment,
-        ..
-    } = pick(FzfArgs {
-        choices,
-        header: Some("Choose policy to remediate".to_string()),
-        ..Default::default()
-    })?;
+    let policy_assignment: PolicyAssignment = PickerTui::new(choices)
+        .set_header("Choose policy to remediate")
+        .pick_one()?;
 
     info!("Finding policy definition for chosen");
     match policy_assignment.properties.policy_definition_id {
@@ -66,11 +58,10 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                     value: x,
                 })
                 .collect_vec();
-            let chosen = pick_many(FzfArgs {
-                choices: reference_ids,
-                header: Some("Pick the inner definitions to remediate".to_string()),
-                ..Default::default()
-            })?;
+            let chosen: Vec<Choice<cloud_terrastodon_azure_types::prelude::PolicySetDefinitionPolicyDefinition>> =
+                PickerTui::new(reference_ids)
+                .set_header("Pick the inner definitions to remediate")
+                .pick_many()?;
 
             info!("Launching remediation tasks");
             for choice in chosen {

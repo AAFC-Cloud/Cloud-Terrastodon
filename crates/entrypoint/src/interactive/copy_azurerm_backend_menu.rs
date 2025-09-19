@@ -1,12 +1,12 @@
 use cloud_terrastodon_azure::prelude::Scope;
+use cloud_terrastodon_azure::prelude::StorageAccount;
 use cloud_terrastodon_azure::prelude::SubscriptionName;
 use cloud_terrastodon_azure::prelude::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use eyre::bail;
 use std::collections::HashMap;
@@ -25,32 +25,28 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
         .collect::<HashMap<_, _>>();
 
     info!("Picking storage account");
-    let chosen_storage_account = pick(FzfArgs {
-        choices: storage_accounts
-            .into_iter()
-            .map(|sa| {
-                let sub_name = subscriptions
-                    .get(&sa.id.resource_group_id.subscription_id)
-                    .map(|sub| sub.name.to_owned())
-                    .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
-                let key = format!(
-                    "{:32}\t{:64}\t{}",
-                    sub_name, sa.id.resource_group_id.resource_group_name, sa.name
-                );
-                let key_short = format!(
-                    "{} {} {}",
-                    sub_name, sa.id.resource_group_id.resource_group_name, sa.name
-                );
-                Choice {
-                    key,
-                    value: (sa, key_short, sub_name),
-                }
-            })
-            .collect(),
-        prompt: Some("Storage Account: ".to_string()),
-        header: Some("Picking the storage account for the state file".to_string()),
-        ..Default::default()
-    })?;
+    let chosen_storage_account = PickerTui::<(StorageAccount, String, SubscriptionName)>::new(
+        storage_accounts.into_iter().map(|sa| {
+            let sub_name = subscriptions
+                .get(&sa.id.resource_group_id.subscription_id)
+                .map(|sub| sub.name.to_owned())
+                .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
+            let key = format!(
+                "{:32}\t{:64}\t{}",
+                sub_name, sa.id.resource_group_id.resource_group_name, sa.name
+            );
+            let key_short = format!(
+                "{} {} {}",
+                sub_name, sa.id.resource_group_id.resource_group_name, sa.name
+            );
+            Choice {
+                key,
+                value: (sa, key_short, sub_name),
+            }
+        }),
+    )
+    .set_header("Picking the storage account for the state file")
+    .pick_one()?;
 
     info!("Fetching blob containers for {}", chosen_storage_account.1);
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -75,19 +71,12 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
         1 => blob_container_names.first().unwrap(),
         _ => {
             info!("Picking blob container");
-            &pick(FzfArgs {
-                choices: blob_container_names
-                    .into_iter()
-                    .map(|name| Choice {
-                        key: name.to_owned(),
-                        value: name,
-                    })
-                    .collect(),
-
-                header: Some("Blob Container Name: ".to_string()),
-                ..Default::default()
-            })?
-            .value
+            &PickerTui::<String>::new(blob_container_names.into_iter().map(|name| Choice {
+                key: name.to_owned(),
+                value: name,
+            }))
+            .set_header("Blob Container Name")
+            .pick_one()?
         }
     };
 

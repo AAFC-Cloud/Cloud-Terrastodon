@@ -1,0 +1,52 @@
+use std::error::Error;
+
+pub type PickResult<T> = Result<T, PickError>;
+
+#[derive(Debug)]
+pub enum PickError {
+    Eyre(eyre::Error),
+    Cancelled,
+    NoChoicesProvided,
+}
+impl std::fmt::Display for PickError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PickError::Eyre(e) => write!(f, "PickError: {}", e),
+            PickError::Cancelled => write!(f, "PickError: Cancelled"),
+            PickError::NoChoicesProvided => write!(f, "PickError: No choices provided"),
+        }
+    }
+}
+impl PartialEq for PickError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (PickError::Cancelled, PickError::Cancelled) => true,
+            _ => false,
+        }
+    }
+}
+impl From<PickError> for eyre::Error {
+    fn from(value: PickError) -> Self {
+        match value {
+            PickError::Eyre(e) => e,
+            _ => eyre::eyre!(value.to_string()),
+        }
+    }
+}
+impl<T: Error> From<T> for PickError {
+    fn from(value: T) -> Self {
+        PickError::Eyre(eyre::eyre!(value.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::PickResult;
+
+    #[test]
+    pub fn it_works() -> eyre::Result<()> {
+        let resp = PickResult::Ok(())?;
+        assert_eq!(resp, ());
+        Ok(())
+    }
+}
