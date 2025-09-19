@@ -1,3 +1,4 @@
+#![cfg(feature = "entrypoint")]
 use cloud_terrastodon_entrypoint::prelude::Version;
 use cloud_terrastodon_entrypoint::prelude::entrypoint;
 

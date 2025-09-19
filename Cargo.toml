@@ -151,7 +151,8 @@ license.workspace = true
 embed-resource = "1.6.3"
 
 [dependencies]
-cloud_terrastodon_entrypoint = { workspace = true }
+# Make the entrypoint optional behind a feature so library users don't pull it in by default
+cloud_terrastodon_entrypoint = { workspace = true, optional = true }
 tokio = { workspace = true }
 eyre = { workspace = true }
 color-eyre = { workspace = true }
@@ -177,6 +178,8 @@ cloud_terrastodon_credentials = { workspace = true, optional = true }
 
 [features]
 default = ["full"]
+# Feature to enable the binary entrypoint wiring
+entrypoint = ["dep:cloud_terrastodon_entrypoint"]
 # One feature per optional subcrate. Each maps to its dependency via the `dep:` syntax.
 pathing = ["dep:cloud_terrastodon_pathing"]
 config = ["dep:cloud_terrastodon_config"]
@@ -205,6 +208,7 @@ full = [
     "azure-resource-types",
     "azure-devops",
     "azure-devops-types",
+    "entrypoint",
     "hcl",
     "hcl-types",
     "user-input",
@@ -216,6 +220,12 @@ full = [
    # "azure-locations",
     "credentials",
 ]
+
+[[bin]]
+name = "cloud_terrastodon"
+path = "src/main.rs"
+# Ensure the binary is only built when the 'entrypoint' feature is enabled
+required-features = ["entrypoint"]
 
 
 
