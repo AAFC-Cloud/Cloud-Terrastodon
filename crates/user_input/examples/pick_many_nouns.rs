@@ -1,14 +1,10 @@
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 
 pub fn main() -> eyre::Result<()> {
     let nouns = vec!["dog", "cat", "house", "pickle", "mouse"];
-    let chosen = pick_many(FzfArgs {
-        choices: nouns,
-        header: Some("Press tab to select entries".to_string()),
-        prompt: Some("Pick some nouns >".to_string()),
-        ..Default::default()
-    })?;
+    let chosen = PickerTui::new(nouns)
+        .set_header("Press tab to select entries")
+        .pick_many()?;
 
     println!("You chose {:?}", chosen);
 

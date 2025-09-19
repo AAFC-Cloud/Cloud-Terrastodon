@@ -1,6 +1,6 @@
 use cloud_terrastodon_user_input::Choice;
-use cloud_terrastodon_user_input::FzfArgs;
-use cloud_terrastodon_user_input::pick;
+use cloud_terrastodon_user_input::PickerTui;
+use std::fs::DirEntry;
 
 pub fn main() -> eyre::Result<()> {
     let mut choices = Vec::new();
@@ -10,17 +10,14 @@ pub fn main() -> eyre::Result<()> {
         choices.push(entry);
     }
 
-    let chosen = pick(FzfArgs {
-        choices: choices
-            .into_iter()
-            .map(|entry| Choice {
-                key: entry.path().display().to_string(), // the value shown to the user
-                value: entry, // the inner value we want to have after the user picks
-            })
-            .collect(),
-        header: Some("Pick a path".to_string()),
-        ..Default::default()
-    })?;
+    let chosen = PickerTui::<DirEntry>::new(
+        choices.into_iter().map(|entry| Choice {
+            key: entry.path().display().to_string(), // the value shown to the user
+            value: entry, // the inner value we want to have after the user picks
+        }),
+    )
+    .set_header("Pick a path")
+    .pick_one()?;
 
     println!("You chose {}", chosen.file_name().to_string_lossy());
 

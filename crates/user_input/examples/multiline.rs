@@ -1,4 +1,4 @@
-use cloud_terrastodon_user_input::pick_many;
+use cloud_terrastodon_user_input::PickerTui;
 
 pub fn main() -> eyre::Result<()> {
     let choices = vec![
@@ -8,7 +8,7 @@ pub fn main() -> eyre::Result<()> {
         "single item",
         "another single item",
     ];
-    let chosen = pick_many(choices)?;
+    let chosen = PickerTui::new(choices).pick_many()?;
     println!("You chose: {chosen:#?}");
     Ok(())
 }
