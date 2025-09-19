@@ -2,6 +2,7 @@
 
 - Switch from using `fzf` to `PickerTui` everywhere
 - Update `PickerTui` return types for `pick_one` and `pick_many` to return `PickResult<T>`
+- Add `PickerTui::from` for better type inference
 
 # v0.27.0
 
