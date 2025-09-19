@@ -26,6 +26,7 @@ impl PartialEq for PickError {
     }
 }
 impl From<PickError> for eyre::Error {
+    #[track_caller]
     fn from(value: PickError) -> Self {
         match value {
             PickError::Eyre(e) => e,
@@ -34,6 +35,7 @@ impl From<PickError> for eyre::Error {
     }
 }
 impl<T: Error> From<T> for PickError {
+    #[track_caller]
     fn from(value: T) -> Self {
         PickError::Eyre(eyre::eyre!(value.to_string()))
     }
