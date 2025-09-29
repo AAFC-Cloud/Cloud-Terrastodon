@@ -9,6 +9,7 @@ use std::str::FromStr;
 pub enum AzureDevOpsDescriptor {
     EntraUser(AzureDevOpsEntraUserDescriptor),
     EntraGroup(String),
+    EntraServicePrincipal(String),
     AzureDevOpsGroup(String),
     Other(String),
 }
@@ -18,6 +19,7 @@ impl std::fmt::Display for AzureDevOpsDescriptor {
         match self {
             AzureDevOpsDescriptor::EntraUser(id) => write!(f, "{id}"),
             AzureDevOpsDescriptor::EntraGroup(id) => write!(f, "{id}"),
+            AzureDevOpsDescriptor::EntraServicePrincipal(id) => write!(f, "{id}"),
             AzureDevOpsDescriptor::AzureDevOpsGroup(id) => write!(f, "{id}"),
             AzureDevOpsDescriptor::Other(id) => write!(f, "{id}"),
         }
@@ -42,6 +44,8 @@ impl FromStr for AzureDevOpsDescriptor {
             ))
         } else if s.starts_with("aadgp.") {
             Ok(AzureDevOpsDescriptor::EntraGroup(s.to_string()))
+        } else if s.starts_with("aadsp.") {
+            Ok(AzureDevOpsDescriptor::EntraServicePrincipal(s.to_string()))
         } else if s.starts_with("vssgp.") {
             Ok(AzureDevOpsDescriptor::AzureDevOpsGroup(s.to_string()))
         } else {
@@ -93,6 +97,17 @@ mod test {
         assert_eq!(
             parsed,
             AzureDevOpsDescriptor::Other("other.bruh".to_string())
+        );
+        Ok(())
+    }
+
+    #[test]
+    pub fn it_works_for_service_principal() -> eyre::Result<()> {
+        let descriptor = "aadsp.service-principal-id";
+        let parsed: AzureDevOpsDescriptor = descriptor.parse()?;
+        assert_eq!(
+            parsed,
+            AzureDevOpsDescriptor::EntraServicePrincipal("aadsp.service-principal-id".to_string())
         );
         Ok(())
     }

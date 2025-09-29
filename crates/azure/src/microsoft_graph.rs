@@ -94,6 +94,6 @@ pub struct MicrosoftGraphResponse<T> {
     // #[serde(rename = "@odata.context")]
     // context: String,
     #[serde(rename = "@odata.nextLink")]
-    next_link: Option<String>,
-    value: Vec<T>,
+    pub next_link: Option<String>,
+    pub value: Vec<T>,
 }

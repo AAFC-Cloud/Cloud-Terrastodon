@@ -1,0 +1,75 @@
+use cloud_terrastodon_azure::prelude::fetch_all_users;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsDescriptor;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseEntitlementLicense;
+use cloud_terrastodon_azure_devops::prelude::LastAccessedDate;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_license_entitlements;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use std::collections::HashMap;
+use tracing::info;
+use tracing::warn;
+
+pub async fn audit_azure_devops() -> eyre::Result<()> {
+    info!("Fetching a buncha information...");
+
+    let mut total_problems = 0;
+    let mut total_cost_waste_cad = 0.00;
+
+    let org_url = get_default_organization_url().await?;
+    let entitlements = fetch_azure_devops_license_entitlements(&org_url).await?;
+    let users_by_principal_name = fetch_all_users()
+        .await?
+        .into_iter()
+        .map(|user| (user.user_principal_name.to_lowercase(), user))
+        .collect::<HashMap<_, _>>();
+
+    // Emit a warning for anyone who has never accessed azure devops and have greater than stakeholder license
+    for entitlement in entitlements
+        .iter()
+        .filter(|e| e.last_accessed_date == LastAccessedDate::Never)
+        .filter(|e| e.license != AzureDevOpsLicenseEntitlementLicense::AccountStakeholder)
+    {
+        warn!(
+            "User: {} ({}) - License: {:?} - Status: {:?} - Last Accessed: Never",
+            entitlement.user.display_name,
+            entitlement.user.unique_name,
+            entitlement.license,
+            entitlement.status
+        );
+        total_problems += 1;
+        total_cost_waste_cad += entitlement.license.cost_per_month_cad();
+    }
+
+    // Emit a warning for entitlements for users who do not exist in entra
+    for entitlement in entitlements
+        .iter()
+        .filter(|e| matches!(e.user.descriptor, AzureDevOpsDescriptor::EntraUser(_)))
+    {
+        if !users_by_principal_name.contains_key(&entitlement.user.unique_name.to_lowercase()) {
+            warn!(
+                "User entitlement exists for user that does not exist in Entra: {} ({} - {:?}) - License: {:?} - Status: {:?}",
+                entitlement.user.display_name,
+                entitlement.user.unique_name,
+                entitlement.user.descriptor,
+                entitlement.license,
+                entitlement.status
+            );
+            total_problems += 1;
+            total_cost_waste_cad += entitlement.license.cost_per_month_cad();
+        }
+    }
+
+    // Emit a warning for licenses assigned to admin accounts for which no user account exists
+
+
+    // Emit summary
+    if total_problems > 0 {
+        warn!("Found {} potential problems in Azure DevOps", total_problems);
+        warn!(
+            "Potential monthly cost waste: ${:.2} CAD",
+            total_cost_waste_cad
+        );
+    } else {
+        info!("No potential problems found in Azure DevOps");
+    }
+    Ok(())
+}

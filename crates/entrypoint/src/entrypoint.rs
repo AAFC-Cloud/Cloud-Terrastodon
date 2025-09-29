@@ -1,7 +1,11 @@
+use crate::clap::AzureCommand;
+use crate::clap::AzureDevOpsCommand;
 use crate::clap::Cli;
 use crate::clap::Commands;
 use crate::clap::TerraformCommand;
 use crate::menu::menu_loop;
+use crate::noninteractive::prelude::audit_azure;
+use crate::noninteractive::prelude::audit_azure_devops;
 use crate::noninteractive::prelude::clean;
 use crate::noninteractive::prelude::dump_azure_devops;
 use crate::noninteractive::prelude::dump_everything;
@@ -63,8 +67,8 @@ pub fn entrypoint(version: Version) -> Result<()> {
     // Configure tracing
     init_tracing(
         match cli.debug {
-        true => LevelFilter::DEBUG,
-        false => LevelFilter::INFO,
+            true => LevelFilter::DEBUG,
+            false => LevelFilter::INFO,
         },
         cli.json,
     )?;
@@ -99,6 +103,16 @@ pub async fn handle(command: Option<Commands>) -> eyre::Result<()> {
             menu_loop().await?;
         }
         Some(command) => match command {
+            Commands::AzureDevOps { command } => match command {
+                AzureDevOpsCommand::Audit => {
+                    audit_azure_devops().await?;
+                }
+            },
+            Commands::Azure { command } => match command {
+                AzureCommand::Audit => {
+                    audit_azure().await?;
+                }
+            },
             Commands::Ratatui => {
                 ui_main().await?;
             }

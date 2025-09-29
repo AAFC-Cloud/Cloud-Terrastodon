@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure::prelude::fetch_groups;
+use cloud_terrastodon_azure::prelude::fetch_all_groups;
 use cloud_terrastodon_hcl::prelude::HCLImportBlock;
 use cloud_terrastodon_hcl::prelude::HCLWriter;
 use cloud_terrastodon_pathing::AppDir;
@@ -10,7 +10,7 @@ use tracing::info;
 
 pub async fn build_group_imports() -> Result<()> {
     info!("Fetching groups");
-    let groups = fetch_groups()
+    let groups = fetch_all_groups()
         .await?
         .into_iter()
         .filter(|def| def.security_enabled)

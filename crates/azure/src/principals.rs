@@ -5,10 +5,10 @@ use cloud_terrastodon_azure_types::prelude::Principal;
 use cloud_terrastodon_azure_types::prelude::PrincipalCollection;
 use itertools::Itertools;
 use tokio::try_join;
-use tracing::info;
+use tracing::debug;
 
 pub async fn fetch_all_principals() -> eyre::Result<PrincipalCollection> {
-    info!("Fetching principals (users, security groups, and service principals)");
+    debug!("Fetching principals (users, security groups, and service principals)");
     let (users, security_groups, service_principals) = try_join!(
         fetch_all_users(),
         fetch_all_security_groups(),
@@ -20,7 +20,7 @@ pub async fn fetch_all_principals() -> eyre::Result<PrincipalCollection> {
         .chain(security_groups.into_iter().map_into())
         .chain(service_principals.into_iter().map_into())
         .collect();
-    info!("Found {} principals", principals.len());
+    debug!("Found {} principals", principals.len());
     Ok(PrincipalCollection::new(principals))
 }
 
