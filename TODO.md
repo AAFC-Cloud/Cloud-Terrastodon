@@ -3,6 +3,11 @@
 ## General
 
 - PickerTui highlight matching chars like fzf
+- Graceful exit when user hits esc to quit from main or submenus
+- browse resource groups should look more like az role assignment list dialog
+    - output full expanded form id for copy pasting as terraform import
+- Update user fetching to use graph batch; add `otherMails` property
+- Implement `audit_azure.rs` to use `otherMails` property
 
 ## New Types
 
@@ -29,7 +34,6 @@
 
 ## Privileges
 
-- Fix "Direct" PIM assignment failing to deserialize
 - Add entra role definition fetch
 - Add prediction for privileged operation like creating security group
 
