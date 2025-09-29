@@ -61,10 +61,13 @@ pub fn entrypoint(version: Version) -> Result<()> {
     }
 
     // Configure tracing
-    init_tracing(match cli.debug {
+    init_tracing(
+        match cli.debug {
         true => LevelFilter::DEBUG,
         false => LevelFilter::INFO,
-    })?;
+        },
+        cli.json,
+    )?;
 
     // Configure terminal colour support
     #[cfg(windows)]

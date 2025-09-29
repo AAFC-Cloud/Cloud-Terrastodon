@@ -20,7 +20,7 @@ async-recursion = "1.1.0"
 indoc = "2.0.5"
 hcl-rs = "0.18.0"
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 indexmap = { version = "2.2.6", features = ["serde"] }
 ordermap = { version = "0.5.0", features = ["serde"] }
 hcl-primitives = "0.1.5"

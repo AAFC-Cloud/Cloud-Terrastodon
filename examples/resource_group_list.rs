@@ -9,7 +9,7 @@ use color_eyre::eyre::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    init_tracing(Level::DEBUG)?;
+    init_tracing(Level::DEBUG, false)?;
     color_eyre::install().ok();
 
     let rgs = fetch_all_resource_groups().await?;

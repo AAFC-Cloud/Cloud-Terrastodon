@@ -7,8 +7,13 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(name = "cloud_terrastodon", about, long_about = None)]
 pub struct Cli {
+    /// Enable debug logging, including backtraces on panics
     #[arg(long, global = true, default_value = "false")]
     pub debug: bool,
+
+    /// Write a json file of the structured logs to the current directory
+    #[arg(long, global = true, default_value = "false")]
+    pub json: bool,
 
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -37,6 +42,14 @@ pub enum Commands {
         #[command(subcommand)]
         command: TerraformCommand,
     },
+    AzureDevOps {
+        #[command(subcommand)]
+        command: AzureDevOpsCommand,
+    },
+    Azure {
+        #[command(subcommand)]
+        command: AzureCommand,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -58,4 +71,14 @@ pub enum TerraformCommand {
         )]
         recursive: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AzureDevOpsCommand {
+    Audit,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AzureCommand {
+    Audit,
 }

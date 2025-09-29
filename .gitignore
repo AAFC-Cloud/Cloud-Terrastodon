@@ -7,3 +7,4 @@
 target
 rustc-ice-*.txt
 resource_tags.json
+cloud_terrastodon_log_*.*
