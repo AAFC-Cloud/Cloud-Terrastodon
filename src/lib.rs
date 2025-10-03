@@ -28,8 +28,6 @@ pub use cloud_terrastodon_azure_types as azure_types;
 pub use cloud_terrastodon_command as command;
 #[cfg(feature = "config")]
 pub use cloud_terrastodon_config as config;
-// #[cfg(feature = "azure-locations")]
-// pub use cloud_terrastodon_azure_locations as azure_locations;
 #[cfg(feature = "credentials")]
 pub use cloud_terrastodon_credentials as credentials;
 #[cfg(feature = "hcl")]

@@ -1,5 +1,14 @@
 # TODO
 
+## VM sku permission
+
+- list skus
+- find assignments for "Allowed virtual machine size SKUs" policy - /providers/microsoft.authorization/policydefinitions/cccc23c7-8427-4f53-ad12-b6a63eb452b3 to filter
+https://stackoverflow.com/a/73192111/11141271
+az vm list-sizes --location canadacentral
+az rest --method get `
+  --uri "https://prices.azure.com/api/retail/prices?$filter=serviceName eq 'Virtual Machines' and armRegionName eq 'canadacentral' and (contains(armSkuName, 'Promo') eq false and contains(armSkuName, 'Standard_B') eq false)"
+
 ## General
 
 - PickerTui highlight matching chars like fzf
@@ -15,6 +24,7 @@
 - Add `VirtualMachineSizeSku` type
     - If struct, add `fetch_all_virtual_machine_size_skus()`
     - If enum, add `VARIANTS` array
+    
 
 ## Virtual Machine Images
 

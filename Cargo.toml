@@ -129,10 +129,6 @@ path = "./crates/ui_ratatui"
 version = "0.28.0" # CT_VERSION
 path = "./crates/ui_egui"
 
-[workspace.dependencies.cloud_terrastodon_azure_locations]
-version = "0.28.0" # CT_VERSION
-path = "./crates/azure_locations"
-
 [workspace.dependencies.cloud_terrastodon_credentials]
 version = "0.28.0" # CT_VERSION
 path = "./crates/credentials"
@@ -173,7 +169,6 @@ cloud_terrastodon_zombies = { workspace = true, optional = true }
 cloud_terrastodon_relative_location = { workspace = true, optional = true }
 cloud_terrastodon_ui_ratatui = { workspace = true, optional = true }
 cloud_terrastodon_ui_egui = { workspace = true, optional = true }
-# cloud_terrastodon_azure_locations = { workspace = true, optional = true }
 cloud_terrastodon_credentials = { workspace = true, optional = true }
 
 [features]
@@ -196,7 +191,6 @@ zombies = ["dep:cloud_terrastodon_zombies"]
 relative-location = ["dep:cloud_terrastodon_relative_location"]
 ui-ratatui = ["dep:cloud_terrastodon_ui_ratatui"]
 ui-egui = ["dep:cloud_terrastodon_ui_egui"]
-# azure-locations = ["dep:cloud_terrastodon_azure_locations"]
 credentials = ["dep:cloud_terrastodon_credentials"]
 
 # Convenience feature that enables all re-exports, similar to tokio's `full`.

@@ -479,6 +479,7 @@ impl CommandBuilder {
                         "No subscription found. Run 'az account set' to select a subscription.",
                         "Please run 'az login' to setup account.",
                         "ERROR: (pii). Status: Response_Status.Status_InteractionRequired, Error code: 3399614467",
+                        // "Continuous access evaluation resulted in challenge with result: InteractionRequired" // may require `az logout` first? https://github.com/Azure/azure-cli/issues/26504
                     ]
                     .into_iter()
                     .any(|x| output.stderr.contains_str(x)) =>
