@@ -15,6 +15,7 @@ use ratatui::style::Style;
 use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::text::Span;
+use ratatui::text::Text;
 use ratatui::widgets::Block;
 use ratatui::widgets::List;
 use ratatui::widgets::ListState;
@@ -165,6 +166,11 @@ impl<T> PickerTui<T> {
                         marked_for_return.clear();
                         break;
                     }
+                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        // Send cancellation
+                        marked_for_return.clear();
+                        break;
+                    }
                     KeyCode::Up => {
                         list_state.select_previous();
                     }
@@ -274,20 +280,26 @@ impl<T> PickerTui<T> {
                 search_results_keys.clear();
 
                 // Push the new search results
-                let mut search_results_display: Vec<Line> = Default::default();
+                let mut search_results_display: Vec<Text> = Default::default();
                 for item in items {
                     let key: Key = item.data.clone();
 
-                    let mut line = Line::default();
-                    if many && marked_for_return.contains(&key) {
-                        line.push_span(Span::from("● ").red());
-                    } else if many && !marked_for_return.is_empty() {
-                        line.push_span(Span::from("  "));
+                    let mut text = Text::from(key.to_string());
+                    if many {
+                        if marked_for_return.contains(&key) {
+                            text.lines[0].spans.insert(0, Span::from("● ").red());
+                            for line in text.lines.iter_mut().skip(1) {
+                                line.spans.insert(0, Span::from("  "));
+                            }
+                        } else if !marked_for_return.is_empty() {
+                            for line in text.lines.iter_mut() {
+                                line.spans.insert(0, Span::from("  "));
+                            }
+                        };
                     }
-                    line.push_span(Span::from(key.clone()));
 
                     search_results_keys.push(key);
-                    search_results_display.push(line);
+                    search_results_display.push(text);
                 }
                 let counts_title = if many {
                     format!(
@@ -409,8 +421,6 @@ mod test {
         Ok(())
     }
 
-
-    
     #[test]
     #[ignore]
     pub fn it_works22() -> eyre::Result<()> {

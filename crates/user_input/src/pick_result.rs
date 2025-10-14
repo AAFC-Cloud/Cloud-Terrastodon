@@ -14,7 +14,7 @@ impl std::fmt::Display for PickError {
             PickError::Eyre(e) => write!(f, "PickError: {}", e),
             PickError::Cancelled => write!(
                 f,
-                "PickError: The operation was cancelled by the user hitting the Esc key."
+                "PickError: The operation was cancelled by the user pressing Esc or Ctrl+C."
             ),
             PickError::NoChoicesProvided => {
                 write!(f, "PickError: The list of choices to pick from was empty.")

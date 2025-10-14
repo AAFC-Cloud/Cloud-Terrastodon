@@ -5,6 +5,9 @@
 - Add debug warning when picker tui elements contain `\t`
 - Fix choice alignment in "copy azurerm backend" action
 - Introduce compute sku and vm image structs and helper fetcher functions
+- Fix picker TUI multiline support
+- Fix picker TUI ctrl+c support
+- Make app exit happily on ctrl+c or esc on main menu
 
 # v0.28.0
 
