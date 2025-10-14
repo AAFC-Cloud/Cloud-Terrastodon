@@ -4,6 +4,7 @@
 - Add `--json` flag to write logs to a `.jsonl` file
 - Add debug warning when picker tui elements contain `\t`
 - Fix choice alignment in "copy azurerm backend" action
+- Introduce compute sku and vm image structs and helper fetcher functions
 
 # v0.28.0
 
