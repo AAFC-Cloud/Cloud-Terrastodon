@@ -5,13 +5,13 @@ use serde::Serialize;
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualMachineSize {
-    max_data_disk_count: usize,
+    pub max_data_disk_count: usize,
     #[serde(rename = "memoryInMB")]
-    memory_in_mb: usize,
-    name: ComputeSkuName,
-    number_of_cores: usize,
+    pub memory_in_mb: usize,
+    pub name: ComputeSkuName,
+    pub number_of_cores: usize,
     #[serde(rename = "osDiskSizeInMB")]
-    os_disk_size_in_mb: usize,
+    pub os_disk_size_in_mb: usize,
     #[serde(rename = "resourceDiskSizeInMB")]
-    resource_disk_size_in_mb: usize,
+    pub resource_disk_size_in_mb: usize,
 }

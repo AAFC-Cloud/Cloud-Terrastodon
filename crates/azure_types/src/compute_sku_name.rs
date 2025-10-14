@@ -6,7 +6,7 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ComputeSkuName(CompactString);
 impl ComputeSkuName {
     pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
