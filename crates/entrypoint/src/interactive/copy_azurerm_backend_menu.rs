@@ -29,17 +29,14 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
             .get(&sa.id.resource_group_id.subscription_id)
             .map(|sub| sub.name.to_owned())
             .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
-        let key = format!(
-            "{:32}\t{:64}\t{}",
-            sub_name, sa.id.resource_group_id.resource_group_name, sa.name
-        );
-        let key_short = format!(
-            "{} {} {}",
-            sub_name, sa.id.resource_group_id.resource_group_name, sa.name
-        );
         Choice {
-            key,
-            value: (sa, key_short, sub_name),
+            key: format!(
+                "{:<32} {:<64} {}",
+                sub_name.to_string(),
+                sa.id.resource_group_id.resource_group_name.to_string(),
+                sa.name.to_string()
+            ),
+            value: (sa, sub_name),
         }
     }))
     .set_header("Picking the storage account for the state file")
@@ -97,7 +94,7 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
             .resource_group_id
             .subscription_id
             .short_form(),
-        chosen_storage_account.2
+        chosen_storage_account.1
     );
 
     info!("You chose:\n{output}");

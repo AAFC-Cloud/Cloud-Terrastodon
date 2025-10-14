@@ -2,6 +2,8 @@
 
 - Rename `fetch_groups` to `fetch_all_groups`
 - Add `--json` flag to write logs to a `.jsonl` file
+- Add debug warning when picker tui elements contain `\t`
+- Fix choice alignment in "copy azurerm backend" action
 
 # v0.28.0
 

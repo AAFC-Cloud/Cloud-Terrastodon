@@ -20,6 +20,7 @@ tui-textarea.workspace = true
 nucleo.workspace = true
 compact_str.workspace = true
 rustc-hash.workspace = true
+tracing.workspace = true
 
 
 

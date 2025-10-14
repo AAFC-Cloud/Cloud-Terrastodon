@@ -57,14 +57,25 @@ type Key = CompactString;
 
 impl<T> PickerTui<T> {
     pub fn new<E: Into<Choice<T>>>(choices: impl IntoIterator<Item = E>) -> Self {
-        Self {
+        let rtn = Self {
             choices: choices.into_iter().map(Into::into).collect(),
             query_text_area: Self::build_text_area(""),
             previous_query: Default::default(),
             header: Default::default(),
             query_changed: false,
             auto_accept: true,
+        };
+        #[cfg(debug_assertions)]
+        {
+            if rtn.choices.iter().any(|c| c.key.contains('\t')) {
+                tracing::warn!(
+                    "Warning: Some choice keys contain tab characters, which may render poorly in the TUI"
+                );
+                println!("Press Enter to continue...");
+                let _: Result<_, _> = std::io::stdin().read_line(&mut String::new());
+            }
         }
+        rtn
     }
 
     fn build_text_area(query: &str) -> TextArea<'static> {
@@ -345,6 +356,7 @@ impl<T> PickerTui<T> {
 #[cfg(test)]
 mod test {
     use super::PickerTui;
+    use crate::Choice;
 
     #[derive(Debug)]
     #[allow(dead_code)]
@@ -397,6 +409,36 @@ mod test {
         Ok(())
     }
 
+
+    
+    #[test]
+    #[ignore]
+    pub fn it_works22() -> eyre::Result<()> {
+        let items = vec![
+            Thingy {
+                name: format!("{:<25} bruh", "dog"),
+                value: 1,
+            },
+            Thingy {
+                name: format!("{:<25} bruh", "cat"),
+                value: 2,
+            },
+            Thingy {
+                name: format!("{:<25} bruh", "house"),
+                value: 3,
+            },
+            Thingy {
+                name: format!("{:<25} bruh", "pickle"),
+                value: 4,
+            },
+        ];
+        let results = PickerTui::new(items)
+            .set_header("Select an item")
+            .pick_many()?;
+        dbg!(results);
+        Ok(())
+    }
+
     #[test]
     #[ignore]
     pub fn it_works3() -> eyre::Result<()> {
@@ -404,6 +446,29 @@ mod test {
             .set_header("Select some numbers")
             .set_query("100")
             .pick_many()?;
+        dbg!(results);
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    pub fn it_works4() -> eyre::Result<()> {
+        let results = PickerTui::<usize>::new([
+            Choice {
+                key: "one\none".into(),
+                value: 1,
+            },
+            Choice {
+                key: "two\ntwo".into(),
+                value: 2,
+            },
+            Choice {
+                key: "three\nthree".into(),
+                value: 3,
+            },
+        ])
+        .set_header("Select some numbers")
+        .pick_many()?;
         dbg!(results);
         Ok(())
     }
