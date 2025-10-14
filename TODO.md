@@ -1,5 +1,11 @@
 # TODO
 
+## Cloud lint
+
+- App registrations with expired (client secrets|certificates)
+- App registrations with (client secrets|certificates) that are expiring in 30 days when no (client secrets|certificates) exists that is expiring in more than 30 days from now
+- Users who are Owner on App Registration without having Directory Reader role or similar
+
 ## VM sku permission
 
 - list skus
@@ -8,6 +14,14 @@ https://stackoverflow.com/a/73192111/11141271
 az vm list-sizes --location canadacentral
 az rest --method get `
   --uri "https://prices.azure.com/api/retail/prices?$filter=serviceName eq 'Virtual Machines' and armRegionName eq 'canadacentral' and (contains(armSkuName, 'Promo') eq false and contains(armSkuName, 'Standard_B') eq false)"
+
+## Oauth2
+
+Add oauth2 permission scope browser
+
+## Graph
+
+Add general-purpose ms graph postman/rest api helper
 
 ## General
 
