@@ -12,7 +12,7 @@
 
 ## Description
 
-Un outil en ligne de commande (CLI) pour interagir avec Azure et Terraform.
+Un outil en ligne de commande (CLI) et un SDK pour interagir avec Azure et Terraform.
 
 [Vidéo de démonstration lors de l'appel communautaire Azure Terraform de septembre 2024](https://youtu.be/HtLdT7TZwOI?t=701)
 

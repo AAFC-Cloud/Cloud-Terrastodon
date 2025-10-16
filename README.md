@@ -12,7 +12,7 @@
 
 ## Description
 
-A CLI tool for interacting with Azure and Terraform.
+A CLI tool and SDK for interacting with Azure and Terraform.
 
 [Demonstration video from Azure Terraform September 2024 Community Call](https://youtu.be/HtLdT7TZwOI?t=701)
 
