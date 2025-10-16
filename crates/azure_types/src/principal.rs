@@ -59,6 +59,24 @@ impl Principal {
             }
         }
     }
+    pub fn as_user(&self) -> Option<&User> {
+        match self {
+            Principal::User(user) => Some(user),
+            _ => None,
+        }
+    }
+    pub fn as_group(&self) -> Option<&Group> {
+        match self {
+            Principal::Group(group) => Some(group),
+            _ => None,
+        }
+    }
+    pub fn as_service_principal(&self) -> Option<&ServicePrincipal> {
+        match self {
+            Principal::ServicePrincipal(service_principal) => Some(service_principal),
+            _ => None,
+        }
+    }
 }
 impl std::fmt::Display for Principal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

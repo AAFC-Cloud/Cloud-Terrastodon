@@ -6,7 +6,7 @@ use validator::Validate;
 use validator::ValidationError;
 
 /// https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#project-names
-#[derive(Debug, Eq, PartialEq, Validate, Clone)]
+#[derive(Debug, Eq, PartialEq, Validate, Clone, Hash)]
 pub struct AzureDevOpsProjectName {
     #[validate(
         length(min = 1, max = 64),

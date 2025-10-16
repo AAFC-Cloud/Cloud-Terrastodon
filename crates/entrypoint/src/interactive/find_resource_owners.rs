@@ -9,15 +9,26 @@ use cloud_terrastodon_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::ScopeImpl;
 use cloud_terrastodon_azure::prelude::ServicePrincipal;
+use cloud_terrastodon_azure::prelude::ServicePrincipalId;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
 use cloud_terrastodon_azure::prelude::fetch_group_owners;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectId;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectName;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsServiceEndpoint;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsServiceEndpointAuthorization;
+use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
+use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_service_endpoints;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::ops::Deref;
@@ -57,10 +68,38 @@ enum Clue<'a> {
         group: &'a Group,
         principal: &'a Principal,
     },
+    AzureDevOpsServiceEndpoint {
+        service_principal: &'a ServicePrincipal,
+        service_endpoint: &'a AzureDevOpsServiceEndpoint,
+    },
+    AzureDevOpsServiceEndpointProjectAssociation {
+        service_endpoint: &'a AzureDevOpsServiceEndpoint,
+        project: &'a AzureDevOpsProject,
+    },
+    AzureDevOpsUser {
+        principal: &'a Principal,
+    },
 }
 impl<'a> std::fmt::Display for Clue<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Clue::AzureDevOpsServiceEndpointProjectAssociation {
+                service_endpoint,
+                project,
+            } => f.write_fmt(format_args!(
+                "Azure DevOps Service Endpoint [{}] associated with project [{}]",
+                service_endpoint.name, project.name
+            )),
+            Clue::AzureDevOpsServiceEndpoint {
+                service_endpoint,
+                service_principal,
+            } => f.write_fmt(format_args!(
+                "Azure DevOps Service Endpoint [{}] for principal [{}]",
+                service_endpoint.name, service_principal.display_name
+            )),
+            Clue::AzureDevOpsUser { principal } => f.write_fmt(format_args!(
+                "Azure DevOps User for principal [{principal}]"
+            )),
             Clue::ResourceTag {
                 resource,
                 tag_key,
@@ -161,6 +200,9 @@ struct TraversalContext<'a> {
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
     pub principal_map: HashMap<PrincipalId, &'a Principal>,
     pub role_assignments_by_scope: HashMap<&'a ScopeImpl, &'a RoleAssignment>,
+    pub azure_devops_service_endpoints: Vec<&'a AzureDevOpsServiceEndpoint>,
+    pub azure_devops_projects_by_name: HashMap<&'a AzureDevOpsProjectName, &'a AzureDevOpsProject>,
+    pub azure_devops_projects_by_id: HashMap<&'a AzureDevOpsProjectId, &'a AzureDevOpsProject>,
 }
 #[derive(Debug, Clone, Copy, Eq, PartialEq, VariantArray)]
 enum Traversal {
@@ -169,6 +211,8 @@ enum Traversal {
     GroupMembers,
     GroupOwners,
     ServicePrincipalAlternativeNames,
+    AzureDevOpsServiceEndpoints,
+    AzureDevOpsUsers,
     // Parents
     // Children
 }
@@ -276,6 +320,33 @@ impl Traversal {
                     }
                 }
             }
+            Traversal::AzureDevOpsServiceEndpoints => {
+                if let Clue::Principal {
+                    principal: Principal::ServicePrincipal(service_principal),
+                } = clue.as_ref()
+                {
+                    // Find service endpoints using this service principal
+                    for endpoint in context.azure_devops_service_endpoints.iter() {
+                        // Only check endpoints with a service principal
+                        let Some(endpoint_service_principal_id) =
+                            endpoint.authorization.service_principal_id()
+                        else {
+                            continue;
+                        };
+                        if endpoint_service_principal_id == &service_principal.id {
+                            info!(
+                                "Found Azure DevOps Service endpoint [{}] for service principal [{}]",
+                                endpoint.name, service_principal.id
+                            );
+                            rtn.push(clue.join(Clue::AzureDevOpsServiceEndpoint {
+                                service_principal,
+                                service_endpoint: endpoint,
+                            }));
+                        }
+                    }
+                }
+            }
+            Traversal::AzureDevOpsUsers => todo!(),
         }
         Ok(rtn)
     }
@@ -285,12 +356,30 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
     info!(
         "Fetching a bunch of stuff (resources, role assignments, role definitions, and principals)"
     );
-    let (resources, role_assignments, role_definitions, principals) = try_join!(
+    let (resources, role_assignments, role_definitions, principals, org_url) = try_join!(
         fetch_all_resources(),
         fetch_all_role_assignments(),
         fetch_all_role_definitions(),
         fetch_all_principals(),
+        get_default_organization_url(),
     )?;
+    let projects = fetch_all_azure_devops_projects(&org_url).await?;
+    let azure_devops_service_endpoints = {
+        let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
+            ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);
+        for project in projects.iter() {
+            let org_url = org_url.clone();
+            let project_name = project.name.clone();
+            work.enqueue(async move {
+                fetch_all_azure_devops_service_endpoints(&org_url, &project_name).await
+            });
+        }
+        work.join().await?.into_iter().flatten().collect_vec()
+    };
+    // we assume that the project references always contains the project we fetched the endpoint for
+    for endpoint in &azure_devops_service_endpoints {
+        assert!(!endpoint.service_endpoint_project_references.is_empty());
+    }
 
     let resource_map = resources
         .iter()
@@ -308,12 +397,25 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
         .iter()
         .map(|role_assignment| (&role_assignment.scope, role_assignment))
         .collect::<HashMap<_, _>>();
+    let azure_devops_projects_by_name: HashMap<&AzureDevOpsProjectName, &AzureDevOpsProject> =
+        projects
+            .iter()
+            .map(|project| (&project.name, project))
+            .collect::<HashMap<_, _>>();
+    let azure_devops_projects_by_id: HashMap<&AzureDevOpsProjectId, &AzureDevOpsProject> = projects
+        .iter()
+        .map(|project| (&project.id, project))
+        .collect::<HashMap<_, _>>();
+
     let mut traversal_context = TraversalContext {
         clues: Vec::new(),
         resource_map,
         role_definition_map,
         principal_map,
         role_assignments_by_scope,
+        azure_devops_projects_by_id,
+        azure_devops_projects_by_name,
+        azure_devops_service_endpoints: azure_devops_service_endpoints.iter().collect(),
     };
 
     #[derive(Debug, Clone, VariantArray)]

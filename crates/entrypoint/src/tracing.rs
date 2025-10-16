@@ -1,6 +1,6 @@
 use chrono::Local;
 use eyre::Result;
-use tracing::debug;
+use tracing::{debug, info};
 use std::fs::File;
 use std::sync::{Arc, Mutex};
 
@@ -60,7 +60,7 @@ pub fn init_tracing(level: impl Into<Directive>, json: bool) -> Result<()> {
             .with(json_layer)
             .try_init()?;
 
-        debug!(?json_log_path, "JSON log output initialized");
+        info!(?json_log_path, "JSON log output initialized");
     } else {
         tracing_subscriber::registry()
             .with(make_env_filter())

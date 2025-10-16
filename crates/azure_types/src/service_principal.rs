@@ -41,7 +41,7 @@ pub struct ServicePrincipal {
     pub id: ServicePrincipalId,
     pub info: Option<Value>,
     #[serde(rename = "keyCredentials")]
-    pub key_credentials: Vec<Value>,
+    pub key_credentials: Vec<ServicePrincipalKeyCredential>,
     #[serde(rename = "loginUrl")]
     pub login_url: Option<Value>,
     #[serde(rename = "logoutUrl")]
@@ -52,7 +52,7 @@ pub struct ServicePrincipal {
     #[serde(rename = "oauth2PermissionScopes")]
     pub oauth2_permission_scopes: Vec<Value>,
     #[serde(rename = "passwordCredentials")]
-    pub password_credentials: Vec<Value>,
+    pub password_credentials: Vec<ServicePrincipalPasswordCredential>,
     #[serde(rename = "preferredSingleSignOnMode")]
     pub preferred_single_sign_on_mode: Option<String>,
     #[serde(rename = "preferredTokenSigningKeyThumbprint")]
@@ -74,4 +74,43 @@ pub struct ServicePrincipal {
     pub token_encryption_key_id: Option<Value>,
     #[serde(rename = "verifiedPublisher")]
     pub verified_publisher: Value,
+}
+
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ServicePrincipalPasswordCredential {
+    #[serde(rename = "customKeyIdentifier")]
+    pub custom_key_identifier: Option<Value>,
+    #[serde(rename = "endDateTime")]
+    pub end_date_time: DateTime<Utc>,
+    #[serde(rename = "keyId")]
+    pub key_id: Uuid,
+    #[serde(rename = "startDateTime")]
+    pub start_date_time: DateTime<Utc>,
+    #[serde(rename = "secretText")]
+    pub secret_text: Option<String>,
+    pub hint: Option<String>,
+    #[serde(rename = "displayName")]
+    pub display_name: Option<String>,
+}
+
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ServicePrincipalKeyCredential {
+    #[serde(rename = "customKeyIdentifier")]
+    pub custom_key_identifier: Option<String>,
+    #[serde(rename = "endDateTime")]
+    pub end_date_time: DateTime<Utc>,
+    #[serde(rename = "keyId")]
+    pub key_id: Uuid,
+    #[serde(rename = "startDateTime")]
+    pub start_date_time: DateTime<Utc>,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub usage: String,
+    pub key: Option<String>,
+    #[serde(rename = "displayName")]
+    pub display_name: Option<String>,
+    #[serde(rename = "hasExtendedValue")]
+    pub has_extended_value: Option<bool>,
 }

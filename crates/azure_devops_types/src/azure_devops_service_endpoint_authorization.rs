@@ -14,7 +14,21 @@ pub enum AzureDevOpsServiceEndpointAuthorization {
     UsernamePassword(AzureDevOpsServiceEndpointAuthorizationUsernamePassword),
     Token(()),
     WorkloadIdentityFederation(AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation),
+    /// For stuff like Azure Container Registry authorization
     ManagedServiceIdentity(AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity),
+}
+impl AzureDevOpsServiceEndpointAuthorization {
+    pub fn service_principal_id(&self) -> Option<&ServicePrincipalId> {
+        match self {
+            AzureDevOpsServiceEndpointAuthorization::ServicePrincipal(data) => {
+                Some(&data.service_principal_id)
+            }
+            AzureDevOpsServiceEndpointAuthorization::WorkloadIdentityFederation(data) => {
+                data.service_principal_id.as_ref()
+            }
+            _ => None,
+        }
+    }
 }
 
 // ============
@@ -74,6 +88,8 @@ pub struct AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity {
     #[serde(rename = "tenantId")]
     #[serde(alias = "tenantid")]
     pub tenant_id: TenantId,
+    /// For stuff like Azure Container Registry authorization
+    /// "loginServer": "pipelineimage.azurecr.io",
     #[serde(flatten)]
     pub extra: HashMap<CompactString, CompactString>,
 }

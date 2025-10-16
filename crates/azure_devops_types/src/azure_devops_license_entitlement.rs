@@ -21,6 +21,7 @@ pub enum AzureDevOpsLicenseEntitlementLicense {
     AccountExpress,
     #[serde(rename = "Account-Stakeholder")]
     AccountStakeholder,
+    /// Basic+Test plans
     #[serde(rename = "Account-Advanced")]
     AccountAdvanced,
     #[serde(rename = "Msdn-Enterprise")]
