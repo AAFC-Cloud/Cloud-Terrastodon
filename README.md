@@ -5,13 +5,16 @@
 
 [Voir la version française](./README.fr_ca.md)
 
+![A terminal showing a list of commands](./main_menu.png)
 
 </div>
 
 
 ## Description
 
-A series of scripts for generating Terraform code from existing Azure state.
+A CLI tool for interacting with Azure and Terraform.
+
+[Demonstration video from Azure Terraform September 2024 Community Call](https://youtu.be/HtLdT7TZwOI?t=701)
 
 See also: https://github.com/Azure/aztfexport
 
