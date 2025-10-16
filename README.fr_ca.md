@@ -5,19 +5,30 @@
 
 [Voir la version anglaise](./README.md)
 
+![Un terminal affichant une liste de commandes](./main_menu.png)
+
 </div>
 
 
 ## Description
 
-Une série de scripts pour générer du code Terraform à partir de l'état existant d'Azure.
+Un outil en ligne de commande (CLI) pour interagir avec Azure et Terraform.
+
+[Vidéo de démonstration lors de l'appel communautaire Azure Terraform de septembre 2024](https://youtu.be/HtLdT7TZwOI?t=701)
 
 Voir également : https://github.com/Azure/aztfexport
 
 ## Dépendances
 
 - [Azure CLI `az`](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli#install)
-- [Fuzzy Finder `fzf`](https://github.com/junegunn/fzf?tab=readme-ov-file#installation)
+
+## Configuration de votre environnement de développement
+
+Installez le SDK Windows et les outils de développement Visual Studio
+
+- https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/
+- https://visualstudio.microsoft.com/visual-cpp-build-tools/
+    - [x] Développement d'applications de bureau en C++
 
 ## Droits d’auteur
 
