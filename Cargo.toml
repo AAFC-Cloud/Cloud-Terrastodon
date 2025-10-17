@@ -7,6 +7,26 @@ authors = ["TeamDman"]
 repository = "https://github.com/AAFC-Cloud/Cloud-Terrastodon.git"
 readme = "README.md"
 license = "LiLiQ-R-1.1"
+keywords = [
+    "azure",
+    "cli",
+    "infrastructure",
+    "automation",
+    "devops",
+    "cloud",
+    "iac",
+    "infrastructure-as-code",
+    "cloud-automation",
+    "cloud-infrastructure",
+    "sdk",
+]
+categories = [
+    "command-line-interface",
+    "command-line-utilities",
+    "api-bindings",
+    "asynchronous",
+    "parsing",
+]
 
 [workspace.dependencies]
 anyhow = "1.0.82"
@@ -143,6 +163,8 @@ edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [build-dependencies]
 embed-resource = "3.0.6"
@@ -269,6 +291,3 @@ unnecessary_safety_comment = "warn"
 unnecessary_safety_doc = "warn"
 unneeded_field_pattern = "warn"
 unused_result_ok = "warn"
-
-# Define custom opt outs here
-# ...
