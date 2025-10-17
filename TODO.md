@@ -1,5 +1,9 @@
 # TODO
 
+## Logging
+
+Allow specifying a path after `--json` global arg, using current logic if not provided.
+
 ## Cloud lint
 
 - App registrations with expired (client secrets|certificates)

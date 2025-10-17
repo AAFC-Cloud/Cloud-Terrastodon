@@ -7,8 +7,6 @@
 
 [Voir la version anglaise](./README.md)
 
-![Un terminal affichant une liste de commandes](./main_menu.png)
-
 </div>
 
 
@@ -20,11 +18,37 @@ Un outil en ligne de commande (CLI) et un SDK pour interagir avec Azure et Terra
 
 Voir également : https://github.com/Azure/aztfexport
 
-## Dépendances
+## Installation
+
+Téléchargez la dernière version depuis la [page des publications GitHub](https://github.com/AAFC-Cloud/Cloud-Terrastodon/releases)
+
+## Utilisation
+
+Par défaut, l'application ne prend aucun argument et démarre une interface utilisateur de terminal interactive.
+
+![Un terminal affichant une liste de commandes](./main_menu.png)
+
+Les commandes les plus utiles sont « pim activate » et celles commençant par « browse ... ».
+
+## Mise en cache
+
+Notez que Cloud Terrastodon utilise une stratégie de mise en cache pour éviter de récupérer à nouveau certaines informations, ce qui réduit le temps d'exécution des actions consécutives. Toutefois, ce cache peut parfois devenir obsolète avant la fenêtre d'expiration automatique.
+
+Vous pouvez exécuter
+
+```pwsh
+cloud_terrastodon clean
+```
+
+pour purger le cache.
+
+## Développement
+
+### Dépendances
 
 - [Azure CLI `az`](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli#install)
 
-## Configuration de votre environnement de développement
+### Configuration de votre environnement de développement
 
 Installez le SDK Windows et les outils de développement Visual Studio
 
