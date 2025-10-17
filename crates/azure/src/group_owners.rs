@@ -27,9 +27,8 @@ pub async fn fetch_group_owners(group_id: GroupId) -> Result<Vec<Principal>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::groups::fetch_all_groups;
-
     use super::*;
+    use crate::groups::fetch_all_groups;
     use eyre::bail;
 
     #[tokio::test]

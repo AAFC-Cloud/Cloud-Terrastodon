@@ -51,7 +51,6 @@ impl From<ComputeSkuName> for CompactString {
     }
 }
 
-
 impl Serialize for ComputeSkuName {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

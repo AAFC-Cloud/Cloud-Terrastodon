@@ -102,7 +102,6 @@ impl<'de> Deserialize<'de> for LastAccessedDate {
             .map_err(serde::de::Error::custom)?
             .with_timezone(&Utc);
         Ok(LastAccessedDate::Some(dt))
-
     }
 }
 impl Serialize for LastAccessedDate {
@@ -118,29 +117,24 @@ impl Serialize for LastAccessedDate {
 }
 #[cfg(test)]
 mod test {
-    use chrono::{DateTime, Utc};
+    use chrono::DateTime;
+    use chrono::Utc;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
-        let x = serde_json::from_str::<super::LastAccessedDate>(
-            r#""0001-01-01T00:00:00+00:00""#,
-        )?;
+        let x = serde_json::from_str::<super::LastAccessedDate>(r#""0001-01-01T00:00:00+00:00""#)?;
         assert_eq!(x, super::LastAccessedDate::Never);
         Ok(())
     }
 
     #[test]
     pub fn it_works2() -> eyre::Result<()> {
-        let x = serde_json::from_str::<super::LastAccessedDate>(
-            r#""2023-10-05T12:34:56+00:00""#,
-        )?;
+        let x = serde_json::from_str::<super::LastAccessedDate>(r#""2023-10-05T12:34:56+00:00""#)?;
         assert_eq!(
             x,
-            super::LastAccessedDate::Some(
-                "2023-10-05T12:34:56+00:00".parse::<DateTime<Utc>>()?
-            )
+            super::LastAccessedDate::Some("2023-10-05T12:34:56+00:00".parse::<DateTime<Utc>>()?)
         );
-        Ok(())  
+        Ok(())
     }
 }
 

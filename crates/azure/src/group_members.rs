@@ -80,7 +80,7 @@ pub async fn fetch_group_members_batch(
     let mut batch_request: MicrosoftGraphBatchRequest<Vec<Principal>> =
         MicrosoftGraphBatchRequest::new();
     batch_request.add_all(group_ids.into_iter().map(GetGroupMembersOperation::new));
-    
+
     let batch_response = batch_request
         .send::<MicrosoftGraphResponse<Principal>>()
         .await?;

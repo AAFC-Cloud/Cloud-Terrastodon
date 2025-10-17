@@ -43,23 +43,26 @@ pub async fn audit_azure() -> eyre::Result<()> {
         .values()
         .filter_map(|principal| principal.as_service_principal())
     {
-        let has_any_valid_password_cred_that_is_good_for_more_than_30_days =
-            principal.password_credentials.iter().any(|password_cred| {
-                (password_cred.end_date_time - now).num_days() > 30
-            });
+        let has_any_valid_password_cred_that_is_good_for_more_than_30_days = principal
+            .password_credentials
+            .iter()
+            .any(|password_cred| (password_cred.end_date_time - now).num_days() > 30);
 
         for password_cred in principal.password_credentials.iter() {
             let end_date = password_cred.end_date_time;
             let days_until_expiry = (end_date - now).num_days();
-            
+
             // Possible states:
             // - Expired with no new one <- warn
             // - Soon expiring with no new one <- warn
             // - Expiring with a new one <- okaydoke
             // - Expired with a new one <- warn, should be cleanup
-            if days_until_expiry < 0 && !has_any_valid_password_cred_that_is_good_for_more_than_30_days {
+            if days_until_expiry < 0
+                && !has_any_valid_password_cred_that_is_good_for_more_than_30_days
+            {
                 total_problems += 1;
-                let msg = "Service principal has an expired password credential and no valid credentials";
+                let msg =
+                    "Service principal has an expired password credential and no valid credentials";
                 warn!(
                     principal_id = %principal.id,
                     principal_name = %principal.display_name,
@@ -68,7 +71,9 @@ pub async fn audit_azure() -> eyre::Result<()> {
                     "{}", msg,
                 );
                 *message_counts.entry(msg).or_insert(0) += 1;
-            } else if days_until_expiry < 30 && !has_any_valid_password_cred_that_is_good_for_more_than_30_days {
+            } else if days_until_expiry < 30
+                && !has_any_valid_password_cred_that_is_good_for_more_than_30_days
+            {
                 total_problems += 1;
                 let msg = "Service principal has a soon-to-expire password credential and no valid credentials";
                 warn!(
@@ -79,7 +84,9 @@ pub async fn audit_azure() -> eyre::Result<()> {
                     "{}", msg,
                 );
                 *message_counts.entry(msg).or_insert(0) += 1;
-            } else if days_until_expiry < 0 && has_any_valid_password_cred_that_is_good_for_more_than_30_days {
+            } else if days_until_expiry < 0
+                && has_any_valid_password_cred_that_is_good_for_more_than_30_days
+            {
                 total_problems += 1;
                 let msg = "Service principal has an expired password credential but also has valid credentials; consider cleaning up old credentials";
                 warn!(
@@ -105,7 +112,7 @@ pub async fn audit_azure() -> eyre::Result<()> {
             total_cost_waste_cad,
             "Potential monthly cost waste: ${:.2} CAD", total_cost_waste_cad
         );
-        
+
         // Emit message type summary
         for (msg, count) in &message_counts {
             warn!(count = %count, "{}", msg);

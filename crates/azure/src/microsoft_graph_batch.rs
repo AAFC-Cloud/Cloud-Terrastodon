@@ -2,9 +2,9 @@ use crate::prelude::HttpMethod;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -43,12 +43,17 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
             None,
         ));
     }
-    pub fn add_all<T: Into<MicrosoftGraphBatchRequestEntry<REQ>>>(&mut self, entries: impl IntoIterator<Item = T>) {
+    pub fn add_all<T: Into<MicrosoftGraphBatchRequestEntry<REQ>>>(
+        &mut self,
+        entries: impl IntoIterator<Item = T>,
+    ) {
         for entry in entries {
             self.add(entry.into());
         }
     }
-    pub async fn send<RESP: DeserializeOwned>(self) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>> {
+    pub async fn send<RESP: DeserializeOwned>(
+        self,
+    ) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>> {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["rest", "--method", "POST", "--url"]);
         cmd.args(["https://graph.microsoft.com/v1.0/$batch"]);
@@ -101,8 +106,6 @@ impl<T> MicrosoftGraphBatchRequestEntry<T> {
         }
     }
 }
-
-
 
 #[derive(Debug, Deserialize)]
 #[serde(bound(deserialize = "T: DeserializeOwned"))]

@@ -76,7 +76,6 @@ pub struct ServicePrincipal {
     pub verified_publisher: Value,
 }
 
-
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ServicePrincipalPasswordCredential {
     #[serde(rename = "customKeyIdentifier")]
@@ -93,7 +92,6 @@ pub struct ServicePrincipalPasswordCredential {
     #[serde(rename = "displayName")]
     pub display_name: Option<String>,
 }
-
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ServicePrincipalKeyCredential {

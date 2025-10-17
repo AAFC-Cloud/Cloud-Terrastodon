@@ -1,10 +1,9 @@
+use crate::location::LocationName;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
-
-use crate::location::LocationName;
 /// https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

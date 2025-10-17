@@ -62,16 +62,13 @@ mod unified_role_definition;
 mod unified_role_definitions;
 mod unified_role_definitions_and_assignments;
 mod users;
-mod virtual_network;
-mod virtual_machine_skus;
-mod virtual_machine_sizes;
 mod virtual_machine_prices;
+mod virtual_machine_sizes;
+mod virtual_machine_skus;
+mod virtual_network;
 pub mod prelude {
     pub use crate::access_token::*;
     pub use crate::accounts::*;
-    pub use crate::virtual_machine_sizes::*;
-    pub use crate::virtual_machine_prices::*;
-    pub use crate::virtual_machine_skus::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::compute_sku_prices::*;
@@ -133,6 +130,9 @@ pub mod prelude {
     pub use crate::unified_role_definitions::*;
     pub use crate::unified_role_definitions_and_assignments::*;
     pub use crate::users::*;
+    pub use crate::virtual_machine_prices::*;
+    pub use crate::virtual_machine_sizes::*;
+    pub use crate::virtual_machine_skus::*;
     pub use crate::virtual_network::*;
     pub use cloud_terrastodon_azure_types::prelude::*;
 }

@@ -1,15 +1,15 @@
 use chrono::Local;
 use eyre::Result;
-use tracing::info;
 use std::fs::File;
-use std::sync::{Arc, Mutex};
-
+use std::sync::Arc;
+use std::sync::Mutex;
 pub use tracing::Level;
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::Directive;
 use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
 
 pub fn init_tracing(level: impl Into<Directive>, json: bool) -> Result<()> {
     let default_directive: Directive = level.into();
@@ -37,8 +37,7 @@ pub fn init_tracing(level: impl Into<Directive>, json: bool) -> Result<()> {
         let json_writer = {
             let file = Arc::clone(&file);
             BoxMakeWriter::new(move || {
-                file
-                    .lock()
+                file.lock()
                     .expect("failed to lock json log file")
                     .try_clone()
                     .expect("failed to clone json log file handle")

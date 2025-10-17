@@ -5,7 +5,6 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use compact_str::CompactString;
 
-
 pub async fn fetch_compute_sku_prices(
     location: &LocationName,
     sku: &ComputeSkuName,

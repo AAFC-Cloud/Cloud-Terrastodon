@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_azure_types::prelude::ComputeSku;
+use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
@@ -33,10 +33,10 @@ pub async fn fetch_all_compute_skus(
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_subscriptions;
     use crate::prelude::fetch_all_compute_skus;
-    use cloud_terrastodon_azure_types::prelude::LocationName;
+    use crate::prelude::fetch_all_subscriptions;
     use cloud_terrastodon_azure_types::prelude::ComputeSkuResourceType;
+    use cloud_terrastodon_azure_types::prelude::LocationName;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

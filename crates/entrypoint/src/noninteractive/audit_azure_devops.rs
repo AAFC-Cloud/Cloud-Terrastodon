@@ -67,7 +67,6 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
 
     // Emit a warning for licenses assigned to admin accounts for which no user account exists
 
-
     // Emit summary
     if total_problems > 0 {
         warn!(
@@ -80,7 +79,7 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
             total_cost_waste_cad,
             "Potential monthly cost waste: ${:.2} CAD", total_cost_waste_cad
         );
-        
+
         // Emit message type summary
         for (msg, count) in &message_counts {
             warn!(count = %count, "{}", msg);

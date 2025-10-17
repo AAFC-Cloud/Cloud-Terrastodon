@@ -1,3 +1,5 @@
+mod audit_azure;
+mod audit_azure_devops;
 mod clean;
 mod dump_azure_devops;
 mod dump_everything;
@@ -7,8 +9,6 @@ mod process_generated;
 mod write_imports_for_all_resource_groups;
 mod write_imports_for_all_role_assignments;
 mod write_imports_for_all_security_groups;
-mod audit_azure_devops;
-mod audit_azure;
 pub mod prelude {
     pub use crate::noninteractive::audit_azure::*;
     pub use crate::noninteractive::audit_azure_devops::*;
