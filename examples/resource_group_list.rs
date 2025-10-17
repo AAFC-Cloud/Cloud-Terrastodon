@@ -2,22 +2,38 @@
 // Run with: cargo run --example resource_group_list --features azure
 
 use cloud_terrastodon::azure::prelude::fetch_all_resource_groups;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_entrypoint::tracing::Level;
-use cloud_terrastodon_entrypoint::tracing::init_tracing;
+use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use color_eyre::eyre::Result;
-use tracing::warn;
+use std::collections::HashMap;
+use tokio::try_join;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    init_tracing(Level::DEBUG, false)?;
     if let Err(error) = color_eyre::install() {
-        warn!(?error, "Failed to install color_eyre");
+        eprintln!("Failed to install color_eyre: {error:?}");
     }
 
-    let rgs = fetch_all_resource_groups().await?;
-    for rg in rgs {
-        println!("{}", rg.id.expanded_form());
+    // Fetch info in parallel
+    let (resource_groups, subscriptions) =
+        try_join!(fetch_all_resource_groups(), fetch_all_subscriptions())?;
+
+    // Create lookup table for subscription names
+    let subscriptions = subscriptions
+        .into_iter()
+        .map(|s| (s.id, s))
+        .collect::<HashMap<_, _>>();
+
+    // Print each resource group with its subscription name
+    for resource_group in resource_groups {
+        let subscription_name = subscriptions
+            .get(&resource_group.subscription_id)
+            .map(|s| s.name.as_str())
+            .unwrap_or("<unknown subscription>");
+        println!(
+            "{subscription_name} - {resource_group_name} ({full_id})",
+            resource_group_name = resource_group.name,
+            full_id = resource_group.id
+        );
     }
     Ok(())
 }
