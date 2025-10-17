@@ -1,23 +1,38 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
+use eyre::bail;
+use eyre::WrapErr;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
 
 /// I was unable to find any documentation on this. ChatGPT says 1-50 chars is the only limitation.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SubscriptionName {
-    #[validate(length(min = 1, max = 50))]
     inner: CompactString,
 }
+
+fn validate_subscription_name(value: &str) -> eyre::Result<()> {
+    validate_subscription_name_inner(value)
+        .wrap_err_with(|| format!("Invalid subscription name: {}", value))
+}
+
+fn validate_subscription_name_inner(value: &str) -> eyre::Result<()> {
+    let char_count = value.chars().count();
+    if char_count == 0 {
+        bail!("Subscription name cannot be empty");
+    }
+    if char_count > 50 {
+        bail!("Subscription name must be 50 characters or less, got {}", char_count);
+    }
+    Ok(())
+}
+
 impl SubscriptionName {
     pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self {
-            inner: value.into(),
-        };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner = value.into();
+        validate_subscription_name(&inner)?;
+        Ok(Self { inner })
     }
 }
 
@@ -136,7 +151,6 @@ mod test {
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::Rng;
-    use validator::Validate;
 
     #[test]
     pub fn validation() -> eyre::Result<()> {
@@ -182,7 +196,8 @@ mod test {
             rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = SubscriptionName::arbitrary(&mut un)?;
-            assert!(name.validate().is_ok());
+            // Name is already validated during construction
+            assert!(name.inner.chars().count() >= 1 && name.inner.chars().count() <= 50);
         }
         Ok(())
     }

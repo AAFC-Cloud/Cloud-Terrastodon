@@ -3,7 +3,6 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
 
 // https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftcontainerregistry
 // https://docs.docker.com/docker-hub/repos/create/
@@ -16,19 +15,17 @@ use validator::Validate;
 /// I was unable to find a definitive source for the rules governing container registry repository names.
 ///
 /// For now, this type will always successfully validate.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct ContainerRegistryRepositoryName {
     inner: CompactString,
 }
 impl Slug for ContainerRegistryRepositoryName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into() };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner = name.into();
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
         Ok(())
     }
 }

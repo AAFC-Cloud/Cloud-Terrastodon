@@ -2,36 +2,44 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
+use eyre::{bail, Context};
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
-const CONTAINER_REGISTRY_NAMING_RULES_URL: &str = "https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftcontainerregistry";
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ContainerRegistryName {
-    #[validate(length(min = 5, max = 50), custom(function = "validate_alphanumeric"))]
     inner: CompactString,
 }
 impl Slug for ContainerRegistryName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into() };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner = name.into();
+        validate_container_registry_name(&inner)?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        validate_container_registry_name(&self.inner)?;
         Ok(())
     }
 }
-fn validate_alphanumeric(value: &CompactString) -> Result<(), ValidationError> {
+fn validate_container_registry_name(value: &CompactString) -> eyre::Result<()> {
+    validate_container_registry_name_inner(value)
+        .wrap_err_with(|| format!("Invalid container registry name: {}", value))
+        .wrap_err("https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftcontainerregistry")
+}
+
+fn validate_container_registry_name_inner(value: &CompactString) -> eyre::Result<()> {
+    let char_count = value.chars().count();
+    if char_count < 5 || char_count > 50 {
+        bail!("Container registry name must be between 5 and 50 characters");
+    }
     for (i, char) in value.chars().enumerate() {
         if !char.is_ascii_alphanumeric() {
-            return Err(
-                ValidationError::new(CONTAINER_REGISTRY_NAMING_RULES_URL).with_message(
-                    format!("Char {char} as position {i} in {value:?} must be alphanumeric").into(),
-                ),
+            bail!(
+                "Char {} at position {} in {:?} must be alphanumeric",
+                char,
+                i,
+                value
             );
         }
     }
@@ -118,7 +126,6 @@ mod test {
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::Rng;
-    use validator::Validate;
 
     #[test]
     pub fn validation() -> eyre::Result<()> {
@@ -153,7 +160,7 @@ mod test {
             rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = ContainerRegistryName::arbitrary(&mut un)?;
-            assert!(name.validate().is_ok());
+            assert!(name.validate_slug().is_ok());
             if name.chars().any(|c| c.is_ascii_uppercase()) {
                 found_uppercase = true;
             }

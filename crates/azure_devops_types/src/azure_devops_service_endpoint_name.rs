@@ -2,11 +2,9 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
 
-#[derive(Debug, Eq, PartialEq, Clone, Validate, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct AzureDevOpsServiceEndpointName {
-    #[validate(length(min = 1))]
     inner: CompactString,
 }
 
@@ -26,9 +24,11 @@ impl std::fmt::Display for AzureDevOpsServiceEndpointName {
 
 impl AzureDevOpsServiceEndpointName {
     pub fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let org = Self { inner: name.into() };
-        org.validate()?;
-        Ok(org)
+        let inner = name.into();
+        if inner.is_empty() {
+            eyre::bail!("Service endpoint name cannot be empty");
+        }
+        Ok(Self { inner })
     }
 }
 
@@ -78,11 +78,8 @@ impl<'a> Arbitrary<'a> for AzureDevOpsServiceEndpointName {
         let name = AzureDevOpsServiceEndpointName {
             inner: chars?.into(),
         };
-        if name.validate().is_ok() {
-            Ok(name)
-        } else {
-            Err(arbitrary::Error::IncorrectFormat)
-        }
+        // Since we generate length 1..=64, it's guaranteed to be non-empty
+        Ok(name)
     }
 }
 
@@ -135,13 +132,8 @@ mod tests {
             let mut u = Unstructured::new(&raw);
             if let Ok(name) = AzureDevOpsServiceEndpointName::arbitrary(&mut u) {
                 println!("Generated: {:?} - \"{}\"", name, name);
-                let validation = name.validate();
-                assert!(
-                    validation.is_ok(),
-                    "Arbitrary produced invalid: {:?} - {:?}",
-                    &name.inner,
-                    validation
-                );
+                // Since Arbitrary generates valid names, just check it's not empty
+                assert!(!name.inner.is_empty(), "Arbitrary produced empty name");
             }
         }
     }

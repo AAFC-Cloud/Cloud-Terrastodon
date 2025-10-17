@@ -2,12 +2,11 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
+use eyre::{bail, WrapErr};
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
 use unicode_categories::UnicodeCategories;
-use validator::Validate;
-use validator::ValidationError;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftresources
 ///
@@ -24,12 +23,8 @@ use validator::ValidationError;
 /// Can't end with period.
 ///
 /// See also: https://github.com/Azure/azure-rest-api-specs/blob/6c548b0bd279f5e233661b1c81fb5b61b19965cd/specification/storage/resource-manager/Microsoft.Storage/stable/2025-01-01/storage.json#L5841-L5852
-#[derive(Debug, Clone, Eq, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
 pub struct ResourceGroupName {
-    #[validate(
-        length(min = 1, max = 90),
-        custom(function = "validate_resource_group_name_contents")
-    )]
     inner: CompactString,
 }
 impl PartialEq for ResourceGroupName {
@@ -44,13 +39,13 @@ impl Hash for ResourceGroupName {
 }
 impl Slug for ResourceGroupName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into() };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner = name.into();
+        validate_resource_group_name(&inner)?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        validate_resource_group_name(&self.inner)?;
         Ok(())
     }
 }
@@ -93,7 +88,17 @@ fn is_valid_rg_char(ch: char) -> bool {
         || ch.is_letter_other()
         || ch.is_number_decimal_digit()
 }
-fn validate_resource_group_name_contents(value: &CompactString) -> Result<(), ValidationError> {
+fn validate_resource_group_name_inner(value: &str) -> eyre::Result<()> {
+    if value.is_empty() {
+        bail!("Resource group name cannot be empty");
+    }
+    // Use chars().count() instead of len() because len() counts bytes, not Unicode characters
+    // Azure limits are specified in characters, not bytes
+    let char_count = value.chars().count();
+    if char_count > 90 {
+        bail!("Resource group name must be 90 characters or less, got {}", char_count);
+    }
+
     let mut last_char: Option<char> = None;
 
     for (i, ch) in value.chars().enumerate() {
@@ -110,19 +115,21 @@ fn validate_resource_group_name_contents(value: &CompactString) -> Result<(), Va
         }
 
         // Invalid character
-        return Err(ValidationError::new("resourcegroups").with_message(
-            format!("Char {ch} at position {i} in {value:?} is not allowed.").into(),
-        ));
+        bail!("Resource group name contains invalid character '{}' at position {}", ch, i);
     }
 
     // Cannot end with period
     if let Some('.') = last_char {
-        return Err(ValidationError::new("resourcegroups").with_message(
-            format!("Resource group name {value:?} cannot end with a period.").into(),
-        ));
+        bail!("Resource group name cannot end with a period");
     }
 
     Ok(())
+}
+
+fn validate_resource_group_name(value: &str) -> eyre::Result<()> {
+    validate_resource_group_name_inner(value)
+        .wrap_err_with(|| format!("Invalid resource group name: {}", value))
+        .wrap_err("https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftresources")
 }
 
 impl std::fmt::Display for ResourceGroupName {
@@ -209,7 +216,10 @@ impl<'a> Arbitrary<'a> for ResourceGroupName {
         }
         let name: String = chars.into_iter().collect();
         ResourceGroupName::try_new(CompactString::from(name))
-            .map_err(|_| arbitrary::Error::IncorrectFormat)
+            .map_err(|e| {
+                eprintln!("Failed to generate ResourceGroupName: {e:?}");
+                arbitrary::Error::IncorrectFormat
+            })
     }
 }
 

@@ -1,10 +1,10 @@
 use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use eyre::bail;
+use eyre::WrapErr;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
 // Rules from: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork
 // Route tables:
@@ -12,77 +12,66 @@ use validator::ValidationError;
 // - Can contain letters, numbers, underscores, periods, and hyphens.
 // - Must start with alphanumeric.
 // - Must end with alphanumeric or underscore.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct RouteTableName {
-    #[validate(custom(function = "validate_route_table_name_contents"))]
     inner: CompactString,
 }
 
 impl Slug for RouteTableName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let s = Self { inner: name.into() };
-        s.validate_slug()?;
-        Ok(s)
+        let inner = name.into();
+        validate_route_table_name(&inner)?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        validate_route_table_name(&self.inner)?;
         Ok(())
     }
 }
 
-fn validate_route_table_name_contents(value: &CompactString) -> Result<(), ValidationError> {
-    let len = value.len();
+fn validate_route_table_name(value: &str) -> eyre::Result<()> {
+    validate_route_table_name_inner(value)
+        .wrap_err_with(|| format!("Invalid route table name: {}", value))
+        .wrap_err("https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork")
+}
+
+fn validate_route_table_name_inner(value: &str) -> eyre::Result<()> {
+    let len = value.chars().count();
     if !(1..=80).contains(&len) {
-        let mut err = ValidationError::new("length");
-        err.add_param(std::borrow::Cow::from("length"), &len);
-        err.add_param(std::borrow::Cow::from("min"), &1);
-        err.add_param(std::borrow::Cow::from("max"), &80);
-        return Err(err);
+        bail!("Route table name must be between 1 and 80 characters, got {}", len);
     }
 
     let chars: Vec<char> = value.chars().collect();
 
     // Must start with alphanumeric
-    let first_char = chars.first().ok_or_else(|| {
-        let mut err = ValidationError::new("first_char");
-        err.message = Some(std::borrow::Cow::from("Name cannot be empty"));
-        err
-    })?;
-
+    let first_char = chars.first();
+    if first_char.is_none() {
+        bail!("Route table name cannot be empty");
+    }
+    let first_char = first_char.unwrap();
     if !first_char.is_alphanumeric() {
-        let mut err = ValidationError::new("first_char_alphanumeric");
-        err.message = Some(std::borrow::Cow::from("Name must start with alphanumeric."));
-        return Err(err);
+        bail!("Route table name must start with alphanumeric character");
     }
 
     // Must end with alphanumeric or underscore
-    let last_char = chars.last().ok_or_else(|| {
-        let mut err = ValidationError::new("last_char");
-        err.message = Some(std::borrow::Cow::from("Name cannot be empty"));
-        err
-    })?;
-
+    let last_char = chars.last();
+    if last_char.is_none() {
+        bail!("Route table name cannot be empty");
+    }
+    let last_char = last_char.unwrap();
     if !(last_char.is_alphanumeric() || *last_char == '_') {
-        let mut err = ValidationError::new("last_char_invalid");
-        err.message = Some(std::borrow::Cow::from(
-            "Name must end with alphanumeric or underscore.",
-        ));
-        return Err(err);
+        bail!("Route table name must end with alphanumeric character or underscore");
     }
 
     // All characters must be alphanumeric, underscore, period, or hyphen
-    for char_code in &chars {
+    for (i, char_code) in chars.iter().enumerate() {
         if !(char_code.is_alphanumeric()
             || *char_code == '_'
             || *char_code == '.'
             || *char_code == '-')
         {
-            let mut err = ValidationError::new("invalid_char");
-            err.message = Some(std::borrow::Cow::from(
-                "Name can only contain alphanumerics, underscores, periods, and hyphens.",
-            ));
-            return Err(err);
+            bail!("Route table name contains invalid character '{}' at position {}", char_code, i);
         }
     }
 

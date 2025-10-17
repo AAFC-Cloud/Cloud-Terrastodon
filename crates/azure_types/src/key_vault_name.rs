@@ -2,11 +2,10 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
+use eyre::{bail, WrapErr};
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftkeyvault
 /// Constraints (Azure Key Vault name):
@@ -18,12 +17,8 @@ use validator::ValidationError;
 ///  * Case-insensitive (comparisons and hashing lower-case)
 ///
 /// See also: https://github.com/Azure/azure-rest-api-specs/blob/6c548b0bd279f5e233661b1c81fb5b61b19965cd/specification/keyvault/resource-manager/Microsoft.KeyVault/stable/2024-11-01/keyvault.json
-#[derive(Debug, Clone, Eq, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
 pub struct KeyVaultName {
-    #[validate(
-        length(min = 3, max = 24),
-        custom(function = "validate_key_vault_name_contents")
-    )]
     inner: CompactString,
 }
 impl PartialEq for KeyVaultName {
@@ -38,13 +33,13 @@ impl Hash for KeyVaultName {
 }
 impl Slug for KeyVaultName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into() };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner = name.into();
+        validate_key_vault_name(&inner)?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        validate_key_vault_name(&self.inner)?;
         Ok(())
     }
 }
@@ -78,44 +73,45 @@ impl TryFrom<&String> for KeyVaultName {
     }
 }
 
-fn validate_key_vault_name_contents(value: &CompactString) -> Result<(), ValidationError> {
+fn validate_key_vault_name(value: &CompactString) -> eyre::Result<()> {
+    validate_key_vault_name_inner(value)
+        .wrap_err_with(|| format!("Invalid key vault name: {}", value))
+        .wrap_err("https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftkeyvault")
+}
+
+fn validate_key_vault_name_inner(value: &CompactString) -> eyre::Result<()> {
+    let char_count = value.chars().count();
+    if char_count < 3 || char_count > 24 {
+        bail!("Key vault name must be between 3 and 24 characters");
+    }
     let s = value.as_str();
     if s.is_empty() {
-        return Err(ValidationError::new("keyvaultname_empty"));
+        bail!("keyvaultname_empty");
     }
     // Start with a letter
     let first = s.chars().next().unwrap();
     if !first.is_ascii_alphabetic() {
-        return Err(ValidationError::new("keyvaultname_start")
-            .with_message(format!("Key Vault name must start with a letter: {s:?}").into()));
+        bail!("Key Vault name must start with a letter: {:?}", s);
     }
     // Allowed chars and no consecutive hyphens
     let mut prev_hyphen = false;
     for (i, ch) in s.chars().enumerate() {
         if ch == '-' {
             if prev_hyphen {
-                return Err(
-                    ValidationError::new("keyvaultname_consecutive_hyphens").with_message(
-                        format!("Consecutive hyphens at position {}-{i} in {s:?}", i - 1).into(),
-                    ),
-                );
+                bail!("Consecutive hyphens at position {}-{} in {:?}", i - 1, i, s);
             }
             prev_hyphen = true;
             continue;
         }
         prev_hyphen = false;
         if !ch.is_ascii_alphanumeric() {
-            return Err(ValidationError::new("keyvaultname_char").with_message(
-                format!("Invalid character '{ch}' at position {i} in {s:?}").into(),
-            ));
+            bail!("Invalid character '{}' at position {} in {:?}", ch, i, s);
         }
     }
     // End with letter or digit (not hyphen already covered) but also must not end with hyphen
     let last = s.chars().last().unwrap();
     if !(last.is_ascii_alphanumeric()) {
-        return Err(ValidationError::new("keyvaultname_end").with_message(
-            format!("Key Vault name must end with a letter or digit: {s:?}").into(),
-        ));
+        bail!("Key Vault name must end with a letter or digit: {:?}", s);
     }
     Ok(())
 }

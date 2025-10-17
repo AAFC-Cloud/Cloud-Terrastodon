@@ -5,10 +5,9 @@ use compact_str::ToCompactString;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
-use validator::Validate;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct RoleEligibilityScheduleName {
     inner: Uuid,
 }
@@ -19,15 +18,12 @@ impl RoleEligibilityScheduleName {
 }
 impl Slug for RoleEligibilityScheduleName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self {
-            inner: name.into().parse()?,
-        };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner: Uuid = name.into().parse()?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        // UUID is always valid
         Ok(())
     }
 }

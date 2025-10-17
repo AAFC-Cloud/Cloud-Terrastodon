@@ -1,25 +1,21 @@
 use std::ops::Deref;
-use validator::Validate;
-use validator::ValidationError;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AzureDevOpsEntraUserDescriptor {
-    #[validate(custom(function = "validate_has_prefix"))]
     inner: String,
 }
-fn validate_has_prefix(value: &str) -> Result<(), ValidationError> {
+fn validate_has_prefix(value: &str) -> eyre::Result<()> {
     if value.starts_with("aad.") {
         Ok(())
     } else {
-        Err(ValidationError::new("must start with 'aad.'"))
+        eyre::bail!("Entra user descriptor must start with 'aad.', got '{}'", value);
     }
 }
 impl AzureDevOpsEntraUserDescriptor {
     pub fn try_new(inner: impl Into<String>) -> eyre::Result<Self> {
         let inner = inner.into();
-        let descriptor = Self { inner };
-        descriptor.validate()?;
-        Ok(descriptor)
+        validate_has_prefix(&inner)?;
+        Ok(Self { inner })
     }
 }
 

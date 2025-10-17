@@ -2,10 +2,9 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
+use eyre::{bail, WrapErr};
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
 /// Azure Key Vault Secret name constraints
 /// * Length: 1-127 characters
@@ -13,40 +12,41 @@ use validator::ValidationError;
 /// * Case-sensitive (we keep the exact casing) but validation only checks allowed set
 ///
 /// (Docs excerpt provided by user: "vaults / secrets Vault 1-127 Alphanumerics and hyphens")
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct KeyVaultSecretName {
-    #[validate(length(min = 1, max = 127), custom(function = "validate_secret_name"))]
     inner: CompactString,
 }
 
 impl Slug for KeyVaultSecretName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into() };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner = name.into();
+        validate_key_vault_secret_name(&inner)?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        validate_key_vault_secret_name(&self.inner)?;
         Ok(())
     }
 }
 
-fn validate_secret_name(value: &CompactString) -> Result<(), ValidationError> {
+fn validate_key_vault_secret_name(value: &str) -> eyre::Result<()> {
+    validate_key_vault_secret_name_inner(value)
+        .wrap_err_with(|| format!("Invalid key vault secret name: {}", value))
+        .wrap_err("https://learn.microsoft.com/en-us/azure/key-vault/secrets/about-secrets")
+}
+
+fn validate_key_vault_secret_name_inner(value: &str) -> eyre::Result<()> {
     if value.is_empty() {
-        return Err(ValidationError::new("keyvaultsecretname_empty"));
+        bail!("Key vault secret name cannot be empty");
     }
-    if value.len() > 127 {
-        return Err(ValidationError::new("keyvaultsecretname_length")
-            .with_message(format!("Secret name too long: {} > 127", value.len()).into()));
+    let char_count = value.chars().count();
+    if char_count > 127 {
+        bail!("Key vault secret name must be 127 characters or less, got {}", char_count);
     }
     for (i, ch) in value.chars().enumerate() {
         if !(ch.is_ascii_alphanumeric() || ch == '-') {
-            return Err(
-                ValidationError::new("keyvaultsecretname_char").with_message(
-                    format!("Invalid character '{ch}' at position {i} in {value:?}").into(),
-                ),
-            );
+            bail!("Key vault secret name contains invalid character '{}' at position {}", ch, i);
         }
     }
     Ok(())

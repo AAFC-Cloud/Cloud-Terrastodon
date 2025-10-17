@@ -2,8 +2,6 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
 /// https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#organization-names
 ///
@@ -16,12 +14,8 @@ use validator::ValidationError;
 /// Ensure that your organization doesn't exceed 50 Unicode characters
 ///
 /// End with a letter or number
-#[derive(Debug, Eq, PartialEq, Clone, Validate, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct AzureDevOpsOrganizationName {
-    #[validate(
-        length(min = 1, max = 50),
-        custom(function = "validate_azure_devops_organization_name_contents")
-    )]
     inner: CompactString,
 }
 
@@ -45,40 +39,28 @@ fn is_valid_last_char(ch: char) -> bool {
     is_english_letter(ch) || is_digit(ch)
 }
 
-fn validate_azure_devops_organization_name_contents(
-    value: &CompactString,
-) -> Result<(), ValidationError> {
-    let s: &str = value;
-
-    if s.is_empty() || s.len() > 50 {
-        return Err(ValidationError::new(
-            "length must be between 1 and 50 characters",
-        ));
+fn validate_azure_devops_organization_name_contents(value: &str) -> eyre::Result<()> {
+    let char_count = value.chars().count();
+    if char_count == 0 || char_count > 50 {
+        eyre::bail!("Organization name must be between 1 and 50 characters, got {}", char_count);
     }
 
-    let chars: Vec<char> = s.chars().collect();
+    let chars: Vec<char> = value.chars().collect();
 
     // Check first character
-    if let Some(&first_char) = chars.first()
-        && !is_valid_first_char(first_char)
-    {
-        return Err(
-            ValidationError::new("must start with English letter or number").with_message(
-                format!("First character '{first_char}' is not an English letter or digit").into(),
-            ),
-        );
+    if let Some(&first_char) = chars.first() {
+        if !is_valid_first_char(first_char) {
+            eyre::bail!("Organization name must start with English letter or number, got '{}'", first_char);
+        }
     }
 
     // Check last character (if different from first)
-    if chars.len() > 1
-        && let Some(&last_char) = chars.last()
-        && !is_valid_last_char(last_char)
-    {
-        return Err(
-            ValidationError::new("must end with English letter or number").with_message(
-                format!("Last character '{last_char}' is not an English letter or digit").into(),
-            ),
-        );
+    if chars.len() > 1 {
+        if let Some(&last_char) = chars.last() {
+            if !is_valid_last_char(last_char) {
+                eyre::bail!("Organization name must end with English letter or number, got '{}'", last_char);
+            }
+        }
     }
 
     // Check all characters
@@ -92,8 +74,7 @@ fn validate_azure_devops_organization_name_contents(
         } else {
             // Middle characters
             if !is_valid_middle_char(ch) {
-                return Err(ValidationError::new("invalid character")
-                    .with_message(format!("Character '{ch}' at position {i} is not allowed. Only English letters, digits, and hyphens are allowed").into()));
+                eyre::bail!("Organization name contains invalid character '{}' at position {}. Only English letters, digits, and hyphens are allowed", ch, i);
             }
         }
     }
@@ -117,9 +98,9 @@ impl std::fmt::Display for AzureDevOpsOrganizationName {
 
 impl AzureDevOpsOrganizationName {
     pub fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let org = Self { inner: name.into() };
-        org.validate()?;
-        Ok(org)
+        let inner = name.into();
+        validate_azure_devops_organization_name_contents(&inner)?;
+        Ok(Self { inner })
     }
 }
 
@@ -186,11 +167,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsOrganizationName {
 
             let candidate: String = chars.into_iter().collect();
 
-            if validate_azure_devops_organization_name_contents(&CompactString::from(
-                candidate.as_str(),
-            ))
-            .is_ok()
-            {
+            if validate_azure_devops_organization_name_contents(&candidate).is_ok() {
                 return Ok(AzureDevOpsOrganizationName {
                     inner: CompactString::from(candidate),
                 });
@@ -293,13 +270,9 @@ mod tests {
             let mut u = Unstructured::new(&raw);
             if let Ok(org) = AzureDevOpsOrganizationName::arbitrary(&mut u) {
                 println!("Generated: {}", org);
-                let validation = org.validate();
-                assert!(
-                    validation.is_ok(),
-                    "Arbitrary produced invalid: {:?} - {:?}",
-                    &org.inner,
-                    validation
-                );
+                // Since Arbitrary uses the validation function, names should be valid
+                assert!(validate_azure_devops_organization_name_contents(&org.inner).is_ok(),
+                    "Arbitrary produced invalid: {:?}", &org.inner);
             }
         }
     }

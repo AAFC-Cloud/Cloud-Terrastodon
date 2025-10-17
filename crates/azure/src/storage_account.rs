@@ -81,15 +81,15 @@ mod test {
     use crate::prelude::fetch_all_storage_accounts;
     use crate::prelude::fetch_storage_account_blob_container_names;
     use crate::prelude::is_storage_account_name_available;
+    use cloud_terrastodon_azure_types::prelude::Slug;
     use eyre::bail;
-    use validator::Validate;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let storage_accounts = fetch_all_storage_accounts().await?;
         let check_name = rand::random::<u64>() % storage_accounts.len() as u64;
         for (i, sa) in storage_accounts.into_iter().enumerate() {
-            sa.name.validate()?;
+            sa.name.validate_slug()?;
             if i == check_name as usize {
                 println!("Storage account: {sa:?}");
                 assert!(!is_storage_account_name_available(&sa.name).await?);

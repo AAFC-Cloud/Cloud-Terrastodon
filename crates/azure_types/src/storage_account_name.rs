@@ -2,49 +2,52 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
+use eyre::{bail, Context};
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
-const STORAGE_ACCOUNT_NAMING_RULES_URL: &str = "https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage";
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct StorageAccountName {
-    #[validate(
-        length(min = 3, max = 24),
-        custom(function = "validate_lowercase_alphanumeric")
-    )]
     inner: CompactString,
 }
 impl Slug for StorageAccountName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into() };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner = name.into();
+        validate_storage_account_name(&inner)?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        validate_storage_account_name(&self.inner)?;
         Ok(())
     }
 }
-fn validate_lowercase_alphanumeric(value: &CompactString) -> Result<(), ValidationError> {
+fn validate_storage_account_name(value: &CompactString) -> eyre::Result<()> {
+    validate_storage_account_name_inner(value)
+        .wrap_err_with(|| format!("Invalid storage account name: {}", value))
+        .wrap_err("https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage")
+}
+
+fn validate_storage_account_name_inner(value: &CompactString) -> eyre::Result<()> {
+    let char_count = value.chars().count();
+    if char_count < 3 || char_count > 24 {
+        bail!("Storage account name must be between 3 and 24 characters");
+    }
     for (i, char) in value.chars().enumerate() {
         if !char.is_ascii_alphanumeric() {
-            return Err(
-                ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL).with_message(
-                    format!(
-                        "Char {char} as position {i} in {value:?} must be lowercase alphanumeric"
-                    )
-                    .into(),
-                ),
+            bail!(
+                "Char {} at position {} in {:?} must be lowercase alphanumeric",
+                char,
+                i,
+                value
             );
         }
         if char.is_uppercase() {
-            return Err(
-                ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL).with_message(
-                    format!("Char {char} as position {i} in {value:?} must be lowercase").into(),
-                ),
+            bail!(
+                "Char {} at position {} in {:?} must be lowercase",
+                char,
+                i,
+                value
             );
         }
     }
@@ -133,7 +136,6 @@ mod test {
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::Rng;
-    use validator::Validate;
 
     #[test]
     pub fn validation() -> eyre::Result<()> {
@@ -167,7 +169,7 @@ mod test {
             rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = StorageAccountName::arbitrary(&mut un)?;
-            assert!(name.validate().is_ok());
+            assert!(name.validate_slug().is_ok());
             println!("{name}");
         }
         Ok(())

@@ -89,14 +89,14 @@ mod test {
     use crate::prelude::fetch_container_registry_repository_names;
     use crate::prelude::fetch_container_registry_repository_tags;
     use cloud_terrastodon_azure_types::prelude::Scope;
-    use validator::Validate;
+    use cloud_terrastodon_azure_types::prelude::Slug;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let found = fetch_all_container_registries().await?;
         for registry in found.into_iter() {
             println!("{}", registry.id.expanded_form());
-            registry.name.validate()?;
+            registry.name.validate_slug()?;
         }
         Ok(())
     }
@@ -122,7 +122,6 @@ mod test {
             let found_count = found.len();
             for (i, repository) in found.enumerate() {
                 println!("  - [{}/{found_count}] {}", i + 1, repository);
-                repository.validate()?;
                 let tags =
                     fetch_container_registry_repository_tags(&container_registry.id, repository)
                         .await?;

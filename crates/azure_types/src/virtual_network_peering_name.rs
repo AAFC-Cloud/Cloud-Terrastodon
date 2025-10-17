@@ -2,72 +2,59 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
+use eyre::bail;
+use eyre::WrapErr;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct VirtualNetworkPeeringName {
-    #[validate(
-        length(min = 1, max = 80),
-        custom(function = "validate_virtual_network_peering_name")
-    )]
     inner: CompactString,
 }
-fn validate_virtual_network_peering_name(value: &CompactString) -> Result<(), ValidationError> {
-    let len = value.len();
+
+fn validate_virtual_network_peering_name(value: &str) -> eyre::Result<()> {
+    validate_virtual_network_peering_name_inner(value)
+        .wrap_err_with(|| format!("Invalid virtual network peering name: {}", value))
+        .wrap_err("https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork")
+}
+
+fn validate_virtual_network_peering_name_inner(value: &str) -> eyre::Result<()> {
+    let len = value.chars().count();
     if !(1..=80).contains(&len) {
-        let mut err = ValidationError::new("length");
-        err.add_param(std::borrow::Cow::from("length"), &len);
-        err.add_param(std::borrow::Cow::from("min"), &1);
-        err.add_param(std::borrow::Cow::from("max"), &80);
-        return Err(err);
+        bail!("Virtual network peering name must be between 1 and 80 characters, got {}", len);
     }
 
     let chars: Vec<char> = value.chars().collect();
 
     // Must start with alphanumeric
-    let first_char = chars.first().ok_or_else(|| {
-        let mut err = ValidationError::new("first_char");
-        err.message = Some(std::borrow::Cow::from("Name cannot be empty"));
-        err
-    })?;
-
+    let first_char = chars.first();
+    if first_char.is_none() {
+        bail!("Virtual network peering name cannot be empty");
+    }
+    let first_char = first_char.unwrap();
     if !first_char.is_alphanumeric() {
-        let mut err = ValidationError::new("first_char_alphanumeric");
-        err.message = Some(std::borrow::Cow::from("Name must start with alphanumeric."));
-        return Err(err);
+        bail!("Virtual network peering name must start with alphanumeric character");
     }
 
     // Must end with alphanumeric or underscore
-    let last_char = chars.last().ok_or_else(|| {
-        let mut err = ValidationError::new("last_char");
-        err.message = Some(std::borrow::Cow::from("Name cannot be empty"));
-        err
-    })?;
-
+    let last_char = chars.last();
+    if last_char.is_none() {
+        bail!("Virtual network peering name cannot be empty");
+    }
+    let last_char = last_char.unwrap();
     if !(last_char.is_alphanumeric() || *last_char == '_') {
-        let mut err = ValidationError::new("last_char_invalid");
-        err.message = Some(std::borrow::Cow::from(
-            "Name must end with alphanumeric or underscore.",
-        ));
-        return Err(err);
+        bail!("Virtual network peering name must end with alphanumeric character or underscore");
     }
 
     // All characters must be alphanumeric, underscore, period, or hyphen
-    for char_code in &chars {
+    for (i, char_code) in chars.iter().enumerate() {
         if !(char_code.is_alphanumeric()
             || *char_code == '_'
             || *char_code == '.'
             || *char_code == '-')
         {
-            let mut err = ValidationError::new("invalid_char");
-            err.message = Some(std::borrow::Cow::from(
-                "Name can only contain alphanumerics, underscores, periods, and hyphens.",
-            ));
-            return Err(err);
+            bail!("Virtual network peering name contains invalid character '{}' at position {}", char_code, i);
         }
     }
 
@@ -76,13 +63,13 @@ fn validate_virtual_network_peering_name(value: &CompactString) -> Result<(), Va
 
 impl Slug for VirtualNetworkPeeringName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into() };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner = name.into();
+        validate_virtual_network_peering_name(&inner)?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        validate_virtual_network_peering_name(&self.inner)?;
         Ok(())
     }
 }
@@ -213,7 +200,6 @@ mod test {
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::Rng;
-    use validator::Validate;
 
     #[test]
     fn valid_names() -> eyre::Result<()> {
@@ -253,7 +239,7 @@ mod test {
             rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = VirtualNetworkPeeringName::arbitrary(&mut un)?;
-            assert!(name.validate().is_ok());
+            assert!(name.validate_slug().is_ok());
             println!("{name}");
         }
         Ok(())

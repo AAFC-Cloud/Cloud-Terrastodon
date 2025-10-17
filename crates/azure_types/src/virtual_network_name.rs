@@ -1,10 +1,10 @@
 use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use eyre::bail;
+use eyre::WrapErr;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
 // Rules from: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork
 // Virtual networks:
@@ -12,77 +12,66 @@ use validator::ValidationError;
 // - Can contain letters, numbers, underscores, periods, and hyphens.
 // - Must start with a letter or number.
 // - Must end with a letter, number, or underscore.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct VirtualNetworkName {
-    #[validate(custom(function = "validate_virtual_network_name_contents"))]
     inner: CompactString,
 }
 
 impl Slug for VirtualNetworkName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let s = Self { inner: name.into() };
-        s.validate_slug()?;
-        Ok(s)
+        let inner = name.into();
+        validate_virtual_network_name(&inner)?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        validate_virtual_network_name(&self.inner)?;
         Ok(())
     }
 }
 
-fn validate_virtual_network_name_contents(value: &CompactString) -> Result<(), ValidationError> {
-    let len = value.len();
+fn validate_virtual_network_name(value: &str) -> eyre::Result<()> {
+    validate_virtual_network_name_inner(value)
+        .wrap_err_with(|| format!("Invalid virtual network name: {}", value))
+        .wrap_err("https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork")
+}
+
+fn validate_virtual_network_name_inner(value: &str) -> eyre::Result<()> {
+    let len = value.chars().count();
     if !(2..=64).contains(&len) {
-        let mut err = ValidationError::new("length");
-        err.add_param(std::borrow::Cow::from("length"), &len);
-        err.add_param(std::borrow::Cow::from("min"), &2);
-        err.add_param(std::borrow::Cow::from("max"), &64);
-        return Err(err);
+        bail!("Virtual network name must be between 2 and 64 characters, got {}", len);
     }
 
     let chars: Vec<char> = value.chars().collect();
 
     // Must start with alphanumeric
-    let first_char = chars.first().ok_or_else(|| {
-        let mut err = ValidationError::new("first_char");
-        err.message = Some(std::borrow::Cow::from("Name cannot be empty"));
-        err
-    })?;
-
+    let first_char = chars.first();
+    if first_char.is_none() {
+        bail!("Virtual network name cannot be empty");
+    }
+    let first_char = first_char.unwrap();
     if !first_char.is_alphanumeric() {
-        let mut err = ValidationError::new("first_char_alphanumeric");
-        err.message = Some(std::borrow::Cow::from("Name must start with alphanumeric."));
-        return Err(err);
+        bail!("Virtual network name must start with alphanumeric character");
     }
 
     // Must end with alphanumeric or underscore
-    let last_char = chars.last().ok_or_else(|| {
-        let mut err = ValidationError::new("last_char");
-        err.message = Some(std::borrow::Cow::from("Name cannot be empty"));
-        err
-    })?;
-
+    let last_char = chars.last();
+    if last_char.is_none() {
+        bail!("Virtual network name cannot be empty");
+    }
+    let last_char = last_char.unwrap();
     if !(last_char.is_alphanumeric() || *last_char == '_') {
-        let mut err = ValidationError::new("last_char_invalid");
-        err.message = Some(std::borrow::Cow::from(
-            "Name must end with alphanumeric or underscore.",
-        ));
-        return Err(err);
+        bail!("Virtual network name must end with alphanumeric character or underscore");
     }
 
     // All characters must be alphanumeric, underscore, period, or hyphen
-    for char_code in &chars {
+    for (i, char_code) in chars.iter().enumerate() {
         if !(char_code.is_alphanumeric()
             || *char_code == '_'
             || *char_code == '.'
             || *char_code == '-')
         {
-            let mut err = ValidationError::new("invalid_char");
-            err.message = Some(std::borrow::Cow::from(
-                "Name can only contain alphanumerics, underscores, periods, and hyphens.",
-            ));
-            return Err(err);
+            bail!("Virtual network name contains invalid character '{}' at position {}", char_code, i);
         }
     }
 

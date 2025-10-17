@@ -1,24 +1,20 @@
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use eyre::Context;
+use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
 /// https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#project-names
-#[derive(Debug, Eq, PartialEq, Validate, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct AzureDevOpsProjectName {
-    #[validate(
-        length(min = 1, max = 64),
-        custom(function = "validate_azure_devops_project_name_contents")
-    )]
     inner: CompactString,
 }
 impl AzureDevOpsProjectName {
     pub fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let name = Self { inner: name.into() };
-        name.validate()?;
-        Ok(name)
+        let inner = name.into();
+        validate_azure_devops_project_name(&inner)?;
+        Ok(Self { inner })
     }
 }
 
@@ -37,30 +33,34 @@ impl AzureDevOpsProjectName {
 /// - Must not contain the following printable characters: \ / : * ? " ' < > ; # $ * { } , + = [ ] |.
 /// - Must not start with an underscore _.
 /// - Must not start or end with a period .
-fn validate_azure_devops_project_name_contents(
-    value: &CompactString,
-) -> Result<(), ValidationError> {
-    if value.is_empty() || value.len() > 64 {
-        return Err(ValidationError::new(
-            "length must be between 1 and 64 characters",
-        ));
+fn validate_azure_devops_project_name(value: &CompactString) -> eyre::Result<()> {
+    validate_azure_devops_project_name_inner(value)
+        .wrap_err_with(|| format!("Invalid Azure DevOps project name: {}", value))
+        .wrap_err("https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#project-names")
+}
+
+fn validate_azure_devops_project_name_inner(value: &CompactString) -> eyre::Result<()> {
+    let char_count = value.chars().count();
+    if char_count == 0 || char_count > 64 {
+        bail!("length must be between 1 and 64 characters");
     }
     let s: &str = value;
 
     // 1. Must not start with "_" or . / Must not end with "."
     if s.starts_with('_') {
-        return Err(ValidationError::new("cannot start with underscore"));
+        bail!("cannot start with underscore");
     }
     if s.starts_with('.') || s.ends_with('.') {
-        return Err(ValidationError::new("cannot start or end with period"));
+        bail!("cannot start or end with period");
     }
 
     // 2. Must not contain control or surrogate characters
     for (i, ch) in s.chars().enumerate() {
         if is_control_or_surrogate(ch) {
-            return Err(
-                ValidationError::new("contains Unicode control or surrogate character")
-                    .with_message(format!("Control/surrogate char '{ch}' at index {i}").into()),
+            bail!(
+                "contains Unicode control or surrogate character: '{}' at index {}",
+                ch,
+                i
             );
         }
     }
@@ -68,8 +68,11 @@ fn validate_azure_devops_project_name_contents(
     // 3. Must not contain forbidden printable characters
     for (i, ch) in s.chars().enumerate() {
         if FORBIDDEN_CHARS.contains(&ch) {
-            return Err(ValidationError::new("contains forbidden character in name")
-                .with_message(format!("Forbidden character '{ch}' at index {i}").into()));
+            bail!(
+                "contains forbidden character in name: '{}' at index {}",
+                ch,
+                i
+            );
         }
     }
 
@@ -77,14 +80,12 @@ fn validate_azure_devops_project_name_contents(
     let lower = s.to_ascii_lowercase();
     for &name in RESERVED_NAMES {
         if lower == name.to_ascii_lowercase() {
-            return Err(ValidationError::new("name is reserved")
-                .with_message(format!("{s:?} is a reserved name").into()));
+            bail!("name is reserved: {:?}", s);
         }
     }
     for &segment in IIS_HIDDEN_SEGMENTS {
         if lower == segment.to_ascii_lowercase() {
-            return Err(ValidationError::new("name is reserved IIS segment")
-                .with_message(format!("{s:?} is a reserved IIS segment").into()));
+            bail!("name is reserved IIS segment: {:?}", s);
         }
     }
 
@@ -216,12 +217,8 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectName {
             }
 
             // Quick check: validate contents
-            if validate_azure_devops_project_name_contents(&CompactString::from(candidate.as_str()))
-                .is_ok()
-            {
-                return Ok(AzureDevOpsProjectName {
-                    inner: CompactString::from(candidate),
-                });
+            if let Ok(name) = AzureDevOpsProjectName::try_new(candidate.as_str()) {
+                return Ok(name);
             }
             // Else, try again
         }
@@ -291,34 +288,30 @@ impl<'de> serde::Deserialize<'de> for AzureDevOpsProjectName {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::validate_azure_devops_project_name as validate;
+    use crate::azure_devops_project_name::FORBIDDEN_CHARS;
+    use crate::azure_devops_project_name::IIS_HIDDEN_SEGMENTS;
+    use crate::azure_devops_project_name::RESERVED_NAMES;
+    use crate::prelude::AzureDevOpsProjectName;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
+    use compact_str::CompactString;
+    use std::str::FromStr;
 
     #[test]
     fn test_length_bounds() {
-        assert!(validate_azure_devops_project_name_contents(&CompactString::from("a")).is_ok());
-        assert!(
-            validate_azure_devops_project_name_contents(&CompactString::from("a".repeat(64)))
-                .is_ok()
-        );
-        assert!(validate_azure_devops_project_name_contents(&CompactString::from("")).is_err());
-        assert!(
-            validate_azure_devops_project_name_contents(&CompactString::from("a".repeat(65)))
-                .is_err()
-        );
+        assert!(validate(&CompactString::from("a")).is_ok());
+        assert!(validate(&CompactString::from("a".repeat(64))).is_ok());
+        assert!(validate(&CompactString::from("")).is_err());
+        assert!(validate(&CompactString::from("a".repeat(65))).is_err());
     }
 
     #[test]
     fn test_start_and_end_rules() {
-        assert!(
-            validate_azure_devops_project_name_contents(&CompactString::from("_abcdef")).is_err()
-        );
-        assert!(
-            validate_azure_devops_project_name_contents(&CompactString::from(".abcdef")).is_err()
-        );
-        assert!(validate_azure_devops_project_name_contents(&CompactString::from("abc.")).is_err());
-        assert!(validate_azure_devops_project_name_contents(&CompactString::from("abc")).is_ok());
+        assert!(validate(&CompactString::from("_abcdef")).is_err());
+        assert!(validate(&CompactString::from(".abcdef")).is_err());
+        assert!(validate(&CompactString::from("abc.")).is_err());
+        assert!(validate(&CompactString::from("abc")).is_ok());
     }
 
     #[test]
@@ -326,37 +319,22 @@ mod tests {
         for &c in FORBIDDEN_CHARS {
             let s = format!("a{}b", c);
             assert!(
-                validate_azure_devops_project_name_contents(&CompactString::from(s)).is_err(),
+                validate(&CompactString::from(s)).is_err(),
                 "Should reject char {:?}",
                 c
             );
         }
-        assert!(
-            validate_azure_devops_project_name_contents(&CompactString::from(r"proj\name"))
-                .is_err()
-        );
-        assert!(
-            validate_azure_devops_project_name_contents(&CompactString::from("project:name"))
-                .is_err()
-        );
+        assert!(validate(&CompactString::from(r"proj\name")).is_err());
+        assert!(validate(&CompactString::from("project:name")).is_err());
     }
 
     #[test]
     fn test_control_and_surrogate_characters() {
         // Control char: '\x07'
-        assert!(
-            validate_azure_devops_project_name_contents(&CompactString::from(format!(
-                "abc{}def",
-                '\x07'
-            )))
-            .is_err()
-        );
+        assert!(validate(&CompactString::from(format!("abc{}def", '\x07'))).is_err());
         // Surrogates (should never occur in Rust chars), but test anyway
         let surrogate = unsafe { CompactString::from_utf8_unchecked(0xD800u16.to_le_bytes()) };
-        let result = validate_azure_devops_project_name_contents(&CompactString::from(format!(
-            "foo{}bar",
-            surrogate
-        )));
+        let result = validate(&CompactString::from(format!("foo{}bar", surrogate)));
         println!("{:?}", result);
         assert!(result.is_err(), "Surrogate character should be rejected");
     }
@@ -365,16 +343,13 @@ mod tests {
     fn test_reserved_names() {
         for &name in RESERVED_NAMES {
             assert!(
-                validate_azure_devops_project_name_contents(&CompactString::from(name)).is_err(),
+                validate(&CompactString::from(name)).is_err(),
                 "Reserved: {}",
                 name
             );
             // Also test lowercase
             assert!(
-                validate_azure_devops_project_name_contents(&CompactString::from(
-                    name.to_ascii_lowercase()
-                ))
-                .is_err(),
+                validate(&CompactString::from(name.to_ascii_lowercase())).is_err(),
                 "Reserved (lower): {}",
                 name
             );
@@ -385,16 +360,13 @@ mod tests {
     fn test_iis_hidden_segments() {
         for &name in IIS_HIDDEN_SEGMENTS {
             assert!(
-                validate_azure_devops_project_name_contents(&CompactString::from(name)).is_err(),
+                validate(&CompactString::from(name)).is_err(),
                 "IIS Segment: {}",
                 name
             );
             // Also test lowercase
             assert!(
-                validate_azure_devops_project_name_contents(&CompactString::from(
-                    name.to_ascii_lowercase()
-                ))
-                .is_err(),
+                validate(&CompactString::from(name.to_ascii_lowercase())).is_err(),
                 "IIS Segment (lower): {}",
                 name
             );
@@ -403,14 +375,8 @@ mod tests {
 
     #[test]
     fn test_valid_name() {
-        assert!(
-            validate_azure_devops_project_name_contents(&CompactString::from("Valid-Project_123"))
-                .is_ok()
-        );
-        assert!(
-            validate_azure_devops_project_name_contents(&CompactString::from("Project 1 2 3"))
-                .is_ok()
-        );
+        assert!(validate(&CompactString::from("Valid-Project_123")).is_ok());
+        assert!(validate(&CompactString::from("Project 1 2 3")).is_ok());
     }
 
     #[test]
@@ -429,7 +395,7 @@ mod tests {
             let mut u = Unstructured::new(&raw);
             if let Ok(proj) = AzureDevOpsProjectName::arbitrary(&mut u) {
                 println!("Generated: {}", proj);
-                let validation = proj.validate();
+                let validation = validate(&proj.inner);
                 assert!(
                     validation.is_ok(),
                     "Arbitrary produced invalid: {:?} - {:?}",

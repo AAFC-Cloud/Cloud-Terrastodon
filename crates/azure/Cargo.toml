@@ -36,7 +36,6 @@ rustc-hash.workspace = true
 
 [dev-dependencies]
 test-log.workspace = true
-validator.workspace = true
 
 
 

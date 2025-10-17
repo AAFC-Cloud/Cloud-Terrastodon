@@ -2,78 +2,63 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
+use eyre::bail;
+use eyre::WrapErr;
 use std::ops::Deref;
 use std::str::FromStr;
-use validator::Validate;
-use validator::ValidationError;
 
 const STORAGE_ACCOUNT_NAMING_RULES_URL: &str = "https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage";
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Validate, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct StorageAccountBlobContainerName {
-    #[validate(length(min = 3, max = 63), custom(function = "validate_name"))]
     inner: CompactString,
 }
 impl Slug for StorageAccountBlobContainerName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let rtn = Self { inner: name.into() };
-        rtn.validate()?;
-        Ok(rtn)
+        let inner = name.into();
+        validate_storage_account_blob_container_name(&inner)?;
+        Ok(Self { inner })
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        self.validate()?;
+        validate_storage_account_blob_container_name(&self.inner)?;
         Ok(())
     }
 }
-fn validate_name(value: &CompactString) -> Result<(), ValidationError> {
+
+fn validate_storage_account_blob_container_name(value: &str) -> eyre::Result<()> {
+    validate_storage_account_blob_container_name_inner(value)
+        .wrap_err_with(|| format!("Invalid storage account blob container name: {}", value))
+        .wrap_err(STORAGE_ACCOUNT_NAMING_RULES_URL)
+}
+
+fn validate_storage_account_blob_container_name_inner(value: &str) -> eyre::Result<()> {
     // Check length requirements (3-63 characters)
-    if value.len() < 3 || value.len() > 63 {
-        return Err(
-            ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL).with_message(
-                format!("Value {value:?} must be between 3 and 63 characters long").into(),
-            ),
-        );
+    let char_count = value.chars().count();
+    if char_count < 3 || char_count > 63 {
+        bail!("Storage account blob container name must be between 3 and 63 characters, got {}", char_count);
     }
 
     let chars: Vec<char> = value.chars().collect();
 
     // Check that it starts with lowercase letter or number
-    if let Some(first_char) = chars.first()
-        && !first_char.is_ascii_lowercase()
-        && !first_char.is_ascii_digit()
-    {
-        return Err(
-            ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL).with_message(
-                format!("Value {value:?} must start with a lowercase letter or number").into(),
-            ),
-        );
+    if let Some(first_char) = chars.first() {
+        if !first_char.is_ascii_lowercase() && !first_char.is_ascii_digit() {
+            bail!("Storage account blob container name must start with a lowercase letter or number");
+        }
+    } else {
+        bail!("Storage account blob container name cannot be empty");
     }
 
     for (i, &char) in chars.iter().enumerate() {
         // Check for valid characters (lowercase letters, numbers, hyphens)
         if !char.is_ascii_lowercase() && !char.is_ascii_digit() && char != '-' {
-            return Err(
-                ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL).with_message(
-                    format!(
-                        "Char {char} at position {i} in {value:?} must be lowercase letter, number, or hyphen"
-                    )
-                    .into(),
-                ),
-            );
+            bail!("Storage account blob container name contains invalid character '{}' at position {}", char, i);
         }
 
         // Check for consecutive hyphens
         if char == '-' && i > 0 && chars[i - 1] == '-' {
-            return Err(
-                ValidationError::new(STORAGE_ACCOUNT_NAMING_RULES_URL).with_message(
-                    format!(
-                        "Value {value:?} cannot contain consecutive hyphens at position {}",
-                        i - 1
-                    )
-                    .into(),
-                ),
-            );
+            bail!("Storage account blob container name cannot contain consecutive hyphens at position {}", i - 1);
         }
     }
 
@@ -183,7 +168,6 @@ mod test {
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::Rng;
-    use validator::Validate;
 
     #[test]
     pub fn validation() -> eyre::Result<()> {
@@ -244,7 +228,7 @@ mod test {
             rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = StorageAccountBlobContainerName::arbitrary(&mut un)?;
-            assert!(name.validate().is_ok());
+            assert!(name.validate_slug().is_ok());
             println!("{name}");
         }
         Ok(())
