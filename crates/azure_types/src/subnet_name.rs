@@ -225,7 +225,7 @@ mod test {
         assert!(SubnetName::try_new("subnet_underscore").is_ok());
         assert!(SubnetName::try_new("subnet.period").is_ok());
         assert!(SubnetName::try_new("a").is_ok()); // min length
-        assert!(SubnetName::try_new(&"a".repeat(80)).is_ok()); // max length
+        assert!(SubnetName::try_new("a".repeat(80)).is_ok()); // max length
         assert!(SubnetName::try_new("mySubnet1_").is_ok());
         Ok(())
     }
@@ -233,7 +233,7 @@ mod test {
     #[test]
     fn invalid_names() {
         assert!(SubnetName::try_new("").is_err()); // too short
-        assert!(SubnetName::try_new(&"a".repeat(81)).is_err()); // too long
+        assert!(SubnetName::try_new("a".repeat(81)).is_err()); // too long
         assert!(SubnetName::try_new("_subnet").is_err()); // starts with underscore
         assert!(SubnetName::try_new(".subnet").is_err()); // starts with period
         assert!(SubnetName::try_new("-subnet").is_err()); // starts with hyphen

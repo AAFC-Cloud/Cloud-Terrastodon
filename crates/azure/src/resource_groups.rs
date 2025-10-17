@@ -44,7 +44,7 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
         let result = fetch_all_resource_groups().await?;
-        assert!(result.len() > 0);
+        assert!(!result.is_empty());
         println!("Found {} resource groups:", result.len());
         for rg in result {
             assert!(!rg.name.is_empty());

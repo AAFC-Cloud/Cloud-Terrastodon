@@ -159,9 +159,7 @@ mod test {
         let vnet_id = VirtualNetworkId::try_new(rg_id, "test-vnet")?;
 
         let serialized = serde_json::to_string(&vnet_id)?;
-        let expected_str = format!(
-            "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/test-vnet"
-        );
+        let expected_str = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/test-vnet".to_string();
         assert_eq!(serialized, serde_json::to_string(&expected_str)?);
 
         let deserialized: VirtualNetworkId = serde_json::from_str(&serialized)?;

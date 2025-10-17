@@ -3,8 +3,8 @@ use cloud_terrastodon_user_input::PickerTui;
 
 pub fn main() -> eyre::Result<()> {
     let mut choices = Vec::new();
-    let mut dir = std::fs::read_dir(".")?;
-    while let Some(entry) = dir.next() {
+    let dir = std::fs::read_dir(".")?;
+    for entry in dir {
         let entry = entry?;
         choices.push(entry);
     }

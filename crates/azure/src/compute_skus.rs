@@ -41,7 +41,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let subs = fetch_all_subscriptions().await?;
-        let sub = subs.iter().next().unwrap();
+        let sub = subs.first().unwrap();
         let vm_skus = fetch_all_compute_skus(&sub.id).await?;
         let canada_vm_skus = vm_skus
             .iter()

@@ -71,7 +71,7 @@ async fn encoding_3() -> eyre::Result<()> {
 
 #[test]
 fn encoding_4() -> eyre::Result<()> {
-    let byte = 233 as u8;
+    let byte = 233_u8;
     println!("{byte} => {:?}", char::from_u32(byte as u32));
     let bytes = vec![byte, 101];
     println!("bytes: {bytes:?}");

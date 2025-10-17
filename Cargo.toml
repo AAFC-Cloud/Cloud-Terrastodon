@@ -172,6 +172,9 @@ cloud_terrastodon_ui_ratatui = { workspace = true, optional = true }
 cloud_terrastodon_ui_egui = { workspace = true, optional = true }
 cloud_terrastodon_credentials = { workspace = true, optional = true }
 
+[dev-dependencies]
+tracing.workspace = true
+
 [features]
 default = ["full"]
 # Feature to enable the binary entrypoint wiring

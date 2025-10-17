@@ -292,7 +292,7 @@ mod tests {
             alias: Some("bruh".to_string()),
             subscription_id: Some("abc".to_string()),
         };
-        let block: Block = provider.clone().try_into()?;
+        let block: Block = provider.clone().into();
         println!("{}", block.as_hcl_string());
         let back: HCLProviderBlock = block.try_into()?;
         assert_eq!(provider, back);
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn it_works2() -> eyre::Result<()> {
         let provider = HCLProviderBlock::AzureAD { alias: None };
-        let block: Block = provider.clone().try_into()?;
+        let block: Block = provider.clone().into();
         println!("{}", block.as_hcl_string());
         let back: HCLProviderBlock = block.try_into()?;
         assert_eq!(provider, back);
@@ -312,7 +312,7 @@ mod tests {
         let provider = HCLProviderBlock::AzureAD {
             alias: Some("yeehaw".to_string()),
         };
-        let block: Block = provider.clone().try_into()?;
+        let block: Block = provider.clone().into();
         println!("{}", block.as_hcl_string());
         let back: HCLProviderBlock = block.try_into()?;
         assert_eq!(provider, back);

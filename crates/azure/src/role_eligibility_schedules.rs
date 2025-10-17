@@ -36,7 +36,7 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let found = fetch_my_role_eligibility_schedules().await?;
-        assert!(found.len() > 0);
+        assert!(!found.is_empty());
         for x in found {
             println!("- {x}");
         }

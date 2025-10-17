@@ -30,7 +30,7 @@ pub async fn get_azure_access_token_jwt() -> eyre::Result<()> {
 mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let _ = super::get_azure_access_token_jwt().await?;
+        super::get_azure_access_token_jwt().await?;
         Ok(())
     }
 }

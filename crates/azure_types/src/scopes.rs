@@ -928,7 +928,7 @@ mod tests {
     fn test_strip_suffix() -> eyre::Result<()> {
         let x = "abcde";
         let suffix = "CDE";
-        let stripped = strip_suffix_case_insensitive(&x, suffix)?;
+        let stripped = strip_suffix_case_insensitive(x, suffix)?;
         assert_eq!("ab", stripped);
         Ok(())
     }

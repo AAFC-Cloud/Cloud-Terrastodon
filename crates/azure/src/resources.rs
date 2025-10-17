@@ -62,7 +62,7 @@ mod tests {
         for res in resources.iter() {
             println!("{res:?}");
         }
-        assert!(resources.len() > 0);
+        assert!(!resources.is_empty());
         Ok(())
     }
 

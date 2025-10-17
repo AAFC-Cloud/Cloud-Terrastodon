@@ -74,7 +74,7 @@ impl<'de> Deserialize<'de> for AzureDevOpsServiceEndpointKind {
 mod tests {
     use super::*;
     use compact_str::CompactString;
-    use serde_json;
+    
 
     #[test]
     fn test_serialize_known_variants() {

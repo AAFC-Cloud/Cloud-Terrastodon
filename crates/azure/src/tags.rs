@@ -151,7 +151,7 @@ mod tests {
             resource_groups
                 .iter()
                 .take(5)
-                .map(|r| ResourceTagsId::from_scope(r))
+                .map(ResourceTagsId::from_scope)
                 .collect_vec(),
         )
         .await?;

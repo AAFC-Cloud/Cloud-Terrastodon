@@ -151,7 +151,7 @@ mod tests {
         // Call rustfmt to format the generated code
         Command::new("rustfmt")
             .arg(target.as_os_str())
-            .args(&["--edition", "2021"])
+            .args(["--edition", "2021"])
             .status()
             .await?;
 

@@ -178,7 +178,7 @@ mod tests {
             },
         };
         println!("{}", import.as_hcl_string());
-        let block_from_str = import.try_as_hcl_blocks()?.into_iter().next().unwrap();
+        let block_from_str = import.try_as_hcl_blocks()?.next().unwrap();
         let block_from_into: Block = import.try_into()?;
         assert_eq!(block_from_into, block_from_str);
         Ok(())
@@ -197,7 +197,7 @@ mod tests {
             },
         };
         println!("{}", import.as_hcl_string());
-        let block_from_str = import.try_as_hcl_blocks()?.into_iter().next().unwrap();
+        let block_from_str = import.try_as_hcl_blocks()?.next().unwrap();
         let block_from_into: Block = import.try_into()?;
         assert_eq!(block_from_into, block_from_str);
         Ok(())

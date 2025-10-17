@@ -83,7 +83,7 @@ mod tests {
     use crate::management_groups::ManagementGroupId;
     use crate::prelude::TestResourceId;
     use crate::scopes::Scope;
-    use serde_json;
+    
 
     #[test]
     fn test_serialization() {

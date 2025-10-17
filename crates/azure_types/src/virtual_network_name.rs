@@ -225,7 +225,7 @@ mod test {
         assert!(VirtualNetworkName::try_new("vnet_underscore").is_ok());
         assert!(VirtualNetworkName::try_new("vnet.period").is_ok());
         assert!(VirtualNetworkName::try_new("a2").is_ok()); // min length
-        assert!(VirtualNetworkName::try_new(&"a".repeat(64)).is_ok()); // max length
+        assert!(VirtualNetworkName::try_new("a".repeat(64)).is_ok()); // max length
         assert!(VirtualNetworkName::try_new("myVNet1_").is_ok());
         Ok(())
     }
@@ -233,7 +233,7 @@ mod test {
     #[test]
     fn invalid_names() {
         assert!(VirtualNetworkName::try_new("a").is_err()); // too short
-        assert!(VirtualNetworkName::try_new(&"a".repeat(65)).is_err()); // too long
+        assert!(VirtualNetworkName::try_new("a".repeat(65)).is_err()); // too long
         assert!(VirtualNetworkName::try_new("_vnet").is_err()); // starts with underscore
         assert!(VirtualNetworkName::try_new(".vnet").is_err()); // starts with period
         assert!(VirtualNetworkName::try_new("-vnet").is_err()); // starts with hyphen

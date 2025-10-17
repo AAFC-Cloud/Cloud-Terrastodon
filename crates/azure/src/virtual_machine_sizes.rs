@@ -38,7 +38,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let subs = fetch_all_subscriptions().await?;
-        let sub = subs.iter().next().unwrap();
+        let sub = subs.first().unwrap();
         let sizes =
             crate::prelude::fetch_virtual_machine_sizes(&sub.id, &LocationName::CanadaCentral)
                 .await?;

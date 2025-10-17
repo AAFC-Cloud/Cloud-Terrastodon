@@ -222,7 +222,7 @@ mod test {
         assert!(VirtualNetworkPeeringName::try_new("route_table_underscore").is_ok());
         assert!(VirtualNetworkPeeringName::try_new("route.table.period").is_ok());
         assert!(VirtualNetworkPeeringName::try_new("a").is_ok()); // min length
-        assert!(VirtualNetworkPeeringName::try_new(&"a".repeat(80)).is_ok()); // max length
+        assert!(VirtualNetworkPeeringName::try_new("a".repeat(80)).is_ok()); // max length
         assert!(VirtualNetworkPeeringName::try_new("myVirtualNetworkPeering1_").is_ok());
         Ok(())
     }
@@ -230,7 +230,7 @@ mod test {
     #[test]
     fn invalid_names() {
         assert!(VirtualNetworkPeeringName::try_new("").is_err()); // empty
-        assert!(VirtualNetworkPeeringName::try_new(&"a".repeat(81)).is_err()); // too long
+        assert!(VirtualNetworkPeeringName::try_new("a".repeat(81)).is_err()); // too long
         assert!(VirtualNetworkPeeringName::try_new("_route").is_err()); // starts with underscore
         assert!(VirtualNetworkPeeringName::try_new(".route").is_err()); // starts with period
         assert!(VirtualNetworkPeeringName::try_new("-route").is_err()); // starts with hyphen

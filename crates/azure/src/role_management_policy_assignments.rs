@@ -55,7 +55,7 @@ mod tests {
         let role_definition_id = role.properties.role_definition_id;
         let found_policy_assignments =
             fetch_role_management_policy_assignments(scope, role_definition_id).await?;
-        assert!(found_policy_assignments.len() > 0);
+        assert!(!found_policy_assignments.is_empty());
         for ass in found_policy_assignments {
             println!(
                 "- {} up to {}",

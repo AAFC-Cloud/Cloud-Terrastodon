@@ -45,7 +45,7 @@ mod test {
         )?;
         let locations_by_id = locations
             .into_iter()
-            .map(|location| (location.id().clone(), location))
+            .map(|location| (*location.id(), location))
             .collect::<std::collections::HashMap<_, _>>();
 
         enum IncludeOrExclude {
@@ -97,14 +97,14 @@ mod test {
                             )]
                         }
                         AllOr::Some(location) => {
-                            let Some(location) = locations_by_id.get(&location) else {
+                            let Some(location) = locations_by_id.get(location) else {
                                 warn!("Failed to find location {}", location);
                                 continue;
                             };
                             location
                                 .ips()
                                 .into_iter()
-                                .map(|ip| (location.display_name().to_string(), ip.clone()))
+                                .map(|ip| (location.display_name().to_string(), *ip))
                                 .collect()
                         }
                         x => {

@@ -92,7 +92,7 @@ mod tests {
         let scope = mg.as_scope();
         let found =
             fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
-        assert!(found.len() > 0);
+        assert!(!found.is_empty());
         for x in found {
             println!("- {x:?}");
         }
@@ -102,7 +102,7 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works2() -> Result<()> {
         let found = fetch_all_eligible_resource_containers().await?;
-        assert!(found.len() > 0);
+        assert!(!found.is_empty());
         for x in found {
             println!("- {x:?}");
         }
@@ -174,7 +174,7 @@ mod tests {
                 }),
         )
         .pick_many()?;
-        assert!(chosen.len() > 0);
+        assert!(!chosen.is_empty());
         Ok(())
     }
 }

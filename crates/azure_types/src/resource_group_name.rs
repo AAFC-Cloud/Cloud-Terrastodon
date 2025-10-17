@@ -232,9 +232,9 @@ mod test {
         assert!(ResourceGroupName::try_new("JEOFF").is_ok());
         assert!(ResourceGroupName::try_new("caPital").is_ok());
         assert!(ResourceGroupName::try_new("aaaa").is_ok());
-        assert!(ResourceGroupName::try_new(&"a".repeat(89)).is_ok());
-        assert!(ResourceGroupName::try_new(&"a".repeat(90)).is_ok());
-        assert!(ResourceGroupName::try_new(&"a".repeat(91)).is_err()); // too long
+        assert!(ResourceGroupName::try_new("a".repeat(89)).is_ok());
+        assert!(ResourceGroupName::try_new("a".repeat(90)).is_ok());
+        assert!(ResourceGroupName::try_new("a".repeat(91)).is_err()); // too long
         // Test Unicode letters
         assert!(ResourceGroupName::try_new("αβΓδЖЩ").is_ok());
         // Test period at the end

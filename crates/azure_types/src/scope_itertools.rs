@@ -59,7 +59,7 @@ mod tests {
 
     #[test]
     fn test_distinct_by_scope() {
-        let items = vec![
+        let items = [
             TestResource::new("1", "one"),
             TestResource::new("2", "two"),
             TestResource::new("1", "one"), // duplicate
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn test_distinct_by_scope_all_duplicates() {
-        let items = vec![
+        let items = [
             TestResource::new("1", "one"),
             TestResource::new("1", "I"),
             TestResource::new("1", "juan"),
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_distinct_by_scope_no_duplicates() {
-        let items = vec![
+        let items = [
             TestResource::new("1", "one"),
             TestResource::new("2", "two"),
             TestResource::new("3", "three"),

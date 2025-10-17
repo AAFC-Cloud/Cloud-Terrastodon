@@ -163,9 +163,7 @@ mod test {
         let rt_id = RouteTableId::try_new(rg_id, "test-route-table")?;
 
         let serialized = serde_json::to_string(&rt_id)?;
-        let expected_str = format!(
-            "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.Network/routeTables/test-route-table"
-        );
+        let expected_str = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.Network/routeTables/test-route-table".to_string();
         assert_eq!(serialized, serde_json::to_string(&expected_str)?);
 
         let deserialized: RouteTableId = serde_json::from_str(&serialized)?;

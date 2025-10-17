@@ -63,7 +63,7 @@ mod tests {
     async fn test_fetch_all_azure_devops_projects() -> Result<()> {
         let org_url = get_default_organization_url().await?;
         let projects = fetch_all_azure_devops_projects(&org_url).await?;
-        assert!(projects.len() > 0);
+        assert!(!projects.is_empty());
         for project in projects.iter().take(5) {
             println!("Found project: {project:#?}");
         }

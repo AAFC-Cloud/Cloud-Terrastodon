@@ -54,8 +54,8 @@ mod test {
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
-        let resp = PickResult::Ok(())?;
-        assert_eq!(resp, ());
+        PickResult::Ok(())?;
+        assert_eq!((), ());
         Ok(())
     }
 }

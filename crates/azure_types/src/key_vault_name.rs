@@ -229,7 +229,7 @@ mod test {
         // length boundaries
         assert!(KeyVaultName::try_new("ab").is_err()); // too short (<3)
         assert!(KeyVaultName::try_new("a".repeat(24).as_str()).is_ok());
-        assert!(KeyVaultName::try_new(&("a".repeat(25))).is_err());
+        assert!(KeyVaultName::try_new("a".repeat(25)).is_err());
         // start constraints
         assert!(KeyVaultName::try_new("1abc").is_err()); // starts with digit
         assert!(KeyVaultName::try_new("-abc").is_err()); // starts with hyphen

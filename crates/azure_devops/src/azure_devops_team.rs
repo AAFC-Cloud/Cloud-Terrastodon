@@ -62,7 +62,7 @@ mod tests {
             .next()
             .unwrap();
         let results = fetch_azure_devops_teams_for_project(&org_url, &project.id).await?;
-        assert!(results.len() > 0);
+        assert!(!results.is_empty());
         for value in results.iter().take(5) {
             println!("Found value: {value:#?}");
         }

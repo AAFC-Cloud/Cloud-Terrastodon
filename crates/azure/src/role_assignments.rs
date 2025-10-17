@@ -43,35 +43,32 @@ mod tests {
         println!("Found {} role assignments:", result.len());
         assert!(result.len() > 25);
         for role_assignment in result {
-            match role_assignment.id {
-                RoleAssignmentId::Unscoped(_) => match fetch_all_role_definitions().await {
-                    Ok(role_definitions) => {
-                        match role_definitions
-                            .iter()
-                            .find(|rd| rd.id == role_assignment.role_definition_id)
-                        {
-                            Some(role_definition) => {
-                                eprintln!(
-                                    "Unscoped role assignment found: {role_definition:#?}\n{role_assignment:#?}"
-                                );
-                            }
-                            None => {
-                                eprintln!(
-                                    "Found unscoped role assignment, but couldn't find role definition D:\n{:#?}",
-                                    role_assignment
-                                );
-                            }
+            if let RoleAssignmentId::Unscoped(_) = role_assignment.id { match fetch_all_role_definitions().await {
+                Ok(role_definitions) => {
+                    match role_definitions
+                        .iter()
+                        .find(|rd| rd.id == role_assignment.role_definition_id)
+                    {
+                        Some(role_definition) => {
+                            eprintln!(
+                                "Unscoped role assignment found: {role_definition:#?}\n{role_assignment:#?}"
+                            );
+                        }
+                        None => {
+                            eprintln!(
+                                "Found unscoped role assignment, but couldn't find role definition D:\n{:#?}",
+                                role_assignment
+                            );
                         }
                     }
-                    Err(e) => {
-                        eprintln!(
-                            "Found unscoped role assignment, couldn't fetch role definitions D:\n{:#?}\nrole definition fetch error: {e:?}",
-                            role_assignment
-                        );
-                    }
-                },
-                _ => {}
-            }
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Found unscoped role assignment, couldn't fetch role definitions D:\n{:#?}\nrole definition fetch error: {e:?}",
+                        role_assignment
+                    );
+                }
+            } }
         }
         Ok(())
     }

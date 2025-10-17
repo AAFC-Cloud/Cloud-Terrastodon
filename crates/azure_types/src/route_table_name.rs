@@ -225,7 +225,7 @@ mod test {
         assert!(RouteTableName::try_new("route_table_underscore").is_ok());
         assert!(RouteTableName::try_new("route.table.period").is_ok());
         assert!(RouteTableName::try_new("a").is_ok()); // min length
-        assert!(RouteTableName::try_new(&"a".repeat(80)).is_ok()); // max length
+        assert!(RouteTableName::try_new("a".repeat(80)).is_ok()); // max length
         assert!(RouteTableName::try_new("myRouteTable1_").is_ok());
         Ok(())
     }
@@ -233,7 +233,7 @@ mod test {
     #[test]
     fn invalid_names() {
         assert!(RouteTableName::try_new("").is_err()); // empty
-        assert!(RouteTableName::try_new(&"a".repeat(81)).is_err()); // too long
+        assert!(RouteTableName::try_new("a".repeat(81)).is_err()); // too long
         assert!(RouteTableName::try_new("_route").is_err()); // starts with underscore
         assert!(RouteTableName::try_new(".route").is_err()); // starts with period
         assert!(RouteTableName::try_new("-route").is_err()); // starts with hyphen
