@@ -12,10 +12,11 @@ use std::collections::HashMap;
 pub enum AzureDevOpsServiceEndpointAuthorization {
     ServicePrincipal(AzureDevOpsServiceEndpointAuthorizationServicePrincipal),
     UsernamePassword(AzureDevOpsServiceEndpointAuthorizationUsernamePassword),
-    Token(()),
     WorkloadIdentityFederation(AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation),
     /// For stuff like Azure Container Registry authorization
     ManagedServiceIdentity(AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity),
+    #[serde(untagged)]
+    Other(serde_json::Value)
 }
 impl AzureDevOpsServiceEndpointAuthorization {
     pub fn service_principal_id(&self) -> Option<&ServicePrincipalId> {
