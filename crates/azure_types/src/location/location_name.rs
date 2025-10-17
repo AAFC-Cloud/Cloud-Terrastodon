@@ -116,7 +116,7 @@ impl LocationName {
             LocationName::Canada | LocationName::CanadaCentral | LocationName::CanadaEast
         )
     }
-    pub fn as_other<'a>(&'a self) -> Option<&'a str> {
+    pub fn as_other(&self) -> Option<&str> {
         if let LocationName::Other(name) = self {
             Some(name)
         } else {

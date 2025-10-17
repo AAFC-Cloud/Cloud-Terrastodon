@@ -34,7 +34,7 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
                 "{:<32} {:<64} {}",
                 sub_name.to_string(),
                 sa.id.resource_group_id.resource_group_name.to_string(),
-                sa.name.to_string()
+                sa.name
             ),
             value: (sa, sub_name),
         }

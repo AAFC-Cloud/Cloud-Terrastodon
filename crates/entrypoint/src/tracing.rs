@@ -1,6 +1,6 @@
 use chrono::Local;
 use eyre::Result;
-use tracing::{debug, info};
+use tracing::info;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
 

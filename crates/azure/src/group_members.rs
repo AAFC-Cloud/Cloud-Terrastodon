@@ -11,6 +11,7 @@ use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use std::collections::HashMap;
+use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::debug;
@@ -25,7 +26,7 @@ impl GetGroupMembersOperation {
     pub fn key(&self) -> PathBuf {
         PathBuf::from_iter(["group_members", self.group_id.to_string().as_ref()])
     }
-    pub fn try_from_key(key: &PathBuf) -> eyre::Result<Self> {
+    pub fn try_from_key(key: &Path) -> eyre::Result<Self> {
         let parts = key.iter().collect::<Vec<_>>();
         if parts.len() != 2 {
             eyre::bail!("Invalid part count for GetGroupMembersOperation");
