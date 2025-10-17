@@ -4,7 +4,7 @@
     <br/>
 
 
-![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fdeepwiki.com%2FAAFC-Cloud%2FCloud-Terrastodon&countColor=%23263759&style=flat)
+![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fdeepwiki.com%2FAAFC-Cloud%2FCloud-Terrastodon&countColor=%23263759&style=flat) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/AAFC-Cloud/Cloud-Terrastodon)
 
 
 [Voir la version française](./README.fr_ca.md)
