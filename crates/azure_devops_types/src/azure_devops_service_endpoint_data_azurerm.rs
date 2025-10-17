@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_azure_types::prelude::SubscriptionName;
 use cloud_terrastodon_azure_types::serde_helpers::deserialize_none_if_empty_string;
+use compact_str::CompactString;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -16,7 +17,7 @@ pub struct ServiceEndpointAzureRMData {
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_none_if_empty_string")]
     pub azure_spn_role_assignment_id: Option<String>,
-    pub creation_mode: AzureDevOpsServiceEndpointAzureRMDataCreationMode,
+    pub creation_mode: Option<AzureDevOpsServiceEndpointAzureRMDataCreationMode>,
     pub environment: AzureDevOpsServiceEndpointAzureRMDataEnvironment,
     pub identity_type: AzureDevOpsServiceEndpointAzureRMDataIdentityType,
     #[serde(default)]
@@ -63,6 +64,8 @@ pub enum AzureDevOpsServiceEndpointAzureRMDataIdentityType {
     AppRegistrationManual,
     AppRegistrationAutomatic,
     ManagedIdentity,
+    #[serde(untagged)]
+    Other(CompactString),
 }
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum AzureDevOpsServiceEndpointAzureRMDataCreationMode {
