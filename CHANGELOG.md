@@ -9,6 +9,7 @@
 - Fix picker TUI ctrl+c support
 - Make app exit happily on ctrl+c or esc on main menu
 - Add `azure audit` and `azure-dev-ops audit` commands
+- Remove dependency on `validator` crate in favour of just using `eyre` for context
 
 -- AI overview
 
