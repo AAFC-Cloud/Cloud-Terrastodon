@@ -56,9 +56,10 @@ impl MyApp {
             while event::poll(Duration::from_millis(0))? {
                 if let Event::Key(key) = event::read()?
                     && key.kind == KeyEventKind::Press
-                    && key.code == KeyCode::Esc {
-                        break 'outer;
-                    }
+                    && key.code == KeyCode::Esc
+                {
+                    break 'outer;
+                }
             }
 
             // Draw to the terminal

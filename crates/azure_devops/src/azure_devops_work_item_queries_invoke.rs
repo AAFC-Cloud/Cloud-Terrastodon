@@ -78,7 +78,8 @@ mod test {
 
             // get query we can run
             let query = AzureDevOpsWorkItemQuery::flatten_many(&queries)
-                .into_iter().find(|x| !x.child.is_folder)
+                .into_iter()
+                .find(|x| !x.child.is_folder)
                 .map(|x| x.child)
                 .cloned();
             let Some(query) = query else {

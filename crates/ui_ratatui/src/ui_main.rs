@@ -1,11 +1,11 @@
 use crossterm::event::EventStream;
-use ratatui::crossterm::event::KeyCode;
-use ratatui::crossterm::event::KeyEventKind;
 use eyre::Result;
 use futures::StreamExt;
 use ratatui::DefaultTerminal;
 use ratatui::Frame;
 use ratatui::crossterm::event::Event;
+use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::KeyEventKind;
 use ratatui::prelude::Constraint;
 use ratatui::prelude::Layout;
 use ratatui::prelude::Line;

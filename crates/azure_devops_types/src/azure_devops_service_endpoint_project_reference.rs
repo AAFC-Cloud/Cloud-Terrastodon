@@ -1,8 +1,7 @@
-use serde::Deserialize;
-use serde::Serialize;
-
 use crate::prelude::AzureDevOpsProjectId;
 use crate::prelude::AzureDevOpsProjectName;
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
