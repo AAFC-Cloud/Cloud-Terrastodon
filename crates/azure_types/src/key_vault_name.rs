@@ -82,7 +82,7 @@ fn validate_key_vault_name(value: &CompactString) -> eyre::Result<()> {
 
 fn validate_key_vault_name_inner(value: &CompactString) -> eyre::Result<()> {
     let char_count = value.chars().count();
-    if char_count < 3 || char_count > 24 {
+    if !(3..=24).contains(&char_count) {
         bail!("Key vault name must be between 3 and 24 characters");
     }
     let s = value.as_str();

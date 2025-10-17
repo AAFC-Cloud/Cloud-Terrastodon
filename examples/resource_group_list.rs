@@ -26,8 +26,7 @@ async fn main() -> Result<()> {
     for resource_group in resource_groups {
         let subscription_name = subscriptions
             .get(&resource_group.subscription_id)
-            .map(|s| s.name.as_str())
-            .unwrap_or("<unknown subscription>");
+            .map_or("<unknown subscription>", |s| s.name.as_str());
         println!(
             "{subscription_name} - {resource_group_name} ({full_id})",
             resource_group_name = resource_group.name,

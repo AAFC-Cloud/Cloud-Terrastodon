@@ -35,7 +35,7 @@ fn validate_storage_account_blob_container_name(value: &str) -> eyre::Result<()>
 fn validate_storage_account_blob_container_name_inner(value: &str) -> eyre::Result<()> {
     // Check length requirements (3-63 characters)
     let char_count = value.chars().count();
-    if char_count < 3 || char_count > 63 {
+    if !(3..=63).contains(&char_count) {
         bail!(
             "Storage account blob container name must be between 3 and 63 characters, got {}",
             char_count

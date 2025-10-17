@@ -31,7 +31,7 @@ fn validate_storage_account_name(value: &CompactString) -> eyre::Result<()> {
 
 fn validate_storage_account_name_inner(value: &CompactString) -> eyre::Result<()> {
     let char_count = value.chars().count();
-    if char_count < 3 || char_count > 24 {
+    if !(3..=24).contains(&char_count) {
         bail!("Storage account name must be between 3 and 24 characters");
     }
     for (i, char) in value.chars().enumerate() {

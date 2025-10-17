@@ -31,7 +31,7 @@ fn validate_container_registry_name(value: &CompactString) -> eyre::Result<()> {
 
 fn validate_container_registry_name_inner(value: &CompactString) -> eyre::Result<()> {
     let char_count = value.chars().count();
-    if char_count < 5 || char_count > 50 {
+    if !(5..=50).contains(&char_count) {
         bail!("Container registry name must be between 5 and 50 characters");
     }
     for (i, char) in value.chars().enumerate() {
