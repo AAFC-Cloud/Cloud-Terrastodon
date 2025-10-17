@@ -241,7 +241,7 @@ mod test {
     pub fn fuzz() -> eyre::Result<()> {
         for _ in 0..100 {
             let mut raw = [0u8; 64];
-            rand::thread_rng().fill(&mut raw);
+            rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = StorageAccountBlobContainerName::arbitrary(&mut un)?;
             assert!(name.validate().is_ok());

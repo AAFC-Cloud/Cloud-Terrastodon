@@ -6,7 +6,7 @@ use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_azure_types::prelude::TenantId;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
 pub struct AzureClaims {
     #[serde(rename = "aud")]
     pub audience: String,

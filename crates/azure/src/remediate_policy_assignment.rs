@@ -70,7 +70,7 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                 cmd.args(["policy", "remediation", "create"]);
                 cmd.args([
                     "--name",
-                    format!("myRemediation{:x}", rand::thread_rng().next_u32()).as_ref(),
+                    format!("myRemediation{:x}", rand::rng().next_u32()).as_ref(),
                 ]);
                 cmd.args(["--policy-assignment", &policy_assignment.id.expanded_form()]);
                 cmd.args([
@@ -101,7 +101,7 @@ pub async fn remediate_policy_assignment() -> Result<()> {
             cmd.args(["policy", "remediation", "create"]);
             cmd.args([
                 "--name",
-                format!("myRemediation{:x}", rand::thread_rng().next_u32()).as_ref(),
+                format!("myRemediation{:x}", rand::rng().next_u32()).as_ref(),
             ]);
             cmd.args(["--policy-assignment", &policy_assignment.id.expanded_form()]);
 

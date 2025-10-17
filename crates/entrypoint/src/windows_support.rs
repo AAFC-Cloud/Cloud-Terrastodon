@@ -12,7 +12,7 @@ pub mod windows_ansi {
         unsafe {
             let handle = GetStdHandle(STD_OUTPUT_HANDLE)?;
             if handle == HANDLE::default() {
-                return Err(windows::core::Error::from_win32());
+                return Err(windows::core::Error::from_thread());
             }
 
             let mut mode = std::mem::zeroed();

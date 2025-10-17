@@ -21,7 +21,6 @@ use eyre::OptionExt;
 use eyre::bail;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
@@ -245,7 +244,7 @@ pub async fn generate_config_out_bulk(
     work_dirs: impl IntoIterator<Item = ValidatedTFWorkDir>,
 ) -> eyre::Result<Vec<GeneratedConfigOutTFWorkDir>> {
     let mut dirs = work_dirs.into_iter().collect_vec();
-    dirs.shuffle(&mut thread_rng()); // try and hit errors earlier than if we had a consistent iteration order
+    dirs.shuffle(&mut rand::rng()); // try and hit errors earlier than if we had a consistent iteration order
     info!("Performing tf code generation for {} dirs", dirs.len());
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
     let rate_limit = Arc::new(Semaphore::new(10));

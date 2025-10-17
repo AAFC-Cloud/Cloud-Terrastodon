@@ -179,7 +179,7 @@ mod test {
     pub fn fuzz() -> eyre::Result<()> {
         for _ in 0..100 {
             let mut raw = [0u8; 128];
-            rand::thread_rng().fill(&mut raw);
+            rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = SubscriptionName::arbitrary(&mut un)?;
             assert!(name.validate().is_ok());

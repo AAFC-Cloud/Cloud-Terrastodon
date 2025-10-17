@@ -87,10 +87,10 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let storage_accounts = fetch_all_storage_accounts().await?;
-        let check_name = rand::random::<usize>() % storage_accounts.len();
+        let check_name = rand::random::<u64>() % storage_accounts.len() as u64;
         for (i, sa) in storage_accounts.into_iter().enumerate() {
             sa.name.validate()?;
-            if i == check_name {
+            if i == check_name as usize {
                 println!("Storage account: {sa:?}");
                 assert!(!is_storage_account_name_available(&sa.name).await?);
             }

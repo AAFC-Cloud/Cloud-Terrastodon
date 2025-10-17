@@ -183,7 +183,7 @@ mod test {
     #[test]
     pub fn it_works() -> eyre::Result<()> {
         let mut raw = [0u8; 64];
-        rand::thread_rng().fill(&mut raw);
+        rand::rng().fill(&mut raw);
         let mut un = Unstructured::new(&raw);
         let name = VirtualNetworkPeeringId::arbitrary(&mut un)?;
         let serialized = serde_json::to_string(&name)?;

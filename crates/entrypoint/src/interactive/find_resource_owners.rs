@@ -74,9 +74,6 @@ enum Clue<'a> {
         service_endpoint: &'a AzureDevOpsServiceEndpoint,
         project: &'a AzureDevOpsProject,
     },
-    AzureDevOpsUser {
-        principal: &'a Principal,
-    },
 }
 impl<'a> std::fmt::Display for Clue<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -94,9 +91,6 @@ impl<'a> std::fmt::Display for Clue<'a> {
             } => f.write_fmt(format_args!(
                 "Azure DevOps Service Endpoint [{}] for principal [{}]",
                 service_endpoint.name, service_principal.display_name
-            )),
-            Clue::AzureDevOpsUser { principal } => f.write_fmt(format_args!(
-                "Azure DevOps User for principal [{principal}]"
             )),
             Clue::ResourceTag {
                 resource,
@@ -210,7 +204,7 @@ enum Traversal {
     GroupOwners,
     ServicePrincipalAlternativeNames,
     AzureDevOpsServiceEndpoints,
-    AzureDevOpsUsers,
+    AzureDevOpsServiceEndpointProjects,
     // Parents
     // Children
 }
@@ -344,7 +338,30 @@ impl Traversal {
                     }
                 }
             }
-            Traversal::AzureDevOpsUsers => todo!(),
+            Traversal::AzureDevOpsServiceEndpointProjects => {
+                if let Clue::AzureDevOpsServiceEndpoint {
+                    service_endpoint, ..
+                } = clue.as_ref()
+                {
+                    for project in service_endpoint.service_endpoint_project_references.iter() {
+                        let Some(azure_devops_project) = context
+                            .azure_devops_projects_by_id
+                            .get(&project.project_reference.id)
+                        else {
+                            bail!(
+                                "Found a project association for project {:?} but wasn't in the list of all projects?",
+                                project.project_reference
+                            );
+                        };
+                        rtn.push(
+                            clue.join(Clue::AzureDevOpsServiceEndpointProjectAssociation {
+                                service_endpoint,
+                                project: azure_devops_project,
+                            }),
+                        );
+                    }
+                }
+            }
         }
         Ok(rtn)
     }

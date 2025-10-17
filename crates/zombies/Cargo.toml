@@ -9,7 +9,7 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-sysinfo = "0.34.2"
+sysinfo = "0.37.2"
 cloud_terrastodon_user_input = { workspace = true }
 cloud_terrastodon_pathing = { workspace = true }
 eyre = { workspace = true }

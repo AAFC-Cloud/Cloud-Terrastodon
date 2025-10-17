@@ -10,15 +10,15 @@ license = "LiLiQ-R-1.1"
 
 [workspace.dependencies]
 anyhow = "1.0.82"
-itertools = "0.12.1"
+itertools = "0.14.0"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.116"
 tokio = { version = "1.44.2", features = ["full"] }
 tempfile = "3.10.1"
-indicatif = "0.17.8"
+indicatif = "0.18.0"
 async-recursion = "1.1.0"
 indoc = "2.0.5"
-hcl-rs = "0.18.0"
+hcl-rs = "0.19.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 indexmap = { version = "2.2.6", features = ["serde"] }
@@ -26,18 +26,18 @@ ordermap = { version = "0.5.0", features = ["serde"] }
 hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["serde", "v4", "arbitrary"] }
 chrono = { version = "0.4.38", features = ["serde", "arbitrary"] }
-rand = "0.8.5"
+rand = "0.9.2"
 test-log = { version = "0.2.16", features = ["trace"] }
 clap = { version = "4.5.9", features = ["derive", "string"] }
 iso8601-duration = { version = "0.2.0", features = ["serde", "chrono"] }
 humantime = "2.1.0"
 directories-next = "2.0.0"
 ratatui = "0.29.0"
-opener = "0.7.1"
-emath = { version = "0.31.1", features = ["serde"] }
+opener = "0.8.3"
+emath = { version = "0.33.0", features = ["serde"] }
 crossterm = { version = "0.28.1", features = ["event-stream"] }
 futures = "0.3.31"
-strum = { version = "0.26.3", features = ["derive"] }
+strum = { version = "0.27.2", features = ["derive"] }
 quote = "1.0.37"
 proc-macro2 = "1.0.89"
 prettyplease = "0.2.25"
@@ -59,84 +59,84 @@ validator = { version = "0.20.0", features = [
 regex = "1.11.1"
 arbitrary = { version = "1.4.1", features = ["derive"] }
 unicode_categories = "0.1.1"
-ipnetwork = {version="0.21.1",features=["serde"]}
+ipnetwork = { version = "0.21.1", features = ["serde"] }
 nucleo = "0.5.0"
 tui-textarea = "0.7.0"
 rustc-hash = "2.1.1"
-jsonwebtoken = "9.3.1"
+jsonwebtoken = { version = "10.0.0", features = ["rust_crypto"] }
 
 [workspace.dependencies.cloud_terrastodon_pathing]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"        # CT_VERSION
 path = "./crates/pathing"
 
 [workspace.dependencies.cloud_terrastodon_config]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"       # CT_VERSION
 path = "./crates/config"
 
 [workspace.dependencies.cloud_terrastodon_azure]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"      # CT_VERSION
 path = "./crates/azure"
 
 [workspace.dependencies.cloud_terrastodon_azure_types]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"            # CT_VERSION
 path = "./crates/azure_types"
 
 [workspace.dependencies.cloud_terrastodon_azure_resource_types]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"                     # CT_VERSION
 path = "./crates/azure_resource_types"
 
 [workspace.dependencies.cloud_terrastodon_azure_devops]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"             # CT_VERSION
 path = "./crates/azure_devops"
 
 [workspace.dependencies.cloud_terrastodon_azure_devops_types]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"                   # CT_VERSION
 path = "./crates/azure_devops_types"
 
 [workspace.dependencies.cloud_terrastodon_hcl]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"    # CT_VERSION
 path = "./crates/hcl"
 
 [workspace.dependencies.cloud_terrastodon_hcl_types]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"          # CT_VERSION
 path = "./crates/hcl_types"
 
 [workspace.dependencies.cloud_terrastodon_user_input]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"           # CT_VERSION
 path = "./crates/user_input"
 
 [workspace.dependencies.cloud_terrastodon_command]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"        # CT_VERSION
 path = "./crates/command"
 
 [workspace.dependencies.cloud_terrastodon_entrypoint]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"           # CT_VERSION
 path = "./crates/entrypoint"
 
 [workspace.dependencies.cloud_terrastodon_zombies]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"        # CT_VERSION
 path = "./crates/zombies"
 
 [workspace.dependencies.cloud_terrastodon_relative_location]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"                  # CT_VERSION
 path = "./crates/relative_location"
 
 [workspace.dependencies.cloud_terrastodon_ui_ratatui]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"           # CT_VERSION
 path = "./crates/ui_ratatui"
 
 [workspace.dependencies.cloud_terrastodon_ui_egui]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"        # CT_VERSION
 path = "./crates/ui_egui"
 
 [workspace.dependencies.cloud_terrastodon_credentials]
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"            # CT_VERSION
 path = "./crates/credentials"
 
 
 [package]
 name = "cloud_terrastodon"
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"                                                        # CT_VERSION
 description = "A command-line tool for interacting with cloud ecosystems"
 readme.workspace = true
 edition.workspace = true
@@ -145,7 +145,7 @@ repository.workspace = true
 license.workspace = true
 
 [build-dependencies]
-embed-resource = "1.6.3"
+embed-resource = "3.0.6"
 
 [dependencies]
 # Make the entrypoint optional behind a feature so library users don't pull it in by default
@@ -212,7 +212,7 @@ full = [
     "relative-location",
     "ui-ratatui",
     "ui-egui",
-   # "azure-locations",
+    # "azure-locations",
     "credentials",
 ]
 

@@ -26,8 +26,8 @@ tracing = { workspace = true }
 crossterm = { workspace = true }
 indexmap = { workspace = true }
 futures = { workspace = true }
-eframe = { version = "0.31.1", features = ["persistence"] }
-egui_extras = { version = "0.31.1", features = ["default", "image"] }
+eframe = { version = "0.33.0", features = ["persistence"] }
+egui_extras = { version = "0.33.0", features = ["default", "image"] }
 
 
 

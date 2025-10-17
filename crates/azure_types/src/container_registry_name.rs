@@ -150,7 +150,7 @@ mod test {
         let mut found_uppercase = false;
         for _ in 0..100 {
             let mut raw = [0u8; 64];
-            rand::thread_rng().fill(&mut raw);
+            rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = ContainerRegistryName::arbitrary(&mut un)?;
             assert!(name.validate().is_ok());

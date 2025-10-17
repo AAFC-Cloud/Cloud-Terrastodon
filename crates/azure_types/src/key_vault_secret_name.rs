@@ -148,7 +148,7 @@ mod test {
     fn fuzz() -> eyre::Result<()> {
         for _ in 0..100 {
             let mut raw = [0u8; 64];
-            rand::thread_rng().fill(&mut raw);
+            rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
             let name = KeyVaultSecretName::arbitrary(&mut un)?;
             name.validate_slug()?;

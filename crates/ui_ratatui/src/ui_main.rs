@@ -1,6 +1,6 @@
 use crossterm::event::EventStream;
-use crossterm::event::KeyCode;
-use crossterm::event::KeyEventKind;
+use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::KeyEventKind;
 use eyre::Result;
 use futures::StreamExt;
 use ratatui::DefaultTerminal;

@@ -47,12 +47,7 @@ compact_str = { workspace = true, features = ["serde"] }
 
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.58.0", features = [
-    "Win32",
-    "Win32_System",
-    "Win32_System_Console",
-    "Win32_Globalization",
-] }
+windows = { version = "0.62.2", features = ["Win32", "Win32_System", "Win32_System_Console", "Win32_Globalization"] }
 
 [dev-dependencies]
 test-log = { workspace = true }
