@@ -16,9 +16,9 @@ pub struct AzureDevOpsProjectName {
 }
 impl AzureDevOpsProjectName {
     pub fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let org = Self { inner: name.into() };
-        org.validate()?;
-        Ok(org)
+        let name = Self { inner: name.into() };
+        name.validate()?;
+        Ok(name)
     }
 }
 
