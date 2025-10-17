@@ -2,6 +2,7 @@
 name = "cloud_terrastodon_ui_egui"
 description = "User interface for the Cloud Terrastodon project leveraging egui"
 version = "0.28.0" # CT_VERSION
+readme.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true

@@ -2,6 +2,7 @@
 name = "cloud_terrastodon_entrypoint"
 description = "Main entrypoint for the Cloud Terrastodon CLI"
 version = "0.28.0" # CT_VERSION
+readme.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true

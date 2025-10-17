@@ -2,6 +2,7 @@
 name = "cloud_terrastodon_azure_devops_types"
 description = "Types for modelling Azure DevOps for the Cloud Terrastodon project"
 version = "0.28.0" # CT_VERSION
+readme.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true

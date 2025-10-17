@@ -2,6 +2,7 @@
 name = "cloud_terrastodon_command"
 version = "0.28.0" # CT_VERSION
 description = "Command running helpers for the Cloud Terrastodon project"
+readme.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true

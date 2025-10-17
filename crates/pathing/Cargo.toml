@@ -2,6 +2,7 @@
 name = "cloud_terrastodon_pathing"
 description = "Well-known paths for the Cloud Terrastodon project"
 version = "0.28.0" # CT_VERSION
+readme.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
