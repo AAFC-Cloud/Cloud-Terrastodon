@@ -1,8 +1,7 @@
 // Prints each Azure Resource Group name using the re-exported Azure module.
-// Run with: cargo run --example resource_group_list --features azure
 
 use cloud_terrastodon::azure::prelude::fetch_all_resource_groups;
-use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon::azure::prelude::fetch_all_subscriptions;
 use color_eyre::eyre::Result;
 use std::collections::HashMap;
 use tokio::try_join;
