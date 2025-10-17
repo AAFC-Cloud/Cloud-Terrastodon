@@ -7,9 +7,10 @@ use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
 pub async fn fetch_all_resources() -> Result<Vec<Resource>> {
+    debug!(fetching = "resources");
     let resources = ResourceGraphHelper::new(
         r#"
 resources 
@@ -28,7 +29,7 @@ resources
     )
     .collect_all()
     .await?;
-    info!("Found {} resources", resources.len());
+    debug!(count = resources.len(), "Retrieved resources");
     Ok(resources)
 }
 
