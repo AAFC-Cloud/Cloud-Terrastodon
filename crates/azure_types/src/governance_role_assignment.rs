@@ -30,7 +30,7 @@ pub struct GovernanceRoleAssignment {
     #[serde(rename = "roleDefinitionId")]
     pub role_definition_id: Uuid,
     #[serde(rename = "startDateTime")]
-    pub start_date_time: DateTime<Utc>,
+    pub start_date_time: Option<DateTime<Utc>>,
     #[serde(rename = "endDateTime")]
     pub end_date_time: Option<DateTime<Utc>>,
     pub status: GovernanceRoleAssignmentStatus,
