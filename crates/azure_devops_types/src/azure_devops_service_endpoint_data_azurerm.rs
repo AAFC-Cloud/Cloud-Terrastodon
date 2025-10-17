@@ -64,7 +64,7 @@ pub enum AzureDevOpsServiceEndpointAzureRMDataIdentityType {
     AppRegistrationManual,
     AppRegistrationAutomatic,
     ManagedIdentity,
-    #[serde(untagged)]
+    #[serde(untagged)] // https://github.com/serde-rs/serde/issues/912#issuecomment-1868785603
     Other(CompactString),
 }
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]

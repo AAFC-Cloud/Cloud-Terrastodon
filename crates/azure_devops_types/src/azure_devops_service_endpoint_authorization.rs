@@ -15,7 +15,7 @@ pub enum AzureDevOpsServiceEndpointAuthorization {
     WorkloadIdentityFederation(AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation),
     /// For stuff like Azure Container Registry authorization
     ManagedServiceIdentity(AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity),
-    #[serde(untagged)]
+    #[serde(untagged)] // https://github.com/serde-rs/serde/issues/912#issuecomment-1868785603
     Other(serde_json::Value),
 }
 impl AzureDevOpsServiceEndpointAuthorization {
