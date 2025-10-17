@@ -1,5 +1,6 @@
 use crate::prelude::AzureDevOpsProjectId;
 use crate::prelude::AzureDevOpsProjectName;
+use crate::prelude::AzureDevOpsServiceEndpointName;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -8,7 +9,7 @@ use serde::Serialize;
 pub struct AzureDevOpsServiceEndpointProjectReference {
     #[serde(default)]
     pub description: String,
-    pub name: AzureDevOpsProjectName,
+    pub name: AzureDevOpsServiceEndpointName,
     pub project_reference: AzureDevOpsServiceEndpointProjectReferenceProjectReference,
 }
 
