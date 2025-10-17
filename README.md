@@ -3,6 +3,10 @@
     <img src="logo.png" width="230">
     <br/>
 
+
+![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fdeepwiki.com%2FAAFC-Cloud%2FCloud-Terrastodon&countColor=%23263759&style=flat)
+
+
 [Voir la version française](./README.fr_ca.md)
 
 ![A terminal showing a list of commands](./main_menu.png)
