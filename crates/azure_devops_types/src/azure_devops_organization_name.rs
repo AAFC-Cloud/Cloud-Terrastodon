@@ -52,22 +52,24 @@ fn validate_azure_devops_organization_name_contents(value: &str) -> eyre::Result
 
     // Check first character
     if let Some(&first_char) = chars.first()
-        && !is_valid_first_char(first_char) {
-            eyre::bail!(
-                "Organization name must start with English letter or number, got '{}'",
-                first_char
-            );
-        }
+        && !is_valid_first_char(first_char)
+    {
+        eyre::bail!(
+            "Organization name must start with English letter or number, got '{}'",
+            first_char
+        );
+    }
 
     // Check last character (if different from first)
     if chars.len() > 1
         && let Some(&last_char) = chars.last()
-            && !is_valid_last_char(last_char) {
-                eyre::bail!(
-                    "Organization name must end with English letter or number, got '{}'",
-                    last_char
-                );
-            }
+        && !is_valid_last_char(last_char)
+    {
+        eyre::bail!(
+            "Organization name must end with English letter or number, got '{}'",
+            last_char
+        );
+    }
 
     // Check all characters
     for (i, &ch) in chars.iter().enumerate() {
