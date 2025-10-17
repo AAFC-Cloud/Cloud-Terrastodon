@@ -16,7 +16,7 @@ pub enum AzureDevOpsServiceEndpointAuthorization {
     /// For stuff like Azure Container Registry authorization
     ManagedServiceIdentity(AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity),
     #[serde(untagged)]
-    Other(serde_json::Value)
+    Other(serde_json::Value),
 }
 impl AzureDevOpsServiceEndpointAuthorization {
     pub fn service_principal_id(&self) -> Option<&ServicePrincipalId> {

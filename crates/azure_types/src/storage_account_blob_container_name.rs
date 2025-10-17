@@ -2,8 +2,8 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
-use eyre::bail;
 use eyre::WrapErr;
+use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -36,7 +36,10 @@ fn validate_storage_account_blob_container_name_inner(value: &str) -> eyre::Resu
     // Check length requirements (3-63 characters)
     let char_count = value.chars().count();
     if char_count < 3 || char_count > 63 {
-        bail!("Storage account blob container name must be between 3 and 63 characters, got {}", char_count);
+        bail!(
+            "Storage account blob container name must be between 3 and 63 characters, got {}",
+            char_count
+        );
     }
 
     let chars: Vec<char> = value.chars().collect();
@@ -44,7 +47,9 @@ fn validate_storage_account_blob_container_name_inner(value: &str) -> eyre::Resu
     // Check that it starts with lowercase letter or number
     if let Some(first_char) = chars.first() {
         if !first_char.is_ascii_lowercase() && !first_char.is_ascii_digit() {
-            bail!("Storage account blob container name must start with a lowercase letter or number");
+            bail!(
+                "Storage account blob container name must start with a lowercase letter or number"
+            );
         }
     } else {
         bail!("Storage account blob container name cannot be empty");
@@ -53,12 +58,19 @@ fn validate_storage_account_blob_container_name_inner(value: &str) -> eyre::Resu
     for (i, &char) in chars.iter().enumerate() {
         // Check for valid characters (lowercase letters, numbers, hyphens)
         if !char.is_ascii_lowercase() && !char.is_ascii_digit() && char != '-' {
-            bail!("Storage account blob container name contains invalid character '{}' at position {}", char, i);
+            bail!(
+                "Storage account blob container name contains invalid character '{}' at position {}",
+                char,
+                i
+            );
         }
 
         // Check for consecutive hyphens
         if char == '-' && i > 0 && chars[i - 1] == '-' {
-            bail!("Storage account blob container name cannot contain consecutive hyphens at position {}", i - 1);
+            bail!(
+                "Storage account blob container name cannot contain consecutive hyphens at position {}",
+                i - 1
+            );
         }
     }
 

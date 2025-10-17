@@ -8,7 +8,10 @@ fn validate_has_prefix(value: &str) -> eyre::Result<()> {
     if value.starts_with("aad.") {
         Ok(())
     } else {
-        eyre::bail!("Entra user descriptor must start with 'aad.', got '{}'", value);
+        eyre::bail!(
+            "Entra user descriptor must start with 'aad.', got '{}'",
+            value
+        );
     }
 }
 impl AzureDevOpsEntraUserDescriptor {

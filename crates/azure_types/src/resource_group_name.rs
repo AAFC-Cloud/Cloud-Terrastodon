@@ -2,7 +2,8 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
-use eyre::{bail, WrapErr};
+use eyre::WrapErr;
+use eyre::bail;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -96,7 +97,10 @@ fn validate_resource_group_name_inner(value: &str) -> eyre::Result<()> {
     // Azure limits are specified in characters, not bytes
     let char_count = value.chars().count();
     if char_count > 90 {
-        bail!("Resource group name must be 90 characters or less, got {}", char_count);
+        bail!(
+            "Resource group name must be 90 characters or less, got {}",
+            char_count
+        );
     }
 
     let mut last_char: Option<char> = None;
@@ -115,7 +119,11 @@ fn validate_resource_group_name_inner(value: &str) -> eyre::Result<()> {
         }
 
         // Invalid character
-        bail!("Resource group name contains invalid character '{}' at position {}", ch, i);
+        bail!(
+            "Resource group name contains invalid character '{}' at position {}",
+            ch,
+            i
+        );
     }
 
     // Cannot end with period
@@ -215,11 +223,10 @@ impl<'a> Arbitrary<'a> for ResourceGroupName {
             chars.push('_');
         }
         let name: String = chars.into_iter().collect();
-        ResourceGroupName::try_new(CompactString::from(name))
-            .map_err(|e| {
-                eprintln!("Failed to generate ResourceGroupName: {e:?}");
-                arbitrary::Error::IncorrectFormat
-            })
+        ResourceGroupName::try_new(CompactString::from(name)).map_err(|e| {
+            eprintln!("Failed to generate ResourceGroupName: {e:?}");
+            arbitrary::Error::IncorrectFormat
+        })
     }
 }
 

@@ -2,7 +2,8 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
-use eyre::{bail, Context};
+use eyre::Context;
+use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
 

@@ -1,8 +1,8 @@
 use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
-use eyre::bail;
 use eyre::WrapErr;
+use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -39,7 +39,10 @@ fn validate_route_table_name(value: &str) -> eyre::Result<()> {
 fn validate_route_table_name_inner(value: &str) -> eyre::Result<()> {
     let len = value.chars().count();
     if !(1..=80).contains(&len) {
-        bail!("Route table name must be between 1 and 80 characters, got {}", len);
+        bail!(
+            "Route table name must be between 1 and 80 characters, got {}",
+            len
+        );
     }
 
     let chars: Vec<char> = value.chars().collect();
@@ -71,7 +74,11 @@ fn validate_route_table_name_inner(value: &str) -> eyre::Result<()> {
             || *char_code == '.'
             || *char_code == '-')
         {
-            bail!("Route table name contains invalid character '{}' at position {}", char_code, i);
+            bail!(
+                "Route table name contains invalid character '{}' at position {}",
+                char_code,
+                i
+            );
         }
     }
 

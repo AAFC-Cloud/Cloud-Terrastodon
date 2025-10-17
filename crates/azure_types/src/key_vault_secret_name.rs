@@ -2,7 +2,8 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
-use eyre::{bail, WrapErr};
+use eyre::WrapErr;
+use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -42,11 +43,18 @@ fn validate_key_vault_secret_name_inner(value: &str) -> eyre::Result<()> {
     }
     let char_count = value.chars().count();
     if char_count > 127 {
-        bail!("Key vault secret name must be 127 characters or less, got {}", char_count);
+        bail!(
+            "Key vault secret name must be 127 characters or less, got {}",
+            char_count
+        );
     }
     for (i, ch) in value.chars().enumerate() {
         if !(ch.is_ascii_alphanumeric() || ch == '-') {
-            bail!("Key vault secret name contains invalid character '{}' at position {}", ch, i);
+            bail!(
+                "Key vault secret name contains invalid character '{}' at position {}",
+                ch,
+                i
+            );
         }
     }
     Ok(())

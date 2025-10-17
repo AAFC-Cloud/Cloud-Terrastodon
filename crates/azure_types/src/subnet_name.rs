@@ -1,8 +1,8 @@
 use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
-use eyre::bail;
 use eyre::WrapErr;
+use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -39,7 +39,10 @@ fn validate_subnet_name(value: &str) -> eyre::Result<()> {
 fn validate_subnet_name_inner(value: &str) -> eyre::Result<()> {
     let len = value.chars().count();
     if !(1..=80).contains(&len) {
-        bail!("Subnet name must be between 1 and 80 characters, got {}", len);
+        bail!(
+            "Subnet name must be between 1 and 80 characters, got {}",
+            len
+        );
     }
 
     let chars: Vec<char> = value.chars().collect();

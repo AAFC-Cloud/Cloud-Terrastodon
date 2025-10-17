@@ -1,8 +1,8 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use compact_str::CompactString;
-use eyre::bail;
 use eyre::WrapErr;
+use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -23,7 +23,10 @@ fn validate_subscription_name_inner(value: &str) -> eyre::Result<()> {
         bail!("Subscription name cannot be empty");
     }
     if char_count > 50 {
-        bail!("Subscription name must be 50 characters or less, got {}", char_count);
+        bail!(
+            "Subscription name must be 50 characters or less, got {}",
+            char_count
+        );
     }
     Ok(())
 }

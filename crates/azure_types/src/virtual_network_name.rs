@@ -1,8 +1,8 @@
 use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
-use eyre::bail;
 use eyre::WrapErr;
+use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -39,7 +39,10 @@ fn validate_virtual_network_name(value: &str) -> eyre::Result<()> {
 fn validate_virtual_network_name_inner(value: &str) -> eyre::Result<()> {
     let len = value.chars().count();
     if !(2..=64).contains(&len) {
-        bail!("Virtual network name must be between 2 and 64 characters, got {}", len);
+        bail!(
+            "Virtual network name must be between 2 and 64 characters, got {}",
+            len
+        );
     }
 
     let chars: Vec<char> = value.chars().collect();
@@ -71,7 +74,11 @@ fn validate_virtual_network_name_inner(value: &str) -> eyre::Result<()> {
             || *char_code == '.'
             || *char_code == '-')
         {
-            bail!("Virtual network name contains invalid character '{}' at position {}", char_code, i);
+            bail!(
+                "Virtual network name contains invalid character '{}' at position {}",
+                char_code,
+                i
+            );
         }
     }
 
