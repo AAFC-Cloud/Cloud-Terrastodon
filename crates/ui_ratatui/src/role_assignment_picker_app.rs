@@ -106,7 +106,6 @@ impl RoleAssignmentPickerApp {
 
             // 5. Throttle loop to avoid busy waiting
             tokio::time::sleep(Duration::from_millis(10)).await;
-            // tokio::time::sleep(Duration::from_millis(75)).await;
         };
 
         ratatui::restore();
@@ -228,46 +227,44 @@ impl RoleAssignmentPickerApp {
 
         self.ui.last_table_height = table_area.height.saturating_sub(2).max(1);
 
-        let table = self.build_table();
+        let table = {
+            let header = Row::new(vec![
+                Cell::from("Sel"),
+                Cell::from("Principal"),
+                Cell::from("Principal Type"),
+                Cell::from("Role"),
+                Cell::from("Scope"),
+            ])
+            .style(Style::default().add_modifier(Modifier::BOLD));
+
+            let rows: Vec<Row<'_>> = self
+                .ui
+                .rows
+                .iter()
+                .map(|row| {
+                    let is_marked = self
+                        .selected_role_assignments
+                        .contains(&row.role_assignment_id);
+                    RoleAssignmentRow::to_table_row(row, is_marked)
+                })
+                .collect();
+
+            Table::new(
+                rows,
+                [
+                    Constraint::Length(4),
+                    Constraint::Percentage(25),
+                    Constraint::Percentage(25),
+                    Constraint::Length(14),
+                    Constraint::Percentage(25),
+                ],
+            )
+            .header(header)
+            .block(Block::default().borders(Borders::ALL))
+            .highlight_symbol("▶ ")
+            .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        };
         frame.render_stateful_widget(table, table_area, &mut self.ui.table_state);
-    }
-
-    fn build_table(&self) -> Table<'static> {
-        let header = Row::new(vec![
-            Cell::from("Sel"),
-            Cell::from("Scope"),
-            Cell::from("Principal"),
-            Cell::from("Principal Type"),
-            Cell::from("Role"),
-        ])
-        .style(Style::default().add_modifier(Modifier::BOLD));
-
-        let rows: Vec<Row<'static>> = self
-            .ui
-            .rows
-            .iter()
-            .map(|row| {
-                let is_marked = self
-                    .selected_role_assignments
-                    .contains(&row.role_assignment_id);
-                RoleAssignmentRow::to_table_row(row, is_marked)
-            })
-            .collect();
-
-        Table::new(
-            rows,
-            [
-                Constraint::Length(4),
-                Constraint::Percentage(25),
-                Constraint::Percentage(25),
-                Constraint::Length(14),
-                Constraint::Percentage(25),
-            ],
-        )
-        .header(header)
-        .block(Block::default().borders(Borders::ALL))
-        .highlight_symbol("▶ ")
-        .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED))
     }
 
     fn handle_event(&mut self, event: Event) -> Result<Option<RoleAssignmentPickerAppResult>> {
@@ -497,15 +494,15 @@ impl RoleAssignmentRow {
         }
     }
 
-    fn to_table_row(row: &Self, is_marked: bool) -> Row<'static> {
+    fn to_table_row<'a>(row: &'a Self, is_marked: bool) -> Row<'a> {
         let marker = if is_marked { "[x]" } else { "[ ]" };
 
         let mut table_row = Row::new(vec![
             Cell::from(marker.to_string()),
-            Cell::from(row.scope.clone()),
-            Cell::from(row.principal_name.clone()),
-            Cell::from(row.principal_kind.clone()),
-            Cell::from(row.role_display_name.clone()),
+            Cell::from(row.principal_name.as_str()),
+            Cell::from(row.principal_kind.as_str()),
+            Cell::from(row.role_display_name.as_str()),
+            Cell::from(row.scope.as_str()),
         ]);
 
         if is_marked {
