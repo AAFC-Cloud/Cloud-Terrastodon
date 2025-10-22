@@ -22,6 +22,7 @@ use crate::interactive::prelude::clean_all_menu;
 use crate::interactive::prelude::clean_imports;
 use crate::interactive::prelude::clean_processed;
 use crate::interactive::prelude::copy_azurerm_backend_menu;
+use crate::interactive::prelude::create_import_block_for_role_assignment;
 use crate::interactive::prelude::create_new_action_variant;
 use crate::interactive::prelude::create_oauth2_permission_grants;
 use crate::interactive::prelude::create_role_assignment_menu;
@@ -110,6 +111,7 @@ pub enum MenuAction {
     BrowseAzureDevOpsProjectTeams,
     BrowseServicePrincipals,
     BrowseStorageAccounts,
+    CreateImportBlockForRoleAssignment,
 }
 #[derive(Eq, PartialEq, Debug)]
 pub enum MenuActionResult {
@@ -179,6 +181,9 @@ impl MenuAction {
             MenuAction::BrowseAzureDevOpsProjectTeams => "browse azure devops project teams",
             MenuAction::BrowseServicePrincipals => "browse service principals",
             MenuAction::BrowseStorageAccounts => "browse storage accounts",
+            MenuAction::CreateImportBlockForRoleAssignment => {
+                "create import block for role assignment"
+            }
         }
     }
     pub async fn invoke(&self) -> Result<MenuActionResult> {
@@ -250,6 +255,9 @@ impl MenuAction {
             }
             MenuAction::BrowseServicePrincipals => browse_service_principals().await?,
             MenuAction::BrowseStorageAccounts => browse_storage_accounts().await?,
+            MenuAction::CreateImportBlockForRoleAssignment => {
+                create_import_block_for_role_assignment().await?
+            }
         }
         Ok(MenuActionResult::PauseAndContinue)
     }

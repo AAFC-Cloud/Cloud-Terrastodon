@@ -231,7 +231,6 @@ full = [
     "relative-location",
     "ui-ratatui",
     "ui-egui",
-    # "azure-locations",
     "credentials",
 ]
 

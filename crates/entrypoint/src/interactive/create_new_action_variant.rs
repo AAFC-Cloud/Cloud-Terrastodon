@@ -60,17 +60,23 @@ where
             manifest_dir.display(),
             &path
         ))?;
-    let mut ast = parse_file(&content)?;
+    let mut ast = parse_file(&content)
+        .wrap_err_with(|| format!("Parsing file content with syn failed for {}", full_path.display()))?;
 
     info!("Modifying {}", full_path.display());
-    mutator(&mut ast).wrap_err(format!("Failed mutating {}", full_path.display()))?;
+    mutator(&mut ast).wrap_err_with(|| format!("Failed mutating {}", full_path.display()))?;
 
     let modified_code = quote! {
         #ast
     };
 
-    let pretty_code = prettyplease::unparse(&syn::parse2(modified_code)?);
-    tokio::fs::write(&full_path, pretty_code).await?;
+    let pretty_code =
+        prettyplease::unparse(&syn::parse2(modified_code).wrap_err_with(|| {
+            format!("Parsing file with syn failed for {}", full_path.display())
+        })?);
+    tokio::fs::write(&full_path, pretty_code)
+        .await
+        .wrap_err_with(|| format!("Writing file contents failed for {}", full_path.display()))?;
 
     Command::new("rustfmt")
         .arg(full_path.as_os_str())

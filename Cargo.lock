@@ -1125,11 +1125,15 @@ dependencies = [
 name = "cloud_terrastodon_ui_ratatui"
 version = "0.28.0"
 dependencies = [
+ "cloud_terrastodon_azure",
+ "cloud_terrastodon_command",
+ "color-eyre",
  "crossterm",
  "eyre",
  "futures",
  "itertools 0.14.0",
  "ratatui",
+ "rustc-hash 2.1.1",
  "serde",
  "serde_json",
  "tokio",
