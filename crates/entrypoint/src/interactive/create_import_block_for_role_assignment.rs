@@ -29,9 +29,10 @@ pub async fn create_import_block_for_role_assignment() -> Result<()> {
                 else {
                     bail!("Chosen role assignment ID should exist in map");
                 };
-                let Some(principal) = principals.get(&role_assignment.principal_id) else {
-                    bail!("Chosen role assignment's principal ID should exist in map");
-                };
+                let principal_display_name = principals
+                    .get(&role_assignment.principal_id)
+                    .map(|principal| principal.display_name().to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
                 let import_block = HCLImportBlock {
                     provider: HCLProviderReference::Inherited,
                     id: role_assignment_id.expanded_form(),
@@ -40,7 +41,7 @@ pub async fn create_import_block_for_role_assignment() -> Result<()> {
                         name: format!(
                             "{}_{}",
                             role_assignment.scope.short_form(),
-                            principal.display_name()
+                            principal_display_name
                         )
                         .sanitize(),
                     },
