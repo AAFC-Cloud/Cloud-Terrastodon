@@ -42,6 +42,14 @@ impl RoleDefinitionsAndAssignments {
         Ok(rtn)
     }
 }
+impl std::fmt::Debug for RoleDefinitionsAndAssignments {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RoleDefinitionsAndAssignments")
+            .field("role_definitions_count", &self.role_definitions.len())
+            .field("role_assignments_count", &self.role_assignments.len())
+            .finish()
+    }
+}
 
 impl RoleDefinitionsAndAssignments {
     pub fn iter_role_assignments(

@@ -20,3 +20,10 @@ impl Deref for PrincipalCollection {
         &self.0
     }
 }
+impl std::fmt::Debug for PrincipalCollection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PrincipalCollection")
+            .field("principal_count", &self.0.len())
+            .finish()
+    }
+}
