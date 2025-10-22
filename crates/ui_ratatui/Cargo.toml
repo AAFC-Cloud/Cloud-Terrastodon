@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_ui_ratatui"
 description = "User interface for the Cloud Terrastodon project leveraging Ratatui"
-version = "0.28.0" # CT_VERSION
+version = "0.28.0"                                                                  # CT_VERSION
 readme.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -16,6 +16,7 @@ eyre = { workspace = true }
 itertools = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+strum = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 crossterm = { workspace = true }
@@ -26,19 +27,3 @@ cloud_terrastodon_command = { workspace = true }
 
 [dev-dependencies]
 color-eyre = { workspace = true }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
