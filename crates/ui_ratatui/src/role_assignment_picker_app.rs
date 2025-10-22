@@ -85,13 +85,10 @@ impl RoleAssignmentPickerApp {
         self.ui.status_message = "Loading role assignments and principals...".to_string();
 
         let result = 'outer: loop {
+            // 1. Handle background work completion
             self.work.handle_messages(&mut self.data)?;
-            if self.data.changed {
-                self.rebuild_rows_if_ready();
-            }
 
-            terminal.draw(|frame| self.draw(frame))?;
-
+            // 2. Handle keyboard input
             while event::poll(Duration::from_millis(0))? {
                 let evt = event::read()?;
                 if let Some(result) = self.handle_event(evt)? {
@@ -99,7 +96,17 @@ impl RoleAssignmentPickerApp {
                 }
             }
 
-            tokio::time::sleep(Duration::from_millis(75)).await;
+            // 3. Rebuild rows if data changed
+            if self.data.changed {
+                self.rebuild_rows_if_ready();
+            }
+
+            // 4. Draw the UI
+            terminal.draw(|frame| self.draw(frame))?;
+
+            // 5. Throttle loop to avoid busy waiting
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            // tokio::time::sleep(Duration::from_millis(75)).await;
         };
 
         ratatui::restore();
