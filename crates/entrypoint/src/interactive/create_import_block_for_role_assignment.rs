@@ -46,7 +46,7 @@ pub async fn create_import_block_for_role_assignment() -> Result<()> {
                         .sanitize(),
                     },
                 };
-                
+
                 println!("{}", import_block.as_hcl_string());
             }
 

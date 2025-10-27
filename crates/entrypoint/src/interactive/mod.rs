@@ -1,4 +1,3 @@
-mod create_import_block_for_role_assignment;
 mod apply_processed;
 mod azure_devops_project_import_wizard_menu;
 mod browse_azure_devops_project_teams;
@@ -23,6 +22,7 @@ mod clean_all;
 mod clean_imports;
 mod clean_processed;
 mod copy_azurerm_backend_menu;
+mod create_import_block_for_role_assignment;
 mod create_new_action_variant;
 mod create_oauth2_permission_grants;
 mod create_role_assignment_menu;
@@ -67,6 +67,7 @@ pub mod prelude {
     pub use crate::interactive::clean_imports::*;
     pub use crate::interactive::clean_processed::*;
     pub use crate::interactive::copy_azurerm_backend_menu::*;
+    pub use crate::interactive::create_import_block_for_role_assignment::*;
     pub use crate::interactive::create_new_action_variant::*;
     pub use crate::interactive::create_oauth2_permission_grants::*;
     pub use crate::interactive::create_role_assignment_menu::*;
@@ -85,5 +86,4 @@ pub mod prelude {
     pub use crate::interactive::run_query::*;
     pub use crate::interactive::tag_empty_resource_groups::*;
     pub use crate::interactive::tag_resources_menu::*;
-    pub use crate::interactive::create_import_block_for_role_assignment::*;
 }

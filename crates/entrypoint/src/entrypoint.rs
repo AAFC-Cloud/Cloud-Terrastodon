@@ -1,42 +1,9 @@
-use crate::clap::AzureCommand;
-use crate::clap::AzureDevOpsCommand;
-use crate::clap::Cli;
-use crate::clap::Commands;
-use crate::clap::TerraformCommand;
-use crate::menu::menu_loop;
-use crate::noninteractive::prelude::audit_azure;
-use crate::noninteractive::prelude::audit_azure_devops;
-use crate::noninteractive::prelude::clean;
-use crate::noninteractive::prelude::dump_azure_devops;
-use crate::noninteractive::prelude::dump_everything;
-use crate::noninteractive::prelude::perform_import;
-use crate::noninteractive::prelude::process_generated;
-use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
-use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
-use crate::noninteractive::prelude::write_imports_for_all_security_groups;
+use crate::cli::Cli;
 use crate::prelude::Version;
 use crate::tracing::init_tracing;
-use chrono::Local;
 use clap::CommandFactory;
 use clap::FromArgMatches;
-use cloud_terrastodon_azure::prelude::HCLImportable;
-use cloud_terrastodon_config::Config;
-use cloud_terrastodon_config::WorkDirsConfig;
-use cloud_terrastodon_hcl::prelude::GenerateConfigOutHelper;
-use cloud_terrastodon_hcl::prelude::HCLWriter;
-use cloud_terrastodon_hcl::prelude::discover_terraform_source_dirs;
-use cloud_terrastodon_hcl::prelude::reflow_workspace;
-use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_pathing::Existy;
-use cloud_terrastodon_ui_egui::egui_main;
-use cloud_terrastodon_ui_ratatui::prelude::ui_main;
-use eyre::Context;
 use eyre::Result;
-use std::fs::canonicalize;
-use std::path::Path;
-use tokio::io::AsyncWriteExt;
-use tokio::io::stdout;
-use tracing::info;
 use tracing::level_filters::LevelFilter;
 
 pub fn entrypoint(version: Version) -> Result<()> {
@@ -59,18 +26,18 @@ pub fn entrypoint(version: Version) -> Result<()> {
     let cli = Cli::from_arg_matches(&cmd.get_matches())?;
 
     // Configure backtrace-always
-    if cli.debug {
+    if cli.global_args.debug {
         unsafe { std::env::set_var("RUST_BACKTRACE", "full") };
         // std::env::set_var("RUST_BACKTRACE", "1");
     }
 
     // Configure tracing
     init_tracing(
-        match cli.debug {
+        match cli.global_args.debug {
             true => LevelFilter::DEBUG,
             false => LevelFilter::INFO,
         },
-        cli.json,
+        cli.global_args.json,
     )?;
 
     // Configure terminal colour support
@@ -93,136 +60,6 @@ pub fn entrypoint(version: Version) -> Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    runtime.block_on(handle(cli.command))?;
-    Ok(())
-}
-
-pub async fn handle(command: Option<Commands>) -> eyre::Result<()> {
-    match command {
-        None => {
-            menu_loop().await?;
-        }
-        Some(command) => match command {
-            Commands::AzureDevOps { command } => match command {
-                AzureDevOpsCommand::Audit => {
-                    audit_azure_devops().await?;
-                }
-            },
-            Commands::Azure { command } => match command {
-                AzureCommand::Audit => {
-                    audit_azure().await?;
-                }
-            },
-            Commands::Ratatui => {
-                ui_main().await?;
-            }
-            Commands::Egui => {
-                egui_main().await?;
-            }
-            Commands::Clean => {
-                clean().await?;
-            }
-            Commands::WriteAllImports => {
-                write_imports_for_all_resource_groups().await?;
-                write_imports_for_all_security_groups().await?;
-                write_imports_for_all_role_assignments().await?;
-            }
-            Commands::DumpAzureDevOps => {
-                dump_azure_devops().await?;
-            }
-            Commands::PerformCodeGenerationFromImports => {
-                perform_import().await?;
-                process_generated().await?;
-            }
-            Commands::GetPath { dir } => {
-                let mut out = stdout();
-                out.write_all(dir.as_path_buf().as_os_str().as_encoded_bytes())
-                    .await?;
-                out.flush().await?;
-            }
-            Commands::AddWorkDir { mut dir } => {
-                if !dir.is_absolute() {
-                    dir = canonicalize(&dir)
-                        .context(format!("failed to make path absolute: {}", dir.display()))?;
-                }
-                let mut config = WorkDirsConfig::load().await?;
-                config.work_dirs.insert(dir);
-                config.save().await?;
-            }
-            Commands::CopyResults { dest } => {
-                // from https://stackoverflow.com/a/78769977/11141271
-                #[async_recursion::async_recursion]
-                async fn copy_dir_all<S, D>(src: S, dst: D) -> Result<(), std::io::Error>
-                where
-                    S: AsRef<Path> + Send + Sync,
-                    D: AsRef<Path> + Send + Sync,
-                {
-                    tokio::fs::create_dir_all(&dst).await?;
-                    let mut entries = tokio::fs::read_dir(src).await?;
-                    while let Some(entry) = entries.next_entry().await? {
-                        let ty = entry.file_type().await?;
-                        if ty.is_dir() {
-                            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))
-                                .await?;
-                        } else {
-                            tokio::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))
-                                .await?;
-                        }
-                    }
-                    Ok(())
-                }
-                copy_dir_all(AppDir::Processed.as_path_buf(), dest).await?;
-            }
-            Commands::DumpEverything => {
-                dump_everything().await?;
-            }
-            Commands::Terraform { command } => match command {
-                TerraformCommand::Import { work_dir } => {
-                    let kind_to_import = HCLImportable::pick()?;
-                    let imports = kind_to_import.pick_into_body().await?;
-                    work_dir.ensure_dir_exists().await?;
-                    let work_dir = tempfile::Builder::new()
-                        .prefix(&format!(
-                            "generated_{}",
-                            Local::now().format("%Y%m%d_%H%M%S_")
-                        ))
-                        .suffix(".tf")
-                        .tempdir_in(&work_dir)?
-                        .keep();
-                    HCLWriter::new(work_dir.join("imports.tf"))
-                        .format_on_write()
-                        .overwrite(imports)
-                        .await?;
-                    GenerateConfigOutHelper::new()
-                        .with_run_dir(&work_dir)
-                        .run()
-                        .await?;
-                    info!("Reflowing content");
-                    let files = reflow_workspace(&work_dir)
-                        .await?
-                        .get_file_contents(&work_dir)?;
-                    for (path, contents) in files {
-                        HCLWriter::new(path)
-                            .format_on_write()
-                            .overwrite(contents)
-                            .await?;
-                    }
-                }
-                TerraformCommand::Audit {
-                    source_dir,
-                    recursive,
-                } => {
-                    if recursive {
-                        let source_dirs = discover_terraform_source_dirs(source_dir).await?;
-                        for dir in source_dirs {
-                            cloud_terrastodon_hcl::prelude::audit(&dir).await?;
-                        }
-                    } else {
-                        cloud_terrastodon_hcl::prelude::audit(&source_dir).await?;
-                    }
-                }
-            },
-        },
-    }
+    runtime.block_on(cli.invoke())?;
     Ok(())
 }

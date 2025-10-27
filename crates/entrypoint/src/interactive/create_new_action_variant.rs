@@ -60,8 +60,12 @@ where
             manifest_dir.display(),
             &path
         ))?;
-    let mut ast = parse_file(&content)
-        .wrap_err_with(|| format!("Parsing file content with syn failed for {}", full_path.display()))?;
+    let mut ast = parse_file(&content).wrap_err_with(|| {
+        format!(
+            "Parsing file content with syn failed for {}",
+            full_path.display()
+        )
+    })?;
 
     info!("Modifying {}", full_path.display());
     mutator(&mut ast).wrap_err_with(|| format!("Failed mutating {}", full_path.display()))?;
