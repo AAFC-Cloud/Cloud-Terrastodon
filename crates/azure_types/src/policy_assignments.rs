@@ -100,7 +100,7 @@ impl From<PolicyAssignment> for HCLImportBlock {
             id: policy_assignment.id.expanded_form().to_string(),
             to: ResourceBlockReference::AzureRM {
                 kind: AzureRMResourceBlockKind::ManagementGroupPolicyAssignment,
-                name: policy_assignment.name.sanitize(),
+                name: policy_assignment.id.expanded_form().sanitize(),
             },
         }
     }

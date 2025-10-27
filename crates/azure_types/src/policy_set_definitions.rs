@@ -76,45 +76,7 @@ impl From<PolicySetDefinition> for HCLImportBlock {
             id: policy_set_definition.id.expanded_form().to_string(),
             to: ResourceBlockReference::AzureRM {
                 kind: AzureRMResourceBlockKind::PolicySetDefinition,
-                name: {
-                    let prefix = match policy_set_definition.id {
-                        PolicySetDefinitionId::Unscoped(_) => None,
-                        PolicySetDefinitionId::ManagementGroupScoped(
-                            management_group_scoped_policy_definition_id,
-                        ) => Some(
-                            management_group_scoped_policy_definition_id
-                                .management_group_id
-                                .short_form(),
-                        ),
-                        PolicySetDefinitionId::SubscriptionScoped(
-                            subscription_scoped_policy_definition_id,
-                        ) => Some(
-                            subscription_scoped_policy_definition_id
-                                .subscription_id
-                                .short_form(),
-                        ),
-                        PolicySetDefinitionId::ResourceGroupScoped(
-                            resource_group_scoped_policy_definition_id,
-                        ) => Some(
-                            resource_group_scoped_policy_definition_id
-                                .resource_group_id
-                                .short_form(),
-                        ),
-                        PolicySetDefinitionId::ResourceScoped(
-                            resource_scoped_policy_definition_id,
-                        ) => Some(
-                            resource_scoped_policy_definition_id
-                                .resource_id
-                                .short_form(),
-                        ),
-                    };
-
-                    match prefix {
-                        None => policy_set_definition.name,
-                        Some(prefix) => format!("{}_{}", prefix, policy_set_definition.name),
-                    }
-                    .sanitize()
-                },
+                name: policy_set_definition.id.expanded_form().sanitize(),
             },
         }
     }
