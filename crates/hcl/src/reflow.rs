@@ -180,15 +180,15 @@ pub async fn read_file_into_body(path: &Path) -> Result<Option<Body>> {
         return Ok(None);
     }
 
-    debug!("Reading file contents");
+    debug!("Reading .tf file contents into byte array");
     let contents = fs::read(&path)
         .await
         .context(format!("reading {}", path.display()))?;
 
-    debug!("Parsing file contents");
+    debug!("Parsing .tf file contents as UTF-8 string");
     let text = String::from_utf8(contents).context(format!("utf-8 parsing {}", path.display()))?;
 
-    debug!("Parsing HCL body");
+    debug!("Parsing .tf file contents as HCL body");
     let body: Body = text
         .parse()
         .context(format!("body parsing {}", path.display()))?;

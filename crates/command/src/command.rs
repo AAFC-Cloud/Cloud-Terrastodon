@@ -30,9 +30,12 @@ use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
 use tokio::time::timeout;
+use tracing::Instrument;
 use tracing::debug;
+use tracing::debug_span;
 use tracing::error;
 use tracing::info;
+use tracing::info_span;
 use tracing::warn;
 
 #[derive(Clone, Copy, Default, Debug)]
@@ -214,12 +217,15 @@ impl CommandBuilder {
             valid_for,
         } = &self.cache_behaviour
         else {
+            debug!("Cache behaviour is None, not using cache");
             return Ok(None);
         };
         if valid_for.is_zero() {
+            debug!("Cache validity duration is zero, not using cache");
             return Ok(None);
         }
         if !cache_dir.exists() {
+            debug!("Cache directory does not exist, not using cache");
             return Ok(None);
         }
 
@@ -239,8 +245,13 @@ impl CommandBuilder {
             let file_contents = BString::from(file_contents);
             Ok(file_contents)
         };
-        let load_from_path =
-            async |path: &str| -> Result<BString> { load_from_pathbuf(&PathBuf::from(path)).await };
+        let load_from_path = async |path: &str| -> Result<BString> {
+            let span = debug_span!("Reading command cache from disk");
+            span.record("path", path);
+            load_from_pathbuf(&PathBuf::from(path))
+                .instrument(span)
+                .await
+        };
 
         // Check if cache is busted
         if !matches!(
@@ -267,10 +278,10 @@ impl CommandBuilder {
             // If an expectation is present, validate it
             if file_contents != *expected_contents {
                 debug!(
-                    "Cache context mismatch for {}, found: {}, expected: {}",
-                    path.display(),
-                    file_contents,
-                    expected_contents
+                    path=%path.display(),
+                    found=%file_contents,
+                    expected=%expected_contents,
+                    "Not using cache due to expected content mismatch. Did Cloud Terrastodon change what command is being called?",
                 );
                 return Ok(None);
             }
@@ -281,6 +292,8 @@ impl CommandBuilder {
         let now = Local::now();
         if now > timestamp + *valid_for {
             debug!(
+                %timestamp,
+                valid_for_seconds = valid_for.as_secs(),
                 "Cache entry has expired (was from {}, was valid for {})",
                 timestamp,
                 humantime::format_duration(*valid_for),
@@ -301,7 +314,7 @@ impl CommandBuilder {
     }
 
     pub async fn write_output(&self, output: &CommandOutput, parent_dir: &PathBuf) -> Result<()> {
-        debug!("Writing command results to {}", parent_dir.display());
+        debug!(path = %parent_dir.display(), "Writing command results");
 
         // Validate directory presence
         parent_dir.ensure_dir_exists().await?;
@@ -398,23 +411,9 @@ impl CommandBuilder {
 
         // Announce launch
         if self.should_announce {
-            info!(
-                command=self.summarize().await,
-                working_directory=self.run_dir
-                    .as_ref()
-                    .map(|x| x.display().to_string())
-                    .unwrap_or(".".to_string()),
-                "Running command",
-            );
+            info!("Running command");
         } else {
-            debug!(
-                command=self.summarize().await,
-                working_directory=self.run_dir
-                    .as_ref()
-                    .map(|x| x.display().to_string())
-                    .unwrap_or(".".to_string()),
-                "Running command",
-            );
+            debug!("Running command");
         }
 
         // Launch command
@@ -588,7 +587,15 @@ impl CommandBuilder {
 
     #[track_caller]
     pub async fn run_raw(&self) -> Result<CommandOutput> {
+        let span = info_span!("Running command");
+        span.record("command", &self.summarize().await);
+        span.record(
+            "working_directory",
+            &self.run_dir.as_ref().map(|x| x.display().to_string()),
+        );
+        span.record("cache_behaviour", &format!("{:?}", self.cache_behaviour));
         self.run_raw_inner()
+            .instrument(span)
             .await
             .wrap_err(format!(
                 "Command::run_raw failed, called from {}",

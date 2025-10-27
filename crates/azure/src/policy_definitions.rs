@@ -11,6 +11,7 @@ pub async fn fetch_all_policy_definitions() -> Result<Vec<PolicyDefinition>> {
         event = "fetching",
         what = "microsoft.authorization/policydefinitions",
         how = "resource graph",
+        "Fetching all policy definitions from resource graph"
     );
     let mut qb = ResourceGraphHelper::new(
         r#"
@@ -38,6 +39,8 @@ policyresources
         what = "microsoft.authorization/policydefinitions",
         how = "resource graph",
         count = rtn.len(),
+        "Fetched {} policy definitions from resource graph",
+        rtn.len()
     );
     Ok(rtn)
 }

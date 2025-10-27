@@ -140,9 +140,9 @@ impl GenerateConfigOutHelper {
                     let mut unfixable_error_count = 0;
                     for error in seen_errors {
                         if fixable_errors.contains(&error) {
-                            warn!("(auto-fixable) {}", error);
+                            warn!(?error, "Encountered auto-fixable error");
                         } else {
-                            warn!(?error," Encountered unrecognized error: {error}");
+                            warn!(?error," Encountered unrecognized error");
                             if error.contains_str("No valid credentials found") {
                                 warn!(
                                     "Did you forget to set your devops access token?\n```pwsh\n$env:AZDO_PERSONAL_ACCESS_TOKEN=Read-Host -MaskInput \"Enter PAT\"\n```"
