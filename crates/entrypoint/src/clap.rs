@@ -46,6 +46,7 @@ pub enum Commands {
         #[command(subcommand)]
         command: AzureDevOpsCommand,
     },
+    #[command(alias = "az")]
     Azure {
         #[command(subcommand)]
         command: AzureCommand,
@@ -82,3 +83,5 @@ pub enum AzureDevOpsCommand {
 pub enum AzureCommand {
     Audit,
 }
+
+
