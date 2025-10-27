@@ -7,6 +7,7 @@ use bstr::BString;
 use bstr::ByteSlice;
 use chrono::DateTime;
 use chrono::Local;
+use chrono::TimeDelta;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_relative_location::RelativeLocation;
@@ -22,6 +23,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 use tempfile::Builder;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
@@ -211,6 +213,7 @@ impl CommandBuilder {
     }
 
     pub async fn get_cached_output(&self) -> Result<Option<CommandOutput>> {
+        let start = Instant::now();
         // Short circuit if not using cache or if cache entry not present
         let CacheBehaviour::Some {
             path: cache_dir,
@@ -249,7 +252,7 @@ impl CommandBuilder {
             let span = debug_span!("Reading command cache from disk");
             span.record("path", path);
             load_from_pathbuf(&PathBuf::from(path))
-                .instrument(span)
+                .instrument(span.or_current())
                 .await
         };
 
@@ -290,13 +293,16 @@ impl CommandBuilder {
         let timestamp = load_from_path("timestamp.txt").await?;
         let timestamp = DateTime::parse_from_rfc2822(timestamp.to_str()?)?;
         let now = Local::now();
-        if now > timestamp + *valid_for {
+        let time_remaining = timestamp + *valid_for - now.fixed_offset();
+        if time_remaining < TimeDelta::zero() {
             debug!(
                 %timestamp,
                 valid_for_seconds = valid_for.as_secs(),
-                "Cache entry has expired (was from {}, was valid for {})",
+                expired_for_seconds = time_remaining.abs().num_seconds(),
+                "Cache entry has expired (was from {}, was valid for {}, expired {} ago)",
                 timestamp,
                 humantime::format_duration(*valid_for),
+                humantime::format_duration(time_remaining.abs().to_std().unwrap()),
             );
             return Ok(None);
         }
@@ -304,6 +310,16 @@ impl CommandBuilder {
         let status: i32 = load_from_path("status.txt").await?.to_str()?.parse()?;
         let stdout = load_from_path("stdout.json").await?;
         let stderr = load_from_path("stderr.json").await?;
+
+        let elapsed = Instant::now().duration_since(start);
+        debug!(
+            %timestamp,
+            valid_for_seconds = valid_for.as_secs(),
+            remaining_seconds = time_remaining.num_seconds(),
+            cache_load_ms = elapsed.as_millis(),
+            "Loaded command output from cache in {}",
+            humantime::format_duration(elapsed),
+        );
 
         // Return!
         Ok(Some(CommandOutput {
@@ -378,7 +394,10 @@ impl CommandBuilder {
         // Check cache
         match self.get_cached_output().await {
             Ok(None) => {}
-            Ok(Some(output)) => return Ok(output),
+            Ok(Some(output)) => {
+                debug!("Using cached command output");
+                return Ok(output);
+            }
             Err(e) => {
                 debug!("Cache load failed: {:?}", e);
             }
@@ -587,15 +606,10 @@ impl CommandBuilder {
 
     #[track_caller]
     pub async fn run_raw(&self) -> Result<CommandOutput> {
-        let span = info_span!("Running command");
-        span.record("command", &self.summarize().await);
-        span.record(
-            "working_directory",
-            self.run_dir.as_ref().map(|x| x.display().to_string()),
-        );
-        span.record("cache_behaviour", format!("{:?}", self.cache_behaviour));
+        let summary = self.summarize().await;
+        let span = info_span!("run_command", summary, ?self.run_dir, ?self.cache_behaviour);
         self.run_raw_inner()
-            .instrument(span)
+            .instrument(span.or_current())
             .await
             .wrap_err(format!(
                 "Command::run_raw failed, called from {}",

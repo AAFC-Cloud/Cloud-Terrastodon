@@ -84,7 +84,7 @@ where
     for (i, row) in data.rows.into_iter().enumerate() {
         let mut map = serde_json::Map::new();
         for (column, value) in data.columns.iter().zip(row) {
-            map.insert(column.name.to_owned(), value);
+            map.insert(column.name.to_owned(), value); // todo: optimize this, policy stuff takes 20 seconds to load lol
         }
         // in dev, clone the map so we can display when there are errors :/
         #[cfg(debug_assertions)]
