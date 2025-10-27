@@ -135,13 +135,14 @@ impl GenerateConfigOutHelper {
                         BString::from("Invalid combination of arguments"),
                         BString::from("Feature map must contain at least on entry"),
                         BString::from("expected \"display_name\" to not be an empty string, got"),
+                        BString::from("the ID was missing the `managementGroups` element"),
                     ]);
                     let mut unfixable_error_count = 0;
                     for error in seen_errors {
                         if fixable_errors.contains(&error) {
                             warn!("(auto-fixable) {}", error);
                         } else {
-                            warn!("{error}\n\t{error:?}");
+                            warn!(?error," Encountered unrecognized error: {error}");
                             if error.contains_str("No valid credentials found") {
                                 warn!(
                                     "Did you forget to set your devops access token?\n```pwsh\n$env:AZDO_PERSONAL_ACCESS_TOKEN=Read-Host -MaskInput \"Enter PAT\"\n```"

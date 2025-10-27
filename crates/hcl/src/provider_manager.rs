@@ -258,7 +258,7 @@ impl ProviderManager {
         let active_sub_id = get_active_subscription_id().await?;
 
         // Open boilerplate file
-        debug!("Writing default provider configs in {}", work_dir.display());
+        debug!(path = work_dir.display(), "Writing default provider configs");
         let boilerplate_path = work_dir.join("boilerplate.tf");
         HCLWriter::new(boilerplate_path)
             .merge(vec![TerraformBlock {

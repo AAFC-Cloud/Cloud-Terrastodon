@@ -127,14 +127,22 @@ impl ResourceGraphHelper {
             });
         }
 
-        // Increment index for the next potential query
-        self.index += 1;
+        debug!(
+            batch_index=self.index,
+            batch_size,
+            skip,
+            ?self.cache_behaviour,
+            "Fetching resource graph batch",
+        );
 
         // Run command
         // TODO: handle throttling
         // https://learn.microsoft.com/en-us/azure/governance/resource-graph/overview#throttling
         // https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/guidance-for-throttled-requests
         let results = cmd.run::<ResourceGraphQueryResponse<T>>().await?;
+
+        // Increment index for the next potential query
+        self.index += 1;
 
         // Update skip token
         if let Some(skip_token) = &results.skip_token {
@@ -153,15 +161,19 @@ impl ResourceGraphHelper {
     #[track_caller]
     pub async fn collect_all<T: DeserializeOwned>(&mut self) -> Result<Vec<T>> {
         let mut all_data = Vec::new();
-        debug!("Fetching first batch");
         while let Some(response) = self.fetch().await? {
             all_data.extend(response.data);
 
             if self.skip.is_none() {
                 break;
             }
-            debug!("Fetching next batch");
         }
+
+        debug!(
+            total_items=all_data.len(),
+            ?self.cache_behaviour,
+            "Completed fetching all resource graph data",
+        );
 
         Ok(all_data)
     }

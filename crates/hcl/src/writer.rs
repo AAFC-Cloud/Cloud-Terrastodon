@@ -42,7 +42,7 @@ impl HCLWriter {
     }
 
     pub async fn format_file(&self) -> Result<()> {
-        debug!("Formatting tf file {}", self.path.display());
+        debug!(path = self.path.display(), "Formatting tf file");
         CommandBuilder::new(CommandKind::Terraform)
             .arg("fmt")
             .arg(self.path.as_os_str())
@@ -81,7 +81,7 @@ impl HCLWriter {
         &self,
         to_merge: impl IntoIterator<Item = impl Into<HCLBlock>>,
     ) -> Result<&Self> {
-        debug!("Merging into tf file {}", self.path.display());
+        debug!(path = self.path.display(), "Merging into tf file");
         self.path.ensure_parent_dir_exists().await?;
         let mut file = OpenOptions::new()
             .create(true)

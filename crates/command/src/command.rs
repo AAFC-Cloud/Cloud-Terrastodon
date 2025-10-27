@@ -399,21 +399,21 @@ impl CommandBuilder {
         // Announce launch
         if self.should_announce {
             info!(
-                "Running `{}` in \"{}\"",
-                self.summarize().await,
-                self.run_dir
+                command=self.summarize().await,
+                working_directory=self.run_dir
                     .as_ref()
                     .map(|x| x.display().to_string())
-                    .unwrap_or(".".to_string())
+                    .unwrap_or(".".to_string()),
+                "Running command",
             );
         } else {
             debug!(
-                "Running `{}` in \"{}\"",
-                self.summarize().await,
-                self.run_dir
+                command=self.summarize().await,
+                working_directory=self.run_dir
                     .as_ref()
                     .map(|x| x.display().to_string())
-                    .unwrap_or(".".to_string())
+                    .unwrap_or(".".to_string()),
+                "Running command",
             );
         }
 
