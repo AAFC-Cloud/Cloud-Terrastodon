@@ -11,6 +11,7 @@
 - Add `azure audit` and `azure-dev-ops audit` commands
 - Remove dependency on `validator` crate in favour of just using `eyre` for context
 - Add `create import block for role assignment` action
+- Add `AzureDevOpsLicenseEntitlementLicense` variant for `Msdn-Eligible`, add Other variant
 
 # v0.28.0
 
