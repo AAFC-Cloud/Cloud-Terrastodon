@@ -24,10 +24,14 @@ pub enum AzureDevOpsLicenseEntitlementLicense {
     /// Basic+Test plans
     #[serde(rename = "Account-Advanced")]
     AccountAdvanced,
+    #[serde(rename = "Msdn-Eligible")]
+    MsdnEligible,
     #[serde(rename = "Msdn-Enterprise")]
     MsdnEnterprise,
     #[serde(rename = "Msdn-Professional")]
     MsdnProfessional,
+    #[serde(untagged)]
+    Other(String),
 }
 impl AzureDevOpsLicenseEntitlementLicense {
     /// https://azure.microsoft.com/en-us/pricing/details/devops/azure-devops-services/
@@ -38,7 +42,63 @@ impl AzureDevOpsLicenseEntitlementLicense {
             AzureDevOpsLicenseEntitlementLicense::AccountAdvanced => 71.93,
             AzureDevOpsLicenseEntitlementLicense::MsdnEnterprise => 0.00,
             AzureDevOpsLicenseEntitlementLicense::MsdnProfessional => 0.00,
+            AzureDevOpsLicenseEntitlementLicense::MsdnEligible => 0.00,
+            AzureDevOpsLicenseEntitlementLicense::Other(_) => 0.0,
         }
+    }
+}
+
+#[cfg(test)]
+mod license_tests {
+    use super::AzureDevOpsLicenseEntitlementLicense;
+
+    #[test]
+    pub fn deserializes_account_express() -> eyre::Result<()> {
+        let license = serde_json::from_str::<AzureDevOpsLicenseEntitlementLicense>(r#""Account-Express""#)?;
+        assert_eq!(license, AzureDevOpsLicenseEntitlementLicense::AccountExpress);
+        Ok(())
+    }
+
+    #[test]
+    pub fn deserializes_account_stakeholder() -> eyre::Result<()> {
+        let license = serde_json::from_str::<AzureDevOpsLicenseEntitlementLicense>(r#""Account-Stakeholder""#)?;
+        assert_eq!(license, AzureDevOpsLicenseEntitlementLicense::AccountStakeholder);
+        Ok(())
+    }
+
+    #[test]
+    pub fn deserializes_account_advanced() -> eyre::Result<()> {
+        let license = serde_json::from_str::<AzureDevOpsLicenseEntitlementLicense>(r#""Account-Advanced""#)?;
+        assert_eq!(license, AzureDevOpsLicenseEntitlementLicense::AccountAdvanced);
+        Ok(())
+    }
+
+    #[test]
+    pub fn deserializes_msdn_eligible() -> eyre::Result<()> {
+        let license = serde_json::from_str::<AzureDevOpsLicenseEntitlementLicense>(r#""Msdn-Eligible""#)?;
+        assert_eq!(license, AzureDevOpsLicenseEntitlementLicense::MsdnEligible);
+        Ok(())
+    }
+
+    #[test]
+    pub fn deserializes_msdn_enterprise() -> eyre::Result<()> {
+        let license = serde_json::from_str::<AzureDevOpsLicenseEntitlementLicense>(r#""Msdn-Enterprise""#)?;
+        assert_eq!(license, AzureDevOpsLicenseEntitlementLicense::MsdnEnterprise);
+        Ok(())
+    }
+
+    #[test]
+    pub fn deserializes_msdn_professional() -> eyre::Result<()> {
+        let license = serde_json::from_str::<AzureDevOpsLicenseEntitlementLicense>(r#""Msdn-Professional""#)?;
+        assert_eq!(license, AzureDevOpsLicenseEntitlementLicense::MsdnProfessional);
+        Ok(())
+    }
+
+    #[test]
+    pub fn deserializes_other() -> eyre::Result<()> {
+        let license = serde_json::from_str::<AzureDevOpsLicenseEntitlementLicense>(r#""Custom-License""#)?;
+        assert_eq!(license, AzureDevOpsLicenseEntitlementLicense::Other("Custom-License".to_string()));
+        Ok(())
     }
 }
 
