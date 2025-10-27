@@ -591,9 +591,9 @@ impl CommandBuilder {
         span.record("command", &self.summarize().await);
         span.record(
             "working_directory",
-            &self.run_dir.as_ref().map(|x| x.display().to_string()),
+            self.run_dir.as_ref().map(|x| x.display().to_string()),
         );
-        span.record("cache_behaviour", &format!("{:?}", self.cache_behaviour));
+        span.record("cache_behaviour", format!("{:?}", self.cache_behaviour));
         self.run_raw_inner()
             .instrument(span)
             .await

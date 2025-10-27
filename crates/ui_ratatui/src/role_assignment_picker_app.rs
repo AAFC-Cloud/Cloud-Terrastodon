@@ -65,6 +65,12 @@ pub struct RoleAssignmentPickerApp {
     selected_role_assignments: FxHashSet<RoleAssignmentId>,
 }
 
+impl Default for RoleAssignmentPickerApp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RoleAssignmentPickerApp {
     /// Creates a new app instance.
     pub fn new() -> Self {
