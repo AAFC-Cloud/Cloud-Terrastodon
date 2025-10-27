@@ -4,8 +4,14 @@ use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
+use tracing::debug;
 
 pub async fn fetch_all_policy_definitions() -> Result<Vec<PolicyDefinition>> {
+    debug!(
+        event = "fetching",
+        what = "microsoft.authorization/policydefinitions",
+        how = "resource graph",
+    );
     let mut qb = ResourceGraphHelper::new(
         r#"
 policyresources
@@ -26,7 +32,14 @@ policyresources
             valid_for: Duration::from_hours(8),
         },
     );
-    qb.collect_all().await
+    let rtn = qb.collect_all().await?;
+    debug!(
+        event = "fetch complete",
+        what = "microsoft.authorization/policydefinitions",
+        how = "resource graph",
+        count = rtn.len(),
+    );
+    Ok(rtn)
 }
 #[cfg(test)]
 mod tests {
