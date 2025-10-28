@@ -5,6 +5,7 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
+use tracing::info;
 
 /// Arguments for browsing Azure policy definitions interactively.
 #[derive(Args, Debug, Clone)]
@@ -12,7 +13,13 @@ pub struct AzurePolicyDefinitionBrowseArgs {}
 
 impl AzurePolicyDefinitionBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
+        info!("Fetching Azure policy definitions...");
         let policy_definitions = fetch_all_policy_definitions().await?;
+        info!(
+            count = policy_definitions.len(),
+            "Fetched Azure policy definitions",
+        );
+
         let choices = policy_definitions.into_iter().map(|definition| Choice {
             key: match definition.description.as_ref() {
                 Some(description) => format!("{definition} - {description}"),
@@ -21,13 +28,13 @@ impl AzurePolicyDefinitionBrowseArgs {
             value: definition,
         });
 
-        let selected: Vec<PolicyDefinition> = PickerTui::new(choices)
+        let chosen: Vec<PolicyDefinition> = PickerTui::new(choices)
             .set_header("Select Azure policy definitions")
             .pick_many()?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &selected)?;
+        serde_json::to_writer_pretty(&mut handle, &chosen)?;
         handle.write_all(b"\n")?;
 
         Ok(())
