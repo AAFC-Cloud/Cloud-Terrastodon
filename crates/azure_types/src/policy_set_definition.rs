@@ -1,5 +1,6 @@
 use crate::prelude::PolicyDefinitionId;
 use crate::prelude::PolicySetDefinitionId;
+use crate::prelude::PolicySetDefinitionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
@@ -36,7 +37,7 @@ pub struct PolicySetDefinitionPolicyDefinition {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicySetDefinition {
     pub id: PolicySetDefinitionId,
-    pub name: String,
+    pub name: PolicySetDefinitionName,
     pub display_name: Option<String>,
     pub description: Option<String>,
     pub parameters: Option<HashMap<String, Value>>,

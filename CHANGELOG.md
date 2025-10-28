@@ -12,6 +12,12 @@
 - Remove dependency on `validator` crate in favour of just using `eyre` for context
 - Add `create import block for role assignment` action
 - Add `AzureDevOpsLicenseEntitlementLicense` variant for `Msdn-Eligible`, add Other variant
+- Revamp `cloud_terrastodon_command` tracing
+- Revamp internal CLI structure
+    - add `cloud_terrastodon.exe az group list`
+    - add `cloud_terrastodon.exe az group browse`
+    - add `cloud_terrastodon.exe az policy definition list`
+    - add `cloud_terrastodon.exe az policy definition browse`
 
 # v0.28.0
 

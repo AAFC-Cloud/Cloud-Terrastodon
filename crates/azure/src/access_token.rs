@@ -1,9 +1,9 @@
 use cloud_terrastodon_azure_types::prelude::AccessToken;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use serde::de::DeserializeOwned;
+use cloud_terrastodon_command::FromCommandOutput;
 
-pub async fn fetch_access_token<T: DeserializeOwned>() -> eyre::Result<AccessToken<T>> {
+pub async fn fetch_access_token<T: FromCommandOutput>() -> eyre::Result<AccessToken<T>> {
     CommandBuilder::new(CommandKind::AzureCLI)
         .args(["account", "get-access-token", "--output", "json"])
         .run::<AccessToken<T>>()

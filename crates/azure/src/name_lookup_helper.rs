@@ -38,12 +38,12 @@ pub async fn fetch_names_for(kind: ScopeImplKind) -> Result<HashMap<ScopeImpl, S
         ScopeImplKind::PolicyDefinition => fetch_all_policy_definitions()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope_impl(), x.name))
+            .map(|x| (x.id.as_scope_impl(), x.name.to_string()))
             .collect(),
         ScopeImplKind::PolicySetDefinition => fetch_all_policy_set_definitions()
             .await?
             .into_iter()
-            .map(|x| (x.id.as_scope_impl(), x.name))
+            .map(|x| (x.id.as_scope_impl(), x.name.to_string()))
             .collect(),
         ScopeImplKind::PolicyAssignment => fetch_all_policy_assignments()
             .await?

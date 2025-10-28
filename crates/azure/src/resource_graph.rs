@@ -2,12 +2,12 @@ use cloud_terrastodon_azure_types::prelude::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::FromCommandOutput;
 use eyre::Result;
 #[cfg(debug_assertions)]
 use eyre::bail;
 use serde::Deserialize;
 use serde::Serialize;
-use serde::de::DeserializeOwned;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -70,7 +70,7 @@ impl ResourceGraphHelper {
     }
 
     #[track_caller]
-    pub async fn fetch<T: DeserializeOwned>(
+    pub async fn fetch<T: FromCommandOutput>(
         &mut self,
     ) -> Result<Option<ResourceGraphQueryResponse<T>>> {
         #[cfg(debug_assertions)]
@@ -159,7 +159,7 @@ impl ResourceGraphHelper {
     }
 
     #[track_caller]
-    pub async fn collect_all<T: DeserializeOwned>(&mut self) -> Result<Vec<T>> {
+    pub async fn collect_all<T: FromCommandOutput>(&mut self) -> Result<Vec<T>> {
         let mut all_data = Vec::new();
         while let Some(response) = self.fetch().await? {
             all_data.extend(response.data);

@@ -1,9 +1,9 @@
 use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::FromCommandOutput;
 use eyre::Result;
 use serde::Deserialize;
-use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 
 enum NextLink {
@@ -28,7 +28,7 @@ impl MicrosoftGraphHelper {
         }
     }
 
-    pub async fn fetch_one<T: DeserializeOwned>(self) -> Result<T> {
+    pub async fn fetch_one<T: FromCommandOutput>(self) -> Result<T> {
         // Build command
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["rest", "--method", "GET", "--url"]);
@@ -43,7 +43,7 @@ impl MicrosoftGraphHelper {
     }
 
     /// This doesn't handle 'singleton' responses like https://graph.microsoft.com/v1.0/me
-    pub async fn fetch_all<T: DeserializeOwned>(&self) -> Result<Vec<T>> {
+    pub async fn fetch_all<T: FromCommandOutput>(&self) -> Result<Vec<T>> {
         let mut results = Vec::new();
         let mut next_link = NextLink::Uninitialized;
         let mut request_index = 0;

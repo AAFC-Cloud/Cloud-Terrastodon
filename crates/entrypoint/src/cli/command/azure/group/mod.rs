@@ -1,12 +1,12 @@
-pub mod azure_group_browse;
 pub mod azure_group;
+pub mod azure_group_browse;
 pub mod azure_group_list;
 
+pub use azure_group::AzureGroupCommand;
 pub use azure_group_browse::AzureGroupBrowseArgs;
+pub use azure_group_list::AzureGroupListArgs;
 use clap::Args;
 use eyre::Result;
-pub use azure_group::AzureGroupCommand;
-pub use azure_group_list::AzureGroupListArgs;
 
 /// Manage Azure resource groups.
 #[derive(Args, Debug, Clone)]

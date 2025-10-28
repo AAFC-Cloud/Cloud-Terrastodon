@@ -2,9 +2,9 @@ use crate::prelude::HttpMethod;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::FromCommandOutput;
 use serde::Deserialize;
 use serde::Serialize;
-use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -51,7 +51,7 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
             self.add(entry.into());
         }
     }
-    pub async fn send<RESP: DeserializeOwned>(
+    pub async fn send<RESP: FromCommandOutput>(
         self,
     ) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>> {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -108,25 +108,25 @@ impl<T> MicrosoftGraphBatchRequestEntry<T> {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(bound(deserialize = "T: DeserializeOwned"))]
-pub struct MicrosoftGraphBatchResponse<T: DeserializeOwned> {
+#[serde(bound(deserialize = "T: FromCommandOutput"))]
+pub struct MicrosoftGraphBatchResponse<T: FromCommandOutput> {
     pub responses: Vec<MicrosoftGraphBatchResponseEntry<T>>,
 }
-impl<T: DeserializeOwned> Deref for MicrosoftGraphBatchResponse<T> {
+impl<T: FromCommandOutput> Deref for MicrosoftGraphBatchResponse<T> {
     type Target = Vec<MicrosoftGraphBatchResponseEntry<T>>;
     fn deref(&self) -> &Self::Target {
         &self.responses
     }
 }
-impl<T: DeserializeOwned> DerefMut for MicrosoftGraphBatchResponse<T> {
+impl<T: FromCommandOutput> DerefMut for MicrosoftGraphBatchResponse<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.responses
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(bound(deserialize = "T: DeserializeOwned"))]
-pub struct MicrosoftGraphBatchResponseEntry<T: DeserializeOwned> {
+#[serde(bound(deserialize = "T: FromCommandOutput"))]
+pub struct MicrosoftGraphBatchResponseEntry<T: FromCommandOutput> {
     pub id: String,
     pub status: u16,
     pub headers: HashMap<String, String>,
@@ -134,11 +134,11 @@ pub struct MicrosoftGraphBatchResponseEntry<T: DeserializeOwned> {
 }
 
 #[derive(Debug)]
-pub enum MicrosoftGraphBatchResponseEntryBody<T: DeserializeOwned> {
+pub enum MicrosoftGraphBatchResponseEntryBody<T: FromCommandOutput> {
     Success(T),
     Error(MicrosoftGraphBatchResponseEntryError),
 }
-impl<'de, T: DeserializeOwned> Deserialize<'de> for MicrosoftGraphBatchResponseEntryBody<T> {
+impl<'de, T: FromCommandOutput> Deserialize<'de> for MicrosoftGraphBatchResponseEntryBody<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,

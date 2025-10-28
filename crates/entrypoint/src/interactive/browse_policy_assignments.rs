@@ -144,7 +144,8 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
                     policy_definition
                         .display_name
                         .as_ref()
-                        .unwrap_or(&policy_definition.name)
+                        .map(|s| s.as_str())
+                        .unwrap_or(policy_definition.name.as_str())
                         .to_owned(),
                 );
                 match &policy_definition.description {
@@ -207,7 +208,8 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
                         policy_set_definition
                             .display_name
                             .as_ref()
-                            .unwrap_or(&policy_set_definition.name)
+                            .map(|s| s.as_str())
+                            .unwrap_or(policy_set_definition.name.as_str())
                             .to_owned(),
                     );
 
@@ -222,7 +224,8 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
                         policy_definition
                             .display_name
                             .as_ref()
-                            .unwrap_or(&policy_definition.name)
+                            .map(|s| s.as_str())
+                            .unwrap_or(policy_definition.name.as_str())
                             .to_owned(),
                     );
                     match &policy_definition.description {

@@ -27,6 +27,7 @@ chrono.workspace = true
 clap.workspace = true 
 iso8601-duration.workspace = true
 itertools.workspace = true
+humantime.workspace = true
 compact_str = { workspace = true, features = ["serde"] }
 # regex.workspace = true
 arbitrary.workspace = true

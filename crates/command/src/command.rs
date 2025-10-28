@@ -31,6 +31,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
+use tokio::task::spawn_blocking;
 use tokio::time::timeout;
 use tracing::Instrument;
 use tracing::debug;
@@ -39,6 +40,9 @@ use tracing::error;
 use tracing::info;
 use tracing::info_span;
 use tracing::warn;
+
+pub trait FromCommandOutput: DeserializeOwned + Send + 'static {}
+impl<T> FromCommandOutput for T where T: DeserializeOwned + Send + 'static {}
 
 #[derive(Clone, Copy, Default, Debug)]
 pub enum RetryBehaviour {
@@ -391,18 +395,6 @@ impl CommandBuilder {
     #[async_recursion]
     #[track_caller]
     pub async fn run_raw_inner(&self) -> Result<CommandOutput> {
-        // Check cache
-        match self.get_cached_output().await {
-            Ok(None) => {}
-            Ok(Some(output)) => {
-                debug!("Using cached command output");
-                return Ok(output);
-            }
-            Err(e) => {
-                debug!("Cache load failed: {:?}", e);
-            }
-        }
-
         let mut command = Command::new(self.kind.program().await);
         match self.output_behaviour {
             OutputBehaviour::Capture => {
@@ -430,9 +422,9 @@ impl CommandBuilder {
 
         // Announce launch
         if self.should_announce {
-            info!("Running command");
+            info!("Executing command");
         } else {
-            debug!("Running command");
+            debug!("Executing command");
         }
 
         // Launch command
@@ -606,47 +598,93 @@ impl CommandBuilder {
 
     #[track_caller]
     pub async fn run_raw(&self) -> Result<CommandOutput> {
-        let summary = self.summarize().await;
-        let span = info_span!("run_command", summary, ?self.run_dir, ?self.cache_behaviour);
-        self.run_raw_inner()
-            .instrument(span.or_current())
-            .await
-            .wrap_err(format!(
-                "Command::run_raw failed, called from {}",
-                RelativeLocation::from(std::panic::Location::caller())
-            ))
-            .wrap_err(format!(
-                "Invoking command failed: {}",
-                self.summarize().await
-            ))
+        (async move || {
+            // Check cache
+            match self.get_cached_output().await {
+                Ok(None) => {}
+                Ok(Some(output)) => {
+                    return Ok(output);
+                }
+                Err(e) => {
+                    debug!("Cache load failed: {:?}", e);
+                }
+            }
+
+            let start = Instant::now();
+            let rtn = self.run_raw_inner().await;
+            let elapsed = Instant::now().duration_since(start);
+            debug!(
+                elapsed_ms = elapsed.as_millis(),
+                "Command executed in {}",
+                humantime::format_duration(elapsed),
+            );
+            rtn
+        })()
+        .await
+        .wrap_err(format!(
+            "Command::run_raw failed, called from {}",
+            RelativeLocation::from(std::panic::Location::caller())
+        ))
+        .wrap_err(format!(
+            "Invoking command failed: {}",
+            self.summarize().await
+        ))
     }
 
     #[track_caller]
-    pub async fn run<T>(&self) -> Result<T>
-    where
-        T: DeserializeOwned,
-    {
-        // Get stdout
-        let output = self.run_raw().await;
-        let output = output.wrap_err(format!(
-            "Command::run failed, called from {}",
-            RelativeLocation::from(std::panic::Location::caller())
-        ))?;
+    pub async fn run<T: FromCommandOutput>(&self) -> Result<T> {
+        let summary = self.summarize().await;
+        let span =
+            info_span!("command_run", summary, ?self.run_dir, ?self.cache_behaviour).or_current();
 
-        // Parse
-        match serde_json::from_slice(output.stdout.to_str_lossy().as_bytes()) {
+        let output = self
+            .run_raw()
+            .instrument(span.clone())
+            .await
+            .wrap_err(format!(
+                "Command::run failed, called from {}",
+                RelativeLocation::from(std::panic::Location::caller())
+            ))?;
+        let output = Arc::new(output);
+
+        let parse_result = {
+            let output = Arc::clone(&output);
+            let span = span.clone();
+            spawn_blocking(move || {
+                let _guard = span.enter();
+                let span2 = info_span!("command_parse_output").or_current();
+                let _guard2 = span2.enter();
+                let start = Instant::now();
+
+                let stdout = output.stdout.to_str_lossy();
+                let slice = stdout.as_bytes();
+                let parse_result = serde_json::from_slice(slice);
+
+                let elapsed = Instant::now().duration_since(start);
+                debug!(
+                    parse_ms = elapsed.as_millis(),
+                    "Parsed command output in {}",
+                    humantime::format_duration(elapsed),
+                );
+                parse_result
+            })
+            .await?
+        };
+
+        match parse_result {
             Ok(results) => Ok(results),
             Err(e) => {
-                let dir = self.write_failure(&output).await?;
+                let dir = self
+                    .write_failure(&output)
+                    .instrument(span.or_current())
+                    .await?;
                 Err(eyre::Error::new(e)
                     // .wrap_err(format!(
                     //     "Called from {}",
                     //     RelativeLocation::from(std::panic::Location::caller())
                     // ))
                     .wrap_err(format!(
-                        "deserializing `{}` failed, dumped to {:?}",
-                        self.summarize().await,
-                        dir
+                        "deserializing `{summary}` failed, dumped to {dir:?}",
                     )))
             }
         }
