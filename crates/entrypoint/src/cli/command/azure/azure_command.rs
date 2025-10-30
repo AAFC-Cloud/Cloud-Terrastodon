@@ -1,5 +1,6 @@
 use super::group::AzureGroupArgs;
 use super::policy::AzurePolicyArgs;
+use super::pim::AzurePimArgs;
 use super::tag::AzureTagArgs;
 use crate::noninteractive::prelude::audit_azure;
 use clap::Subcommand;
@@ -16,6 +17,8 @@ pub enum AzureCommand {
     Policy(AzurePolicyArgs),
     /// Manage Azure resource tags.
     Tag(AzureTagArgs),
+    /// Manage Azure Privileged Identity Management operations.
+    Pim(AzurePimArgs),
 }
 
 impl AzureCommand {
@@ -31,6 +34,9 @@ impl AzureCommand {
                 args.invoke().await?;
             }
             AzureCommand::Tag(args) => {
+                args.invoke().await?;
+            }
+            AzureCommand::Pim(args) => {
                 args.invoke().await?;
             }
         }

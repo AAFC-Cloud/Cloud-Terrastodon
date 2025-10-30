@@ -1,6 +1,7 @@
 pub mod azure_command;
 pub mod group;
 pub mod policy;
+pub mod pim;
 pub mod tag;
 
 use clap::Args;
