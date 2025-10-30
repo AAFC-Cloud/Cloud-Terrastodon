@@ -244,6 +244,9 @@ impl<T> PickerTui<T> {
                         // Move the selection to the bottom
                         list_state.select(Some(search_results_keys.len().saturating_sub(1)));
                     }
+                    KeyCode::BackTab if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        self.query_changed = self.query_text_area.delete_word()
+                    }
                     _ => {
                         // Send the key to the search box
                         self.query_changed = self.query_text_area.input(key);
