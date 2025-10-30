@@ -8,7 +8,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
-use tracing::info;
+use tracing::debug;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum HttpMethod {
@@ -124,7 +124,11 @@ where
             })?,
         );
 
-        info!("Performing batch request {} of {}", i + 1, num_chunks);
+        debug!(
+            batch_index = i,
+            total_batches = num_chunks,
+            "Performing batch request"
+        );
         let response = cmd.run_with_validator(validator).await?;
         rtn.responses.extend(response.responses);
     }

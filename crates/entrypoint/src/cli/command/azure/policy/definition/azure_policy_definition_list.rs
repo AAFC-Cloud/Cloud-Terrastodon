@@ -1,6 +1,7 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
 use eyre::Result;
+use tracing::info;
 use std::io::Write;
 
 /// Arguments for listing Azure policy definitions.
@@ -9,7 +10,13 @@ pub struct AzurePolicyDefinitionListArgs {}
 
 impl AzurePolicyDefinitionListArgs {
     pub async fn invoke(self) -> Result<()> {
+        info!("Fetching Azure policy definitions...");
         let policy_definitions = fetch_all_policy_definitions().await?;
+        info!(
+            count = policy_definitions.len(),
+            "Fetched Azure policy definitions",
+        );
+        
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
         serde_json::to_writer_pretty(&mut handle, &policy_definitions)?;

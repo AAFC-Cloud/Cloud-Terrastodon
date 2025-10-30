@@ -132,10 +132,13 @@ impl AsScope for Resource {
 }
 impl std::fmt::Display for Resource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "display_name={:64?}\tname={:64?}\tid={}",
-            self.display_name, self.name, self.id
-        ))
+        match self.display_name {
+            Some(ref display_name) => f.write_fmt(format_args!(
+                "{:64} {:63} {}",
+                display_name, self.name, self.id
+            )),
+            None => f.write_fmt(format_args!("{:128} {}", self.name, self.id)),
+        }
     }
 }
 

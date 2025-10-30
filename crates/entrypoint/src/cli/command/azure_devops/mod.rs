@@ -1,8 +1,9 @@
 pub mod azure_devops_command;
 
-pub use azure_devops_command::AzureDevOpsCommand;
 use clap::Args;
 use eyre::Result;
+
+use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;
 
 /// Arguments for Azure DevOps-specific operations.
 #[derive(Args, Debug, Clone)]

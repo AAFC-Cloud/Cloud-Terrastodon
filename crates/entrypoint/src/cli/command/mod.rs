@@ -12,28 +12,21 @@ pub mod ratatui;
 pub mod terraform;
 pub mod write_all_imports;
 
-pub use add_work_dir::AddWorkDirArgs;
-pub use azure::AzureArgs;
-pub use azure::AzureCommand;
-pub use azure::AzureGroupArgs;
-pub use azure::AzureGroupBrowseArgs;
-pub use azure::AzureGroupCommand;
-pub use azure::AzureGroupListArgs;
-pub use azure_devops::AzureDevOpsArgs;
-pub use azure_devops::AzureDevOpsCommand;
+use crate::cli::add_work_dir::AddWorkDirArgs;
+use crate::cli::azure::AzureArgs;
+use crate::cli::azure_devops::AzureDevOpsArgs;
+use crate::cli::clean::CleanArgs;
+use crate::cli::copy_results::CopyResultsArgs;
+use crate::cli::dump_azure_devops::DumpAzureDevOpsArgs;
+use crate::cli::dump_everything::DumpEverythingArgs;
+use crate::cli::egui::EguiArgs;
+use crate::cli::get_path::GetPathArgs;
+use crate::cli::perform_code_generation_from_imports::PerformCodeGenerationFromImportsArgs;
+use crate::cli::ratatui::RatatuiArgs;
+use crate::cli::terraform::TerraformArgs;
+use crate::cli::write_all_imports::WriteAllImportsArgs;
 use clap::Subcommand;
-pub use clean::CleanArgs;
-pub use copy_results::CopyResultsArgs;
-pub use dump_azure_devops::DumpAzureDevOpsArgs;
-pub use dump_everything::DumpEverythingArgs;
-pub use egui::EguiArgs;
 use eyre::Result;
-pub use get_path::GetPathArgs;
-pub use perform_code_generation_from_imports::PerformCodeGenerationFromImportsArgs;
-pub use ratatui::RatatuiArgs;
-pub use terraform::TerraformArgs;
-pub use terraform::TerraformCommand;
-pub use write_all_imports::WriteAllImportsArgs;
 
 /// All top-level commands for the cloud-terrastodon CLI.
 #[derive(Subcommand, Debug)]

@@ -18,6 +18,7 @@
     - add `cloud_terrastodon.exe az group browse`
     - add `cloud_terrastodon.exe az policy definition list`
     - add `cloud_terrastodon.exe az policy definition browse`
+    - add `cloud_terrastodon.exe az tag for-cleanup`
 
 # v0.28.0
 

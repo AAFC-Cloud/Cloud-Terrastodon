@@ -1,5 +1,6 @@
 use super::group::AzureGroupArgs;
 use super::policy::AzurePolicyArgs;
+use super::tag::AzureTagArgs;
 use crate::noninteractive::prelude::audit_azure;
 use clap::Subcommand;
 use eyre::Result;
@@ -13,6 +14,8 @@ pub enum AzureCommand {
     Group(AzureGroupArgs),
     /// Manage Azure policy resources.
     Policy(AzurePolicyArgs),
+    /// Manage Azure resource tags.
+    Tag(AzureTagArgs),
 }
 
 impl AzureCommand {
@@ -25,6 +28,9 @@ impl AzureCommand {
                 args.invoke().await?;
             }
             AzureCommand::Policy(args) => {
+                args.invoke().await?;
+            }
+            AzureCommand::Tag(args) => {
                 args.invoke().await?;
             }
         }
