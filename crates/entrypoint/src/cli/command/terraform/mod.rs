@@ -1,4 +1,8 @@
+pub mod terraform_audit;
 pub mod terraform_command;
+pub mod terraform_source;
+pub mod terraform_source_add_imports;
+pub mod terraform_source_generate;
 
 use clap::Args;
 use eyre::Result;
