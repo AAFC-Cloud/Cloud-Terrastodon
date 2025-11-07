@@ -1,8 +1,8 @@
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_hcl::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl::prelude::HCLProviderReference;
-use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::HclImportBlock;
+use cloud_terrastodon_hcl::prelude::HclProviderReference;
+use cloud_terrastodon_hcl::prelude::HclWriter;
 use cloud_terrastodon_hcl::prelude::ProviderKind;
 use cloud_terrastodon_hcl::prelude::Sanitizable;
 use cloud_terrastodon_pathing::AppDir;
@@ -34,12 +34,12 @@ pub async fn build_role_assignment_imports() -> Result<()> {
             continue; // already did this one
         }
         let subscription_id = role_assignment.id.subscription_id();
-        let mut import_block: HCLImportBlock = role_assignment.into();
+        let mut import_block: HclImportBlock = role_assignment.into();
         if let Some(subscription_id) = subscription_id {
             let Some(subscription) = subscriptions.get(&subscription_id) else {
                 bail!("Failed to find subscription with id {subscription_id}");
             };
-            import_block.provider = HCLProviderReference::Alias {
+            import_block.provider = HclProviderReference::Alias {
                 kind: ProviderKind::AzureRM,
                 name: subscription.name.sanitize(),
             };
@@ -53,7 +53,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     }
 
     info!("Writing imports to file");
-    HCLWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
+    HclWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
         .overwrite(import_blocks)
         .await?
         .format_file()
@@ -64,7 +64,7 @@ pub async fn build_role_assignment_imports() -> Result<()> {
         .into_iter()
         .map(|sub| sub.into_provider_block())
         .collect_vec();
-    HCLWriter::new(AppDir::Imports.join("boilerplate.tf"))
+    HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
         .format_file()

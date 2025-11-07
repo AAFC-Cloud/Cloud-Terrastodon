@@ -1,7 +1,7 @@
 use crate::prelude::AzureDevOpsProject;
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
@@ -75,10 +75,10 @@ pub struct AzureDevOpsRepo {
     pub web_url: String,
 }
 
-impl From<AzureDevOpsRepo> for HCLImportBlock {
+impl From<AzureDevOpsRepo> for HclImportBlock {
     fn from(repo: AzureDevOpsRepo) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: format!("{}/{}", repo.project.id, *repo.id),
             to: ResourceBlockReference::AzureDevOps {
                 kind: AzureDevOpsResourceBlockKind::Repo,

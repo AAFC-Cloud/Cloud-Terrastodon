@@ -8,9 +8,9 @@ use crate::scopes::ScopeImpl;
 use crate::serde_helpers::deserialize_default_if_null;
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use compact_str::CompactString;
@@ -93,13 +93,13 @@ impl std::fmt::Display for PolicyAssignment {
     }
 }
 
-impl From<PolicyAssignment> for HCLImportBlock {
+impl From<PolicyAssignment> for HclImportBlock {
     fn from(policy_assignment: PolicyAssignment) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: policy_assignment.id.expanded_form().to_string(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::ManagementGroupPolicyAssignment,
+                kind: AzureRmResourceBlockKind::ManagementGroupPolicyAssignment,
                 name: policy_assignment.id.expanded_form().sanitize(),
             },
         }

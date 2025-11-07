@@ -1,8 +1,11 @@
-use crate::data::HCLDataBlock;
-use crate::strings::AsHCLString;
-use crate::strings::TryAsHCLBlocks;
+use crate::data_block::HclDataBlock;
+use crate::prelude::AzureAdDataBlockKind;
+use crate::strings::TryAsHclBlocks;
 use eyre::Context;
+use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Body;
+use hcl::edit::structure::IntoBlocks;
+use hcl_primitives::Ident;
 
 #[derive(Debug, Default)]
 pub struct UsersLookupBody {
@@ -17,32 +20,34 @@ impl From<UsersLookupBody> for Body {
     fn from(value: UsersLookupBody) -> Self {
         let mut body = Body::with_capacity(2);
 
-        let data_block = HCLDataBlock::UserLookup {
-            label: "users".to_string(),
-            user_principal_names: value.user_principal_names,
-        }
-        .as_hcl_string();
+        let data_block = HclDataBlock::AzureAD {
+            kind: AzureAdDataBlockKind::Users,
+            name: "users".to_string(),
+            body: Body::builder()
+                .attribute(Attribute::new(
+                    Ident::new("user_principal_names"),
+                    value.user_principal_names,
+                ))
+                .build(),
+        };
+        body.push(data_block);
 
         // No need to use indoc to strip indent because this gets parsed into body
-        let local_block = r#"
+        let local_block: IntoBlocks = r#"
             locals {
                 users = {
                     for user in data.azuread_users.users.users :
                     user.user_principal_name => user.object_id
                 }
             }
-        "#;
-
-        for hcl in [data_block.as_str(), local_block] {
-            let blocks = hcl
-                .try_as_hcl_blocks()
-                .wrap_err(format!(
-                    "Failed to parse body as HCL, this shouldn't happen:\n```\n{hcl}\n```"
-                ))
-                .unwrap();
-            for block in blocks {
-                body.push(block);
-            }
+        "#
+        .try_as_hcl_blocks()
+        .wrap_err(format!(
+            "Failed to parse body as HCL, this shouldn't happen"
+        ))
+        .unwrap();
+        for block in local_block {
+            body.push(block);
         }
 
         body

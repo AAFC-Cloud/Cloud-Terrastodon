@@ -4,7 +4,7 @@ use crate::prelude::SubscriptionName;
 use crate::prelude::TenantId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
@@ -46,14 +46,14 @@ impl std::fmt::Display for Subscription {
     }
 }
 impl Subscription {
-    pub fn into_provider_block(&self) -> HCLProviderBlock {
-        HCLProviderBlock::AzureRM {
+    pub fn into_provider_block(&self) -> HclProviderBlock {
+        HclProviderBlock::AzureRM {
             alias: Some(self.name.sanitize()),
             subscription_id: Some(self.id.short_form().to_owned()),
         }
     }
 }
-impl From<Subscription> for HCLProviderBlock {
+impl From<Subscription> for HclProviderBlock {
     fn from(value: Subscription) -> Self {
         value.into_provider_block()
     }

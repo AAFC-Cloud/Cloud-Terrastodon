@@ -1,8 +1,8 @@
 use cloud_terrastodon_azure::prelude::uuid::Uuid;
-use cloud_terrastodon_hcl_types::prelude::AzureADResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::AzureAdResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockResourceKind;
 use hcl::edit::Decorate;
 use hcl::edit::Decorated;
 use hcl::edit::expr::Array;
@@ -71,7 +71,7 @@ impl VisitMut for DefaultAttributeCleanupPatcher {
 
         let body = &mut node.body;
         match resource_kind {
-            ResourceBlockKind::AzureRM(AzureRMResourceBlockKind::RoleAssignment) => {
+            ResourceBlockResourceKind::AzureRM(AzureRmResourceBlockKind::RoleAssignment) => {
                 // Use role name instead of ID for readability
                 remove_second_if_both_present(body, "role_definition_name", "role_definition_id");
 
@@ -84,7 +84,7 @@ impl VisitMut for DefaultAttributeCleanupPatcher {
                 // Don't both repeating the name, which is part of the ID
                 let _ = body.remove_attribute("name");
             }
-            ResourceBlockKind::AzureAD(AzureADResourceBlockKind::Group) => {
+            ResourceBlockResourceKind::AzureAD(AzureAdResourceBlockKind::Group) => {
                 // Remove mail_enabled when security_enabled specified
                 remove_second_if_both_present(body, "security_enabled", "mail_enabled");
 
@@ -126,10 +126,10 @@ impl VisitMut for DefaultAttributeCleanupPatcher {
                     body.remove_attribute("mail_nickname").unwrap();
                 }
             }
-            ResourceBlockKind::AzureRM(AzureRMResourceBlockKind::ResourceGroup) => {
+            ResourceBlockResourceKind::AzureRM(AzureRmResourceBlockKind::ResourceGroup) => {
                 remove_if_null_or_empty(body, "managed_by");
             }
-            ResourceBlockKind::AzureDevOps(AzureDevOpsResourceBlockKind::Project) => {
+            ResourceBlockResourceKind::AzureDevOps(AzureDevOpsResourceBlockKind::Project) => {
                 let features = body.get_attribute("features");
                 if let Some(features) = features
                     && features
@@ -141,8 +141,8 @@ impl VisitMut for DefaultAttributeCleanupPatcher {
                     body.remove_attribute("features");
                 }
             }
-            ResourceBlockKind::AzureRM(AzureRMResourceBlockKind::PolicyDefinition)
-            | ResourceBlockKind::AzureRM(AzureRMResourceBlockKind::PolicySetDefinition) => {
+            ResourceBlockResourceKind::AzureRM(AzureRmResourceBlockKind::PolicyDefinition)
+            | ResourceBlockResourceKind::AzureRM(AzureRmResourceBlockKind::PolicySetDefinition) => {
                 replace_if_null_or_empty(
                     body,
                     "display_name",

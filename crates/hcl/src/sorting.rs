@@ -1,7 +1,7 @@
 use hcl::edit::structure::Block;
 use itertools::Itertools;
 
-pub trait HCLBlockSortable: Iterator<Item = Block> {
+pub trait HclBlockSortable: Iterator<Item = Block> {
     fn sort_blocks(self) -> std::vec::IntoIter<Block>
     where
         Self: Sized,
@@ -19,4 +19,4 @@ pub trait HCLBlockSortable: Iterator<Item = Block> {
         v.into_iter()
     }
 }
-impl<T> HCLBlockSortable for T where T: Iterator<Item = Block> + ?Sized {}
+impl<T> HclBlockSortable for T where T: Iterator<Item = Block> + ?Sized {}

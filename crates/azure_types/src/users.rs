@@ -1,7 +1,7 @@
 use crate::user_id::UserId;
-use cloud_terrastodon_hcl_types::prelude::AzureADResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::AzureAdResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
@@ -37,13 +37,13 @@ impl std::fmt::Display for User {
         Ok(())
     }
 }
-impl From<User> for HCLImportBlock {
+impl From<User> for HclImportBlock {
     fn from(user: User) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: user.id.to_string(),
             to: ResourceBlockReference::AzureAD {
-                kind: AzureADResourceBlockKind::User,
+                kind: AzureAdResourceBlockKind::User,
                 name: format!("{}__{}", user.user_principal_name, user.id).sanitize(),
             },
         }

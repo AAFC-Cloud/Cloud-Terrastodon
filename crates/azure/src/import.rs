@@ -1,9 +1,9 @@
 use crate::prelude::get_resource_group_choices;
 use crate::prelude::get_role_assignment_choices;
 use crate::prelude::get_security_group_choices;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ProviderKind;
 use cloud_terrastodon_hcl_types::prelude::edit::structure::Block;
 use cloud_terrastodon_hcl_types::prelude::edit::structure::Body;
@@ -13,22 +13,22 @@ use std::collections::HashSet;
 use strum::VariantArray;
 
 #[derive(strum::VariantArray, Debug, Clone, Copy)]
-pub enum HCLImportable {
+pub enum HclImportable {
     ResourceGroup,
     SecurityGroup,
     RoleAssignment,
 }
-impl std::fmt::Display for HCLImportable {
+impl std::fmt::Display for HclImportable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{self:?}")
     }
 }
-impl HCLImportable {
+impl HclImportable {
     pub async fn try_into_import_blocks(
         &self,
-    ) -> eyre::Result<Vec<Choice<(HCLImportBlock, Option<HCLProviderBlock>)>>> {
-        let rtn: Vec<Choice<(HCLImportBlock, Option<HCLProviderBlock>)>> = match self {
-            HCLImportable::ResourceGroup => get_resource_group_choices()
+    ) -> eyre::Result<Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>>> {
+        let rtn: Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>> = match self {
+            HclImportable::ResourceGroup => get_resource_group_choices()
                 .await?
                 .into_iter()
                 .map(
@@ -39,8 +39,8 @@ impl HCLImportable {
                         key,
                         value: (
                             {
-                                let mut import_block: HCLImportBlock = rg.into();
-                                import_block.provider = HCLProviderReference::Alias {
+                                let mut import_block: HclImportBlock = rg.into();
+                                import_block.provider = HclProviderReference::Alias {
                                     kind: ProviderKind::AzureRM,
                                     name: sub.name.to_string(),
                                 };
@@ -51,7 +51,7 @@ impl HCLImportable {
                     },
                 )
                 .collect(),
-            HCLImportable::SecurityGroup => get_security_group_choices()
+            HclImportable::SecurityGroup => get_security_group_choices()
                 .await?
                 .into_iter()
                 .map(|choice| Choice {
@@ -59,7 +59,7 @@ impl HCLImportable {
                     value: (choice.value.into(), None),
                 })
                 .collect(),
-            HCLImportable::RoleAssignment => get_role_assignment_choices()
+            HclImportable::RoleAssignment => get_role_assignment_choices()
                 .await?
                 .into_iter()
                 .map(|choice| Choice {
@@ -70,9 +70,9 @@ impl HCLImportable {
         };
         Ok(rtn)
     }
-    pub fn pick() -> eyre::Result<HCLImportable> {
+    pub fn pick() -> eyre::Result<HclImportable> {
         Ok(
-            PickerTui::new(HCLImportable::VARIANTS.iter().copied().map(|x| Choice {
+            PickerTui::new(HclImportable::VARIANTS.iter().copied().map(|x| Choice {
                 key: x.to_string(),
                 value: x,
             }))

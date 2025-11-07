@@ -7,9 +7,9 @@ use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_security_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_azure::prelude::uuid::Uuid;
-use cloud_terrastodon_hcl::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl::prelude::HCLProviderReference;
-use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::HclImportBlock;
+use cloud_terrastodon_hcl::prelude::HclProviderReference;
+use cloud_terrastodon_hcl::prelude::HclWriter;
 use cloud_terrastodon_hcl::prelude::ProviderKind;
 use cloud_terrastodon_hcl::prelude::Sanitizable;
 use cloud_terrastodon_pathing::AppDir;
@@ -100,10 +100,10 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         used_resource_groups.insert(rg.id.to_owned());
 
         // Create the import block
-        let mut import_block: HCLImportBlock = rg.into();
+        let mut import_block: HclImportBlock = rg.into();
 
         // Update the provider to use the subscription alias
-        import_block.provider = HCLProviderReference::Alias {
+        import_block.provider = HclProviderReference::Alias {
             kind: ProviderKind::AzureRM,
             name: sub.name.sanitize(),
         };
@@ -116,7 +116,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     }
 
     info!("Writing resource group imports");
-    HCLWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
+    HclWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
         .overwrite(rg_imports)
         .await?
         .format_file()
@@ -149,10 +149,10 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         used_principals.insert(*ra.principal_id);
 
         // Create the import block
-        let mut import_block: HCLImportBlock = ra.into();
+        let mut import_block: HclImportBlock = ra.into();
 
         // Update the provider to use the subscription alias
-        import_block.provider = HCLProviderReference::Alias {
+        import_block.provider = HclProviderReference::Alias {
             kind: ProviderKind::AzureRM,
             name: sub.name.sanitize(),
         };
@@ -162,7 +162,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     }
 
     info!("Writing role assignment imports");
-    HCLWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
+    HclWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
         .overwrite(ra_imports)
         .await?
         .format_file()
@@ -177,14 +177,14 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         }
 
         // Create the import block
-        let import_block: HCLImportBlock = sg.into();
+        let import_block: HclImportBlock = sg.into();
 
         // Add to results
         sg_imports.push(import_block);
     }
 
     info!("Writing security group imports");
-    HCLWriter::new(AppDir::Imports.join("security_groups.tf"))
+    HclWriter::new(AppDir::Imports.join("security_groups.tf"))
         .overwrite(sg_imports)
         .await?
         .format_file()
@@ -198,7 +198,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     }
 
     info!("Writing provider blocks");
-    HCLWriter::new(AppDir::Imports.join("boilerplate.tf"))
+    HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
         .format_file()

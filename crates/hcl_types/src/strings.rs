@@ -7,7 +7,7 @@ use hcl::edit::structure::IntoBlocks;
 use std::collections::HashSet;
 
 #[async_trait::async_trait]
-pub trait AsHCLString {
+pub trait AsHclString {
     fn as_hcl_string(&self) -> String;
     async fn as_formatted_hcl_string(&self) -> eyre::Result<String> {
         let mut cmd = CommandBuilder::new(CommandKind::Terraform);
@@ -17,29 +17,29 @@ pub trait AsHCLString {
         Ok(output.stdout.to_string())
     }
 }
-impl AsHCLString for String {
+impl AsHclString for String {
     fn as_hcl_string(&self) -> String {
         self.to_owned()
     }
 }
-impl AsHCLString for &str {
+impl AsHclString for &str {
     fn as_hcl_string(&self) -> String {
         self.to_string()
     }
 }
 
-pub trait TryAsHCLBlocks {
+pub trait TryAsHclBlocks {
     fn try_as_hcl_blocks(&self) -> Result<IntoBlocks>;
 }
-impl<T: AsHCLString> TryAsHCLBlocks for T {
+impl<T: AsHclString> TryAsHclBlocks for T {
     fn try_as_hcl_blocks(&self) -> Result<IntoBlocks> {
         Ok(self.as_hcl_string().parse::<Body>()?.into_blocks())
     }
 }
 
-impl<T> AsHCLString for Vec<T>
+impl<T> AsHclString for Vec<T>
 where
-    T: AsHCLString,
+    T: AsHclString,
 {
     fn as_hcl_string(&self) -> String {
         let mut rtn = String::new();
@@ -50,9 +50,9 @@ where
         rtn
     }
 }
-impl<T> AsHCLString for HashSet<T>
+impl<T> AsHclString for HashSet<T>
 where
-    T: AsHCLString,
+    T: AsHclString,
 {
     fn as_hcl_string(&self) -> String {
         let mut rtn = String::new();
@@ -64,13 +64,13 @@ where
     }
 }
 
-impl AsHCLString for Block {
+impl AsHclString for Block {
     fn as_hcl_string(&self) -> String {
         Body::builder().block(self.clone()).build().to_string()
     }
 }
 
-impl AsHCLString for Body {
+impl AsHclString for Body {
     fn as_hcl_string(&self) -> String {
         self.to_string()
     }
@@ -78,7 +78,7 @@ impl AsHCLString for Body {
 
 #[cfg(test)]
 mod test {
-    use crate::strings::AsHCLString;
+    use crate::strings::AsHclString;
 
     #[tokio::test]
     async fn send_stdin_fmt() -> eyre::Result<()> {

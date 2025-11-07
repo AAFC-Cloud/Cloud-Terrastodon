@@ -9,9 +9,9 @@ use cloud_terrastodon_azure_devops::prelude::get_personal_access_token;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_hcl::prelude::FreshTFWorkDir;
 use cloud_terrastodon_hcl::prelude::GeneratedConfigOutTFWorkDir;
-use cloud_terrastodon_hcl::prelude::HCLBlock;
-use cloud_terrastodon_hcl::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::HclBlock;
+use cloud_terrastodon_hcl::prelude::HclImportBlock;
+use cloud_terrastodon_hcl::prelude::HclWriter;
 use cloud_terrastodon_hcl::prelude::InitializedTFWorkDir;
 use cloud_terrastodon_hcl::prelude::ProcessedTFWorkDir;
 use cloud_terrastodon_hcl::prelude::ProviderManager;
@@ -306,7 +306,7 @@ async fn process_generated_many(
             write_jobs.spawn(async move {
                 let permit = rate_limit.acquire().await?;
                 path_clone.ensure_parent_dir_exists().await?;
-                HCLWriter::new(path_clone)
+                HclWriter::new(path_clone)
                     .format_on_write()
                     .overwrite(content)
                     .await?;
@@ -388,17 +388,17 @@ async fn clean_up_generated_files(tf_work_dirs: &[InitializedTFWorkDir]) -> eyre
 
 async fn write_import_blocks(
     file_path: impl AsRef<Path>,
-    import_blocks: impl IntoIterator<Item = impl Into<HCLImportBlock>>,
-    all_in_one: UnboundedSender<Vec<HCLImportBlock>>,
+    import_blocks: impl IntoIterator<Item = impl Into<HclImportBlock>>,
+    all_in_one: UnboundedSender<Vec<HclImportBlock>>,
     strategy: Strategy,
 ) -> eyre::Result<()> {
-    let import_blocks: Vec<HCLImportBlock> = import_blocks.into_iter().map(|x| x.into()).collect();
+    let import_blocks: Vec<HclImportBlock> = import_blocks.into_iter().map(|x| x.into()).collect();
     if strategy.all_in_one() {
         all_in_one.send(import_blocks.clone())?;
     }
     if strategy.split() {
         let len = import_blocks.len();
-        HCLWriter::new(&file_path)
+        HclWriter::new(&file_path)
             .format_on_write()
             .overwrite(import_blocks)
             .await?;
@@ -491,7 +491,7 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
 
     let mut tf_work_dirs: Vec<PathBuf> = Vec::new();
     let (all_in_one_imports_tx, mut all_in_one_imports_rx) =
-        unbounded_channel::<Vec<HCLImportBlock>>();
+        unbounded_channel::<Vec<HclImportBlock>>();
 
     let project_ids: Vec<AzureDevOpsProjectId> = azure_devops_projects
         .iter()
@@ -627,14 +627,14 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
 
         let azurerm_provider_block = sub.into_provider_block();
         provider_blocks.insert(azurerm_provider_block.clone());
-        let mut resource_group_import_block: HCLImportBlock = rg.into();
+        let mut resource_group_import_block: HclImportBlock = rg.into();
         resource_group_import_block.provider = azurerm_provider_block.as_reference();
 
         let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
             try {
                 if strategy.split() {
-                    HCLWriter::new(&boilerplate_file)
+                    HclWriter::new(&boilerplate_file)
                         .format_on_write()
                         .merge([azurerm_provider_block])
                         .await?;
@@ -676,11 +676,11 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
     info!("Writing the all-in-one");
     if strategy.all_in_one() {
         let all_in_one_file = all_in_one_dir.join("all-in-one.tf");
-        let mut import_blocks: Vec<HCLImportBlock> = vec![];
+        let mut import_blocks: Vec<HclImportBlock> = vec![];
         while let Some(import_block) = all_in_one_imports_rx.recv().await {
             import_blocks.extend(import_block);
         }
-        let mut together: Vec<HCLBlock> = Vec::new();
+        let mut together: Vec<HclBlock> = Vec::new();
         for block in provider_blocks {
             together.push(block.into());
         }
@@ -688,7 +688,7 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
             together.push(block.into());
         }
 
-        HCLWriter::new(&all_in_one_file)
+        HclWriter::new(&all_in_one_file)
             .format_on_write()
             .merge(together)
             .await?;

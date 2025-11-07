@@ -3,9 +3,9 @@ use crate::prelude::RolePermissionAction;
 use crate::prelude::RolePermissions;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
@@ -65,13 +65,13 @@ impl std::fmt::Display for RoleDefinition {
         Ok(())
     }
 }
-impl From<RoleDefinition> for HCLImportBlock {
+impl From<RoleDefinition> for HclImportBlock {
     fn from(role_definition: RoleDefinition) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: role_definition.id.expanded_form(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::RoleDefinition,
+                kind: AzureRmResourceBlockKind::RoleDefinition,
                 name: format!(
                     "{}__{}",
                     role_definition.display_name,

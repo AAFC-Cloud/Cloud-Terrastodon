@@ -2,9 +2,9 @@ use cloud_terrastodon_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_hcl::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl::prelude::HCLProviderReference;
-use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::HclImportBlock;
+use cloud_terrastodon_hcl::prelude::HclProviderReference;
+use cloud_terrastodon_hcl::prelude::HclWriter;
 use cloud_terrastodon_hcl::prelude::ProviderKind;
 use cloud_terrastodon_hcl::prelude::Sanitizable;
 use cloud_terrastodon_pathing::AppDir;
@@ -29,7 +29,7 @@ pub async fn build_policy_imports() -> Result<()> {
         .map(|sub| (sub.id, sub))
         .collect::<HashMap<_, _>>();
 
-    let mut imports: Vec<HCLImportBlock> = Default::default();
+    let mut imports: Vec<HclImportBlock> = Default::default();
     let mut seen_ids: HashSet<String> = HashSet::new();
     let mut provider_blocks: HashSet<_> = Default::default();
 
@@ -43,14 +43,14 @@ pub async fn build_policy_imports() -> Result<()> {
                 )))?;
                 let azurerm_provider_block = subscription.into_provider_block();
                 provider_blocks.insert(azurerm_provider_block.clone());
-                HCLProviderReference::Alias {
+                HclProviderReference::Alias {
                     kind: ProviderKind::AzureRM,
                     name: subscription.name.sanitize(),
                 }
             } else {
-                HCLProviderReference::Inherited
+                HclProviderReference::Inherited
             };
-            let mut block: HCLImportBlock = policy_definition.into();
+            let mut block: HclImportBlock = policy_definition.into();
             block.provider = provider;
             if seen_ids.insert(block.id.clone()) {
                 imports.push(block);
@@ -68,14 +68,14 @@ pub async fn build_policy_imports() -> Result<()> {
                     ))?;
                     let azurerm_provider_block = subscription.into_provider_block();
                     provider_blocks.insert(azurerm_provider_block.clone());
-                    HCLProviderReference::Alias {
+                    HclProviderReference::Alias {
                         kind: ProviderKind::AzureRM,
                         name: subscription.name.sanitize(),
                     }
                 } else {
-                    HCLProviderReference::Inherited
+                    HclProviderReference::Inherited
                 };
-            let mut block: HCLImportBlock = policy_set_definition.into();
+            let mut block: HclImportBlock = policy_set_definition.into();
             block.provider = provider;
             if seen_ids.insert(block.id.clone()) {
                 imports.push(block);
@@ -86,12 +86,12 @@ pub async fn build_policy_imports() -> Result<()> {
     info!("Writing policy assignment import blocks");
     for policy_assignment in policy_assignments {
         //todo: filter out inherited assignments that cause the terraform block label to contain a mismatched management group name
-        let import_block: HCLImportBlock = policy_assignment.into();
+        let import_block: HclImportBlock = policy_assignment.into();
         let provider = import_block.provider;
         let id = import_block.id;
         let to = import_block.to;
         // to.use_name(|name| format!("{}_{}", name, management_group.name()).sanitize());
-        let block = HCLImportBlock { provider, id, to };
+        let block = HclImportBlock { provider, id, to };
         if seen_ids.insert(block.id.clone()) {
             imports.push(block);
         }
@@ -102,13 +102,13 @@ pub async fn build_policy_imports() -> Result<()> {
     }
 
     info!("Writing boilerplate.tf");
-    HCLWriter::new(AppDir::Imports.join("boilerplate.tf"))
+    HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .format_on_write()
         .merge(provider_blocks)
         .await?;
 
     info!("Writing policy_imports.tf");
-    HCLWriter::new(AppDir::Imports.join("policy_imports.tf"))
+    HclWriter::new(AppDir::Imports.join("policy_imports.tf"))
         .format_on_write()
         .overwrite(imports)
         .await?;

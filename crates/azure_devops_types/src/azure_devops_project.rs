@@ -3,8 +3,8 @@ use crate::prelude::AzureDevOpsProjectName;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
@@ -39,10 +39,10 @@ pub struct AzureDevOpsProject {
     pub visibility: AzureDevOpsProjectVisibility,
 }
 
-impl From<AzureDevOpsProject> for HCLImportBlock {
+impl From<AzureDevOpsProject> for HclImportBlock {
     fn from(project: AzureDevOpsProject) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: project.id.to_string(),
             to: ResourceBlockReference::AzureDevOps {
                 kind: AzureDevOpsResourceBlockKind::Project,

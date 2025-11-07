@@ -1,15 +1,15 @@
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::bstr::ByteSlice;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use eyre::Result;
 use hcl::edit::Decorate;
 use hcl::edit::structure::Body;
 use std::path::Path;
 
-pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<HCLImportBlock>> {
+pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<HclImportBlock>> {
     let body = CommandBuilder::new(CommandKind::Terraform)
         .should_announce(true)
         .arg("show")
@@ -20,13 +20,13 @@ pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<HCL
         .to_str()?
         .parse::<Body>()?;
 
-    let mut imports = Vec::<HCLImportBlock>::new();
+    let mut imports = Vec::<HclImportBlock>::new();
 
     for block in body.into_blocks() {
         if block.ident.to_string() != "resource" {
             continue;
         }
-        let provider: HCLProviderReference = block.clone().try_into()?;
+        let provider: HclProviderReference = block.clone().try_into()?;
 
         let id = block
             .body
@@ -43,7 +43,7 @@ pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<HCL
             .unwrap_or("unknown")
             .to_owned();
         let to = ResourceBlockReference::Raw(to);
-        imports.push(HCLImportBlock { provider, id, to })
+        imports.push(HclImportBlock { provider, id, to })
     }
 
     Ok(imports)

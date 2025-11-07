@@ -1,5 +1,5 @@
-use crate::sorting::HCLBlockSortable;
-use cloud_terrastodon_hcl_types::prelude::AsHCLString;
+use crate::sorting::HclBlockSortable;
+use cloud_terrastodon_hcl_types::prelude::AsHclString;
 use eyre::Result;
 use eyre::eyre;
 use hcl::edit::Decorate;

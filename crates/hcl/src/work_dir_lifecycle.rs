@@ -8,9 +8,9 @@ use cloud_terrastodon_command::bstr::ByteSlice;
 use cloud_terrastodon_command::bstr::io::BufReadExt;
 use cloud_terrastodon_hcl_types::prelude::FreshTFWorkDir;
 use cloud_terrastodon_hcl_types::prelude::GeneratedConfigOutTFWorkDir;
-use cloud_terrastodon_hcl_types::prelude::HCLBlock;
+use cloud_terrastodon_hcl_types::prelude::HclBlock;
 use cloud_terrastodon_hcl_types::prelude::InitializedTFWorkDir;
-use cloud_terrastodon_hcl_types::prelude::IntoHCLBlocks;
+use cloud_terrastodon_hcl_types::prelude::IntoHclBlocks;
 use cloud_terrastodon_hcl_types::prelude::ProviderSource;
 use cloud_terrastodon_hcl_types::prelude::ProviderVersionConstraint;
 use cloud_terrastodon_hcl_types::prelude::ProviderVersionObject;
@@ -38,14 +38,14 @@ pub async fn identify_required_providers(
     let mut rtn = TerraformRequiredProvidersBlock::empty();
     for block in blocks {
         match block {
-            HCLBlock::Terraform(terraform_block) => {
+            HclBlock::Terraform(terraform_block) => {
                 if let Some(required_providers) = terraform_block.required_providers {
                     for (key, version) in required_providers.0 {
                         rtn.try_merge_entry(key, version)?;
                     }
                 }
             }
-            HCLBlock::Provider(provider_block) => {
+            HclBlock::Provider(provider_block) => {
                 let provider_kind = provider_block.provider_kind();
                 let provider_prefix = provider_kind.provider_prefix().to_string();
                 let source: ProviderSource = provider_prefix.parse()?;
@@ -55,7 +55,7 @@ pub async fn identify_required_providers(
                 };
                 rtn.try_merge_entry(provider_prefix, version)?;
             }
-            HCLBlock::Import(import_block) => {
+            HclBlock::Import(import_block) => {
                 let provider_kind = import_block.to.provider_kind();
                 let provider_prefix = provider_kind.provider_prefix().to_string();
                 let source: ProviderSource = provider_prefix.parse()?;
@@ -65,7 +65,27 @@ pub async fn identify_required_providers(
                 };
                 rtn.try_merge_entry(provider_prefix, version)?;
             }
-            HCLBlock::Other(_block) => {}
+            HclBlock::Resource(resource_block) => {
+                let provider_kind = resource_block.provider_kind();
+                let provider_prefix = provider_kind.provider_prefix().to_string();
+                let source: ProviderSource = provider_prefix.parse()?;
+                let version = ProviderVersionObject {
+                    source,
+                    version: ProviderVersionConstraint::unspecified(),
+                };
+                rtn.try_merge_entry(provider_prefix, version)?;
+            }
+            HclBlock::Data(data_block) => {
+                let provider_kind = data_block.provider_kind();
+                let provider_prefix = provider_kind.provider_prefix().to_string();
+                let source: ProviderSource = provider_prefix.parse()?;
+                let version = ProviderVersionObject {
+                    source,
+                    version: ProviderVersionConstraint::unspecified(),
+                };
+                rtn.try_merge_entry(provider_prefix, version)?;
+            }
+            HclBlock::Other(_block) => {}
         }
     }
     Ok(rtn)

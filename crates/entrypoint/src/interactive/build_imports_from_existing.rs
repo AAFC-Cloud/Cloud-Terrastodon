@@ -1,4 +1,4 @@
-use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::HclWriter;
 use cloud_terrastodon_hcl::prelude::get_imports_from_existing;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::prompt_line;
@@ -20,7 +20,7 @@ pub async fn build_imports_from_existing() -> Result<()> {
         return Err(eyre!("Imports should not be empty"));
     }
 
-    HCLWriter::new(AppDir::Imports.join(name))
+    HclWriter::new(AppDir::Imports.join(name))
         .overwrite(imports)
         .await?;
 

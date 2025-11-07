@@ -2,9 +2,9 @@ use cloud_terrastodon_azure::prelude::Subscription;
 use cloud_terrastodon_azure::prelude::SubscriptionId;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_hcl::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl::prelude::HCLProviderReference;
-use cloud_terrastodon_hcl::prelude::HCLWriter;
+use cloud_terrastodon_hcl::prelude::HclImportBlock;
+use cloud_terrastodon_hcl::prelude::HclProviderReference;
+use cloud_terrastodon_hcl::prelude::HclWriter;
 use cloud_terrastodon_hcl::prelude::ProviderKind;
 use cloud_terrastodon_hcl::prelude::Sanitizable;
 use cloud_terrastodon_pathing::AppDir;
@@ -33,8 +33,8 @@ pub async fn write_imports_for_all_resource_groups() -> Result<()> {
         let sub = subscriptions
             .get(&rg.subscription_id)
             .ok_or_else(|| eyre!("could not find subscription for resource group {rg:?}"))?;
-        let mut block: HCLImportBlock = rg.into();
-        block.provider = HCLProviderReference::Alias {
+        let mut block: HclImportBlock = rg.into();
+        block.provider = HclProviderReference::Alias {
             kind: ProviderKind::AzureRM,
             name: sub.name.sanitize(),
         };
@@ -47,7 +47,7 @@ pub async fn write_imports_for_all_resource_groups() -> Result<()> {
     }
 
     info!("Writing import blocks");
-    HCLWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
+    HclWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
         .overwrite(imports)
         .await?
         .format_file()
@@ -59,7 +59,7 @@ pub async fn write_imports_for_all_resource_groups() -> Result<()> {
         let provider = sub.clone().into_provider_block();
         providers.push(provider);
     }
-    HCLWriter::new(AppDir::Imports.join("boilerplate.tf"))
+    HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?
         .format_file()

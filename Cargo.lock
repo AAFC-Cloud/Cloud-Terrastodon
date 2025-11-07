@@ -1074,6 +1074,7 @@ dependencies = [
  "itertools 0.14.0",
  "serde",
  "serde_json",
+ "strum 0.27.2",
  "tokio",
  "tracing",
 ]

@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure::prelude::UserId;
-use cloud_terrastodon_hcl_types::prelude::AzureADResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::AzureAdResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockResourceKind;
 use cloud_terrastodon_hcl_types::prelude::UsersLookupBody;
 use eyre::Result;
 use hcl::edit::Decorate;
@@ -64,11 +64,11 @@ impl VisitMut for UserIdReferencePatcher {
             .labels
             .first()
             .map(|x| x.as_str())
-            .and_then(|x| x.parse::<ResourceBlockKind>().ok());
+            .and_then(|x| x.parse::<ResourceBlockResourceKind>().ok());
 
         // Comment out empty owners/members attributes to satisfy terraform validate
         match resource_block_kind {
-            Some(ResourceBlockKind::AzureAD(AzureADResourceBlockKind::Group)) => {
+            Some(ResourceBlockResourceKind::AzureAD(AzureAdResourceBlockKind::Group)) => {
                 debug!("Converting owners and members for azuread_security_group");
                 for key in ["owners", "members"] {
                     if let Some(ref mut attr) = node.body.get_attribute_mut(key)
@@ -83,7 +83,7 @@ impl VisitMut for UserIdReferencePatcher {
                     }
                 }
             }
-            Some(ResourceBlockKind::AzureRM(AzureRMResourceBlockKind::RoleAssignment)) => {
+            Some(ResourceBlockResourceKind::AzureRM(AzureRmResourceBlockKind::RoleAssignment)) => {
                 debug!("Converting principal_id for azurerm_role_assignment");
                 if node
                     .body

@@ -1,12 +1,15 @@
 use crate::data_lookup_holder::DataLookupHolder;
 use cloud_terrastodon_azure::prelude::NameLookupHelper;
 use cloud_terrastodon_azure::prelude::ScopeImpl;
-use cloud_terrastodon_hcl_types::prelude::AzureRMProviderDataBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLDataBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLDataBlockReference;
+use cloud_terrastodon_hcl_types::prelude::AzureRmDataBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HclDataBlock;
+use cloud_terrastodon_hcl_types::prelude::DataBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
-use cloud_terrastodon_hcl_types::prelude::TryAsHCLBlocks;
 use eyre::Result;
+use hcl::edit::Decorated;
+use hcl::edit::Ident;
+use hcl::edit::expr::Expression;
+use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Body;
 use std::collections::HashSet;
 use tracing::warn;
@@ -27,16 +30,16 @@ pub async fn create_data_blocks_for_ids(
 
         // Create the data reference
         let reference = match &scope {
-            ScopeImpl::PolicyDefinition(_) => HCLDataBlockReference::AzureRM {
-                kind: AzureRMProviderDataBlockKind::PolicyDefinition,
+            ScopeImpl::PolicyDefinition(_) => DataBlockReference::AzureRM {
+                kind: AzureRmDataBlockKind::PolicyDefinition,
                 name: name.to_owned().sanitize(),
             },
-            ScopeImpl::PolicySetDefinition(_) => HCLDataBlockReference::AzureRM {
-                kind: AzureRMProviderDataBlockKind::PolicySetDefinition,
+            ScopeImpl::PolicySetDefinition(_) => DataBlockReference::AzureRM {
+                kind: AzureRmDataBlockKind::PolicySetDefinition,
                 name: name.to_owned().sanitize(),
             },
-            ScopeImpl::ResourceGroup(_) => HCLDataBlockReference::AzureRM {
-                kind: AzureRMProviderDataBlockKind::ResourceGroup,
+            ScopeImpl::ResourceGroup(_) => DataBlockReference::AzureRM {
+                kind: AzureRmDataBlockKind::ResourceGroup,
                 name: name.to_owned().sanitize(),
             },
             x => {
@@ -56,13 +59,20 @@ pub async fn create_data_blocks_for_ids(
             .insert(scope.to_owned(), reference.clone());
 
         // Create the data block
-        let data_block = HCLDataBlock::LookupByName {
-            reference,
+        let data_block = HclDataBlock::Other {
+            provider: reference.provider_kind(),
+            kind: reference.kind().to_owned(),
             name: name.to_owned(),
+            body: Body::builder()
+                .attribute(Attribute::new(
+                    Ident::new("name"),
+                    Expression::String(Decorated::new(name.to_owned())),
+                ))
+                .build(),
         };
 
         // Add the data block to the body
-        data_block.try_as_hcl_blocks()?.for_each(|b| body.push(b));
+        body.push(data_block);
     }
     Ok((body, lookup_holder))
 }

@@ -1,10 +1,10 @@
-use crate::prelude::HCLBlock;
-use crate::sorting::HCLBlockSortable;
+use crate::prelude::HclBlock;
+use crate::sorting::HclBlockSortable;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_hcl_types::prelude::AsHCLString;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderBlock;
+use cloud_terrastodon_hcl_types::prelude::AsHclString;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
 use cloud_terrastodon_hcl_types::prelude::TerraformBlock;
 use cloud_terrastodon_pathing::Existy;
 use eyre::Context;
@@ -23,13 +23,13 @@ use tokio::io::AsyncWriteExt;
 use tracing::debug;
 use tracing::warn;
 
-pub struct HCLWriter {
+pub struct HclWriter {
     path: PathBuf,
     format_on_write: bool,
 }
-impl HCLWriter {
-    pub fn new(path: impl AsRef<Path>) -> HCLWriter {
-        HCLWriter {
+impl HclWriter {
+    pub fn new(path: impl AsRef<Path>) -> HclWriter {
+        HclWriter {
             path: path.as_ref().to_path_buf(),
             format_on_write: false,
         }
@@ -51,7 +51,7 @@ impl HCLWriter {
         Ok(())
     }
 
-    async fn write(&self, file: &mut File, content: impl AsHCLString + Sync) -> eyre::Result<()> {
+    async fn write(&self, file: &mut File, content: impl AsHclString + Sync) -> eyre::Result<()> {
         let content = if self.format_on_write {
             content.as_formatted_hcl_string().await?
         } else {
@@ -63,7 +63,7 @@ impl HCLWriter {
         Ok(())
     }
 
-    pub async fn overwrite(&self, content: impl AsHCLString + Sync) -> Result<&Self> {
+    pub async fn overwrite(&self, content: impl AsHclString + Sync) -> Result<&Self> {
         debug!("Overwriting tf file {}", self.path.display());
         self.path.ensure_parent_dir_exists().await?;
         let mut tf_file = OpenOptions::new()
@@ -79,7 +79,7 @@ impl HCLWriter {
     }
     pub async fn merge(
         &self,
-        to_merge: impl IntoIterator<Item = impl Into<HCLBlock>>,
+        to_merge: impl IntoIterator<Item = impl Into<HclBlock>>,
     ) -> Result<&Self> {
         debug!(path = %self.path.display(), "Merging into tf file");
         self.path.ensure_parent_dir_exists().await?;
@@ -103,42 +103,52 @@ impl HCLWriter {
 
         // Create holders for deduplicating data
         let mut terraform_blocks: Vec<TerraformBlock> = Default::default();
-        let mut provider_blocks: HashSet<HCLProviderBlock> = Default::default();
-        let mut import_blocks: HashSet<HCLImportBlock> = Default::default();
+        let mut provider_blocks: HashSet<HclProviderBlock> = Default::default();
+        let mut import_blocks: HashSet<HclImportBlock> = Default::default();
         let mut other_blocks: Vec<Block> = Default::default();
 
         // Track existing blocks
         for block in existing_body.into_blocks() {
-            match HCLBlock::try_from(block)? {
-                HCLBlock::Provider(block) => {
+            match HclBlock::try_from(block)? {
+                HclBlock::Provider(block) => {
                     provider_blocks.insert(block);
                 }
-                HCLBlock::Import(block) => {
+                HclBlock::Import(block) => {
                     import_blocks.insert(block);
                 }
-                HCLBlock::Other(block) => {
+                HclBlock::Other(block) => {
                     other_blocks.push(block);
                 }
-                HCLBlock::Terraform(block) => {
+                HclBlock::Terraform(block) => {
                     terraform_blocks.push(block);
                 }
+                HclBlock::Resource(hcl_resource_block) => {
+                    other_blocks.push(hcl_resource_block.into())
+                }
+                HclBlock::Data(hcl_data_block) => other_blocks.push(hcl_data_block.into()),
             }
         }
 
         // Add blocks we want to merge
         for block in to_merge {
             match block.into() {
-                HCLBlock::Provider(block) => {
+                HclBlock::Provider(block) => {
                     provider_blocks.insert(block);
                 }
-                HCLBlock::Import(block) => {
+                HclBlock::Import(block) => {
                     import_blocks.insert(block);
                 }
-                HCLBlock::Other(block) => {
+                HclBlock::Other(block) => {
                     other_blocks.push(block);
                 }
-                HCLBlock::Terraform(block) => {
+                HclBlock::Terraform(block) => {
                     terraform_blocks.push(block);
+                }
+                HclBlock::Resource(hcl_resource_block) => {
+                    other_blocks.push(hcl_resource_block.into());
+                }
+                HclBlock::Data(hcl_data_block) => {
+                    other_blocks.push(hcl_data_block.into());
                 }
             }
         }
@@ -227,18 +237,18 @@ mod tests {
     async fn it_works() -> Result<()> {
         // Create provider blocks
         let mut providers = HashSet::new();
-        providers.insert(HCLProviderBlock::AzureRM {
+        providers.insert(HclProviderBlock::AzureRM {
             alias: None,
             subscription_id: None,
         });
-        providers.insert(HCLProviderBlock::AzureRM {
+        providers.insert(HclProviderBlock::AzureRM {
             alias: Some("bruh".to_owned()),
             subscription_id: None,
         });
 
         // Write some content
         let path = tempfile::Builder::new().tempfile()?.into_temp_path();
-        let writer = HCLWriter::new(path);
+        let writer = HclWriter::new(path);
 
         // ensure deduplication
         writer.merge(providers.clone()).await?;

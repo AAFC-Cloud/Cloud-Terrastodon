@@ -1,21 +1,36 @@
-use crate::prelude::HCLBlock;
+use crate::prelude::HclBlock;
 use eyre::Result;
 use hcl::edit::prelude::Span;
 use hcl::edit::structure::Block;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
-pub struct CodeReference {
-    pub hcl_block: HCLBlock,
-    pub line_col: (usize, usize),
+pub struct LocationWithinFile {
     pub path: PathBuf,
+    pub line: usize,
+    pub column: usize,
+}
+impl std::fmt::Display for LocationWithinFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{}:{}:{}",
+            self.path.display(),
+            self.line,
+            self.column
+        ))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CodeReference {
+    pub hcl_block: HclBlock,
+    pub location: LocationWithinFile,
 }
 impl std::fmt::Display for CodeReference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{} {:?} | {}",
-            self.path.display(),
-            self.line_col,
+            "{} | {}",
+            self.location,
             self.hcl_block
         ))
     }
@@ -26,11 +41,14 @@ impl CodeReference {
             .span()
             .and_then(|span| find_line_column(content, span.start))
             .unwrap_or((0, 0));
-        let hcl_block: HCLBlock = block.try_into()?;
+        let hcl_block: HclBlock = block.try_into()?;
         Ok(CodeReference {
-            path: path.to_owned(),
+            location: LocationWithinFile {
+                path: path.to_owned(),
+                line: span.0,
+                column: span.1,
+            },
             hcl_block,
-            line_col: span,
         })
     }
 }

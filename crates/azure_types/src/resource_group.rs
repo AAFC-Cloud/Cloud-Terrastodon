@@ -5,9 +5,9 @@ use crate::prelude::SubscriptionScoped;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::serde_helpers::deserialize_default_if_null;
-use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
@@ -42,13 +42,13 @@ impl std::fmt::Display for ResourceGroup {
         f.write_str(&self.name)
     }
 }
-impl From<ResourceGroup> for HCLImportBlock {
+impl From<ResourceGroup> for HclImportBlock {
     fn from(resource_group: ResourceGroup) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: resource_group.id.to_string(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::ResourceGroup,
+                kind: AzureRmResourceBlockKind::ResourceGroup,
                 name: format!(
                     "{}__{}",
                     resource_group.name,

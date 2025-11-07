@@ -1,4 +1,4 @@
-use crate::strings::AsHCLString;
+use crate::strings::AsHclString;
 use crate::version::TerraformRequiredProvidersBlock;
 use eyre::OptionExt;
 use eyre::bail;
@@ -111,7 +111,7 @@ impl TryFrom<Block> for TerraformBlock {
         Ok(this)
     }
 }
-impl AsHCLString for TerraformBlock {
+impl AsHclString for TerraformBlock {
     fn as_hcl_string(&self) -> String {
         let block: Block = self.clone().into();
         block.as_hcl_string()

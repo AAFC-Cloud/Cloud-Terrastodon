@@ -1,7 +1,7 @@
 use crate::prelude::GroupId;
-use cloud_terrastodon_hcl_types::prelude::AzureADResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::AzureAdResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
@@ -27,13 +27,13 @@ impl std::fmt::Display for Group {
         Ok(())
     }
 }
-impl From<Group> for HCLImportBlock {
+impl From<Group> for HclImportBlock {
     fn from(group: Group) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: format!("/groups/{}", group.id.0.as_hyphenated()),
             to: ResourceBlockReference::AzureAD {
-                kind: AzureADResourceBlockKind::Group,
+                kind: AzureAdResourceBlockKind::Group,
                 name: format!("{}__{}", group.display_name, group.id).sanitize(),
             },
         }

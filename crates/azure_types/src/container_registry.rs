@@ -2,9 +2,9 @@ use crate::prelude::ContainerRegistryId;
 use crate::prelude::ContainerRegistryName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
@@ -43,13 +43,13 @@ impl std::fmt::Display for ContainerRegistry {
         Ok(())
     }
 }
-impl From<ContainerRegistry> for HCLImportBlock {
+impl From<ContainerRegistry> for HclImportBlock {
     fn from(container_registry: ContainerRegistry) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: container_registry.id.expanded_form().to_owned(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::ContainerRegistry,
+                kind: AzureRmResourceBlockKind::ContainerRegistry,
                 name: container_registry.name.sanitize(),
             },
         }

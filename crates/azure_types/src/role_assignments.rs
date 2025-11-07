@@ -4,9 +4,9 @@ use crate::prelude::RoleDefinitionId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
-use cloud_terrastodon_hcl_types::prelude::AzureRMResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
@@ -35,17 +35,17 @@ impl AsScope for &RoleAssignment {
     }
 }
 
-impl From<RoleAssignment> for HCLImportBlock {
+impl From<RoleAssignment> for HclImportBlock {
     fn from(role_assignment: RoleAssignment) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             // Terraform doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
             id: role_assignment
                 .id
                 .expanded_form()
                 .replace("/RoleAssignments/", "/roleAssignments/"),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::RoleAssignment,
+                kind: AzureRmResourceBlockKind::RoleAssignment,
                 name: role_assignment.id.short_form().sanitize(),
             },
         }

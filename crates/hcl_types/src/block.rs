@@ -1,63 +1,102 @@
-use crate::prelude::HCLImportBlock;
-use crate::prelude::HCLProviderBlock;
+use crate::data_block::HclDataBlock;
+use crate::prelude::HclImportBlock;
+use crate::prelude::HclProviderBlock;
+use crate::prelude::HclResourceBlock;
 use crate::prelude::TerraformBlock;
 use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use itertools::Itertools;
+use strum::EnumDiscriminants;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum HCLBlock {
+#[derive(Debug, Clone, Eq, PartialEq, EnumDiscriminants)]
+#[strum_discriminants(name(HclBlockKind))]
+pub enum HclBlock {
     Terraform(TerraformBlock),
-    Provider(HCLProviderBlock),
-    Import(HCLImportBlock),
+    Provider(HclProviderBlock),
+    Import(HclImportBlock),
+    Resource(HclResourceBlock),
+    Data(HclDataBlock),
     Other(Block),
 }
-impl From<HCLProviderBlock> for HCLBlock {
-    fn from(value: HCLProviderBlock) -> Self {
-        HCLBlock::Provider(value)
+impl HclBlock {
+    pub fn kind(&self) -> HclBlockKind {
+        match self {
+            HclBlock::Terraform(_) => HclBlockKind::Terraform,
+            HclBlock::Provider(_) => HclBlockKind::Provider,
+            HclBlock::Import(_) => HclBlockKind::Import,
+            HclBlock::Resource(_) => HclBlockKind::Resource,
+            HclBlock::Data(_) => HclBlockKind::Data,
+            HclBlock::Other(_) => HclBlockKind::Other,
+        }
     }
 }
-impl From<HCLImportBlock> for HCLBlock {
-    fn from(value: HCLImportBlock) -> Self {
-        HCLBlock::Import(value)
+impl From<HclProviderBlock> for HclBlock {
+    fn from(value: HclProviderBlock) -> Self {
+        HclBlock::Provider(value)
     }
 }
-impl From<TerraformBlock> for HCLBlock {
+impl From<HclImportBlock> for HclBlock {
+    fn from(value: HclImportBlock) -> Self {
+        HclBlock::Import(value)
+    }
+}
+impl From<TerraformBlock> for HclBlock {
     fn from(value: TerraformBlock) -> Self {
-        HCLBlock::Terraform(value)
+        HclBlock::Terraform(value)
     }
 }
-impl TryFrom<Block> for HCLBlock {
+impl TryFrom<Block> for HclBlock {
     type Error = eyre::Error;
     fn try_from(block: Block) -> Result<Self> {
         Ok(match block.ident.as_str() {
             "import" => {
-                let block = HCLImportBlock::try_from(block)?;
-                HCLBlock::Import(block)
+                let block = HclImportBlock::try_from(block)?;
+                HclBlock::Import(block)
             }
             "provider" => {
-                let block = HCLProviderBlock::try_from(block)?;
-                HCLBlock::Provider(block)
+                let block = HclProviderBlock::try_from(block)?;
+                HclBlock::Provider(block)
             }
             "terraform" => {
                 let block = TerraformBlock::try_from(block)?;
-                HCLBlock::Terraform(block)
+                HclBlock::Terraform(block)
             }
-            _ => HCLBlock::Other(block),
+            "resource" => {
+                let block = HclResourceBlock::try_from(block)?;
+                HclBlock::Resource(block)
+            }
+            "data" => {
+                let block = HclDataBlock::try_from(block)?;
+                HclBlock::Data(block)
+            }
+            _ => HclBlock::Other(block),
         })
     }
 }
-impl std::fmt::Display for HCLBlock {
+impl TryFrom<HclBlock> for Block {
+    type Error = eyre::Error;
+    fn try_from(hcl_block: HclBlock) -> Result<Self> {
+        Ok(match hcl_block {
+            HclBlock::Import(import_block) => import_block.try_into()?,
+            HclBlock::Provider(provider_block) => provider_block.try_into()?,
+            HclBlock::Terraform(terraform_block) => terraform_block.try_into()?,
+            HclBlock::Resource(block) => block.try_into()?,
+            HclBlock::Data(block) => block.try_into()?,
+            HclBlock::Other(block) => block,
+        })
+    }
+}
+impl std::fmt::Display for HclBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            HCLBlock::Terraform(terraform) => f.write_fmt(format_args!(
+            HclBlock::Terraform(terraform) => f.write_fmt(format_args!(
                 "Terraform block - backend={}, required_providers={}, other={}",
                 terraform.backend.is_some(),
                 terraform.required_providers.is_some(),
                 terraform.other.len()
             )),
-            HCLBlock::Provider(provider) => match provider.alias() {
+            HclBlock::Provider(provider) => match provider.alias() {
                 Some(alias) => f.write_fmt(format_args!(
                     "provider {} - alias={}",
                     provider.provider_kind(),
@@ -65,11 +104,13 @@ impl std::fmt::Display for HCLBlock {
                 )),
                 None => f.write_fmt(format_args!("provider {}", provider.provider_kind())),
             },
-            HCLBlock::Import(import_block) => f.write_fmt(format_args!(
+            HclBlock::Import(import_block) => f.write_fmt(format_args!(
                 "import to {} from {}",
                 import_block.to, import_block.id
             )),
-            HCLBlock::Other(block) => {
+            HclBlock::Resource(block) => f.write_fmt(format_args!("resource {block}",)),
+            HclBlock::Data(block) => f.write_fmt(format_args!("data {block}",)),
+            HclBlock::Other(block) => {
                 if (block.ident.to_string() == "data" || block.ident.to_string() == "resource")
                     && let Some(name) = block
                         .body
@@ -101,11 +142,11 @@ impl std::fmt::Display for HCLBlock {
     }
 }
 
-pub trait IntoHCLBlocks {
-    fn try_into_hcl_blocks(self) -> Result<Vec<HCLBlock>>;
+pub trait IntoHclBlocks {
+    fn try_into_hcl_blocks(self) -> Result<Vec<HclBlock>>;
 }
-impl IntoHCLBlocks for Body {
-    fn try_into_hcl_blocks(self) -> Result<Vec<HCLBlock>> {
+impl IntoHclBlocks for Body {
+    fn try_into_hcl_blocks(self) -> Result<Vec<HclBlock>> {
         let mut rtn = Vec::new();
         for block in self.into_blocks() {
             rtn.push(block.try_into()?);
@@ -117,7 +158,8 @@ impl IntoHCLBlocks for Body {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::HCLProviderReference;
+    use crate::prelude::HclProviderReference;
+    use crate::prelude::ProviderKind;
     use crate::prelude::ResourceBlockReference;
 
     #[test]
@@ -134,11 +176,11 @@ mod tests {
         let block = blocks.pop().unwrap();
         assert!(matches!(
             block,
-            HCLBlock::Import(HCLImportBlock {
-                provider: HCLProviderReference::Inherited,
+            HclBlock::Import(HclImportBlock {
+                provider: HclProviderReference::Inherited,
                 id,
                 to: ResourceBlockReference::Other { provider, kind, name }
-            }) if id == "guh" && provider == "providername" && kind == "resourcekind" && name == "name"
+            }) if id == "guh" && provider == ProviderKind::Other("providername".to_string()) && kind == "resourcekind" && name == "name"
         ));
 
         Ok(())

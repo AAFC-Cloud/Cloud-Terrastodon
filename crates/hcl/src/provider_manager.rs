@@ -1,12 +1,12 @@
-use crate::writer::HCLWriter;
+use crate::writer::HclWriter;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::get_active_subscription_id;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
-use cloud_terrastodon_hcl_types::prelude::AsHCLString;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderBlock;
+use cloud_terrastodon_hcl_types::prelude::AsHclString;
+use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
 use cloud_terrastodon_hcl_types::prelude::ProviderAvailability;
 use cloud_terrastodon_hcl_types::prelude::ProviderHostname;
 use cloud_terrastodon_hcl_types::prelude::ProviderKind;
@@ -217,7 +217,7 @@ impl ProviderManager {
         app_temp_dir.ensure_dir_exists().await?;
         let temp_dir = tempfile::Builder::new().tempdir_in(&app_temp_dir)?;
         let boilerplate_tf_path = temp_dir.path().join("boilerplate.tf");
-        HCLWriter::new(boilerplate_tf_path)
+        HclWriter::new(boilerplate_tf_path)
             .overwrite(boilerplate_tf)
             .await?
             .format_file()
@@ -260,7 +260,7 @@ impl ProviderManager {
         // Open boilerplate file
         debug!(path = %work_dir.display(), "Writing default provider configs");
         let boilerplate_path = work_dir.join("boilerplate.tf");
-        HCLWriter::new(boilerplate_path)
+        HclWriter::new(boilerplate_path)
             .merge(vec![TerraformBlock {
                 required_providers: Some(TerraformRequiredProvidersBlock::common()),
                 ..Default::default()
@@ -268,11 +268,11 @@ impl ProviderManager {
             .await
             .wrap_err("Writing terraform block")?
             .merge(vec![
-                HCLProviderBlock::AzureDevOps {
+                HclProviderBlock::AzureDevOps {
                     alias: None,
                     org_service_url,
                 },
-                HCLProviderBlock::AzureRM {
+                HclProviderBlock::AzureRM {
                     alias: None,
                     subscription_id: Some(active_sub_id.short_form()),
                 },

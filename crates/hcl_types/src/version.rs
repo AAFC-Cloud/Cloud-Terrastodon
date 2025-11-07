@@ -506,7 +506,7 @@ impl From<TerraformRequiredProvidersBlock> for Block {
         let mut builder = Block::builder(Ident::new("required_providers"));
         for (provider, body) in value.0 {
             let body: Object = body.into();
-            builder = builder.attribute(Attribute::new(Decorated::new(Ident::new(provider)), body));
+            builder = builder.attribute(Attribute::new(Ident::new(provider), body));
         }
         builder.build()
     }

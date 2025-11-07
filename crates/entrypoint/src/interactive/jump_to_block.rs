@@ -17,7 +17,13 @@ pub async fn jump_to_block(dir: PathBuf) -> Result<()> {
     CommandBuilder::new(CommandKind::VSCode)
         .args([
             "--goto",
-            format!("{}:{}", chosen.path.display(), chosen.line_col.0).as_str(),
+            format!(
+                "{}:{}:{}",
+                chosen.location.path.display(),
+                chosen.location.line,
+                chosen.location.column
+            )
+            .as_str(),
         ])
         .use_output_behaviour(OutputBehaviour::Display)
         .run_raw()

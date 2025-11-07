@@ -22,6 +22,10 @@
 - Add ctrl+backspace support to picker tui
     - Existing textarea widget has alt+backspace hotkey but I prefer ctrl+backspace .-.
 - Add `cloud_terrastodon.exe az pim activate` commands
+- Rename `HCL` to `Hcl` in structs and stuff
+- `CodeReference` changed to introduce new `LocationWithinFile` struct
+- Refactored import and data block stuff
+- Introduce "cloud_terrastodon terraform src add-imports" to generate import blocks from source code
 
 # v0.28.0
 

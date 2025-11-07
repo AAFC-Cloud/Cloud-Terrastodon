@@ -1,5 +1,5 @@
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockKind;
+use cloud_terrastodon_hcl_types::prelude::ResourceBlockResourceKind;
 use hcl::edit::Ident;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;
@@ -22,7 +22,7 @@ impl VisitMut for AzureDevOpsGitRepositoryInitializationPatcher {
             return;
         };
 
-        if let ResourceBlockKind::AzureDevOps(AzureDevOpsResourceBlockKind::Repo) = resource_kind {
+        if let ResourceBlockResourceKind::AzureDevOps(AzureDevOpsResourceBlockKind::Repo) = resource_kind {
             let mut initialization_block = Block::builder(Ident::new("initialization"));
             initialization_block = initialization_block
                 .attribute(Attribute::new(Ident::new("init_type"), "Clean".to_string()));

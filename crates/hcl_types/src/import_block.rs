@@ -1,7 +1,7 @@
-use crate::prelude::AsHCLString;
+use crate::prelude::AsHclString;
+use crate::prelude::HclProviderReference;
 use crate::prelude::ProviderKind;
 use crate::prelude::ResourceBlockReference;
-use crate::providers::HCLProviderReference;
 use eyre::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::TraversalOperator;
@@ -13,21 +13,21 @@ use indoc::formatdoc;
 use std::str::FromStr;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct HCLImportBlock {
-    pub provider: HCLProviderReference,
+pub struct HclImportBlock {
+    pub provider: HclProviderReference,
     //     pub id: ScopeImpl,
     pub id: String,
     pub to: ResourceBlockReference,
 }
 
-impl AsHCLString for HCLImportBlock {
+impl AsHclString for HclImportBlock {
     fn as_hcl_string(&self) -> String {
         let provider = match &self.provider {
-            HCLProviderReference::Alias { kind, name } => {
+            HclProviderReference::Alias { kind, name } => {
                 format!("\n    provider = {kind}.{name}")
             }
-            HCLProviderReference::Inherited => "".to_string(),
-            HCLProviderReference::Default { kind } => {
+            HclProviderReference::Inherited => "".to_string(),
+            HclProviderReference::Default { kind } => {
                 format!("\n    provider = {kind}")
             }
         };
@@ -45,10 +45,10 @@ impl AsHCLString for HCLImportBlock {
     }
 }
 
-impl TryFrom<HCLImportBlock> for Block {
+impl TryFrom<HclImportBlock> for Block {
     type Error = parser::Error;
 
-    fn try_from(value: HCLImportBlock) -> std::prelude::v1::Result<Self, Self::Error> {
+    fn try_from(value: HclImportBlock) -> std::prelude::v1::Result<Self, Self::Error> {
         let builder = Block::builder(Ident::new("import"));
         let builder = value.provider.apply_to_builder(builder)?;
 
@@ -62,7 +62,7 @@ impl TryFrom<HCLImportBlock> for Block {
     }
 }
 
-impl TryFrom<Block> for HCLImportBlock {
+impl TryFrom<Block> for HclImportBlock {
     type Error = eyre::Error;
 
     fn try_from(mut block: Block) -> Result<Self, Self::Error> {
@@ -72,8 +72,8 @@ impl TryFrom<Block> for HCLImportBlock {
         }
         let provider = match block.body.get_attribute("provider") {
             Some(attrib) => {
-                let provider: HCLProviderReference = match &attrib.value {
-                    Expression::Variable(v) => HCLProviderReference::Default {
+                let provider: HclProviderReference = match &attrib.value {
+                    Expression::Variable(v) => HclProviderReference::Default {
                         kind: ProviderKind::from_str(v.as_str())?,
                     },
                     Expression::Traversal(traversal) => {
@@ -104,7 +104,7 @@ impl TryFrom<Block> for HCLImportBlock {
                         };
                         let alias = alias.as_str();
 
-                        HCLProviderReference::Alias {
+                        HclProviderReference::Alias {
                             kind,
                             name: alias.to_owned(),
                         }
@@ -119,7 +119,7 @@ impl TryFrom<Block> for HCLImportBlock {
                 };
                 provider
             }
-            None => HCLProviderReference::Inherited,
+            None => HclProviderReference::Inherited,
         };
 
         // Get ID attrib
@@ -143,37 +143,22 @@ impl TryFrom<Block> for HCLImportBlock {
         };
         let to: ResourceBlockReference = ResourceBlockReference::try_from(to.value)?;
 
-        Ok(HCLImportBlock { provider, id, to })
+        Ok(HclImportBlock { provider, id, to })
     }
 }
-
-// pub trait TryIntoHCLImportBlock {
-//     fn try_as_import_block(self) -> eyre::Result<HCLImportBlock>;
-// }
-// impl<T, E> TryIntoHCLImportBlock for T
-// where
-//     T: TryInto<HCLImportBlock, Error = E>,
-//     E: std::error::Error + Send + Sync + 'static,
-// {
-//     fn try_as_import_block(self) -> eyre::Result<HCLImportBlock> {
-//         Ok(self.try_into()?)
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::TryAsHCLBlocks;
-    use crate::providers::ProviderKind;
-    use crate::resources::AzureRMResourceBlockKind;
+    use crate::prelude::{AzureRmResourceBlockKind, HclProviderReference, TryAsHclBlocks};
 
     #[test]
     fn conversaion_parity1() -> eyre::Result<()> {
-        let import = HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        let import = HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: "abc123".to_string(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::ResourceGroup,
+                kind: AzureRmResourceBlockKind::ResourceGroup,
                 name: "my_rg".to_string(),
             },
         };
@@ -185,14 +170,14 @@ mod tests {
     }
     #[test]
     fn conversaion_parity2() -> eyre::Result<()> {
-        let import = HCLImportBlock {
-            provider: HCLProviderReference::Alias {
+        let import = HclImportBlock {
+            provider: HclProviderReference::Alias {
                 kind: ProviderKind::AzureRM,
                 name: "prod".to_string(),
             },
             id: "abc123".to_string(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::ResourceGroup,
+                kind: AzureRmResourceBlockKind::ResourceGroup,
                 name: "my_rg".to_string(),
             },
         };
@@ -212,15 +197,15 @@ mod tests {
             }
         "#;
         let hcl_block = content.try_as_hcl_blocks()?.next().unwrap();
-        let our_block: HCLImportBlock = hcl_block.try_into()?;
-        let expected = HCLImportBlock {
-            provider: HCLProviderReference::Alias {
+        let our_block: HclImportBlock = hcl_block.try_into()?;
+        let expected = HclImportBlock {
+            provider: HclProviderReference::Alias {
                 kind: ProviderKind::AzureRM,
                 name: "abc".to_string(),
             },
             id: "123".to_string(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::Other("test".to_string()),
+                kind: AzureRmResourceBlockKind::Other("test".to_string()),
                 name: "one_two_three".to_string(),
             },
         };
@@ -236,12 +221,12 @@ mod tests {
             }
         "#;
         let hcl_block = content.try_as_hcl_blocks()?.next().unwrap();
-        let our_block: HCLImportBlock = hcl_block.try_into()?;
-        let expected = HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        let our_block: HclImportBlock = hcl_block.try_into()?;
+        let expected = HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: "123".to_string(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::Other("test".to_string()),
+                kind: AzureRmResourceBlockKind::Other("test".to_string()),
                 name: "one_two_three".to_string(),
             },
         };
@@ -258,14 +243,14 @@ mod tests {
             }
         "#;
         let hcl_block = content.try_as_hcl_blocks()?.next().unwrap();
-        let our_block: HCLImportBlock = hcl_block.try_into()?;
-        let expected = HCLImportBlock {
-            provider: HCLProviderReference::Default {
+        let our_block: HclImportBlock = hcl_block.try_into()?;
+        let expected = HclImportBlock {
+            provider: HclProviderReference::Default {
                 kind: ProviderKind::AzureRM,
             },
             id: "123".to_string(),
             to: ResourceBlockReference::AzureRM {
-                kind: AzureRMResourceBlockKind::Other("test".to_string()),
+                kind: AzureRmResourceBlockKind::Other("test".to_string()),
                 name: "one_two_three".to_string(),
             },
         };

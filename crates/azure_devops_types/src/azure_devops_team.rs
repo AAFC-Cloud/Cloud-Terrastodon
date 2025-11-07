@@ -1,7 +1,7 @@
 use crate::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HCLImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HCLProviderReference;
+use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
+use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
 use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
@@ -54,10 +54,10 @@ pub struct AzureDevOpsTeam {
     pub url: String,
 }
 
-impl From<AzureDevOpsTeam> for HCLImportBlock {
+impl From<AzureDevOpsTeam> for HclImportBlock {
     fn from(team: AzureDevOpsTeam) -> Self {
-        HCLImportBlock {
-            provider: HCLProviderReference::Inherited,
+        HclImportBlock {
+            provider: HclProviderReference::Inherited,
             id: format!("{}/{}", team.project_id, *team.id),
             to: ResourceBlockReference::AzureDevOps {
                 kind: AzureDevOpsResourceBlockKind::Team,
