@@ -18,7 +18,19 @@ impl AzureTagForCleanupArgs {
     pub async fn invoke(self) -> Result<()> {
         let cleanup_tagged_date = Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
         let cleanup_tagged_by = fetch_current_user().await?.user_principal_name;
-        let cleanup_policy = "CandidateForDeletion";
+
+        let cleanup_policy = {
+            match PickerTui::new(vec![
+                "CandidateForDeletion",
+                "CandidateForReduction",
+                "Other",
+            ])
+            .pick_one()?
+            {
+                "Other" => prompt_line("Please specify the cleanup policy: ").await?,
+                policy => policy.to_string(),
+            }
+        };
 
         let resources = fetch_all_resources().await?;
 
