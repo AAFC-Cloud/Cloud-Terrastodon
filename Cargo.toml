@@ -10,14 +10,8 @@ license = "LiLiQ-R-1.1"
 keywords = [
     "azure",
     "cli",
-    "infrastructure",
-    "automation",
-    "devops",
-    "cloud",
     "iac",
-    "infrastructure-as-code",
-    "cloud-automation",
-    "cloud-infrastructure",
+    "cloud",
     "sdk",
 ]
 categories = [
