@@ -1,6 +1,6 @@
 use super::group::AzureGroupArgs;
-use super::policy::AzurePolicyArgs;
 use super::pim::AzurePimArgs;
+use super::policy::AzurePolicyArgs;
 use super::tag::AzureTagArgs;
 use crate::noninteractive::prelude::audit_azure;
 use clap::Subcommand;

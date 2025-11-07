@@ -1,7 +1,8 @@
 pub mod azure_pim_activate;
 
 pub use azure_pim_activate::AzurePimActivateArgs;
-use clap::{Args, Subcommand};
+use clap::Args;
+use clap::Subcommand;
 use eyre::Result;
 
 /// Arguments for Azure Privileged Identity Management operations.

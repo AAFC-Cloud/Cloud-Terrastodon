@@ -1,13 +1,12 @@
 pub mod azure_command;
 pub mod group;
-pub mod policy;
 pub mod pim;
+pub mod policy;
 pub mod tag;
 
+use crate::cli::azure::azure_command::AzureCommand;
 use clap::Args;
 use eyre::Result;
-
-use crate::cli::azure::azure_command::AzureCommand;
 
 /// Arguments for Azure-specific operations.
 #[derive(Args, Debug, Clone)]

@@ -1,7 +1,9 @@
-use clap::{Args, Subcommand};
+use crate::interactive::prelude::pim_activate;
+use crate::interactive::prelude::pim_activate_azurerm;
+use crate::interactive::prelude::pim_activate_entra;
+use clap::Args;
+use clap::Subcommand;
 use eyre::Result;
-
-use crate::interactive::prelude::{pim_activate, pim_activate_azurerm, pim_activate_entra};
 
 /// Arguments for activating Privileged Identity Management roles.
 #[derive(Args, Debug, Clone)]
