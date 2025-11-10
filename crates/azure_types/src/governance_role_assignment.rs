@@ -1,7 +1,6 @@
 /// See the following:
 /// - https://graph.microsoft.com/v1.0/$metadata
 /// - https://graph.microsoft.com/beta/$metadata
-
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;

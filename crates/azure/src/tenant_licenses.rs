@@ -62,7 +62,9 @@ pub mod test_helpers {
                 if !command_output.stderr.contains_str("The tenant needs to have Microsoft Entra ID P2 or Microsoft Entra ID Governance license.") {
                     bail!("Expected error to contain AAD Premium P2 license error, but it was: {e:#}");
                 }
-                eprintln!("Command failed with expected error due to missing AAD_PREMIUM_P2 licenses.");
+                eprintln!(
+                    "Command failed with expected error due to missing AAD_PREMIUM_P2 licenses."
+                );
                 Ok(None)
             }
         }

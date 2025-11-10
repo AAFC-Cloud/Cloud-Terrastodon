@@ -1,8 +1,7 @@
+use crate::prelude::ProviderKind;
 use eyre::bail;
 use std::any::type_name;
 use std::str::FromStr;
-
-use crate::prelude::ProviderKind;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct OtherResourceBlockKind {
@@ -35,15 +34,17 @@ impl std::fmt::Display for OtherResourceBlockKind {
 
 #[cfg(test)]
 mod tests {
-    use crate::resource_block_resource_kind::ResourceBlockResourceKind;
     use crate::resource_block_kind_azuread::AzureAdResourceBlockKind;
+    use crate::resource_block_resource_kind::ResourceBlockResourceKind;
 
     #[test]
     fn parse_azuread_other() -> eyre::Result<()> {
         let kind: ResourceBlockResourceKind = "azuread_thingy".parse()?;
         assert_eq!(
             kind,
-            ResourceBlockResourceKind::AzureAD(AzureAdResourceBlockKind::Other("thingy".to_owned()))
+            ResourceBlockResourceKind::AzureAD(AzureAdResourceBlockKind::Other(
+                "thingy".to_owned()
+            ))
         );
         Ok(())
     }

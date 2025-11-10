@@ -150,7 +150,9 @@ impl TryFrom<Block> for HclImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::{AzureRmResourceBlockKind, HclProviderReference, TryAsHclBlocks};
+    use crate::prelude::AzureRmResourceBlockKind;
+    use crate::prelude::HclProviderReference;
+    use crate::prelude::TryAsHclBlocks;
 
     #[test]
     fn conversaion_parity1() -> eyre::Result<()> {

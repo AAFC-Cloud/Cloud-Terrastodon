@@ -529,41 +529,37 @@ where
 {
     match T::try_from_expanded_management_group_scoped(expanded) {
         Ok(x) => Ok(x),
-        Err(management_group_scoped_error) => {
-            match T::try_from_expanded_portal_scoped(expanded) {
+        Err(management_group_scoped_error) => match T::try_from_expanded_portal_scoped(expanded) {
+            Ok(x) => Ok(x),
+            Err(portal_scoped_error) => match T::try_from_expanded_subscription_scoped(expanded) {
                 Ok(x) => Ok(x),
-                Err(portal_scoped_error) => {
-                    match T::try_from_expanded_subscription_scoped(expanded) {
+                Err(subscription_scoped_error) => {
+                    match T::try_from_expanded_resource_group_scoped(expanded) {
                         Ok(x) => Ok(x),
-                        Err(subscription_scoped_error) => {
-                            match T::try_from_expanded_resource_group_scoped(expanded) {
+                        Err(resource_group_scoped_error) => {
+                            match T::try_from_expanded_resource_scoped(expanded) {
                                 Ok(x) => Ok(x),
-                                Err(resource_group_scoped_error) => {
-                                    match T::try_from_expanded_resource_scoped(expanded) {
+                                Err(resource_scoped_error) => {
+                                    match T::try_from_expanded_unscoped(expanded) {
                                         Ok(x) => Ok(x),
-                                        Err(resource_scoped_error) => {
-                                            match T::try_from_expanded_unscoped(expanded) {
-                                                Ok(x) => Ok(x),
-                                                Err(unscoped_error) => {
-                                                    bail!(
-                                                        "{}\n{:?}\n========\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}",
-                                                        "Hierarchy scoped parse failed for ",
-                                                        expanded,
-                                                        "management group scoped attempt: ",
-                                                        management_group_scoped_error,
-                                                        "subscription scoped attempt: ",
-                                                        subscription_scoped_error,
-                                                        "resource group scoped attempt: ",
-                                                        resource_group_scoped_error,
-                                                        "resource scoped attempt: ",
-                                                        resource_scoped_error,
-                                                        "portal scoped attempt: ",
-                                                        portal_scoped_error,
-                                                        "unscoped attempt: ",
-                                                        unscoped_error
-                                                    );
-                                                }
-                                            }
+                                        Err(unscoped_error) => {
+                                            bail!(
+                                                "{}\n{:?}\n========\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}",
+                                                "Hierarchy scoped parse failed for ",
+                                                expanded,
+                                                "management group scoped attempt: ",
+                                                management_group_scoped_error,
+                                                "subscription scoped attempt: ",
+                                                subscription_scoped_error,
+                                                "resource group scoped attempt: ",
+                                                resource_group_scoped_error,
+                                                "resource scoped attempt: ",
+                                                resource_scoped_error,
+                                                "portal scoped attempt: ",
+                                                portal_scoped_error,
+                                                "unscoped attempt: ",
+                                                unscoped_error
+                                            );
                                         }
                                     }
                                 }
@@ -571,8 +567,8 @@ where
                         }
                     }
                 }
-            }
-        }
+            },
+        },
     }
 }
 

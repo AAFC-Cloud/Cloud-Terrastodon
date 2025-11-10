@@ -136,30 +136,29 @@ impl HclResourceBlock {
     }
     pub fn as_resource_block_reference(&self) -> ResourceBlockReference {
         match self {
-            HclResourceBlock::AzureRM { kind, name, .. } => {
-                ResourceBlockReference::AzureRM {
-                    kind: kind.to_owned(),
-                    name: name.to_owned(),
-                }
+            HclResourceBlock::AzureRM { kind, name, .. } => ResourceBlockReference::AzureRM {
+                kind: kind.to_owned(),
+                name: name.to_owned(),
             },
-            HclResourceBlock::AzureAD { kind, name, .. } => {
-                ResourceBlockReference::AzureAD {
-                    kind: kind.to_owned(),
-                    name: name.to_owned(),
-                }
+            HclResourceBlock::AzureAD { kind, name, .. } => ResourceBlockReference::AzureAD {
+                kind: kind.to_owned(),
+                name: name.to_owned(),
             },
             HclResourceBlock::AzureDevOps { kind, name, .. } => {
                 ResourceBlockReference::AzureDevOps {
                     kind: kind.to_owned(),
                     name: name.to_owned(),
                 }
-            },
-            HclResourceBlock::Other { provider, kind, name, .. } => {
-                ResourceBlockReference::Other {
-                    provider: provider.to_owned(),
-                    kind: kind.to_owned(),
-                    name: name.to_owned(),
-                }
+            }
+            HclResourceBlock::Other {
+                provider,
+                kind,
+                name,
+                ..
+            } => ResourceBlockReference::Other {
+                provider: provider.to_owned(),
+                kind: kind.to_owned(),
+                name: name.to_owned(),
             },
         }
     }
@@ -171,7 +170,7 @@ impl HclResourceBlock {
             HclResourceBlock::Other { body, .. } => body,
         }
     }
-    
+
     pub fn body(&self) -> &Body {
         match self {
             HclResourceBlock::AzureRM { body, .. } => body,

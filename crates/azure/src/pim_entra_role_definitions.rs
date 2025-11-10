@@ -40,10 +40,8 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let Some(result) = expect_aad_premium_p2_license(
-            fetch_all_entra_pim_role_definitions().await,
-        )
-        .await?
+        let Some(result) =
+            expect_aad_premium_p2_license(fetch_all_entra_pim_role_definitions().await).await?
         else {
             return Ok(());
         };

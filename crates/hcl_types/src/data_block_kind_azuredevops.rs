@@ -8,8 +8,7 @@ pub enum AzureDevOpsDataBlockKind {
 }
 impl AzureDevOpsDataBlockKind {
     pub fn supported_variants() -> Vec<AzureDevOpsDataBlockKind> {
-        vec![
-        ]
+        vec![]
     }
 }
 impl AsRef<str> for AzureDevOpsDataBlockKind {

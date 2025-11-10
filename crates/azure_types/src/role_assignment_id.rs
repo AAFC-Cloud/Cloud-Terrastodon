@@ -99,10 +99,7 @@ impl TryFromUnscoped for RoleAssignmentId {
     }
 }
 impl TryFromPortalScoped for RoleAssignmentId {
-    unsafe fn new_portal_scoped_unchecked(
-        _expanded: &str,
-        name: Self::Name,
-    ) -> Self {
+    unsafe fn new_portal_scoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
         RoleAssignmentId::PortalScoped(PortalScopedRoleAssignmentId {
             role_assignment_name: name,
         })
@@ -126,7 +123,10 @@ impl TryFromResourceScoped for RoleAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        RoleAssignmentId::ResourceScoped(ResourceScopedRoleAssignmentId { resource_id, role_assignment_name: name })
+        RoleAssignmentId::ResourceScoped(ResourceScopedRoleAssignmentId {
+            resource_id,
+            role_assignment_name: name,
+        })
     }
 }
 impl TryFromSubscriptionScoped for RoleAssignmentId {

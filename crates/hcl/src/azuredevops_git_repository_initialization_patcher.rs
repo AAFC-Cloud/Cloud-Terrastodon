@@ -22,7 +22,9 @@ impl VisitMut for AzureDevOpsGitRepositoryInitializationPatcher {
             return;
         };
 
-        if let ResourceBlockResourceKind::AzureDevOps(AzureDevOpsResourceBlockKind::Repo) = resource_kind {
+        if let ResourceBlockResourceKind::AzureDevOps(AzureDevOpsResourceBlockKind::Repo) =
+            resource_kind
+        {
             let mut initialization_block = Block::builder(Ident::new("initialization"));
             initialization_block = initialization_block
                 .attribute(Attribute::new(Ident::new("init_type"), "Clean".to_string()));

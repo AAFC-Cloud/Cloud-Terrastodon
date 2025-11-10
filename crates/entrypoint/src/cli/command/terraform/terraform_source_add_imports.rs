@@ -10,9 +10,9 @@ use cloud_terrastodon_hcl::prelude::ResourceBlockReference;
 use cloud_terrastodon_hcl::prelude::list_blocks_for_dir;
 use eyre::Result;
 use itertools::Itertools;
-use tracing::info;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tracing::info;
 use tracing::warn;
 
 /// Add Terraform import blocks for existing resource blocks.
@@ -25,12 +25,15 @@ pub struct TerraformSourceAddImportsArgs {
 impl TerraformSourceAddImportsArgs {
     pub async fn invoke(self) -> Result<()> {
         info!("Fetching resources from Azure...");
-        let resources = fetch_all_resources().await?.into_iter().into_group_map_by(|res| res.name.clone());
+        let resources = fetch_all_resources()
+            .await?
+            .into_iter()
+            .into_group_map_by(|res| res.name.clone());
 
         info!("Analyzing Terraform source in {:?}", self.work_dir);
         let code = list_blocks_for_dir(&self.work_dir).await?;
         info!(count=?code.len(), "Discovered HCL blocks");
-        
+
         info!("Reshaping data...");
         let resource_blocks: HashMap<ResourceBlockReference, &HclResourceBlock> = {
             let mut rtn = HashMap::default();

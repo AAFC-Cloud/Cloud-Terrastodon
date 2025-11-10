@@ -183,7 +183,10 @@ impl TryFromResourceScoped for ResourceScopedRoleAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        Self { resource_id, role_assignment_name: name }
+        Self {
+            resource_id,
+            role_assignment_name: name,
+        }
     }
 }
 

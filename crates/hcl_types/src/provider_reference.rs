@@ -1,3 +1,4 @@
+use crate::prelude::ProviderKind;
 use eyre::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::TraversalOperator;
@@ -6,8 +7,6 @@ use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::BlockBuilder;
 use hcl_primitives::Ident;
-
-use crate::prelude::ProviderKind;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum HclProviderReference {

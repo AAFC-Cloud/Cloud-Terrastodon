@@ -34,9 +34,9 @@ impl FromStr for ResourceBlockResourceKind {
         if let Ok(kind) = s.parse::<AzureDevOpsResourceBlockKind>() {
             return Ok(ResourceBlockResourceKind::AzureDevOps(kind));
         }
-        Ok(ResourceBlockResourceKind::Other(OtherResourceBlockKind::from_str(
-            s,
-        )?))
+        Ok(ResourceBlockResourceKind::Other(
+            OtherResourceBlockKind::from_str(s)?,
+        ))
     }
 }
 
@@ -81,7 +81,9 @@ mod tests {
         let kind: ResourceBlockResourceKind = "azuread_thingy".parse()?;
         assert_eq!(
             kind,
-            ResourceBlockResourceKind::AzureAD(AzureAdResourceBlockKind::Other("thingy".to_owned()))
+            ResourceBlockResourceKind::AzureAD(AzureAdResourceBlockKind::Other(
+                "thingy".to_owned()
+            ))
         );
         Ok(())
     }

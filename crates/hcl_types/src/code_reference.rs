@@ -28,11 +28,7 @@ pub struct CodeReference {
 }
 impl std::fmt::Display for CodeReference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{} | {}",
-            self.location,
-            self.hcl_block
-        ))
+        f.write_fmt(format_args!("{} | {}", self.location, self.hcl_block))
     }
 }
 impl CodeReference {

@@ -9,9 +9,7 @@ pub enum AzureAdDataBlockKind {
 }
 impl AzureAdDataBlockKind {
     pub fn supported_variants() -> Vec<AzureAdDataBlockKind> {
-        vec![
-            AzureAdDataBlockKind::Users,
-        ]
+        vec![AzureAdDataBlockKind::Users]
     }
 }
 impl AsRef<str> for AzureAdDataBlockKind {

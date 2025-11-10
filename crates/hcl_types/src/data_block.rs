@@ -1,8 +1,8 @@
 use crate::prelude::AzureAdDataBlockKind;
 use crate::prelude::AzureDevOpsDataBlockKind;
 use crate::prelude::AzureRmDataBlockKind;
-use crate::prelude::DataBlockResourceKind;
 use crate::prelude::DataBlockReference;
+use crate::prelude::DataBlockResourceKind;
 use crate::prelude::OtherDataBlockKind;
 use crate::prelude::ProviderKind;
 use hcl::edit::structure::Block;
@@ -63,12 +63,8 @@ impl TryFrom<Block> for HclDataBlock {
         let name = name.as_str().to_owned();
         let body = value.body;
         Ok(match kind {
-            DataBlockResourceKind::AzureRM(kind) => {
-                HclDataBlock::AzureRM { kind, name, body }
-            }
-            DataBlockResourceKind::AzureAD(kind) => {
-                HclDataBlock::AzureAD { kind, name, body }
-            }
+            DataBlockResourceKind::AzureRM(kind) => HclDataBlock::AzureRM { kind, name, body },
+            DataBlockResourceKind::AzureAD(kind) => HclDataBlock::AzureAD { kind, name, body },
             DataBlockResourceKind::AzureDevOps(kind) => {
                 HclDataBlock::AzureDevOps { kind, name, body }
             }
@@ -133,7 +129,12 @@ impl HclDataBlock {
     }
     pub fn as_data_block_reference(&self) -> DataBlockReference {
         match self {
-            HclDataBlock::Other { provider, kind, name, .. } => DataBlockReference::Other {
+            HclDataBlock::Other {
+                provider,
+                kind,
+                name,
+                ..
+            } => DataBlockReference::Other {
                 provider: provider.to_owned(),
                 kind: kind.to_owned(),
                 name: name.to_owned(),
