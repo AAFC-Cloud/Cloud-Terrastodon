@@ -55,7 +55,7 @@ where
             Some(start) => {
                 let duration = end.duration_since(start);
                 let duration = humantime::format_duration(duration);
-                info!("Finished {} tasks in {} seconds", count, duration);
+                info!("Finished {} tasks in {}", count, duration);
             }
             None => {
                 info!("Finished {} tasks", self.description);
