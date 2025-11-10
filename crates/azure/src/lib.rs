@@ -56,6 +56,7 @@ mod service_principals;
 mod storage_account;
 mod subscriptions;
 mod tags;
+mod tenant_licenses;
 mod tenants;
 mod unified_role_assignments;
 mod unified_role_definition;
@@ -124,6 +125,7 @@ pub mod prelude {
     pub use crate::storage_account::*;
     pub use crate::subscriptions::*;
     pub use crate::tags::*;
+    pub use crate::tenant_licenses::*;
     pub use crate::tenants::*;
     pub use crate::unified_role_assignments::*;
     pub use crate::unified_role_definition::*;

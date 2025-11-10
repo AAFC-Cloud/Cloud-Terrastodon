@@ -3,7 +3,7 @@
 - Add `LocationName::BelgiumCentral`, see [Microsoft's LinkedIn post](https://www.linkedin.com/posts/microsoft_big-news-the-belgian-microsoft-cloud-region-activity)
 - Add missing `GovernanceRoleAssignmentStatus::Accepted` variant
 - Remove extraneous "seconds" suffix after humantime display in `ParallelFallibleWorkQueue::join` logging
-
+- Add `fetch_all_tenant_licenses`
 
 # v0.29.0
 

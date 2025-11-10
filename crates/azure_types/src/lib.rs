@@ -114,6 +114,7 @@ mod subnet_properties;
 mod subscription;
 mod subscription_id;
 mod subscription_name;
+mod tenant_license;
 mod tenants;
 mod test_resource;
 mod unified_role_assignment;
@@ -246,6 +247,7 @@ pub mod prelude {
     pub use crate::subscription::*;
     pub use crate::subscription_id::*;
     pub use crate::subscription_name::*;
+    pub use crate::tenant_license::*;
     pub use crate::tenants::*;
     pub use crate::test_resource::*;
     pub use crate::unified_role_assignment::*;
