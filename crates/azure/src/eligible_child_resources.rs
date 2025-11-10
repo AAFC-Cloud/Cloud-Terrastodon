@@ -79,6 +79,7 @@ pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChil
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
     use crate::management_groups::fetch_root_management_group;
     use crate::subscriptions::fetch_all_subscriptions;
     use cloud_terrastodon_azure_types::prelude::AsScope;
@@ -90,8 +91,13 @@ mod tests {
     async fn it_works() -> Result<()> {
         let mg = fetch_root_management_group().await?;
         let scope = mg.as_scope();
-        let found =
-            fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
+        let Some(found) = expect_aad_premium_p2_license(
+            fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await,
+        )
+        .await?
+        else {
+            return Ok(());
+        };
         assert!(!found.is_empty());
         for x in found {
             println!("- {x:?}");
@@ -101,7 +107,13 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works2() -> Result<()> {
-        let found = fetch_all_eligible_resource_containers().await?;
+        let Some(found) = expect_aad_premium_p2_license(
+            fetch_all_eligible_resource_containers().await,
+        )
+        .await?
+        else {
+            return Ok(());
+        };
         assert!(!found.is_empty());
         for x in found {
             println!("- {x:?}");
@@ -116,28 +128,28 @@ mod tests {
             .into_iter()
             .next()
             .unwrap();
-        let found =
-            fetch_eligible_child_resources(rg.as_scope(), FetchChildrenBehaviour::GetAllChildren)
-                .await;
-        assert!(
-            found.is_err(),
-            "GetAllChildren is only supported for management groups?"
-        );
-        Ok(())
+        let result = expect_aad_premium_p2_license(
+            fetch_eligible_child_resources(rg.as_scope(), FetchChildrenBehaviour::GetAllChildren).await,
+        )
+        .await?;
+        match result {
+            Some(_) => eyre::bail!("Expected error, but got success; GetAllChildren is only supported for management groups?"),
+            None => return Ok(()),
+        }
     }
 
     #[test_log::test(tokio::test)]
     async fn it_works4() -> Result<()> {
         let subs = fetch_all_subscriptions().await?;
         let sub = subs.first().unwrap();
-        let found =
-            fetch_eligible_child_resources(sub.as_scope(), FetchChildrenBehaviour::GetAllChildren)
-                .await;
-        assert!(
-            found.is_err(),
-            "GetAllChildren is only supported for management groups?"
-        );
-        Ok(())
+        let result = expect_aad_premium_p2_license(
+            fetch_eligible_child_resources(sub.as_scope(), FetchChildrenBehaviour::GetAllChildren).await,
+        )
+        .await?;
+        match result {
+            Some(_) => eyre::bail!("Expected error, but got success; GetAllChildren is only supported for management groups?"),
+            None => return Ok(()),
+        }
     }
 
     #[test_log::test(tokio::test)]
@@ -147,9 +159,15 @@ mod tests {
         let mut scope = mg.as_scope().as_scope_impl().to_owned();
         loop {
             println!("{}", scope);
+            let Some(resources) = expect_aad_premium_p2_license(
+                fetch_eligible_child_resources(&scope, FetchChildrenBehaviour::default()).await,
+            )
+            .await?
+            else {
+                return Ok(());
+            };
             let next_scope: Choice<EligibleChildResource> = PickerTui::new(
-                fetch_eligible_child_resources(&scope, FetchChildrenBehaviour::default())
-                    .await?
+                resources
                     .into_iter()
                     .map(|x| Choice {
                         key: x.name.to_owned(),
@@ -164,9 +182,15 @@ mod tests {
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works_interactive2() -> Result<()> {
+        let Some(resources) = expect_aad_premium_p2_license(
+            fetch_all_eligible_resource_containers().await,
+        )
+        .await?
+        else {
+            return Ok(());
+        };
         let chosen: Vec<Choice<EligibleChildResource>> = PickerTui::new(
-            fetch_all_eligible_resource_containers()
-                .await?
+            resources
                 .into_iter()
                 .map(|x| Choice {
                     key: x.to_string(),

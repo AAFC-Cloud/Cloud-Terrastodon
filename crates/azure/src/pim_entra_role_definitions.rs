@@ -36,10 +36,17 @@ pub async fn fetch_all_entra_pim_role_definitions() -> Result<Vec<PimEntraRoleDe
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_entra_pim_role_definitions().await?;
+        let Some(result) = expect_aad_premium_p2_license(
+            fetch_all_entra_pim_role_definitions().await,
+        )
+        .await?
+        else {
+            return Ok(());
+        };
         for role_definition in &result {
             println!("- {:?}", role_definition)
         }

@@ -32,10 +32,17 @@ pub async fn fetch_my_role_eligibility_schedules() -> Result<Vec<RoleEligibility
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let found = fetch_my_role_eligibility_schedules().await?;
+        let Some(found) = expect_aad_premium_p2_license(
+            fetch_my_role_eligibility_schedules().await,
+        )
+        .await?
+        else {
+            return Ok(());
+        };
         assert!(!found.is_empty());
         for x in found {
             println!("- {x}");

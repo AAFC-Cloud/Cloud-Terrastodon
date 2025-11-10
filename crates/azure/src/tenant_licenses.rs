@@ -29,6 +29,47 @@ pub async fn fetch_all_tenant_licenses() -> eyre::Result<TenantLicenseCollection
 }
 
 #[cfg(test)]
+pub mod test_helpers {
+    use crate::prelude::fetch_all_tenant_licenses;
+    use cloud_terrastodon_command::CommandOutput;
+    use cloud_terrastodon_command::bstr::ByteSlice;
+    use eyre::bail;
+
+    /// If the given result is a failure, it MUST contain an AAD Premium P2 license error.
+    /// If it is an error ,we also validate that the tenant licenses do not contain the AAD Premium P2 license.
+    /// If it is a success, we validate that the tenant licenses DO contain the AAD Premium P2 license.
+    pub async fn expect_aad_premium_p2_license<T>(
+        result: eyre::Result<T>,
+    ) -> eyre::Result<Option<T>> {
+        let tenant_licenses = fetch_all_tenant_licenses().await?;
+        let has_aad_premium_p2_license = tenant_licenses.has_aad_premium_p2();
+        match result {
+            Ok(x) => {
+                eyre::ensure!(
+                    has_aad_premium_p2_license,
+                    "Expected AAD Premium P2 license, but it was not found in tenant licenses: {tenant_licenses:#?}"
+                );
+                Ok(Some(x))
+            }
+            Err(e) => {
+                eyre::ensure!(
+                    !has_aad_premium_p2_license,
+                    "Expected no AAD Premium P2 license, but it was found in tenant licenses: {tenant_licenses:#?}"
+                );
+                let Some(command_output) = e.downcast_ref::<CommandOutput>() else {
+                    bail!("Expected error to be a CommandOutput, but it was: {e:#}");
+                };
+                if !command_output.stderr.contains_str("The tenant needs to have Microsoft Entra ID P2 or Microsoft Entra ID Governance license.") {
+                    bail!("Expected error to contain AAD Premium P2 license error, but it was: {e:#}");
+                }
+                eprintln!("Command failed with expected error due to missing AAD_PREMIUM_P2 licenses.");
+                Ok(None)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod test {
     use crate::prelude::fetch_all_tenant_licenses;
 

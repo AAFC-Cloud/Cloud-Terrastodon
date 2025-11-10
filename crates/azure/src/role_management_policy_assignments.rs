@@ -45,11 +45,18 @@ pub async fn fetch_role_management_policy_assignments(
 mod tests {
     use super::*;
     use crate::role_eligibility_schedules::fetch_my_role_eligibility_schedules;
+    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
     use humantime::format_duration;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let mut my_roles = fetch_my_role_eligibility_schedules().await?;
+        let Some(mut my_roles) = expect_aad_premium_p2_license(
+            fetch_my_role_eligibility_schedules().await,
+        )
+        .await?
+        else {
+            return Ok(());
+        };
         let role = my_roles.swap_remove(0);
         let scope = role.properties.scope;
         let role_definition_id = role.properties.role_definition_id;

@@ -53,10 +53,17 @@ pub async fn fetch_entra_pim_role_settings(
 mod tests {
     use super::*;
     use crate::pim_entra_role_assignments::fetch_my_entra_pim_role_assignments;
+    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let role_assignments = fetch_my_entra_pim_role_assignments().await?;
+        let Some(role_assignments) = expect_aad_premium_p2_license(
+            fetch_my_entra_pim_role_assignments().await,
+        )
+        .await?
+        else {
+            return Ok(());
+        };
         println!("Found {} role assignments", role_assignments.len());
         for role_assignment in role_assignments {
             let role_setting =

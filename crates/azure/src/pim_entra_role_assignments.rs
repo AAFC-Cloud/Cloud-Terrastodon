@@ -59,10 +59,17 @@ pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<GovernanceRoleA
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_my_entra_pim_role_assignments().await?;
+        let Some(result) = expect_aad_premium_p2_license(
+            fetch_my_entra_pim_role_assignments().await,
+        )
+        .await?
+        else {
+            return Ok(());
+        };
         for ass in result {
             println!("- {:?}", ass)
         }

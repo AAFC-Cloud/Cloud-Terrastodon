@@ -32,15 +32,23 @@ pub async fn fetch_governance_role_assignments_for_principal(
 mod test {
     use crate::auth::fetch_current_user;
     use crate::prelude::fetch_governance_role_assignments_for_principal;
+    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let me = fetch_current_user().await?.id;
-        let governance_role_assignments =
-            fetch_governance_role_assignments_for_principal(&me).await?;
+        let Some(governance_role_assignments) = expect_aad_premium_p2_license(
+            fetch_governance_role_assignments_for_principal(&me).await,
+        )
+        .await?
+        else {
+            return Ok(());
+        };
+
         for role in governance_role_assignments {
             println!("Role assignment: {role:#?}");
         }
+
         Ok(())
     }
 }
