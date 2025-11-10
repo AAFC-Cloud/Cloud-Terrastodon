@@ -1,5 +1,6 @@
 use crate::prelude::ManagementGroupId;
 use crate::prelude::ManagementGroupScopedRoleAssignmentId;
+use crate::prelude::PortalScopedRoleAssignmentId;
 use crate::prelude::ResourceGroupId;
 use crate::prelude::ResourceGroupScopedRoleAssignmentId;
 use crate::prelude::ResourceId;
@@ -15,11 +16,13 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromManagementGroupScoped;
+use crate::scopes::TryFromPortalScoped;
 use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromResourceScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
+use crate::scopes::try_from_expanded_hierarchy_scoped_with_portal;
 use crate::slug::HasSlug;
 use eyre::Result;
 use serde::Deserialize;
@@ -34,6 +37,7 @@ pub const ROLE_ASSIGNMENT_ID_PREFIX: &str = "/providers/Microsoft.Authorization/
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum RoleAssignmentId {
     Unscoped(UnscopedRoleAssignmentId),
+    PortalScoped(PortalScopedRoleAssignmentId),
     ManagementGroupScoped(ManagementGroupScopedRoleAssignmentId),
     SubscriptionScoped(SubscriptionScopedRoleAssignmentId),
     ResourceGroupScoped(ResourceGroupScopedRoleAssignmentId),
@@ -43,6 +47,7 @@ impl RoleAssignmentId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
             RoleAssignmentId::Unscoped(_) => None,
+            RoleAssignmentId::PortalScoped(_) => None,
             RoleAssignmentId::ManagementGroupScoped(_) => None,
             RoleAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
                 Some(*subscription_scoped_role_assignment_id.subscription_id())
@@ -65,6 +70,9 @@ impl HasSlug for RoleAssignmentId {
         match self {
             RoleAssignmentId::Unscoped(unscoped_role_assignment_id) => {
                 unscoped_role_assignment_id.name()
+            }
+            RoleAssignmentId::PortalScoped(portal_scoped_role_assignment_id) => {
+                portal_scoped_role_assignment_id.name()
             }
             RoleAssignmentId::ManagementGroupScoped(management_group_scoped_role_assignment_id) => {
                 management_group_scoped_role_assignment_id.name()
@@ -91,6 +99,16 @@ impl TryFromUnscoped for RoleAssignmentId {
         })
     }
 }
+impl TryFromPortalScoped for RoleAssignmentId {
+    unsafe fn new_portal_scoped_unchecked(
+        _expanded: &str,
+        name: Self::Name,
+    ) -> Self {
+        RoleAssignmentId::PortalScoped(PortalScopedRoleAssignmentId {
+            role_assignment_name: name,
+        })
+    }
+}
 impl TryFromResourceGroupScoped for RoleAssignmentId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
@@ -99,7 +117,7 @@ impl TryFromResourceGroupScoped for RoleAssignmentId {
     ) -> Self {
         RoleAssignmentId::ResourceGroupScoped(ResourceGroupScopedRoleAssignmentId {
             resource_group_id,
-            name,
+            role_assignment_name: name,
         })
     }
 }
@@ -109,7 +127,7 @@ impl TryFromResourceScoped for RoleAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        RoleAssignmentId::ResourceScoped(ResourceScopedRoleAssignmentId { resource_id, name })
+        RoleAssignmentId::ResourceScoped(ResourceScopedRoleAssignmentId { resource_id, role_assignment_name: name })
     }
 }
 impl TryFromSubscriptionScoped for RoleAssignmentId {
@@ -120,7 +138,7 @@ impl TryFromSubscriptionScoped for RoleAssignmentId {
     ) -> Self {
         RoleAssignmentId::SubscriptionScoped(SubscriptionScopedRoleAssignmentId {
             subscription_id,
-            name,
+            role_assignment_name: name,
         })
     }
 }
@@ -132,7 +150,7 @@ impl TryFromManagementGroupScoped for RoleAssignmentId {
     ) -> Self {
         RoleAssignmentId::ManagementGroupScoped(ManagementGroupScopedRoleAssignmentId {
             management_group_id,
-            name,
+            role_assignment_name: name,
         })
     }
 }
@@ -140,12 +158,13 @@ impl TryFromManagementGroupScoped for RoleAssignmentId {
 // MARK: impl Scope
 impl Scope for RoleAssignmentId {
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        try_from_expanded_hierarchy_scoped(expanded)
+        try_from_expanded_hierarchy_scoped_with_portal(expanded)
     }
 
     fn expanded_form(&self) -> String {
         match self {
             Self::Unscoped(x) => x.expanded_form(),
+            Self::PortalScoped(x) => x.expanded_form(),
             Self::ResourceGroupScoped(x) => x.expanded_form(),
             Self::SubscriptionScoped(x) => x.expanded_form(),
             Self::ManagementGroupScoped(x) => x.expanded_form(),
@@ -238,7 +257,7 @@ mod tests {
                 ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
                 "MY-VNET",
             ),
-            name: RoleAssignmentName::new(Uuid::new_v4()),
+            role_assignment_name: RoleAssignmentName::new(Uuid::new_v4()),
         });
         let id: RoleAssignmentId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;

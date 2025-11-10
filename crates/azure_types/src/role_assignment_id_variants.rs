@@ -11,11 +11,13 @@ use crate::prelude::Unscoped;
 use crate::role_assignment_id::ROLE_ASSIGNMENT_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
+use crate::scopes::PortalScoped;
 use crate::scopes::ResourceScoped;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::scopes::TryFromManagementGroupScoped;
+use crate::scopes::TryFromPortalScoped;
 use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromResourceScoped;
 use crate::scopes::TryFromSubscriptionScoped;
@@ -30,24 +32,28 @@ pub struct UnscopedRoleAssignmentId {
     pub role_assignment_name: RoleAssignmentName,
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct PortalScopedRoleAssignmentId {
+    pub role_assignment_name: RoleAssignmentName,
+}
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ManagementGroupScopedRoleAssignmentId {
     pub management_group_id: ManagementGroupId,
-    pub name: RoleAssignmentName,
+    pub role_assignment_name: RoleAssignmentName,
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SubscriptionScopedRoleAssignmentId {
     pub subscription_id: SubscriptionId,
-    pub name: RoleAssignmentName,
+    pub role_assignment_name: RoleAssignmentName,
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ResourceGroupScopedRoleAssignmentId {
     pub resource_group_id: ResourceGroupId,
-    pub name: RoleAssignmentName,
+    pub role_assignment_name: RoleAssignmentName,
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ResourceScopedRoleAssignmentId {
     pub resource_id: ResourceId,
-    pub name: RoleAssignmentName,
+    pub role_assignment_name: RoleAssignmentName,
 }
 
 // MARK: impl HasSlug
@@ -59,36 +65,44 @@ impl HasSlug for UnscopedRoleAssignmentId {
         &self.role_assignment_name
     }
 }
+impl HasSlug for PortalScopedRoleAssignmentId {
+    type Name = RoleAssignmentName;
+
+    fn name(&self) -> &Self::Name {
+        &self.role_assignment_name
+    }
+}
 impl HasSlug for ResourceGroupScopedRoleAssignmentId {
     type Name = RoleAssignmentName;
 
     fn name(&self) -> &Self::Name {
-        &self.name
+        &self.role_assignment_name
     }
 }
 impl HasSlug for ResourceScopedRoleAssignmentId {
     type Name = RoleAssignmentName;
 
     fn name(&self) -> &Self::Name {
-        &self.name
+        &self.role_assignment_name
     }
 }
 impl HasSlug for SubscriptionScopedRoleAssignmentId {
     type Name = RoleAssignmentName;
 
     fn name(&self) -> &Self::Name {
-        &self.name
+        &self.role_assignment_name
     }
 }
 impl HasSlug for ManagementGroupScopedRoleAssignmentId {
     type Name = RoleAssignmentName;
 
     fn name(&self) -> &Self::Name {
-        &self.name
+        &self.role_assignment_name
     }
 }
 
 impl Unscoped for UnscopedRoleAssignmentId {}
+impl PortalScoped for PortalScopedRoleAssignmentId {}
 
 impl ManagementGroupScoped for ManagementGroupScopedRoleAssignmentId {
     fn management_group_id(&self) -> &ManagementGroupId {
@@ -120,6 +134,13 @@ impl TryFromUnscoped for UnscopedRoleAssignmentId {
         }
     }
 }
+impl TryFromPortalScoped for PortalScopedRoleAssignmentId {
+    unsafe fn new_portal_scoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
+        Self {
+            role_assignment_name: name,
+        }
+    }
+}
 impl TryFromManagementGroupScoped for ManagementGroupScopedRoleAssignmentId {
     unsafe fn new_management_group_scoped_unchecked(
         _expanded: &str,
@@ -128,7 +149,7 @@ impl TryFromManagementGroupScoped for ManagementGroupScopedRoleAssignmentId {
     ) -> Self {
         ManagementGroupScopedRoleAssignmentId {
             management_group_id,
-            name,
+            role_assignment_name: name,
         }
     }
 }
@@ -140,7 +161,7 @@ impl TryFromSubscriptionScoped for SubscriptionScopedRoleAssignmentId {
     ) -> Self {
         Self {
             subscription_id,
-            name,
+            role_assignment_name: name,
         }
     }
 }
@@ -152,7 +173,7 @@ impl TryFromResourceGroupScoped for ResourceGroupScopedRoleAssignmentId {
     ) -> Self {
         ResourceGroupScopedRoleAssignmentId {
             resource_group_id,
-            name,
+            role_assignment_name: name,
         }
     }
 }
@@ -162,7 +183,7 @@ impl TryFromResourceScoped for ResourceScopedRoleAssignmentId {
         resource_id: ResourceId,
         name: Self::Name,
     ) -> Self {
-        Self { resource_id, name }
+        Self { resource_id, role_assignment_name: name }
     }
 }
 
@@ -189,13 +210,34 @@ impl Scope for UnscopedRoleAssignmentId {
     }
 }
 
+impl Scope for PortalScopedRoleAssignmentId {
+    fn expanded_form(&self) -> String {
+        format!(
+            "/providers/Microsoft.PortalServices/{ROLE_ASSIGNMENT_ID_PREFIX}{}",
+            self.role_assignment_name.as_hyphenated()
+        )
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        PortalScopedRoleAssignmentId::try_from_expanded_portal_scoped(expanded)
+    }
+
+    fn as_scope_impl(&self) -> ScopeImpl {
+        ScopeImpl::RoleAssignment(RoleAssignmentId::PortalScoped(self.clone()))
+    }
+
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::RoleAssignment
+    }
+}
+
 impl Scope for ManagementGroupScopedRoleAssignmentId {
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
             self.management_group_id.expanded_form(),
             Self::get_prefix(),
-            self.name
+            self.role_assignment_name
         )
     }
 
@@ -217,7 +259,7 @@ impl Scope for SubscriptionScopedRoleAssignmentId {
             "{}{}{}",
             self.subscription_id.expanded_form(),
             Self::get_prefix(),
-            self.name
+            self.role_assignment_name
         )
     }
 
@@ -240,7 +282,7 @@ impl Scope for ResourceGroupScopedRoleAssignmentId {
             "{}{}{}",
             self.resource_group_id.expanded_form(),
             Self::get_prefix(),
-            self.name
+            self.role_assignment_name
         )
     }
 
@@ -263,7 +305,7 @@ impl Scope for ResourceScopedRoleAssignmentId {
             "{}{}{}",
             self.resource_id.expanded_form(),
             Self::get_prefix(),
-            self.name
+            self.role_assignment_name
         )
     }
 
@@ -283,6 +325,13 @@ impl Scope for ResourceScopedRoleAssignmentId {
 // MARK: NameValidatable
 
 impl NameValidatable for UnscopedRoleAssignmentId {
+    fn validate_name(name: &str) -> Result<()> {
+        Uuid::parse_str(name)?;
+        Ok(())
+    }
+}
+
+impl NameValidatable for PortalScopedRoleAssignmentId {
     fn validate_name(name: &str) -> Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
@@ -320,6 +369,11 @@ impl HasPrefix for UnscopedRoleAssignmentId {
         ROLE_ASSIGNMENT_ID_PREFIX
     }
 }
+impl HasPrefix for PortalScopedRoleAssignmentId {
+    fn get_prefix() -> &'static str {
+        ROLE_ASSIGNMENT_ID_PREFIX
+    }
+}
 impl HasPrefix for ManagementGroupScopedRoleAssignmentId {
     fn get_prefix() -> &'static str {
         ROLE_ASSIGNMENT_ID_PREFIX
@@ -347,6 +401,13 @@ impl FromStr for UnscopedRoleAssignmentId {
     type Err = eyre::Error;
     fn from_str(s: &str) -> Result<Self> {
         UnscopedRoleAssignmentId::try_from_expanded(s)
+    }
+}
+
+impl FromStr for PortalScopedRoleAssignmentId {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        PortalScopedRoleAssignmentId::try_from_expanded(s)
     }
 }
 

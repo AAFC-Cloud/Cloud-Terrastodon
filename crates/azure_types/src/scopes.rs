@@ -215,6 +215,28 @@ where
     /// The try_from methods should be used instead
     unsafe fn new_unscoped_unchecked(_expanded: &str, name: Self::Name) -> Self;
 }
+pub trait TryFromPortalScoped
+where
+    Self: Sized + HasPrefix + HasSlug,
+{
+    fn try_from_expanded_portal_scoped(expanded_portal_scoped: &str) -> eyre::Result<Self> {
+        // Get name without prefix
+        let portal_prefix = "/providers/Microsoft.PortalServices";
+        let name = strip_prefix_case_insensitive(expanded_portal_scoped, portal_prefix)?;
+        let name = strip_prefix_case_insensitive(name, Self::get_prefix())?;
+        let name = <<Self as HasSlug>::Name>::try_new(name)?;
+        unsafe {
+            Ok(Self::new_portal_scoped_unchecked(
+                expanded_portal_scoped,
+                name,
+            ))
+        }
+    }
+    /// # Safety
+    ///
+    /// The try_from methods should be used instead
+    unsafe fn new_portal_scoped_unchecked(_expanded: &str, name: Self::Name) -> Self;
+}
 
 pub trait TryFromResourceGroupScoped
 where
@@ -495,7 +517,67 @@ where
     }
 }
 
+// todo: replace this with a chain or something
+pub fn try_from_expanded_hierarchy_scoped_with_portal<T>(expanded: &str) -> eyre::Result<T>
+where
+    T: TryFromUnscoped
+        + TryFromPortalScoped
+        + TryFromManagementGroupScoped
+        + TryFromSubscriptionScoped
+        + TryFromResourceGroupScoped
+        + TryFromResourceScoped,
+{
+    match T::try_from_expanded_management_group_scoped(expanded) {
+        Ok(x) => Ok(x),
+        Err(management_group_scoped_error) => {
+            match T::try_from_expanded_portal_scoped(expanded) {
+                Ok(x) => Ok(x),
+                Err(portal_scoped_error) => {
+                    match T::try_from_expanded_subscription_scoped(expanded) {
+                        Ok(x) => Ok(x),
+                        Err(subscription_scoped_error) => {
+                            match T::try_from_expanded_resource_group_scoped(expanded) {
+                                Ok(x) => Ok(x),
+                                Err(resource_group_scoped_error) => {
+                                    match T::try_from_expanded_resource_scoped(expanded) {
+                                        Ok(x) => Ok(x),
+                                        Err(resource_scoped_error) => {
+                                            match T::try_from_expanded_unscoped(expanded) {
+                                                Ok(x) => Ok(x),
+                                                Err(unscoped_error) => {
+                                                    bail!(
+                                                        "{}\n{:?}\n========\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}",
+                                                        "Hierarchy scoped parse failed for ",
+                                                        expanded,
+                                                        "management group scoped attempt: ",
+                                                        management_group_scoped_error,
+                                                        "subscription scoped attempt: ",
+                                                        subscription_scoped_error,
+                                                        "resource group scoped attempt: ",
+                                                        resource_group_scoped_error,
+                                                        "resource scoped attempt: ",
+                                                        resource_scoped_error,
+                                                        "portal scoped attempt: ",
+                                                        portal_scoped_error,
+                                                        "unscoped attempt: ",
+                                                        unscoped_error
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub trait Unscoped {}
+pub trait PortalScoped {}
 pub trait ManagementGroupScoped {
     fn management_group_id(&self) -> &ManagementGroupId;
 }

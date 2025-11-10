@@ -75,7 +75,7 @@ mod resources;
 mod role_assignment_id;
 mod role_assignment_id_variants;
 mod role_assignment_name;
-mod role_assignments;
+mod role_assignment;
 mod role_definition_id;
 mod role_definition_id_variants;
 mod role_definition_name;
@@ -209,7 +209,7 @@ pub mod prelude {
     pub use crate::role_assignment_id::*;
     pub use crate::role_assignment_id_variants::*;
     pub use crate::role_assignment_name::*;
-    pub use crate::role_assignments::*;
+    pub use crate::role_assignment::*;
     pub use crate::role_definition_id::*;
     pub use crate::role_definition_id_variants::*;
     pub use crate::role_definition_name::*;

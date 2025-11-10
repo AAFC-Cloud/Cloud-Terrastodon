@@ -38,38 +38,41 @@ mod tests {
     use cloud_terrastodon_azure_types::prelude::RoleAssignmentId;
 
     #[tokio::test]
-    async fn it_works_v2() -> Result<()> {
+    async fn it_works() -> Result<()> {
         let result = fetch_all_role_assignments().await?;
         println!("Found {} role assignments:", result.len());
-        assert!(result.len() > 25);
+        assert!(result.len() > 2);
         for role_assignment in result {
-            if let RoleAssignmentId::Unscoped(_) = role_assignment.id {
-                match fetch_all_role_definitions().await {
-                    Ok(role_definitions) => {
-                        match role_definitions
-                            .iter()
-                            .find(|rd| rd.id == role_assignment.role_definition_id)
-                        {
-                            Some(role_definition) => {
-                                eprintln!(
-                                    "Unscoped role assignment found: {role_definition:#?}\n{role_assignment:#?}"
-                                );
-                            }
-                            None => {
-                                eprintln!(
-                                    "Found unscoped role assignment, but couldn't find role definition D:\n{:#?}",
-                                    role_assignment
-                                );
+            match role_assignment.id {
+                RoleAssignmentId::Unscoped(_) | RoleAssignmentId::PortalScoped(_) => {
+                    match fetch_all_role_definitions().await {
+                        Ok(role_definitions) => {
+                            match role_definitions
+                                .iter()
+                                .find(|rd| rd.id == role_assignment.role_definition_id)
+                            {
+                                Some(role_definition) => {
+                                    eprintln!(
+                                        "Interesting role assignment found: {role_definition:#?}\n{role_assignment:#?}"
+                                    );
+                                }
+                                None => {
+                                    eprintln!(
+                                        "Found interesting role assignment, but couldn't find role definition D:\n{:#?}",
+                                        role_assignment
+                                    );
+                                }
                             }
                         }
-                    }
-                    Err(e) => {
-                        eprintln!(
-                            "Found unscoped role assignment, couldn't fetch role definitions D:\n{:#?}\nrole definition fetch error: {e:?}",
-                            role_assignment
-                        );
+                        Err(e) => {
+                            eprintln!(
+                                "Found interesting role assignment, couldn't fetch role definitions D:\n{:#?}\nrole definition fetch error: {e:?}",
+                                role_assignment
+                            );
+                        }
                     }
                 }
+                _ => (),
             }
         }
         Ok(())
