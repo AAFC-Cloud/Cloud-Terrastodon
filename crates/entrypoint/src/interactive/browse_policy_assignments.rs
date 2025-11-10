@@ -143,8 +143,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
                     "pol name",
                     policy_definition
                         .display_name
-                        .as_ref()
-                        .map(|s| s.as_str())
+                        .as_deref()
                         .unwrap_or(policy_definition.name.as_str())
                         .to_owned(),
                 );
@@ -207,8 +206,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
                         "pol set name",
                         policy_set_definition
                             .display_name
-                            .as_ref()
-                            .map(|s| s.as_str())
+                            .as_deref()
                             .unwrap_or(policy_set_definition.name.as_str())
                             .to_owned(),
                     );
@@ -223,8 +221,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
                         "pol name",
                         policy_definition
                             .display_name
-                            .as_ref()
-                            .map(|s| s.as_str())
+                            .as_deref()
                             .unwrap_or(policy_definition.name.as_str())
                             .to_owned(),
                     );

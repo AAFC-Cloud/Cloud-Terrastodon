@@ -598,7 +598,7 @@ impl CommandBuilder {
 
     #[track_caller]
     pub async fn run_raw(&self) -> Result<CommandOutput> {
-        (async move || {
+        async {
             // Check cache
             match self.get_cached_output().await {
                 Ok(None) => {}
@@ -619,7 +619,7 @@ impl CommandBuilder {
                 humantime::format_duration(elapsed),
             );
             rtn
-        })()
+        }
         .await
         .wrap_err(format!(
             "Command::run_raw failed, called from {}",

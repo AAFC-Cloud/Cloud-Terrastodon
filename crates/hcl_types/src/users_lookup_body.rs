@@ -42,9 +42,7 @@ impl From<UsersLookupBody> for Body {
             }
         "#
         .try_as_hcl_blocks()
-        .wrap_err(format!(
-            "Failed to parse body as HCL, this shouldn't happen"
-        ))
+        .wrap_err("Failed to parse body as HCL, this shouldn't happen".to_string())
         .unwrap();
         for block in local_block {
             body.push(block);
