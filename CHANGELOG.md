@@ -4,6 +4,7 @@
 - Add missing `GovernanceRoleAssignmentStatus::Accepted` variant
 - Remove extraneous "seconds" suffix after humantime display in `ParallelFallibleWorkQueue::join` logging
 - Add `fetch_all_tenant_licenses`
+- Fix `TFProviderVersionConstraintClause` parsing to trim whitespace around operator
 
 # v0.29.0
 

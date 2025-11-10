@@ -262,7 +262,7 @@ impl FromStr for ProviderVersionConstraintClause {
         let prefix: String = s.chars().take_while(|x| !x.is_numeric()).collect();
         let remaining = &s[prefix.len()..];
         let sem_ver: SemVer = remaining.parse()?;
-        Ok(match prefix.as_str() {
+        Ok(match prefix.trim() {
             "" | "=" => ProviderVersionConstraintClause::Equals(sem_ver),
             "!=" => ProviderVersionConstraintClause::NotEquals(sem_ver),
             ">" => ProviderVersionConstraintClause::Greater(sem_ver),
