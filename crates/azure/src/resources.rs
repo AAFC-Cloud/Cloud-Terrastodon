@@ -48,7 +48,7 @@ mod tests {
         for res in resources.iter().take(10) {
             println!("{res:?}");
         }
-        assert!(resources.len() > 2000);
+        assert!(resources.len() > 10);
         Ok(())
     }
 

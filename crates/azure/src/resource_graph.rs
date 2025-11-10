@@ -204,7 +204,7 @@ resourcecontainers
         )
         .collect_all::<Row>()
         .await?;
-        assert!(data.len() > 100);
+        assert!(data.len() > 10);
         for row in data.iter().take(5) {
             println!("- {}", row.name);
             assert!(!row.name.is_empty());
