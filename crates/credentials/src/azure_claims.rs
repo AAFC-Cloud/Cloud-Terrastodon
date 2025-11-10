@@ -40,7 +40,7 @@ pub struct AzureClaims {
     #[serde(rename = "appidacr")]
     pub app_id_acr: String,
     #[serde(rename = "deviceid")]
-    pub device_id: Uuid,
+    pub device_id: Option<Uuid>,
     #[serde(rename = "family_name")]
     pub family_name: String,
     #[serde(rename = "given_name")]
@@ -58,7 +58,7 @@ pub struct AzureClaims {
     #[serde(rename = "puid")]
     pub puid: String,
     #[serde(rename = "pwd_url")]
-    pub password_change_url: String,
+    pub password_change_url: Option<String>,
     #[serde(rename = "rh")]
     pub refresh_token_hash: String,
     #[serde(rename = "scp")]
@@ -72,7 +72,7 @@ pub struct AzureClaims {
     #[serde(rename = "unique_name")]
     pub unique_name: String,
     #[serde(rename = "upn")]
-    pub user_principal_name: String,
+    pub user_principal_name: Option<String>,
     #[serde(rename = "uti")]
     pub uti: String,
     #[serde(rename = "ver")]
