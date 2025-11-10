@@ -33,6 +33,7 @@ pub async fn write_imports_for_all_role_assignments() -> Result<()> {
     for ra in role_assignments {
         let subscription_id = match &ra.id {
             RoleAssignmentId::Unscoped(_) => None,
+            RoleAssignmentId::PortalScoped(_) => None,
             RoleAssignmentId::ManagementGroupScoped(_) => None,
             RoleAssignmentId::SubscriptionScoped(id) => Some(id.subscription_id().to_owned()),
             RoleAssignmentId::ResourceGroupScoped(id) => Some(id.subscription_id().to_owned()),
