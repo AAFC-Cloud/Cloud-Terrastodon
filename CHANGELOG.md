@@ -1,3 +1,8 @@
+# v0.30.0
+
+- Add `LocationName::BelgiumCentral`, see [Microsoft's LinkedIn post](https://www.linkedin.com/posts/microsoft_big-news-the-belgian-microsoft-cloud-region-activity)
+
+
 # v0.29.0
 
 - Rename `fetch_groups` to `fetch_all_groups`
