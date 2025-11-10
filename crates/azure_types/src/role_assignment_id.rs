@@ -21,7 +21,6 @@ use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromResourceScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
-use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped_with_portal;
 use crate::slug::HasSlug;
 use eyre::Result;
