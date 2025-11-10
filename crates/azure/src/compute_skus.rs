@@ -39,6 +39,7 @@ mod test {
     use cloud_terrastodon_azure_types::prelude::LocationName;
 
     #[tokio::test]
+    #[ignore] // this endpoint takes forever
     pub async fn it_works() -> eyre::Result<()> {
         let subs = fetch_all_subscriptions().await?;
         let sub = subs.first().unwrap();
