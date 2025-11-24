@@ -11,6 +11,7 @@ pub mod perform_code_generation_from_imports;
 pub mod ratatui;
 pub mod terraform;
 pub mod write_all_imports;
+pub mod pick;
 
 use crate::cli::add_work_dir::AddWorkDirArgs;
 use crate::cli::azure::AzureArgs;
@@ -22,6 +23,7 @@ use crate::cli::dump_everything::DumpEverythingArgs;
 use crate::cli::egui::EguiArgs;
 use crate::cli::get_path::GetPathArgs;
 use crate::cli::perform_code_generation_from_imports::PerformCodeGenerationFromImportsArgs;
+use crate::cli::pick::PickArgs;
 use crate::cli::ratatui::RatatuiArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
@@ -59,6 +61,8 @@ pub enum CloudTerrastodonCommand {
     /// Perform Azure-specific operations.
     #[command(alias = "az")]
     Azure(AzureArgs),
+    /// Pick from options supplied on stdin
+    Pick(PickArgs),
 }
 
 impl CloudTerrastodonCommand {
@@ -77,6 +81,7 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::Terraform(args) => args.invoke().await,
             CloudTerrastodonCommand::AzureDevOps(args) => args.invoke().await,
             CloudTerrastodonCommand::Azure(args) => args.invoke().await,
+            CloudTerrastodonCommand::Pick(args) => args.invoke().await,
         }
     }
 }

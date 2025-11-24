@@ -5,6 +5,12 @@
 - Remove extraneous "seconds" suffix after humantime display in `ParallelFallibleWorkQueue::join` logging
 - Add `fetch_all_tenant_licenses`
 - Fix `TFProviderVersionConstraintClause` parsing to trim whitespace around operator
+- Make `PickerTui#pick_inner` public
+- Add CLI command: `cloud_terrastodon pick`
+- Add CLI command: `cloud_terrastodon azure role definition list`
+- Add CLI command: `cloud_terrastodon azure role definition browse`
+- Add CLI command: `cloud_terrastodon azure role assignment list`
+- Add CLI command: `cloud_terrastodon azure role assignment browse`
 
 # v0.29.0
 

@@ -2,6 +2,7 @@ pub mod azure_command;
 pub mod group;
 pub mod pim;
 pub mod policy;
+pub mod role;
 pub mod tag;
 
 use crate::cli::azure::azure_command::AzureCommand;

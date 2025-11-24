@@ -5,11 +5,17 @@ use compact_str::CompactString;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
 use nucleo::pattern::Normalization;
+use ratatui::Terminal;
 use ratatui::crossterm::event;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::event::KeyModifiers;
+use ratatui::crossterm::execute;
+use ratatui::crossterm::terminal::EnterAlternateScreen;
+use ratatui::crossterm::terminal::enable_raw_mode;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
+use ratatui::prelude::CrosstermBackend;
+use ratatui::restore;
 use ratatui::style::Color;
 use ratatui::style::Style;
 use ratatui::style::Stylize;
@@ -24,6 +30,7 @@ use ratatui::widgets::Widget;
 use rustc_hash::FxBuildHasher;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
+use std::io::stderr;
 use std::sync::Arc;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
@@ -112,7 +119,7 @@ impl<T> PickerTui<T> {
         self.pick_inner(true)
     }
 
-    fn pick_inner(mut self, many: bool) -> PickResult<Vec<T>> {
+    pub fn pick_inner(mut self, many: bool) -> PickResult<Vec<T>> {
         // Short circuit if applicable
         match (self.choices.len(), self.auto_accept) {
             (0, _) => return Err(PickError::NoChoicesProvided),
@@ -141,8 +148,16 @@ impl<T> PickerTui<T> {
         // Track what items we will return
         let mut marked_for_return: FxHashSet<Key> = Default::default();
 
-        // Enter ratatui
-        let mut terminal = ratatui::init();
+        // Enter ratatui using stderr
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            restore();
+            hook(info);
+        }));
+        enable_raw_mode()?;
+        execute!(stderr(), EnterAlternateScreen)?;
+        let backend = CrosstermBackend::new(stderr());
+        let mut terminal = Terminal::new(backend)?;
         terminal.clear()?;
 
         // Set up the search results state

@@ -75,6 +75,8 @@ nucleo = "0.5.0"
 tui-textarea = "0.7.0"
 rustc-hash = "2.1.1"
 jsonwebtoken = { version = "10.0.0", features = ["rust_crypto"] }
+jsonpath-rust = "1.0.4"
+jmespath = "0.4"
 
 [workspace.dependencies.cloud_terrastodon_pathing]
 version = "0.29.0"        # CT_VERSION
