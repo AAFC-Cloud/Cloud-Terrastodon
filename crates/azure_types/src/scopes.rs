@@ -16,6 +16,8 @@ use crate::prelude::RoleManagementPolicyAssignmentId;
 use crate::prelude::RoleManagementPolicyId;
 use crate::prelude::RouteTableId;
 use crate::prelude::SUBSCRIPTION_ID_PREFIX;
+use crate::prelude::ServiceGroupId;
+use crate::prelude::ServiceGroupName;
 use crate::prelude::StorageAccountId;
 use crate::prelude::SubnetId;
 use crate::prelude::SubscriptionId;
@@ -24,6 +26,7 @@ use crate::prelude::VirtualNetworkId;
 use crate::prelude::VirtualNetworkPeeringId;
 use crate::slug::HasSlug;
 use crate::slug::Slug;
+use crate::service_group_id::SERVICE_GROUP_ID_PREFIX;
 use clap::ValueEnum;
 use cloud_terrastodon_azure_resource_types::ResourceType;
 use compact_str::CompactString;
@@ -416,6 +419,41 @@ where
     ) -> Self;
 }
 
+pub trait TryFromServiceGroupScoped
+where
+    Self: Sized + HasPrefix + HasSlug,
+{
+    fn try_from_expanded_service_group_scoped(expanded: &str) -> eyre::Result<Self> {
+        let (service_group, remaining) =
+            strip_prefix_get_slug_and_leading_slashed_remains(expanded, SERVICE_GROUP_ID_PREFIX)?;
+        let service_group_name: ServiceGroupName = service_group.parse()?;
+        let service_group_id = ServiceGroupId::from_name(service_group_name);
+        let Some(remaining) = remaining else {
+            bail!(
+                "Could not create service-group-scoped id from {expanded:?}, extracted service group but found no content afterwards"
+            );
+        };
+        let name = strip_prefix_case_insensitive(remaining, Self::get_prefix())?;
+        let name = <<Self as HasSlug>::Name>::try_new(name)?;
+        unsafe {
+            Ok(Self::new_service_group_scoped_unchecked(
+                expanded,
+                service_group_id,
+                name,
+            ))
+        }
+    }
+
+    /// # Safety
+    ///
+    /// The try_from methods should be used instead
+    unsafe fn new_service_group_scoped_unchecked(
+        _expanded: &str,
+        service_group_id: ServiceGroupId,
+        name: Self::Name,
+    ) -> Self;
+}
+
 pub trait TryFromVirtualNetworkScoped
 where
     Self: Sized,
@@ -523,43 +561,46 @@ where
     T: TryFromUnscoped
         + TryFromPortalScoped
         + TryFromManagementGroupScoped
+        + TryFromServiceGroupScoped
         + TryFromSubscriptionScoped
         + TryFromResourceGroupScoped
         + TryFromResourceScoped,
 {
     match T::try_from_expanded_management_group_scoped(expanded) {
         Ok(x) => Ok(x),
-        Err(management_group_scoped_error) => match T::try_from_expanded_portal_scoped(expanded) {
-            Ok(x) => Ok(x),
-            Err(portal_scoped_error) => match T::try_from_expanded_subscription_scoped(expanded) {
+        Err(management_group_scoped_error) => {
+            match T::try_from_expanded_service_group_scoped(expanded) {
                 Ok(x) => Ok(x),
-                Err(subscription_scoped_error) => {
-                    match T::try_from_expanded_resource_group_scoped(expanded) {
+                Err(service_group_scoped_error) => {
+                    match T::try_from_expanded_portal_scoped(expanded) {
                         Ok(x) => Ok(x),
-                        Err(resource_group_scoped_error) => {
-                            match T::try_from_expanded_resource_scoped(expanded) {
+                        Err(portal_scoped_error) => {
+                            match T::try_from_expanded_subscription_scoped(expanded) {
                                 Ok(x) => Ok(x),
-                                Err(resource_scoped_error) => {
-                                    match T::try_from_expanded_unscoped(expanded) {
+                                Err(subscription_scoped_error) => {
+                                    match T::try_from_expanded_resource_group_scoped(expanded) {
                                         Ok(x) => Ok(x),
-                                        Err(unscoped_error) => {
-                                            bail!(
-                                                "{}\n{:?}\n========\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}\n\n{}\n{:?}",
-                                                "Hierarchy scoped parse failed for ",
-                                                expanded,
-                                                "management group scoped attempt: ",
-                                                management_group_scoped_error,
-                                                "subscription scoped attempt: ",
-                                                subscription_scoped_error,
-                                                "resource group scoped attempt: ",
-                                                resource_group_scoped_error,
-                                                "resource scoped attempt: ",
-                                                resource_scoped_error,
-                                                "portal scoped attempt: ",
-                                                portal_scoped_error,
-                                                "unscoped attempt: ",
-                                                unscoped_error
-                                            );
+                                        Err(resource_group_scoped_error) => {
+                                            match T::try_from_expanded_resource_scoped(expanded) {
+                                                Ok(x) => Ok(x),
+                                                Err(resource_scoped_error) => {
+                                                    match T::try_from_expanded_unscoped(expanded) {
+                                                        Ok(x) => Ok(x),
+                                                        Err(unscoped_error) => {
+                                                            bail!(
+                                                                "Hierarchy scoped parse failed for {expanded:?}\n========\n\
+                                                                 management group scoped attempt: {management_group_scoped_error:?}\n\n\
+                                                                 service group scoped attempt: {service_group_scoped_error:?}\n\n\
+                                                                 portal scoped attempt: {portal_scoped_error:?}\n\n\
+                                                                 subscription scoped attempt: {subscription_scoped_error:?}\n\n\
+                                                                 resource group scoped attempt: {resource_group_scoped_error:?}\n\n\
+                                                                 resource scoped attempt: {resource_scoped_error:?}\n\n\
+                                                                 unscoped attempt: {unscoped_error:?}"
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -567,8 +608,8 @@ where
                         }
                     }
                 }
-            },
-        },
+            }
+        }
     }
 }
 
@@ -576,6 +617,9 @@ pub trait Unscoped {}
 pub trait PortalScoped {}
 pub trait ManagementGroupScoped {
     fn management_group_id(&self) -> &ManagementGroupId;
+}
+pub trait ServiceGroupScoped {
+    fn service_group_id(&self) -> &ServiceGroupId;
 }
 pub trait SubscriptionScoped {
     fn subscription_id(&self) -> &SubscriptionId;
@@ -636,6 +680,7 @@ pub enum ScopeImplKind {
     RouteTable,
     VirtualNetworkPeering,
     KeyVault,
+    ServiceGroup,
     Unknown,
 }
 
@@ -648,6 +693,7 @@ pub enum ScopeImpl {
     ResourceGroup(ResourceGroupId),
     RoleAssignment(RoleAssignmentId),
     RoleDefinition(RoleDefinitionId),
+    ServiceGroup(ServiceGroupId),
     RoleEligibilitySchedule(RoleEligibilityScheduleId),
     Subscription(SubscriptionId),
     TestResource(TestResourceId),
@@ -675,6 +721,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceGroup(id) => id.expanded_form(),
             ScopeImpl::RoleAssignment(id) => id.expanded_form(),
             ScopeImpl::RoleDefinition(id) => id.expanded_form(),
+            ScopeImpl::ServiceGroup(id) => id.expanded_form(),
             ScopeImpl::Subscription(id) => id.expanded_form(),
             ScopeImpl::TestResource(id) => id.expanded_form(),
             ScopeImpl::RoleEligibilitySchedule(id) => id.expanded_form(),
@@ -702,6 +749,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceGroup(id) => id.short_form(),
             ScopeImpl::RoleAssignment(id) => id.short_form(),
             ScopeImpl::RoleDefinition(id) => id.short_form(),
+            ScopeImpl::ServiceGroup(id) => id.short_form(),
             ScopeImpl::Subscription(id) => id.short_form(),
             ScopeImpl::TestResource(id) => id.short_form(),
             ScopeImpl::RoleEligibilitySchedule(id) => id.short_form(),
@@ -754,6 +802,9 @@ impl Scope for ScopeImpl {
         if let Ok(id) = RoleAssignmentId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RoleAssignment(id));
         }
+        if let Ok(id) = ServiceGroupId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::ServiceGroup(id));
+        }
         if let Ok(id) = RoleDefinitionId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RoleDefinition(id));
         }
@@ -790,6 +841,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ResourceGroup(_) => ScopeImplKind::ResourceGroup,
             ScopeImpl::RoleAssignment(_) => ScopeImplKind::RoleAssignment,
             ScopeImpl::RoleDefinition(_) => ScopeImplKind::RoleDefinition,
+            ScopeImpl::ServiceGroup(_) => ScopeImplKind::ServiceGroup,
             ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
             ScopeImpl::StorageAccount(_) => ScopeImplKind::StorageAccount,
@@ -846,6 +898,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::RoleDefinition(x) => {
                 f.write_fmt(format_args!("RoleDefinition({})", x.expanded_form()))
+            }
+            ScopeImpl::ServiceGroup(x) => {
+                f.write_fmt(format_args!("ServiceGroup({})", x.short_form()))
             }
             ScopeImpl::Subscription(x) => {
                 f.write_fmt(format_args!("Subscription({})", x.short_form()))

@@ -52,6 +52,7 @@ mod role_management_policy_assignments;
 mod route_table;
 mod security_group_choices;
 mod security_groups;
+mod service_groups;
 mod service_principals;
 mod storage_account;
 mod subscriptions;
@@ -121,6 +122,7 @@ pub mod prelude {
     pub use crate::route_table::*;
     pub use crate::security_group_choices::*;
     pub use crate::security_groups::*;
+    pub use crate::service_groups::*;
     pub use crate::service_principals::*;
     pub use crate::storage_account::*;
     pub use crate::subscriptions::*;

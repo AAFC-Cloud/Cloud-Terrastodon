@@ -1,6 +1,7 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
+use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_user_input::Choice;
@@ -38,11 +39,12 @@ impl AzureRoleAssignmentBrowseArgs {
 
             choices.push(Choice {
                 key: format!(
-                    "{:>30} {:>30} {:>30} {:>30}",
+                    "{}\n{}\n{}\nprincipal id: {}\n{}",
                     principal_name,
                     role_definition.display_name,
                     role_assignment.scope,
                     role_assignment.principal_id,
+                    role_assignment.id.expanded_form()
                 ),
                 value: (role_assignment, role_definition),
             });

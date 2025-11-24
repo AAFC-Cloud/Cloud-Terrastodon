@@ -11,6 +11,8 @@
 - Add CLI command: `cloud_terrastodon azure role definition browse`
 - Add CLI command: `cloud_terrastodon azure role assignment list`
 - Add CLI command: `cloud_terrastodon azure role assignment browse`
+- Add `ServiceGroup` and supporting types
+- Add `RoleAssignmentId::ServiceGroupScoped` variant
 
 # v0.29.0
 

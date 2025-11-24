@@ -6,6 +6,8 @@ use crate::prelude::ResourceGroupScopedRoleAssignmentId;
 use crate::prelude::ResourceId;
 use crate::prelude::ResourceScopedRoleAssignmentId;
 use crate::prelude::RoleAssignmentName;
+use crate::prelude::ServiceGroupId;
+use crate::prelude::ServiceGroupScopedRoleAssignmentId;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionScoped;
 use crate::prelude::SubscriptionScopedRoleAssignmentId;
@@ -19,6 +21,7 @@ use crate::scopes::TryFromManagementGroupScoped;
 use crate::scopes::TryFromPortalScoped;
 use crate::scopes::TryFromResourceGroupScoped;
 use crate::scopes::TryFromResourceScoped;
+use crate::scopes::TryFromServiceGroupScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped_with_portal;
@@ -37,6 +40,7 @@ pub const ROLE_ASSIGNMENT_ID_PREFIX: &str = "/providers/Microsoft.Authorization/
 pub enum RoleAssignmentId {
     Unscoped(UnscopedRoleAssignmentId),
     PortalScoped(PortalScopedRoleAssignmentId),
+    ServiceGroupScoped(ServiceGroupScopedRoleAssignmentId),
     ManagementGroupScoped(ManagementGroupScopedRoleAssignmentId),
     SubscriptionScoped(SubscriptionScopedRoleAssignmentId),
     ResourceGroupScoped(ResourceGroupScopedRoleAssignmentId),
@@ -47,6 +51,7 @@ impl RoleAssignmentId {
         match self {
             RoleAssignmentId::Unscoped(_) => None,
             RoleAssignmentId::PortalScoped(_) => None,
+            RoleAssignmentId::ServiceGroupScoped(_) => None,
             RoleAssignmentId::ManagementGroupScoped(_) => None,
             RoleAssignmentId::SubscriptionScoped(subscription_scoped_role_assignment_id) => {
                 Some(*subscription_scoped_role_assignment_id.subscription_id())
@@ -72,6 +77,9 @@ impl HasSlug for RoleAssignmentId {
             }
             RoleAssignmentId::PortalScoped(portal_scoped_role_assignment_id) => {
                 portal_scoped_role_assignment_id.name()
+            }
+            RoleAssignmentId::ServiceGroupScoped(service_group_scoped_role_assignment_id) => {
+                service_group_scoped_role_assignment_id.name()
             }
             RoleAssignmentId::ManagementGroupScoped(management_group_scoped_role_assignment_id) => {
                 management_group_scoped_role_assignment_id.name()
@@ -101,6 +109,18 @@ impl TryFromUnscoped for RoleAssignmentId {
 impl TryFromPortalScoped for RoleAssignmentId {
     unsafe fn new_portal_scoped_unchecked(_expanded: &str, name: Self::Name) -> Self {
         RoleAssignmentId::PortalScoped(PortalScopedRoleAssignmentId {
+            role_assignment_name: name,
+        })
+    }
+}
+impl TryFromServiceGroupScoped for RoleAssignmentId {
+    unsafe fn new_service_group_scoped_unchecked(
+        _expanded: &str,
+        service_group_id: ServiceGroupId,
+        name: Self::Name,
+    ) -> Self {
+        RoleAssignmentId::ServiceGroupScoped(ServiceGroupScopedRoleAssignmentId {
+            service_group_id,
             role_assignment_name: name,
         })
     }
@@ -164,6 +184,7 @@ impl Scope for RoleAssignmentId {
         match self {
             Self::Unscoped(x) => x.expanded_form(),
             Self::PortalScoped(x) => x.expanded_form(),
+            Self::ServiceGroupScoped(x) => x.expanded_form(),
             Self::ResourceGroupScoped(x) => x.expanded_form(),
             Self::SubscriptionScoped(x) => x.expanded_form(),
             Self::ManagementGroupScoped(x) => x.expanded_form(),
@@ -230,6 +251,7 @@ impl<'de> Deserialize<'de> for RoleAssignmentId {
 mod tests {
     use super::*;
     use crate::prelude::ResourceGroupName;
+    use crate::prelude::ServiceGroupName;
     use crate::slug::Slug;
     use cloud_terrastodon_azure_resource_types::ResourceType;
     use eyre::Result;
@@ -261,6 +283,41 @@ mod tests {
         let id: RoleAssignmentId =
             serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
         assert_eq!(id, expanded);
+        Ok(())
+    }
+
+    #[test]
+    fn deserializes_service_group() -> Result<()> {
+        let service_group_id =
+            ServiceGroupId::from_name(ServiceGroupName::try_new("MyServiceGroup")?);
+        let expanded = RoleAssignmentId::ServiceGroupScoped(ServiceGroupScopedRoleAssignmentId {
+            service_group_id: service_group_id.clone(),
+            role_assignment_name: RoleAssignmentName::new(Uuid::new_v4()),
+        });
+        let id: RoleAssignmentId =
+            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        assert_eq!(id, expanded);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_service_group_scope() -> Result<()> {
+        let service_group_id =
+            ServiceGroupId::from_name(ServiceGroupName::try_new("MyServiceGroup")?);
+        let name = RoleAssignmentName::new(Uuid::new_v4());
+        let expanded = format!(
+            "{}{}{}",
+            service_group_id.expanded_form(),
+            ROLE_ASSIGNMENT_ID_PREFIX,
+            name
+        );
+        let id = RoleAssignmentId::try_from_expanded(&expanded)?;
+        match id {
+            RoleAssignmentId::ServiceGroupScoped(parsed) => {
+                assert_eq!(parsed.service_group_id, service_group_id);
+            }
+            other => panic!("expected service group scoped, got {other:?}"),
+        }
         Ok(())
     }
 }
