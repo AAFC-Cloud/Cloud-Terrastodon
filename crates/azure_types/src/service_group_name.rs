@@ -6,6 +6,8 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 /// Represents the name component of a service group resource id.
+/// 
+/// Can be up to [250 characters](https://learn.microsoft.com/en-us/azure/governance/service-groups/overview#important-facts-about-service-groups)
 #[derive(Debug, Clone, Eq, PartialOrd, Ord)]
 pub struct ServiceGroupName {
     inner: CompactString,
@@ -100,6 +102,9 @@ impl From<ServiceGroupName> for CompactString {
 fn validate_service_group_name(value: &str) -> eyre::Result<()> {
     if value.is_empty() {
         bail!("Service group name cannot be empty");
+    }
+    if value.len() > 250 {
+        bail!("Service group name cannot be longer than 250 characters");
     }
     for (idx, ch) in value.chars().enumerate() {
         if matches!(ch, 'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' | '(' | ')' | '.' | '~') {
