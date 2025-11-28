@@ -57,6 +57,7 @@ pub enum CloudTerrastodonCommand {
     #[command(alias = "tf")]
     Terraform(TerraformArgs),
     /// Perform Azure DevOps-specific operations.
+    #[command(alias = "azdo")]
     AzureDevOps(AzureDevOpsArgs),
     /// Perform Azure-specific operations.
     #[command(alias = "az")]
