@@ -65,7 +65,7 @@ mod tests {
         assert_eq!(props.provisioning_state.as_deref(), Some("Succeeded"));
         assert_eq!(props.display_name.as_deref(), Some("MyServiceGroup"));
         assert_eq!(
-            props.parent.unwrap().resource_id.as_deref(),
+            props.parent.as_ref().unwrap().resource_id.as_deref(),
             Some("/providers/Microsoft.Management/serviceGroups/parent")
         );
         assert!(props.additional_properties.contains_key("custom"));

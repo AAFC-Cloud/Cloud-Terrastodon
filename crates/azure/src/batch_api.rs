@@ -117,7 +117,7 @@ where
     let num_chunks = chunks.len();
     for (i, chunk) in chunks.enumerate() {
         let mut cmd = cmd_base.clone();
-        cmd.file_arg(
+        cmd.azure_file_arg(
             "body.json",
             serde_json::to_string_pretty(&BatchRequest {
                 requests: chunk.iter().cloned().collect_vec(),

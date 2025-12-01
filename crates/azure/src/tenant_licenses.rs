@@ -33,7 +33,6 @@ pub mod test_helpers {
     use crate::prelude::fetch_all_tenant_licenses;
     use cloud_terrastodon_command::CommandOutput;
     use cloud_terrastodon_command::bstr::ByteSlice;
-    use eyre::bail;
 
     /// If the given result is a failure, it MUST contain an AAD Premium P2 license error.
     /// If it is an error ,we also validate that the tenant licenses do not contain the AAD Premium P2 license.
@@ -52,18 +51,19 @@ pub mod test_helpers {
                 Ok(Some(x))
             }
             Err(e) => {
-                eyre::ensure!(
-                    !has_aad_premium_p2_license,
-                    "Expected no AAD Premium P2 license, but it was found in tenant licenses: {tenant_licenses:#?}"
-                );
+                if has_aad_premium_p2_license {
+                    return Err(e.wrap_err(
+                        "A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, but it was found in tenant licenses, this means the inner command truly failed?"
+                    ));
+                }
                 let Some(command_output) = e.downcast_ref::<CommandOutput>() else {
-                    bail!("Expected error to be a CommandOutput, but it was: {e:#}");
+                    return Err(e.wrap_err("A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, expected error to be a CommandOutput so we could validate the error message"));
                 };
                 if !command_output.stderr.contains_str("The tenant needs to have Microsoft Entra ID P2 or Microsoft Entra ID Governance license.") {
-                    bail!("Expected error to contain AAD Premium P2 license error, but it was: {e:#}");
+                    return Err(e.wrap_err("A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, but the error did not contain expected AAD Premium P2 license error text"));
                 }
                 eprintln!(
-                    "Command failed with expected error due to missing AAD_PREMIUM_P2 licenses."
+                    "Result failed with expected error due to missing AAD_PREMIUM_P2 licenses."
                 );
                 Ok(None)
             }

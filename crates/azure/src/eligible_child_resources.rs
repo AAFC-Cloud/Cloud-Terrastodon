@@ -130,12 +130,12 @@ mod tests {
             fetch_eligible_child_resources(rg.as_scope(), FetchChildrenBehaviour::GetAllChildren)
                 .await,
         )
-        .await?;
+        .await;
         match result {
-            Some(_) => eyre::bail!(
+            Ok(_) => eyre::bail!(
                 "Expected error, but got success; GetAllChildren is only supported for management groups?"
             ),
-            None => return Ok(()),
+            Err(_) => return Ok(()),
         }
     }
 
@@ -147,12 +147,12 @@ mod tests {
             fetch_eligible_child_resources(sub.as_scope(), FetchChildrenBehaviour::GetAllChildren)
                 .await,
         )
-        .await?;
+        .await;
         match result {
-            Some(_) => eyre::bail!(
+            Ok(_) => eyre::bail!(
                 "Expected error, but got success; GetAllChildren is only supported for management groups?"
             ),
-            None => return Ok(()),
+            Err(_) => return Ok(()),
         }
     }
 

@@ -1,4 +1,5 @@
 use crate::CacheBehaviour;
+use crate::CommandArgument;
 use crate::CommandBuilder;
 pub use bstr;
 use bstr::ByteSlice;
@@ -7,8 +8,11 @@ use cloud_terrastodon_config::Config;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use eyre::Context;
+use eyre::OptionExt;
 use eyre::Result;
 use eyre::bail;
+use eyre::eyre;
+use std::collections::HashMap;
 use std::env;
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -65,116 +69,15 @@ impl CommandKind {
         this: &CommandBuilder,
         cmd: &mut Command,
     ) -> Result<Vec<TempPath>> {
+        // Prepare list of temp paths to return
         let mut rtn = Vec::new();
+
+        // Prepare args using a clone for idempotency
         let mut args = this.args.clone();
-        // Always add --debug for AzureCLI if not present
-        if let CommandKind::AzureCLI = self {
-            let has_debug = args.iter().any(|a| a == "--debug");
-            if !has_debug {
-                args.push("--debug".into());
-            }
-        }
-        // Write azure args to files
-        match (self, this.file_args.is_empty()) {
-            (CommandKind::AzureCLI, false) => {
-                // todo: add tests
-                for (i, arg) in this.file_args.iter() {
-                    debug!("Writing arg {}", arg.path.to_string_lossy());
-                    let mut patch_arg = async |i: usize, file_path: &PathBuf| -> Result<()> {
-                        // Get the arg from the array
-                        // We are converting @myfile.txt to @/path/to/myfile.txt
-                        let arg_to_update =
-                            args.get_mut(i).expect("azure arg must match an argument");
 
-                        // Check assumption - it should already begin with an @
-                        let check = arg_to_update.to_string_lossy();
-                        let first_char = check.chars().next().unwrap();
-                        if first_char != '@' {
-                            bail!(
-                                "First character in file arg for {:?} must be '@', got {}",
-                                this.kind,
-                                check
-                            )
-                        }
-
-                        // Write the file
-                        let mut file = OpenOptions::new()
-                            .create(true)
-                            .truncate(true)
-                            .write(true)
-                            .open(&file_path)
-                            .await
-                            .context(format!("Opening azure arg file {}", file_path.display()))?;
-                        file.write_all(arg.content.as_bytes())
-                            .await
-                            .context(format!("Writing azure arg file {}", file_path.display()))?;
-
-                        // Update the value
-                        arg_to_update.clear();
-                        arg_to_update.push("@");
-                        arg_to_update.push(file_path.canonicalize().context(
-                            "azure arg file must be written before absolute path can be determined",
-                        )?);
-                        Ok(())
-                    };
-                    let mut file = match &this.cache_behaviour {
-                        CacheBehaviour::Some {
-                            path: cache_dir, ..
-                        } => {
-                            // Cache dir has been provided
-                            // we won't use temp files
-                            cache_dir.ensure_dir_exists().await?;
-                            let file_path = cache_dir.join(&arg.path);
-                            patch_arg(*i, &file_path).await?;
-                            tokio::fs::OpenOptions::new()
-                                .write(true)
-                                .create(true)
-                                .truncate(true)
-                                .open(&file_path)
-                                .await
-                                .context(format!(
-                                    "opening azure arg file {}",
-                                    arg.path.to_string_lossy()
-                                ))?
-                        }
-                        CacheBehaviour::None => {
-                            // No cache dir
-                            // We will write azure args to temp files
-                            let temp_dir = AppDir::Temp.as_path_buf();
-                            temp_dir.ensure_dir_exists().await?;
-                            let path = tempfile::Builder::new()
-                                .suffix(&arg.path)
-                                .tempfile_in(temp_dir)
-                                .context(format!(
-                                    "creating temp file {}",
-                                    arg.path.to_string_lossy()
-                                ))?
-                                .into_temp_path();
-                            patch_arg(*i, &path.to_path_buf()).await?;
-                            let file = tokio::fs::OpenOptions::new()
-                                .write(true)
-                                .open(&path)
-                                .await
-                                .context(format!(
-                                    "opening azure arg file {}",
-                                    arg.path.to_string_lossy()
-                                ))?;
-                            rtn.push(path); // add to rtn list so its not dropped+cleaned immediately
-                            file
-                        }
-                    };
-                    file.write_all(arg.content.as_bytes())
-                        .await
-                        .context(format!(
-                            "writing azure arg file {}",
-                            arg.path.to_string_lossy()
-                        ))?;
-                }
-            }
-            (_, false) => {
-                bail!("Only {:?} can use Azure args", CommandKind::AzureCLI);
-            }
-            (CommandKind::Echo, true) => {
+        // Special handling per CommandKind
+        match self {
+            CommandKind::Echo => {
                 let mut new_args: Vec<OsString> = Vec::with_capacity(3);
                 new_args.push("-NoProfile".into());
                 new_args.push("-Command".into());
@@ -183,20 +86,105 @@ impl CommandKind {
                 guh.push("[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new();'");
                 let space: OsString = " ".into();
                 guh.push(
-                    args.join(&space)
+                    args.into_iter()
+                        .map(OsString::from)
+                        .collect::<Vec<_>>()
+                        .join(&space)
                         .as_encoded_bytes()
                         .replace(b"'", b"''")
                         .to_os_str()?,
                 );
                 guh.push("'");
                 new_args.push(guh);
-                args = new_args;
+                args = new_args.into_iter().map(CommandArgument::Literal).collect();
             }
-            (_, true) => {}
+            CommandKind::AzureCLI => {
+                // Always add --debug for AzureCLI if not present
+                let has_debug = args
+                    .iter()
+                    .any(|a| matches!(a, CommandArgument::Literal(lit) if lit == "--debug"));
+                if !has_debug {
+                    args.push(CommandArgument::Literal("--debug".into()));
+                }
+            }
+            _ => {}
         }
-        // Apply args and envs to tokio Command
-        cmd.args(args);
+
+        // Write adjacent files
+        let mut canonical_path_lookup: HashMap<PathBuf, PathBuf> = HashMap::new();
+        for (adj_path, adj_content) in this.adjacent_files.iter() {
+            let file_path = match &this.cache_behaviour {
+                CacheBehaviour::Some {
+                    path: cache_dir, ..
+                } => {
+                    // Cache dir has been provided
+                    cache_dir.ensure_dir_exists().await?;
+                    cache_dir.join(&adj_path)
+                }
+                CacheBehaviour::None => {
+                    // No cache dir has been provided
+                    // We will write adjacent files to temp files
+                    let temp_dir = AppDir::Temp.as_path_buf();
+                    temp_dir.ensure_dir_exists().await?;
+                    let path = tempfile::Builder::new()
+                        .suffix(&adj_path)
+                        .tempfile_in(temp_dir)
+                        .context(format!("creating temp file {}", adj_path.to_string_lossy()))?
+                        .into_temp_path();
+
+                    let path_buf = path.to_path_buf();
+                    rtn.push(path); // add to rtn list so its not dropped+cleaned immediately
+                    path_buf
+                }
+            };
+
+            debug!("Writing arg {}", file_path.display());
+            let mut file = OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&file_path)
+                .await
+                .context(format!("Opening adjacent file {}", file_path.display()))?;
+            file.write_all(adj_content.as_bytes())
+                .await
+                .context(format!("Writing adjacent file {}", file_path.display()))?;
+            
+            // canonicalize the path for transformation when passing as argument to command
+            let file_path = file_path
+                .canonicalize()
+                .wrap_err_with(|| eyre!("Failed to canonicalize path {file_path:?}"))?;
+            canonical_path_lookup.insert(adj_path.clone(), file_path.clone());
+        }
+
+        // Patch arguments to point to canonical paths
+        for arg in args.iter_mut() {
+            if let CommandArgument::DeferredAdjacentFilePath { key, mapper } = arg {
+                let path_to_map = canonical_path_lookup
+                    .get(key)
+                    .ok_or_eyre("Adjacent file path not found in lookup")?;
+                let mapped_path = mapper.map_path(path_to_map);
+                *arg = CommandArgument::Literal(mapped_path.as_os_str().to_owned());
+            }
+        }
+
+        // Apply args to tokio Command
+        for arg in args {
+            match arg {
+                CommandArgument::Literal(lit) => {
+                    cmd.arg(lit);
+                }
+                CommandArgument::DeferredAdjacentFilePath { .. } => {
+                    // Should not happen, all deferred args should have been resolved above
+                    bail!("DeferredAdjacentFilePath found during command execution");
+                }
+            }
+        }
+
+        // Apply envs to tokio Command
         cmd.envs(&this.env);
+
+        // All done :)
         Ok(rtn)
     }
 }

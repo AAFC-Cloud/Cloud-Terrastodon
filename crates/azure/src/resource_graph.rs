@@ -100,7 +100,7 @@ impl ResourceGraphHelper {
             Some((skip, token)) => (*skip, Some(token.to_owned())),
             None => (0u64, None),
         };
-        cmd.file_arg(
+        cmd.azure_file_arg(
             "body.json",
             serde_json::to_string_pretty(&ResourceGraphQueryRestBody {
                 query: self.query.to_string(),

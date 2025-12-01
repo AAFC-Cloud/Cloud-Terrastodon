@@ -1,6 +1,8 @@
+use crate::CommandArgument;
 use crate::CommandKind;
 use crate::CommandOutput;
 use crate::NoSpaces;
+use crate::PathMapper;
 use async_recursion::async_recursion;
 pub use bstr;
 use bstr::BString;
@@ -67,17 +69,11 @@ pub enum CacheBehaviour {
     },
 }
 
-#[derive(Debug, Clone)]
-pub struct FileArg {
-    pub path: PathBuf,
-    pub content: String,
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct CommandBuilder {
     pub(crate) kind: CommandKind,
-    pub(crate) args: Vec<OsString>,
-    pub(crate) file_args: HashMap<usize, FileArg>,
+    pub(crate) args: Vec<CommandArgument>,
+    pub(crate) adjacent_files: HashMap<PathBuf, BString>,
     pub(crate) env: HashMap<String, String>,
     pub(crate) run_dir: Option<PathBuf>,
     pub(crate) retry_behaviour: RetryBehaviour,
@@ -165,28 +161,34 @@ impl CommandBuilder {
     }
 
     pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
-        self.args.push(arg.as_ref().to_owned());
+        self.args
+            .push(CommandArgument::Literal(arg.as_ref().to_owned()));
         self
     }
 
-    pub fn file_arg<S: AsRef<Path>>(&mut self, path: S, content: String) -> &mut Self {
-        // setup
-        let path_buf = path.as_ref().to_path_buf();
-        let path = path_buf.clone();
-        let mut arg = path_buf.into_os_string();
+    pub fn adjacent_file<P: Into<PathBuf>, C: Into<BString>>(
+        &mut self,
+        path: P,
+        content: C,
+    ) -> &mut Self {
+        self.adjacent_files.insert(path.into(), content.into());
+        self
+    }
 
-        // transform based on kind
-        if self.kind == CommandKind::AzureCLI {
-            let mut new_arg = OsString::new();
-            new_arg.push("@");
-            new_arg.push(arg);
-            arg = new_arg;
-        }
+    /// Write a file to disk and pass it to the command using a mapped canonical path.
+    pub fn file_arg<S: AsRef<Path>>(&mut self, path: S, mapper: impl PathMapper, content: String) -> &mut Self {
+        let path = path.as_ref().to_path_buf();
+        self.args.push(CommandArgument::DeferredAdjacentFilePath {
+            key: path.clone(),
+            mapper: Arc::new(mapper),
+        });
+        self.adjacent_files.insert(path, content.into());
+        self
+    }
 
-        // push
-        self.file_args
-            .insert(self.args.len(), FileArg { path, content });
-        self.args.push(arg);
+    /// Write a file to disk and pass it to the command using the `@path` syntax.
+    pub fn azure_file_arg<S: AsRef<Path>>(&mut self, path: S, content: String) -> &mut Self {
+        self.file_arg(path, crate::PrefixPathMapper { prefix: "@".into() }, content);
         self
     }
 
@@ -204,11 +206,17 @@ impl CommandBuilder {
     pub async fn summarize(&self) -> String {
         let mut args = self.args.clone();
         if self.kind == CommandKind::AzureCLI {
-            let has_debug = args.iter().any(|a| a == "--debug");
+            let has_debug = args
+                .iter()
+                .any(|a| matches!(a, CommandArgument::Literal(lit) if lit == "--debug"));
             if !has_debug {
-                args.push("--debug".into());
+                args.push(CommandArgument::Literal("--debug".into()));
             }
         }
+        let args = args
+            .into_iter()
+            .map(OsString::from)
+            .collect::<Vec<_>>();
         format!(
             "{} {}",
             self.kind.program().await,
@@ -270,14 +278,17 @@ impl CommandBuilder {
         }
 
         // Validate cache matches expectations
-        let expect_files: [(&PathBuf, &String); 1] = [
+        let expect_files: [(&PathBuf, &BString); 1] = [
             // Command summary must match
-            (&PathBuf::from("context.txt"), &self.summarize().await),
+            (
+                &PathBuf::from("context.txt"),
+                &self.summarize().await.into(),
+            ),
         ];
         let mut expect_files = Vec::from_iter(expect_files);
-        for arg in self.file_args.values() {
+        for (adj_path, adj_content) in self.adjacent_files.iter() {
             // Azure argument files must match
-            expect_files.push((&arg.path, &arg.content));
+            expect_files.push((&adj_path, adj_content));
         }
         for (path, expected_contents) in expect_files {
             let file_contents = load_from_pathbuf(path).await?;
@@ -722,11 +733,11 @@ impl CommandBuilder {
     }
 
     pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
-        let (dir, write_file_args) = match &self.cache_behaviour {
-            CacheBehaviour::None => (AppDir::Commands.join("failed"), true),
+        let dir = match &self.cache_behaviour {
+            CacheBehaviour::None => AppDir::Commands.join("failed"),
             CacheBehaviour::Some {
                 path: cache_dir, ..
-            } => (cache_dir.join("failed"), true),
+            } => cache_dir.join("failed"),
         };
         dir.ensure_dir_exists().await?;
         let dir = Builder::new()
@@ -734,20 +745,18 @@ impl CommandBuilder {
             .tempdir_in(dir)?
             .keep();
         self.write_output(output, &dir).await?;
-        if write_file_args {
-            for arg in self.file_args.values() {
-                let path = dir.join(&arg.path);
-                let mut file = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(&path)
-                    .await
-                    .context(format!("Opening arg file {}", arg.path.display()))?;
-                file.write_all(arg.content.as_bytes())
-                    .await
-                    .context(format!("Writing arg file {}", arg.path.display()))?;
-            }
+        for (adj_path, adj_content) in self.adjacent_files.iter() {
+            let path = dir.join(&adj_path);
+            let mut file = tokio::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&path)
+                .await
+                .context(format!("Opening arg file {}", path.display()))?;
+            file.write_all(adj_content.as_bytes())
+                .await
+                .context(format!("Writing arg file {}", path.display()))?;
         }
         Ok(dir)
     }

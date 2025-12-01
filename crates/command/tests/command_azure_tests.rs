@@ -38,7 +38,7 @@ async fn it_works_azure() -> Result<()> {
     let result = CommandBuilder::new(CommandKind::AzureCLI)
         .args(["graph", "query", "--graph-query"])
         .use_retry_behaviour(RetryBehaviour::Fail)
-        .file_arg(
+        .azure_file_arg(
             "query.kql",
             r#"
 resourcecontainers
@@ -57,7 +57,7 @@ async fn it_works_azure_cached() -> Result<()> {
     let result = CommandBuilder::new(CommandKind::AzureCLI)
         .args(["graph", "query", "--graph-query"])
         .use_retry_behaviour(RetryBehaviour::Fail)
-        .file_arg(
+        .azure_file_arg(
             "query.kql",
             r#"
 resourcecontainers
@@ -82,7 +82,7 @@ async fn it_works_azure_cached_valid_for() -> Result<()> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.use_retry_behaviour(RetryBehaviour::Fail);
     cmd.args(["graph", "query", "--graph-query"]);
-    cmd.file_arg(
+    cmd.azure_file_arg(
         "query.kql",
         r#"
 Resources	

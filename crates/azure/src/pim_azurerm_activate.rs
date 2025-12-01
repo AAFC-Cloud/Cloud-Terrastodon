@@ -26,7 +26,7 @@ pub async fn activate_pim_role(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "PUT", "--url", &url, "--body"]);
-    cmd.file_arg(
+    cmd.azure_file_arg(
         "body.json",
         serde_json::to_string_pretty(&RoleAssignmentScheduleRequest::new_self_activation(
             principal_id.into(),

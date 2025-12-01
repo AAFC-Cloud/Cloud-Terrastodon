@@ -32,7 +32,7 @@ impl MicrosoftGraphHelper {
         // Build command
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["rest", "--method", "GET", "--url"]);
-        cmd.file_arg("url.txt", self.url);
+        cmd.azure_file_arg("url.txt", self.url);
 
         // Set up caching
         cmd.use_cache_behaviour(self.cache_behaviour);
@@ -58,7 +58,7 @@ impl MicrosoftGraphHelper {
             // Build command
             let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
             cmd.args(["rest", "--method", "GET", "--url"]);
-            cmd.file_arg("url.txt", url.clone());
+            cmd.azure_file_arg("url.txt", url.clone());
 
             // Set up caching
             if let CacheBehaviour::Some {

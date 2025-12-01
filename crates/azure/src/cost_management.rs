@@ -12,7 +12,7 @@ pub async fn fetch_cost_query_results(query: &QueryDefinition) -> eyre::Result<Q
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "post", "--url", url.as_ref(), "--body"]);
-    cmd.file_arg("body.json", serde_json::to_string_pretty(query)?);
+    cmd.azure_file_arg("body.json", serde_json::to_string_pretty(query)?);
     let resp = cmd.run::<QueryResult>().await?;
     Ok(resp)
 }

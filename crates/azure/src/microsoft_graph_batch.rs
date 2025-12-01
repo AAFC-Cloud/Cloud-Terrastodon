@@ -58,7 +58,7 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
         cmd.args(["rest", "--method", "POST", "--url"]);
         cmd.args(["https://graph.microsoft.com/v1.0/$batch"]);
         cmd.args(["--body"]);
-        cmd.file_arg("body.json", serde_json::to_string(&self)?);
+        cmd.azure_file_arg("body.json", serde_json::to_string(&self)?);
         let mut response = cmd.run::<MicrosoftGraphBatchResponse<RESP>>().await?;
         // reorder the responses to match the order of the requests
         response.responses.sort_by_key(|r| {
