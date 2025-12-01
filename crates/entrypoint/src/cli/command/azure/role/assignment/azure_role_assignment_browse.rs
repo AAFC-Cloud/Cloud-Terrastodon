@@ -39,9 +39,10 @@ impl AzureRoleAssignmentBrowseArgs {
 
             choices.push(Choice {
                 key: format!(
-                    "{}\n{}\n{}\nprincipal id: {}\n{}",
+                    "principal name: {}\nrole definition: {}\nrole definition id: {}\nscope: {}\nprincipal id: {}\nrole assignment id: {}",
                     principal_name,
                     role_definition.display_name,
+                    role_definition.id.expanded_form(),
                     role_assignment.scope,
                     role_assignment.principal_id,
                     role_assignment.id.expanded_form()

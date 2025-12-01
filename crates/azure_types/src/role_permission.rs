@@ -1,6 +1,7 @@
 use crate::prelude::RolePermissionAction;
 use serde::Deserialize;
 use serde::Serialize;
+use std::cmp::Ordering;
 
 /// See also: `az provider operation list`
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
@@ -20,6 +21,41 @@ pub struct RolePermissions {
 }
 
 impl RolePermissions {
+    /// Returns a Principal of Least Privilege (PoLP) score.
+    ///
+    /// Lower scores indicate more restrictive permission sets. Scores grow with
+    /// the number of allowed actions/data-actions and increase sharply when
+    /// wildcard segments are used near the start of the action path.
+    pub fn polp_score(&self) -> u64 {
+        fn bag_cost(actions: &[RolePermissionAction]) -> u64 {
+            actions.iter().map(RolePermissions::action_cost).sum()
+        }
+
+        bag_cost(&self.actions) + bag_cost(&self.data_actions)
+    }
+
+    fn action_cost(action: &RolePermissionAction) -> u64 {
+        const ACTION_BASE_COST: u64 = 1_000;
+        const WILDCARD_COST: u64 = 1_000_000;
+        const EARLY_WILDCARD_COST: u64 = 10_000;
+        const MAX_WILDCARD_DEPTH: u64 = 16;
+
+        let mut cost = ACTION_BASE_COST;
+        if let Some(idx) = action.find('*') {
+            cost = cost.saturating_add(WILDCARD_COST);
+            let prefix = &action[..idx];
+            let segments_before_wildcard = prefix
+                .split('/')
+                .filter(|segment| !segment.is_empty())
+                .count() as u64;
+            let depth_penalty = MAX_WILDCARD_DEPTH
+                .saturating_sub(segments_before_wildcard)
+                .saturating_mul(EARLY_WILDCARD_COST);
+            cost = cost.saturating_add(depth_penalty);
+        }
+        cost
+    }
+
     pub fn satisfies(
         &self,
         actions: &[RolePermissionAction],
@@ -64,6 +100,18 @@ impl RolePermissions {
             }
         }
         true
+    }
+}
+
+impl Ord for RolePermissions {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.polp_score().cmp(&other.polp_score())
+    }
+}
+
+impl PartialOrd for RolePermissions {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 

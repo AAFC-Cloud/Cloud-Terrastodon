@@ -3,11 +3,17 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use std::ops::Deref;
+use std::str::FromStr;
 use tracing::warn;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct RolePermissionAction {
     inner: String,
+}
+impl std::fmt::Display for RolePermissionAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
 }
 
 impl Serialize for RolePermissionAction {
@@ -29,6 +35,14 @@ impl<'de> Deserialize<'de> for RolePermissionAction {
         Ok(id)
     }
 }
+
+impl FromStr for RolePermissionAction {
+    type Err = eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(RolePermissionAction::new(s))
+    }
+}
+
 impl Deref for RolePermissionAction {
     type Target = str;
     fn deref(&self) -> &Self::Target {

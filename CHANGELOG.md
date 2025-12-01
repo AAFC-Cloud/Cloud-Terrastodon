@@ -7,7 +7,7 @@
 - Fix `TFProviderVersionConstraintClause` parsing to trim whitespace around operator
 - Make `PickerTui#pick_inner` public
 - Add CLI command: `cloud_terrastodon pick`
-- Add CLI command: `cloud_terrastodon azure role definition list`
+- Add CLI command: `cloud_terrastodon azure role definition list` with `--actions` and `--data-actions` filter, sorted by principal-of-least-privilege
 - Add CLI command: `cloud_terrastodon azure role definition browse`
 - Add CLI command: `cloud_terrastodon azure role assignment list`
 - Add CLI command: `cloud_terrastodon azure role assignment browse`

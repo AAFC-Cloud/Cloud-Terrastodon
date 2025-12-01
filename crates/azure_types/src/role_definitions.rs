@@ -31,6 +31,17 @@ pub struct RoleDefinition {
 }
 
 impl RoleDefinition {
+    /// Aggregated PoLP score for the entire role definition.
+    ///
+    /// The score is the sum of the [`RolePermissions::polp_score`] for every
+    /// permission block. Lower values indicate a more restrictive role.
+    pub fn polp_score(&self) -> u64 {
+        self.permissions
+            .iter()
+            .map(RolePermissions::polp_score)
+            .sum()
+    }
+
     pub fn satisfies(
         &self,
         actions: &[RolePermissionAction],
