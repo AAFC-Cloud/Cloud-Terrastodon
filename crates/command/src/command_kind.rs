@@ -119,7 +119,7 @@ impl CommandKind {
                 } => {
                     // Cache dir has been provided
                     cache_dir.ensure_dir_exists().await?;
-                    cache_dir.join(&adj_path)
+                    cache_dir.join(adj_path)
                 }
                 CacheBehaviour::None => {
                     // No cache dir has been provided
@@ -163,7 +163,7 @@ impl CommandKind {
                 let path_to_map = canonical_path_lookup
                     .get(key)
                     .ok_or_eyre("Adjacent file path not found in lookup")?;
-                let mapped_path = mapper.map_path(path_to_map);
+                let mapped_path = mapper.map_path(path_to_map.as_path());
                 *arg = CommandArgument::Literal(mapped_path.as_os_str().to_owned());
             }
         }

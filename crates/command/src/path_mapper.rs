@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::Path;
 
 pub trait PathMapper: Send + Sync + 'static + std::fmt::Debug {
-    fn map_path<'a>(&self, path: &'a PathBuf) -> Cow<'a, PathBuf>;
+    fn map_path<'a>(&self, path: &'a Path) -> Cow<'a, Path>;
 }
 
 #[derive(Debug)]
@@ -19,7 +19,7 @@ impl PrefixPathMapper {
     }
 }
 impl PathMapper for PrefixPathMapper {
-    fn map_path<'a>(&self, path: &'a PathBuf) -> Cow<'a, PathBuf> {
+    fn map_path<'a>(&self, path: &'a Path) -> Cow<'a, Path> {
         if path.starts_with(&self.prefix) {
             return Cow::Borrowed(path);
         }
@@ -34,14 +34,14 @@ impl PathMapper for PrefixPathMapper {
 mod test {
     use crate::PathMapper;
     use crate::PrefixPathMapper;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
         let mapper = PrefixPathMapper::new("@");
         let path = PathBuf::from("abc.json");
-        let mapped = mapper.map_path(&path);
-        assert_eq!(*mapped, PathBuf::from("@abc.json"));
+        let mapped = mapper.map_path(path.as_path());
+        assert_eq!(mapped.as_ref(), Path::new("@abc.json"));
         Ok(())
     }
 }

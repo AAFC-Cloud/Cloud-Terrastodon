@@ -79,10 +79,10 @@ impl TryFrom<HclBlock> for Block {
     fn try_from(hcl_block: HclBlock) -> Result<Self> {
         Ok(match hcl_block {
             HclBlock::Import(import_block) => import_block.try_into()?,
-            HclBlock::Provider(provider_block) => provider_block.try_into()?,
-            HclBlock::Terraform(terraform_block) => terraform_block.try_into()?,
-            HclBlock::Resource(block) => block.try_into()?,
-            HclBlock::Data(block) => block.try_into()?,
+            HclBlock::Provider(provider_block) => provider_block.into(),
+            HclBlock::Terraform(terraform_block) => terraform_block.into(),
+            HclBlock::Resource(block) => block.into(),
+            HclBlock::Data(block) => block.into(),
             HclBlock::Other(block) => block,
         })
     }

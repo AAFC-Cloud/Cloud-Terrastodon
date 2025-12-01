@@ -288,7 +288,7 @@ impl CommandBuilder {
         let mut expect_files = Vec::from_iter(expect_files);
         for (adj_path, adj_content) in self.adjacent_files.iter() {
             // Azure argument files must match
-            expect_files.push((&adj_path, adj_content));
+            expect_files.push((adj_path, adj_content));
         }
         for (path, expected_contents) in expect_files {
             let file_contents = load_from_pathbuf(path).await?;
@@ -746,7 +746,7 @@ impl CommandBuilder {
             .keep();
         self.write_output(output, &dir).await?;
         for (adj_path, adj_content) in self.adjacent_files.iter() {
-            let path = dir.join(&adj_path);
+            let path = dir.join(adj_path);
             let mut file = tokio::fs::OpenOptions::new()
                 .write(true)
                 .create(true)

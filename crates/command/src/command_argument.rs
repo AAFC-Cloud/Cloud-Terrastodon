@@ -20,7 +20,7 @@ impl From<CommandArgument> for OsString {
         match arg {
             CommandArgument::Literal(lit) => lit,
             CommandArgument::DeferredAdjacentFilePath { key, mapper } => {
-                mapper.map_path(&key).as_os_str().to_owned()
+                mapper.map_path(key.as_path()).as_os_str().to_owned()
             }
         }
     }
