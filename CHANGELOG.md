@@ -13,6 +13,7 @@
 - Add CLI command: `cloud_terrastodon azure role assignment browse`
 - Add `ServiceGroup` and supporting types
 - Add `RoleAssignmentId::ServiceGroupScoped` variant
+- Rework `CommandBuilder::file_arg` to allow for generic path rewriting during canonicalization
 
 # v0.29.0
 
