@@ -1,9 +1,9 @@
+use super::audit::AzureAuditArgs;
 use super::group::AzureGroupArgs;
 use super::pim::AzurePimArgs;
 use super::policy::AzurePolicyArgs;
 use super::role::AzureRoleArgs;
 use super::tag::AzureTagArgs;
-use crate::noninteractive::prelude::audit_azure;
 use clap::Subcommand;
 use eyre::Result;
 
@@ -11,7 +11,7 @@ use eyre::Result;
 #[derive(Subcommand, Debug, Clone)]
 pub enum AzureCommand {
     /// Audit Azure resources for configuration issues.
-    Audit,
+    Audit(AzureAuditArgs),
     /// Manage Azure resource groups.
     Group(AzureGroupArgs),
     /// Manage Azure policy resources.
@@ -27,8 +27,8 @@ pub enum AzureCommand {
 impl AzureCommand {
     pub async fn invoke(self) -> Result<()> {
         match self {
-            AzureCommand::Audit => {
-                audit_azure().await?;
+            AzureCommand::Audit(args) => {
+                args.invoke().await?;
             }
             AzureCommand::Group(args) => {
                 args.invoke().await?;

@@ -1,4 +1,5 @@
-use crate::noninteractive::prelude::audit_azure_devops;
+use super::audit::AzureDevOpsAuditArgs;
+use super::rest::AzureDevOpsRestArgs;
 use clap::Subcommand;
 use eyre::Result;
 
@@ -6,14 +7,19 @@ use eyre::Result;
 #[derive(Subcommand, Debug, Clone)]
 pub enum AzureDevOpsCommand {
     /// Audit Azure DevOps resources for configuration issues.
-    Audit,
+    Audit(AzureDevOpsAuditArgs),
+    /// Issue raw Azure DevOps REST requests.
+    Rest(AzureDevOpsRestArgs),
 }
 
 impl AzureDevOpsCommand {
     pub async fn invoke(self) -> Result<()> {
         match self {
-            AzureDevOpsCommand::Audit => {
-                audit_azure_devops().await?;
+            AzureDevOpsCommand::Audit(args) => {
+                args.invoke().await?;
+            }
+            AzureDevOpsCommand::Rest(args) => {
+                args.invoke().await?;
             }
         }
 

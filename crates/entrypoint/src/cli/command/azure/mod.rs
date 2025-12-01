@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod azure_command;
 pub mod group;
 pub mod pim;

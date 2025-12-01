@@ -1,4 +1,6 @@
+pub mod audit;
 pub mod azure_devops_command;
+pub mod rest;
 
 use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;
 use clap::Args;
