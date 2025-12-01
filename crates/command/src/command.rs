@@ -176,7 +176,12 @@ impl CommandBuilder {
     }
 
     /// Write a file to disk and pass it to the command using a mapped canonical path.
-    pub fn file_arg<S: AsRef<Path>>(&mut self, path: S, mapper: impl PathMapper, content: String) -> &mut Self {
+    pub fn file_arg<S: AsRef<Path>>(
+        &mut self,
+        path: S,
+        mapper: impl PathMapper,
+        content: String,
+    ) -> &mut Self {
         let path = path.as_ref().to_path_buf();
         self.args.push(CommandArgument::DeferredAdjacentFilePath {
             key: path.clone(),
@@ -188,7 +193,11 @@ impl CommandBuilder {
 
     /// Write a file to disk and pass it to the command using the `@path` syntax.
     pub fn azure_file_arg<S: AsRef<Path>>(&mut self, path: S, content: String) -> &mut Self {
-        self.file_arg(path, crate::PrefixPathMapper { prefix: "@".into() }, content);
+        self.file_arg(
+            path,
+            crate::PrefixPathMapper { prefix: "@".into() },
+            content,
+        );
         self
     }
 
@@ -213,10 +222,7 @@ impl CommandBuilder {
                 args.push(CommandArgument::Literal("--debug".into()));
             }
         }
-        let args = args
-            .into_iter()
-            .map(OsString::from)
-            .collect::<Vec<_>>();
+        let args = args.into_iter().map(OsString::from).collect::<Vec<_>>();
         format!(
             "{} {}",
             self.kind.program().await,

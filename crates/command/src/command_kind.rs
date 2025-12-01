@@ -149,7 +149,7 @@ impl CommandKind {
             file.write_all(adj_content.as_bytes())
                 .await
                 .context(format!("Writing adjacent file {}", file_path.display()))?;
-            
+
             // canonicalize the path for transformation when passing as argument to command
             let file_path = file_path
                 .canonicalize()

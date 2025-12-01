@@ -1,8 +1,7 @@
+use crate::PathMapper;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::Arc;
-
-use crate::PathMapper;
 
 #[derive(Debug, Clone)]
 pub enum CommandArgument {

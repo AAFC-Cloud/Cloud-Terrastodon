@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 /// Represents the name component of a service group resource id.
-/// 
+///
 /// Can be up to [250 characters](https://learn.microsoft.com/en-us/azure/governance/service-groups/overview#important-facts-about-service-groups)
 #[derive(Debug, Clone, Eq, PartialOrd, Ord)]
 pub struct ServiceGroupName {

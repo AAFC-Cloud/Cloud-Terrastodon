@@ -8,10 +8,10 @@ pub mod dump_everything;
 pub mod egui;
 pub mod get_path;
 pub mod perform_code_generation_from_imports;
+pub mod pick;
 pub mod ratatui;
 pub mod terraform;
 pub mod write_all_imports;
-pub mod pick;
 
 use crate::cli::add_work_dir::AddWorkDirArgs;
 use crate::cli::azure::AzureArgs;

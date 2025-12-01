@@ -13,7 +13,10 @@ impl AzureRoleDefinitionBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         info!("Fetching Azure role definitions");
         let role_definitions = fetch_all_role_definitions().await?;
-        info!(count = role_definitions.len(), "Fetched Azure role definitions");
+        info!(
+            count = role_definitions.len(),
+            "Fetched Azure role definitions"
+        );
 
         let chosen = PickerTui::new(role_definitions).pick_many()?;
 

@@ -34,7 +34,8 @@ impl PathMapper for PrefixPathMapper {
 mod test {
     use crate::PathMapper;
     use crate::PrefixPathMapper;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
+    use std::path::PathBuf;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

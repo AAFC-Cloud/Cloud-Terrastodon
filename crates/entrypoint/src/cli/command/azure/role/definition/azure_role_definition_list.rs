@@ -1,6 +1,6 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_azure::prelude::RolePermissionAction;
+use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;

@@ -12,7 +12,10 @@ impl AzureRoleAssignmentListArgs {
     pub async fn invoke(self) -> Result<()> {
         info!("Fetching Azure role assignments");
         let role_assignments = fetch_all_role_assignments().await?;
-        info!(count = role_assignments.len(), "Fetched Azure role assignments");
+        info!(
+            count = role_assignments.len(),
+            "Fetched Azure role assignments"
+        );
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

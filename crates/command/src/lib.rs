@@ -9,17 +9,17 @@ mod command_argument;
 mod command_kind;
 mod command_output;
 mod no_spaces;
-mod work;
 mod path_mapper;
+mod work;
 
 pub use crate::command::*;
 pub use crate::command_argument::*;
-pub use crate::path_mapper::*;
 pub use crate::command_kind::*;
 pub use crate::command_output::*;
 pub use crate::no_spaces::*;
+pub use crate::path_mapper::*;
 pub use crate::work::*;
 
-// TODO: add a `last_used` file to cache entries so we can 
-// give the user the list of recently used cache entries to 
+// TODO: add a `last_used` file to cache entries so we can
+// give the user the list of recently used cache entries to
 // let the user surgically bust individual caches instead of only being able to clear the entire cache
