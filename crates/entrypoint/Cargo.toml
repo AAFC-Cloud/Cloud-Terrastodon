@@ -18,6 +18,7 @@ cloud_terrastodon_hcl = { workspace = true }
 cloud_terrastodon_azure = { workspace = true }
 cloud_terrastodon_azure_devops = { workspace = true }
 cloud_terrastodon_command = { workspace = true }
+cloud_terrastodon_credentials = { workspace = true }
 cloud_terrastodon_pathing = { workspace = true }
 cloud_terrastodon_config = { workspace = true }
 cloud_terrastodon_zombies = { workspace = true }

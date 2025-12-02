@@ -1,5 +1,5 @@
 use super::audit::AzureDevOpsAuditArgs;
-use super::rest::AzureDevOpsRestArgs;
+use super::azure_devops_rest_command::AzureDevOpsRestArgs;
 use clap::Subcommand;
 use eyre::Result;
 
