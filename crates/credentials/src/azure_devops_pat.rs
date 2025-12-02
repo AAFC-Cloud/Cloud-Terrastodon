@@ -51,9 +51,9 @@ pub async fn get_azure_devops_pat() -> eyre::Result<AzureDevOpsPersonalAccessTok
     #[cfg(windows)]
     return read_azure_devops_pat_from_credential_manager();
     #[cfg(not(windows))]
-    return Ok(AzureDevOpsPersonalAccessToken::new(env!(
+    return Ok(AzureDevOpsPersonalAccessToken::new(std::env::var(
         "AZDO_PERSONAL_ACCESS_TOKEN"
-    )));
+    )?));
 }
 
 #[cfg(test)]
