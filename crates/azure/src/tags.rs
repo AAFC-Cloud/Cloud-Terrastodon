@@ -1,11 +1,11 @@
 use crate::prelude::BatchRequest;
 use crate::prelude::BatchRequestEntry;
 use crate::prelude::BatchResponse;
-use crate::prelude::HttpMethod;
 use crate::prelude::invoke_batch_request;
 use cloud_terrastodon_azure_types::prelude::ResourceTagsId;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use eyre::Result;
+use http::Method;
 use itertools::Itertools;
 use serde::Deserialize;
 use serde::Serialize;
@@ -57,7 +57,7 @@ pub async fn replace_tags_for_resources(
             .into_iter()
             .map(|(resource_id, tags)| {
                 BatchRequestEntry::new(
-                    HttpMethod::PATCH,
+                    Method::PATCH,
                     format!("{}{}", resource_id.expanded_form(), url_tail),
                     Some(json!({
                         "operation": "Replace",
@@ -84,7 +84,7 @@ pub async fn merge_tags_for_resources(
             .into_iter()
             .map(|(resource_id, tags)| {
                 BatchRequestEntry::new(
-                    HttpMethod::PATCH,
+                    Method::PATCH,
                     format!("{}{}", resource_id.expanded_form(), url_tail),
                     Some(json!({
                         "operation": "Merge",
@@ -111,7 +111,7 @@ pub async fn delete_tags_for_resources(
             .into_iter()
             .map(|(resource_id, tags)| {
                 BatchRequestEntry::new(
-                    HttpMethod::PATCH,
+                    Method::PATCH,
                     format!("{}{}", resource_id.expanded_form(), url_tail),
                     Some(json!({
                         "operation": "Delete",

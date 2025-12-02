@@ -32,6 +32,7 @@ compact_str = { workspace = true, features = ["serde"] }
 humantime.workspace = true
 strum.workspace = true
 rustc-hash.workspace = true
+http.workspace = true
 
 
 [dev-dependencies]

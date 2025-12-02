@@ -1,4 +1,3 @@
-use crate::prelude::HttpMethod;
 use crate::prelude::MicrosoftGraphBatchRequest;
 use crate::prelude::MicrosoftGraphBatchRequestEntry;
 use crate::prelude::MicrosoftGraphBatchResponseEntryBody;
@@ -10,6 +9,7 @@ use cloud_terrastodon_command::CacheBehaviour;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
+use http::Method;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
@@ -46,8 +46,8 @@ impl GetGroupMembersOperation {
             self.group_id
         )
     }
-    pub fn method(&self) -> HttpMethod {
-        HttpMethod::GET
+    pub fn method(&self) -> Method {
+        Method::GET
     }
 }
 impl From<GetGroupMembersOperation> for MicrosoftGraphBatchRequestEntry<Vec<Principal>> {

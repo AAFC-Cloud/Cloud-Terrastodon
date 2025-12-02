@@ -1,8 +1,8 @@
-use crate::prelude::HttpMethod;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
+use http::Method;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -37,7 +37,7 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
         self.ids.push(id.clone());
         self.requests.push(MicrosoftGraphBatchRequestEntry::new(
             id,
-            HttpMethod::GET,
+            Method::GET,
             url,
             HashMap::new(),
             None,
@@ -74,7 +74,11 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
 #[derive(Debug, Serialize)]
 pub struct MicrosoftGraphBatchRequestEntry<T> {
     pub id: String,
-    pub method: HttpMethod,
+    #[serde(
+        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_using_from_str",
+        serialize_with = "cloud_terrastodon_azure_types::serde_helpers::serialize_using_asref_str"
+    )]
+    pub method: Method,
     pub url: String,
     pub headers: HashMap<String, String>,
     pub body: Option<T>,
@@ -83,7 +87,7 @@ pub struct MicrosoftGraphBatchRequestEntry<T> {
 impl<T> MicrosoftGraphBatchRequestEntry<T> {
     pub fn new(
         id: String,
-        method: HttpMethod,
+        method: Method,
         url: String,
         headers: HashMap<String, String>,
         body: Option<T>,
@@ -99,7 +103,7 @@ impl<T> MicrosoftGraphBatchRequestEntry<T> {
     pub fn new_get(id: String, url: String) -> Self {
         MicrosoftGraphBatchRequestEntry {
             id,
-            method: HttpMethod::GET,
+            method: Method::GET,
             url,
             headers: HashMap::new(),
             body: None,

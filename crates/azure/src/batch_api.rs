@@ -3,28 +3,13 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use eyre::bail;
+use http::Method;
 use itertools::Itertools;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use tracing::debug;
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum HttpMethod {
-    PATCH,
-    POST,
-    GET,
-}
-impl std::fmt::Display for HttpMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            HttpMethod::PATCH => "PATCH",
-            HttpMethod::POST => "POST",
-            HttpMethod::GET => "GET",
-        })
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct BatchRequest<T> {
@@ -40,8 +25,12 @@ where
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BatchRequestEntry<T> {
-    #[serde(rename = "httpMethod")]
-    pub http_method: HttpMethod,
+    #[serde(
+        rename = "httpMethod",
+        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_using_from_str",
+        serialize_with = "cloud_terrastodon_azure_types::serde_helpers::serialize_using_asref_str"
+    )]
+    pub http_method: Method,
     pub name: Uuid,
     pub url: String,
     pub content: Option<T>,
@@ -49,7 +38,7 @@ pub struct BatchRequestEntry<T> {
 impl BatchRequestEntry<()> {
     pub fn new_get(url: String) -> Self {
         BatchRequestEntry {
-            http_method: HttpMethod::GET,
+            http_method: Method::GET,
             name: Uuid::new_v4(),
             url,
             content: None,
@@ -57,7 +46,7 @@ impl BatchRequestEntry<()> {
     }
 }
 impl<T> BatchRequestEntry<T> {
-    pub fn new(http_method: HttpMethod, url: String, content: Option<T>) -> Self {
+    pub fn new(http_method: Method, url: String, content: Option<T>) -> Self {
         BatchRequestEntry {
             http_method,
             name: Uuid::new_v4(),

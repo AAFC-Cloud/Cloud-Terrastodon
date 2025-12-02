@@ -52,6 +52,24 @@ where
     Ok(datetime)
 }
 
+pub fn deserialize_using_from_str<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    T: FromStr,
+    T::Err: std::fmt::Display,
+    D: Deserializer<'de>,
+{
+    let str = String::deserialize(deserializer)?;
+    T::from_str(&str).map_err(serde::de::Error::custom)
+}
+
+pub fn serialize_using_asref_str<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+where
+    T: AsRef<str>,
+    S: serde::Serializer,
+{
+    serializer.serialize_str(value.as_ref())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::prelude::SubscriptionId;
