@@ -14,6 +14,7 @@
 - Add `ServiceGroup` and supporting types
 - Add `RoleAssignmentId::ServiceGroupScoped` variant
 - Rework `CommandBuilder::file_arg` to allow for generic path rewriting during canonicalization
+- Fix `PickerTui` [performance problems using stderr](https://blog.orhun.dev/stdout-vs-stderr/)
 
 # v0.29.0
 
