@@ -1016,6 +1016,7 @@ dependencies = [
  "color-eyre",
  "compact_str 0.9.0",
  "eyre",
+ "http",
  "humantime",
  "indexmap",
  "indicatif",
