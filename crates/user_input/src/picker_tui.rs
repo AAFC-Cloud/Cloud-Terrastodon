@@ -30,6 +30,7 @@ use ratatui::widgets::Widget;
 use rustc_hash::FxBuildHasher;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
+use std::io::BufWriter;
 use std::io::stderr;
 use std::sync::Arc;
 use tui_textarea::CursorMove;
@@ -156,7 +157,8 @@ impl<T> PickerTui<T> {
         }));
         enable_raw_mode()?;
         execute!(stderr(), EnterAlternateScreen)?;
-        let backend = CrosstermBackend::new(stderr());
+        // https://blog.orhun.dev/stdout-vs-stderr/
+        let backend = CrosstermBackend::new(BufWriter::new(stderr()));
         let mut terminal = Terminal::new(backend)?;
         terminal.clear()?;
 
@@ -496,6 +498,21 @@ mod test {
         ])
         .set_header("Select some numbers")
         .pick_many()?;
+        dbg!(results);
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    pub fn it_works_many()->eyre::Result<()> {
+        // create 100,000 items
+        let items = (0..100_000).map(|i| Choice {
+            key: format!("Item {}", i),
+            value: i,
+        });
+        let results = PickerTui::<usize>::new(items)
+            .set_header("Select some items")
+            .pick_many()?;
         dbg!(results);
         Ok(())
     }
