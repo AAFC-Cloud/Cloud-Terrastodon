@@ -504,7 +504,7 @@ mod test {
 
     #[test]
     #[ignore]
-    pub fn it_works_many()->eyre::Result<()> {
+    pub fn it_works_many() -> eyre::Result<()> {
         // create 100,000 items
         let items = (0..100_000).map(|i| Choice {
             key: format!("Item {}", i),
