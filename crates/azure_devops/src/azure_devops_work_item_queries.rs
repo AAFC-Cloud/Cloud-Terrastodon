@@ -64,14 +64,15 @@ mod test {
         let queries = fetch_queries_for_project(&org_url, &project_name).await?;
         for entry in AzureDevOpsWorkItemQuery::flatten_many(&queries) {
             println!(
-                "{}{} ({})",
+                "{}{} ({}) ({})",
                 ".".repeat(entry.parents.len()),
                 entry.child.name,
                 if entry.child.is_folder {
                     "folder"
                 } else {
                     "query"
-                }
+                },
+                entry.child.id
             );
         }
         Ok(())
