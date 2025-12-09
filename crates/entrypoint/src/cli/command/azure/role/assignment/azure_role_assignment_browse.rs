@@ -1,4 +1,5 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::Principal;
 use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::Scope;
@@ -7,6 +8,8 @@ use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use itertools::Itertools;
+use serde_json::json;
 use std::borrow::Cow;
 use std::io::Write;
 use tokio::try_join;
@@ -32,8 +35,8 @@ impl AzureRoleAssignmentBrowseArgs {
 
         let mut choices = Vec::new();
         for (role_assignment, role_definition) in rbac.iter_role_assignments() {
-            let principal_name = principals
-                .get(&role_assignment.principal_id)
+            let principal = principals.get(&role_assignment.principal_id);
+            let principal_name = principal
                 .map(|p| Cow::Borrowed(p.display_name()))
                 .unwrap_or_else(|| Cow::Borrowed("Unknown Principal"));
 
@@ -47,12 +50,19 @@ impl AzureRoleAssignmentBrowseArgs {
                     role_assignment.principal_id,
                     role_assignment.id.expanded_form()
                 ),
-                value: (role_assignment, role_definition),
+                value: (role_assignment, role_definition, principal),
             });
         }
 
-        let chosen = PickerTui::<(&RoleAssignment, &RoleDefinition)>::new(choices.into_iter())
-            .pick_many()?;
+        let chosen = PickerTui::<(&RoleAssignment, &RoleDefinition, Option<&Principal>)>::new(
+            choices.into_iter(),
+        )
+        .pick_many()?
+        .into_iter()
+        .map(|(role_assignment, role_definition, principal)| {
+            json!({"role_assignment": role_assignment, "role_definition": role_definition, "principal": principal})
+        })
+        .collect_vec();
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
