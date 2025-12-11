@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_entrypoint"
 description = "Main entrypoint for the Cloud Terrastodon CLI"
-version = "0.29.0"                                            # CT_VERSION
+version = "0.30.0"                                            # CT_VERSION
 readme.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -61,3 +61,4 @@ windows = { version = "0.62.2", features = [
 
 [dev-dependencies]
 test-log.workspace = true
+

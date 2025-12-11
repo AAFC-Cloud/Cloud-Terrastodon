@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_hcl"
 description = "Helpers for manipulating TerraStorodon HCL files for the Cloud Terrastodon project"
-version = "0.29.0" # CT_VERSION
+version = "0.30.0" # CT_VERSION
 readme.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -34,6 +34,7 @@ directories-next = { workspace = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
+
 
 
 

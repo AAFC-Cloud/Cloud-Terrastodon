@@ -9,7 +9,7 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
-version = "0.29.0" # CT_VERSION
+version = "0.30.0" # CT_VERSION
 
 [dependencies]
 cloud_terrastodon_azure_devops_types.workspace = true
@@ -40,6 +40,7 @@ test-log.workspace = true
 # Enables text user interface support
 tui = ["ratatui", "tui-textarea"]
 default = ["tui"]
+
 
 
 
