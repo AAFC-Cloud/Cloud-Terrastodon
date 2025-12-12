@@ -1,3 +1,4 @@
+use crate::reflow::HclReflower;
 use cloud_terrastodon_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_hcl_types::prelude::AzureAdResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
@@ -8,55 +9,31 @@ use hcl::edit::Decorated;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::Attribute;
+use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::visit_mut::visit_block_mut;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use tracing::warn;
 
-fn is_null_or_empty(attrib: &Attribute) -> bool {
-    attrib.value.is_null() || attrib.value.as_str().filter(|x| x.is_empty()).is_some()
-}
-
-fn remove_if_null_or_empty(body: &mut Body, key: &str) {
-    if let Some(attrib) = body.get_attribute(key)
-        && is_null_or_empty(attrib)
-    {
-        body.remove_attribute(key).unwrap();
+pub struct ReflowRemoveDefaultAttributes;
+#[async_trait::async_trait]
+impl HclReflower for ReflowRemoveDefaultAttributes {
+    async fn reflow(
+        &mut self,
+        hcl: HashMap<PathBuf, Body>,
+    ) -> eyre::Result<HashMap<PathBuf, Body>> {
+        let mut reflowed = HashMap::new();
+        for (path, mut body) in hcl {
+            self.visit_body_mut(&mut body);
+            reflowed.insert(path, body);
+        }
+        Ok(reflowed)
     }
 }
-fn replace_if_null_or_empty(body: &mut Body, key: &str, default: impl Into<String>) {
-    if let Some(mut attrib) = body.get_attribute_mut(key)
-        && is_null_or_empty(&attrib)
-    {
-        *attrib.value_mut() = Expression::String(Decorated::new(default.into()));
-    }
-}
-fn remove_if_false(body: &mut Body, key: &str) {
-    if let Some(attrib) = body.get_attribute(key)
-        && let Some(false) = attrib.value.as_bool()
-    {
-        body.remove_attribute(key).unwrap();
-    }
-}
-
-fn remove_if_empty_array(body: &mut Body, key: &str) {
-    if let Some(attrib) = body.get_attribute(key)
-        && let Some(x) = attrib.value.as_array()
-        && x.is_empty()
-    {
-        body.remove_attribute(key).unwrap();
-    }
-}
-
-fn remove_second_if_both_present(body: &mut Body, keep: &str, remove: &str) {
-    if body.has_attribute(keep) && body.has_attribute(remove) {
-        body.remove_attribute(remove).unwrap();
-    }
-}
-
-pub struct DefaultAttributeCleanupPatcher;
-impl VisitMut for DefaultAttributeCleanupPatcher {
-    fn visit_block_mut(&mut self, node: &mut hcl::edit::structure::Block) {
+impl VisitMut for ReflowRemoveDefaultAttributes {
+    fn visit_block_mut(&mut self, node: &mut Block) {
         if node.ident.as_str() != "resource" {
             return;
         }
@@ -156,5 +133,46 @@ impl VisitMut for DefaultAttributeCleanupPatcher {
             }
             _ => {}
         }
+    }
+}
+
+fn is_null_or_empty(attrib: &Attribute) -> bool {
+    attrib.value.is_null() || attrib.value.as_str().filter(|x| x.is_empty()).is_some()
+}
+
+fn remove_if_null_or_empty(body: &mut Body, key: &str) {
+    if let Some(attrib) = body.get_attribute(key)
+        && is_null_or_empty(attrib)
+    {
+        body.remove_attribute(key).unwrap();
+    }
+}
+fn replace_if_null_or_empty(body: &mut Body, key: &str, default: impl Into<String>) {
+    if let Some(mut attrib) = body.get_attribute_mut(key)
+        && is_null_or_empty(&attrib)
+    {
+        *attrib.value_mut() = Expression::String(Decorated::new(default.into()));
+    }
+}
+fn remove_if_false(body: &mut Body, key: &str) {
+    if let Some(attrib) = body.get_attribute(key)
+        && let Some(false) = attrib.value.as_bool()
+    {
+        body.remove_attribute(key).unwrap();
+    }
+}
+
+fn remove_if_empty_array(body: &mut Body, key: &str) {
+    if let Some(attrib) = body.get_attribute(key)
+        && let Some(x) = attrib.value.as_array()
+        && x.is_empty()
+    {
+        body.remove_attribute(key).unwrap();
+    }
+}
+
+fn remove_second_if_both_present(body: &mut Body, keep: &str, remove: &str) {
+    if body.has_attribute(keep) && body.has_attribute(remove) {
+        body.remove_attribute(remove).unwrap();
     }
 }

@@ -24,7 +24,6 @@ mod management_groups;
 mod metrics;
 mod microsoft_graph;
 mod microsoft_graph_batch;
-mod name_lookup_helper;
 mod oauth2_permission_grants;
 mod oauth2_permission_scopes;
 mod pick_oauth2_permission_grants;
@@ -94,7 +93,6 @@ pub mod prelude {
     pub use crate::metrics::*;
     pub use crate::microsoft_graph::*;
     pub use crate::microsoft_graph_batch::*;
-    pub use crate::name_lookup_helper::*;
     pub use crate::oauth2_permission_grants::*;
     pub use crate::oauth2_permission_scopes::*;
     pub use crate::pick_oauth2_permission_grants::*;

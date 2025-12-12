@@ -29,8 +29,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 tempfile = { workspace = true }
+async-trait.workspace = true
 rand.workspace = true
 directories-next = { workspace = true }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
+arbitrary.workspace = true

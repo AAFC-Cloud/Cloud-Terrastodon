@@ -1,4 +1,5 @@
 use crate::user_id::UserId;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::prelude::AzureAdResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
@@ -7,7 +8,7 @@ use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Arbitrary)]
 pub struct User {
     #[serde(rename = "businessPhones")]
     pub business_phones: Vec<String>,

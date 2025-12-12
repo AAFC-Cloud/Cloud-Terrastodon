@@ -1044,6 +1044,8 @@ dependencies = [
 name = "cloud_terrastodon_hcl"
 version = "0.30.0"
 dependencies = [
+ "arbitrary",
+ "async-trait",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_command",

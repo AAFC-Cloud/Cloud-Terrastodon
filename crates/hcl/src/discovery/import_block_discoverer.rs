@@ -1,43 +1,44 @@
 use cloud_terrastodon_azure::prelude::ScopeImpl;
+use hcl::edit::expr::Expression;
 use hcl::edit::structure::Block;
 use hcl::edit::visit::Visit;
-use hcl::edit::visit::visit_block;
 use std::collections::HashMap;
 
 #[derive(Default)]
-pub struct ImportLookupHolder {
-    resource_references_by_id: HashMap<ScopeImpl, String>,
+pub struct ImportBlockDiscoverer {
+    resource_references_by_id: HashMap<ScopeImpl, Expression>,
 }
-impl ImportLookupHolder {
-    pub fn track(&mut self, id: ScopeImpl, to: String) {
+impl ImportBlockDiscoverer {
+    pub fn track(&mut self, id: ScopeImpl, to: Expression) {
         self.resource_references_by_id.insert(id, to);
     }
-    pub fn get_import_to_attribute_from_id(&self, id: &ScopeImpl) -> Option<&String> {
+    pub fn get_resource_for_id(&self, id: &ScopeImpl) -> Option<&Expression> {
         self.resource_references_by_id.get(id)
     }
 }
-impl Visit for ImportLookupHolder {
+impl Visit for ImportBlockDiscoverer {
     fn visit_block(&mut self, block: &Block) {
-        // Only process import blocks
+        // Must be a top-level import block
         if block.ident.to_string() != "import" {
-            visit_block(self, block);
             return;
         }
 
-        // Get properties
+        // Must contain an `id` attribute
         let Some(id) = block
             .body
             .get_attribute("id")
             .and_then(|x| x.value.as_str())
+            .map(ScopeImpl::from)
         else {
             return;
         };
-        let Some(to) = block.body.get_attribute("to").map(|x| x.value.to_string()) else {
+
+        // Must contain a `to` attribute
+        let Some(expr) = block.body.get_attribute("to").map(|x| x.value.clone()) else {
             return;
         };
 
         // Add to lookup table
-        let scope = id.into();
-        self.track(scope, to);
+        self.track(id, expr);
     }
 }

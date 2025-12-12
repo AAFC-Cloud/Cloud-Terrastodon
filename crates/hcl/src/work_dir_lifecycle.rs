@@ -1,5 +1,6 @@
+use crate::discovery::DiscoveryDepth;
+use crate::discovery::discover_hcl;
 use crate::prelude::ProviderManager;
-use crate::reflow::as_single_body;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::CommandOutput;
@@ -19,6 +20,7 @@ use cloud_terrastodon_hcl_types::prelude::ValidatedTFWorkDir;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
+use hcl::edit::structure::Body;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
@@ -33,7 +35,11 @@ use tracing::warn;
 pub async fn identify_required_providers(
     dir: impl AsRef<Path>,
 ) -> eyre::Result<TerraformRequiredProvidersBlock> {
-    let body = as_single_body(dir).await?;
+    let body = discover_hcl(dir, DiscoveryDepth::Shallow)
+        .await?
+        .into_values()
+        .flatten()
+        .collect::<Body>();
     let blocks = body.try_into_hcl_blocks()?;
     let mut rtn = TerraformRequiredProvidersBlock::empty();
     for block in blocks {

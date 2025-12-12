@@ -6,7 +6,9 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize,strum::EnumDiscriminants)]
+#[strum_discriminants(name(PrincipalKind))]
+#[strum_discriminants(derive(strum::Display))]
 #[serde(tag = "@odata.type")]
 pub enum Principal {
     #[serde(rename = "#microsoft.graph.user")]
@@ -58,6 +60,9 @@ impl Principal {
                 PrincipalId::ServicePrincipalId(service_principal.id)
             }
         }
+    }
+    pub fn kind(&self) -> PrincipalKind {
+        PrincipalKind::from(self)
     }
     pub fn as_user(&self) -> Option<&User> {
         match self {

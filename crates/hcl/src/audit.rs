@@ -1,6 +1,8 @@
+use crate::discovery::DiscoveryDepth;
+use crate::discovery::discover_hcl;
 use crate::prelude::TerraformBlockExtracterPatcher;
-use crate::reflow::as_single_body;
 use cloud_terrastodon_hcl_types::prelude::TerraformProviderInfo;
+use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::VisitMut;
 use std::collections::HashSet;
 use std::path::Path;
@@ -11,7 +13,12 @@ use tracing::warn;
 pub async fn audit(source_dir: &Path) -> eyre::Result<()> {
     info!(?source_dir, "Auditing");
 
-    let mut main_body = as_single_body(source_dir).await?;
+    // todo: rewrite this fn to do recursive and to not discard the keys that tell us what file a block came from
+    let mut main_body = discover_hcl(source_dir, DiscoveryDepth::Shallow)
+        .await?
+        .into_values()
+        .flatten()
+        .collect::<Body>();
     let terraform_block;
     {
         debug!("Extracting terraform config blocks");
