@@ -1,15 +1,14 @@
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_hcl::prelude::reflow_workspace;
+use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
+use cloud_terrastodon_hcl::discovery::discover_hcl;
+use cloud_terrastodon_hcl::prelude::HclWriter;
+use cloud_terrastodon_hcl::reflow::reflow_hcl;
 use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_pathing::Existy;
 use eyre::Result;
 use std::path::Path;
 use std::path::PathBuf;
-use tokio::fs::OpenOptions;
 use tokio::fs::{self};
-use tokio::io::AsyncWriteExt;
-use tracing::error;
 use tracing::info;
 use tracing::instrument;
 
@@ -30,10 +29,14 @@ pub async fn process_generated() -> Result<()> {
     let workspace_path: PathBuf = AppDir::Imports.into();
 
     // Determine output files
-    let reflowed = reflow_workspace(&workspace_path).await?;
+    let hcl = discover_hcl(&workspace_path, DiscoveryDepth::Shallow).await?;
+    let hcl = reflow_hcl(hcl).await?;
 
     // Write files
-    let error_count = write_many_contents(reflowed.get_file_contents(&out_dir)?).await?;
+    let mut error_count = 0;
+    for (path, contents) in hcl {
+        error_count += HclWriter::new(path).overwrite(contents).await.is_err() as usize;
+    }
 
     // Format the files
     CommandBuilder::new(CommandKind::Terraform)
@@ -70,35 +73,4 @@ async fn remove_dir_contents_except(dir: &Path, exclude: &[&str]) -> Result<(), 
     }
 
     Ok(())
-}
-
-pub async fn write_many_contents(files: Vec<(impl AsRef<Path>, String)>) -> Result<usize> {
-    let mut error_count = 0;
-    // Write the files
-    for (path, content) in files {
-        let path = path.as_ref();
-
-        // Ensure parent dir exists
-        path.ensure_parent_dir_exists().await?;
-
-        // Open the file
-        let mut file = match OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&path)
-            .await
-        {
-            Ok(x) => x,
-            Err(e) => {
-                error!("Failed to open {:?}: {:?}", path, e);
-                error_count += 1;
-                continue;
-            }
-        };
-
-        // Write the content
-        file.write_all(content.as_bytes()).await?;
-    }
-    Ok(error_count)
 }

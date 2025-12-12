@@ -1,6 +1,5 @@
 #![feature(async_fn_track_caller)]
 mod audit;
-mod azuredevops_git_repository_initialization_patcher;
 mod block_lister;
 mod body_formatter;
 mod data_lookup_holder;
@@ -13,12 +12,10 @@ mod provider_manager;
 pub mod reflow;
 mod sorting;
 mod terraform_block_extracter_patcher;
-mod user_id_reference_patcher;
 mod work_dir_lifecycle;
 mod writer;
 pub mod prelude {
     pub use crate::audit::*;
-    pub use crate::azuredevops_git_repository_initialization_patcher::*;
     pub use crate::block_lister::*;
     pub use crate::data_reference_patcher::*;
     pub use crate::discover_recursive_source_dirs::*;
@@ -26,7 +23,6 @@ pub mod prelude {
     pub use crate::importer::*;
     pub use crate::provider_manager::*;
     pub use crate::terraform_block_extracter_patcher::*;
-    pub use crate::user_id_reference_patcher::*;
     pub use crate::work_dir_lifecycle::*;
     pub use crate::writer::*;
     pub use cloud_terrastodon_hcl_types::prelude::*;

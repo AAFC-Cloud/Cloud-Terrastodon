@@ -7,6 +7,8 @@ use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_teams_for_projec
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_azure_devops::prelude::get_personal_access_token;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
+use cloud_terrastodon_hcl::discovery::discover_hcl;
 use cloud_terrastodon_hcl::prelude::FreshTFWorkDir;
 use cloud_terrastodon_hcl::prelude::GeneratedConfigOutTFWorkDir;
 use cloud_terrastodon_hcl::prelude::HclBlock;
@@ -16,10 +18,11 @@ use cloud_terrastodon_hcl::prelude::InitializedTFWorkDir;
 use cloud_terrastodon_hcl::prelude::ProcessedTFWorkDir;
 use cloud_terrastodon_hcl::prelude::ProviderManager;
 use cloud_terrastodon_hcl::prelude::ValidatedTFWorkDir;
+use cloud_terrastodon_hcl::prelude::edit::structure::Body;
 use cloud_terrastodon_hcl::prelude::generate_config_out_bulk;
 use cloud_terrastodon_hcl::prelude::initialize_work_dirs;
-use cloud_terrastodon_hcl::prelude::reflow_workspace;
 use cloud_terrastodon_hcl::prelude::validate_work_dirs;
+use cloud_terrastodon_hcl::reflow::reflow_hcl;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_user_input::PickerTui;
@@ -261,7 +264,7 @@ async fn process_generated_many(
     let imports_dir = AppDir::Imports.as_path_buf().canonicalize()?;
     struct WorkOutcome {
         out_dir: PathBuf,
-        file_contents: Vec<(PathBuf, String)>,
+        file_contents: HashMap<PathBuf, Body>,
     }
     let mut reflow_jobs: JoinSet<eyre::Result<WorkOutcome>> = JoinSet::new();
     let rate_limit = Arc::new(Semaphore::new(16));
@@ -276,11 +279,13 @@ async fn process_generated_many(
                     .strip_prefix(&imports_dir_clone)
                     .map(PathBuf::from)?,
             );
-            let reflowed = reflow_workspace(&work_dir).await?;
+
+            let hcl = discover_hcl(work_dir, DiscoveryDepth::Shallow).await?;
+            let hcl = reflow_hcl(hcl).await?;
             drop(permit);
             Ok(WorkOutcome {
                 out_dir: out_dir.clone(),
-                file_contents: reflowed.get_file_contents(&out_dir)?,
+                file_contents: hcl,
             })
         });
     }

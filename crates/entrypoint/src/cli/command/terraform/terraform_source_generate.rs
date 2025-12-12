@@ -1,9 +1,11 @@
 use chrono::Local;
 use clap::Args;
 use cloud_terrastodon_azure::prelude::HclImportable;
+use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
+use cloud_terrastodon_hcl::discovery::discover_hcl;
 use cloud_terrastodon_hcl::prelude::GenerateConfigOutHelper;
 use cloud_terrastodon_hcl::prelude::HclWriter;
-use cloud_terrastodon_hcl::prelude::reflow_workspace;
+use cloud_terrastodon_hcl::reflow::reflow_hcl;
 use cloud_terrastodon_pathing::Existy;
 use eyre::Result;
 use std::path::PathBuf;
@@ -45,10 +47,9 @@ impl TerraformSourceGenerateArgs {
             .await?;
 
         info!("Reflowing content");
-        let files = reflow_workspace(&import_dir)
-            .await?
-            .get_file_contents(&import_dir)?;
-        for (path, contents) in files {
+        let hcl = discover_hcl(import_dir, DiscoveryDepth::Shallow).await?;
+        let hcl = reflow_hcl(hcl).await?;
+        for (path, contents) in hcl {
             HclWriter::new(path)
                 .format_on_write()
                 .overwrite(contents)
