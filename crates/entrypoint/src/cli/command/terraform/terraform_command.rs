@@ -1,4 +1,5 @@
 use super::terraform_audit::TerraformAuditArgs;
+use super::terraform_reflow::TerraformReflowArgs;
 use super::terraform_source::TerraformSourceArgs;
 use clap::Subcommand;
 use eyre::Result;
@@ -15,6 +16,8 @@ pub enum TerraformCommand {
     /// Manage operations on generated Terraform source files.
     #[command(alias = "src")]
     Source(TerraformSourceArgs),
+    /// Reflow generated Terraform source files.
+    Reflow(TerraformReflowArgs),
 }
 
 impl TerraformCommand {
@@ -22,6 +25,7 @@ impl TerraformCommand {
         match self {
             TerraformCommand::Audit(args) => args.invoke().await,
             TerraformCommand::Source(args) => args.invoke().await,
+            TerraformCommand::Reflow(args) => args.invoke().await,
         }
     }
 }
