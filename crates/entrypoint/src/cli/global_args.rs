@@ -9,5 +9,5 @@ pub struct GlobalArgs {
 
     /// Write a json file of the structured logs to the current directory.
     #[arg(long, global = true, default_value_t = false)]
-    pub json: bool,
+    pub log_file: bool,
 }

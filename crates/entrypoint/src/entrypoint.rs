@@ -37,7 +37,7 @@ pub fn entrypoint(version: Version) -> Result<()> {
             true => LevelFilter::DEBUG,
             false => LevelFilter::INFO,
         },
-        cli.global_args.json,
+        cli.global_args.log_file,
     )?;
 
     // Configure terminal colour support
