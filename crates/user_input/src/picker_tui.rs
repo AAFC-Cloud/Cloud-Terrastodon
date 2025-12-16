@@ -284,6 +284,7 @@ impl<T> PickerTui<T> {
                     },
                 );
                 self.previous_query = Some(new_query);
+                list_state.select_first();
             }
 
             // Tick the search engine and update the results

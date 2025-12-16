@@ -2,6 +2,7 @@
 
 - Add `ct tf reflow` command to rewrite directories containing HCL in an opinionated way.
 - Add `ct az vm publisher list` command
+- PickerTui now selects first row on text change
 
 # v0.30.0
 
