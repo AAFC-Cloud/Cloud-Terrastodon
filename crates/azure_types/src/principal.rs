@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize,strum::EnumDiscriminants)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, strum::EnumDiscriminants)]
 #[strum_discriminants(name(PrincipalKind))]
 #[strum_discriminants(derive(strum::Display))]
 #[serde(tag = "@odata.type")]

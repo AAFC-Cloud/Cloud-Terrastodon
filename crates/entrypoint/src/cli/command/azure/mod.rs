@@ -5,6 +5,7 @@ pub mod pim;
 pub mod policy;
 pub mod role;
 pub mod tag;
+pub mod vm;
 
 use crate::cli::azure::azure_command::AzureCommand;
 use clap::Args;

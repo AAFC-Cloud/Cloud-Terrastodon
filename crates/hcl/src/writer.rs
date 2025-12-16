@@ -57,9 +57,11 @@ impl HclWriter {
         } else {
             content.as_hcl_string()
         };
+        let content = content.trim();
         file.write_all(content.as_bytes())
             .await
             .context("writing content")?;
+        file.write(b"\n").await.context("writing newline")?;
         Ok(())
     }
 

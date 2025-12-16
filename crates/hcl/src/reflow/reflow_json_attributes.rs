@@ -10,7 +10,10 @@ use std::path::PathBuf;
 pub struct ReflowJsonAttributes;
 #[async_trait::async_trait]
 impl HclReflower for ReflowJsonAttributes {
-    async fn reflow(&mut self, hcl: HashMap<PathBuf, Body>) -> eyre::Result<HashMap<PathBuf, Body>> {
+    async fn reflow(
+        &mut self,
+        hcl: HashMap<PathBuf, Body>,
+    ) -> eyre::Result<HashMap<PathBuf, Body>> {
         let mut reflowed = HashMap::new();
         for (path, mut body) in hcl {
             self.visit_body_mut(&mut body);

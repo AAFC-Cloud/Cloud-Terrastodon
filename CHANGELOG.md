@@ -1,3 +1,8 @@
+# v0.31.0
+
+- Add `ct tf reflow` command to rewrite directories containing HCL in an opinionated way.
+- Add `ct az vm publisher list` command
+
 # v0.30.0
 
 - Add `LocationName::BelgiumCentral`, see [Microsoft's LinkedIn post](https://www.linkedin.com/posts/microsoft_big-news-the-belgian-microsoft-cloud-region-activity)

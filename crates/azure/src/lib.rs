@@ -3,6 +3,7 @@ mod access_token;
 mod accounts;
 mod auth;
 mod batch_api;
+mod compute_publishers;
 mod compute_sku_prices;
 mod compute_skus;
 mod conditional_access_named_locations;
@@ -72,6 +73,7 @@ pub mod prelude {
     pub use crate::accounts::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
+    pub use crate::compute_publishers::*;
     pub use crate::compute_sku_prices::*;
     pub use crate::compute_skus::*;
     pub use crate::conditional_access_named_locations::*;

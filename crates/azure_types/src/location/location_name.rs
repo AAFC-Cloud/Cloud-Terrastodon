@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use std::str::FromStr;
 
@@ -124,12 +125,119 @@ impl LocationName {
             None
         }
     }
+    pub const VARIANTS: &'static [LocationName] = &[
+        LocationName::Asia,
+        LocationName::AsiaPacific,
+        LocationName::Australia,
+        LocationName::AustraliaCentral,
+        LocationName::AustraliaCentral2,
+        LocationName::AustraliaEast,
+        LocationName::AustraliaSoutheast,
+        LocationName::AustriaEast,
+        LocationName::BelgiumCentral,
+        LocationName::Brazil,
+        LocationName::BrazilSouth,
+        LocationName::BrazilSoutheast,
+        LocationName::BrazilUS,
+        LocationName::Canada,
+        LocationName::CanadaCentral,
+        LocationName::CanadaEast,
+        LocationName::CentralIndia,
+        LocationName::CentralUS,
+        LocationName::CentralUSEUAP,
+        LocationName::CentralUSStage,
+        LocationName::ChileCentral,
+        LocationName::EastAsia,
+        LocationName::EastAsiaStage,
+        LocationName::EastUS,
+        LocationName::EastUS2,
+        LocationName::EastUS2EUAP,
+        LocationName::EastUS2Stage,
+        LocationName::EastUSStage,
+        LocationName::EastUSSTG,
+        LocationName::Europe,
+        LocationName::France,
+        LocationName::FranceCentral,
+        LocationName::FranceSouth,
+        LocationName::Germany,
+        LocationName::GermanyNorth,
+        LocationName::GermanyWestCentral,
+        LocationName::Global,
+        LocationName::India,
+        LocationName::Indonesia,
+        LocationName::IndonesiaCentral,
+        LocationName::Israel,
+        LocationName::IsraelCentral,
+        LocationName::Italy,
+        LocationName::ItalyNorth,
+        LocationName::Japan,
+        LocationName::JapanEast,
+        LocationName::JapanWest,
+        LocationName::JioIndiaCentral,
+        LocationName::JioIndiaWest,
+        LocationName::Korea,
+        LocationName::KoreaCentral,
+        LocationName::KoreaSouth,
+        LocationName::Malaysia,
+        LocationName::MalaysiaWest,
+        LocationName::Mexico,
+        LocationName::MexicoCentral,
+        LocationName::NewZealand,
+        LocationName::NewZealandNorth,
+        LocationName::NorthCentralUS,
+        LocationName::NorthCentralUSStage,
+        LocationName::NorthEurope,
+        LocationName::Norway,
+        LocationName::NorwayEast,
+        LocationName::NorwayWest,
+        LocationName::Poland,
+        LocationName::PolandCentral,
+        LocationName::Qatar,
+        LocationName::QatarCentral,
+        LocationName::Singapore,
+        LocationName::SouthAfrica,
+        LocationName::SouthAfricaNorth,
+        LocationName::SouthAfricaWest,
+        LocationName::SouthCentralUS,
+        LocationName::SouthCentralUSStage,
+        LocationName::SouthCentralUSSTG,
+        LocationName::SoutheastAsia,
+        LocationName::SoutheastAsiaStage,
+        LocationName::SouthIndia,
+        LocationName::Spain,
+        LocationName::SpainCentral,
+        LocationName::Sweden,
+        LocationName::SwedenCentral,
+        LocationName::SwedenSouth,
+        LocationName::Switzerland,
+        LocationName::SwitzerlandNorth,
+        LocationName::SwitzerlandWest,
+        LocationName::Taiwan,
+        LocationName::UAE,
+        LocationName::UAECentral,
+        LocationName::UAENorth,
+        LocationName::UK,
+        LocationName::UKSouth,
+        LocationName::UKWest,
+        LocationName::UnitedArabEmirates,
+        LocationName::UnitedKingdom,
+        LocationName::UnitedStates,
+        LocationName::UnitedStatesEUAP,
+        LocationName::WestCentralUS,
+        LocationName::WestEurope,
+        LocationName::WestIndia,
+        LocationName::WestUS,
+        LocationName::WestUS2,
+        LocationName::WestUS2Stage,
+        LocationName::WestUS3,
+        LocationName::WestUSStage,
+    ];
 }
 impl std::fmt::Display for LocationName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LocationName::Other(name) => f.write_str(name),
-            _ => f.write_str(&format!("{self:?}").to_ascii_lowercase()),
+            _ => f.write_str(&format!("{self:?}")),
         }
     }
 }
@@ -262,6 +370,11 @@ impl<'de> serde::Deserialize<'de> for LocationName {
     {
         let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
         Self::from_str(&value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
+    }
+}
+impl<'a> Arbitrary<'a> for LocationName {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(u.choose(LocationName::VARIANTS)?.clone())
     }
 }
 

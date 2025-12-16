@@ -5,6 +5,8 @@ mod address_prefix;
 mod address_prefixes;
 mod all_or;
 mod app;
+mod compute_publisher_id;
+mod compute_publisher_name;
 mod compute_sku;
 mod compute_sku_name;
 mod conditional_access_named_location;
@@ -144,6 +146,8 @@ pub mod prelude {
     pub use crate::address_prefixes::*;
     pub use crate::all_or::*;
     pub use crate::app::*;
+    pub use crate::compute_publisher_id::*;
+    pub use crate::compute_publisher_name::*;
     pub use crate::compute_sku::*;
     pub use crate::compute_sku_name::*;
     pub use crate::conditional_access_named_location::*;

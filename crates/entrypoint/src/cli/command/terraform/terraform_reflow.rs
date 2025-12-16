@@ -52,14 +52,17 @@ impl TerraformReflowArgs {
             // while new path exists, suffix with a number
             let mut candidate = base_new_path.clone();
             if candidate.exists_async().await? {
-                let parent = candidate
-                    .parent()
-                    .ok_or(eyre::eyre!("Could not determine parent for {}", candidate.display()))?;
+                let parent = candidate.parent().ok_or(eyre::eyre!(
+                    "Could not determine parent for {}",
+                    candidate.display()
+                ))?;
                 let stem = candidate
                     .file_stem()
                     .map(|s| s.to_string_lossy().to_string())
                     .unwrap_or_default();
-                let extension = candidate.extension().map(|s| s.to_string_lossy().to_string());
+                let extension = candidate
+                    .extension()
+                    .map(|s| s.to_string_lossy().to_string());
                 let mut suffix = 1u32;
                 loop {
                     let new_name = match &extension {
