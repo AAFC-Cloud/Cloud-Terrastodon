@@ -138,12 +138,16 @@ mod virtual_network_name;
 mod virtual_network_peering_id;
 mod virtual_network_peering_name;
 mod virtual_network_properties;
+mod compute_publisher_vm_image_offer_id;
+mod compute_publisher_vm_image_offer_name;
 
 pub mod prelude {
     pub use crate::access_token::*;
     pub use crate::accounts::*;
     pub use crate::address_prefix::*;
     pub use crate::address_prefixes::*;
+    pub use crate::compute_publisher_vm_image_offer_id::*;
+    pub use crate::compute_publisher_vm_image_offer_name::*;
     pub use crate::all_or::*;
     pub use crate::app::*;
     pub use crate::compute_publisher_id::*;
