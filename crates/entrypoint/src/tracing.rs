@@ -1,6 +1,7 @@
 use chrono::Local;
 use eyre::Result;
 use std::fs::File;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 pub use tracing::Level;
@@ -11,7 +12,7 @@ use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
-pub fn init_tracing(level: impl Into<Directive>, json_path: Option<std::path::PathBuf>) -> Result<()> {
+pub fn init_tracing(level: impl Into<Directive>, json_path: Option<impl AsRef<Path>>) -> Result<()> {
     let default_directive: Directive = level.into();
     let make_env_filter = || {
         EnvFilter::builder()
@@ -29,11 +30,12 @@ pub fn init_tracing(level: impl Into<Directive>, json_path: Option<std::path::Pa
     };
 
     if let Some(path) = json_path {
+        let path = path.as_ref();
         let timestamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
         let json_log_path = if path.exists() && path.is_dir() {
             path.join(format!("cloud_terrastodon_log_{}.ndjson", timestamp))
         } else {
-            path
+            path.to_path_buf()
         };
 
         if let Some(parent) = json_log_path.parent() {
