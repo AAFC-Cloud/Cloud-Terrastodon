@@ -11,7 +11,7 @@ use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
-pub fn init_tracing(level: impl Into<Directive>, json: bool) -> Result<()> {
+pub fn init_tracing(level: impl Into<Directive>, json_path: Option<std::path::PathBuf>) -> Result<()> {
     let default_directive: Directive = level.into();
     let make_env_filter = || {
         EnvFilter::builder()
@@ -28,9 +28,17 @@ pub fn init_tracing(level: impl Into<Directive>, json: bool) -> Result<()> {
             .without_time()
     };
 
-    if json {
-        let timestamp = Local::now().format("%Y-%m-%d_%Hh%Mm%Ss");
-        let json_log_path = format!("cloud_terrastodon_log_{}.jsonl", timestamp);
+    if let Some(path) = json_path {
+        let timestamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
+        let json_log_path = if path.exists() && path.is_dir() {
+            path.join(format!("cloud_terrastodon_log_{}.ndjson", timestamp))
+        } else {
+            path
+        };
+
+        if let Some(parent) = json_log_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
 
         let file = File::create(&json_log_path)?;
         let file = Arc::new(Mutex::new(file));

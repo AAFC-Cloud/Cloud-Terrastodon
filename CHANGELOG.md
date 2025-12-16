@@ -3,7 +3,7 @@
 - Add `ct tf reflow` command to rewrite directories containing HCL in an opinionated way.
 - Add `ct az vm publisher list` command
 - PickerTui now selects first row on text change
-- Change `--json` global arg to now be `--log-file`
+- Change `--json` global arg to now be `--log-file FILE`
 - Add `--mode lines` and `--mode auto` to `ct pick` command
 
 # v0.30.0
