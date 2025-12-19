@@ -140,6 +140,13 @@ mod virtual_network_peering_name;
 mod virtual_network_properties;
 mod compute_publisher_vm_image_offer_id;
 mod compute_publisher_vm_image_offer_name;
+mod compute_publisher_vm_image_offer_sku_id;
+mod compute_publisher_vm_image_offer_sku_name;
+mod compute_publisher_vm_image_offer_sku_properties;
+mod compute_publisher_vm_image_offer_sku_version;
+mod compute_publisher_vm_image_offer_sku_version_id;
+mod compute_publisher_vm_image_offer_sku_version_name;
+mod compute_publisher_vm_image_offer_sku_version_properties;
 
 pub mod prelude {
     pub use crate::access_token::*;
@@ -148,6 +155,13 @@ pub mod prelude {
     pub use crate::address_prefixes::*;
     pub use crate::compute_publisher_vm_image_offer_id::*;
     pub use crate::compute_publisher_vm_image_offer_name::*;
+    pub use crate::compute_publisher_vm_image_offer_sku_id::*;
+    pub use crate::compute_publisher_vm_image_offer_sku_name::*;
+    pub use crate::compute_publisher_vm_image_offer_sku_properties::*;
+    pub use crate::compute_publisher_vm_image_offer_sku_version::*;
+    pub use crate::compute_publisher_vm_image_offer_sku_version_id::*;
+    pub use crate::compute_publisher_vm_image_offer_sku_version_name::*;
+    pub use crate::compute_publisher_vm_image_offer_sku_version_properties::*;
     pub use crate::all_or::*;
     pub use crate::app::*;
     pub use crate::compute_publisher_id::*;

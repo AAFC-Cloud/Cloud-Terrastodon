@@ -69,9 +69,13 @@ mod virtual_machine_sizes;
 mod virtual_machine_skus;
 mod virtual_network;
 mod compute_publisher_vm_image_offers;
+mod compute_publisher_vm_image_offer_skus;
+mod compute_publisher_vm_image_offer_sku_versions;
 pub mod prelude {
     pub use crate::access_token::*;
     pub use crate::compute_publisher_vm_image_offers::*;
+    pub use crate::compute_publisher_vm_image_offer_sku_versions::*;
+    pub use crate::compute_publisher_vm_image_offer_skus::*;
     pub use crate::accounts::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;

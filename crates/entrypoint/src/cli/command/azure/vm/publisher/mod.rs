@@ -1,12 +1,14 @@
 pub mod azure_vm_publisher_list;
 pub mod azure_vm_publisher_browse;
 pub mod azure_vm_publisher_offer_list;
-pub mod azure_vm_publisher_offer_browse;
+pub mod azure_vm_publisher_offer_sku_list;
+pub mod azure_vm_publisher_offer_sku_version_list;
 
 pub use azure_vm_publisher_list::AzureVmPublisherListArgs;
 pub use azure_vm_publisher_browse::AzureVmPublisherBrowseArgs;
 pub use azure_vm_publisher_offer_list::AzureVmPublisherOfferListArgs;
-pub use azure_vm_publisher_offer_browse::AzureVmPublisherOfferBrowseArgs;
+pub use azure_vm_publisher_offer_sku_list::AzureVmPublisherOfferSkuListArgs;
+pub use azure_vm_publisher_offer_sku_version_list::AzureVmPublisherOfferSkuVersionListArgs;
 use clap::Args;
 use clap::Subcommand;
 use eyre::Result;
@@ -40,15 +42,70 @@ impl AzureVmPublisherOfferArgs {
 pub enum AzureVmPublisherOfferCommand {
     /// List offers for a publisher.
     List(AzureVmPublisherOfferListArgs),
-    /// Interactively browse publishers and pick offers.
-    Browse(AzureVmPublisherOfferBrowseArgs),
+    /// Manage SKUs for a publisher's offer.
+    Sku(AzureVmPublisherOfferSkuArgs),
 }
 
 impl AzureVmPublisherOfferCommand {
     pub async fn invoke(self) -> Result<()> {
         match self {
             AzureVmPublisherOfferCommand::List(args) => args.invoke().await,
-            AzureVmPublisherOfferCommand::Browse(args) => args.invoke().await,
+            AzureVmPublisherOfferCommand::Sku(args) => args.invoke().await,
+        }
+    }
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct AzureVmPublisherOfferSkuArgs {
+    #[command(subcommand)]
+    pub command: AzureVmPublisherOfferSkuCommand,
+}
+
+impl AzureVmPublisherOfferSkuArgs {
+    pub async fn invoke(self) -> Result<()> {
+        self.command.invoke().await
+    }
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum AzureVmPublisherOfferSkuCommand {
+    /// List SKUs for a publisher's offer.
+    List(AzureVmPublisherOfferSkuListArgs),
+    /// Manage versions of a specific SKU.
+    Version(AzureVmPublisherOfferSkuVersionArgs),
+}
+
+impl AzureVmPublisherOfferSkuCommand {
+    pub async fn invoke(self) -> Result<()> {
+        match self {
+            AzureVmPublisherOfferSkuCommand::List(args) => args.invoke().await,
+            AzureVmPublisherOfferSkuCommand::Version(args) => args.invoke().await,
+        }
+    }
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct AzureVmPublisherOfferSkuVersionArgs {
+    #[command(subcommand)]
+    pub command: AzureVmPublisherOfferSkuVersionCommand,
+}
+
+impl AzureVmPublisherOfferSkuVersionArgs {
+    pub async fn invoke(self) -> Result<()> {
+        self.command.invoke().await
+    }
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum AzureVmPublisherOfferSkuVersionCommand {
+    /// List versions for a publisher's offer SKU.
+    List(AzureVmPublisherOfferSkuVersionListArgs),
+}
+
+impl AzureVmPublisherOfferSkuVersionCommand {
+    pub async fn invoke(self) -> Result<()> {
+        match self {
+            AzureVmPublisherOfferSkuVersionCommand::List(args) => args.invoke().await,
         }
     }
 }
