@@ -26,7 +26,7 @@ pub async fn fetch_all_route_tables() -> Result<Vec<RouteTable>> {
     let route_tables = ResourceGraphHelper::new(
         query,
         CacheBehaviour::Some {
-            path: PathBuf::from("route_tables"),
+            path: PathBuf::from_iter(["az", "resource_graph", "route_tables"]),
             valid_for: Duration::from_hours(8),
         },
     )

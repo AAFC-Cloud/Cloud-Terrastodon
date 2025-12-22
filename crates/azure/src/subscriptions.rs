@@ -25,7 +25,7 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
     let subscriptions = ResourceGraphHelper::new(
         query,
         CacheBehaviour::Some {
-            path: PathBuf::from("subscriptions"),
+            path: PathBuf::from_iter(["az", "resource_graph", "subscriptions"]),
             valid_for: Duration::from_hours(8),
         },
     )

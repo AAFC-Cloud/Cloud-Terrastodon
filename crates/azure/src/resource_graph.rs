@@ -10,7 +10,6 @@ use serde::Deserialize;
 use serde::Serialize;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
-use std::path::PathBuf;
 use tracing::debug;
 
 pub struct ResourceGraphHelper {
@@ -53,12 +52,7 @@ pub struct ResourceGraphQueryRestBody {
 }
 
 impl ResourceGraphHelper {
-    pub fn new(query: impl AsRef<str>, mut cache_behaviour: CacheBehaviour) -> Self {
-        if let CacheBehaviour::Some { ref mut path, .. } = cache_behaviour {
-            let mut with_prefix = PathBuf::from_iter(["az", "resource_graph"]);
-            with_prefix.push(&path);
-            *path = with_prefix;
-        }
+    pub fn new(query: impl AsRef<str>, cache_behaviour: CacheBehaviour) -> Self {
         Self {
             query: query.as_ref().to_owned(),
             cache_behaviour,
@@ -198,7 +192,7 @@ resourcecontainers
         let data = ResourceGraphHelper::new(
             query,
             CacheBehaviour::Some {
-                path: PathBuf::from("resource-container-names"),
+                path: PathBuf::from_iter(["az", "resource_graph", "resource-container-names"]),
                 valid_for: Duration::from_mins(5),
             },
         )

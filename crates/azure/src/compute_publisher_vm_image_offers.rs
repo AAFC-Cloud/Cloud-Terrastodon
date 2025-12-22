@@ -1,11 +1,10 @@
 use cloud_terrastodon_azure_types::prelude::ComputePublisherName;
+use cloud_terrastodon_azure_types::prelude::ComputePublisherVmImageOfferId;
 use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use std::path::PathBuf;
-
-use cloud_terrastodon_azure_types::prelude::ComputePublisherVmImageOfferId;
 
 pub async fn fetch_compute_publisher_image_offers(
     subscription_id: &SubscriptionId,

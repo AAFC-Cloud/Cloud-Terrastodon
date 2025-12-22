@@ -68,7 +68,14 @@ impl AzureVmPublisherOfferSkuVersionListArgs {
         let sku = self.sku.parse::<ComputePublisherVmImageOfferSkuName>()?;
 
         info!(subscription = %subscription, location = %location, publisher = %publisher, offer = %offer, sku = %sku, "Fetching VM publisher offer SKU versions");
-        let versions = fetch_compute_publisher_image_offer_sku_versions(&subscription, &location, &publisher, &offer, &sku).await?;
+        let versions = fetch_compute_publisher_image_offer_sku_versions(
+            &subscription,
+            &location,
+            &publisher,
+            &offer,
+            &sku,
+        )
+        .await?;
 
         let stdout = std::io::stdout();
         let mut out = stdout.lock();

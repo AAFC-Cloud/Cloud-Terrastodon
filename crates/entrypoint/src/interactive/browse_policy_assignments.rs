@@ -50,7 +50,7 @@ policyResources
     let rtn = ResourceGraphHelper::new(
         query,
         CacheBehaviour::Some {
-            path: PathBuf::from("policy-compliance"),
+            path: PathBuf::from_iter(["az", "resource_graph", "policy-compliance"]),
             valid_for: Duration::from_mins(15),
         },
     )

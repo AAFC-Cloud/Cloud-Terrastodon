@@ -75,6 +75,7 @@ impl<'a> Arbitrary<'a> for ComputePublisherVmImageOfferName {
         } else if s.is_empty() {
             s.push('a');
         }
-        Ok(ComputePublisherVmImageOfferName::try_new(s).map_err(|_| arbitrary::Error::IncorrectFormat)?)
+        Ok(ComputePublisherVmImageOfferName::try_new(s)
+            .map_err(|_| arbitrary::Error::IncorrectFormat)?)
     }
 }

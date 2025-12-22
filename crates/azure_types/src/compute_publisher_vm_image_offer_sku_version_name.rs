@@ -2,13 +2,13 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::bail;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
-use serde::Serialize;
-use serde::Serializer;
-use serde::Deserialize;
-use serde::Deserializer;
 
 #[derive(Debug, Clone, Eq, PartialOrd, Ord)]
 pub struct ComputePublisherVmImageOfferSkuVersionName(CompactString);
@@ -78,7 +78,8 @@ impl<'a> Arbitrary<'a> for ComputePublisherVmImageOfferSkuVersionName {
         } else if s.is_empty() {
             s.push('1');
         }
-        Ok(ComputePublisherVmImageOfferSkuVersionName::try_new(s).map_err(|_| arbitrary::Error::IncorrectFormat)?)
+        Ok(ComputePublisherVmImageOfferSkuVersionName::try_new(s)
+            .map_err(|_| arbitrary::Error::IncorrectFormat)?)
     }
 }
 
@@ -97,6 +98,7 @@ impl<'de> Deserialize<'de> for ComputePublisherVmImageOfferSkuVersionName {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        s.parse().map_err(|e: eyre::Error| serde::de::Error::custom(format!("{e:?}")))
+        s.parse()
+            .map_err(|e: eyre::Error| serde::de::Error::custom(format!("{e:?}")))
     }
 }

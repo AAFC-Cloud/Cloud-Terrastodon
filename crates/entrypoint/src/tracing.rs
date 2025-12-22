@@ -12,7 +12,10 @@ use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
-pub fn init_tracing(level: impl Into<Directive>, json_path: Option<impl AsRef<Path>>) -> Result<()> {
+pub fn init_tracing(
+    level: impl Into<Directive>,
+    json_path: Option<impl AsRef<Path>>,
+) -> Result<()> {
     let default_directive: Directive = level.into();
     let make_env_filter = || {
         EnvFilter::builder()

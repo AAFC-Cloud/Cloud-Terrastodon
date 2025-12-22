@@ -1,6 +1,7 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ResourceGroup;
-use cloud_terrastodon_command::{CacheBehaviour, HasCacheKey};
+use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::HasCacheKey;
 use eyre::Result;
 use indoc::indoc;
 use std::borrow::Cow;
@@ -49,7 +50,7 @@ impl IntoFuture for ResourceGroupsRequest {
             let resource_groups = ResourceGraphHelper::new(
                 query,
                 CacheBehaviour::Some {
-                    path: PathBuf::from("resource_groups"),
+                    path: PathBuf::from_iter(["az", "resource_graph", "resource_groups"]),
                     valid_for: Duration::from_hours(8),
                 },
             )

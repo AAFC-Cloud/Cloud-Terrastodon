@@ -18,7 +18,7 @@ resources
 | project id,name,location,properties,tags
         "#,
         CacheBehaviour::Some {
-            path: PathBuf::from("key_vaults"),
+            path: PathBuf::from_iter(["az", "resource_graph", "key_vaults"]),
             valid_for: Duration::from_hours(8),
         },
     );

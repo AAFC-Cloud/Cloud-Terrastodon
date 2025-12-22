@@ -13,8 +13,11 @@ pub async fn fetch_group_owners(group_id: GroupId) -> Result<Vec<Principal>> {
         format!("https://graph.microsoft.com/v1.0/groups/{group_id}/owners"),
         CacheBehaviour::Some {
             path: PathBuf::from_iter([
-                "group_owners",
-                group_id.as_hyphenated().to_string().as_ref(),
+                "ms".to_string(),
+                "graph".to_string(),
+                "GET".to_string(),
+                "group_owners".to_string(),
+                group_id.as_hyphenated().to_string(),
             ]),
             valid_for: Duration::from_hours(8),
         },

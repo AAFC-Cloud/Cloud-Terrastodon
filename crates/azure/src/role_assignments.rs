@@ -22,7 +22,7 @@ authorizationresources
     principal_id=properties.principalId
 "#,
         CacheBehaviour::Some {
-            path: PathBuf::from("role_assignments"),
+            path: PathBuf::from_iter(["az", "resource_graph", "role_assignments"]),
             valid_for: Duration::from_hours(4),
         },
     );

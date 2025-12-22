@@ -1,20 +1,19 @@
+use crate::compute_publisher_vm_image_offer_name::ComputePublisherVmImageOfferName;
+use crate::compute_publisher_vm_image_offer_sku_name::ComputePublisherVmImageOfferSkuName;
+use crate::compute_publisher_vm_image_offer_sku_version_name::ComputePublisherVmImageOfferSkuVersionName;
 use crate::prelude::ComputePublisherName;
 use crate::prelude::LocationName;
 use crate::prelude::SubscriptionId;
 use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
-use eyre::bail;
 use eyre::Context;
+use eyre::bail;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use std::any::type_name;
 use std::str::FromStr;
-
-use crate::compute_publisher_vm_image_offer_name::ComputePublisherVmImageOfferName;
-use crate::compute_publisher_vm_image_offer_sku_name::ComputePublisherVmImageOfferSkuName;
-use crate::compute_publisher_vm_image_offer_sku_version_name::ComputePublisherVmImageOfferSkuVersionName;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct ComputePublisherVmImageOfferSkuVersionId {
@@ -30,7 +29,12 @@ impl core::fmt::Display for ComputePublisherVmImageOfferSkuVersionId {
         write!(
             f,
             "/Subscriptions/{}/Providers/Microsoft.Compute/Locations/{}/Publishers/{}/ArtifactTypes/VMImage/Offers/{}/Skus/{}/Versions/{}",
-            self.subscription_id, self.location_name, self.publisher_name, self.offer_name, self.sku_name, self.version_name
+            self.subscription_id,
+            self.location_name,
+            self.publisher_name,
+            self.offer_name,
+            self.sku_name,
+            self.version_name
         )
     }
 }

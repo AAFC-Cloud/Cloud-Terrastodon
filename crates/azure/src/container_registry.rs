@@ -19,7 +19,7 @@ Resources
 | where type =~ "Microsoft.ContainerRegistry/registries"
         "#,
         CacheBehaviour::Some {
-            path: PathBuf::from("container_registries"),
+            path: PathBuf::from_iter(["az", "resource_graph", "container_registries"]),
             valid_for: Duration::from_hours(8),
         },
     );

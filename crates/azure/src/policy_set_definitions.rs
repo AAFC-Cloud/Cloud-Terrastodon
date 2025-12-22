@@ -22,7 +22,7 @@ policyresources
     version=properties.version
     "#,
         CacheBehaviour::Some {
-            path: PathBuf::from("policy_set_definitions"),
+            path: PathBuf::from_iter(["az", "resource_graph", "policy_set_definitions"]),
             valid_for: Duration::from_hours(8),
         },
     );

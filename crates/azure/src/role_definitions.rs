@@ -23,7 +23,7 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     ['kind'] = properties.type
 | project-away properties"#,
         CacheBehaviour::Some {
-            path: PathBuf::from("role-definitions"),
+            path: PathBuf::from_iter(["az", "resource_graph", "role-definitions"]),
             valid_for: Duration::from_days(1),
         },
     )

@@ -11,7 +11,7 @@ pub async fn fetch_all_security_groups() -> Result<Vec<Group>> {
     let query = MicrosoftGraphHelper::new(
         "https://graph.microsoft.com/v1.0/groups?$select=id,displayName,description,securityEnabled,isAssignableToRole&$filter=securityEnabled eq true",
         CacheBehaviour::Some {
-            path: PathBuf::from("security_groups"),
+            path: PathBuf::from_iter(["ms", "graph", "GET", "security_groups"]),
             valid_for: Duration::from_hours(2),
         },
     );

@@ -22,7 +22,7 @@ pub async fn fetch_all_service_groups() -> Result<Vec<ServiceGroup>> {
     let service_groups = ResourceGraphHelper::new(
         query,
         CacheBehaviour::Some {
-            path: PathBuf::from("service_groups"),
+            path: PathBuf::from_iter(["az", "resource_graph", "service_groups"]),
             valid_for: Duration::from_hours(8),
         },
     )

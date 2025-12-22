@@ -17,8 +17,11 @@ pub async fn fetch_unified_role_definition(
         url,
         CacheBehaviour::Some {
             path: PathBuf::from_iter([
+                "ms",
+                "graph",
+                "GET",
                 "unified_role_definition",
-                role_definition_id.to_string().as_str(),
+                role_definition_id.to_string().as_ref(),
             ]),
             valid_for: Duration::from_hours(24),
         },

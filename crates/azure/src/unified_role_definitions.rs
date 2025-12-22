@@ -12,7 +12,7 @@ pub async fn fetch_all_unified_role_definitions() -> eyre::Result<UnifiedRoleDef
     let query = MicrosoftGraphHelper::new(
         url,
         CacheBehaviour::Some {
-            path: PathBuf::from("unified_role_definitions"),
+            path: PathBuf::from_iter(["ms", "graph", "GET", "unified_role_definitions"]),
             valid_for: Duration::from_hours(24),
         },
     );

@@ -57,10 +57,14 @@ policyResources
     let reference_ids = ResourceGraphHelper::new(
         query,
         CacheBehaviour::Some {
-            path: PathBuf::from(format!(
-                "policy-compliance-for-{}",
-                policy_assignment.name.sanitize()
-            )),
+            path: PathBuf::from_iter([
+                "az",
+                "resource_graph",
+                format!(
+                    "policy-compliance-for-{}",
+                    policy_assignment.name.sanitize()
+                ).as_str(),
+            ]),
             valid_for: Duration::from_mins(15),
         },
     )
@@ -113,16 +117,21 @@ policyResources
         subscription_name: String,
         resource_id: String,
     }
+    let resource_cache_key = format!(
+        "policy-compliance-for-{}-{}",
+        policy_assignment.name.sanitize(),
+        chosen_reference_id
+            .policy_definition_reference_id
+            .sanitize()
+    );
     let resource_ids = ResourceGraphHelper::new(
         query,
         CacheBehaviour::Some {
-            path: PathBuf::from(format!(
-                "policy-compliance-for-{}-{}",
-                policy_assignment.name.sanitize(),
-                chosen_reference_id
-                    .policy_definition_reference_id
-                    .sanitize()
-            )),
+            path: PathBuf::from_iter([
+                "az".to_string(),
+                "resource_graph".to_string(),
+                resource_cache_key,
+            ]),
             valid_for: Duration::from_mins(15),
         },
     )

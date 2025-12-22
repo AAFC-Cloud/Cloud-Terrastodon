@@ -10,7 +10,7 @@ pub async fn fetch_all_service_principals() -> eyre::Result<Vec<ServicePrincipal
     let query = MicrosoftGraphHelper::new(
         "https://graph.microsoft.com/v1.0/servicePrincipals",
         CacheBehaviour::Some {
-            path: PathBuf::from("service_principals"),
+            path: PathBuf::from_iter(["ms", "graph", "GET", "service_principals"]),
             valid_for: Duration::from_hours(8),
         },
     );

@@ -74,6 +74,7 @@ impl<'a> Arbitrary<'a> for ComputePublisherVmImageOfferSkuName {
         } else if s.is_empty() {
             s.push('a');
         }
-        Ok(ComputePublisherVmImageOfferSkuName::try_new(s).map_err(|_| arbitrary::Error::IncorrectFormat)?)
+        Ok(ComputePublisherVmImageOfferSkuName::try_new(s)
+            .map_err(|_| arbitrary::Error::IncorrectFormat)?)
     }
 }

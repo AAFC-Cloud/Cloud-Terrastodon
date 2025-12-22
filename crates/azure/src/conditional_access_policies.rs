@@ -8,7 +8,7 @@ pub async fn fetch_all_conditional_access_policies() -> eyre::Result<Vec<Conditi
     let query = MicrosoftGraphHelper::new(
         "https://graph.microsoft.com/beta/identity/conditionalAccess/policies",
         CacheBehaviour::Some {
-            path: PathBuf::from("conditional_access_policies"),
+            path: PathBuf::from_iter(["ms", "graph", "GET", "conditional_access_policies"]),
             valid_for: Duration::from_hours(24),
         },
     );

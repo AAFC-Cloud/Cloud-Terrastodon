@@ -58,7 +58,8 @@ impl AzureVmPublisherOfferListArgs {
         let publisher = self.publisher.parse::<ComputePublisherName>()?;
 
         info!(subscription = %subscription, location = %location, publisher = %publisher, "Fetching VM publisher offers");
-        let offers = fetch_compute_publisher_image_offers(&subscription, &location, &publisher).await?;
+        let offers =
+            fetch_compute_publisher_image_offers(&subscription, &location, &publisher).await?;
 
         let stdout = std::io::stdout();
         let mut out = stdout.lock();

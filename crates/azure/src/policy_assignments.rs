@@ -18,7 +18,7 @@ policyresources
  properties
     "#,
         CacheBehaviour::Some {
-            path: PathBuf::from("policy_assignments"),
+            path: PathBuf::from_iter(["az", "resource_graph", "policy_assignments"]),
             valid_for: Duration::from_hours(8),
         },
     );

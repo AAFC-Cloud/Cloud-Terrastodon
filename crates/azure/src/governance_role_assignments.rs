@@ -18,8 +18,11 @@ pub async fn fetch_governance_role_assignments_for_principal(
         url,
         CacheBehaviour::Some {
             path: PathBuf::from_iter([
-                "governance_role_assignments",
-                principal_id.to_string().as_str(),
+                "ms".to_string(),
+                "graph".to_string(),
+                "GET".to_string(),
+                "governance_role_assignments".to_string(),
+                principal_id.to_string(),
             ]),
             valid_for: Duration::from_hours(8),
         },

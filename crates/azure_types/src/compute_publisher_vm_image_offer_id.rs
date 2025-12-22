@@ -1,3 +1,4 @@
+use crate::compute_publisher_vm_image_offer_name::ComputePublisherVmImageOfferName;
 use crate::prelude::ComputePublisherName;
 use crate::prelude::LocationName;
 use crate::prelude::SubscriptionId;
@@ -11,8 +12,6 @@ use serde::Serialize;
 use serde::Serializer;
 use std::any::type_name;
 use std::str::FromStr;
-
-use crate::compute_publisher_vm_image_offer_name::ComputePublisherVmImageOfferName;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct ComputePublisherVmImageOfferId {

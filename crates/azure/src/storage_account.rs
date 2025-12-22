@@ -21,7 +21,7 @@ Resources
 | project id,name,kind,location,sku,properties,tags
         "#,
         CacheBehaviour::Some {
-            path: PathBuf::from("storage_accounts"),
+            path: PathBuf::from_iter(["az", "resource_graph", "storage_accounts"]),
             valid_for: Duration::from_hours(8),
         },
     );
