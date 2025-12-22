@@ -75,6 +75,6 @@ impl<'a> Arbitrary<'a> for ComputePublisherName {
         } else if s.is_empty() {
             s.push('a');
         }
-        Ok(ComputePublisherName::try_new(s).map_err(|_| arbitrary::Error::IncorrectFormat)?)
+        ComputePublisherName::try_new(s).map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
