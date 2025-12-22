@@ -11,6 +11,7 @@ mod command_output;
 mod no_spaces;
 mod path_mapper;
 mod work;
+mod cache_key;
 
 pub use crate::command::*;
 pub use crate::command_argument::*;
@@ -19,6 +20,7 @@ pub use crate::command_output::*;
 pub use crate::no_spaces::*;
 pub use crate::path_mapper::*;
 pub use crate::work::*;
+pub use crate::cache_key::*;
 
 // TODO: add a `last_used` file to cache entries so we can
 // give the user the list of recently used cache entries to
