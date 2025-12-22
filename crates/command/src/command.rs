@@ -314,7 +314,11 @@ impl CommandBuilder {
         let timestamp = load_from_path("timestamp.txt").await?;
         let timestamp = DateTime::parse_from_rfc2822(timestamp.to_str()?)?;
         let now = Local::now();
-        let time_remaining = timestamp + *valid_for - now.fixed_offset();
+        let time_remaining = if *valid_for == Duration::MAX {
+            TimeDelta::MAX
+        } else {
+            timestamp + *valid_for - now.fixed_offset()
+        };
         if time_remaining < TimeDelta::zero() {
             debug!(
                 %timestamp,
