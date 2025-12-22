@@ -20,7 +20,7 @@ Resources
         "#,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "container_registries"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     );
     query.collect_all().await
@@ -48,7 +48,7 @@ pub async fn fetch_container_registry_repository_names(
             "container_registry_repositories",
             &registry_id.container_registry_name,
         ]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
     cmd.run().await
 }
@@ -78,7 +78,7 @@ pub async fn fetch_container_registry_repository_tags(
             &registry_id.container_registry_name,
             repository_name,
         ]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
     cmd.run().await
 }

@@ -13,7 +13,7 @@ pub async fn fetch_all_unified_role_definitions() -> eyre::Result<UnifiedRoleDef
         url,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["ms", "graph", "GET", "unified_role_definitions"]),
-            valid_for: Duration::from_hours(24),
+            valid_for: Duration::MAX,
         },
     );
     query

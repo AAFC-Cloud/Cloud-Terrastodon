@@ -68,7 +68,7 @@ pub async fn fetch_group_members(group_id: GroupId) -> Result<Vec<Principal>> {
                 "group_members".to_string(),
                 group_id.as_hyphenated().to_string(),
             ]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     )
     .fetch_all::<Principal>()

@@ -36,7 +36,7 @@ pub async fn fetch_azure_devops_teams_for_project(
             "--project",
             &project.to_string(),
         ]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
 
     let response = cmd.run::<Vec<AzureDevOpsTeam>>().await?;

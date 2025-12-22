@@ -44,7 +44,7 @@ pub async fn fetch_all_management_groups() -> Result<Vec<ManagementGroup>> {
         query,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "management_groups"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     )
     .collect_all::<ManagementGroup>()

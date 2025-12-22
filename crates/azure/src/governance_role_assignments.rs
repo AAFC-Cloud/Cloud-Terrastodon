@@ -24,7 +24,7 @@ pub async fn fetch_governance_role_assignments_for_principal(
                 "governance_role_assignments".to_string(),
                 principal_id.to_string(),
             ]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     )
     .fetch_all()

@@ -27,7 +27,7 @@ pub async fn fetch_all_virtual_networks() -> Result<Vec<VirtualNetwork>> {
         query,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "virtual_networks"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     )
     .collect_all::<VirtualNetwork>()

@@ -21,7 +21,7 @@ pub async fn fetch_oauth2_permission_grants() -> eyre::Result<Vec<OAuth2Permissi
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.to_path_buf(),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
     cmd.arg("rest");
     cmd.args(["--method", "GET"]);

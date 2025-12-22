@@ -99,7 +99,7 @@ impl CommandBuilder {
     pub fn use_cache_dir(&mut self, cache: impl AsRef<Path>) -> &mut Self {
         self.use_cache_behaviour(CacheBehaviour::Some {
             path: cache.as_ref().to_path_buf(),
-            valid_for: Duration::from_days(1),
+            valid_for: Duration::MAX,
         })
     }
     pub async fn bust_cache(&self) -> Result<()> {

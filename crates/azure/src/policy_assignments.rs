@@ -19,7 +19,7 @@ policyresources
     "#,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "policy_assignments"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     );
     qb.collect_all().await

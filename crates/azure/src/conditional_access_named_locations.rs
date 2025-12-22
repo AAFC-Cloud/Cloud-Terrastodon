@@ -10,7 +10,7 @@ pub async fn fetch_all_conditional_access_named_locations()
         "https://graph.microsoft.com/beta/identity/conditionalAccess/namedLocations",
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["ms", "graph", "GET", "conditional_access_named_locations"]),
-            valid_for: Duration::from_hours(24),
+            valid_for: Duration::MAX,
         },
     );
 

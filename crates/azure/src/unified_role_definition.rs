@@ -23,7 +23,7 @@ pub async fn fetch_unified_role_definition(
                 "unified_role_definition",
                 role_definition_id.to_string().as_ref(),
             ]),
-            valid_for: Duration::from_hours(24),
+            valid_for: Duration::MAX,
         },
     );
 

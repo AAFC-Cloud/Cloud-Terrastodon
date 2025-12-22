@@ -177,6 +177,7 @@ impl ResourceGraphHelper {
 mod tests {
     use super::*;
     use serde::Deserialize;
+    use std::path::PathBuf;
     use std::time::Duration;
 
     #[tokio::test]
@@ -193,7 +194,7 @@ resourcecontainers
             query,
             CacheBehaviour::Some {
                 path: PathBuf::from_iter(["az", "resource_graph", "resource-container-names"]),
-                valid_for: Duration::from_mins(5),
+                valid_for: Duration::MAX,
             },
         )
         .collect_all::<Row>()

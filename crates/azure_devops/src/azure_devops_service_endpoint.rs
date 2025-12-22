@@ -31,7 +31,7 @@ pub async fn fetch_all_azure_devops_service_endpoints(
             &org_url.organization_name,
             project,
         ]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
 
     let response = cmd.run::<Vec<AzureDevOpsServiceEndpoint>>().await?;

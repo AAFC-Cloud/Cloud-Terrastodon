@@ -23,7 +23,7 @@ policyresources
     "#,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "policy_set_definitions"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     );
     query.collect_all().await

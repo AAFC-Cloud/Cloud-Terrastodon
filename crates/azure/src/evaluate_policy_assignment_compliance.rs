@@ -63,7 +63,8 @@ policyResources
                 format!(
                     "policy-compliance-for-{}",
                     policy_assignment.name.sanitize()
-                ).as_str(),
+                )
+                .as_str(),
             ]),
             valid_for: Duration::from_mins(15),
         },

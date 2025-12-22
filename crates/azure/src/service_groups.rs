@@ -23,7 +23,7 @@ pub async fn fetch_all_service_groups() -> Result<Vec<ServiceGroup>> {
         query,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "service_groups"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     )
     .collect_all::<ServiceGroup>()

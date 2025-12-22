@@ -39,7 +39,7 @@ pub async fn fetch_azure_devops_groups(
             "--project",
             &project.to_string(),
         ]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
 
     #[derive(Deserialize)]

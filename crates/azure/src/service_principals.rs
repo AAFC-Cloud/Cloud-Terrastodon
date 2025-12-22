@@ -11,7 +11,7 @@ pub async fn fetch_all_service_principals() -> eyre::Result<Vec<ServicePrincipal
         "https://graph.microsoft.com/v1.0/servicePrincipals",
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["ms", "graph", "GET", "service_principals"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     );
     let entries: Vec<ServicePrincipal> = query.fetch_all().await?;

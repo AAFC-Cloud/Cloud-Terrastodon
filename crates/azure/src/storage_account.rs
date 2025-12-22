@@ -22,7 +22,7 @@ Resources
         "#,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "storage_accounts"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     );
     query.collect_all().await
@@ -70,7 +70,7 @@ pub async fn fetch_storage_account_blob_container_names(
     ]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from("storage_accounts"),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
     let rtn = cmd.run().await?;
     Ok(rtn)

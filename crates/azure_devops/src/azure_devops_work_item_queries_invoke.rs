@@ -35,7 +35,7 @@ pub async fn fetch_work_items_for_query(
     ]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter(["az", "boards", "query", &query_id.to_string()]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
     let output = cmd.run_raw().await?;
     if output.stdout.trim().is_empty() {

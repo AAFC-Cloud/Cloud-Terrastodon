@@ -34,7 +34,7 @@ ResourceContainers
         query,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "empty-resource-groups"]),
-            valid_for: Duration::from_mins(0),
+            valid_for: Duration::ZERO,
         },
     )
     .collect_all::<Row>()

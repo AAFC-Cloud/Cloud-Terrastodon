@@ -15,7 +15,7 @@ pub async fn fetch_all_unified_role_assignments() -> eyre::Result<Vec<UnifiedRol
         url,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["ms", "graph", "GET", "unified_role_assignments"]),
-            valid_for: Duration::from_hours(24),
+            valid_for: Duration::MAX,
         },
     );
     let rtn = query.fetch_all().await?;

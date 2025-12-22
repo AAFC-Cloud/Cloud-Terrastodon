@@ -28,7 +28,7 @@ pub async fn fetch_oauth2_permission_scopes(
             "oauth2_permission_scopes",
             service_principal_id.to_string().as_ref(),
         ]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
 
     #[derive(Deserialize)]

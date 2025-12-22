@@ -39,7 +39,7 @@ pub async fn fetch_azure_devops_group_members(
             "--id",
             &group_id.to_string(),
         ]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
     cmd.run().await
 }

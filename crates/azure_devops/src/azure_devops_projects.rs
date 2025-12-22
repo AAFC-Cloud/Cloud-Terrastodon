@@ -27,7 +27,7 @@ pub async fn fetch_all_azure_devops_projects(
     ]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter(["az", "devops", "project", "list"]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
 
     #[derive(Serialize, Deserialize)]

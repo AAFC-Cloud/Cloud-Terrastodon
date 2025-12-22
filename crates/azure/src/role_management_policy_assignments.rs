@@ -29,7 +29,7 @@ pub async fn fetch_role_management_policy_assignments(
             "roleDefinitionId",
             role_definition_id.short_form().as_ref(),
         ]),
-        valid_for: Duration::from_hours(1),
+        valid_for: Duration::MAX,
     });
 
     #[derive(Deserialize)]

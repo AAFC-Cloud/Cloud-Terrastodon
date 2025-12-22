@@ -19,7 +19,7 @@ resources
         "#,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "key_vaults"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     );
     query.collect_all().await

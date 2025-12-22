@@ -26,7 +26,7 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
         query,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "subscriptions"]),
-            valid_for: Duration::from_hours(8),
+            valid_for: Duration::MAX,
         },
     )
     .collect_all::<Subscription>()

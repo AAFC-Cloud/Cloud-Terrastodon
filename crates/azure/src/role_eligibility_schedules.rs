@@ -13,7 +13,7 @@ pub async fn fetch_my_role_eligibility_schedules() -> Result<Vec<RoleEligibility
     cmd.args(["rest", "--method", "GET", "--url", url]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter(["az", "rest", "GET", "roleEligibilitySchedules"]),
-        valid_for: Duration::from_hours(1),
+        valid_for: Duration::MAX,
     });
 
     #[derive(Deserialize)]

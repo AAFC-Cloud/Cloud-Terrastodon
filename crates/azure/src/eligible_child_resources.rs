@@ -43,7 +43,7 @@ pub async fn fetch_eligible_child_resources(
 
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: cache_chunks,
-        valid_for: Duration::from_hours(1),
+        valid_for: Duration::MAX,
     });
 
     #[derive(Deserialize)]

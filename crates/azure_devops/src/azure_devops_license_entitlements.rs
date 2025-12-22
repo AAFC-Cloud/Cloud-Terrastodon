@@ -22,7 +22,7 @@ pub async fn fetch_azure_devops_license_entitlements(
     cmd.args(["--encoding", "utf-8"]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter(["az", "devops", "licensing", "entitlements"]),
-        valid_for: Duration::from_hours(1),
+        valid_for: Duration::MAX,
     });
 
     #[derive(Deserialize)]

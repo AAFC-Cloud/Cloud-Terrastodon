@@ -31,7 +31,7 @@ pub async fn fetch_all_azure_devops_repos_for_project(
     ]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter(["az", "repos", "list", project_id.to_string().as_ref()]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
     let repos: Vec<AzureDevOpsRepo> = cmd.run().await?;
     debug!("Found {} repos for {project_id:?}", repos.len());

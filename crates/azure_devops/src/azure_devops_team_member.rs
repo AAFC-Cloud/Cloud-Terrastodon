@@ -41,7 +41,7 @@ pub async fn fetch_azure_devops_team_members(
             "--team",
             &team_id.to_string(),
         ]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
 
     let response = cmd.run::<Vec<AzureDevOpsTeamMember>>().await?;

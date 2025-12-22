@@ -35,7 +35,7 @@ pub async fn fetch_key_vault_secrets(key_vault_id: &KeyVaultId) -> Result<Vec<Ke
             "list",
             key_vault_id.key_vault_name.as_str(),
         ]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
     let secrets = cmd.run().await?;
     Ok(secrets)

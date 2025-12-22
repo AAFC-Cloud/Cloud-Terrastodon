@@ -23,7 +23,7 @@ authorizationresources
 "#,
         CacheBehaviour::Some {
             path: PathBuf::from_iter(["az", "resource_graph", "role_assignments"]),
-            valid_for: Duration::from_hours(4),
+            valid_for: Duration::MAX,
         },
     );
     let role_assignments: Vec<RoleAssignment> = query.collect_all().await?;

@@ -9,7 +9,7 @@ pub fn get_azure_devops_configuration_list_command() -> CommandBuilder {
     cmd.args(["devops", "configure", "--list"]);
     cmd.use_cache_behaviour(CacheBehaviour::Some {
         path: PathBuf::from_iter(["az", "devops", "configure", "--list"]),
-        valid_for: Duration::from_hours(8),
+        valid_for: Duration::MAX,
     });
     cmd
 }

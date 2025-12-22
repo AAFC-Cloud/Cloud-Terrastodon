@@ -51,7 +51,7 @@ impl IntoFuture for ResourceGroupsRequest {
                 query,
                 CacheBehaviour::Some {
                     path: PathBuf::from_iter(["az", "resource_graph", "resource_groups"]),
-                    valid_for: Duration::from_hours(8),
+                    valid_for: Duration::MAX,
                 },
             )
             .collect_all::<ResourceGroup>()
