@@ -6,7 +6,6 @@ use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use serde_json::Value;
 use std::path::PathBuf;
 
 pub async fn fetch_compute_publisher_image_offer_sku_versions(
