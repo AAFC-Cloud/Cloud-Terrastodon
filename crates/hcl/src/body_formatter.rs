@@ -181,6 +181,7 @@ impl From<BodyFormatter> for Body {
     }
 }
 
+#[expect(dead_code, reason = "Old type being superceded by `ct tf reflow` command")]
 pub trait PrettyBody {
     fn to_string_pretty(self) -> Result<String>;
 }
