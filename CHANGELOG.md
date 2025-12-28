@@ -8,6 +8,7 @@
 - PickerTui now selects first row on text change
 - Change `--json` global arg to now be `--log-file FILE`
 - Add `--mode lines` and `--mode auto` to `ct pick` command
+- Fix `ct pick` using stdout instead of stderr when restoring from Ratatui
 - Fix `ct pick` default query not being valid after changing default engine to `jmes-path`
 
 # v0.30.0
