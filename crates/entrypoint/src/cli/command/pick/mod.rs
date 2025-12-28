@@ -51,10 +51,10 @@ pub enum PickMode {
 #[derive(Args, Debug, Clone, Default)]
 pub struct PickArgs {
     /// Query to be passed to the query engine, determines the display value for the choices
-    #[clap(long, short = 'q', default_value = "$[*]")]
+    #[clap(long, short = 'q', default_value = "*")]
     pub query: String,
     /// Query engine to use
-    #[clap(long, short = 'e', default_value_t = QueryEngine::JmesPath)]
+    #[clap(long, short = 'e', default_value_t = Default::default())]
     pub engine: QueryEngine,
     /// Input parsing mode (auto | json | lines)
     #[clap(long, value_enum, default_value_t = PickMode::Auto)]
