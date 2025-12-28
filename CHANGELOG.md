@@ -10,6 +10,7 @@
 - Add `--mode lines` and `--mode auto` to `ct pick` command
 - Fix `ct pick` using stdout instead of stderr when restoring from Ratatui
 - Fix `ct pick` default query not being valid after changing default engine to `jmes-path`
+- Add `ct pick --engine liquid` for using [liquid](https://github.com/cobalt-org/liquid-rust)
 
 # v0.30.0
 

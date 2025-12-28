@@ -50,6 +50,7 @@ compact_str = { workspace = true, features = ["serde"] }
 jsonpath-rust.workspace = true
 jmespath.workspace = true
 http.workspace = true
+liquid.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [
