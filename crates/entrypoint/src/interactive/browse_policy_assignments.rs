@@ -268,7 +268,7 @@ pub async fn browse_policy_assignments() -> eyre::Result<()> {
             }
         }
     }
-    let chosen = PickerTui::new(choices).pick_many()?;
+    let chosen = PickerTui::new().pick_many(choices)?;
     info!("You chose:\n{}", chosen.into_iter().join("\n=====\n"));
     Ok(())
 }

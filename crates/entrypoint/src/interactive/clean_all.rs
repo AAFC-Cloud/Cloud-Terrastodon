@@ -6,7 +6,9 @@ use tokio::fs;
 use tracing::info;
 pub async fn clean_all_menu() -> Result<()> {
     let choices = vec!["keep command cache (recommended)", "purge command cache"];
-    let chosen = PickerTui::new(choices).set_header("Cleaning").pick_one()?;
+    let chosen = PickerTui::new()
+        .set_header("Cleaning")
+        .pick_one(choices)?;
     match chosen {
         "keep command cache (recommended)" => {
             info!("Cleaning everything except the command cache");

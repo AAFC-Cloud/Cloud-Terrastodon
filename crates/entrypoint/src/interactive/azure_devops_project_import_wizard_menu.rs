@@ -17,9 +17,9 @@ pub async fn azure_devops_project_import_wizard_menu() -> Result<()> {
     info!("Confirming remove existing imports");
     let start_from_scratch = "start from scratch";
     let keep_existing_imports = "keep existing imports";
-    match PickerTui::new(vec![start_from_scratch, keep_existing_imports])
+    match PickerTui::new()
         .set_header("This will wipe any existing imports from the Cloud Terrastodon work directory. Proceed?")
-        .pick_one()? {
+        .pick_one(vec![start_from_scratch, keep_existing_imports])? {
         x if x == start_from_scratch => {
             info!("Removing existing imports");
             let _ = remove_dir_all(AppDir::Imports.as_path_buf()).await;
@@ -34,12 +34,12 @@ pub async fn azure_devops_project_import_wizard_menu() -> Result<()> {
     let org_url = get_default_organization_url().await?;
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
     let projects: Vec<cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject> =
-        PickerTui::new(projects.into_iter().map(|project| Choice {
-            key: project.name.to_string(),
-            value: project,
-        }))
-        .set_header("Choose the projects to import")
-        .pick_many()?;
+        PickerTui::new()
+            .set_header("Choose the projects to import")
+            .pick_many(projects.into_iter().map(|project| Choice {
+                key: project.name.to_string(),
+                value: project,
+            }))?;
 
     let mut project_import_blocks = Vec::new();
     for project in projects {

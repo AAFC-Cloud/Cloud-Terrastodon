@@ -18,7 +18,7 @@ impl AzureGroupBrowseArgs {
             "Fetched Azure resource groups"
         );
 
-        let chosen = PickerTui::new(resource_groups).pick_many()?;
+        let chosen = PickerTui::new().pick_many(resource_groups)?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

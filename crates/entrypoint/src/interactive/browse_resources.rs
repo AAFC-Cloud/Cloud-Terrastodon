@@ -12,9 +12,9 @@ pub async fn browse_resources_menu() -> Result<()> {
         key: x.id.expanded_form().to_owned(),
         value: x,
     });
-    let chosen: Vec<Resource> = PickerTui::new(choices)
+    let chosen: Vec<Resource> = PickerTui::new()
         .set_header("Resources")
-        .pick_many()?;
+        .pick_many(choices)?;
     info!("You chose:");
     for value in chosen {
         info!("{:#?}", value);

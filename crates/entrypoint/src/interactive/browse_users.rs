@@ -7,12 +7,12 @@ use tracing::info;
 pub async fn browse_users() -> Result<()> {
     info!("Fetching users");
     let users = fetch_all_users().await?;
-    let users = PickerTui::from(users.into_iter().map(|u| Choice {
-        key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
-        value: u,
-    }))
-    .set_header("Users")
-    .pick_many()?;
+    let users = PickerTui::new()
+        .set_header("Users")
+        .pick_many(users.into_iter().map(|u| Choice {
+            key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
+            value: u,
+        }))?;
     info!("You chose:");
     for user in users {
         println!(

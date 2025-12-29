@@ -8,9 +8,9 @@ pub async fn browse_role_assignments() -> Result<()> {
     let choices = get_role_assignment_choices().await?;
 
     info!("Picking");
-    let chosen: Vec<RoleAssignment> = PickerTui::new(choices)
+    let chosen: Vec<RoleAssignment> = PickerTui::new()
         .set_header("Role assignments")
-        .pick_many()?;
+        .pick_many(choices)?;
 
     info!("You chose:");
     for value in chosen {

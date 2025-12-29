@@ -30,9 +30,9 @@ pub async fn remediate_policy_assignment() -> Result<()> {
         });
 
     info!("Prompting for user choice");
-    let policy_assignment: PolicyAssignment = PickerTui::new(choices)
+    let policy_assignment: PolicyAssignment = PickerTui::new()
         .set_header("Choose policy to remediate")
-        .pick_one()?;
+        .pick_one(choices)?;
 
     info!("Finding policy definition for chosen");
     match policy_assignment.properties.policy_definition_id {
@@ -58,11 +58,9 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                     value: x,
                 })
                 .collect_vec();
-            let chosen: Vec<
-                Choice<cloud_terrastodon_azure_types::prelude::PolicySetDefinitionPolicyDefinition>,
-            > = PickerTui::new(reference_ids)
+            let chosen = PickerTui::new()
                 .set_header("Pick the inner definitions to remediate")
-                .pick_many()?;
+                .pick_many(reference_ids)?;
 
             info!("Launching remediation tasks");
             for choice in chosen {
@@ -75,7 +73,7 @@ pub async fn remediate_policy_assignment() -> Result<()> {
                 cmd.args(["--policy-assignment", &policy_assignment.id.expanded_form()]);
                 cmd.args([
                     "--definition-reference-id",
-                    choice.value.policy_definition_reference_id.as_ref(),
+                    choice.policy_definition_reference_id.as_ref(),
                 ]);
                 let scope = &policy_assignment.properties.scope;
                 match scope {

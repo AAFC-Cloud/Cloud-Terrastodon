@@ -8,6 +8,7 @@
 - PickerTui now selects first row on text change
 - Change `--json` global arg to now be `--log-file FILE`
 - Add `--mode lines` and `--mode auto` to `ct pick` command
+- Change `PickerTui` to no longer be generic over `<T>`, instead the `pick` and `pick_many` fns own the generic
 
 # v0.30.0
 

@@ -13,7 +13,9 @@ pub async fn jump_to_block(dir: PathBuf) -> Result<()> {
     let choices = list_blocks_for_dir(dir).await?;
     info!("Found {} blocks", choices.len());
 
-    let chosen = PickerTui::new(choices).set_header("Blocks").pick_one()?;
+    let chosen = PickerTui::new()
+        .set_header("Blocks")
+        .pick_one(choices)?;
     CommandBuilder::new(CommandKind::VSCode)
         .args([
             "--goto",

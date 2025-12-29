@@ -1,7 +1,4 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::Principal;
-use cloud_terrastodon_azure::prelude::RoleAssignment;
-use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments;
@@ -54,10 +51,7 @@ impl AzureRoleAssignmentBrowseArgs {
             });
         }
 
-        let chosen = PickerTui::<(&RoleAssignment, &RoleDefinition, Option<&Principal>)>::new(
-            choices.into_iter(),
-        )
-        .pick_many()?
+        let chosen = PickerTui::new().pick_many(choices)?
         .into_iter()
         .map(|(role_assignment, role_definition, principal)| {
             json!({"role_assignment": role_assignment, "role_definition": role_definition, "principal": principal})

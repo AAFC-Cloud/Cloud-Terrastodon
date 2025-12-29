@@ -6,11 +6,6 @@ pub struct Choice<T> {
     pub key: String,
     pub value: T,
 }
-impl<T> std::fmt::Display for Choice<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.key)
-    }
-}
 impl<T: Clone> Clone for Choice<T> {
     fn clone(&self) -> Self {
         Choice {
@@ -49,3 +44,35 @@ where
     }
 }
 impl<T> Eq for Choice<T> where T: Eq {}
+
+pub trait IntoChoices<T> {
+    fn into_choices(self) -> Vec<Choice<T>>;
+}
+impl<T, I> IntoChoices<T> for I
+where
+    I: IntoIterator,
+    I::Item: IntoChoice<T>,
+{
+    fn into_choices(self) -> Vec<Choice<T>> {
+        self.into_iter().map(IntoChoice::into_choice).collect()
+    }
+}
+
+pub trait IntoChoice<T> {
+    fn into_choice(self) -> Choice<T>;
+}
+
+impl<T> IntoChoice<T> for Choice<T> {
+    fn into_choice(self) -> Choice<T> {
+        self
+    }
+}
+
+impl<T> IntoChoice<T> for T
+where
+    T: Display,
+{
+    fn into_choice(self) -> Choice<T> {
+        Choice::from(self)
+    }
+}

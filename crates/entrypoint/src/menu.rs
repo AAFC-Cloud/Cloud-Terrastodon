@@ -28,13 +28,13 @@ pub async fn menu() -> Result<MenuActionResult> {
     choices.reverse();
 
     // Prompt user for action of choice
-    let chosen = PickerTui::new(choices)
+    let chosen = PickerTui::new()
         .set_header(if !some_unavailable {
             "Actions"
         } else {
             "Actions (some unavailable items omitted)"
         })
-        .pick_many();
+        .pick_many(choices);
 
     let mut chosen = match chosen {
         Ok(c) => c,

@@ -10,6 +10,7 @@ use cloud_terrastodon_hcl_types::prelude::edit::structure::Body;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use strum::VariantArray;
 
 #[derive(strum::VariantArray, Debug, Clone, Copy)]
@@ -71,42 +72,27 @@ impl HclImportable {
         Ok(rtn)
     }
     pub fn pick() -> eyre::Result<HclImportable> {
-        Ok(
-            PickerTui::new(HclImportable::VARIANTS.iter().copied().map(|x| Choice {
+        Ok(PickerTui::new()
+            .set_header("Pick the kind of thing to import")
+            .pick_one(HclImportable::VARIANTS.iter().copied().map(|x| Choice {
                 key: x.to_string(),
                 value: x,
-            }))
-            .set_header("Pick the kind of thing to import")
-            .pick_one()?,
-        )
+            }))?)
     }
     pub async fn pick_into_body(self) -> eyre::Result<Body> {
         let import_blocks = self.try_into_import_blocks().await?;
-        let import_blocks = PickerTui::new(import_blocks)
+        let import_blocks = PickerTui::new()
             .set_header("Pick the resources to import")
-            .pick_many()?;
+            .pick_many(import_blocks)?;
         let providers = import_blocks
             .iter()
-            .filter_map(
-                |Choice {
-                     value: (_, provider),
-                     ..
-                 }| provider.clone(),
-            )
+            .filter_map(|(_, provider)| provider.clone())
             .collect::<HashSet<_>>();
         let body = Body::builder().blocks(providers).blocks(
             import_blocks
                 .into_iter()
-                .map(
-                    |Choice {
-                         value: (import_block, ..),
-                         ..
-                     }| {
-                        let block: Result<Block, _> = import_block.try_into();
-                        block
-                    },
-                )
-                .collect::<Result<Vec<_>, _>>()?,
+                .map(|(import_block, _)| Block::try_from(import_block))
+                .collect::<Result<Vec<Block>, _>>()?,
         );
 
         let body = body.build();

@@ -14,12 +14,12 @@ pub async fn dump_tags() -> eyre::Result<()> {
     if try_exists(&path).await.unwrap_or(false) {
         let yes = "yes";
         let no = "no";
-        if PickerTui::new(vec![yes, no])
+        if PickerTui::new()
             .set_header(format!(
                 "Output path {} already exists, overwrite?",
                 path.display()
             ))
-            .pick_one()?
+            .pick_one(vec![yes, no])?
             == no
         {
             warn!("Chose not to overwrite, no action taken!");

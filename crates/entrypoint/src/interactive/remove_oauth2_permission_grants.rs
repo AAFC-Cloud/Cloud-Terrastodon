@@ -9,7 +9,7 @@ pub async fn remove_oauth2_permission_grants() -> Result<()> {
     let to_remove = pick_oauth2_permission_grants().await?;
     info!(
         "You chose:\n{}",
-        to_remove.iter().map(|x| &x.key).join("\n")
+        to_remove.iter().map(|x| x.to_string()).join("\n")
     );
     if !are_you_sure(format!(
         "Are you sure you want to remove {} grants?",

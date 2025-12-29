@@ -10,22 +10,22 @@ use tracing::info;
 
 pub async fn create_oauth2_permission_grants() -> Result<()> {
     let service_principals = fetch_all_service_principals().await?;
-    let resource = PickerTui::from(service_principals.iter().map(|sp| Choice {
-        key: format!("{} - {}", sp.id, sp.display_name),
-        value: sp,
-    }))
-    .set_header("Pick the underlying resource being granted access to")
-    .set_query("'Microsoft\\ Graph")
-    .pick_one()?;
+    let resource = PickerTui::new()
+        .set_header("Pick the underlying resource being granted access to")
+        .set_query("'Microsoft\\ Graph")
+        .pick_one(service_principals.iter().map(|sp| Choice {
+            key: format!("{} - {}", sp.id, sp.display_name),
+            value: sp,
+        }))?;
     info!("You chose: {} - {}", resource.display_name, resource.id);
 
-    let client = PickerTui::from(service_principals.iter().map(|sp| Choice {
-        key: format!("{} - {}", sp.id, sp.display_name),
-        value: sp,
-    }))
-    .set_header("Pick the client accessing the resource")
-    .set_query("'Graph\\ Explorer")
-    .pick_one()?;
+    let client = PickerTui::new()
+        .set_header("Pick the client accessing the resource")
+        .set_query("'Graph\\ Explorer")
+        .pick_one(service_principals.iter().map(|sp| Choice {
+            key: format!("{} - {}", sp.id, sp.display_name),
+            value: sp,
+        }))?;
     info!("You chose: {} - {}", client.display_name, client.id);
 
     let scopes = fetch_oauth2_permission_scopes(resource.id)
@@ -33,23 +33,23 @@ pub async fn create_oauth2_permission_grants() -> Result<()> {
         .into_iter()
         .collect::<HashSet<_>>();
 
-    let scopes_to_add = PickerTui::from(scopes.iter().map(|scope| Choice {
-        key: format!("{} - {}", scope.value, scope.user_consent_display_name),
-        value: scope,
-    }))
-    .set_header("Select the scopes you want to grant")
-    .pick_many()?;
+    let scopes_to_add = PickerTui::new()
+        .set_header("Select the scopes you want to grant")
+        .pick_many(scopes.iter().map(|scope| Choice {
+            key: format!("{} - {}", scope.value, scope.user_consent_display_name),
+            value: scope,
+        }))?;
 
     let users = fetch_all_users().await?;
-    let users_to_add = PickerTui::from(users.iter().map(|user| Choice {
-        key: user.to_string(),
-        value: user,
-    }))
-    .set_header(format!(
-        "Select the users to add {} grants to",
-        scopes_to_add.len()
-    ))
-    .pick_many()?;
+    let users_to_add = PickerTui::new()
+        .set_header(format!(
+            "Select the users to add {} grants to",
+            scopes_to_add.len()
+        ))
+        .pick_many(users.iter().map(|user| Choice {
+            key: user.to_string(),
+            value: user,
+        }))?;
 
     for user in users_to_add {
         for scope in &scopes_to_add {

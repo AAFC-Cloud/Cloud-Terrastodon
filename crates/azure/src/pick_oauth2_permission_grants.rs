@@ -10,6 +10,7 @@ use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
 use itertools::Itertools;
 use std::cmp::Ordering;
+use std::fmt;
 use std::collections::HashMap;
 use tokio::try_join;
 
@@ -25,7 +26,51 @@ pub enum Target {
     User(Box<User>),
 }
 
-pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Choice<Grant>>> {
+impl PartialEq for Grant {
+    fn eq(&self, other: &Self) -> bool {
+        self.grant.client_id == other.grant.client_id
+            && self.grant.principal_id == other.grant.principal_id
+    }
+}
+
+impl Eq for Grant {}
+
+impl PartialOrd for Grant {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Grant {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.grant
+            .client_id
+            .cmp(&other.grant.client_id)
+            .then_with(|| match (&self.grant.principal_id, &other.grant.principal_id) {
+                (Some(a), Some(b)) => a.cmp(b),
+                (None, None) => Ordering::Equal,
+                (Some(_), None) => Ordering::Greater,
+                (None, Some(_)) => Ordering::Less,
+            })
+    }
+}
+
+impl fmt::Display for Grant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}\n| {}\n| {}",
+            self.service_principal.display_name,
+            match &self.target {
+                Target::User(user) => format!("User ({})", user.user_principal_name),
+                x => format!("{x:?}"),
+            },
+            self.grant.scope.trim()
+        )
+    }
+}
+
+pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Grant>> {
     let grants = fetch_oauth2_permission_grants();
     let service_principals = fetch_all_service_principals();
     let users = fetch_all_users();
@@ -69,32 +114,15 @@ pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Choice<Grant>>>
             })
         })
         .collect::<eyre::Result<Vec<Grant>>>()?;
-    let chosen = PickerTui::new(
-        grants
-            .into_iter()
-            .map(|g| Choice {
-                key: format!(
-                    "{}\n| {}\n| {}",
-                    g.service_principal.display_name,
-                    match &g.target {
-                        Target::User(user) => format!("User ({})", user.user_principal_name),
-                        x => format!("{x:?}"),
-                    },
-                    g.grant.scope.trim()
-                ),
-                value: g,
-            })
-            .sorted_unstable_by(|a, b| {
-                a.grant.client_id.cmp(&b.grant.client_id).then_with(|| {
-                    match (a.grant.principal_id, b.grant.principal_id) {
-                        (Some(a), Some(b)) => a.cmp(&b),
-                        (None, None) => Ordering::Equal,
-                        (a, b) => a.is_some().cmp(&b.is_some()),
-                    }
-                })
-            }),
-    )
-    .set_header("Pick the items to browse")
-    .pick_many()?;
+    let choices = grants
+        .into_iter()
+        .sorted_unstable()
+        .map(|g| Choice {
+            key: g.to_string(),
+            value: g,
+        });
+    let chosen = PickerTui::new()
+        .set_header("Pick the items to browse")
+        .pick_many(choices)?;
     Ok(chosen)
 }

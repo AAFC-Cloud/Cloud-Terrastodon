@@ -8,7 +8,7 @@ pub fn main() -> eyre::Result<()> {
         "single item",
         "another single item",
     ];
-    let chosen = PickerTui::new(choices).pick_many()?;
+    let chosen = PickerTui::new().pick_many(choices)?;
     println!("You chose: {chosen:#?}");
     Ok(())
 }

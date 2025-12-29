@@ -7,6 +7,7 @@ pub enum PickError {
     Eyre(eyre::Error),
     Cancelled,
     NoChoicesProvided,
+    ReloadRequested,
 }
 impl std::fmt::Display for PickError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -19,6 +20,9 @@ impl std::fmt::Display for PickError {
             PickError::NoChoicesProvided => {
                 write!(f, "PickError: The list of choices to pick from was empty.")
             }
+            PickError::ReloadRequested => {
+                write!(f, "PickError: A reload of choices was requested.")
+            }
         }
     }
 }
@@ -28,6 +32,7 @@ impl PartialEq for PickError {
         match (self, other) {
             (PickError::Cancelled, PickError::Cancelled) => true,
             (PickError::NoChoicesProvided, PickError::NoChoicesProvided) => true,
+            (PickError::ReloadRequested, PickError::ReloadRequested) => true,
             _ => false,
         }
     }

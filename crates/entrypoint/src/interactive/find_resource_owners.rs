@@ -447,23 +447,23 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
         }
     }
 
-    let beginning = PickerTui::new(MyChoice::VARIANTS)
+    let beginning = PickerTui::new()
         .set_header("Where should the investigation start?")
-        .pick_one()?;
-
-    let resource_choices = resources.iter().map(|resource| Choice {
-        key: resource.id.expanded_form().to_string(),
-        value: resource,
-    });
-
+        .pick_one(MyChoice::VARIANTS)?;
     let chosen_resources: Vec<&Resource> = match beginning {
-        MyChoice::ResourceGroups => {
-            PickerTui::new(resource_choices.filter(|r| r.kind.is_resource_group()))
-        }
-        MyChoice::AllResources => PickerTui::new(resource_choices),
-    }
-    .set_header("Pick the resources to find the owners for")
-    .pick_many()?;
+        MyChoice::ResourceGroups => PickerTui::new()
+            .set_header("Pick the resources to find the owners for")
+            .pick_many(resources.iter().filter(|resource| resource.kind.is_resource_group()).map(|resource| Choice {
+                key: resource.id.expanded_form().to_string(),
+                value: resource,
+            }))?,
+        MyChoice::AllResources => PickerTui::new()
+            .set_header("Pick the resources to find the owners for")
+            .pick_many(resources.iter().map(|resource| Choice {
+                key: resource.id.expanded_form().to_string(),
+                value: resource,
+            }))?,
+    };
 
     info!("You chose:");
     for resource in chosen_resources.iter() {
@@ -508,18 +508,21 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
     }
 
     loop {
-        let clue_source = PickerTui::new(ClueAction::VARIANTS)
+        let clue_source = PickerTui::new()
             .set_header("What to search next?")
-            .pick_one()?;
+            .pick_one(ClueAction::VARIANTS)?;
         match clue_source {
             ClueAction::PeekClueDetails => {
-                let clues =
-                    PickerTui::from(traversal_context.clues.iter().cloned().map(|clue| Choice {
-                        key: clue.to_string(),
-                        value: clue,
-                    }))
+                let clues = PickerTui::new()
                     .set_header("What clues do you want to see the details for?")
-                    .pick_many()?;
+                    .pick_many(traversal_context
+                        .clues
+                        .iter()
+                        .cloned()
+                        .map(|clue| Choice {
+                            key: clue.to_string(),
+                            value: clue,
+                        }))?;
                 info!("You chose:\n{clues:#?}");
                 press_enter_to_continue().await?;
             }

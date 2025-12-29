@@ -31,9 +31,9 @@ impl AzureVmPublisherBrowseArgs {
         // 1) Pick subscriptions
         info!("Fetching subscriptions");
         let subs = fetch_all_subscriptions().await?;
-        let chosen_subs = PickerTui::new(subs)
+        let chosen_subs = PickerTui::new()
             .set_header("Select one or more subscriptions (Tab to mark multiple)")
-            .pick_many()?;
+            .pick_many(subs)?;
 
         // 2) For each chosen subscription fetch locations and present them as choices
         let mut location_choices: Vec<Choice<(SubscriptionId, LocationName)>> = Vec::new();
@@ -49,9 +49,9 @@ impl AzureVmPublisherBrowseArgs {
             }
         }
 
-        let chosen_locations = PickerTui::new(location_choices)
+        let chosen_locations = PickerTui::new()
             .set_header("Select one or more locations (Tab to mark multiple)")
-            .pick_many()?;
+            .pick_many(location_choices)?;
 
         // 3) Fetch publishers for each (subscription, location) and accumulate unique publishers
         use std::collections::HashSet;
@@ -67,23 +67,23 @@ impl AzureVmPublisherBrowseArgs {
         let mut publisher_choices: Vec<ComputePublisherId> = publisher_set.into_iter().collect();
         publisher_choices.sort();
 
-        let chosen_publishers = PickerTui::new(publisher_choices)
+        let chosen_publishers = PickerTui::new()
             .set_header("Select one or more publishers (Tab to mark multiple)")
-            .pick_many()?;
+            .pick_many(publisher_choices)?;
 
         // 4) Decide to print or continue diving
-        let decision = PickerTui::<Decision>::new([
-            Choice {
-                key: "Print selected publishers".into(),
-                value: Decision::Print,
-            },
-            Choice {
-                key: "Continue to offers".into(),
-                value: Decision::Continue,
-            },
-        ])
-        .set_header("Publishers: print or continue?")
-        .pick_one()?;
+        let decision = PickerTui::new()
+            .set_header("Publishers: print or continue?")
+            .pick_one([
+                Choice {
+                    key: "Print selected publishers".into(),
+                    value: Decision::Print,
+                },
+                Choice {
+                    key: "Continue to offers".into(),
+                    value: Decision::Continue,
+                },
+            ])?;
 
         if decision == Decision::Print {
             let stdout = std::io::stdout();
@@ -124,24 +124,23 @@ impl AzureVmPublisherBrowseArgs {
             })
             .collect();
 
-        let chosen_offers: Vec<ComputePublisherVmImageOfferId> =
-            PickerTui::new(offer_display_choices)
-                .set_header("Select one or more offers (Tab to mark multiple)")
-                .pick_many()?;
+        let chosen_offers: Vec<ComputePublisherVmImageOfferId> = PickerTui::new()
+            .set_header("Select one or more offers (Tab to mark multiple)")
+            .pick_many(offer_display_choices)?;
 
         // 6) Decide to print or continue diving
-        let decision = PickerTui::<Decision>::new([
-            Choice {
-                key: "Print selected offers".into(),
-                value: Decision::Print,
-            },
-            Choice {
-                key: "Continue to SKUs".into(),
-                value: Decision::Continue,
-            },
-        ])
-        .set_header("Offers: print or continue?")
-        .pick_one()?;
+        let decision = PickerTui::new()
+            .set_header("Offers: print or continue?")
+            .pick_one([
+                Choice {
+                    key: "Print selected offers".into(),
+                    value: Decision::Print,
+                },
+                Choice {
+                    key: "Continue to SKUs".into(),
+                    value: Decision::Continue,
+                },
+            ])?;
 
         if decision == Decision::Print {
             let stdout = std::io::stdout();
@@ -182,24 +181,23 @@ impl AzureVmPublisherBrowseArgs {
             })
             .collect();
 
-        let chosen_skus: Vec<ComputePublisherVmImageOfferSkuId> =
-            PickerTui::new(sku_display_choices)
-                .set_header("Select one or more SKUs (Tab to mark multiple)")
-                .pick_many()?;
+        let chosen_skus: Vec<ComputePublisherVmImageOfferSkuId> = PickerTui::new()
+            .set_header("Select one or more SKUs (Tab to mark multiple)")
+            .pick_many(sku_display_choices)?;
 
         // 8) Decide to print or continue diving
-        let decision = PickerTui::<Decision>::new([
-            Choice {
-                key: "Print selected SKUs".into(),
-                value: Decision::Print,
-            },
-            Choice {
-                key: "Continue to versions".into(),
-                value: Decision::Continue,
-            },
-        ])
-        .set_header("SKUs: print or continue?")
-        .pick_one()?;
+        let decision = PickerTui::new()
+            .set_header("SKUs: print or continue?")
+            .pick_one([
+                Choice {
+                    key: "Print selected SKUs".into(),
+                    value: Decision::Print,
+                },
+                Choice {
+                    key: "Continue to versions".into(),
+                    value: Decision::Continue,
+                },
+            ])?;
 
         if decision == Decision::Print {
             let stdout = std::io::stdout();

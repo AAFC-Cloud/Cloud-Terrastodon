@@ -14,13 +14,12 @@ use tracing::info;
 
 pub async fn tag_resources_menu() -> eyre::Result<()> {
     let resource_groups = fetch_all_resource_groups().await?;
-    let resource_group: ResourceGroup =
-        PickerTui::new(resource_groups.into_iter().map(|rg| Choice {
+    let resource_group: ResourceGroup = PickerTui::new()
+        .set_header("Choose a resource group")
+        .pick_one(resource_groups.into_iter().map(|rg| Choice {
             key: rg.id.expanded_form().to_string(),
             value: rg,
-        }))
-        .set_header("Choose a resource group")
-        .pick_one()?;
+        }))?;
     let resources = fetch_all_resources()
         .await?
         .into_iter()
@@ -28,14 +27,13 @@ pub async fn tag_resources_menu() -> eyre::Result<()> {
             res.id
                 .expanded_form()
                 .starts_with(&resource_group.id.expanded_form())
-        })
-        .map(|r| Choice {
+        });
+    let resources = PickerTui::new()
+        .set_header("Choose resources to tag")
+        .pick_many(resources.map(|r| Choice {
             key: r.id.expanded_form().to_string(),
             value: r,
-        });
-    let resources = PickerTui::from(resources)
-        .set_header("Choose resources to tag")
-        .pick_many()?;
+        }))?;
     let resource_tags = get_tags_for_resources(
         resources
             .into_iter()

@@ -17,7 +17,7 @@ pub async fn browse_policy_definitions() -> eyre::Result<()> {
             },
             value: def,
         });
-    let chosen: Vec<PolicyDefinition> = PickerTui::new(policy_definitions).pick_many()?;
+    let chosen: Vec<PolicyDefinition> = PickerTui::new().pick_many(policy_definitions)?;
     let msg = format!(
         "You chose:\n{}",
         chosen

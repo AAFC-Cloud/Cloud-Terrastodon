@@ -7,9 +7,9 @@ pub async fn browse_resource_groups() -> Result<()> {
     let choices = get_resource_group_choices().await?;
 
     info!("Prompting user");
-    let chosen = PickerTui::new(choices)
+    let chosen = PickerTui::new()
         .set_header("Browsing resource groups")
-        .pick_many()?;
+        .pick_many(choices)?;
 
     info!("You chose:");
     for (rg, sub) in chosen {

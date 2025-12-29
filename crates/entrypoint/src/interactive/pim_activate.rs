@@ -35,9 +35,9 @@ impl std::fmt::Display for PimKind {
 }
 
 pub async fn pim_activate() -> Result<()> {
-    match PickerTui::new(vec![PimKind::Entra, PimKind::AzureRM])
+    match PickerTui::new()
         .set_header("Choose the kind of role to activate")
-        .pick_one()?
+        .pick_one(vec![PimKind::Entra, PimKind::AzureRM])?
     {
         PimKind::Entra => pim_activate_entra().await,
         PimKind::AzureRM => pim_activate_azurerm().await,
@@ -101,9 +101,9 @@ pub async fn pim_activate_entra() -> Result<()> {
         .collect_vec();
 
     info!("Prompting user choice");
-    let chosen_roles = PickerTui::from(activatable_assignments)
+    let chosen_roles = PickerTui::new()
         .set_header("Choose roles to activate")
-        .pick_many()?;
+        .pick_many(activatable_assignments)?;
 
     info!("Fetching maximum activation durations");
     let mut max_duration = Duration::MAX;
@@ -117,16 +117,12 @@ pub async fn pim_activate_entra() -> Result<()> {
     }
 
     info!("Maximum duration is {}", format_duration(max_duration));
-    let chosen_duration: Duration = PickerTui::new(
-        build_duration_choices(&max_duration)
-            .into_iter()
-            .map(|d| Choice {
-                key: format_duration(d).to_string(),
-                value: d,
-            }),
-    )
-    .set_header("Duration to activate PIM for")
-    .pick_one()?;
+    let chosen_duration: Duration = PickerTui::new()
+        .set_header("Duration to activate PIM for")
+        .pick_one(build_duration_choices(&max_duration).into_iter().map(|d| Choice {
+            key: format_duration(d).to_string(),
+            value: d,
+        }))?;
     info!("Chosen duration is {}", format_duration(chosen_duration));
 
     let justification = prompt_line("Justification: ").await?;
@@ -146,12 +142,12 @@ pub async fn pim_activate_entra() -> Result<()> {
 pub async fn pim_activate_azurerm() -> Result<()> {
     info!("Fetching role eligibility schedules");
     let possible_roles = fetch_my_role_eligibility_schedules().await?;
-    let chosen_roles = PickerTui::from(possible_roles.into_iter().map(|x| Choice {
-        key: x.to_string(),
-        value: x,
-    }))
-    .set_header("Choose roles to activate")
-    .pick_many()?;
+    let chosen_roles = PickerTui::new()
+        .set_header("Choose roles to activate")
+        .pick_many(possible_roles.into_iter().map(|x| Choice {
+            key: x.to_string(),
+            value: x,
+        }))?;
 
     let chosen_roles_display = chosen_roles
         .iter()
@@ -176,9 +172,9 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         );
         Choice { key, value: r }
     });
-    let chosen_scopes = PickerTui::from(possible_scopes)
+    let chosen_scopes = PickerTui::new()
         .set_header(format!("Activating {chosen_roles_display}"))
-        .pick_many()?;
+        .pick_many(possible_scopes)?;
 
     info!("Fetching maximum eligible duration");
     let mut maximum_duration = Duration::MAX;
@@ -198,16 +194,12 @@ pub async fn pim_activate_azurerm() -> Result<()> {
     }
 
     info!("Maximum duration is {}", format_duration(maximum_duration));
-    let chosen_duration: Duration = PickerTui::new(
-        build_duration_choices(&maximum_duration)
-            .into_iter()
-            .map(|d| Choice {
-                key: format_duration(d).to_string(),
-                value: d,
-            }),
-    )
-    .set_header("Duration to activate PIM for")
-    .pick_one()?;
+    let chosen_duration: Duration = PickerTui::new()
+        .set_header("Duration to activate PIM for")
+        .pick_one(build_duration_choices(&maximum_duration).into_iter().map(|d| Choice {
+            key: format_duration(d).to_string(),
+            value: d,
+        }))?;
     info!("Chosen duration is {}", format_duration(chosen_duration));
 
     let justification = prompt_line("Justification: ").await?;

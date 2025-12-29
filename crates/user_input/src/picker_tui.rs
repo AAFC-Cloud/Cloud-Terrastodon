@@ -1,7 +1,7 @@
 use crate::Choice;
+use crate::IntoChoices;
 use crate::PickError;
 use crate::PickResult;
-use cloud_terrastodon_command::InvalidatableCache;
 use compact_str::CompactString;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
@@ -33,42 +33,11 @@ use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use std::io::BufWriter;
 use std::io::stderr;
-use std::pin::Pin;
 use std::sync::Arc;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
 
-/// Used to supply choices to a [`PickerTui`] after a reload command from the user.
-/// This will always invalidate the cache before supplying new choices.
-/// The initial choices for the [`PickerTui`] should be created without using this type to avoid cache invalidation on first load.
-pub trait ChoiceSupplier<T> {
-    fn supply_choices(
-        &mut self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = eyre::Result<Vec<Choice<T>>>> + Send + 'static>>;
-}
-impl<T, C, O, E> ChoiceSupplier<T> for C
-where
-    C: Clone + InvalidatableCache + IntoFuture<Output = eyre::Result<O>, IntoFuture = Pin<Box<dyn Future<Output = eyre::Result<O>> + Send>>>,
-    O: IntoIterator<Item = E> + 'static,
-    E: Into<Choice<T>>,
-{
-    fn supply_choices(
-        &mut self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = eyre::Result<Vec<Choice<T>>>> + Send + 'static>> {
-        let invalidation = self.invalidate_cache();
-        let fut = self.clone().into_future();
-        Box::pin(async move {
-            invalidation.await?;
-            Ok(fut.await?.into_iter().map(Into::into).collect())
-        })
-    }
-}
-
-pub struct PickerTui<T> {
-    /// The list of items being chosen from
-    pub choices: Vec<Choice<T>>,
-    /// The function to reload choices
-    pub reload_command: Option<Box<dyn ChoiceSupplier<T>>>,
+pub struct PickerTui {
     /// The current query
     pub query_text_area: TextArea<'static>,
     /// The previous query, used to determine if the query has changed
@@ -81,52 +50,34 @@ pub struct PickerTui<T> {
     pub auto_accept: bool,
 }
 
-impl<T, I> From<I> for PickerTui<T>
-where
-    I: IntoIterator<Item = Choice<T>>,
-{
-    /// This has stronger type inference than [`PickerTui::new`]
-    fn from(choices: I) -> Self {
-        Self::new(choices)
-    }
-}
-
-type Key = CompactString;
-
-impl<T> PickerTui<T> {
-    pub fn new<E: Into<Choice<T>>>(choices: impl IntoIterator<Item = E>) -> Self {
-        let rtn = Self {
-            choices: choices.into_iter().map(Into::into).collect(),
-            reload_command: None,
-            query_text_area: Self::build_text_area(""),
+impl Default for PickerTui {
+    fn default() -> Self {
+        Self {
+            query_text_area: PickerTui::build_text_area(""),
             previous_query: Default::default(),
             header: Default::default(),
             query_changed: false,
             auto_accept: true,
-        };
-        #[cfg(debug_assertions)]
-        {
-            if rtn.choices.iter().any(|c| c.key.contains('\t')) {
-                tracing::warn!(
-                    "Warning: Some choice keys contain tab characters, which may render poorly in the TUI"
-                );
-                println!("Press Enter to continue...");
-                let _: Result<_, _> = std::io::stdin().read_line(&mut String::new());
-            }
         }
-        rtn
     }
+}
 
-    pub async fn new_reloadable<C, O, E>(command: C) -> eyre::Result<Self>
-    where
-        C: 'static + Clone + InvalidatableCache + IntoFuture<Output = eyre::Result<O>, IntoFuture = Pin<Box<dyn Future<Output = eyre::Result<O>> + Send>>>,
-        O: IntoIterator<Item = E> + 'static,
-        E: Into<Choice<T>>,
+fn check_choices<T>(choices: &Vec<Choice<T>>) {
+    #[cfg(debug_assertions)]
     {
-        let choices = command.clone().await?;
-        let mut this = Self::new(choices);
-        this.reload_command = Some(Box::new(command));
-        Ok(this)
+        if choices.iter().any(|c| c.key.contains('\t')) {
+            tracing::warn!(
+                "Warning: Some choice keys contain tab characters, which may render poorly in the TUI"
+            );
+            println!("Press Enter to continue...");
+            let _: Result<_, _> = std::io::stdin().read_line(&mut String::new());
+        }
+    }
+}
+
+impl PickerTui {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     fn build_text_area(query: &str) -> TextArea<'static> {
@@ -153,26 +104,31 @@ impl<T> PickerTui<T> {
         self
     }
 
-    pub fn pick_one(self) -> PickResult<T> {
-        match self.pick_inner(false) {
+    pub fn pick_one<T>(self, choices: impl IntoChoices<T>) -> PickResult<T> {
+        match self.pick_inner(false, choices) {
             Ok(mut items) => Ok(items.pop().unwrap()),
             Err(e) => Err(e),
         }
     }
-    pub fn pick_many(self) -> PickResult<Vec<T>> {
-        self.pick_inner(true)
+    pub fn pick_many<T>(self, choices: impl IntoChoices<T>) -> PickResult<Vec<T>> {
+        self.pick_inner(true, choices)
     }
 
-    pub fn pick_inner(mut self, many: bool) -> PickResult<Vec<T>> {
+    pub fn pick_inner<T>(mut self, many: bool, choices: impl IntoChoices<T>) -> PickResult<Vec<T>> {
+        let mut choices = choices.into_choices();
+        check_choices(&choices);
+
         // Short circuit if applicable
-        match (self.choices.len(), self.auto_accept) {
+        match (choices.len(), self.auto_accept) {
             (0, _) => return Err(PickError::NoChoicesProvided),
             (1, true) => {
-                let choice = self.choices.remove(0);
+                let choice = choices.remove(0);
                 return Ok(vec![choice.value]);
             }
             _ => {}
         }
+
+        type Key = CompactString;
 
         // Prepare the search engine
         let mut nucleo: Nucleo<Key> =
@@ -180,8 +136,8 @@ impl<T> PickerTui<T> {
 
         // Build our lookup table and inject the keys into the search engine
         let mut choice_map: FxHashMap<Key, T> =
-            FxHashMap::with_capacity_and_hasher(self.choices.len(), FxBuildHasher);
-        for choice in self.choices {
+            FxHashMap::with_capacity_and_hasher(choices.len(), FxBuildHasher);
+        for choice in choices {
             let key: Key = choice.key.into();
             choice_map.insert(key.clone(), choice.value);
             nucleo.injector().push(key, |x, cols| {
@@ -229,6 +185,9 @@ impl<T> PickerTui<T> {
                         // Send cancellation
                         marked_for_return.clear();
                         break;
+                    }
+                    KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        // Reload choices
                     }
                     KeyCode::Up => {
                         list_state.select_previous();
@@ -433,6 +392,7 @@ impl<T> PickerTui<T> {
 mod test {
     use super::PickerTui;
     use crate::Choice;
+    use std::sync::atomic::Ordering;
 
     #[derive(Debug)]
     #[allow(dead_code)]
@@ -450,9 +410,9 @@ mod test {
     #[ignore]
     pub fn it_works() -> eyre::Result<()> {
         let items = vec!["dog", "cat", "house", "pickle", "mouse"];
-        let results = PickerTui::new(items)
+        let results = PickerTui::new()
             .set_header("Select an item")
-            .pick_one()?;
+            .pick_one(items)?;
         dbg!(results);
         Ok(())
     }
@@ -478,9 +438,9 @@ mod test {
                 value: 4,
             },
         ];
-        let results = PickerTui::new(items)
+        let results = PickerTui::new()
             .set_header("Select an item")
-            .pick_many()?;
+            .pick_many(items)?;
         dbg!(results);
         Ok(())
     }
@@ -506,9 +466,9 @@ mod test {
                 value: 4,
             },
         ];
-        let results = PickerTui::new(items)
+        let results = PickerTui::new()
             .set_header("Select an item")
-            .pick_many()?;
+            .pick_many(items)?;
         dbg!(results);
         Ok(())
     }
@@ -516,10 +476,10 @@ mod test {
     #[test]
     #[ignore]
     pub fn it_works3() -> eyre::Result<()> {
-        let results = PickerTui::new(1..10_000_000)
+        let results = PickerTui::new()
             .set_header("Select some numbers")
             .set_query("100")
-            .pick_many()?;
+            .pick_many(1..10_000_000)?;
         dbg!(results);
         Ok(())
     }
@@ -527,22 +487,22 @@ mod test {
     #[test]
     #[ignore]
     pub fn it_works4() -> eyre::Result<()> {
-        let results = PickerTui::<usize>::new([
-            Choice {
-                key: "one\none".into(),
-                value: 1,
-            },
-            Choice {
-                key: "two\ntwo".into(),
-                value: 2,
-            },
-            Choice {
-                key: "three\nthree".into(),
-                value: 3,
-            },
-        ])
-        .set_header("Select some numbers")
-        .pick_many()?;
+        let results = PickerTui::new()
+            .set_header("Select some numbers")
+            .pick_many([
+                Choice {
+                    key: "one\none".into(),
+                    value: 1,
+                },
+                Choice {
+                    key: "two\ntwo".into(),
+                    value: 2,
+                },
+                Choice {
+                    key: "three\nthree".into(),
+                    value: 3,
+                },
+            ])?;
         dbg!(results);
         Ok(())
     }
@@ -555,10 +515,31 @@ mod test {
             key: format!("Item {}", i),
             value: i,
         });
-        let results = PickerTui::<usize>::new(items)
+        let results = PickerTui::new()
             .set_header("Select some items")
-            .pick_many()?;
+            .pick_many(items)?;
         dbg!(results);
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore]
+    pub async fn it_works_reloadable() -> eyre::Result<()> {
+        let counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let choice_generator = {
+            let counter = counter.clone();
+            async move || {
+                let count = counter.load(Ordering::Relaxed);
+                let items = (0..10).map(move |i| Choice {
+                    key: format!("Item {} (load #{})", i, count),
+                    value: i + count * 10,
+                });
+                eyre::Ok(items.collect::<Vec<Choice<usize>>>())
+            }
+        };
+        let chosen = PickerTui::new().pick_many(choice_generator().await?)?;
+        dbg!(chosen);
+
         Ok(())
     }
 }

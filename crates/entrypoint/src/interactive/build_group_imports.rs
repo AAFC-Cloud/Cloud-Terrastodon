@@ -16,9 +16,9 @@ pub async fn build_group_imports() -> Result<()> {
         .filter(|def| def.security_enabled)
         .collect_vec();
 
-    let chosen = PickerTui::new(groups)
+    let chosen = PickerTui::new()
         .set_header("Groups to import")
-        .pick_many()?;
+        .pick_many(groups)?;
 
     let imports: Vec<HclImportBlock> = chosen.into_iter().map(|x| x.into()).collect_vec();
 

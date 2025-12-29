@@ -18,7 +18,7 @@ impl AzureRoleDefinitionBrowseArgs {
             "Fetched Azure role definitions"
         );
 
-        let chosen = PickerTui::new(role_definitions).pick_many()?;
+        let chosen = PickerTui::new().pick_many(role_definitions)?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

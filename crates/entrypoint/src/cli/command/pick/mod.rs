@@ -101,10 +101,10 @@ impl PickArgs {
                     choices.push(Choice { key, value });
                 }
 
-                let rtn = PickerTui::<&Value>::new(choices)
+                let rtn = PickerTui::new()
                     .set_auto_accept(self.auto_accept)
                     .set_query(self.default_search.unwrap_or_default())
-                    .pick_inner(self.many)?;
+                    .pick_inner(self.many, choices)?;
 
                 serde_json::to_writer_pretty(std::io::stdout(), &rtn)?;
             }
@@ -123,10 +123,10 @@ impl PickArgs {
                     });
                 }
 
-                let rtn = PickerTui::<String>::new(choices)
+                let rtn = PickerTui::new()
                     .set_auto_accept(self.auto_accept)
                     .set_query(self.default_search.unwrap_or_default())
-                    .pick_inner(self.many)?;
+                    .pick_inner(self.many, choices)?;
 
                 let stdout = std::io::stdout();
                 let mut out = stdout.lock();

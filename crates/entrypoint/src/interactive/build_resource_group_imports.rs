@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::prelude::SubscriptionId;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_hcl::prelude::HclImportBlock;
+use cloud_terrastodon_hcl::prelude::HclProviderBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderReference;
 use cloud_terrastodon_hcl::prelude::HclWriter;
 use cloud_terrastodon_hcl::prelude::ProviderKind;
@@ -49,22 +50,24 @@ pub async fn build_resource_group_imports() -> Result<()> {
         };
         choices.push(choice.into());
     }
-    let chosen = PickerTui::new(choices)
+    let chosen = PickerTui::new()
         .set_header("Groups to import")
-        .pick_many()?;
+        .pick_many(choices)?;
 
     info!("Building import blocks");
-    let mut used_subscriptions = HashSet::new();
-    let mut imports = Vec::with_capacity(chosen.len());
-    for Choice { value: pair, .. } in chosen {
+    let mut imports: Vec<HclImportBlock> = Vec::with_capacity(chosen.len());
+    let mut seen_subscriptions: HashSet<SubscriptionId> = HashSet::new();
+    let mut providers: Vec<HclProviderBlock> = Vec::new();
+    for pair in chosen {
         let mut block: HclImportBlock = pair.resource_group.into();
         block.provider = HclProviderReference::Alias {
             kind: ProviderKind::AzureRM,
             name: pair.subscription.name.sanitize(),
         };
         imports.push(block);
-
-        used_subscriptions.insert(pair.subscription);
+        if seen_subscriptions.insert(pair.subscription.id.clone()) {
+            providers.push(pair.subscription.into_provider_block());
+        }
     }
     if imports.is_empty() {
         return Err(eyre!("Imports should not be empty"));
@@ -77,11 +80,6 @@ pub async fn build_resource_group_imports() -> Result<()> {
         .format_file()
         .await?;
 
-    let mut providers = Vec::new();
-    for sub in used_subscriptions {
-        let provider = sub.clone().into_provider_block();
-        providers.push(provider);
-    }
     HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .merge(providers)
         .await?

@@ -24,23 +24,23 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
         .collect::<HashMap<_, _>>();
 
     info!("Picking storage account");
-    let chosen_storage_account = PickerTui::from(storage_accounts.into_iter().map(|sa| {
-        let sub_name = subscriptions
-            .get(&sa.id.resource_group_id.subscription_id)
-            .map(|sub| sub.name.to_owned())
-            .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
-        Choice {
-            key: format!(
-                "{:<32} {:<64} {}",
-                sub_name.to_string(),
-                sa.id.resource_group_id.resource_group_name.to_string(),
-                sa.name
-            ),
-            value: (sa, sub_name),
-        }
-    }))
-    .set_header("Picking the storage account for the state file")
-    .pick_one()?;
+    let chosen_storage_account = PickerTui::new()
+        .set_header("Picking the storage account for the state file")
+        .pick_one(storage_accounts.into_iter().map(|sa| {
+            let sub_name = subscriptions
+                .get(&sa.id.resource_group_id.subscription_id)
+                .map(|sub| sub.name.to_owned())
+                .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
+            Choice {
+                key: format!(
+                    "{:<32} {:<64} {}",
+                    sub_name.to_string(),
+                    sa.id.resource_group_id.resource_group_name.to_string(),
+                    sa.name
+                ),
+                value: (sa, sub_name),
+            }
+        }))?;
 
     info!("Fetching blob containers for {}", chosen_storage_account.1);
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -62,15 +62,15 @@ pub async fn copy_azurerm_backend_menu() -> Result<()> {
         0 => {
             bail!("No blob containers found in {}", chosen_storage_account.1);
         }
-        1 => blob_container_names.first().unwrap(),
+        1 => blob_container_names.into_iter().next().unwrap(),
         _ => {
             info!("Picking blob container");
-            &PickerTui::from(blob_container_names.into_iter().map(|name| Choice {
-                key: name.to_owned(),
-                value: name,
-            }))
-            .set_header("Blob Container Name")
-            .pick_one()?
+            PickerTui::new()
+                .set_header("Blob Container Name")
+                .pick_one(blob_container_names.into_iter().map(|name| Choice {
+                    key: name.clone(),
+                    value: name,
+                }))?
         }
     };
 

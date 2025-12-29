@@ -100,9 +100,9 @@ impl Strategy {
     }
 }
 pub async fn dump_everything_inner() -> eyre::Result<()> {
-    let strategy = *PickerTui::new(Strategy::VARIANTS)
+    let strategy = *PickerTui::new()
         .set_header("Dump strategy")
-        .pick_one()?;
+        .pick_one(Strategy::VARIANTS)?;
 
     #[derive(VariantArray, Debug)]
     enum Behaviour {
@@ -140,9 +140,9 @@ pub async fn dump_everything_inner() -> eyre::Result<()> {
             }
         }
     }
-    let behaviour = PickerTui::new(Behaviour::VARIANTS)
+    let behaviour = PickerTui::new()
         .set_header("What do you want to run?")
-        .pick_one()?;
+        .pick_one(Behaviour::VARIANTS)?;
 
     let should_clean = matches!(
         behaviour,

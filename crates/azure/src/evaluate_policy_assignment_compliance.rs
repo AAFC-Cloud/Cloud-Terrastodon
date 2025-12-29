@@ -18,17 +18,12 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
     info!("Fetching policy assignments");
     let policy_assignments = fetch_all_policy_assignments().await?;
 
-    let policy_assignment: PolicyAssignment = PickerTui::new(
-        policy_assignments
-            .into_iter()
-            .distinct_by_scope()
-            .map(|ass| Choice::<PolicyAssignment> {
-                key: format!("{} {:?}", ass.name, ass.properties.display_name),
-                value: ass,
-            }),
-    )
-    .set_header("Choose policy to evaluate")
-    .pick_one()?;
+    let policy_assignment: PolicyAssignment = PickerTui::new()
+        .set_header("Choose policy to evaluate")
+        .pick_one(policy_assignments.into_iter().distinct_by_scope().map(|ass| Choice::<PolicyAssignment> {
+            key: format!("{} {:?}", ass.name, ass.properties.display_name),
+            value: ass,
+        }))?;
 
     info!(
         "Querying policy compliance for {} ({:?})",
@@ -72,16 +67,15 @@ policyResources
     .collect_all::<ReferenceIdRow>()
     .await?;
 
-    let chosen_reference_id: ReferenceIdRow =
-        PickerTui::new(reference_ids.into_iter().map(|row| Choice {
+    let chosen_reference_id: ReferenceIdRow = PickerTui::new()
+        .set_header("Choose an inner policy to review")
+        .pick_one(reference_ids.into_iter().map(|row| Choice {
             key: format!(
                 "{:64} - {:64} - {} non-compliant resources",
                 row.policy_definition_reference_id, row.resource_type, row.found
             ),
             value: row,
-        }))
-        .set_header("Choose an inner policy to review")
-        .pick_one()?;
+        }))?;
 
     info!(
         "Fetching resource compliance for {}",
@@ -139,8 +133,12 @@ policyResources
     .collect_all::<ResourceRow>()
     .await?;
 
-    let chosen_resource_id: ResourceRow =
-        PickerTui::new(resource_ids.into_iter().map(|row| Choice {
+    let chosen_resource_id: ResourceRow = PickerTui::new()
+        .set_header(format!(
+            "{} - {}",
+            chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
+        ))
+        .pick_one(resource_ids.into_iter().map(|row| Choice {
             key: format!(
                 "{:16} - {:64} - {}",
                 row.subscription_name,
@@ -151,12 +149,7 @@ policyResources
                     .unwrap_or(row.resource_id.as_str())
             ),
             value: row,
-        }))
-        .set_header(format!(
-            "{} - {}",
-            chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
-        ))
-        .pick_one()?;
+        }))?;
 
     info!(
         "You chose: {} - {}",
