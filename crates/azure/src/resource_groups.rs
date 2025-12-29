@@ -1,20 +1,25 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ResourceGroup;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CacheBehaviour;
-use cloud_terrastodon_command::HasCacheKey;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
 use std::borrow::Cow;
-use std::future::Future;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::time::Duration;
-use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct ResourceGroupsRequest;
 
-impl HasCacheKey for ResourceGroupsRequest {
+pub fn fetch_all_resource_groups() -> ResourceGroupsRequest {
+    ResourceGroupsRequest
+}
+
+#[async_trait]
+impl CacheableCommand for ResourceGroupsRequest {
+    type Output = Vec<ResourceGroup>;
+
     fn cache_key<'a>(&'a self) -> Cow<'a, PathBuf> {
         Cow::Owned(PathBuf::from_iter([
             "az",
@@ -22,52 +27,38 @@ impl HasCacheKey for ResourceGroupsRequest {
             "resource_groups",
         ]))
     }
-}
-pub fn fetch_all_resource_groups() -> ResourceGroupsRequest {
-    ResourceGroupsRequest
-}
-impl IntoFuture for ResourceGroupsRequest {
-    type Output = Result<Vec<ResourceGroup>>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        Box::pin(async move {
-            debug!("Fetching resource groups");
-            let query = indoc! {r#"
-                resourcecontainers
-                | where type =~ "microsoft.resources/subscriptions/resourcegroups"
-                | project
-                    id,
-                    location,
-                    managed_by=managedBy,
-                    name,
-                    properties,
-                    tags,
-                    subscription_id=subscriptionId
-            "#}
-            .to_owned();
-
-            let resource_groups = ResourceGraphHelper::new(
-                query,
+    async fn run(self) -> Result<Self::Output> {
+        ResourceGraphHelper::new(
+                indoc! {r#"
+                    resourcecontainers
+                    | where type =~ "microsoft.resources/subscriptions/resourcegroups"
+                    | project
+                        id,
+                        location,
+                        managed_by=managedBy,
+                        name,
+                        properties,
+                        tags,
+                        subscription_id=subscriptionId
+                "#},
                 CacheBehaviour::Some {
                     path: PathBuf::from_iter(["az", "resource_graph", "resource_groups"]),
                     valid_for: Duration::MAX,
                 },
             )
             .collect_all::<ResourceGroup>()
-            .await?;
-            debug!("Found {} resource groups", resource_groups.len());
-            Ok(resource_groups)
-        })
+            .await
     }
 }
+
+cloud_terrastodon_command::impl_cacheable_into_future!(ResourceGroupsRequest);
 
 #[cfg(test)]
 mod tests {
 
-    use cloud_terrastodon_command::InvalidatableCache;
-
     use super::*;
+    use cloud_terrastodon_command::InvalidatableCache;
+    use cloud_terrastodon_user_input::PickerTui;
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
@@ -88,10 +79,20 @@ mod tests {
         Ok(())
     }
 
-    // #[test_log::test(tokio::test)]
-    // #[ignore]
-    // async fn pick() -> Result<()> {
-    //     PickerTui::new(choices)
-    //     Ok(())
-    // }
+    #[test_log::test(tokio::test)]
+    #[ignore]
+    async fn pick() -> Result<()> {
+        let chosen = PickerTui::new()
+            .pick_many_reloadable(async |invalidate| {
+                if invalidate {
+                    fetch_all_resource_groups().invalidate_cache().await?;
+                }
+                fetch_all_resource_groups().await
+            })
+            .await?;
+        for rg in chosen {
+            println!("{}", rg.id.expanded_form());
+        }
+        Ok(())
+    }
 }

@@ -52,9 +52,9 @@ pub struct ResourceGraphQueryRestBody {
 }
 
 impl ResourceGraphHelper {
-    pub fn new(query: impl AsRef<str>, cache_behaviour: CacheBehaviour) -> Self {
+    pub fn new(query: impl Into<String>, cache_behaviour: CacheBehaviour) -> Self {
         Self {
-            query: query.as_ref().to_owned(),
+            query: query.into(),
             cache_behaviour,
             skip: None,
             index: 0,

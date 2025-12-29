@@ -27,6 +27,7 @@ chrono.workspace = true
 humantime.workspace = true
 bstr.workspace = true
 compact_str.workspace=true
+async-trait.workspace=true
 
 [dev-dependencies]
 cloud_terrastodon_user_input.workspace = true

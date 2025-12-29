@@ -6,7 +6,6 @@ use crate::interactive::prelude::browse_azure_devops_projects;
 use crate::interactive::prelude::browse_oauth2_permission_grants;
 use crate::interactive::prelude::browse_policy_assignments;
 use crate::interactive::prelude::browse_policy_definitions;
-use crate::interactive::prelude::browse_resource_groups;
 use crate::interactive::prelude::browse_resources_menu;
 use crate::interactive::prelude::browse_role_assignments;
 use crate::interactive::prelude::browse_security_groups;

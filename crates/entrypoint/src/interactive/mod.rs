@@ -49,7 +49,6 @@ pub mod prelude {
     pub use crate::interactive::browse_oauth2_permission_grants::*;
     pub use crate::interactive::browse_policy_assignments::*;
     pub use crate::interactive::browse_policy_definitions::*;
-    pub use crate::interactive::browse_resource_groups::*;
     pub use crate::interactive::browse_resources::*;
     pub use crate::interactive::browse_role_assignments::*;
     pub use crate::interactive::browse_security_groups::*;

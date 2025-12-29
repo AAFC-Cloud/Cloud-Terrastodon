@@ -12,21 +12,15 @@ pub struct AzureGroupBrowseArgs;
 
 impl AzureGroupBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
-        let chosen = PickerTui::new().pick_many_reloadable(async |invalidate| {
-            if invalidate {
-                fetch_all_resource_groups().invalidate_cache().await?;
-            }
-            fetch_all_resource_groups().await
-        }).await?;
-
-
-        let resource_groups = fetch_all_resource_groups().await?;
-        info!(
-            count = resource_groups.len(),
-            "Fetched Azure resource groups"
-        );
-
-        let chosen = PickerTui::new().pick_many(resource_groups)?;
+        let chosen = PickerTui::new()
+            .pick_many_reloadable(async |invalidate| {
+                if invalidate {
+                    fetch_all_resource_groups().invalidate_cache().await?;
+                }
+                info!("Fetching Azure resource groups...");
+                fetch_all_resource_groups().await
+            })
+            .await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

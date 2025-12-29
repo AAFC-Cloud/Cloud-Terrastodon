@@ -4,6 +4,7 @@
     async_fn_track_caller
 )]
 pub mod app_work;
+mod cachable_command;
 mod cache_key;
 mod command;
 mod command_argument;
@@ -13,6 +14,7 @@ mod no_spaces;
 mod path_mapper;
 mod work;
 
+pub use crate::cachable_command::*;
 pub use crate::cache_key::*;
 pub use crate::command::*;
 pub use crate::command_argument::*;
@@ -21,6 +23,9 @@ pub use crate::command_output::*;
 pub use crate::no_spaces::*;
 pub use crate::path_mapper::*;
 pub use crate::work::*;
+
+// Re-export async_trait for use in command implementations
+pub use async_trait::async_trait;
 
 // TODO: add a `last_used` file to cache entries so we can
 // give the user the list of recently used cache entries to
