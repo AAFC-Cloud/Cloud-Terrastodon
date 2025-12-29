@@ -1,6 +1,7 @@
 use crate::Choice;
 use crate::PickError;
 use crate::PickResult;
+use cloud_terrastodon_command::InvalidatableCache;
 use compact_str::CompactString;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
@@ -32,13 +33,42 @@ use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use std::io::BufWriter;
 use std::io::stderr;
+use std::pin::Pin;
 use std::sync::Arc;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
 
+/// Used to supply choices to a [`PickerTui`] after a reload command from the user.
+/// This will always invalidate the cache before supplying new choices.
+/// The initial choices for the [`PickerTui`] should be created without using this type to avoid cache invalidation on first load.
+pub trait ChoiceSupplier<T> {
+    fn supply_choices(
+        &mut self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = eyre::Result<Vec<Choice<T>>>> + Send + 'static>>;
+}
+impl<T, C, O, E> ChoiceSupplier<T> for C
+where
+    C: Clone + InvalidatableCache + IntoFuture<Output = eyre::Result<O>, IntoFuture = Pin<Box<dyn Future<Output = eyre::Result<O>> + Send>>>,
+    O: IntoIterator<Item = E> + 'static,
+    E: Into<Choice<T>>,
+{
+    fn supply_choices(
+        &mut self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = eyre::Result<Vec<Choice<T>>>> + Send + 'static>> {
+        let invalidation = self.invalidate_cache();
+        let fut = self.clone().into_future();
+        Box::pin(async move {
+            invalidation.await?;
+            Ok(fut.await?.into_iter().map(Into::into).collect())
+        })
+    }
+}
+
 pub struct PickerTui<T> {
     /// The list of items being chosen from
     pub choices: Vec<Choice<T>>,
+    /// The function to reload choices
+    pub reload_command: Option<Box<dyn ChoiceSupplier<T>>>,
     /// The current query
     pub query_text_area: TextArea<'static>,
     /// The previous query, used to determine if the query has changed
@@ -67,6 +97,7 @@ impl<T> PickerTui<T> {
     pub fn new<E: Into<Choice<T>>>(choices: impl IntoIterator<Item = E>) -> Self {
         let rtn = Self {
             choices: choices.into_iter().map(Into::into).collect(),
+            reload_command: None,
             query_text_area: Self::build_text_area(""),
             previous_query: Default::default(),
             header: Default::default(),
@@ -84,6 +115,18 @@ impl<T> PickerTui<T> {
             }
         }
         rtn
+    }
+
+    pub async fn new_reloadable<C, O, E>(command: C) -> eyre::Result<Self>
+    where
+        C: 'static + Clone + InvalidatableCache + IntoFuture<Output = eyre::Result<O>, IntoFuture = Pin<Box<dyn Future<Output = eyre::Result<O>> + Send>>>,
+        O: IntoIterator<Item = E> + 'static,
+        E: Into<Choice<T>>,
+    {
+        let choices = command.clone().await?;
+        let mut this = Self::new(choices);
+        this.reload_command = Some(Box::new(command));
+        Ok(this)
     }
 
     fn build_text_area(query: &str) -> TextArea<'static> {

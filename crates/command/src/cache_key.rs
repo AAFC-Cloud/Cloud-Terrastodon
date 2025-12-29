@@ -19,10 +19,10 @@ pub trait HasCacheKey {
 }
 
 pub trait InvalidatableCache {
-    fn invalidate_cache(&self) -> impl Future<Output = Result<()>> + Send;
+    fn invalidate_cache(&self) -> impl Future<Output = Result<()>> + Send + 'static;
 }
 impl<T> InvalidatableCache for T where T: HasCacheKey {
-    fn invalidate_cache(&self) -> impl Future<Output = Result<()>> + Send {
+    fn invalidate_cache(&self) -> impl Future<Output = Result<()>> + Send + 'static {
         let cache_dir = self.cache_path();
         async move {
             if cache_dir.exists() {
