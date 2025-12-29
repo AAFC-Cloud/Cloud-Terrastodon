@@ -42,11 +42,11 @@ pub fn prompt_kill_processes_using_dirs(
             .any(|ancestor| parents.contains(ancestor));
         if is_in_dir {
             let key = format!(
-                    "ID: {}, Name: {}, Path: {:?}",
-                    pid,
-                    process.name().to_string_lossy(),
-                    process.exe()
-                );
+                "ID: {}, Name: {}, Path: {:?}",
+                pid,
+                process.name().to_string_lossy(),
+                process.exe()
+            );
             to_kill.push(Choice {
                 key: key.clone(),
                 value: (key, pid, process),
@@ -56,9 +56,7 @@ pub fn prompt_kill_processes_using_dirs(
     if to_kill.is_empty() {
         return Ok(());
     }
-    let selected_to_kill = PickerTui::new()
-        .set_header(header)
-        .pick_many(to_kill)?;
+    let selected_to_kill = PickerTui::new().set_header(header).pick_many(to_kill)?;
     for (key, pid, process) in selected_to_kill {
         debug!(
             "Killing ID: {pid}, Name: {name}, Path: {path:?}",

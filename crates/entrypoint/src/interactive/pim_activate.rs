@@ -119,10 +119,14 @@ pub async fn pim_activate_entra() -> Result<()> {
     info!("Maximum duration is {}", format_duration(max_duration));
     let chosen_duration: Duration = PickerTui::new()
         .set_header("Duration to activate PIM for")
-        .pick_one(build_duration_choices(&max_duration).into_iter().map(|d| Choice {
-            key: format_duration(d).to_string(),
-            value: d,
-        }))?;
+        .pick_one(
+            build_duration_choices(&max_duration)
+                .into_iter()
+                .map(|d| Choice {
+                    key: format_duration(d).to_string(),
+                    value: d,
+                }),
+        )?;
     info!("Chosen duration is {}", format_duration(chosen_duration));
 
     let justification = prompt_line("Justification: ").await?;
@@ -196,10 +200,14 @@ pub async fn pim_activate_azurerm() -> Result<()> {
     info!("Maximum duration is {}", format_duration(maximum_duration));
     let chosen_duration: Duration = PickerTui::new()
         .set_header("Duration to activate PIM for")
-        .pick_one(build_duration_choices(&maximum_duration).into_iter().map(|d| Choice {
-            key: format_duration(d).to_string(),
-            value: d,
-        }))?;
+        .pick_one(
+            build_duration_choices(&maximum_duration)
+                .into_iter()
+                .map(|d| Choice {
+                    key: format_duration(d).to_string(),
+                    value: d,
+                }),
+        )?;
     info!("Chosen duration is {}", format_duration(chosen_duration));
 
     let justification = prompt_line("Justification: ").await?;

@@ -34,10 +34,15 @@ pub async fn browse_security_groups() -> Result<()> {
 
     let actions = PickerTui::new()
         .set_header("Would you like any other details?")
-        .pick_many(SecurityGroupAction::VARIANTS.iter().copied().map(|action| Choice {
-            key: format!("{action:?}"),
-            value: action,
-        }))?;
+        .pick_many(
+            SecurityGroupAction::VARIANTS
+                .iter()
+                .copied()
+                .map(|action| Choice {
+                    key: format!("{action:?}"),
+                    value: action,
+                }),
+        )?;
 
     info!(
         "You chose:\n{}",

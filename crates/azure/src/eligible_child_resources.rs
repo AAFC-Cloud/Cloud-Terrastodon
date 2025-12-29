@@ -187,8 +187,8 @@ mod tests {
         else {
             return Ok(());
         };
-        let chosen: Vec<Choice<EligibleChildResource>> = PickerTui::new()
-            .pick_many(resources.into_iter().map(|x| Choice {
+        let chosen: Vec<Choice<EligibleChildResource>> =
+            PickerTui::new().pick_many(resources.into_iter().map(|x| Choice {
                 key: x.to_string(),
                 value: x,
             }))?;

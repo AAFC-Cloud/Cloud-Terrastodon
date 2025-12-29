@@ -20,14 +20,11 @@ pub async fn tag_resources_menu() -> eyre::Result<()> {
             key: rg.id.expanded_form().to_string(),
             value: rg,
         }))?;
-    let resources = fetch_all_resources()
-        .await?
-        .into_iter()
-        .filter(|res| {
-            res.id
-                .expanded_form()
-                .starts_with(&resource_group.id.expanded_form())
-        });
+    let resources = fetch_all_resources().await?.into_iter().filter(|res| {
+        res.id
+            .expanded_form()
+            .starts_with(&resource_group.id.expanded_form())
+    });
     let resources = PickerTui::new()
         .set_header("Choose resources to tag")
         .pick_many(resources.map(|r| Choice {

@@ -29,7 +29,7 @@ impl QueryEngine {
             QueryEngine::JsonPath => {
                 // TODO: pretty print since picker tui should support multi-line keys
                 Ok(serde_json::to_string(&data.query(query)?)?)
-            },
+            }
             QueryEngine::JmesPath => {
                 let expr = jmespath::compile(query)?;
                 let result = expr.search(data)?;

@@ -10,8 +10,8 @@ use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
 use itertools::Itertools;
 use std::cmp::Ordering;
-use std::fmt;
 use std::collections::HashMap;
+use std::fmt;
 use tokio::try_join;
 
 #[derive(Debug)]
@@ -46,12 +46,14 @@ impl Ord for Grant {
         self.grant
             .client_id
             .cmp(&other.grant.client_id)
-            .then_with(|| match (&self.grant.principal_id, &other.grant.principal_id) {
-                (Some(a), Some(b)) => a.cmp(b),
-                (None, None) => Ordering::Equal,
-                (Some(_), None) => Ordering::Greater,
-                (None, Some(_)) => Ordering::Less,
-            })
+            .then_with(
+                || match (&self.grant.principal_id, &other.grant.principal_id) {
+                    (Some(a), Some(b)) => a.cmp(b),
+                    (None, None) => Ordering::Equal,
+                    (Some(_), None) => Ordering::Greater,
+                    (None, Some(_)) => Ordering::Less,
+                },
+            )
     }
 }
 
@@ -114,13 +116,10 @@ pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Grant>> {
             })
         })
         .collect::<eyre::Result<Vec<Grant>>>()?;
-    let choices = grants
-        .into_iter()
-        .sorted_unstable()
-        .map(|g| Choice {
-            key: g.to_string(),
-            value: g,
-        });
+    let choices = grants.into_iter().sorted_unstable().map(|g| Choice {
+        key: g.to_string(),
+        value: g,
+    });
     let chosen = PickerTui::new()
         .set_header("Pick the items to browse")
         .pick_many(choices)?;

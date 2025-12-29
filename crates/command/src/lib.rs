@@ -23,7 +23,6 @@ pub use crate::command_output::*;
 pub use crate::no_spaces::*;
 pub use crate::path_mapper::*;
 pub use crate::work::*;
-
 // Re-export async_trait for use in command implementations
 pub use async_trait::async_trait;
 

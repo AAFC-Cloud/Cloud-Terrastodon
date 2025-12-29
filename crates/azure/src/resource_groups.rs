@@ -1,7 +1,7 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ResourceGroup;
-use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
@@ -29,7 +29,7 @@ impl CacheableCommand for ResourceGroupsRequest {
     }
     async fn run(self) -> Result<Self::Output> {
         ResourceGraphHelper::new(
-                indoc! {r#"
+            indoc! {r#"
                     resourcecontainers
                     | where type =~ "microsoft.resources/subscriptions/resourcegroups"
                     | project
@@ -41,13 +41,13 @@ impl CacheableCommand for ResourceGroupsRequest {
                         tags,
                         subscription_id=subscriptionId
                 "#},
-                CacheBehaviour::Some {
-                    path: PathBuf::from_iter(["az", "resource_graph", "resource_groups"]),
-                    valid_for: Duration::MAX,
-                },
-            )
-            .collect_all::<ResourceGroup>()
-            .await
+            CacheBehaviour::Some {
+                path: PathBuf::from_iter(["az", "resource_graph", "resource_groups"]),
+                valid_for: Duration::MAX,
+            },
+        )
+        .collect_all::<ResourceGroup>()
+        .await
     }
 }
 

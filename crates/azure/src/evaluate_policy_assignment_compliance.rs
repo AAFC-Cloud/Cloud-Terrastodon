@@ -20,10 +20,15 @@ pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
 
     let policy_assignment: PolicyAssignment = PickerTui::new()
         .set_header("Choose policy to evaluate")
-        .pick_one(policy_assignments.into_iter().distinct_by_scope().map(|ass| Choice::<PolicyAssignment> {
-            key: format!("{} {:?}", ass.name, ass.properties.display_name),
-            value: ass,
-        }))?;
+        .pick_one(
+            policy_assignments
+                .into_iter()
+                .distinct_by_scope()
+                .map(|ass| Choice::<PolicyAssignment> {
+                    key: format!("{} {:?}", ass.name, ass.properties.display_name),
+                    value: ass,
+                }),
+        )?;
 
     info!(
         "Querying policy compliance for {} ({:?})",

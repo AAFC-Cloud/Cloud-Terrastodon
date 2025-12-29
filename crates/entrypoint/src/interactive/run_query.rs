@@ -66,8 +66,7 @@ resources
 
         let run_another_query = "run another query";
         let return_to_menu = "return to menu";
-        let next = PickerTui::new()
-            .pick_one(vec![run_another_query, return_to_menu])?;
+        let next = PickerTui::new().pick_one(vec![run_another_query, return_to_menu])?;
         match next {
             x if x == run_another_query => continue,
             x if x == return_to_menu => return Ok(()),

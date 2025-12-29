@@ -453,10 +453,15 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
     let chosen_resources: Vec<&Resource> = match beginning {
         MyChoice::ResourceGroups => PickerTui::new()
             .set_header("Pick the resources to find the owners for")
-            .pick_many(resources.iter().filter(|resource| resource.kind.is_resource_group()).map(|resource| Choice {
-                key: resource.id.expanded_form().to_string(),
-                value: resource,
-            }))?,
+            .pick_many(
+                resources
+                    .iter()
+                    .filter(|resource| resource.kind.is_resource_group())
+                    .map(|resource| Choice {
+                        key: resource.id.expanded_form().to_string(),
+                        value: resource,
+                    }),
+            )?,
         MyChoice::AllResources => PickerTui::new()
             .set_header("Pick the resources to find the owners for")
             .pick_many(resources.iter().map(|resource| Choice {
@@ -515,14 +520,10 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
             ClueAction::PeekClueDetails => {
                 let clues = PickerTui::new()
                     .set_header("What clues do you want to see the details for?")
-                    .pick_many(traversal_context
-                        .clues
-                        .iter()
-                        .cloned()
-                        .map(|clue| Choice {
-                            key: clue.to_string(),
-                            value: clue,
-                        }))?;
+                    .pick_many(traversal_context.clues.iter().cloned().map(|clue| Choice {
+                        key: clue.to_string(),
+                        value: clue,
+                    }))?;
                 info!("You chose:\n{clues:#?}");
                 press_enter_to_continue().await?;
             }
