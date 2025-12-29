@@ -12,24 +12,38 @@ use strum::Display;
 #[derive(Debug, Clone, clap::ValueEnum, Display, Default)]
 #[strum(serialize_all = "kebab-case")]
 pub enum QueryEngine {
-    /// See https://crates.io/crates/jsonpath-rust for syntax details.
-    /// For example, `$[*].name` to select all `name` fields from an array of objects.
+    /// See https://crates.io/crates/jsonpath-rust for details.
+    /// Example: `$..['name', 'description']`
     JsonPath,
-    /// See https://jmespath.org/ and https://crates.io/crates/jmespath for syntax details.
+    /// See https://jmespath.org/ and https://crates.io/crates/jmespath for details.
+    /// Example: `[name, age]`
     #[default]
     JmesPath,
+    /// See https://github.com/cobalt-org/liquid-rust for details.
+    /// Example: `{{ name }} {{ description }}`
+    Liquid,
 }
 impl QueryEngine {
     pub fn query(&self, data: &Value, query: &str) -> Result<String> {
         match self {
-            QueryEngine::JsonPath => Ok(serde_json::to_string(&data.query(query)?)?),
+            QueryEngine::JsonPath => {
+                // TODO: pretty print since picker tui should support multi-line keys
+                Ok(serde_json::to_string(&data.query(query)?)?)
+            },
             QueryEngine::JmesPath => {
                 let expr = jmespath::compile(query)?;
                 let result = expr.search(data)?;
                 match *result {
                     Variable::String(ref s) => Ok(s.to_owned()),
+                    // TODO: pretty print since picker tui should support multi-line keys
                     _ => Ok(serde_json::to_string(&result)?),
                 }
+            }
+            QueryEngine::Liquid => {
+                let template = liquid::ParserBuilder::with_stdlib().build()?.parse(query)?;
+                let globals = liquid::to_object(data)?;
+                let rendered = template.render(&globals)?;
+                Ok(rendered)
             }
         }
     }
@@ -51,10 +65,10 @@ pub enum PickMode {
 #[derive(Args, Debug, Clone, Default)]
 pub struct PickArgs {
     /// Query to be passed to the query engine, determines the display value for the choices
-    #[clap(long, short = 'q', default_value = "$[*]")]
+    #[clap(long, short = 'q', default_value = "*")]
     pub query: String,
     /// Query engine to use
-    #[clap(long, short = 'e', default_value_t = QueryEngine::JmesPath)]
+    #[clap(long, short = 'e', default_value_t = Default::default())]
     pub engine: QueryEngine,
     /// Input parsing mode (auto | json | lines)
     #[clap(long, value_enum, default_value_t = PickMode::Auto)]
@@ -137,6 +151,42 @@ impl PickArgs {
             PickMode::Auto => unreachable!("PickMode::Auto should be resolved before matching"),
         }
 
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::cli::pick::QueryEngine;
+    use clap::ValueEnum;
+    use serde_json::json;
+
+    #[test]
+    fn it_works() -> eyre::Result<()> {
+        let example_obj = json!({
+            "name": "Alice",
+            "age": 30,
+            "description": "A software developer"
+        });
+        for engine in QueryEngine::value_variants() {
+            let possible_value = engine.to_possible_value().unwrap();
+            let styled_help_text = possible_value.get_help().unwrap();
+            let mut found_example = false;
+            for line in styled_help_text.to_string().lines() {
+                if let Some(idx) = line.find("Example: `") {
+                    let example = &line[idx + "Example: `".len()..line.len() - 1];
+                    let result = engine.query(&example_obj, example)?;
+                    println!(
+                        "Engine: {}, Example: {}, Result: {}",
+                        engine, example, result
+                    );
+                    found_example = true;
+                }
+            }
+            if !found_example {
+                eyre::bail!("No example found for engine {}", engine);
+            }
+        }
         Ok(())
     }
 }

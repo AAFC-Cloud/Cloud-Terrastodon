@@ -12,11 +12,12 @@ use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::event::KeyModifiers;
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::EnterAlternateScreen;
+use ratatui::crossterm::terminal::LeaveAlternateScreen;
+use ratatui::crossterm::terminal::disable_raw_mode;
 use ratatui::crossterm::terminal::enable_raw_mode;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
 use ratatui::prelude::CrosstermBackend;
-use ratatui::restore;
 use ratatui::style::Color;
 use ratatui::style::Style;
 use ratatui::style::Stylize;
@@ -148,12 +149,41 @@ impl PickerTui {
         // Track what items we will return
         let mut marked_for_return: FxHashSet<Key> = Default::default();
 
-        // Enter ratatui using stderr
-        let hook = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |info| {
-            restore();
-            hook(info);
-        }));
+        // Take the panic hook so we can restore the terminal on panic
+        let hook = Arc::new(std::panic::take_hook());
+        let hook_for_restore = hook.clone();
+
+        // Create helper for restoring terminal and restoring panic hook
+        let ratatui_restore = || {
+            // Disable raw mode
+            if let Err(e) = disable_raw_mode() {
+                eprintln!("Failed to disable raw mode: {e}");
+            }
+
+            // Leave alternate screen
+            if let Err(e) = execute!(stderr(), LeaveAlternateScreen) {
+                eprintln!("Failed to leave alternate screen: {e}");
+            }
+
+            // Restore original panic hook
+            std::panic::set_hook(Box::new(move |info| {
+                hook_for_restore(info);
+            }));
+        };
+
+        // Set panic hook to restore terminal on panic
+        {
+            let ratatui_restore = ratatui_restore.clone();
+            std::panic::set_hook(Box::new(move |info| {
+                // Restore terminal
+                (ratatui_restore.clone())();
+
+                // Call original panic hook
+                hook(info);
+            }));
+        }
+
+        // Enter ratatui manually becase we want to use stderr instead of stdout
         enable_raw_mode()?;
         execute!(stderr(), EnterAlternateScreen)?;
         // https://blog.orhun.dev/stdout-vs-stderr/
@@ -372,7 +402,9 @@ impl PickerTui {
                 }
             })?;
         }
-        ratatui::restore();
+
+        // Restore ratatui manually using stderr instead of stdout
+        ratatui_restore();
 
         if marked_for_return.is_empty() {
             return Err(PickError::Cancelled);
