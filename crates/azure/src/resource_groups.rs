@@ -65,6 +65,8 @@ impl IntoFuture for ResourceGroupsRequest {
 #[cfg(test)]
 mod tests {
 
+    use cloud_terrastodon_command::InvalidatableCache;
+
     use super::*;
 
     #[test_log::test(tokio::test)]
@@ -78,4 +80,18 @@ mod tests {
         }
         Ok(())
     }
+
+    #[test_log::test(tokio::test)]
+    #[ignore]
+    async fn invalidation() -> Result<()> {
+        fetch_all_resource_groups().invalidate_cache().await?;
+        Ok(())
+    }
+
+    // #[test_log::test(tokio::test)]
+    // #[ignore]
+    // async fn pick() -> Result<()> {
+    //     PickerTui::new(choices)
+    //     Ok(())
+    // }
 }

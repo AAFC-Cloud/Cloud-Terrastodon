@@ -81,7 +81,7 @@ pub struct CommandBuilder {
     pub(crate) cache_behaviour: CacheBehaviour,
     pub(crate) should_announce: bool,
     pub(crate) timeout: Option<Duration>,
-    pub(crate) stdin_content: Option<String>, // Added field for stdin content
+    pub(crate) stdin_content: Option<String>,
 }
 
 static LOGIN_LOCK: OnceCell<Arc<Mutex<()>>> = OnceCell::const_new();
