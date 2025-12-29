@@ -12,7 +12,7 @@
 - Fix `ct pick` using stdout instead of stderr when restoring from Ratatui
 - Fix `ct pick` default query not being valid after changing default engine to `jmes-path`
 - Add `ct pick --engine liquid` for using [liquid](https://github.com/cobalt-org/liquid-rust)
-- Add `pick_many_reloadable` to `PickerTui` to enable easy ctrl+r support for refreshing the list of choices
+- Add `fn pick_*_reloadable` to `PickerTui` to enable easy ctrl+r support for refreshing the list of choices
 
 # v0.30.0
 

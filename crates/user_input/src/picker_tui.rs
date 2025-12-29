@@ -32,11 +32,11 @@ use ratatui::widgets::Widget;
 use rustc_hash::FxBuildHasher;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
-use tracing::Instrument;
-use tracing::debug_span;
 use std::io::BufWriter;
 use std::io::stderr;
 use std::sync::Arc;
+use tracing::Instrument;
+use tracing::debug_span;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
 
@@ -110,7 +110,29 @@ impl PickerTui {
         self.pick_inner(true, choices)
     }
 
+    pub async fn pick_one_reloadable<T, F, C>(&self, choice_supplier: F) -> PickResult<T>
+    where
+        F: AsyncFn(bool) -> eyre::Result<C>,
+        C: IntoChoices<T>,
+    {
+        self.pick_inner_reloadable(false, choice_supplier)
+            .await
+            .map(|mut items| items.pop().unwrap())
+    }
+
     pub async fn pick_many_reloadable<T, F, C>(&self, choice_supplier: F) -> PickResult<Vec<T>>
+    where
+        F: AsyncFn(bool) -> eyre::Result<C>,
+        C: IntoChoices<T>,
+    {
+        self.pick_inner_reloadable(true, choice_supplier).await
+    }
+
+    pub async fn pick_inner_reloadable<T, F, C>(
+        &self,
+        many: bool,
+        choice_supplier: F,
+    ) -> PickResult<Vec<T>>
     where
         F: AsyncFn(bool) -> eyre::Result<C>,
         C: IntoChoices<T>,
@@ -121,7 +143,7 @@ impl PickerTui {
                 .instrument(debug_span!("picker tui choice supplier"))
                 .await
                 .map_err(PickError::Eyre)?;
-            match self.pick_inner(true, choices) {
+            match self.pick_inner(many, choices) {
                 Ok(items) => return Ok(items),
                 Err(PickError::ReloadRequested) => {
                     should_invalidate_cache = true;
