@@ -1161,7 +1161,6 @@ dependencies = [
 name = "cloud_terrastodon_user_input"
 version = "0.30.0"
 dependencies = [
- "cloud_terrastodon_command",
  "compact_str 0.9.0",
  "eyre",
  "indexmap",

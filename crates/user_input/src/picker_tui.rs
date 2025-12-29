@@ -32,6 +32,8 @@ use ratatui::widgets::Widget;
 use rustc_hash::FxBuildHasher;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
+use tracing::Instrument;
+use tracing::debug_span;
 use std::io::BufWriter;
 use std::io::stderr;
 use std::sync::Arc;
@@ -39,14 +41,10 @@ use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
 
 pub struct PickerTui {
-    /// The current query
-    pub query_text_area: TextArea<'static>,
-    /// The previous query, used to determine if the query has changed
-    pub previous_query: Option<String>,
+    /// The default value of the query text area
+    pub default_query: String,
     /// The header text to indicate to the user what is being chosen
     pub header: Option<String>,
-    /// Determines if the query should be pushed to the search engine
-    pub query_changed: bool,
     /// If there is zero or one options, automatically accept the choice
     pub auto_accept: bool,
 }
@@ -54,10 +52,8 @@ pub struct PickerTui {
 impl Default for PickerTui {
     fn default() -> Self {
         Self {
-            query_text_area: PickerTui::build_text_area(""),
-            previous_query: Default::default(),
+            default_query: Default::default(),
             header: Default::default(),
-            query_changed: false,
             auto_accept: true,
         }
     }
@@ -99,23 +95,44 @@ impl PickerTui {
     }
 
     pub fn set_query(mut self, query: impl Into<String>) -> Self {
-        self.query_text_area = Self::build_text_area(query.into().as_str());
-        self.previous_query = None;
-        self.query_changed = true;
+        self.default_query = query.into();
         self
     }
 
-    pub fn pick_one<T>(self, choices: impl IntoChoices<T>) -> PickResult<T> {
+    pub fn pick_one<T>(&self, choices: impl IntoChoices<T>) -> PickResult<T> {
         match self.pick_inner(false, choices) {
             Ok(mut items) => Ok(items.pop().unwrap()),
             Err(e) => Err(e),
         }
     }
-    pub fn pick_many<T>(self, choices: impl IntoChoices<T>) -> PickResult<Vec<T>> {
+
+    pub fn pick_many<T>(&self, choices: impl IntoChoices<T>) -> PickResult<Vec<T>> {
         self.pick_inner(true, choices)
     }
 
-    pub fn pick_inner<T>(mut self, many: bool, choices: impl IntoChoices<T>) -> PickResult<Vec<T>> {
+    pub async fn pick_many_reloadable<T, F, C>(&self, choice_supplier: F) -> PickResult<Vec<T>>
+    where
+        F: AsyncFn(bool) -> eyre::Result<C>,
+        C: IntoChoices<T>,
+    {
+        let mut should_invalidate_cache = false;
+        loop {
+            let choices = choice_supplier(should_invalidate_cache)
+                .instrument(debug_span!("picker tui choice supplier"))
+                .await
+                .map_err(PickError::Eyre)?;
+            match self.pick_inner(true, choices) {
+                Ok(items) => return Ok(items),
+                Err(PickError::ReloadRequested) => {
+                    should_invalidate_cache = true;
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    pub fn pick_inner<T>(&self, many: bool, choices: impl IntoChoices<T>) -> PickResult<Vec<T>> {
         let mut choices = choices.into_choices();
         check_choices(&choices);
 
@@ -197,8 +214,22 @@ impl PickerTui {
         let mut search_results_list: List = Default::default();
         let mut search_results_keys: Vec<Key> = Vec::new();
 
+        // The current query
+        let mut query_text_area: TextArea<'static> =
+            PickerTui::build_text_area(&self.default_query);
+        // The previous query, used to determine if the query has changed
+        let mut previous_query: Option<String> = None;
+        // Determines if the query should be pushed to the search engine
+        let mut query_changed: bool = true;
+
         // Main event loop
-        loop {
+        enum ReturnReason {
+            Success,
+            Cancelled,
+            Reload,
+        }
+
+        let return_reason = loop {
             // Handle keyboard input
             let mut should_rebuild_search_results_display = false;
             if event::poll(std::time::Duration::from_millis(100))?
@@ -207,17 +238,13 @@ impl PickerTui {
             {
                 match key.code {
                     KeyCode::Esc => {
-                        // Send cancellation
-                        marked_for_return.clear();
-                        break;
+                        break ReturnReason::Cancelled;
                     }
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        // Send cancellation
-                        marked_for_return.clear();
-                        break;
+                        break ReturnReason::Cancelled;
                     }
                     KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        // Reload choices
+                        break ReturnReason::Reload;
                     }
                     KeyCode::Up => {
                         list_state.select_previous();
@@ -249,7 +276,7 @@ impl PickerTui {
                             let selected_key = search_results_keys.swap_remove(selected_index);
                             marked_for_return.insert(selected_key);
                         }
-                        break;
+                        break ReturnReason::Success;
                     }
                     KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                         // Select all items
@@ -294,30 +321,30 @@ impl PickerTui {
                         list_state.select(Some(search_results_keys.len().saturating_sub(1)));
                     }
                     KeyCode::BackTab if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        self.query_changed = self.query_text_area.delete_word()
+                        query_changed = query_text_area.delete_word()
                     }
                     _ => {
                         // Send the key to the search box
-                        self.query_changed = self.query_text_area.input(key);
+                        query_changed = query_text_area.input(key);
                     }
                 }
             }
 
-            if self.query_changed {
-                let new_query = self.query_text_area.lines().join("\n");
+            if query_changed {
+                let new_query = query_text_area.lines().join("\n");
                 nucleo.pattern.reparse(
                     0,
                     &new_query,
                     CaseMatching::Smart,
                     Normalization::Smart,
-                    match &self.previous_query {
+                    match &previous_query {
                         None => false,
                         Some(previous_query) => new_query.starts_with(previous_query),
                     },
                 );
-                self.previous_query = Some(new_query);
+                previous_query = Some(new_query);
                 list_state.select_first();
-                self.query_changed = false;
+                query_changed = false;
             }
 
             // Tick the search engine and update the results
@@ -368,8 +395,7 @@ impl PickerTui {
                         choice_map.len()
                     )
                 };
-                self.query_text_area
-                    .set_block(Block::bordered().title(counts_title));
+                query_text_area.set_block(Block::bordered().title(counts_title));
                 search_results_list = List::new(search_results_display)
                     .block({
                         let mut block = Block::bordered();
@@ -393,21 +419,23 @@ impl PickerTui {
                 StatefulWidget::render(&search_results_list, list_area, buf, &mut list_state);
 
                 // Draw search box area
-                if self.query_text_area.is_empty() {
+                if query_text_area.is_empty() {
                     Paragraph::new("Type to search".gray())
                         .block(Block::bordered())
                         .render(searchbox_area, buf);
                 } else {
-                    self.query_text_area.render(searchbox_area, buf);
+                    query_text_area.render(searchbox_area, buf);
                 }
             })?;
-        }
+        };
 
         // Restore ratatui manually using stderr instead of stdout
         ratatui_restore();
 
-        if marked_for_return.is_empty() {
-            return Err(PickError::Cancelled);
+        match return_reason {
+            ReturnReason::Cancelled => return Err(PickError::Cancelled),
+            ReturnReason::Reload => return Err(PickError::ReloadRequested),
+            ReturnReason::Success => {}
         }
 
         let mut rtn: Vec<T> = Vec::with_capacity(marked_for_return.len());
@@ -560,8 +588,12 @@ mod test {
         let counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let choice_generator = {
             let counter = counter.clone();
-            async move || {
-                let count = counter.load(Ordering::Relaxed);
+            async move |invalidate| {
+                let count = if invalidate {
+                    counter.fetch_add(1, Ordering::Relaxed)
+                } else {
+                    counter.load(Ordering::Relaxed)
+                };
                 let items = (0..10).map(move |i| Choice {
                     key: format!("Item {} (load #{})", i, count),
                     value: i + count * 10,
@@ -569,7 +601,9 @@ mod test {
                 eyre::Ok(items.collect::<Vec<Choice<usize>>>())
             }
         };
-        let chosen = PickerTui::new().pick_many(choice_generator().await?)?;
+        let chosen = PickerTui::new()
+            .pick_many_reloadable(choice_generator)
+            .await?;
         dbg!(chosen);
 
         Ok(())
