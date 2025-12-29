@@ -46,23 +46,23 @@ where
                         let path = entry.path();
                         if path.is_dir() {
                             dirs.push(path);
-                        } else if let Some(file_name) = path.file_name() {
-                            if file_name == "context.txt" {
-                                let busted_path = path.with_file_name("busted");
-                                let mut file = OpenOptions::new()
-                                    .create(true)
-                                    .truncate(false)
-                                    .write(true)
-                                    .open(&busted_path)
-                                    .await
-                                    .wrap_err_with(|| {
-                                        format!(
-                                            "failed creating busted cache indicator at {}",
-                                            busted_path.display(),
-                                        )
-                                    })?;
-                                file.write_all(now.to_rfc2822().as_bytes()).await?;
-                            }
+                        } else if let Some(file_name) = path.file_name()
+                            && file_name == "context.txt"
+                        {
+                            let busted_path = path.with_file_name("busted");
+                            let mut file = OpenOptions::new()
+                                .create(true)
+                                .truncate(false)
+                                .write(true)
+                                .open(&busted_path)
+                                .await
+                                .wrap_err_with(|| {
+                                    format!(
+                                        "failed creating busted cache indicator at {}",
+                                        busted_path.display(),
+                                    )
+                                })?;
+                            file.write_all(now.to_rfc2822().as_bytes()).await?;
                         }
                     }
                 }

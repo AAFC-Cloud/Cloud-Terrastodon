@@ -65,7 +65,7 @@ pub async fn build_resource_group_imports() -> Result<()> {
             name: pair.subscription.name.sanitize(),
         };
         imports.push(block);
-        if seen_subscriptions.insert(pair.subscription.id.clone()) {
+        if seen_subscriptions.insert(pair.subscription.id) {
             providers.push(pair.subscription.into_provider_block());
         }
     }

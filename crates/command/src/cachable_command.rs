@@ -1,4 +1,5 @@
-use crate::{HasCacheKey, InvalidatableCache};
+use crate::HasCacheKey;
+use crate::InvalidatableCache;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::path::PathBuf;

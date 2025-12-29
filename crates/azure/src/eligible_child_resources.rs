@@ -170,13 +170,14 @@ mod tests {
             else {
                 return Ok(());
             };
-            let next_scope: Choice<EligibleChildResource> = PickerTui::new()
-                .set_header("Choose a scope")
-                .pick_one(resources.into_iter().map(|x| Choice {
-                    key: x.name.to_owned(),
-                    value: x,
-                }))?;
-            scope = next_scope.value.id;
+            let next_scope: EligibleChildResource =
+                PickerTui::new().set_header("Choose a scope").pick_one(
+                    resources.into_iter().map(|x| Choice {
+                        key: x.name.to_owned(),
+                        value: x,
+                    }),
+                )?;
+            scope = next_scope.id;
         }
     }
     #[test_log::test(tokio::test)]
@@ -187,7 +188,7 @@ mod tests {
         else {
             return Ok(());
         };
-        let chosen: Vec<Choice<EligibleChildResource>> =
+        let chosen: Vec<EligibleChildResource> =
             PickerTui::new().pick_many(resources.into_iter().map(|x| Choice {
                 key: x.to_string(),
                 value: x,

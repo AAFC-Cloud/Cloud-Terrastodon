@@ -9,12 +9,12 @@ pub fn main() -> eyre::Result<()> {
         choices.push(entry);
     }
 
-    let chosen = PickerTui::from(choices.into_iter().map(|entry| Choice {
-        key: entry.path().display().to_string(), // the value shown to the user
-        value: entry, // the inner value we want to have after the user picks
-    }))
-    .set_header("Pick a path")
-    .pick_one()?;
+    let chosen = PickerTui::new()
+        .set_header("Pick a path")
+        .pick_one(choices.into_iter().map(|entry| Choice {
+            key: entry.path().display().to_string(), // the value shown to the user
+            value: entry, // the inner value we want to have after the user picks
+        }))?;
 
     println!("You chose {}", chosen.file_name().to_string_lossy());
 

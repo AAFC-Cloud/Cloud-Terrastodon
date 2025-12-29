@@ -59,7 +59,7 @@ impl Default for PickerTui {
     }
 }
 
-fn check_choices<T>(choices: &Vec<Choice<T>>) {
+fn check_choices<T>(choices: &[Choice<T>]) {
     #[cfg(debug_assertions)]
     {
         if choices.iter().any(|c| c.key.contains('\t')) {

@@ -41,10 +41,10 @@ pub async fn fetch_storage_account_blob_container_names(
     Ok(rtn)
 }
 
-
 #[cfg(test)]
 mod test {
-    use crate::prelude::{fetch_all_storage_accounts, fetch_storage_account_blob_container_names};
+    use crate::prelude::fetch_all_storage_accounts;
+    use crate::prelude::fetch_storage_account_blob_container_names;
     use eyre::bail;
 
     #[tokio::test]
