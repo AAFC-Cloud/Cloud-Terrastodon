@@ -10,14 +10,14 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct ResourceGroupsRequest;
+pub struct ResourceGroupsListRequest;
 
-pub fn fetch_all_resource_groups() -> ResourceGroupsRequest {
-    ResourceGroupsRequest
+pub fn fetch_all_resource_groups() -> ResourceGroupsListRequest {
+    ResourceGroupsListRequest
 }
 
 #[async_trait]
-impl CacheableCommand for ResourceGroupsRequest {
+impl CacheableCommand for ResourceGroupsListRequest {
     type Output = Vec<ResourceGroup>;
 
     fn cache_key<'a>(&'a self) -> Cow<'a, PathBuf> {
@@ -51,12 +51,13 @@ impl CacheableCommand for ResourceGroupsRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ResourceGroupsRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ResourceGroupsListRequest);
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    use cloud_terrastodon_azure_types::prelude::Scope;
     use cloud_terrastodon_command::InvalidatableCache;
     use cloud_terrastodon_user_input::PickerTui;
 

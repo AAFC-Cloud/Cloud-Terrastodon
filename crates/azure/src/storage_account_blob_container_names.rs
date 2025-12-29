@@ -40,3 +40,23 @@ pub async fn fetch_storage_account_blob_container_names(
     let rtn = cmd.run().await?;
     Ok(rtn)
 }
+
+
+#[cfg(test)]
+mod test {
+    use crate::prelude::{fetch_all_storage_accounts, fetch_storage_account_blob_container_names};
+    use eyre::bail;
+
+    #[tokio::test]
+    pub async fn blob_works() -> eyre::Result<()> {
+        let storage_accounts = fetch_all_storage_accounts().await?;
+        for sa in storage_accounts.into_iter() {
+            if let Ok(blob_containers) = fetch_storage_account_blob_container_names(&sa.id).await {
+                println!("Storage account: {sa:#?}");
+                println!("Blob containers: {blob_containers:#?}");
+                return Ok(());
+            }
+        }
+        bail!("Failed to get any blob containers D:")
+    }
+}

@@ -1,6 +1,6 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
-use cloud_terrastodon_command::InvalidatableCache;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
@@ -14,11 +14,10 @@ impl AzureGroupBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         let chosen = PickerTui::new()
             .pick_many_reloadable(async |invalidate| {
-                if invalidate {
-                    fetch_all_resource_groups().invalidate_cache().await?;
-                }
                 info!("Fetching Azure resource groups...");
-                fetch_all_resource_groups().await
+                fetch_all_resource_groups()
+                    .run_with_invalidation(invalidate)
+                    .await
             })
             .await?;
 

@@ -1,4 +1,4 @@
-use crate::HasCacheKey;
+use crate::{HasCacheKey, InvalidatableCache};
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -9,6 +9,12 @@ pub trait CacheableCommand: Sized + 'static + Send {
 
     fn cache_key<'a>(&'a self) -> Cow<'a, PathBuf>;
     async fn run(self) -> eyre::Result<Self::Output>;
+    async fn run_with_invalidation(self, invalidate_cache: bool) -> eyre::Result<Self::Output> {
+        if invalidate_cache {
+            self.invalidate_cache().await?;
+        }
+        self.run().await
+    }
 }
 
 /// Implement `IntoFuture` for a concrete `CacheableCommand` type without repeating boilerplate.

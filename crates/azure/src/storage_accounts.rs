@@ -1,32 +1,57 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::StorageAccount;
 use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
+use indoc::indoc;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use std::time::Duration;
 
-pub async fn fetch_all_storage_accounts() -> Result<Vec<StorageAccount>> {
-    let mut query = ResourceGraphHelper::new(
-        r#"
-Resources
-| where type == "microsoft.storage/storageaccounts"
-| project id,name,kind,location,sku,properties,tags
-        "#,
-        CacheBehaviour::Some {
-            path: PathBuf::from_iter(["az", "resource_graph", "storage_accounts"]),
-            valid_for: Duration::MAX,
-        },
-    );
-    query.collect_all().await
+#[must_use = "This is a future request, you must .await it"]
+pub struct StorageAccountListRequest;
+
+pub fn fetch_all_storage_accounts() -> StorageAccountListRequest {
+    StorageAccountListRequest
 }
+
+#[async_trait]
+impl CacheableCommand for StorageAccountListRequest {
+    type Output = Vec<StorageAccount>;
+
+    fn cache_key<'a>(&'a self) -> Cow<'a, PathBuf> {
+        Cow::Owned(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "storage_accounts",
+        ]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        ResourceGraphHelper::new(
+            indoc! {r#"
+                Resources
+                | where type == "microsoft.storage/storageaccounts"
+                | project id,name,kind,location,sku,properties,tags
+            "#},
+            CacheBehaviour::Some {
+                path: PathBuf::from_iter(["az", "resource_graph", "storage_accounts"]),
+                valid_for: Duration::MAX,
+            },
+        )
+        .collect_all::<StorageAccount>()
+        .await
+    }
+}
+
+cloud_terrastodon_command::impl_cacheable_into_future!(StorageAccountListRequest);
 
 #[cfg(test)]
 mod test {
     use super::fetch_all_storage_accounts;
-    use crate::prelude::fetch_storage_account_blob_container_names;
     use crate::prelude::is_storage_account_name_available;
     use cloud_terrastodon_azure_types::prelude::Slug;
-    use eyre::bail;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -40,18 +65,5 @@ mod test {
             }
         }
         Ok(())
-    }
-
-    #[tokio::test]
-    pub async fn blob_works() -> eyre::Result<()> {
-        let storage_accounts = fetch_all_storage_accounts().await?;
-        for sa in storage_accounts.into_iter() {
-            if let Ok(blob_containers) = fetch_storage_account_blob_container_names(&sa.id).await {
-                println!("Storage account: {sa:#?}");
-                println!("Blob containers: {blob_containers:#?}");
-                return Ok(());
-            }
-        }
-        bail!("Failed to get any blob containers D:")
     }
 }
