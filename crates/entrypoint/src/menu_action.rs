@@ -1,3 +1,4 @@
+use crate::cli::azure::group::AzureGroupBrowseArgs;
 use crate::interactive::prelude::apply_processed;
 use crate::interactive::prelude::azure_devops_project_import_wizard_menu;
 use crate::interactive::prelude::browse_azure_devops_project_teams;
@@ -190,7 +191,7 @@ impl MenuAction {
         match self {
             MenuAction::ResourceGroupImportWizard => resource_group_import_wizard_menu().await?,
             MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu().await?,
-            MenuAction::BrowseResourceGroups => browse_resource_groups().await?,
+            MenuAction::BrowseResourceGroups => AzureGroupBrowseArgs.invoke().await?,
             MenuAction::BrowseRoleAssignments => browse_role_assignments().await?,
             MenuAction::BuildAllImports => {
                 write_imports_for_all_resource_groups().await?;

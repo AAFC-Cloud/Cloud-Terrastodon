@@ -5,7 +5,6 @@ mod browse_azure_devops_projects;
 mod browse_oauth2_permission_grants;
 mod browse_policy_assignments;
 mod browse_policy_definitions;
-mod browse_resource_groups;
 mod browse_resources;
 mod browse_role_assignments;
 mod browse_security_groups;

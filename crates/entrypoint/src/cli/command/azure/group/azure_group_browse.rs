@@ -1,5 +1,6 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
+use cloud_terrastodon_command::InvalidatableCache;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
@@ -7,11 +8,18 @@ use tracing::info;
 
 /// Arguments for browsing Azure resource groups.
 #[derive(Args, Debug, Clone)]
-pub struct AzureGroupBrowseArgs {}
+pub struct AzureGroupBrowseArgs;
 
 impl AzureGroupBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
-        info!("Fetching Azure resource groups...");
+        let chosen = PickerTui::new().pick_many_reloadable(async |invalidate| {
+            if invalidate {
+                fetch_all_resource_groups().invalidate_cache().await?;
+            }
+            fetch_all_resource_groups().await
+        }).await?;
+
+
         let resource_groups = fetch_all_resource_groups().await?;
         info!(
             count = resource_groups.len(),
