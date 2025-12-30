@@ -1,4 +1,3 @@
-use crate::CacheBehaviour;
 use crate::CommandArgument;
 use crate::CommandBuilder;
 pub use bstr;
@@ -114,14 +113,13 @@ impl CommandKind {
         let mut canonical_path_lookup: HashMap<PathBuf, PathBuf> = HashMap::new();
         for (adj_path, adj_content) in this.adjacent_files.iter() {
             let file_path = match &this.cache_behaviour {
-                CacheBehaviour::Some {
-                    path: cache_dir, ..
-                } => {
+                Some(cache_key) => {
                     // Cache dir has been provided
+                    let cache_dir = cache_key.path_on_disk();
                     cache_dir.ensure_dir_exists().await?;
                     cache_dir.join(adj_path)
                 }
-                CacheBehaviour::None => {
+                None => {
                     // No cache dir has been provided
                     // We will write adjacent files to temp files
                     let temp_dir = AppDir::Temp.as_path_buf();

@@ -1,7 +1,7 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::GroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -11,7 +11,7 @@ pub async fn fetch_group_owners(group_id: GroupId) -> Result<Vec<Principal>> {
     debug!("Fetching owners for group {}", group_id);
     let owners = MicrosoftGraphHelper::new(
         format!("https://graph.microsoft.com/v1.0/groups/{group_id}/owners"),
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter([
                 "ms".to_string(),
                 "graph".to_string(),
@@ -20,7 +20,7 @@ pub async fn fetch_group_owners(group_id: GroupId) -> Result<Vec<Principal>> {
                 group_id.as_hyphenated().to_string(),
             ]),
             valid_for: Duration::MAX,
-        },
+        }),
     )
     .fetch_all::<Principal>()
     .await?;

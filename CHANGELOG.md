@@ -13,6 +13,7 @@
 - Fix `ct pick` default query not being valid after changing default engine to `jmes-path`
 - Add `ct pick --engine liquid` for using [liquid](https://github.com/cobalt-org/liquid-rust)
 - Add `fn pick_*_reloadable` to `PickerTui` to enable easy ctrl+r support for refreshing the list of choices
+- Add `CacheKey` struct to replace `CacheBehaviour` enum
 
 # v0.30.0
 

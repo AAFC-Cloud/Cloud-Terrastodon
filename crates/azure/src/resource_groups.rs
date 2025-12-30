@@ -1,11 +1,10 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ResourceGroup;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
-use std::borrow::Cow;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -20,12 +19,11 @@ pub fn fetch_all_resource_groups() -> ResourceGroupsListRequest {
 impl CacheableCommand for ResourceGroupsListRequest {
     type Output = Vec<ResourceGroup>;
 
-    fn cache_key<'a>(&'a self) -> Cow<'a, PathBuf> {
-        Cow::Owned(PathBuf::from_iter([
-            "az",
-            "resource_graph",
-            "resource_groups",
-        ]))
+    fn cache_key(&self) -> CacheKey {
+        CacheKey {
+            path: PathBuf::from_iter(["az", "resource_graph", "resource_groups"]),
+            valid_for: Duration::MAX,
+        }
     }
     async fn run(self) -> Result<Self::Output> {
         ResourceGraphHelper::new(
@@ -41,10 +39,7 @@ impl CacheableCommand for ResourceGroupsListRequest {
                         tags,
                         subscription_id=subscriptionId
                 "#},
-            CacheBehaviour::Some {
-                path: PathBuf::from_iter(["az", "resource_graph", "resource_groups"]),
-                valid_for: Duration::MAX,
-            },
+            Some(self.cache_key()),
         )
         .collect_all::<ResourceGroup>()
         .await
@@ -58,7 +53,6 @@ mod tests {
 
     use super::*;
     use cloud_terrastodon_azure_types::prelude::Scope;
-    use cloud_terrastodon_command::InvalidatableCache;
     use cloud_terrastodon_user_input::PickerTui;
 
     #[test_log::test(tokio::test)]
@@ -76,7 +70,7 @@ mod tests {
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn invalidation() -> Result<()> {
-        fetch_all_resource_groups().invalidate_cache().await?;
+        fetch_all_resource_groups().cache_key().invalidate().await?;
         Ok(())
     }
 
@@ -86,7 +80,7 @@ mod tests {
         let chosen = PickerTui::new()
             .pick_many_reloadable(async |invalidate| {
                 if invalidate {
-                    fetch_all_resource_groups().invalidate_cache().await?;
+                    fetch_all_resource_groups().cache_key().invalidate().await?;
                 }
                 fetch_all_resource_groups().await
             })

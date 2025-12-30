@@ -1,6 +1,6 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ManagementGroup;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use eyre::bail;
 use indoc::indoc;
@@ -42,10 +42,10 @@ pub async fn fetch_all_management_groups() -> Result<Vec<ManagementGroup>> {
 
     let management_groups = ResourceGraphHelper::new(
         query,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "management_groups"]),
             valid_for: Duration::MAX,
-        },
+        }),
     )
     .collect_all::<ManagementGroup>()
     .await?;

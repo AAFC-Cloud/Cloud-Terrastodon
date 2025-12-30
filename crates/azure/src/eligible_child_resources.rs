@@ -4,7 +4,7 @@ use cloud_terrastodon_azure_types::prelude::AsScope;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResource;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResourceKind;
 use cloud_terrastodon_azure_types::prelude::Scope;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -41,10 +41,10 @@ pub async fn fetch_eligible_child_resources(
         .filter(|x| !x.is_empty())
         .for_each(|x| cache_chunks.push(x));
 
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: cache_chunks,
         valid_for: Duration::MAX,
-    });
+    }));
 
     #[derive(Deserialize)]
     struct Response {

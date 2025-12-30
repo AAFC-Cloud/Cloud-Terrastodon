@@ -2,7 +2,7 @@ use crate::management_groups::fetch_root_management_group;
 use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_azure_types::prelude::RoleAssignmentRequest;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -29,10 +29,10 @@ pub async fn activate_pim_entra_role(
             duration,
         ))?,
     );
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter(["az", "rest", "POST", "roleAssignmentScheduleRequests"]),
         valid_for: Duration::ZERO,
-    });
+    }));
     cmd.run_raw().await?;
     Ok(())
 }

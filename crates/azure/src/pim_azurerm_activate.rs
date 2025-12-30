@@ -4,7 +4,7 @@ use cloud_terrastodon_azure_types::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure_types::prelude::RoleEligibilityScheduleId;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -36,10 +36,10 @@ pub async fn activate_pim_role(
             duration,
         ))?,
     );
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter(["az", "rest", "PUT", "roleAssignmentScheduleRequests"]),
         valid_for: Duration::ZERO,
-    });
+    }));
     cmd.run_raw().await?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure_types::prelude::KeyVaultId;
 use cloud_terrastodon_azure_types::prelude::KeyVaultSecret;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -27,7 +27,7 @@ pub async fn fetch_key_vault_secrets(key_vault_id: &KeyVaultId) -> Result<Vec<Ke
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter([
             "az",
             "keyvault",
@@ -36,7 +36,7 @@ pub async fn fetch_key_vault_secrets(key_vault_id: &KeyVaultId) -> Result<Vec<Ke
             key_vault_id.key_vault_name.as_str(),
         ]),
         valid_for: Duration::MAX,
-    });
+    }));
     let secrets = cmd.run().await?;
     Ok(secrets)
 }

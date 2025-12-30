@@ -1,7 +1,7 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinition;
 use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionId;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -15,7 +15,7 @@ pub async fn fetch_unified_role_definition(
     );
     let query = MicrosoftGraphHelper::new(
         url,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter([
                 "ms",
                 "graph",
@@ -24,7 +24,7 @@ pub async fn fetch_unified_role_definition(
                 role_definition_id.to_string().as_ref(),
             ]),
             valid_for: Duration::MAX,
-        },
+        }),
     );
 
     let found = query.fetch_one().await?;

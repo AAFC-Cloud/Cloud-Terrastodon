@@ -1,7 +1,7 @@
+use crate::CacheKey;
 use crate::CommandArgument;
 use crate::CommandKind;
 use crate::CommandOutput;
-use crate::NoSpaces;
 use crate::PathMapper;
 use async_recursion::async_recursion;
 pub use bstr;
@@ -60,16 +60,6 @@ pub enum OutputBehaviour {
 }
 
 #[derive(Debug, Default, Clone)]
-pub enum CacheBehaviour {
-    #[default]
-    None,
-    Some {
-        path: PathBuf,
-        valid_for: Duration,
-    },
-}
-
-#[derive(Debug, Default, Clone)]
 pub struct CommandBuilder {
     pub(crate) kind: CommandKind,
     pub(crate) args: Vec<CommandArgument>,
@@ -78,7 +68,7 @@ pub struct CommandBuilder {
     pub(crate) run_dir: Option<PathBuf>,
     pub(crate) retry_behaviour: RetryBehaviour,
     pub(crate) output_behaviour: OutputBehaviour,
-    pub(crate) cache_behaviour: CacheBehaviour,
+    pub(crate) cache_behaviour: Option<CacheKey>,
     pub(crate) should_announce: bool,
     pub(crate) timeout: Option<Duration>,
     pub(crate) stdin_content: Option<String>,
@@ -97,18 +87,16 @@ impl CommandBuilder {
         self
     }
     pub fn use_cache_dir(&mut self, cache: impl AsRef<Path>) -> &mut Self {
-        self.use_cache_behaviour(CacheBehaviour::Some {
+        self.use_cache_behaviour(Some(CacheKey {
             path: cache.as_ref().to_path_buf(),
             valid_for: Duration::MAX,
-        })
+        }))
     }
     pub async fn bust_cache(&self) -> Result<()> {
-        let CacheBehaviour::Some {
-            path: cache_dir, ..
-        } = &self.cache_behaviour
-        else {
+        let Some(cache_key) = &self.cache_behaviour else {
             bail!("no cache entry present");
         };
+        let cache_dir = cache_key.path_on_disk();
         let busted_path = cache_dir.join("busted");
         let _file = OpenOptions::new()
             .create(true)
@@ -124,11 +112,7 @@ impl CommandBuilder {
     }
 
     #[track_caller]
-    pub fn use_cache_behaviour(&mut self, mut behaviour: CacheBehaviour) -> &mut Self {
-        if let CacheBehaviour::Some { ref mut path, .. } = behaviour {
-            // add app dir prefix and remove spaces
-            *path = AppDir::Commands.join(path.no_spaces());
-        }
+    pub fn use_cache_behaviour(&mut self, behaviour: Option<CacheKey>) -> &mut Self {
         self.cache_behaviour = behaviour;
         self
     }
@@ -233,14 +217,13 @@ impl CommandBuilder {
     pub async fn get_cached_output(&self) -> Result<Option<CommandOutput>> {
         let start = Instant::now();
         // Short circuit if not using cache or if cache entry not present
-        let CacheBehaviour::Some {
-            path: cache_dir,
-            valid_for,
-        } = &self.cache_behaviour
-        else {
+        let Some(cache_key) = &self.cache_behaviour else {
             debug!("Cache behaviour is None, not using cache");
             return Ok(None);
         };
+        let valid_for = &cache_key.valid_for;
+        let cache_dir = cache_key.path_on_disk();
+
         if valid_for.is_zero() {
             debug!("Cache validity duration is zero, not using cache");
             return Ok(None);
@@ -605,10 +588,8 @@ impl CommandBuilder {
 
         // Write happy results to the cache
         if output.success()
-            && let CacheBehaviour::Some {
-                path: cache_dir, ..
-            } = &self.cache_behaviour
-            && let Err(e) = self.write_output(&output, cache_dir).await
+            && let Some(cache_key) = &self.cache_behaviour
+            && let Err(e) = self.write_output(&output, &cache_key.path_on_disk()).await
         {
             error!("Encountered problem saving cache: {:?}", e);
         }
@@ -744,10 +725,11 @@ impl CommandBuilder {
 
     pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
         let dir = match &self.cache_behaviour {
-            CacheBehaviour::None => AppDir::Commands.join("failed"),
-            CacheBehaviour::Some {
-                path: cache_dir, ..
-            } => cache_dir.join("failed"),
+            None => AppDir::Commands.join("failed"),
+            Some(cache_key) => {
+                let cache_dir = cache_key.path_on_disk();
+                cache_dir.join("failed")
+            }
         };
         dir.ensure_dir_exists().await?;
         let dir = Builder::new()

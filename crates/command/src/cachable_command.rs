@@ -1,18 +1,16 @@
+use crate::CacheKey;
 use crate::HasCacheKey;
-use crate::InvalidatableCache;
 use async_trait::async_trait;
-use std::borrow::Cow;
-use std::path::PathBuf;
 
 #[async_trait]
 pub trait CacheableCommand: Sized + 'static + Send {
     type Output;
 
-    fn cache_key<'a>(&'a self) -> Cow<'a, PathBuf>;
+    fn cache_key(&self) -> CacheKey;
     async fn run(self) -> eyre::Result<Self::Output>;
     async fn run_with_invalidation(self, invalidate_cache: bool) -> eyre::Result<Self::Output> {
         if invalidate_cache {
-            self.invalidate_cache().await?;
+            self.cache_key().invalidate().await?;
         }
         self.run().await
     }
@@ -40,7 +38,7 @@ impl<T> HasCacheKey for T
 where
     T: CacheableCommand,
 {
-    fn cache_key<'a>(&'a self) -> Cow<'a, PathBuf> {
+    fn cache_key(&self) -> CacheKey {
         CacheableCommand::cache_key(self)
     }
 }

@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsRepo;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Context;
@@ -29,10 +29,10 @@ pub async fn fetch_all_azure_devops_repos_for_project(
         "--project",
         project_id.to_string().as_ref(),
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter(["az", "repos", "list", project_id.to_string().as_ref()]),
         valid_for: Duration::MAX,
-    });
+    }));
     let repos: Vec<AzureDevOpsRepo> = cmd.run().await?;
     debug!("Found {} repos for {project_id:?}", repos.len());
     Ok(repos)

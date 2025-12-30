@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsServiceEndpoint;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use std::path::PathBuf;
@@ -22,7 +23,7 @@ pub async fn fetch_all_azure_devops_service_endpoints(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(cloud_terrastodon_command::CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter([
             "az",
             "devops",
@@ -32,7 +33,7 @@ pub async fn fetch_all_azure_devops_service_endpoints(
             project,
         ]),
         valid_for: Duration::MAX,
-    });
+    }));
 
     let response = cmd.run::<Vec<AzureDevOpsServiceEndpoint>>().await?;
     Ok(response)

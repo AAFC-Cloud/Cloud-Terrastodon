@@ -1,5 +1,5 @@
 use bstr::ByteSlice;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::CommandOutput;
@@ -92,10 +92,10 @@ Resources
         .to_string(),
     );
     let period = Duration::from_secs(5);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter(["az", "resource_graph", "current-time"]),
         valid_for: period,
-    });
+    }));
 
     // we don't want anything between our `await` calls that could mess with the timing
     thread::Builder::new().spawn(move || {

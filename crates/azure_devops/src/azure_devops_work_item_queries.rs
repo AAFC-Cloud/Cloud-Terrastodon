@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
@@ -26,10 +26,10 @@ pub async fn fetch_queries_for_project(
         format!("project={project_name}").as_str(),
     ]);
     cmd.args(["--query-parameters", "$expand=all", "$depth=2"]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter(["az", "devops", "query", "list", project_name.as_ref()]),
         valid_for: Duration::MAX,
-    });
+    }));
     #[derive(Deserialize)]
     struct InvokeResponse {
         continuation_token: Option<Value>,

@@ -1,4 +1,4 @@
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
@@ -12,13 +12,13 @@ enum NextLink {
 }
 pub struct MicrosoftGraphHelper {
     url: String,
-    cache_behaviour: CacheBehaviour,
+    cache_key: Option<CacheKey>,
 }
 impl MicrosoftGraphHelper {
-    pub fn new(url: impl ToString, cache_behaviour: CacheBehaviour) -> Self {
+    pub fn new(url: impl ToString, cache_key: Option<CacheKey>) -> Self {
         MicrosoftGraphHelper {
             url: url.to_string(),
-            cache_behaviour,
+            cache_key,
         }
     }
 
@@ -29,7 +29,7 @@ impl MicrosoftGraphHelper {
         cmd.azure_file_arg("url.txt", self.url);
 
         // Set up caching
-        cmd.use_cache_behaviour(self.cache_behaviour);
+        cmd.use_cache_behaviour(self.cache_key);
 
         // Perform request
         let response = cmd.run::<T>().await?;
@@ -55,15 +55,11 @@ impl MicrosoftGraphHelper {
             cmd.azure_file_arg("url.txt", url.clone());
 
             // Set up caching
-            if let CacheBehaviour::Some {
-                ref path,
-                ref valid_for,
-            } = self.cache_behaviour
-            {
-                cmd.use_cache_behaviour(CacheBehaviour::Some {
-                    path: path.join(request_index.to_string()),
-                    valid_for: *valid_for,
-                });
+            if let Some(ref cache_key) = self.cache_key {
+                cmd.use_cache_behaviour(Some(CacheKey {
+                    path: cache_key.path.join(request_index.to_string()),
+                    valid_for: cache_key.valid_for,
+                }));
             }
 
             // Perform request

@@ -3,7 +3,7 @@
 
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::Resource;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -22,10 +22,10 @@ resources
     display_name=properties.displayName,
     tags
 "#,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "resources"]),
             valid_for: Duration::MAX,
-        },
+        }),
     )
     .collect_all()
     .await?;

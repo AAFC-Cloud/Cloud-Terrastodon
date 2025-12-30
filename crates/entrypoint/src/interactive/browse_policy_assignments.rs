@@ -5,7 +5,7 @@ use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_set_definitions;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
 use indexmap::IndexMap;
@@ -49,10 +49,10 @@ policyResources
 
     let rtn = ResourceGraphHelper::new(
         query,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "policy-compliance"]),
             valid_for: Duration::from_mins(15),
-        },
+        }),
     )
     .collect_all::<PolicyComplianceRow>()
     .await?;

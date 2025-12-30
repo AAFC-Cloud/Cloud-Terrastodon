@@ -2,7 +2,7 @@ use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeamId;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeamMember;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use std::path::PathBuf;
@@ -30,7 +30,7 @@ pub async fn fetch_azure_devops_team_members(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter([
             "az",
             "devops",
@@ -42,7 +42,7 @@ pub async fn fetch_azure_devops_team_members(
             &team_id.to_string(),
         ]),
         valid_for: Duration::MAX,
-    });
+    }));
 
     let response = cmd.run::<Vec<AzureDevOpsTeamMember>>().await?;
     debug!(

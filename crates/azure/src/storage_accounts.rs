@@ -1,11 +1,10 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::StorageAccount;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
-use std::borrow::Cow;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -20,12 +19,11 @@ pub fn fetch_all_storage_accounts() -> StorageAccountListRequest {
 impl CacheableCommand for StorageAccountListRequest {
     type Output = Vec<StorageAccount>;
 
-    fn cache_key<'a>(&'a self) -> Cow<'a, PathBuf> {
-        Cow::Owned(PathBuf::from_iter([
-            "az",
-            "resource_graph",
-            "storage_accounts",
-        ]))
+    fn cache_key(&self) -> CacheKey {
+        CacheKey {
+            path: PathBuf::from_iter(["az", "resource_graph", "storage_accounts"]),
+            valid_for: Duration::MAX,
+        }
     }
 
     async fn run(self) -> Result<Self::Output> {
@@ -35,10 +33,7 @@ impl CacheableCommand for StorageAccountListRequest {
                 | where type == "microsoft.storage/storageaccounts"
                 | project id,name,kind,location,sku,properties,tags
             "#},
-            CacheBehaviour::Some {
-                path: PathBuf::from_iter(["az", "resource_graph", "storage_accounts"]),
-                valid_for: Duration::MAX,
-            },
+            Some(self.cache_key()),
         )
         .collect_all::<StorageAccount>()
         .await

@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_types::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure_types::prelude::RoleManagementPolicyAssignment;
 use cloud_terrastodon_azure_types::prelude::Scope;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -20,7 +20,7 @@ pub async fn fetch_role_management_policy_assignments(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter([
             "az",
             "rest",
@@ -30,7 +30,7 @@ pub async fn fetch_role_management_policy_assignments(
             role_definition_id.short_form().as_ref(),
         ]),
         valid_for: Duration::MAX,
-    });
+    }));
 
     #[derive(Deserialize)]
     struct Response {

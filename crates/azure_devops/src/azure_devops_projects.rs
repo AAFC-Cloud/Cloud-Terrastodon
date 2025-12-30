@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProject;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -25,10 +25,10 @@ pub async fn fetch_all_azure_devops_projects(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter(["az", "devops", "project", "list"]),
         valid_for: Duration::MAX,
-    });
+    }));
 
     #[derive(Serialize, Deserialize)]
     pub struct Response {

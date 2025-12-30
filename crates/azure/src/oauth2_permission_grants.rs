@@ -4,7 +4,7 @@ use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
 use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::UserId;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
@@ -19,10 +19,10 @@ pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
 pub async fn fetch_oauth2_permission_grants() -> eyre::Result<Vec<OAuth2PermissionGrant>> {
     let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.to_path_buf(),
         valid_for: Duration::MAX,
-    });
+    }));
     cmd.arg("rest");
     cmd.args(["--method", "GET"]);
     cmd.args(["--url", url]);

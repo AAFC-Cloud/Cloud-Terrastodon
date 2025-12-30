@@ -1,5 +1,4 @@
 use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
-use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_pathing::AppDir;
@@ -46,7 +45,7 @@ resources
         debug!("Received query:\n{}", query);
 
         info!("Running query");
-        let rows: Vec<Value> = ResourceGraphHelper::new(query.clone(), CacheBehaviour::None)
+        let rows: Vec<Value> = ResourceGraphHelper::new(query.clone(), None)
             .collect_all()
             .await?;
         let rows_json = serde_json::to_string_pretty(&rows)?;

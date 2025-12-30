@@ -1,7 +1,7 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::KeyVault;
 use cloud_terrastodon_azure_types::prelude::KeyVaultName;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -17,10 +17,10 @@ resources
 | where type =~ "microsoft.keyvault/vaults"
 | project id,name,location,properties,tags
         "#,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "key_vaults"]),
             valid_for: Duration::MAX,
-        },
+        }),
     );
     query.collect_all().await
 }

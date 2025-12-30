@@ -5,7 +5,7 @@ use crate::prelude::MicrosoftGraphHelper;
 use crate::prelude::MicrosoftGraphResponse;
 use cloud_terrastodon_azure_types::prelude::GroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -60,7 +60,7 @@ pub async fn fetch_group_members(group_id: GroupId) -> Result<Vec<Principal>> {
     debug!("Fetching members for group {}", group_id);
     let members = MicrosoftGraphHelper::new(
         format!("https://graph.microsoft.com/v1.0/groups/{group_id}/members"),
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter([
                 "ms".to_string(),
                 "graph".to_string(),
@@ -69,7 +69,7 @@ pub async fn fetch_group_members(group_id: GroupId) -> Result<Vec<Principal>> {
                 group_id.as_hyphenated().to_string(),
             ]),
             valid_for: Duration::MAX,
-        },
+        }),
     )
     .fetch_all::<Principal>()
     .await?;

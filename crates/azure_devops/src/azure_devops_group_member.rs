@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsGroupMember;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
@@ -28,7 +28,7 @@ pub async fn fetch_azure_devops_group_members(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter([
             "az",
             "devops",
@@ -40,7 +40,7 @@ pub async fn fetch_azure_devops_group_members(
             &group_id.to_string(),
         ]),
         valid_for: Duration::MAX,
-    });
+    }));
     cmd.run().await
 }
 

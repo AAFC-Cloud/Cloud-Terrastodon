@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure_types::prelude::RoleEligibilitySchedule;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -11,10 +11,10 @@ pub async fn fetch_my_role_eligibility_schedules() -> Result<Vec<RoleEligibility
     let url = "https://management.azure.com/providers/Microsoft.Authorization/roleEligibilitySchedules?api-version=2020-10-01&$filter=asTarget()";
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", url]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter(["az", "rest", "GET", "roleEligibilitySchedules"]),
         valid_for: Duration::MAX,
-    });
+    }));
 
     #[derive(Deserialize)]
     struct Response {

@@ -3,7 +3,7 @@ use crate::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_azure_types::prelude::DistinctByScope;
 use cloud_terrastodon_azure_types::prelude::PolicyAssignment;
 use cloud_terrastodon_azure_types::prelude::Scope;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -56,7 +56,7 @@ policyResources
     }
     let reference_ids = ResourceGraphHelper::new(
         query,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter([
                 "az",
                 "resource_graph",
@@ -67,7 +67,7 @@ policyResources
                 .as_str(),
             ]),
             valid_for: Duration::from_mins(15),
-        },
+        }),
     )
     .collect_all::<ReferenceIdRow>()
     .await?;
@@ -126,14 +126,14 @@ policyResources
     );
     let resource_ids = ResourceGraphHelper::new(
         query,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter([
                 "az".to_string(),
                 "resource_graph".to_string(),
                 resource_cache_key,
             ]),
             valid_for: Duration::from_mins(15),
-        },
+        }),
     )
     .collect_all::<ResourceRow>()
     .await?;

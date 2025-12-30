@@ -1,6 +1,6 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::RoleDefinition;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -22,10 +22,10 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     display_name = properties.roleName,
     ['kind'] = properties.type
 | project-away properties"#,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "role-definitions"]),
             valid_for: Duration::MAX,
-        },
+        }),
     )
     .collect_all()
     .await?;

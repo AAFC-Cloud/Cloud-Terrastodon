@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure_types::prelude::StorageAccountBlobContainerName;
 use cloud_terrastodon_azure_types::prelude::StorageAccountId;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -33,10 +33,10 @@ pub async fn fetch_storage_account_blob_container_names(
         "--auth-mode",
         "login",
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from("storage_accounts"),
         valid_for: Duration::MAX,
-    });
+    }));
     let rtn = cmd.run().await?;
     Ok(rtn)
 }

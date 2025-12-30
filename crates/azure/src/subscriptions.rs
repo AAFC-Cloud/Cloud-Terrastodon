@@ -1,7 +1,7 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::Subscription;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -24,10 +24,10 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
 
     let subscriptions = ResourceGraphHelper::new(
         query,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "subscriptions"]),
             valid_for: Duration::MAX,
-        },
+        }),
     )
     .collect_all::<Subscription>()
     .await?;

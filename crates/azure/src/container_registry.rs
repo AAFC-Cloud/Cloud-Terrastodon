@@ -5,7 +5,7 @@ use cloud_terrastodon_azure_types::prelude::ContainerRegistryRepositoryName;
 use cloud_terrastodon_azure_types::prelude::ContainerRegistryRepositoryTag;
 use cloud_terrastodon_azure_types::prelude::HasSlug;
 use cloud_terrastodon_azure_types::prelude::Scope;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -18,10 +18,10 @@ pub async fn fetch_all_container_registries() -> Result<Vec<ContainerRegistry>> 
 Resources
 | where type =~ "Microsoft.ContainerRegistry/registries"
         "#,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "container_registries"]),
             valid_for: Duration::MAX,
-        },
+        }),
     );
     query.collect_all().await
 }
@@ -43,13 +43,13 @@ pub async fn fetch_container_registry_repository_names(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter([
             "container_registry_repositories",
             &registry_id.container_registry_name,
         ]),
         valid_for: Duration::MAX,
-    });
+    }));
     cmd.run().await
 }
 
@@ -72,14 +72,14 @@ pub async fn fetch_container_registry_repository_tags(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter([
             "container_registry_repository_tags",
             &registry_id.container_registry_name,
             repository_name,
         ]),
         valid_for: Duration::MAX,
-    });
+    }));
     cmd.run().await
 }
 

@@ -1,6 +1,6 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::VirtualNetwork;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
@@ -25,10 +25,10 @@ pub async fn fetch_all_virtual_networks() -> Result<Vec<VirtualNetwork>> {
 
     let virtual_networks = ResourceGraphHelper::new(
         query,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "virtual_networks"]),
             valid_for: Duration::MAX,
-        },
+        }),
     )
     .collect_all::<VirtualNetwork>()
     .await?;

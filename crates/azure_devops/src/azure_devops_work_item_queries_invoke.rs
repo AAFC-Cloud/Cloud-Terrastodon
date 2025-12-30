@@ -2,7 +2,7 @@ use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops_types::prelude::WorkItemQueryResult;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::bstr::ByteSlice;
@@ -33,10 +33,10 @@ pub async fn fetch_work_items_for_query(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter(["az", "boards", "query", &query_id.to_string()]),
         valid_for: Duration::MAX,
-    });
+    }));
     let output = cmd.run_raw().await?;
     if output.stdout.trim().is_empty() {
         return Ok(None);

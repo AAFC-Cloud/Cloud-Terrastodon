@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsGroup;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
@@ -29,7 +29,7 @@ pub async fn fetch_azure_devops_groups(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(CacheBehaviour::Some {
+    cmd.use_cache_behaviour(Some(CacheKey {
         path: PathBuf::from_iter([
             "az",
             "devops",
@@ -40,7 +40,7 @@ pub async fn fetch_azure_devops_groups(
             &project.to_string(),
         ]),
         valid_for: Duration::MAX,
-    });
+    }));
 
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]

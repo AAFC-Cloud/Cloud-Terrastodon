@@ -1,7 +1,7 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -16,7 +16,7 @@ pub async fn fetch_governance_role_assignments_for_principal(
     );
     MicrosoftGraphHelper::new(
         url,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter([
                 "ms".to_string(),
                 "graph".to_string(),
@@ -25,7 +25,7 @@ pub async fn fetch_governance_role_assignments_for_principal(
                 principal_id.to_string(),
             ]),
             valid_for: Duration::MAX,
-        },
+        }),
     )
     .fetch_all()
     .await

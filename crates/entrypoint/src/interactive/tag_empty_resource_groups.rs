@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::prelude::ResourceGroupId;
 use cloud_terrastodon_azure::prelude::ResourceTagsId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::replace_tags_for_resources;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -32,10 +32,10 @@ ResourceContainers
     }
     let empty_resource_groups = ResourceGraphHelper::new(
         query,
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "empty-resource-groups"]),
             valid_for: Duration::ZERO,
-        },
+        }),
     )
     .collect_all::<Row>()
     .await?;

@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure_types::prelude::ResourceGraphQueryResponse;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
@@ -14,7 +14,7 @@ use tracing::debug;
 
 pub struct ResourceGraphHelper {
     query: String,
-    cache_behaviour: CacheBehaviour,
+    cache_behaviour: Option<CacheKey>,
     skip: Option<(u64, String)>,
     index: usize,
     #[cfg(debug_assertions)]
@@ -52,7 +52,7 @@ pub struct ResourceGraphQueryRestBody {
 }
 
 impl ResourceGraphHelper {
-    pub fn new(query: impl Into<String>, cache_behaviour: CacheBehaviour) -> Self {
+    pub fn new(query: impl Into<String>, cache_behaviour: Option<CacheKey>) -> Self {
         Self {
             query: query.into(),
             cache_behaviour,
@@ -110,15 +110,15 @@ impl ResourceGraphHelper {
         );
 
         // Set up caching
-        if let CacheBehaviour::Some {
+        if let Some(CacheKey {
             ref path,
             ref valid_for,
-        } = self.cache_behaviour
+        }) = self.cache_behaviour
         {
-            cmd.use_cache_behaviour(CacheBehaviour::Some {
+            cmd.use_cache_behaviour(Some(CacheKey {
                 path: path.join(self.index.to_string()),
                 valid_for: *valid_for,
-            });
+            }));
         }
 
         debug!(
@@ -192,10 +192,10 @@ resourcecontainers
         }
         let data = ResourceGraphHelper::new(
             query,
-            CacheBehaviour::Some {
+            Some(CacheKey {
                 path: PathBuf::from_iter(["az", "resource_graph", "resource-container-names"]),
                 valid_for: Duration::MAX,
-            },
+            }),
         )
         .collect_all::<Row>()
         .await?;

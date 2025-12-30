@@ -1,5 +1,4 @@
 use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
-use cloud_terrastodon_command::CacheBehaviour;
 use cloud_terrastodon_user_input::PickerTui;
 use serde_json::Value;
 use std::path::PathBuf;
@@ -38,7 +37,7 @@ resources
     display_name=properties.displayName,
     tags
 "#,
-        CacheBehaviour::None,
+        None,
     )
     .collect_all::<Value>()
     .await?;

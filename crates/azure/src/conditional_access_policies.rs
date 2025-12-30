@@ -1,16 +1,16 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ConditionalAccessPolicy;
-use cloud_terrastodon_command::CacheBehaviour;
+use cloud_terrastodon_command::CacheKey;
 use std::path::PathBuf;
 use std::time::Duration;
 
 pub async fn fetch_all_conditional_access_policies() -> eyre::Result<Vec<ConditionalAccessPolicy>> {
     let query = MicrosoftGraphHelper::new(
         "https://graph.microsoft.com/beta/identity/conditionalAccess/policies",
-        CacheBehaviour::Some {
+        Some(CacheKey {
             path: PathBuf::from_iter(["ms", "graph", "GET", "conditional_access_policies"]),
             valid_for: Duration::MAX,
-        },
+        }),
     );
 
     let policies = query.fetch_all().await?;
