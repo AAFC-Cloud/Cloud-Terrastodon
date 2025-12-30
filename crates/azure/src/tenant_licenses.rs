@@ -1,13 +1,13 @@
 use cloud_terrastodon_azure_types::prelude::TenantLicense;
 use cloud_terrastodon_azure_types::prelude::TenantLicenseCollection;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
-use eyre::Result;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct TenantLicenseListRequest;
@@ -21,12 +21,7 @@ impl CacheableCommand for TenantLicenseListRequest {
     type Output = TenantLicenseCollection;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
-            "az",
-            "rest",
-            "GET",
-            "subscribedSkus",
-        ]))
+        CacheKey::new(PathBuf::from_iter(["az", "rest", "GET", "subscribedSkus"]))
     }
 
     async fn run(self) -> Result<Self::Output> {

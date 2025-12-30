@@ -7,9 +7,8 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_command::bstr::ByteSlice;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
+use cloud_terrastodon_command::bstr::ByteSlice;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -49,9 +48,7 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!(
             "Fetching work item query results for {} from project {} in organization {}",
-            self.query_id,
-            self.project_name,
-            self.org_url.organization_name
+            self.query_id, self.project_name, self.org_url.organization_name
         );
 
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -78,7 +75,7 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
         let mut rtn: Vec<WorkItemQueryResult> = output.try_interpret(&cmd).await?;
         assert_eq!(rtn.len(), 1);
         Ok(Some(rtn.remove(0)))
-        
+
         // let url = format!(
         //     "https://dev.azure.com/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version=7.1"
         // );
@@ -90,7 +87,7 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
     }
 }
 
-impl_cacheable_into_future!(WorkItemsForQueryRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(WorkItemsForQueryRequest<'a>, 'a);
 
 #[cfg(test)]
 #[allow(deprecated)]

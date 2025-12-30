@@ -2,14 +2,14 @@ use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::Subscription;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
 use tracing::debug;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::async_trait;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct SubscriptionListRequest;
@@ -23,7 +23,11 @@ impl CacheableCommand for SubscriptionListRequest {
     type Output = Vec<Subscription>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "subscriptions"]))
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "subscriptions",
+        ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
@@ -38,12 +42,9 @@ impl CacheableCommand for SubscriptionListRequest {
             management_group_ancestors_chain=properties.managementGroupAncestorsChain
     "#};
 
-        let subscriptions = ResourceGraphHelper::new(
-            query,
-            Some(self.cache_key()),
-        )
-        .collect_all::<Subscription>()
-        .await?;
+        let subscriptions = ResourceGraphHelper::new(query, Some(self.cache_key()))
+            .collect_all::<Subscription>()
+            .await?;
         debug!("Found {} subscriptions", subscriptions.len());
         Ok(subscriptions)
     }

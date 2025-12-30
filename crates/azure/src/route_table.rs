@@ -2,11 +2,11 @@ use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::RouteTable;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
 use tracing::info;
-use cloud_terrastodon_command::async_trait;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct RouteTableListRequest;
@@ -39,12 +39,9 @@ impl CacheableCommand for RouteTableListRequest {
     "#}
         .to_owned();
 
-        let route_tables = ResourceGraphHelper::new(
-            query,
-            Some(self.cache_key()),
-        )
-        .collect_all::<RouteTable>()
-        .await?;
+        let route_tables = ResourceGraphHelper::new(query, Some(self.cache_key()))
+            .collect_all::<RouteTable>()
+            .await?;
         info!("Found {} route tables", route_tables.len());
         Ok(route_tables)
     }

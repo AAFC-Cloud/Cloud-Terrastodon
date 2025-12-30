@@ -2,11 +2,11 @@ use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ServiceGroup;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
 use tracing::debug;
-use cloud_terrastodon_command::async_trait;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct ServiceGroupListRequest;
@@ -20,7 +20,11 @@ impl CacheableCommand for ServiceGroupListRequest {
     type Output = Vec<ServiceGroup>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "service_groups"]))
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "service_groups",
+        ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
@@ -35,12 +39,9 @@ impl CacheableCommand for ServiceGroupListRequest {
     "#}
         .to_owned();
 
-        let service_groups = ResourceGraphHelper::new(
-            query,
-            Some(self.cache_key()),
-        )
-        .collect_all::<ServiceGroup>()
-        .await?;
+        let service_groups = ResourceGraphHelper::new(query, Some(self.cache_key()))
+            .collect_all::<ServiceGroup>()
+            .await?;
         debug!("Found {} service groups", service_groups.len());
         Ok(service_groups)
     }

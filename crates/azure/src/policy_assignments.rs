@@ -2,8 +2,8 @@ use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::PolicyAssignment;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use eyre::Result;
 use cloud_terrastodon_command::async_trait;
+use eyre::Result;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]

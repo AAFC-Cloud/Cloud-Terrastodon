@@ -1,8 +1,8 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::GroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
-use cloud_terrastodon_command::{CacheKey, CacheableCommand};
-use cloud_terrastodon_command::impl_cacheable_into_future;
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use tracing::debug;
@@ -32,7 +32,10 @@ impl CacheableCommand for GroupOwnersListRequest {
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!("Fetching owners for group {}", self.group_id);
         let owners = MicrosoftGraphHelper::new(
-            format!("https://graph.microsoft.com/v1.0/groups/{}/owners", self.group_id),
+            format!(
+                "https://graph.microsoft.com/v1.0/groups/{}/owners",
+                self.group_id
+            ),
             Some(self.cache_key()),
         )
         .fetch_all::<Principal>()
@@ -42,7 +45,7 @@ impl CacheableCommand for GroupOwnersListRequest {
     }
 }
 
-impl_cacheable_into_future!(GroupOwnersListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(GroupOwnersListRequest);
 
 #[cfg(test)]
 mod tests {

@@ -2,10 +2,10 @@ use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::PolicyDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use std::path::PathBuf;
 use tracing::debug;
-use cloud_terrastodon_command::async_trait;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct PolicyDefinitionListRequest;

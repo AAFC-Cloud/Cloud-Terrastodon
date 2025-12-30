@@ -18,6 +18,7 @@ mod eligible_child_resources;
 mod evaluate_policy_assignment_compliance;
 mod governance_role_assignments;
 mod group_members;
+mod group_members_batch;
 mod group_owners;
 mod groups;
 mod import;
@@ -73,7 +74,6 @@ mod virtual_machine_prices;
 mod virtual_machine_sizes;
 mod virtual_machine_skus;
 mod virtual_network;
-mod group_members_batch;
 pub mod prelude {
     pub use crate::access_token::*;
     pub use crate::accounts::*;

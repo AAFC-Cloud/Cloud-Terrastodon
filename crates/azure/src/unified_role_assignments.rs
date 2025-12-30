@@ -1,7 +1,7 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::UnifiedRoleAssignment;
-use cloud_terrastodon_command::{CacheKey, CacheableCommand};
-use cloud_terrastodon_command::impl_cacheable_into_future;
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use tracing::debug;
@@ -38,7 +38,7 @@ impl CacheableCommand for UnifiedRoleAssignmentListRequest {
     }
 }
 
-impl_cacheable_into_future!(UnifiedRoleAssignmentListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleAssignmentListRequest);
 
 #[cfg(test)]
 mod test {

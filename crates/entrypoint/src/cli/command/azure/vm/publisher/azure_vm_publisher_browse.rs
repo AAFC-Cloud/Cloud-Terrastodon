@@ -98,7 +98,12 @@ impl AzureVmPublisherBrowseArgs {
         let mut offer_set: HashSet<ComputePublisherVmImageOfferId> = HashSet::new();
         for p in &chosen_publishers {
             info!(subscription_id = %p.subscription_id, location = %p.location_name, publisher = %p.publisher_name, "Fetching offers for publisher");
-            let offers = fetch_compute_publisher_image_offers(p.subscription_id, p.location_name.clone(), p.publisher_name.clone()).await?;
+            let offers = fetch_compute_publisher_image_offers(
+                p.subscription_id,
+                p.location_name.clone(),
+                p.publisher_name.clone(),
+            )
+            .await?;
             for o in offers {
                 offer_set.insert(o);
             }
@@ -150,7 +155,13 @@ impl AzureVmPublisherBrowseArgs {
         let mut sku_set: HashSet<ComputePublisherVmImageOfferSkuId> = HashSet::new();
         for o in &chosen_offers {
             info!(subscription_id = %o.subscription_id, location = %o.location_name, publisher = %o.publisher_name, offer = %o.offer_name, "Fetching SKUs for offer");
-            let skus = fetch_compute_publisher_image_offer_skus(o.subscription_id, o.location_name.clone(), o.publisher_name.clone(), o.offer_name.clone()).await?;
+            let skus = fetch_compute_publisher_image_offer_skus(
+                o.subscription_id,
+                o.location_name.clone(),
+                o.publisher_name.clone(),
+                o.offer_name.clone(),
+            )
+            .await?;
             for s in skus {
                 sku_set.insert(s);
             }
@@ -201,7 +212,14 @@ impl AzureVmPublisherBrowseArgs {
         let mut version_ids: Vec<ComputePublisherVmImageOfferSkuVersionId> = Vec::new();
         for s in &chosen_skus {
             info!(subscription_id = %s.subscription_id, location = %s.location_name, publisher = %s.publisher_name, offer = %s.offer_name, sku = %s.sku_name, "Fetching versions for SKU");
-            let versions = fetch_compute_publisher_image_offer_sku_versions(s.subscription_id, s.location_name.clone(), s.publisher_name.clone(), s.offer_name.clone(), s.sku_name.clone()).await?;
+            let versions = fetch_compute_publisher_image_offer_sku_versions(
+                s.subscription_id,
+                s.location_name.clone(),
+                s.publisher_name.clone(),
+                s.offer_name.clone(),
+                s.sku_name.clone(),
+            )
+            .await?;
             version_ids.extend(versions);
         }
         version_ids.sort();

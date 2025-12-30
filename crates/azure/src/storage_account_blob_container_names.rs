@@ -4,7 +4,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use eyre::Result;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -57,7 +56,7 @@ impl cloud_terrastodon_command::CacheableCommand for StorageAccountBlobContainer
     }
 }
 
-impl_cacheable_into_future!(StorageAccountBlobContainerNamesListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(StorageAccountBlobContainerNamesListRequest);
 
 #[cfg(test)]
 mod test {
@@ -69,7 +68,9 @@ mod test {
     pub async fn blob_works() -> eyre::Result<()> {
         let storage_accounts = fetch_all_storage_accounts().await?;
         for sa in storage_accounts.into_iter() {
-            if let Ok(blob_containers) = fetch_storage_account_blob_container_names(sa.id.clone()).await {
+            if let Ok(blob_containers) =
+                fetch_storage_account_blob_container_names(sa.id.clone()).await
+            {
                 println!("Storage account: {sa:#?}");
                 println!("Blob containers: {blob_containers:#?}");
                 return Ok(());

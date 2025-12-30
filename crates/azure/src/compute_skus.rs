@@ -1,10 +1,10 @@
 use cloud_terrastodon_azure_types::prelude::ComputeSku;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
-use cloud_terrastodon_command::{CacheKey, CacheableCommand};
-use cloud_terrastodon_command::impl_cacheable_into_future;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
 use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::debug;
@@ -26,7 +26,10 @@ impl CacheableCommand for ComputeSkuListRequest {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        debug!("Fetching all VM SKUs for subscription {}", self.subscription_id);
+        debug!(
+            "Fetching all VM SKUs for subscription {}",
+            self.subscription_id
+        );
         let url = format!(
             "https://management.azure.com/subscriptions/{}/providers/Microsoft.Compute/skus?api-version=2019-04-01",
             self.subscription_id
@@ -49,7 +52,7 @@ impl CacheableCommand for ComputeSkuListRequest {
     }
 }
 
-impl_cacheable_into_future!(ComputeSkuListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ComputeSkuListRequest);
 
 #[cfg(test)]
 mod test {

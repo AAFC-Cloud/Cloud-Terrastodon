@@ -1,10 +1,10 @@
 use cloud_terrastodon_azure_types::prelude::ComputePublisherId;
 use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
-use cloud_terrastodon_command::{CacheKey, CacheableCommand};
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
@@ -61,7 +61,7 @@ impl CacheableCommand for ComputePublishersListRequest {
     }
 }
 
-impl_cacheable_into_future!(ComputePublishersListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ComputePublishersListRequest);
 
 #[cfg(test)]
 mod test {

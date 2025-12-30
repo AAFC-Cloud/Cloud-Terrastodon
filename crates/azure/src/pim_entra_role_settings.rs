@@ -5,7 +5,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use eyre::Result;
 use eyre::bail;
 use serde::Deserialize;
@@ -73,7 +72,7 @@ impl cloud_terrastodon_command::CacheableCommand for EntraPimRoleSettingsRequest
     }
 }
 
-impl_cacheable_into_future!(EntraPimRoleSettingsRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraPimRoleSettingsRequest);
 
 #[cfg(test)]
 mod tests {

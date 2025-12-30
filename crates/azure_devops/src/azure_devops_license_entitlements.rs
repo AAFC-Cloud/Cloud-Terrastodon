@@ -4,7 +4,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use serde::Deserialize;
 use serde_json::Value;
 use std::path::PathBuf;
@@ -72,7 +71,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsLicenseEntit
     }
 }
 
-impl_cacheable_into_future!(AzureDevOpsLicenseEntitlementsRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsLicenseEntitlementsRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {

@@ -7,7 +7,6 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -84,7 +83,7 @@ impl<'a> CacheableCommand for AzureDevOpsTeamMembersRequest<'a> {
     }
 }
 
-impl_cacheable_into_future!(AzureDevOpsTeamMembersRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsTeamMembersRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {

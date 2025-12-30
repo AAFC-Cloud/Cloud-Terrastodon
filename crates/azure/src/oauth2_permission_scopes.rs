@@ -4,7 +4,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::info;
@@ -16,7 +15,9 @@ pub struct OAuth2PermissionScopesListRequest {
 pub fn fetch_oauth2_permission_scopes(
     service_principal_id: ServicePrincipalId,
 ) -> OAuth2PermissionScopesListRequest {
-    OAuth2PermissionScopesListRequest { service_principal_id }
+    OAuth2PermissionScopesListRequest {
+        service_principal_id,
+    }
 }
 
 #[async_trait]
@@ -57,7 +58,7 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionScopesListR
     }
 }
 
-impl_cacheable_into_future!(OAuth2PermissionScopesListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionScopesListRequest);
 
 #[cfg(test)]
 mod tests {

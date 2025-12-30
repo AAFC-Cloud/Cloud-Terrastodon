@@ -8,10 +8,10 @@ use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use http::Method;
-use tracing::warn;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+use tracing::warn;
 
 pub struct GetGroupMembersOperation {
     group_id: GroupId,

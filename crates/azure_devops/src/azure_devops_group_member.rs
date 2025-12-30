@@ -5,7 +5,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
 use cloud_terrastodon_credentials::get_azure_devops_pat;
 use std::collections::HashMap;
@@ -67,11 +66,11 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             "--id",
             gid.as_str(),
         ])));
-            cmd.run().await
-        }
+        cmd.run().await
     }
+}
 
-    impl_cacheable_into_future!(AzureDevOpsGroupMembersListRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersListRequest<'a>, 'a);
 
 pub struct AzureDevOpsGroupMembersV2Request<'a> {
     org_url: &'a AzureDevOpsOrganizationUrl,
@@ -114,7 +113,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
     }
 }
 
-impl_cacheable_into_future!(AzureDevOpsGroupMembersV2Request<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersV2Request<'a>, 'a);
 
 pub struct AzureDevOpsGroupsForMemberRequest<'a> {
     org_url: &'a AzureDevOpsOrganizationUrl,
@@ -157,7 +156,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMem
     }
 }
 
-impl_cacheable_into_future!(AzureDevOpsGroupsForMemberRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsForMemberRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {

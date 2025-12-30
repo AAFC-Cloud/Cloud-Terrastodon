@@ -6,7 +6,6 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use std::path::PathBuf;
 
 pub struct AzureDevOpsServiceEndpointsListRequest<'a> {
@@ -69,7 +68,7 @@ impl<'a> CacheableCommand for AzureDevOpsServiceEndpointsListRequest<'a> {
     }
 }
 
-impl_cacheable_into_future!(AzureDevOpsServiceEndpointsListRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsServiceEndpointsListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {

@@ -1,10 +1,10 @@
 use cloud_terrastodon_azure_types::prelude::ComputeSkuName;
 use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::Price;
-use cloud_terrastodon_command::{CacheKey, CacheableCommand};
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use cloud_terrastodon_command::async_trait;
 use compact_str::CompactString;
 use std::path::PathBuf;
@@ -14,7 +14,10 @@ pub struct ComputeSkuPricesRequest {
     sku: ComputeSkuName,
 }
 
-pub fn fetch_compute_sku_prices(location: LocationName, sku: ComputeSkuName) -> ComputeSkuPricesRequest {
+pub fn fetch_compute_sku_prices(
+    location: LocationName,
+    sku: ComputeSkuName,
+) -> ComputeSkuPricesRequest {
     ComputeSkuPricesRequest { location, sku }
 }
 
@@ -61,7 +64,7 @@ impl CacheableCommand for ComputeSkuPricesRequest {
     }
 }
 
-impl_cacheable_into_future!(ComputeSkuPricesRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ComputeSkuPricesRequest);
 
 #[cfg(test)]
 mod test {

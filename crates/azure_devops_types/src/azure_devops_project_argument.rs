@@ -52,15 +52,9 @@ impl<'a> From<&'a AzureDevOpsProjectName> for AzureDevOpsProjectArgument<'a> {
 impl AzureDevOpsProjectArgument<'_> {
     pub fn into_owned(self) -> AzureDevOpsProjectArgument<'static> {
         match self {
-            AzureDevOpsProjectArgument::Id(id) => {
-                AzureDevOpsProjectArgument::Id(id)
-            }
-            AzureDevOpsProjectArgument::IdRef(id) => {
-                AzureDevOpsProjectArgument::Id(id.clone())
-            }
-            AzureDevOpsProjectArgument::Name(name) => {
-                AzureDevOpsProjectArgument::Name(name)
-            }
+            AzureDevOpsProjectArgument::Id(id) => AzureDevOpsProjectArgument::Id(id),
+            AzureDevOpsProjectArgument::IdRef(id) => AzureDevOpsProjectArgument::Id(id.clone()),
+            AzureDevOpsProjectArgument::Name(name) => AzureDevOpsProjectArgument::Name(name),
             AzureDevOpsProjectArgument::NameRef(name) => {
                 AzureDevOpsProjectArgument::Name(name.clone())
             }

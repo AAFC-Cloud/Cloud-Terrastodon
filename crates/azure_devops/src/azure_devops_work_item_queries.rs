@@ -6,7 +6,6 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use serde::Deserialize;
 use serde_json::Value;
 use std::path::PathBuf;
@@ -42,7 +41,10 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        info!("Fetching queries for Azure DevOps project {}", self.project_name);
+        info!(
+            "Fetching queries for Azure DevOps project {}",
+            self.project_name
+        );
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["devops", "invoke"]);
         cmd.args(["--organization", self.org_url.to_string().as_str()]);
@@ -82,7 +84,7 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
     }
 }
 
-impl_cacheable_into_future!(WorkItemQueriesForProjectRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(WorkItemQueriesForProjectRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {

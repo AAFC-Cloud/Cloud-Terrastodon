@@ -2,10 +2,10 @@ use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use std::path::PathBuf;
-use tracing::debug;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
+use std::path::PathBuf;
+use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct ServicePrincipalListRequest;

@@ -1,7 +1,7 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::VirtualNetwork;
-use cloud_terrastodon_command::{CacheKey, CacheableCommand};
-use cloud_terrastodon_command::impl_cacheable_into_future;
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use indoc::indoc;
 use std::path::PathBuf;
@@ -49,7 +49,7 @@ impl CacheableCommand for VirtualNetworkListRequest {
     }
 }
 
-impl_cacheable_into_future!(VirtualNetworkListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(VirtualNetworkListRequest);
 
 #[cfg(test)]
 mod tests {

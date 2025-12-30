@@ -1,10 +1,10 @@
 use cloud_terrastodon_azure_types::prelude::Location;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
-use cloud_terrastodon_command::{CacheKey, CacheableCommand};
-use cloud_terrastodon_command::impl_cacheable_into_future;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
 pub struct LocationListRequest {
@@ -48,7 +48,7 @@ impl CacheableCommand for LocationListRequest {
     }
 }
 
-impl_cacheable_into_future!(LocationListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(LocationListRequest);
 
 #[cfg(test)]
 mod test {

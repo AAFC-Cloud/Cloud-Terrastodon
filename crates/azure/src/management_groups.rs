@@ -2,10 +2,10 @@ use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ManagementGroup;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use eyre::bail;
 use indoc::indoc;
-use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use tracing::error;
 use tracing::info;
@@ -60,12 +60,9 @@ impl CacheableCommand for ManagementGroupListRequest {
             management_group_ancestors_chain=properties.details.managementGroupAncestorsChain
     "#};
 
-        let management_groups = ResourceGraphHelper::new(
-            query,
-            Some(self.cache_key()),
-        )
-        .collect_all::<ManagementGroup>()
-        .await?;
+        let management_groups = ResourceGraphHelper::new(query, Some(self.cache_key()))
+            .collect_all::<ManagementGroup>()
+            .await?;
         info!("Found {} management groups", management_groups.len());
         Ok(management_groups)
     }

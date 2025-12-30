@@ -15,6 +15,10 @@ pub struct CacheKey {
     pub valid_for: Duration,
 }
 
+pub trait HasCacheKey {
+    fn cache_key(&self) -> CacheKey;
+}
+
 impl CacheKey {
     /// Create a new CacheKey with a default validity of Duration::MAX.
     pub fn new(path: impl Into<PathBuf>) -> CacheKey {
@@ -73,8 +77,4 @@ impl CacheKey {
         }
         Ok(())
     }
-}
-
-pub trait HasCacheKey {
-    fn cache_key(&self) -> CacheKey;
 }

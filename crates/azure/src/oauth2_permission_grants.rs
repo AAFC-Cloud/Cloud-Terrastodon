@@ -8,7 +8,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -41,19 +40,19 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
         cmd.args(["--method", "GET"]);
         cmd.args(["--url", url]);
 
-    #[derive(Debug, Deserialize)]
-    struct Response {
-        // #[serde(rename = "@odata.context")]
-        // context: String,
-        value: Vec<OAuth2PermissionGrant>,
-    }
+        #[derive(Debug, Deserialize)]
+        struct Response {
+            // #[serde(rename = "@odata.context")]
+            // context: String,
+            value: Vec<OAuth2PermissionGrant>,
+        }
 
         let resp = cmd.run::<Response>().await?;
         Ok(resp.value)
     }
 }
 
-impl_cacheable_into_future!(OAuth2PermissionGrantListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantListRequest);
 
 pub async fn create_oauth2_permission_grant(
     resource_id: ServicePrincipalId,

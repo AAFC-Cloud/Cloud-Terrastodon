@@ -3,16 +3,15 @@ use crate::prelude::fetch_all_service_principals;
 use crate::prelude::fetch_all_users;
 use cloud_terrastodon_azure_types::prelude::Principal;
 use cloud_terrastodon_azure_types::prelude::PrincipalCollection;
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
+use eyre::Result;
 use itertools::Itertools;
 use std::future::IntoFuture;
+use std::path::PathBuf;
 use tokio::try_join;
 use tracing::debug;
-
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::async_trait;
-use std::path::PathBuf;
-use eyre::Result;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct PrincipalListRequest;

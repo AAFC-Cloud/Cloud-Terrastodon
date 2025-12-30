@@ -5,6 +5,7 @@
 )]
 pub mod app_work;
 mod cachable_command;
+mod cache_invalidatable;
 mod cache_key;
 mod command;
 mod command_argument;
@@ -15,6 +16,7 @@ mod path_mapper;
 mod work;
 
 pub use crate::cachable_command::*;
+pub use crate::cache_invalidatable::*;
 pub use crate::cache_key::*;
 pub use crate::command::*;
 pub use crate::command_argument::*;

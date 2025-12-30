@@ -1,9 +1,9 @@
 use cloud_terrastodon_azure_types::prelude::KeyVaultId;
 use cloud_terrastodon_azure_types::prelude::KeyVaultSecret;
-use cloud_terrastodon_command::{CacheKey, CacheableCommand};
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
@@ -38,8 +38,7 @@ impl<'a> CacheableCommand for KeyVaultSecretsListRequest<'a> {
             "--vault-name",
             self.key_vault_id.key_vault_name.as_str(),
             "--subscription",
-            self
-                .key_vault_id
+            self.key_vault_id
                 .resource_group_id
                 .subscription_id
                 .to_string()
@@ -53,7 +52,7 @@ impl<'a> CacheableCommand for KeyVaultSecretsListRequest<'a> {
     }
 }
 
-impl_cacheable_into_future!(KeyVaultSecretsListRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(KeyVaultSecretsListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {
@@ -65,7 +64,7 @@ mod test {
         // Provide a real key vault id via env var for manual testing
         if let Ok(expanded) = std::env::var("TEST_KEY_VAULT_ID") {
             let id: KeyVaultId = expanded.parse()?;
-                let secrets = fetch_key_vault_secrets(&id).await?;
+            let secrets = fetch_key_vault_secrets(&id).await?;
             println!("Fetched {} secrets", secrets.len());
         }
         Ok(())

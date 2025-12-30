@@ -2,10 +2,10 @@ use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::RoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use std::path::PathBuf;
 use tracing::debug;
-use cloud_terrastodon_command::async_trait;
 
 /// Fetches all AzureRM role definitions.
 ///
@@ -22,7 +22,11 @@ impl CacheableCommand for RoleDefinitionListRequest {
     type Output = Vec<RoleDefinition>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "role-definitions"]))
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "role-definitions",
+        ]))
     }
 
     async fn run(self) -> Result<Self::Output> {

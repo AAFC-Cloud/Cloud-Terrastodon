@@ -1,12 +1,11 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::GroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
-use cloud_terrastodon_command::{CacheKey, CacheableCommand};
-use cloud_terrastodon_command::impl_cacheable_into_future;
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use tracing::debug;
-
 
 pub struct GroupMembersListRequest {
     group_id: GroupId,
@@ -33,18 +32,24 @@ impl CacheableCommand for GroupMembersListRequest {
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!("Fetching members for group {}", self.group_id);
         let members = MicrosoftGraphHelper::new(
-            format!("https://graph.microsoft.com/v1.0/groups/{}/members", self.group_id),
+            format!(
+                "https://graph.microsoft.com/v1.0/groups/{}/members",
+                self.group_id
+            ),
             Some(self.cache_key()),
         )
         .fetch_all::<Principal>()
         .await?;
-        debug!("Found {} members for group {}", members.len(), self.group_id);
+        debug!(
+            "Found {} members for group {}",
+            members.len(),
+            self.group_id
+        );
         Ok(members)
     }
 }
 
-impl_cacheable_into_future!(GroupMembersListRequest);
-
+cloud_terrastodon_command::impl_cacheable_into_future!(GroupMembersListRequest);
 
 #[cfg(test)]
 mod tests {

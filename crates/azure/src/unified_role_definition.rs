@@ -3,7 +3,6 @@ use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinition;
 use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::impl_cacheable_into_future;
 use std::path::PathBuf;
 
 /// Fetch an individual Entra role assignment
@@ -52,7 +51,7 @@ impl cloud_terrastodon_command::CacheableCommand for UnifiedRoleDefinitionReques
     }
 }
 
-impl_cacheable_into_future!(UnifiedRoleDefinitionRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleDefinitionRequest);
 
 /// Unravels the [`UnifiedRoleDefinition::inherits_permissions_from`] chain
 /// into the top-level [`UnifiedRoleDefinition::role_permissions`]
@@ -62,7 +61,7 @@ pub async fn fetch_unified_role_definition_deep(
     let mut this = fetch_unified_role_definition(role_definition_id).await?;
     let mut next = std::mem::take(&mut this.inherits_permissions_from);
     while let Some(parent_id) = next.pop() {
-        let parent = fetch_unified_role_definition(parent_id.id.clone()).await?;
+        let parent = fetch_unified_role_definition(parent_id.id).await?;
         this.inherits_permissions_from.push(parent_id);
         this.role_permissions.extend(parent.role_permissions);
         next.extend(parent.inherits_permissions_from);
