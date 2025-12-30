@@ -9,18 +9,18 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 /// This can fail due to network rules on the storage account
-pub struct StorageAccountBlobContainerNamesListRequest {
-    storage_account_id: StorageAccountId,
+pub struct StorageAccountBlobContainerNamesListRequest<'a> {
+    storage_account_id: &'a StorageAccountId,
 }
 
-pub fn fetch_storage_account_blob_container_names(
-    storage_account_id: StorageAccountId,
-) -> StorageAccountBlobContainerNamesListRequest {
+pub fn fetch_storage_account_blob_container_names<'a>(
+    storage_account_id: &'a StorageAccountId,
+) -> StorageAccountBlobContainerNamesListRequest<'a> {
     StorageAccountBlobContainerNamesListRequest { storage_account_id }
 }
 
 #[async_trait]
-impl cloud_terrastodon_command::CacheableCommand for StorageAccountBlobContainerNamesListRequest {
+impl<'a> cloud_terrastodon_command::CacheableCommand for StorageAccountBlobContainerNamesListRequest<'a> {
     type Output = HashSet<StorageAccountBlobContainerName>;
 
     fn cache_key(&self) -> CacheKey {
@@ -56,7 +56,7 @@ impl cloud_terrastodon_command::CacheableCommand for StorageAccountBlobContainer
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(StorageAccountBlobContainerNamesListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(StorageAccountBlobContainerNamesListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {
@@ -69,7 +69,7 @@ mod test {
         let storage_accounts = fetch_all_storage_accounts().await?;
         for sa in storage_accounts.into_iter() {
             if let Ok(blob_containers) =
-                fetch_storage_account_blob_container_names(sa.id.clone()).await
+                fetch_storage_account_blob_container_names(&sa.id).await
             {
                 println!("Storage account: {sa:#?}");
                 println!("Blob containers: {blob_containers:#?}");

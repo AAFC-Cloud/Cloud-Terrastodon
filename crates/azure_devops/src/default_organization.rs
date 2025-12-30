@@ -1,41 +1,50 @@
-use crate::prelude::get_azure_devops_configuration_list_command;
+use crate::prelude::get_azure_devops_cli_config;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind::AzureCLI;
+use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_command::bstr::ByteSlice;
-use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
+use std::pin::Pin;
 use tracing::info;
 
-pub async fn get_default_organization_url() -> eyre::Result<AzureDevOpsOrganizationUrl> {
-    let cmd = get_azure_devops_configuration_list_command();
-    let resp = cmd.run_raw().await?;
-    let resp = match resp.stdout.to_str() {
-        Ok(s) => s,
-        Err(e) => {
-            cmd.bust_cache().await?;
-            bail!("Failed to convert stdout to string: {e}");
-        }
-    };
-    match (|| {
-        let org = resp
-            .lines()
-            .find(|line| line.contains("organization"))
-            .ok_or_eyre("Expected organization to be configured using `az devops configure --defaults organization=https://dev.azure.com/myorg/`")?;
-        let Some((_,org)) = org.rsplit_once('=') else {
-            bail!("Expected org to have a slash before the name, found {org:?}");
-        };
-        org.trim().to_string().parse()
-    })()
-    .wrap_err(format!("Failed to extract value from config:\n===\n{resp}\n===")) {
-        Ok(s) => Ok(s),
-        Err(e) => {
-            _ = cmd.bust_cache().await;
-            bail!(
-                "Expected organization to be configured using `az devops configure --defaults organization=https://dev.azure.com/myorg/`\nError: {e}"
-            );
-        }
+#[must_use = "This is a future request, you must .await it"]
+pub struct DefaultAzureDevOpsOrganizationUrlRequest;
+
+pub fn get_default_organization_url() -> DefaultAzureDevOpsOrganizationUrlRequest {
+    DefaultAzureDevOpsOrganizationUrlRequest
+}
+
+#[async_trait]
+impl CacheInvalidatable for DefaultAzureDevOpsOrganizationUrlRequest {
+    async fn invalidate(&self) -> eyre::Result<()> {
+        get_azure_devops_cli_config().invalidate().await?;
+        Ok(())
+    }
+}
+
+impl IntoFuture for DefaultAzureDevOpsOrganizationUrlRequest {
+    type Output = eyre::Result<AzureDevOpsOrganizationUrl>;
+    type IntoFuture = Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(async move {
+            let config = get_azure_devops_cli_config().await?;
+            let org = config
+                .lines()
+                .find(|line| line.contains("organization"))
+                .ok_or_eyre("Expected organization to be configured using `az devops configure --defaults organization=https://dev.azure.com/myorg/`")?;
+            let Some((_, org)) = org.rsplit_once('=') else {
+                bail!("Missing equal sign delimiting value, found {org:?}");
+            };
+            let url = org
+                .trim()
+                .to_string()
+                .parse::<AzureDevOpsOrganizationUrl>()?;
+            Ok(url)
+        })
     }
 }
 
@@ -55,9 +64,8 @@ pub async fn set_default_organization_url(org: AzureDevOpsOrganizationUrl) -> ey
             resp.stderr.to_str()?
         );
     }
-    get_azure_devops_configuration_list_command()
-        .bust_cache()
-        .await?;
+
+    get_default_organization_url().invalidate().await?;
     Ok(())
 }
 

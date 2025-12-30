@@ -10,12 +10,6 @@ pub trait CacheableCommand: Sized + Send {
 
     fn cache_key(&self) -> CacheKey;
     async fn run(self) -> eyre::Result<Self::Output>;
-    async fn run_with_invalidation(self, invalidate_cache: bool) -> eyre::Result<Self::Output> {
-        if invalidate_cache {
-            self.cache_key().invalidate().await?;
-        }
-        self.run().await
-    }
 }
 
 impl<T> HasCacheKey for T
