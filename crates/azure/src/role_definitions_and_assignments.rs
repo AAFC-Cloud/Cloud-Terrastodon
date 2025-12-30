@@ -19,14 +19,9 @@ pub fn fetch_all_role_definitions_and_assignments() -> RoleDefinitionsAndAssignm
 #[async_trait]
 impl CacheInvalidatable for RoleDefinitionsAndAssignmentsListRequest {
     async fn invalidate(&self) -> eyre::Result<()> {
-        fetch_all_role_definitions()
-            .cache_key()
-            .invalidate()
-            .await?;
-        fetch_all_role_assignments()
-            .cache_key()
-            .invalidate()
-            .await?;
+        let definitions = fetch_all_role_definitions().cache_key();
+        let assignments = fetch_all_role_assignments().cache_key();
+        try_join!(definitions.invalidate(), assignments.invalidate())?;
         Ok(())
     }
 }
