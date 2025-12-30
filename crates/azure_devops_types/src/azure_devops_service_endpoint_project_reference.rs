@@ -17,5 +17,6 @@ pub struct AzureDevOpsServiceEndpointProjectReference {
 #[serde(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointProjectReferenceProjectReference {
     pub id: AzureDevOpsProjectId,
-    pub name: AzureDevOpsProjectName,
+    /// Name may be missing if the project has been deleted
+    pub name: Option<AzureDevOpsProjectName>,
 }
