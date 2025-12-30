@@ -1,9 +1,11 @@
 use cloud_terrastodon_azure_types::prelude::ComputeSku;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
 use std::path::PathBuf;
+use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_all_compute_skus(
@@ -16,7 +18,10 @@ pub async fn fetch_all_compute_skus(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_dir(PathBuf::from_iter(["az", "vm", "list-skus"]));
+    cmd.use_cache_behaviour(Some(CacheKey {
+        path: PathBuf::from_iter(["az", "vm", "list-skus"]),
+        valid_for: Duration::MAX,
+    }));
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Response {

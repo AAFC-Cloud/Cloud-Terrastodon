@@ -1,11 +1,13 @@
 use crate::prelude::fetch_current_user;
 use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use itertools::Itertools;
 use serde::Deserialize;
 use std::path::PathBuf;
+use std::time::Duration;
 
 pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<GovernanceRoleAssignment>> {
     let my_object_id = fetch_current_user().await?.id;
@@ -36,12 +38,10 @@ pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<GovernanceRoleA
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_dir(PathBuf::from_iter([
-        "az",
-        "rest",
-        "GET",
-        "pim_roleAssignments",
-    ]));
+    cmd.use_cache_behaviour(Some(CacheKey {
+        path: PathBuf::from_iter(["az", "rest", "GET", "pim_roleAssignments"]),
+        valid_for: Duration::MAX,
+    }));
 
     #[derive(Deserialize)]
     struct Response {

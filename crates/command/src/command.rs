@@ -86,12 +86,6 @@ impl CommandBuilder {
         self.kind = kind;
         self
     }
-    pub fn use_cache_dir(&mut self, cache: impl AsRef<Path>) -> &mut Self {
-        self.use_cache_behaviour(Some(CacheKey {
-            path: cache.as_ref().to_path_buf(),
-            valid_for: Duration::MAX,
-        }))
-    }
     pub async fn bust_cache(&self) -> Result<()> {
         let Some(cache_key) = &self.cache_behaviour else {
             bail!("no cache entry present");

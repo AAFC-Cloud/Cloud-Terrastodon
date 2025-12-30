@@ -1,15 +1,20 @@
 use cloud_terrastodon_azure_types::prelude::User;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use std::path::PathBuf;
+use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_all_users() -> Result<Vec<User>> {
     debug!("Fetching users");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["ad", "user", "list", "--output", "json"]);
-    cmd.use_cache_dir(PathBuf::from_iter(["az", "ad", "user", "list"]));
+    cmd.use_cache_behaviour(Some(CacheKey {
+        path: PathBuf::from_iter(["az", "ad", "user", "list"]),
+        valid_for: Duration::MAX,
+    }));
     let users: Vec<User> = cmd.run().await?;
     debug!("Found {} users", users.len());
     Ok(users)

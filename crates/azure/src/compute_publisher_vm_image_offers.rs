@@ -2,9 +2,11 @@ use cloud_terrastodon_azure_types::prelude::ComputePublisherName;
 use cloud_terrastodon_azure_types::prelude::ComputePublisherVmImageOfferId;
 use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use std::path::PathBuf;
+use std::time::Duration;
 
 pub async fn fetch_compute_publisher_image_offers(
     subscription_id: &SubscriptionId,
@@ -16,14 +18,17 @@ pub async fn fetch_compute_publisher_image_offers(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_dir(PathBuf::from_iter([
-        "az",
-        "vm",
-        "list-publishers-offers",
-        subscription_id.to_string().as_str(),
-        location.to_string().as_str(),
-        publisher_name.to_string().as_str(),
-    ]));
+    cmd.use_cache_behaviour(Some(CacheKey {
+        path: PathBuf::from_iter([
+            "az",
+            "vm",
+            "list-publishers-offers",
+            subscription_id.to_string().as_str(),
+            location.to_string().as_str(),
+            publisher_name.to_string().as_str(),
+        ]),
+        valid_for: Duration::MAX,
+    }));
     #[derive(serde::Deserialize)]
     struct Row {
         id: ComputePublisherVmImageOfferId,

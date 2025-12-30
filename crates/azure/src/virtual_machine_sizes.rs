@@ -1,9 +1,11 @@
 use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_azure_types::prelude::VirtualMachineSize;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use std::path::PathBuf;
+use std::time::Duration;
 
 pub async fn fetch_virtual_machine_sizes(
     subscription_id: &SubscriptionId,
@@ -14,13 +16,16 @@ pub async fn fetch_virtual_machine_sizes(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_dir(PathBuf::from_iter([
-        "az",
-        "vm",
-        "list-sizes",
-        subscription_id.to_string().as_str(),
-        location.to_string().as_str(),
-    ]));
+    cmd.use_cache_behaviour(Some(CacheKey {
+        path: PathBuf::from_iter([
+            "az",
+            "vm",
+            "list-sizes",
+            subscription_id.to_string().as_str(),
+            location.to_string().as_str(),
+        ]),
+        valid_for: Duration::MAX,
+    }));
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Response {

@@ -1,9 +1,11 @@
 use cloud_terrastodon_azure_types::prelude::ComputeSkuName;
 use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::Price;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use compact_str::CompactString;
+use std::time::Duration;
 
 pub async fn fetch_compute_sku_prices(
     location: &LocationName,
@@ -18,11 +20,10 @@ pub async fn fetch_compute_sku_prices(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_dir(std::path::PathBuf::from_iter([
-        "az",
-        "vm",
-        "list-sku-pricings",
-    ]));
+    cmd.use_cache_behaviour(Some(CacheKey {
+        path: std::path::PathBuf::from_iter(["az", "vm", "list-sku-pricings"]),
+        valid_for: Duration::MAX,
+    }));
 
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
