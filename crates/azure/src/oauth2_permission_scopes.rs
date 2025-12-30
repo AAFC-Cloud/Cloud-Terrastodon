@@ -3,40 +3,61 @@ use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_command::impl_cacheable_into_future;
 use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::info;
 
-pub async fn fetch_oauth2_permission_scopes(
+pub struct OAuth2PermissionScopesListRequest {
     service_principal_id: ServicePrincipalId,
-) -> eyre::Result<Vec<OAuth2PermissionScope>> {
-    info!(
-        "Fetching OAuth2 permission scopes for {:?}",
-        service_principal_id
-    );
-    let url = format!(
-        "https://graph.microsoft.com/v1.0/servicePrincipals/{service_principal_id}?$select=oauth2PermissionScopes"
-    );
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["rest", "--method", "GET", "--url", url.as_ref()]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "az",
-        "rest",
-        "GET",
-        "oauth2_permission_scopes",
-        service_principal_id.to_string().as_ref(),
-    ])));
-
-    #[derive(Deserialize)]
-    struct Response {
-        #[serde(rename = "oauth2PermissionScopes")]
-        oauth2_permission_scopes: Vec<OAuth2PermissionScope>,
-    }
-    let entries = cmd.run::<Response>().await?.oauth2_permission_scopes;
-
-    info!("Found {} service principals", entries.len());
-    Ok(entries)
 }
+
+pub fn fetch_oauth2_permission_scopes(
+    service_principal_id: ServicePrincipalId,
+) -> OAuth2PermissionScopesListRequest {
+    OAuth2PermissionScopesListRequest { service_principal_id }
+}
+
+#[async_trait]
+impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionScopesListRequest {
+    type Output = Vec<OAuth2PermissionScope>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "rest",
+            "GET",
+            "oauth2_permission_scopes",
+            self.service_principal_id.to_string().as_ref(),
+        ]))
+    }
+
+    async fn run(self) -> eyre::Result<Self::Output> {
+        info!(
+            "Fetching OAuth2 permission scopes for {:?}",
+            self.service_principal_id
+        );
+        let url = format!(
+            "https://graph.microsoft.com/v1.0/servicePrincipals/{service_principal_id}?$select=oauth2PermissionScopes",
+            service_principal_id = self.service_principal_id
+        );
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.args(["rest", "--method", "GET", "--url", url.as_ref()]);
+
+        #[derive(Deserialize)]
+        struct Response {
+            #[serde(rename = "oauth2PermissionScopes")]
+            oauth2_permission_scopes: Vec<OAuth2PermissionScope>,
+        }
+        let entries = cmd.run::<Response>().await?.oauth2_permission_scopes;
+
+        info!("Found {} service principals", entries.len());
+        Ok(entries)
+    }
+}
+
+impl_cacheable_into_future!(OAuth2PermissionScopesListRequest);
 
 #[cfg(test)]
 mod tests {

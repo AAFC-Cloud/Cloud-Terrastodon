@@ -1,17 +1,34 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::RoleAssignment;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use eyre::Result;
 use std::path::PathBuf;
 use tracing::debug;
+use cloud_terrastodon_command::async_trait;
 
 /// Fetches all AzureRM role assignments.
 ///
 /// Not to be confused with Entra role assignments.
-pub async fn fetch_all_role_assignments() -> Result<Vec<RoleAssignment>> {
-    debug!("Fetching role assignments");
-    let mut query = ResourceGraphHelper::new(
-        r#"
+#[must_use = "This is a future request, you must .await it"]
+pub struct RoleAssignmentListRequest;
+
+pub fn fetch_all_role_assignments() -> RoleAssignmentListRequest {
+    RoleAssignmentListRequest
+}
+
+#[async_trait]
+impl CacheableCommand for RoleAssignmentListRequest {
+    type Output = Vec<RoleAssignment>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "role_assignments"]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        debug!("Fetching role assignments");
+        let mut query = ResourceGraphHelper::new(
+            r#"
 authorizationresources
 | where type =~ "microsoft.authorization/roleassignments"
 | project
@@ -20,16 +37,15 @@ authorizationresources
     role_definition_id=properties.roleDefinitionId,
     principal_id=properties.principalId
 "#,
-        Some(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "resource_graph",
-            "role_assignments",
-        ]))),
-    );
-    let role_assignments: Vec<RoleAssignment> = query.collect_all().await?;
-    debug!("Found {} role assignments", role_assignments.len());
-    Ok(role_assignments)
+            Some(self.cache_key()),
+        );
+        let role_assignments: Vec<RoleAssignment> = query.collect_all().await?;
+        debug!("Found {} role assignments", role_assignments.len());
+        Ok(role_assignments)
+    }
 }
+
+cloud_terrastodon_command::impl_cacheable_into_future!(RoleAssignmentListRequest);
 
 #[cfg(test)]
 mod tests {

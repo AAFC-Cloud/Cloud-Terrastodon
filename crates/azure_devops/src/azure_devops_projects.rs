@@ -3,6 +3,8 @@ use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProject;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_command::impl_cacheable_into_future;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Serialize;
@@ -10,47 +12,67 @@ use std::path::PathBuf;
 use tracing::debug;
 use tracing::field::debug;
 
-pub async fn fetch_all_azure_devops_projects(
-    org_url: &AzureDevOpsOrganizationUrl,
-) -> Result<Vec<AzureDevOpsProject>> {
-    debug!("Fetching Azure DevOps projects");
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args([
-        "devops",
-        "project",
-        "list",
-        "--organization",
-        org_url.to_string().as_str(),
-        "--output",
-        "json",
-    ]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "az", "devops", "project", "list",
-    ])));
-
-    #[derive(Serialize, Deserialize)]
-    pub struct Response {
-        #[serde(rename = "continuationToken")]
-        continuation_token: Option<String>,
-        value: Vec<AzureDevOpsProject>,
-    }
-
-    let mut projects = Vec::new();
-    let mut response = cmd.run::<Response>().await?;
-    projects.extend(response.value);
-
-    while let Some(continuation) = &response.continuation_token {
-        debug("Fetching the next page of projects");
-        let mut next_page_cmd = cmd.clone();
-        next_page_cmd.args(["--continuation-token", continuation.as_ref()]);
-
-        response = next_page_cmd.run::<Response>().await?;
-        projects.extend(response.value);
-    }
-
-    debug!("Found {} Azure DevOps projects", projects.len());
-    Ok(projects)
+pub struct AzureDevOpsProjectsListRequest<'a> {
+    org_url: &'a AzureDevOpsOrganizationUrl,
 }
+
+pub fn fetch_all_azure_devops_projects<'a>(
+    org_url: &'a AzureDevOpsOrganizationUrl,
+) -> AzureDevOpsProjectsListRequest<'a> {
+    AzureDevOpsProjectsListRequest { org_url }
+}
+
+#[async_trait]
+impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsListRequest<'a> {
+    type Output = Vec<AzureDevOpsProject>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter(["az", "devops", "project", "list"]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        debug!("Fetching Azure DevOps projects");
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        let org = self.org_url.to_string();
+        cmd.args([
+            "devops",
+            "project",
+            "list",
+            "--organization",
+            org.as_str(),
+            "--output",
+            "json",
+        ]);
+        cmd.cache(CacheKey::new(PathBuf::from_iter([
+            "az", "devops", "project", "list",
+        ])));
+
+        #[derive(Serialize, Deserialize)]
+        pub struct Response {
+            #[serde(rename = "continuationToken")]
+            continuation_token: Option<String>,
+            value: Vec<AzureDevOpsProject>,
+        }
+
+        let mut projects = Vec::new();
+        let mut response = cmd.run::<Response>().await?;
+        projects.extend(response.value);
+
+        while let Some(continuation) = &response.continuation_token {
+            debug("Fetching the next page of projects");
+            let mut next_page_cmd = cmd.clone();
+            next_page_cmd.args(["--continuation-token", continuation.as_ref()]);
+
+            response = next_page_cmd.run::<Response>().await?;
+            projects.extend(response.value);
+        }
+
+        debug!("Found {} Azure DevOps projects", projects.len());
+        Ok(projects)
+    }
+}
+
+impl_cacheable_into_future!(AzureDevOpsProjectsListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {

@@ -4,14 +4,31 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::Resource;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use eyre::Result;
 use std::path::PathBuf;
 use tracing::debug;
+use cloud_terrastodon_command::async_trait;
 
-pub async fn fetch_all_resources() -> Result<Vec<Resource>> {
-    debug!(fetching = "resources");
-    let resources = ResourceGraphHelper::new(
-        r#"
+#[must_use = "This is a future request, you must .await it"]
+pub struct ResourceListRequest;
+
+pub fn fetch_all_resources() -> ResourceListRequest {
+    ResourceListRequest
+}
+
+#[async_trait]
+impl CacheableCommand for ResourceListRequest {
+    type Output = Vec<Resource>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "resources"]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        debug!(fetching = "resources");
+        let resources = ResourceGraphHelper::new(
+            r#"
 resources 
 | union resourcecontainers
 | project
@@ -21,17 +38,16 @@ resources
     display_name=properties.displayName,
     tags
 "#,
-        Some(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "resource_graph",
-            "resources",
-        ]))),
-    )
-    .collect_all()
-    .await?;
-    debug!(count = resources.len(), "Retrieved resources");
-    Ok(resources)
+            Some(self.cache_key()),
+        )
+        .collect_all()
+        .await?;
+        debug!(count = resources.len(), "Retrieved resources");
+        Ok(resources)
+    }
 }
+
+cloud_terrastodon_command::impl_cacheable_into_future!(ResourceListRequest);
 
 #[cfg(test)]
 mod tests {

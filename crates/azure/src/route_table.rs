@@ -1,14 +1,31 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::RouteTable;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
 use tracing::info;
+use cloud_terrastodon_command::async_trait;
 
-pub async fn fetch_all_route_tables() -> Result<Vec<RouteTable>> {
-    info!("Fetching route tables");
-    let query = indoc! {r#"
+#[must_use = "This is a future request, you must .await it"]
+pub struct RouteTableListRequest;
+
+pub fn fetch_all_route_tables() -> RouteTableListRequest {
+    RouteTableListRequest
+}
+
+#[async_trait]
+impl CacheableCommand for RouteTableListRequest {
+    type Output = Vec<RouteTable>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "route_tables"]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        info!("Fetching route tables");
+        let query = indoc! {r#"
         Resources
         | where type == "microsoft.network/routetables"
         | project
@@ -20,21 +37,20 @@ pub async fn fetch_all_route_tables() -> Result<Vec<RouteTable>> {
             tags,
             properties
     "#}
-    .to_owned();
+        .to_owned();
 
-    let route_tables = ResourceGraphHelper::new(
-        query,
-        Some(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "resource_graph",
-            "route_tables",
-        ]))),
-    )
-    .collect_all::<RouteTable>()
-    .await?;
-    info!("Found {} route tables", route_tables.len());
-    Ok(route_tables)
+        let route_tables = ResourceGraphHelper::new(
+            query,
+            Some(self.cache_key()),
+        )
+        .collect_all::<RouteTable>()
+        .await?;
+        info!("Found {} route tables", route_tables.len());
+        Ok(route_tables)
+    }
 }
+
+cloud_terrastodon_command::impl_cacheable_into_future!(RouteTableListRequest);
 
 #[cfg(test)]
 mod tests {

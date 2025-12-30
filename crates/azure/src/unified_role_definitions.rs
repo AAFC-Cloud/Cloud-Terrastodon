@@ -1,27 +1,40 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionCollection;
-use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::{CacheKey, CacheableCommand};
+use cloud_terrastodon_command::impl_cacheable_into_future;
+use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
 /// Fetch all Entra role assignments.
 ///
 /// Not to be confused with Azure RBAC role assignments.
-pub async fn fetch_all_unified_role_definitions() -> eyre::Result<UnifiedRoleDefinitionCollection> {
-    let url = "https://graph.microsoft.com/beta/roleManagement/directory/roleDefinitions"; // ?$top=500
-    let query = MicrosoftGraphHelper::new(
-        url,
-        Some(CacheKey::new(PathBuf::from_iter([
+pub struct UnifiedRoleDefinitionListRequest;
+
+pub fn fetch_all_unified_role_definitions() -> UnifiedRoleDefinitionListRequest {
+    UnifiedRoleDefinitionListRequest
+}
+
+#[async_trait]
+impl CacheableCommand for UnifiedRoleDefinitionListRequest {
+    type Output = UnifiedRoleDefinitionCollection;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
             "ms",
             "graph",
             "GET",
             "unified_role_definitions",
-        ]))),
-    );
-    query
-        .fetch_all()
-        .await
-        .map(UnifiedRoleDefinitionCollection::new)
+        ]))
+    }
+
+    async fn run(self) -> eyre::Result<Self::Output> {
+        let url = "https://graph.microsoft.com/beta/roleManagement/directory/roleDefinitions"; // ?$top=500
+        let query = MicrosoftGraphHelper::new(url, Some(self.cache_key()));
+        query.fetch_all().await.map(UnifiedRoleDefinitionCollection::new)
+    }
 }
+
+impl_cacheable_into_future!(UnifiedRoleDefinitionListRequest);
 #[cfg(test)]
 mod test {
     use crate::prelude::fetch_all_unified_role_definitions;

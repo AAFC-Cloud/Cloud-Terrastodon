@@ -69,11 +69,11 @@ impl AzureVmPublisherOfferSkuVersionListArgs {
 
         info!(subscription = %subscription, location = %location, publisher = %publisher, offer = %offer, sku = %sku, "Fetching VM publisher offer SKU versions");
         let versions = fetch_compute_publisher_image_offer_sku_versions(
-            &subscription,
-            &location,
-            &publisher,
-            &offer,
-            &sku,
+            subscription,
+            location,
+            publisher,
+            offer,
+            sku,
         )
         .await?;
 

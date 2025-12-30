@@ -1,22 +1,40 @@
 use cloud_terrastodon_azure_types::prelude::Group;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use std::path::PathBuf;
 use tracing::debug;
 
-pub async fn fetch_all_groups() -> Result<Vec<Group>> {
-    debug!("Fetching Azure AD groups");
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["ad", "group", "list", "--output", "json"]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "az", "ad", "group", "list",
-    ])));
-    let rtn: Vec<Group> = cmd.run().await?;
-    debug!("Found {} groups", rtn.len());
-    Ok(rtn)
+#[must_use = "This is a future request, you must .await it"]
+pub struct GroupListRequest;
+
+pub fn fetch_all_groups() -> GroupListRequest {
+    GroupListRequest
 }
+
+#[async_trait]
+impl CacheableCommand for GroupListRequest {
+    type Output = Vec<Group>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter(["az", "ad", "group", "list"]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        debug!("Fetching Azure AD groups");
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.args(["ad", "group", "list", "--output", "json"]);
+        cmd.cache(self.cache_key());
+        let rtn: Vec<Group> = cmd.run().await?;
+        debug!("Found {} groups", rtn.len());
+        Ok(rtn)
+    }
+}
+
+cloud_terrastodon_command::impl_cacheable_into_future!(GroupListRequest);
 
 #[cfg(test)]
 mod tests {

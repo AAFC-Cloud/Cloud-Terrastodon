@@ -2,54 +2,87 @@ use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_command::impl_cacheable_into_future;
 use serde::Deserialize;
 use serde_json::Value;
 use std::path::PathBuf;
 use tracing::info;
 
-pub async fn fetch_queries_for_project(
-    org_url: &AzureDevOpsOrganizationUrl,
-    project_name: &AzureDevOpsProjectName,
-) -> eyre::Result<Vec<AzureDevOpsWorkItemQuery>> {
-    info!("Fetching queries for Azure DevOps project {project_name}");
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["devops", "invoke"]);
-    cmd.args(["--organization", org_url.to_string().as_str()]);
-    cmd.args(["--area", "wit"]);
-    cmd.args(["--resource", "queries"]);
-    cmd.args(["--encoding", "utf-8"]);
-    cmd.args([
-        "--route-parameters",
-        format!("project={project_name}").as_str(),
-    ]);
-    cmd.args(["--query-parameters", "$expand=all", "$depth=2"]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "az",
-        "devops",
-        "query",
-        "list",
-        project_name.as_ref(),
-    ])));
-    #[derive(Deserialize)]
-    struct InvokeResponse {
-        continuation_token: Option<Value>,
-        count: u32,
-        value: Vec<AzureDevOpsWorkItemQuery>,
-    }
-    let resp = cmd.run::<InvokeResponse>().await?;
-    let queries = resp.value;
-    let total = AzureDevOpsWorkItemQuery::flatten_many(&queries).len();
-    info!(
-        "Found {} queries for Azure DevOps project {project_name} ({} counting children)",
-        resp.count, total
-    );
-    if resp.continuation_token.is_some() {
-        todo!("Add support for continuation token...");
-    }
-    Ok(queries)
+pub struct WorkItemQueriesForProjectRequest<'a> {
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    project_name: &'a AzureDevOpsProjectName,
 }
+
+pub fn fetch_queries_for_project<'a>(
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    project_name: &'a AzureDevOpsProjectName,
+) -> WorkItemQueriesForProjectRequest<'a> {
+    WorkItemQueriesForProjectRequest {
+        org_url,
+        project_name,
+    }
+}
+
+#[async_trait]
+impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
+    type Output = Vec<AzureDevOpsWorkItemQuery>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "devops",
+            "query",
+            "list",
+            self.project_name.as_ref(),
+        ]))
+    }
+
+    async fn run(self) -> eyre::Result<Self::Output> {
+        info!("Fetching queries for Azure DevOps project {}", self.project_name);
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.args(["devops", "invoke"]);
+        cmd.args(["--organization", self.org_url.to_string().as_str()]);
+        cmd.args(["--area", "wit"]);
+        cmd.args(["--resource", "queries"]);
+        cmd.args(["--encoding", "utf-8"]);
+        cmd.args([
+            "--route-parameters",
+            format!("project={}", self.project_name).as_str(),
+        ]);
+        cmd.args(["--query-parameters", "$expand=all", "$depth=2"]);
+        cmd.cache(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "devops",
+            "query",
+            "list",
+            self.project_name.as_ref(),
+        ])));
+
+        #[derive(Deserialize)]
+        struct InvokeResponse {
+            continuation_token: Option<Value>,
+            count: u32,
+            value: Vec<AzureDevOpsWorkItemQuery>,
+        }
+        let resp = cmd.run::<InvokeResponse>().await?;
+        let queries = resp.value;
+        let total = AzureDevOpsWorkItemQuery::flatten_many(&queries).len();
+        info!(
+            "Found {} queries for Azure DevOps project {} ({} counting children)",
+            resp.count, self.project_name, total
+        );
+        if resp.continuation_token.is_some() {
+            todo!("Add support for continuation token...");
+        }
+        Ok(queries)
+    }
+}
+
+impl_cacheable_into_future!(WorkItemQueriesForProjectRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {

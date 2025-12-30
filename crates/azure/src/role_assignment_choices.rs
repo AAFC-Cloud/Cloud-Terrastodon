@@ -7,6 +7,7 @@ use crate::prelude::fetch_all_role_definitions;
 use crate::prelude::fetch_all_users;
 use cloud_terrastodon_user_input::Choice;
 use std::collections::HashMap;
+use std::future::IntoFuture;
 use tokio::try_join;
 use tracing::warn;
 
@@ -14,7 +15,7 @@ pub async fn get_role_assignment_choices() -> eyre::Result<Vec<Choice<RoleAssign
     let (role_assignments, role_definitions, users) = try_join!(
         fetch_all_role_assignments(),
         fetch_all_role_definitions(),
-        fetch_all_users()
+        fetch_all_users().into_future()
     )?;
 
     let role_definition_lookup: HashMap<&RoleDefinitionId, &RoleDefinition> =

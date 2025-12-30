@@ -1,28 +1,48 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::GroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
-use cloud_terrastodon_command::CacheKey;
-use eyre::Result;
+use cloud_terrastodon_command::{CacheKey, CacheableCommand};
+use cloud_terrastodon_command::impl_cacheable_into_future;
+use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use tracing::debug;
 
-pub async fn fetch_group_owners(group_id: GroupId) -> Result<Vec<Principal>> {
-    debug!("Fetching owners for group {}", group_id);
-    let owners = MicrosoftGraphHelper::new(
-        format!("https://graph.microsoft.com/v1.0/groups/{group_id}/owners"),
-        Some(CacheKey::new(PathBuf::from_iter([
+pub struct GroupOwnersListRequest {
+    group_id: GroupId,
+}
+
+pub fn fetch_group_owners(group_id: GroupId) -> GroupOwnersListRequest {
+    GroupOwnersListRequest { group_id }
+}
+
+#[async_trait]
+impl CacheableCommand for GroupOwnersListRequest {
+    type Output = Vec<Principal>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
             "ms".to_string(),
             "graph".to_string(),
             "GET".to_string(),
             "group_owners".to_string(),
-            group_id.as_hyphenated().to_string(),
-        ]))),
-    )
-    .fetch_all::<Principal>()
-    .await?;
-    debug!("Found {} owners for group {}", owners.len(), group_id);
-    Ok(owners)
+            self.group_id.as_hyphenated().to_string(),
+        ]))
+    }
+
+    async fn run(self) -> eyre::Result<Self::Output> {
+        debug!("Fetching owners for group {}", self.group_id);
+        let owners = MicrosoftGraphHelper::new(
+            format!("https://graph.microsoft.com/v1.0/groups/{}/owners", self.group_id),
+            Some(self.cache_key()),
+        )
+        .fetch_all::<Principal>()
+        .await?;
+        debug!("Found {} owners for group {}", owners.len(), self.group_id);
+        Ok(owners)
+    }
 }
+
+impl_cacheable_into_future!(GroupOwnersListRequest);
 
 #[cfg(test)]
 mod tests {
@@ -31,7 +51,7 @@ mod tests {
     use eyre::bail;
 
     #[tokio::test]
-    async fn list_group_owners() -> Result<()> {
+    async fn list_group_owners() -> eyre::Result<()> {
         let groups = fetch_all_groups().await?;
         // there's a chance that some groups just don't have members lol
         // lets hope that we aren't unlucky many times in a row

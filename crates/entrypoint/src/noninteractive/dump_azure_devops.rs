@@ -19,10 +19,10 @@ pub async fn dump_azure_devops() -> eyre::Result<()> {
     let mut project_groups = ParallelFallibleWorkQueue::new("fetch_azure_devops_groups", 10);
     for project in projects.iter() {
         let org_url = org_url.clone();
-        let project = project.clone();
+        let project_id = project.id.clone();
         project_groups.enqueue(async move {
-            let groups = fetch_azure_devops_groups(&org_url, &project.id).await?;
-            eyre::Ok((project.id.clone(), groups))
+            let groups = fetch_azure_devops_groups(&org_url, &project_id).await?;
+            eyre::Ok((project_id, groups))
         });
     }
 

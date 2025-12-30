@@ -17,6 +17,7 @@
 - Remove `CommandBuilder::use_cache_dir` in favor of `CommandBuilder::use_cache_behaviour`
 - Add `CacheKey::new` to default to `Duration::MAX`
 - Replace `CommandBuilder::use_cache_behaviour` with `CommandBuilder::use_cache` and `CommandBuilder::cache`
+- Introduce `CacheableCommand` trait, updating the response of most `fetch` functions
 
 # v0.30.0
 

@@ -1,22 +1,43 @@
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::ConditionalAccessPolicy;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
+use eyre::Result;
 use std::path::PathBuf;
 
-pub async fn fetch_all_conditional_access_policies() -> eyre::Result<Vec<ConditionalAccessPolicy>> {
-    let query = MicrosoftGraphHelper::new(
-        "https://graph.microsoft.com/beta/identity/conditionalAccess/policies",
-        Some(CacheKey::new(PathBuf::from_iter([
+#[must_use = "This is a future request, you must .await it"]
+pub struct ConditionalAccessPolicyListRequest;
+
+pub fn fetch_all_conditional_access_policies() -> ConditionalAccessPolicyListRequest {
+    ConditionalAccessPolicyListRequest
+}
+
+#[async_trait]
+impl CacheableCommand for ConditionalAccessPolicyListRequest {
+    type Output = Vec<ConditionalAccessPolicy>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
             "ms",
             "graph",
             "GET",
             "conditional_access_policies",
-        ]))),
-    );
+        ]))
+    }
 
-    let policies = query.fetch_all().await?;
-    Ok(policies)
+    async fn run(self) -> Result<Self::Output> {
+        let query = MicrosoftGraphHelper::new(
+            "https://graph.microsoft.com/beta/identity/conditionalAccess/policies",
+            Some(self.cache_key()),
+        );
+
+        let policies = query.fetch_all().await?;
+        Ok(policies)
+    }
 }
+
+cloud_terrastodon_command::impl_cacheable_into_future!(ConditionalAccessPolicyListRequest);
 
 #[cfg(test)]
 mod test {

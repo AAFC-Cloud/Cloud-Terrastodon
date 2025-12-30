@@ -1,60 +1,96 @@
+#![allow(deprecated)]
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops_types::prelude::WorkItemQueryResult;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::bstr::ByteSlice;
+use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_command::impl_cacheable_into_future;
 use std::path::PathBuf;
 use tracing::debug;
 
+/// <https://developercommunity.visualstudio.com/t/Its-impossible-to-use-az-devops-invoke/10880749>
 #[deprecated(note = "WIP, the return type and behaviour isn't in a good spot yet.")]
-pub async fn fetch_work_items_for_query(
-    org_url: &AzureDevOpsOrganizationUrl,
-    project_name: &AzureDevOpsProjectName,
-    query_id: &AzureDevOpsWorkItemQueryId,
-) -> eyre::Result<Option<WorkItemQueryResult>> {
-    debug!(
-        "Fetching work item query results for {query_id} from project {project_name} in organization {org_name}",
-        org_name = org_url.organization_name
-    );
-    // https://developercommunity.visualstudio.com/t/Its-impossible-to-use-az-devops-invoke/10880749
-
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args([
-        "boards",
-        "query",
-        "--organization",
-        org_url.to_string().as_str(),
-        "--id",
-        query_id.to_string().as_str(),
-        "--output",
-        "json",
-    ]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "az",
-        "boards",
-        "query",
-        &query_id.to_string(),
-    ])));
-    let output = cmd.run_raw().await?;
-    if output.stdout.trim().is_empty() {
-        return Ok(None);
-    }
-    let mut rtn: Vec<WorkItemQueryResult> = output.try_interpret(&cmd).await?;
-    assert_eq!(rtn.len(), 1);
-    Ok(Some(rtn.remove(0)))
-
-    // let url = format!(
-    //     "https://dev.azure.com/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version=7.1"
-    // );
-    // debug!("Fetching work item query results from {url}");
-    // let client = create_azure_devops_rest_client().await?;
-    // let resp = client.get(&url).send().await?.error_for_status()?;
-    // let rtn: WorkItemQueryResult = resp.json().await?;
-    // Ok(Some(rtn))
+pub struct WorkItemsForQueryRequest<'a> {
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    project_name: &'a AzureDevOpsProjectName,
+    query_id: &'a AzureDevOpsWorkItemQueryId,
 }
+
+pub fn fetch_work_items_for_query<'a>(
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    project_name: &'a AzureDevOpsProjectName,
+    query_id: &'a AzureDevOpsWorkItemQueryId,
+) -> WorkItemsForQueryRequest<'a> {
+    WorkItemsForQueryRequest {
+        org_url,
+        project_name,
+        query_id,
+    }
+}
+
+#[async_trait]
+impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
+    type Output = Option<WorkItemQueryResult>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "boards",
+            "query",
+            &self.query_id.to_string(),
+        ]))
+    }
+
+    async fn run(self) -> eyre::Result<Self::Output> {
+        debug!(
+            "Fetching work item query results for {} from project {} in organization {}",
+            self.query_id,
+            self.project_name,
+            self.org_url.organization_name
+        );
+
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.args([
+            "boards",
+            "query",
+            "--organization",
+            self.org_url.to_string().as_str(),
+            "--id",
+            self.query_id.to_string().as_str(),
+            "--output",
+            "json",
+        ]);
+        cmd.cache(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "boards",
+            "query",
+            &self.query_id.to_string(),
+        ])));
+        let output = cmd.run_raw().await?;
+        if output.stdout.trim().is_empty() {
+            return Ok(None);
+        }
+        let mut rtn: Vec<WorkItemQueryResult> = output.try_interpret(&cmd).await?;
+        assert_eq!(rtn.len(), 1);
+        Ok(Some(rtn.remove(0)))
+        
+        // let url = format!(
+        //     "https://dev.azure.com/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version=7.1"
+        // );
+        // debug!("Fetching work item query results from {url}");
+        // let client = create_azure_devops_rest_client().await?;
+        // let resp = client.get(&url).send().await?.error_for_status()?;
+        // let rtn: WorkItemQueryResult = resp.json().await?;
+        // Ok(Some(rtn))
+    }
+}
+
+impl_cacheable_into_future!(WorkItemsForQueryRequest<'a>, 'a);
 
 #[cfg(test)]
 #[allow(deprecated)]

@@ -3,31 +3,52 @@ use cloud_terrastodon_azure_types::prelude::TenantLicenseCollection;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
 use serde::Deserialize;
 use std::path::PathBuf;
+use eyre::Result;
 
-pub async fn fetch_all_tenant_licenses() -> eyre::Result<TenantLicenseCollection> {
-    let url = "https://graph.microsoft.com/v1.0/subscribedSkus";
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["rest", "--method", "GET", "--url", url]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "az",
-        "rest",
-        "GET",
-        "subscribedSkus",
-    ])));
+#[must_use = "This is a future request, you must .await it"]
+pub struct TenantLicenseListRequest;
 
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Response {
-        #[expect(dead_code)]
-        #[serde(rename = "@odata.context")]
-        context: String,
-        value: Vec<TenantLicense>,
-    }
-    let resp = cmd.run::<Response>().await?;
-    Ok(TenantLicenseCollection(resp.value))
+pub fn fetch_all_tenant_licenses() -> TenantLicenseListRequest {
+    TenantLicenseListRequest
 }
+
+#[async_trait]
+impl CacheableCommand for TenantLicenseListRequest {
+    type Output = TenantLicenseCollection;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "rest",
+            "GET",
+            "subscribedSkus",
+        ]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        let url = "https://graph.microsoft.com/v1.0/subscribedSkus";
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.args(["rest", "--method", "GET", "--url", url]);
+        cmd.cache(self.cache_key());
+
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Response {
+            #[expect(dead_code)]
+            #[serde(rename = "@odata.context")]
+            context: String,
+            value: Vec<TenantLicense>,
+        }
+        let resp = cmd.run::<Response>().await?;
+        Ok(TenantLicenseCollection(resp.value))
+    }
+}
+
+cloud_terrastodon_command::impl_cacheable_into_future!(TenantLicenseListRequest);
 
 #[cfg(test)]
 pub mod test_helpers {

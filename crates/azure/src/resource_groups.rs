@@ -8,14 +8,14 @@ use indoc::indoc;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct ResourceGroupsListRequest;
+pub struct ResourceGroupListRequest;
 
-pub fn fetch_all_resource_groups() -> ResourceGroupsListRequest {
-    ResourceGroupsListRequest
+pub fn fetch_all_resource_groups() -> ResourceGroupListRequest {
+    ResourceGroupListRequest
 }
 
 #[async_trait]
-impl CacheableCommand for ResourceGroupsListRequest {
+impl CacheableCommand for ResourceGroupListRequest {
     type Output = Vec<ResourceGroup>;
 
     fn cache_key(&self) -> CacheKey {
@@ -46,7 +46,7 @@ impl CacheableCommand for ResourceGroupsListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ResourceGroupsListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ResourceGroupListRequest);
 
 #[cfg(test)]
 mod tests {

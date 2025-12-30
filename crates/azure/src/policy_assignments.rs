@@ -1,12 +1,33 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::PolicyAssignment;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use eyre::Result;
+use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
-pub async fn fetch_all_policy_assignments() -> Result<Vec<PolicyAssignment>> {
-    let mut qb = ResourceGraphHelper::new(
-        r#"
+#[must_use = "This is a future request, you must .await it"]
+pub struct PolicyAssignmentListRequest;
+
+pub fn fetch_all_policy_assignments() -> PolicyAssignmentListRequest {
+    PolicyAssignmentListRequest
+}
+
+#[async_trait]
+impl CacheableCommand for PolicyAssignmentListRequest {
+    type Output = Vec<PolicyAssignment>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "policy_assignments",
+        ]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        let mut qb = ResourceGraphHelper::new(
+            r#"
 policyresources
 | where type =~ "microsoft.authorization/policyassignments"
 | project 
@@ -16,14 +37,13 @@ policyresources
  identity,
  properties
     "#,
-        Some(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "resource_graph",
-            "policy_assignments",
-        ]))),
-    );
-    qb.collect_all().await
+            Some(self.cache_key()),
+        );
+        qb.collect_all().await
+    }
 }
+
+cloud_terrastodon_command::impl_cacheable_into_future!(PolicyAssignmentListRequest);
 
 #[cfg(test)]
 mod tests {

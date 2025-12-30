@@ -2,46 +2,78 @@ use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeam;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use eyre::Result;
+use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_command::impl_cacheable_into_future;
 use std::path::PathBuf;
 use tracing::debug;
 
-pub async fn fetch_azure_devops_teams_for_project(
-    org_url: &AzureDevOpsOrganizationUrl,
-    project: impl Into<AzureDevOpsProjectArgument<'_>>,
-) -> Result<Vec<AzureDevOpsTeam>> {
-    let project: AzureDevOpsProjectArgument = project.into();
-    debug!("Fetching Azure DevOps teams for project {project}");
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args([
-        "devops",
-        "team",
-        "list",
-        "--organization",
-        org_url.to_string().as_str(),
-        "--output",
-        "json",
-        "--project",
-        &project.to_string(),
-    ]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "az",
-        "devops",
-        "team",
-        "list",
-        "--project",
-        &project.to_string(),
-    ])));
-
-    let response = cmd.run::<Vec<AzureDevOpsTeam>>().await?;
-    debug!(
-        "Found {} Azure DevOps teams for project {project}",
-        response.len()
-    );
-    Ok(response)
+pub struct AzureDevOpsTeamsForProjectRequest<'a> {
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    project: AzureDevOpsProjectArgument<'a>,
 }
+
+pub fn fetch_azure_devops_teams_for_project<'a>(
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    project: impl Into<AzureDevOpsProjectArgument<'a>>,
+) -> AzureDevOpsTeamsForProjectRequest<'a> {
+    AzureDevOpsTeamsForProjectRequest {
+        org_url,
+        project: project.into(),
+    }
+}
+
+#[async_trait]
+impl<'a> CacheableCommand for AzureDevOpsTeamsForProjectRequest<'a> {
+    type Output = Vec<AzureDevOpsTeam>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "devops",
+            "team",
+            "list",
+            "--project",
+            &self.project.to_string(),
+        ]))
+    }
+
+    async fn run(self) -> eyre::Result<Self::Output> {
+        let project = self.project;
+        debug!("Fetching Azure DevOps teams for project {project}");
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.args([
+            "devops",
+            "team",
+            "list",
+            "--organization",
+            self.org_url.to_string().as_str(),
+            "--output",
+            "json",
+            "--project",
+            &project.to_string(),
+        ]);
+        cmd.cache(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "devops",
+            "team",
+            "list",
+            "--project",
+            &project.to_string(),
+        ])));
+
+        let response = cmd.run::<Vec<AzureDevOpsTeam>>().await?;
+        debug!(
+            "Found {} Azure DevOps teams for project {project}",
+            response.len()
+        );
+        Ok(response)
+    }
+}
+
+impl_cacheable_into_future!(AzureDevOpsTeamsForProjectRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -50,7 +82,7 @@ mod tests {
     use crate::prelude::get_default_organization_url;
 
     #[tokio::test]
-    async fn it_works() -> Result<()> {
+    async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let project = fetch_all_azure_devops_projects(&org_url)
             .await?

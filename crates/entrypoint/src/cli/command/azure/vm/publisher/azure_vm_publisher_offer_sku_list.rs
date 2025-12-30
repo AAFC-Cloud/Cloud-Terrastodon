@@ -63,7 +63,7 @@ impl AzureVmPublisherOfferSkuListArgs {
 
         info!(subscription = %subscription, location = %location, publisher = %publisher, offer = %offer, "Fetching VM publisher offer SKUs");
         let skus =
-            fetch_compute_publisher_image_offer_skus(&subscription, &location, &publisher, &offer)
+            fetch_compute_publisher_image_offer_skus(subscription, location, publisher, offer)
                 .await?;
 
         let stdout = std::io::stdout();

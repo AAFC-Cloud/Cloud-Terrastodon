@@ -12,6 +12,7 @@ use itertools::Itertools;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
+use std::future::IntoFuture;
 use tokio::try_join;
 
 #[derive(Debug)]
@@ -75,7 +76,7 @@ impl fmt::Display for Grant {
 pub async fn pick_oauth2_permission_grants() -> eyre::Result<Vec<Grant>> {
     let grants = fetch_oauth2_permission_grants();
     let service_principals = fetch_all_service_principals();
-    let users = fetch_all_users();
+    let users = fetch_all_users().into_future();
     let (grants, service_principals, users) = try_join!(grants, service_principals, users)?;
     let service_principals_map = service_principals
         .iter()

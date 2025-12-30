@@ -73,6 +73,7 @@ mod virtual_machine_prices;
 mod virtual_machine_sizes;
 mod virtual_machine_skus;
 mod virtual_network;
+mod group_members_batch;
 pub mod prelude {
     pub use crate::access_token::*;
     pub use crate::accounts::*;
@@ -93,6 +94,7 @@ pub mod prelude {
     pub use crate::evaluate_policy_assignment_compliance::*;
     pub use crate::governance_role_assignments::*;
     pub use crate::group_members::*;
+    pub use crate::group_members_batch::*;
     pub use crate::group_owners::*;
     pub use crate::groups::*;
     pub use crate::import::*;

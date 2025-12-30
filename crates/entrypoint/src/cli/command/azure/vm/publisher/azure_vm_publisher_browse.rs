@@ -39,7 +39,7 @@ impl AzureVmPublisherBrowseArgs {
         let mut location_choices: Vec<Choice<(SubscriptionId, LocationName)>> = Vec::new();
         for sub in &chosen_subs {
             info!(subscription_id = %sub.id, subscription_name = %sub.name, "Fetching locations for subscription");
-            let locations = fetch_all_locations(&sub.id).await?;
+            let locations = fetch_all_locations(sub.id).await?;
             for loc in locations {
                 let key = format!("{} - {} ({})", sub.name, loc.display_name, loc.name);
                 location_choices.push(Choice {
@@ -58,7 +58,7 @@ impl AzureVmPublisherBrowseArgs {
         let mut publisher_set: HashSet<ComputePublisherId> = HashSet::new();
         for (sub_id, loc_name) in &chosen_locations {
             info!(subscription_id = %sub_id, location = %loc_name, "Fetching publishers for subscription and location");
-            let pubs = fetch_compute_publishers(sub_id, loc_name).await?;
+            let pubs = fetch_compute_publishers(*sub_id, loc_name.clone()).await?;
             for p in pubs {
                 publisher_set.insert(p);
             }
@@ -98,12 +98,7 @@ impl AzureVmPublisherBrowseArgs {
         let mut offer_set: HashSet<ComputePublisherVmImageOfferId> = HashSet::new();
         for p in &chosen_publishers {
             info!(subscription_id = %p.subscription_id, location = %p.location_name, publisher = %p.publisher_name, "Fetching offers for publisher");
-            let offers = fetch_compute_publisher_image_offers(
-                &p.subscription_id,
-                &p.location_name,
-                &p.publisher_name,
-            )
-            .await?;
+            let offers = fetch_compute_publisher_image_offers(p.subscription_id, p.location_name.clone(), p.publisher_name.clone()).await?;
             for o in offers {
                 offer_set.insert(o);
             }
@@ -155,13 +150,7 @@ impl AzureVmPublisherBrowseArgs {
         let mut sku_set: HashSet<ComputePublisherVmImageOfferSkuId> = HashSet::new();
         for o in &chosen_offers {
             info!(subscription_id = %o.subscription_id, location = %o.location_name, publisher = %o.publisher_name, offer = %o.offer_name, "Fetching SKUs for offer");
-            let skus = fetch_compute_publisher_image_offer_skus(
-                &o.subscription_id,
-                &o.location_name,
-                &o.publisher_name,
-                &o.offer_name,
-            )
-            .await?;
+            let skus = fetch_compute_publisher_image_offer_skus(o.subscription_id, o.location_name.clone(), o.publisher_name.clone(), o.offer_name.clone()).await?;
             for s in skus {
                 sku_set.insert(s);
             }
@@ -212,14 +201,7 @@ impl AzureVmPublisherBrowseArgs {
         let mut version_ids: Vec<ComputePublisherVmImageOfferSkuVersionId> = Vec::new();
         for s in &chosen_skus {
             info!(subscription_id = %s.subscription_id, location = %s.location_name, publisher = %s.publisher_name, offer = %s.offer_name, sku = %s.sku_name, "Fetching versions for SKU");
-            let versions = fetch_compute_publisher_image_offer_sku_versions(
-                &s.subscription_id,
-                &s.location_name,
-                &s.publisher_name,
-                &s.offer_name,
-                &s.sku_name,
-            )
-            .await?;
+            let versions = fetch_compute_publisher_image_offer_sku_versions(s.subscription_id, s.location_name.clone(), s.publisher_name.clone(), s.offer_name.clone(), s.sku_name.clone()).await?;
             version_ids.extend(versions);
         }
         version_ids.sort();

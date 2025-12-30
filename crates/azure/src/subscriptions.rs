@@ -8,10 +8,27 @@ use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
 use tracing::debug;
+use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
 
-pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
-    debug!("Fetching subscriptions");
-    let query = indoc! {r#"
+#[must_use = "This is a future request, you must .await it"]
+pub struct SubscriptionListRequest;
+
+pub fn fetch_all_subscriptions() -> SubscriptionListRequest {
+    SubscriptionListRequest
+}
+
+#[async_trait]
+impl CacheableCommand for SubscriptionListRequest {
+    type Output = Vec<Subscription>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "subscriptions"]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        debug!("Fetching subscriptions");
+        let query = indoc! {r#"
         resourcecontainers
         | where type =~ "Microsoft.Resources/subscriptions"
         | project 
@@ -21,18 +38,15 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
             management_group_ancestors_chain=properties.managementGroupAncestorsChain
     "#};
 
-    let subscriptions = ResourceGraphHelper::new(
-        query,
-        Some(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "resource_graph",
-            "subscriptions",
-        ]))),
-    )
-    .collect_all::<Subscription>()
-    .await?;
-    debug!("Found {} subscriptions", subscriptions.len());
-    Ok(subscriptions)
+        let subscriptions = ResourceGraphHelper::new(
+            query,
+            Some(self.cache_key()),
+        )
+        .collect_all::<Subscription>()
+        .await?;
+        debug!("Found {} subscriptions", subscriptions.len());
+        Ok(subscriptions)
+    }
 }
 
 pub async fn get_active_subscription_id() -> Result<SubscriptionId> {
@@ -48,6 +62,8 @@ pub async fn get_active_subscription_id() -> Result<SubscriptionId> {
     let rtn = cmd.run::<[SubscriptionId; 1]>().await?[0];
     Ok(rtn)
 }
+
+cloud_terrastodon_command::impl_cacheable_into_future!(SubscriptionListRequest);
 
 #[cfg(test)]
 mod tests {

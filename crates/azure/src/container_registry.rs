@@ -6,25 +6,45 @@ use cloud_terrastodon_azure_types::prelude::ContainerRegistryRepositoryTag;
 use cloud_terrastodon_azure_types::prelude::HasSlug;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use std::path::PathBuf;
 
-pub async fn fetch_all_container_registries() -> Result<Vec<ContainerRegistry>> {
-    let mut query = ResourceGraphHelper::new(
-        r#"
-Resources
-| where type =~ "Microsoft.ContainerRegistry/registries"
-        "#,
-        Some(CacheKey::new(PathBuf::from_iter([
+#[must_use = "This is a future request, you must .await it"]
+pub struct ContainerRegistryListRequest;
+
+pub fn fetch_all_container_registries() -> ContainerRegistryListRequest {
+    ContainerRegistryListRequest
+}
+
+#[async_trait]
+impl CacheableCommand for ContainerRegistryListRequest {
+    type Output = Vec<ContainerRegistry>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
             "az",
             "resource_graph",
             "container_registries",
-        ]))),
-    );
-    query.collect_all().await
+        ]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        let mut query = ResourceGraphHelper::new(
+            r#"
+Resources
+| where type =~ "Microsoft.ContainerRegistry/registries"
+        "#,
+            Some(self.cache_key()),
+        );
+        query.collect_all().await
+    }
 }
+
+cloud_terrastodon_command::impl_cacheable_into_future!(ContainerRegistryListRequest);
 
 pub async fn fetch_container_registry_repository_names(
     registry_id: &ContainerRegistryId,

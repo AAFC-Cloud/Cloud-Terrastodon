@@ -108,7 +108,7 @@ pub async fn pim_activate_entra() -> Result<()> {
     info!("Fetching maximum activation durations");
     let mut max_duration = Duration::MAX;
     for role in &chosen_roles {
-        let duration = fetch_entra_pim_role_settings(&role.role_definition_id)
+        let duration = fetch_entra_pim_role_settings(role.role_definition_id)
             .await?
             .get_maximum_grant_period()?;
         if duration < max_duration {

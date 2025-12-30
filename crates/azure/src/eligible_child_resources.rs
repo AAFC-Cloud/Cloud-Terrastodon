@@ -5,8 +5,10 @@ use cloud_terrastodon_azure_types::prelude::EligibleChildResource;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResourceKind;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -51,26 +53,48 @@ pub async fn fetch_eligible_child_resources(
     Ok(resp.value)
 }
 
-pub async fn fetch_all_eligible_resource_containers() -> Result<Vec<EligibleChildResource>> {
-    let root_mg = fetch_root_management_group().await?;
-    let scope = root_mg.as_scope();
-    let mut resource_containers =
-        fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
-    // this contains management groups and subscriptions
+#[must_use = "This is a future request, you must .await it"]
+pub struct EligibleChildResourceListRequest;
 
-    let rgs = fetch_all_resource_groups()
-        .await?
-        .into_iter()
-        .map(|x| EligibleChildResource {
-            name: x.name.to_string(),
-            kind: EligibleChildResourceKind::ResourceGroup,
-            id: x.as_scope().as_scope_impl(),
-        });
-    resource_containers.extend(rgs);
-    // extend to include resource groups
-
-    Ok(resource_containers)
+pub fn fetch_all_eligible_resource_containers() -> EligibleChildResourceListRequest {
+    EligibleChildResourceListRequest
 }
+
+#[async_trait]
+impl CacheableCommand for EligibleChildResourceListRequest {
+    type Output = Vec<EligibleChildResource>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "management",
+            "eligible_child_resources",
+        ]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        let root_mg = fetch_root_management_group().await?;
+        let scope = root_mg.as_scope();
+        let mut resource_containers =
+            fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
+        // this contains management groups and subscriptions
+
+        let rgs = fetch_all_resource_groups()
+            .await?
+            .into_iter()
+            .map(|x| EligibleChildResource {
+                name: x.name.to_string(),
+                kind: EligibleChildResourceKind::ResourceGroup,
+                id: x.as_scope().as_scope_impl(),
+            });
+        resource_containers.extend(rgs);
+        // extend to include resource groups
+
+        Ok(resource_containers)
+    }
+}
+
+cloud_terrastodon_command::impl_cacheable_into_future!(EligibleChildResourceListRequest);
 
 #[cfg(test)]
 mod tests {

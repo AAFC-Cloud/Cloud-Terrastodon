@@ -1,17 +1,34 @@
 use crate::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::prelude::RoleDefinition;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use eyre::Result;
 use std::path::PathBuf;
 use tracing::debug;
+use cloud_terrastodon_command::async_trait;
 
 /// Fetches all AzureRM role definitions.
 ///
 /// Not to be confused with Entra role definitions.
-pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
-    debug!("Fetching role definitions");
-    let role_definitions = ResourceGraphHelper::new(
-        r#"authorizationresources
+#[must_use = "This is a future request, you must .await it"]
+pub struct RoleDefinitionListRequest;
+
+pub fn fetch_all_role_definitions() -> RoleDefinitionListRequest {
+    RoleDefinitionListRequest
+}
+
+#[async_trait]
+impl CacheableCommand for RoleDefinitionListRequest {
+    type Output = Vec<RoleDefinition>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "role-definitions"]))
+    }
+
+    async fn run(self) -> Result<Self::Output> {
+        debug!("Fetching role definitions");
+        let role_definitions = ResourceGraphHelper::new(
+            r#"authorizationresources
 | where type =~ "microsoft.authorization/roledefinitions"
 | project id, properties
 | extend
@@ -21,17 +38,16 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     display_name = properties.roleName,
     ['kind'] = properties.type
 | project-away properties"#,
-        Some(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "resource_graph",
-            "role-definitions",
-        ]))),
-    )
-    .collect_all()
-    .await?;
-    debug!("Found {} role definitions", role_definitions.len());
-    Ok(role_definitions)
+            Some(self.cache_key()),
+        )
+        .collect_all()
+        .await?;
+        debug!("Found {} role definitions", role_definitions.len());
+        Ok(role_definitions)
+    }
 }
+
+cloud_terrastodon_command::impl_cacheable_into_future!(RoleDefinitionListRequest);
 
 #[cfg(test)]
 mod tests {

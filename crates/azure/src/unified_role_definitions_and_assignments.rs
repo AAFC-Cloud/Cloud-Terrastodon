@@ -9,8 +9,8 @@ use tokio::try_join;
 pub async fn fetch_all_unified_role_definitions_and_assignments()
 -> eyre::Result<UnifiedRoleDefinitionsAndAssignments> {
     let (role_definitions, role_assignments) = try_join!(
-        fetch_all_unified_role_definitions(),
-        fetch_all_unified_role_assignments()
+        fetch_all_unified_role_definitions().into_future(),
+        fetch_all_unified_role_assignments().into_future()
     )?;
 
     UnifiedRoleDefinitionsAndAssignments::try_new(role_definitions, role_assignments)

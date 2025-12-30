@@ -1,39 +1,75 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsServiceEndpoint;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_command::impl_cacheable_into_future;
 use std::path::PathBuf;
 
-pub async fn fetch_all_azure_devops_service_endpoints(
-    org_url: &AzureDevOpsOrganizationUrl,
-    project: &AzureDevOpsProjectName,
-) -> eyre::Result<Vec<AzureDevOpsServiceEndpoint>> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args([
-        "devops",
-        "service-endpoint",
-        "list",
-        "--organization",
-        &org_url.to_string(),
-        "--project",
-        project,
-        "--output",
-        "json",
-    ]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "az",
-        "devops",
-        "service-endpoint",
-        "list",
-        &org_url.organization_name,
-        project,
-    ])));
-
-    let response = cmd.run::<Vec<AzureDevOpsServiceEndpoint>>().await?;
-    Ok(response)
+pub struct AzureDevOpsServiceEndpointsListRequest<'a> {
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    project: AzureDevOpsProjectArgument<'a>,
 }
+
+pub fn fetch_all_azure_devops_service_endpoints<'a>(
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    project: impl Into<AzureDevOpsProjectArgument<'a>>,
+) -> AzureDevOpsServiceEndpointsListRequest<'a> {
+    AzureDevOpsServiceEndpointsListRequest {
+        org_url,
+        project: project.into(),
+    }
+}
+
+#[async_trait]
+impl<'a> CacheableCommand for AzureDevOpsServiceEndpointsListRequest<'a> {
+    type Output = Vec<AzureDevOpsServiceEndpoint>;
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "devops",
+            "service-endpoint",
+            "list",
+            &self.org_url.organization_name,
+            &self.project.to_string(),
+        ]))
+    }
+
+    async fn run(self) -> eyre::Result<Self::Output> {
+        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        let org_name = self.org_url.organization_name.clone();
+        let org = self.org_url.to_string();
+        let project = self.project;
+        cmd.args([
+            "devops",
+            "service-endpoint",
+            "list",
+            "--organization",
+            &org,
+            "--project",
+            &project.to_string(),
+            "--output",
+            "json",
+        ]);
+        cmd.cache(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "devops",
+            "service-endpoint",
+            "list",
+            &org_name,
+            &project.to_string(),
+        ])));
+
+        let response = cmd.run::<Vec<AzureDevOpsServiceEndpoint>>().await?;
+        Ok(response)
+    }
+}
+
+impl_cacheable_into_future!(AzureDevOpsServiceEndpointsListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {
@@ -61,11 +97,21 @@ mod test {
                 let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
                     ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);
                 for project in projects.iter() {
-                    let org_url = org_url.clone();
-                    let project_name = project.name.clone();
-                    work.enqueue(async move {
-                        fetch_all_azure_devops_service_endpoints(&org_url, &project_name).await
-                    });
+                    // We will queue using project name and project ID to ensure the endpoint allows both
+                    {
+                        let project_name = project.name.clone();
+                        let org_url = org_url.clone();
+                        work.enqueue(async move {
+                            fetch_all_azure_devops_service_endpoints(&org_url, &project_name).await
+                        });
+                    }
+                    {
+                        let project_id = project.id.clone();
+                        let org_url = org_url.clone();
+                        work.enqueue(async move {
+                            fetch_all_azure_devops_service_endpoints(&org_url, &project_id).await
+                        });
+                    }
                 }
                 work.join().await?.into_iter().flatten().collect_vec()
             };

@@ -51,7 +51,7 @@ impl AzureVmPublisherListArgs {
         let location = self.location.unwrap_or(LocationName::CanadaCentral);
 
         info!(subscription = %subscription, location = %location, "Fetching VM publishers");
-        let publishers = fetch_compute_publishers(&subscription, &location).await?;
+        let publishers = fetch_compute_publishers(subscription, location).await?;
 
         let stdout = std::io::stdout();
         let mut out = stdout.lock();

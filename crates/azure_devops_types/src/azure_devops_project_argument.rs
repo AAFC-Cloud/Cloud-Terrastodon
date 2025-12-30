@@ -4,16 +4,16 @@ use crate::prelude::AzureDevOpsProjectName;
 
 pub enum AzureDevOpsProjectArgument<'a> {
     Id(AzureDevOpsProjectId),
-    Name(AzureDevOpsProjectName),
     IdRef(&'a AzureDevOpsProjectId),
+    Name(AzureDevOpsProjectName),
     NameRef(&'a AzureDevOpsProjectName),
 }
 impl std::fmt::Display for AzureDevOpsProjectArgument<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AzureDevOpsProjectArgument::Id(id) => write!(f, "{id}"),
-            AzureDevOpsProjectArgument::Name(name) => write!(f, "{name}"),
             AzureDevOpsProjectArgument::IdRef(id) => write!(f, "{id}"),
+            AzureDevOpsProjectArgument::Name(name) => write!(f, "{name}"),
             AzureDevOpsProjectArgument::NameRef(name) => write!(f, "{name}"),
         }
     }
@@ -21,6 +21,11 @@ impl std::fmt::Display for AzureDevOpsProjectArgument<'_> {
 impl From<AzureDevOpsProjectId> for AzureDevOpsProjectArgument<'_> {
     fn from(value: AzureDevOpsProjectId) -> Self {
         AzureDevOpsProjectArgument::Id(value)
+    }
+}
+impl<'a> From<&'a AzureDevOpsProjectId> for AzureDevOpsProjectArgument<'a> {
+    fn from(value: &'a AzureDevOpsProjectId) -> Self {
+        AzureDevOpsProjectArgument::IdRef(value)
     }
 }
 impl From<AzureDevOpsProject> for AzureDevOpsProjectArgument<'_> {
@@ -38,13 +43,27 @@ impl From<AzureDevOpsProjectName> for AzureDevOpsProjectArgument<'_> {
         AzureDevOpsProjectArgument::Name(value)
     }
 }
-impl<'a> From<&'a AzureDevOpsProjectId> for AzureDevOpsProjectArgument<'a> {
-    fn from(value: &'a AzureDevOpsProjectId) -> Self {
-        AzureDevOpsProjectArgument::IdRef(value)
-    }
-}
 impl<'a> From<&'a AzureDevOpsProjectName> for AzureDevOpsProjectArgument<'a> {
     fn from(value: &'a AzureDevOpsProjectName) -> Self {
         AzureDevOpsProjectArgument::NameRef(value)
+    }
+}
+
+impl AzureDevOpsProjectArgument<'_> {
+    pub fn into_owned(self) -> AzureDevOpsProjectArgument<'static> {
+        match self {
+            AzureDevOpsProjectArgument::Id(id) => {
+                AzureDevOpsProjectArgument::Id(id)
+            }
+            AzureDevOpsProjectArgument::IdRef(id) => {
+                AzureDevOpsProjectArgument::Id(id.clone())
+            }
+            AzureDevOpsProjectArgument::Name(name) => {
+                AzureDevOpsProjectArgument::Name(name)
+            }
+            AzureDevOpsProjectArgument::NameRef(name) => {
+                AzureDevOpsProjectArgument::Name(name.clone())
+            }
+        }
     }
 }
