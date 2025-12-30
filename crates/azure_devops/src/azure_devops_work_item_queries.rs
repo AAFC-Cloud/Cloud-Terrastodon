@@ -25,13 +25,13 @@ pub async fn fetch_queries_for_project(
         format!("project={project_name}").as_str(),
     ]);
     cmd.args(["--query-parameters", "$expand=all", "$depth=2"]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "devops",
         "query",
         "list",
         project_name.as_ref(),
-    ]))));
+    ])));
     #[derive(Deserialize)]
     struct InvokeResponse {
         continuation_token: Option<Value>,

@@ -40,7 +40,7 @@ pub async fn fetch_eligible_child_resources(
         .filter(|x| !x.is_empty())
         .for_each(|x| cache_chunks.push(x));
 
-    cmd.use_cache_behaviour(Some(CacheKey::new(cache_chunks)));
+    cmd.cache(CacheKey::new(cache_chunks));
 
     #[derive(Deserialize)]
     struct Response {

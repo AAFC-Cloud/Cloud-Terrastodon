@@ -22,14 +22,14 @@ pub async fn fetch_all_azure_devops_service_endpoints(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "devops",
         "service-endpoint",
         "list",
         &org_url.organization_name,
         project,
-    ]))));
+    ])));
 
     let response = cmd.run::<Vec<AzureDevOpsServiceEndpoint>>().await?;
     Ok(response)

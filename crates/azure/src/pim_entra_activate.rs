@@ -29,10 +29,10 @@ pub async fn activate_pim_entra_role(
             duration,
         ))?,
     );
-    cmd.use_cache_behaviour(Some(CacheKey {
+    cmd.cache(CacheKey {
         path: PathBuf::from_iter(["az", "rest", "POST", "roleAssignmentScheduleRequests"]),
         valid_for: Duration::ZERO,
-    }));
+    });
     cmd.run_raw().await?;
     Ok(())
 }

@@ -10,12 +10,12 @@ pub async fn fetch_all_tenant_licenses() -> eyre::Result<TenantLicenseCollection
     let url = "https://graph.microsoft.com/v1.0/subscribedSkus";
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", url]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "rest",
         "GET",
         "subscribedSkus",
-    ]))));
+    ])));
 
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]

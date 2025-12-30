@@ -36,10 +36,10 @@ pub async fn activate_pim_role(
             duration,
         ))?,
     );
-    cmd.use_cache_behaviour(Some(CacheKey {
+    cmd.cache(CacheKey {
         path: PathBuf::from_iter(["az", "rest", "PUT", "roleAssignmentScheduleRequests"]),
         valid_for: Duration::ZERO,
-    }));
+    });
     cmd.run_raw().await?;
     Ok(())
 }

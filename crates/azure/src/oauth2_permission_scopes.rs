@@ -19,13 +19,13 @@ pub async fn fetch_oauth2_permission_scopes(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", url.as_ref()]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "rest",
         "GET",
         "oauth2_permission_scopes",
         service_principal_id.to_string().as_ref(),
-    ]))));
+    ])));
 
     #[derive(Deserialize)]
     struct Response {

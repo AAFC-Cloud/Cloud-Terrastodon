@@ -26,13 +26,13 @@ pub async fn fetch_key_vault_secrets(key_vault_id: &KeyVaultId) -> Result<Vec<Ke
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "keyvault",
         "secret",
         "list",
         key_vault_id.key_vault_name.as_str(),
-    ]))));
+    ])));
     let secrets = cmd.run().await?;
     Ok(secrets)
 }

@@ -68,7 +68,7 @@ pub struct CommandBuilder {
     pub(crate) run_dir: Option<PathBuf>,
     pub(crate) retry_behaviour: RetryBehaviour,
     pub(crate) output_behaviour: OutputBehaviour,
-    pub(crate) cache_behaviour: Option<CacheKey>,
+    pub(crate) cache_key: Option<CacheKey>,
     pub(crate) should_announce: bool,
     pub(crate) timeout: Option<Duration>,
     pub(crate) stdin_content: Option<String>,
@@ -87,7 +87,7 @@ impl CommandBuilder {
         self
     }
     pub async fn bust_cache(&self) -> Result<()> {
-        let Some(cache_key) = &self.cache_behaviour else {
+        let Some(cache_key) = &self.cache_key else {
             bail!("no cache entry present");
         };
         let cache_dir = cache_key.path_on_disk();
@@ -106,8 +106,14 @@ impl CommandBuilder {
     }
 
     #[track_caller]
-    pub fn use_cache_behaviour(&mut self, behaviour: Option<CacheKey>) -> &mut Self {
-        self.cache_behaviour = behaviour;
+    pub fn cache(&mut self, key: CacheKey) -> &mut Self {
+        self.cache_key = Some(key);
+        self
+    }
+
+    #[track_caller]
+    pub fn use_cache(&mut self, key: Option<CacheKey>) -> &mut Self {
+        self.cache_key = key;
         self
     }
 
@@ -211,7 +217,7 @@ impl CommandBuilder {
     pub async fn get_cached_output(&self) -> Result<Option<CommandOutput>> {
         let start = Instant::now();
         // Short circuit if not using cache or if cache entry not present
-        let Some(cache_key) = &self.cache_behaviour else {
+        let Some(cache_key) = &self.cache_key else {
             debug!("Cache behaviour is None, not using cache");
             return Ok(None);
         };
@@ -582,7 +588,7 @@ impl CommandBuilder {
 
         // Write happy results to the cache
         if output.success()
-            && let Some(cache_key) = &self.cache_behaviour
+            && let Some(cache_key) = &self.cache_key
             && let Err(e) = self.write_output(&output, &cache_key.path_on_disk()).await
         {
             error!("Encountered problem saving cache: {:?}", e);
@@ -630,8 +636,7 @@ impl CommandBuilder {
     #[track_caller]
     pub async fn run<T: FromCommandOutput>(&self) -> Result<T> {
         let summary = self.summarize().await;
-        let span =
-            info_span!("command_run", summary, ?self.run_dir, ?self.cache_behaviour).or_current();
+        let span = info_span!("command_run", summary, ?self.run_dir, ?self.cache_key).or_current();
 
         let output = self
             .run_raw()
@@ -718,7 +723,7 @@ impl CommandBuilder {
     }
 
     pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
-        let dir = match &self.cache_behaviour {
+        let dir = match &self.cache_key {
             None => AppDir::Commands.join("failed"),
             Some(cache_key) => {
                 let cache_dir = cache_key.path_on_disk();

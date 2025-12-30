@@ -32,12 +32,12 @@ pub async fn fetch_work_items_for_query(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "boards",
         "query",
         &query_id.to_string(),
-    ]))));
+    ])));
     let output = cmd.run_raw().await?;
     if output.stdout.trim().is_empty() {
         return Ok(None);

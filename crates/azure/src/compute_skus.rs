@@ -17,11 +17,7 @@ pub async fn fetch_all_compute_skus(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
-        "az",
-        "vm",
-        "list-skus",
-    ]))));
+    cmd.cache(CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"])));
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Response {

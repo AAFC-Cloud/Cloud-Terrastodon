@@ -27,7 +27,7 @@ pub async fn fetch_azure_devops_group_members(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "devops",
         "security",
@@ -36,7 +36,7 @@ pub async fn fetch_azure_devops_group_members(
         "list",
         "--id",
         &group_id.to_string(),
-    ]))));
+    ])));
     cmd.run().await
 }
 

@@ -26,7 +26,7 @@ async fn it_works() -> Result<()> {
 async fn it_works_cached() -> Result<()> {
     let result = CommandBuilder::new(CommandKind::AzureCLI)
         .args(["--version"])
-        .use_cache_behaviour(Some(CacheKey::new(PathBuf::from("version"))))
+        .cache(CacheKey::new(PathBuf::from("version")))
         .run_raw()
         .await?;
     println!("{}", result);
@@ -65,12 +65,12 @@ resourcecontainers
 "#
             .to_string(),
         )
-        .use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        .cache(CacheKey::new(PathBuf::from_iter([
             "az",
             "graph",
             "query",
             "count-resource-containers",
-        ]))))
+        ])))
         .run_raw()
         .await?;
     println!("{}", result);
@@ -92,10 +92,10 @@ Resources
         .to_string(),
     );
     let period = Duration::from_secs(5);
-    cmd.use_cache_behaviour(Some(CacheKey {
+    cmd.cache(CacheKey {
         path: PathBuf::from_iter(["az", "resource_graph", "current-time"]),
         valid_for: period,
-    }));
+    });
 
     // we don't want anything between our `await` calls that could mess with the timing
     thread::Builder::new().spawn(move || {

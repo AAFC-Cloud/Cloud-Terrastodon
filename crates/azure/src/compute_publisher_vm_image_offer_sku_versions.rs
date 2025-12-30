@@ -21,7 +21,7 @@ pub async fn fetch_compute_publisher_image_offer_sku_versions(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "vm",
         "list-publishers-offers-sku-versions",
@@ -30,7 +30,7 @@ pub async fn fetch_compute_publisher_image_offer_sku_versions(
         publisher_name.to_string().as_str(),
         offer_name.to_string().as_str(),
         sku_name.to_string().as_str(),
-    ]))));
+    ])));
     #[derive(serde::Deserialize)]
     struct Row {
         id: ComputePublisherVmImageOfferSkuVersionId,

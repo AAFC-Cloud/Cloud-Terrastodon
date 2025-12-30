@@ -24,13 +24,13 @@ pub async fn fetch_entra_pim_role_settings(
 
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "rest",
         "GET",
         "pim_roleSettings",
         role_definition_id.to_string().as_ref(),
-    ]))));
+    ])));
 
     #[derive(Deserialize)]
     struct Response {

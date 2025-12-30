@@ -10,9 +10,9 @@ pub async fn fetch_all_groups() -> Result<Vec<Group>> {
     debug!("Fetching Azure AD groups");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["ad", "group", "list", "--output", "json"]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az", "ad", "group", "list",
-    ]))));
+    ])));
     let rtn: Vec<Group> = cmd.run().await?;
     debug!("Found {} groups", rtn.len());
     Ok(rtn)

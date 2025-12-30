@@ -112,7 +112,7 @@ impl CommandKind {
         // Write adjacent files
         let mut canonical_path_lookup: HashMap<PathBuf, PathBuf> = HashMap::new();
         for (adj_path, adj_content) in this.adjacent_files.iter() {
-            let file_path = match &this.cache_behaviour {
+            let file_path = match &this.cache_key {
                 Some(cache_key) => {
                     // Cache dir has been provided
                     let cache_dir = cache_key.path_on_disk();

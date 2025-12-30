@@ -28,7 +28,7 @@ pub async fn fetch_azure_devops_groups(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "devops",
         "security",
@@ -36,7 +36,7 @@ pub async fn fetch_azure_devops_groups(
         "list",
         "--project",
         &project.to_string(),
-    ]))));
+    ])));
 
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]

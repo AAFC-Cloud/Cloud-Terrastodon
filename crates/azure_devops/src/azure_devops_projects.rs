@@ -24,9 +24,9 @@ pub async fn fetch_all_azure_devops_projects(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az", "devops", "project", "list",
-    ]))));
+    ])));
 
     #[derive(Serialize, Deserialize)]
     pub struct Response {

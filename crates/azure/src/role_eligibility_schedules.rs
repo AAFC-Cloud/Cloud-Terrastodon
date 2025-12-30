@@ -10,12 +10,12 @@ pub async fn fetch_my_role_eligibility_schedules() -> Result<Vec<RoleEligibility
     let url = "https://management.azure.com/providers/Microsoft.Authorization/roleEligibilitySchedules?api-version=2020-10-01&$filter=asTarget()";
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", url]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "rest",
         "GET",
         "roleEligibilitySchedules",
-    ]))));
+    ])));
 
     #[derive(Deserialize)]
     struct Response {

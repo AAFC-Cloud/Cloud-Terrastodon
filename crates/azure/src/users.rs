@@ -10,9 +10,9 @@ pub async fn fetch_all_users() -> Result<Vec<User>> {
     debug!("Fetching users");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["ad", "user", "list", "--output", "json"]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az", "ad", "user", "list",
-    ]))));
+    ])));
     let users: Vec<User> = cmd.run().await?;
     debug!("Found {} users", users.len());
     Ok(users)

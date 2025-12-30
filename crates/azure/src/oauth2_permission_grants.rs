@@ -18,9 +18,9 @@ pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
 pub async fn fetch_oauth2_permission_grants() -> eyre::Result<Vec<OAuth2PermissionGrant>> {
     let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.use_cache_behaviour(Some(CacheKey::new(
+    cmd.cache(CacheKey::new(
         FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.to_path_buf(),
-    )));
+    ));
     cmd.arg("rest");
     cmd.args(["--method", "GET"]);
     cmd.args(["--url", url]);

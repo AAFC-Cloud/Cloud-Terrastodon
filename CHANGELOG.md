@@ -16,6 +16,7 @@
 - Add `CacheKey` struct to replace `CacheBehaviour` enum
 - Remove `CommandBuilder::use_cache_dir` in favor of `CommandBuilder::use_cache_behaviour`
 - Add `CacheKey::new` to default to `Duration::MAX`
+- Replace `CommandBuilder::use_cache_behaviour` with `CommandBuilder::use_cache` and `CommandBuilder::cache`
 
 # v0.30.0
 

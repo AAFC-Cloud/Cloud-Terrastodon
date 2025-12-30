@@ -13,9 +13,9 @@ pub async fn remove_oauth2_permission_grant(id: &OAuth2PermissionGrantId) -> eyr
     cmd.run_raw().await?;
 
     let mut cache = CommandBuilder::new(CommandKind::AzureCLI);
-    cache.use_cache_behaviour(Some(CacheKey::new(
+    cache.cache(CacheKey::new(
         FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.to_path_buf(),
-    )));
+    ));
     cache.bust_cache().await?;
     Ok(())
 }

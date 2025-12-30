@@ -11,13 +11,13 @@ pub async fn fetch_all_locations(subscription_id: &SubscriptionId) -> eyre::Resu
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "account",
         "list-locations",
         "--subscription",
         &subscription_id.to_string(),
-    ]))));
+    ])));
     #[derive(serde::Deserialize)]
     struct Response {
         value: Vec<Location>,

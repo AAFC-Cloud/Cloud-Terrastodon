@@ -32,7 +32,7 @@ pub async fn fetch_storage_account_blob_container_names(
         "--auth-mode",
         "login",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from("storage_accounts"))));
+    cmd.cache(CacheKey::new(PathBuf::from("storage_accounts")));
     let rtn = cmd.run().await?;
     Ok(rtn)
 }

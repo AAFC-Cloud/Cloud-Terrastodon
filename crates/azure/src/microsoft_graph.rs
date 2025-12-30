@@ -29,7 +29,7 @@ impl MicrosoftGraphHelper {
         cmd.azure_file_arg("url.txt", self.url);
 
         // Set up caching
-        cmd.use_cache_behaviour(self.cache_key);
+        cmd.use_cache(self.cache_key);
 
         // Perform request
         let response = cmd.run::<T>().await?;
@@ -56,10 +56,10 @@ impl MicrosoftGraphHelper {
 
             // Set up caching
             if let Some(ref cache_key) = self.cache_key {
-                cmd.use_cache_behaviour(Some(CacheKey {
+                cmd.cache(CacheKey {
                     path: cache_key.path.join(request_index.to_string()),
                     valid_for: cache_key.valid_for,
-                }));
+                });
             }
 
             // Perform request

@@ -19,14 +19,14 @@ pub async fn fetch_role_management_policy_assignments(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "rest",
         "GET",
         "roleManagementPolicyAssignments",
         "roleDefinitionId",
         role_definition_id.short_form().as_ref(),
-    ]))));
+    ])));
 
     #[derive(Deserialize)]
     struct Response {

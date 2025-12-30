@@ -17,14 +17,14 @@ pub async fn fetch_compute_publisher_image_offers(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "vm",
         "list-publishers-offers",
         subscription_id.to_string().as_str(),
         location.to_string().as_str(),
         publisher_name.to_string().as_str(),
-    ]))));
+    ])));
     #[derive(serde::Deserialize)]
     struct Row {
         id: ComputePublisherVmImageOfferId,

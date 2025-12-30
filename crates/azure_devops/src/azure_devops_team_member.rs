@@ -29,7 +29,7 @@ pub async fn fetch_azure_devops_team_members(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "devops",
         "team",
@@ -38,7 +38,7 @@ pub async fn fetch_azure_devops_team_members(
         &project.to_string(),
         "--team",
         &team_id.to_string(),
-    ]))));
+    ])));
 
     let response = cmd.run::<Vec<AzureDevOpsTeamMember>>().await?;
     debug!(

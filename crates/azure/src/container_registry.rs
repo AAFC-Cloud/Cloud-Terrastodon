@@ -43,10 +43,10 @@ pub async fn fetch_container_registry_repository_names(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "container_registry_repositories",
         &registry_id.container_registry_name,
-    ]))));
+    ])));
     cmd.run().await
 }
 
@@ -69,11 +69,11 @@ pub async fn fetch_container_registry_repository_tags(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "container_registry_repository_tags",
         &registry_id.container_registry_name,
         repository_name,
-    ]))));
+    ])));
     cmd.run().await
 }
 

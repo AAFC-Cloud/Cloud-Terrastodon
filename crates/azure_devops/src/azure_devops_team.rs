@@ -26,14 +26,14 @@ pub async fn fetch_azure_devops_teams_for_project(
         "--project",
         &project.to_string(),
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "devops",
         "team",
         "list",
         "--project",
         &project.to_string(),
-    ]))));
+    ])));
 
     let response = cmd.run::<Vec<AzureDevOpsTeam>>().await?;
     debug!(

@@ -115,10 +115,10 @@ impl ResourceGraphHelper {
             ref valid_for,
         }) = self.cache_behaviour
         {
-            cmd.use_cache_behaviour(Some(CacheKey {
+            cmd.cache(CacheKey {
                 path: path.join(self.index.to_string()),
                 valid_for: *valid_for,
-            }));
+            });
         }
 
         debug!(

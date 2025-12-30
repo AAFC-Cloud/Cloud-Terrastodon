@@ -15,13 +15,13 @@ pub async fn fetch_virtual_machine_sizes(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
         "az",
         "vm",
         "list-sizes",
         subscription_id.to_string().as_str(),
         location.to_string().as_str(),
-    ]))));
+    ])));
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Response {
