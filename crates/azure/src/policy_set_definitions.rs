@@ -3,7 +3,6 @@ use cloud_terrastodon_azure_types::prelude::PolicySetDefinition;
 use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_all_policy_set_definitions() -> Result<Vec<PolicySetDefinition>> {
     let mut query = ResourceGraphHelper::new(
@@ -21,10 +20,11 @@ policyresources
     policy_type=properties.policyType,
     version=properties.version
     "#,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "policy_set_definitions"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "policy_set_definitions",
+        ]))),
     );
     query.collect_all().await
 }

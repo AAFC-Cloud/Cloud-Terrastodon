@@ -3,7 +3,6 @@ use cloud_terrastodon_azure_types::prelude::PolicyDefinition;
 use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_all_policy_definitions() -> Result<Vec<PolicyDefinition>> {
@@ -28,10 +27,11 @@ policyresources
     policy_type=properties.policyType,
     version=properties.version
     "#,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "policy_definitions"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "policy_definitions",
+        ]))),
     );
     let rtn = qb.collect_all().await?;
     debug!(

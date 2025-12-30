@@ -14,6 +14,8 @@
 - Add `ct pick --engine liquid` for using [liquid](https://github.com/cobalt-org/liquid-rust)
 - Add `fn pick_*_reloadable` to `PickerTui` to enable easy ctrl+r support for refreshing the list of choices
 - Add `CacheKey` struct to replace `CacheBehaviour` enum
+- Remove `CommandBuilder::use_cache_dir` in favor of `CommandBuilder::use_cache_behaviour`
+- Add `CacheKey::new` to default to `Duration::MAX`
 
 # v0.30.0
 

@@ -3,7 +3,6 @@ use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use std::path::PathBuf;
-use std::time::Duration;
 
 /// See also: https://github.com/Azure/azure-cli/issues/28854
 pub async fn fetch_governance_role_assignments_for_principal(
@@ -16,16 +15,13 @@ pub async fn fetch_governance_role_assignments_for_principal(
     );
     MicrosoftGraphHelper::new(
         url,
-        Some(CacheKey {
-            path: PathBuf::from_iter([
-                "ms".to_string(),
-                "graph".to_string(),
-                "GET".to_string(),
-                "governance_role_assignments".to_string(),
-                principal_id.to_string(),
-            ]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "ms".to_string(),
+            "graph".to_string(),
+            "GET".to_string(),
+            "governance_role_assignments".to_string(),
+            principal_id.to_string(),
+        ]))),
     )
     .fetch_all()
     .await

@@ -6,7 +6,6 @@ use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
 use serde_json::Value;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_azure_devops_license_entitlements(
@@ -20,10 +19,13 @@ pub async fn fetch_azure_devops_license_entitlements(
     cmd.args(["--resource", "entitlements"]);
     cmd.args(["--api-version", "7.2-preview"]);
     cmd.args(["--encoding", "utf-8"]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter(["az", "devops", "licensing", "entitlements"]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "devops",
+        "license",
+        "entitlement",
+        "list",
+    ]))));
 
     #[derive(Deserialize)]
     struct InvokeResponse {

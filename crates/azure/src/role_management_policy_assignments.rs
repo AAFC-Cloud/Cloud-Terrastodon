@@ -7,7 +7,6 @@ use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_role_management_policy_assignments(
     scope: impl Scope,
@@ -20,17 +19,14 @@ pub async fn fetch_role_management_policy_assignments(
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter([
-            "az",
-            "rest",
-            "GET",
-            "roleManagementPolicyAssignments",
-            "roleDefinitionId",
-            role_definition_id.short_form().as_ref(),
-        ]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "rest",
+        "GET",
+        "roleManagementPolicyAssignments",
+        "roleDefinitionId",
+        role_definition_id.short_form().as_ref(),
+    ]))));
 
     #[derive(Deserialize)]
     struct Response {

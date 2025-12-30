@@ -7,7 +7,6 @@ use eyre::Result;
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 use tracing::field::debug;
 
@@ -25,10 +24,9 @@ pub async fn fetch_all_azure_devops_projects(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter(["az", "devops", "project", "list"]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az", "devops", "project", "list",
+    ]))));
 
     #[derive(Serialize, Deserialize)]
     pub struct Response {

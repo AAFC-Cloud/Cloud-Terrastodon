@@ -10,7 +10,6 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_all_container_registries() -> Result<Vec<ContainerRegistry>> {
     let mut query = ResourceGraphHelper::new(
@@ -18,10 +17,11 @@ pub async fn fetch_all_container_registries() -> Result<Vec<ContainerRegistry>> 
 Resources
 | where type =~ "Microsoft.ContainerRegistry/registries"
         "#,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "container_registries"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "container_registries",
+        ]))),
     );
     query.collect_all().await
 }
@@ -43,13 +43,10 @@ pub async fn fetch_container_registry_repository_names(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter([
-            "container_registry_repositories",
-            &registry_id.container_registry_name,
-        ]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "container_registry_repositories",
+        &registry_id.container_registry_name,
+    ]))));
     cmd.run().await
 }
 
@@ -72,14 +69,11 @@ pub async fn fetch_container_registry_repository_tags(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter([
-            "container_registry_repository_tags",
-            &registry_id.container_registry_name,
-            repository_name,
-        ]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "container_registry_repository_tags",
+        &registry_id.container_registry_name,
+        repository_name,
+    ]))));
     cmd.run().await
 }
 

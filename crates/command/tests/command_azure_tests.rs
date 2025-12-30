@@ -26,10 +26,7 @@ async fn it_works() -> Result<()> {
 async fn it_works_cached() -> Result<()> {
     let result = CommandBuilder::new(CommandKind::AzureCLI)
         .args(["--version"])
-        .use_cache_behaviour(Some(CacheKey {
-            path: PathBuf::from("version"),
-            valid_for: std::time::Duration::MAX,
-        }))
+        .use_cache_behaviour(Some(CacheKey::new(PathBuf::from("version"))))
         .run_raw()
         .await?;
     println!("{}", result);
@@ -68,10 +65,12 @@ resourcecontainers
 "#
             .to_string(),
         )
-        .use_cache_behaviour(Some(CacheKey {
-            path: PathBuf::from_iter(["az", "graph", "query", "count-resource-containers"]),
-            valid_for: std::time::Duration::MAX,
-        }))
+        .use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "graph",
+            "query",
+            "count-resource-containers",
+        ]))))
         .run_raw()
         .await?;
     println!("{}", result);

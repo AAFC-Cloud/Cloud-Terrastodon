@@ -6,7 +6,6 @@ use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::time::Duration;
 
 /// This can fail due to network rules on the storage account
 pub async fn fetch_storage_account_blob_container_names(
@@ -33,10 +32,7 @@ pub async fn fetch_storage_account_blob_container_names(
         "--auth-mode",
         "login",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from("storage_accounts"),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from("storage_accounts"))));
     let rtn = cmd.run().await?;
     Ok(rtn)
 }

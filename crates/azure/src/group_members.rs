@@ -13,7 +13,6 @@ use http::Method;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 pub struct GetGroupMembersOperation {
@@ -60,16 +59,13 @@ pub async fn fetch_group_members(group_id: GroupId) -> Result<Vec<Principal>> {
     debug!("Fetching members for group {}", group_id);
     let members = MicrosoftGraphHelper::new(
         format!("https://graph.microsoft.com/v1.0/groups/{group_id}/members"),
-        Some(CacheKey {
-            path: PathBuf::from_iter([
-                "ms".to_string(),
-                "graph".to_string(),
-                "GET".to_string(),
-                "group_members".to_string(),
-                group_id.as_hyphenated().to_string(),
-            ]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "ms".to_string(),
+            "graph".to_string(),
+            "GET".to_string(),
+            "group_members".to_string(),
+            group_id.as_hyphenated().to_string(),
+        ]))),
     )
     .fetch_all::<Principal>()
     .await?;

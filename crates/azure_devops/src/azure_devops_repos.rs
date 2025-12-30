@@ -8,7 +8,6 @@ use eyre::Context;
 use eyre::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::time::Duration;
 use tokio::task::JoinSet;
 use tracing::debug;
 use tracing::info;
@@ -29,10 +28,12 @@ pub async fn fetch_all_azure_devops_repos_for_project(
         "--project",
         project_id.to_string().as_ref(),
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter(["az", "repos", "list", project_id.to_string().as_ref()]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "repos",
+        "list",
+        project_id.to_string().as_ref(),
+    ]))));
     let repos: Vec<AzureDevOpsRepo> = cmd.run().await?;
     debug!("Found {} repos for {project_id:?}", repos.len());
     Ok(repos)

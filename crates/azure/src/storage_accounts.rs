@@ -6,7 +6,6 @@ use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
-use std::time::Duration;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct StorageAccountListRequest;
@@ -20,10 +19,11 @@ impl CacheableCommand for StorageAccountListRequest {
     type Output = Vec<StorageAccount>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "storage_accounts"]),
-            valid_for: Duration::MAX,
-        }
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "storage_accounts",
+        ]))
     }
 
     async fn run(self) -> Result<Self::Output> {

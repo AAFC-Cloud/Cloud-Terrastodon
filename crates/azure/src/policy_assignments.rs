@@ -3,7 +3,6 @@ use cloud_terrastodon_azure_types::prelude::PolicyAssignment;
 use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_all_policy_assignments() -> Result<Vec<PolicyAssignment>> {
     let mut qb = ResourceGraphHelper::new(
@@ -17,10 +16,11 @@ policyresources
  identity,
  properties
     "#,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "policy_assignments"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "policy_assignments",
+        ]))),
     );
     qb.collect_all().await
 }

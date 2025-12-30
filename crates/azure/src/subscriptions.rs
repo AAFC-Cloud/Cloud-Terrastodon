@@ -7,7 +7,6 @@ use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
@@ -24,10 +23,11 @@ pub async fn fetch_all_subscriptions() -> Result<Vec<Subscription>> {
 
     let subscriptions = ResourceGraphHelper::new(
         query,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "subscriptions"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "subscriptions",
+        ]))),
     )
     .collect_all::<Subscription>()
     .await?;

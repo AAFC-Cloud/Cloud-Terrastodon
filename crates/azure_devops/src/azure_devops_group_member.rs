@@ -8,7 +8,6 @@ use cloud_terrastodon_credentials::create_azure_devops_rest_client;
 use cloud_terrastodon_credentials::get_azure_devops_pat;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_azure_devops_group_members(
     org_url: &AzureDevOpsOrganizationUrl,
@@ -28,19 +27,16 @@ pub async fn fetch_azure_devops_group_members(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter([
-            "az",
-            "devops",
-            "security",
-            "group",
-            "membership",
-            "list",
-            "--id",
-            &group_id.to_string(),
-        ]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "devops",
+        "security",
+        "group",
+        "membership",
+        "list",
+        "--id",
+        &group_id.to_string(),
+    ]))));
     cmd.run().await
 }
 

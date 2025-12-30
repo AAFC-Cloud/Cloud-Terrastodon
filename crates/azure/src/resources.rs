@@ -6,7 +6,6 @@ use cloud_terrastodon_azure_types::prelude::Resource;
 use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_all_resources() -> Result<Vec<Resource>> {
@@ -22,10 +21,11 @@ resources
     display_name=properties.displayName,
     tags
 "#,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "resources"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "resources",
+        ]))),
     )
     .collect_all()
     .await?;

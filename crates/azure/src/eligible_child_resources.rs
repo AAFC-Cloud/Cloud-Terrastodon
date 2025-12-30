@@ -10,7 +10,6 @@ use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
-use std::time::Duration;
 
 #[derive(Eq, PartialEq, Debug, Default)]
 pub enum FetchChildrenBehaviour {
@@ -41,10 +40,7 @@ pub async fn fetch_eligible_child_resources(
         .filter(|x| !x.is_empty())
         .for_each(|x| cache_chunks.push(x));
 
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: cache_chunks,
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(cache_chunks)));
 
     #[derive(Deserialize)]
     struct Response {

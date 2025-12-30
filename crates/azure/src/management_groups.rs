@@ -5,7 +5,6 @@ use eyre::Result;
 use eyre::bail;
 use indoc::indoc;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::error;
 use tracing::info;
 
@@ -42,10 +41,11 @@ pub async fn fetch_all_management_groups() -> Result<Vec<ManagementGroup>> {
 
     let management_groups = ResourceGraphHelper::new(
         query,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "management_groups"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "management_groups",
+        ]))),
     )
     .collect_all::<ManagementGroup>()
     .await?;

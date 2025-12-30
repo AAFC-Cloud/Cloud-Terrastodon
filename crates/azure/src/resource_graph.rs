@@ -178,7 +178,6 @@ mod tests {
     use super::*;
     use serde::Deserialize;
     use std::path::PathBuf;
-    use std::time::Duration;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
@@ -192,10 +191,11 @@ resourcecontainers
         }
         let data = ResourceGraphHelper::new(
             query,
-            Some(CacheKey {
-                path: PathBuf::from_iter(["az", "resource_graph", "resource-container-names"]),
-                valid_for: Duration::MAX,
-            }),
+            Some(CacheKey::new(PathBuf::from_iter([
+                "az",
+                "resource_graph",
+                "resource-container-names",
+            ]))),
         )
         .collect_all::<Row>()
         .await?;

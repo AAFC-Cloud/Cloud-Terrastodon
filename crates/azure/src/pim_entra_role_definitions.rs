@@ -6,7 +6,6 @@ use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_all_entra_pim_role_definitions() -> Result<Vec<PimEntraRoleDefinition>> {
     let tenant_id = fetch_root_management_group().await?.tenant_id;
@@ -15,10 +14,12 @@ pub async fn fetch_all_entra_pim_role_definitions() -> Result<Vec<PimEntraRoleDe
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter(["az", "rest", "GET", "pim_roleDefinitions"]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "rest",
+        "GET",
+        "pim_roleDefinitions",
+    ]))));
 
     #[derive(Deserialize)]
     struct Response {

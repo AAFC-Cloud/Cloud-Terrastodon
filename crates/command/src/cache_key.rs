@@ -16,6 +16,14 @@ pub struct CacheKey {
 }
 
 impl CacheKey {
+    /// Create a new CacheKey with a default validity of Duration::MAX.
+    pub fn new(path: impl Into<PathBuf>) -> CacheKey {
+        CacheKey {
+            path: path.into(),
+            valid_for: Duration::MAX,
+        }
+    }
+
     /// The path to a directory on disk where the cache is stored.
     pub fn path_on_disk(&self) -> PathBuf {
         AppDir::Commands.join(self.path.no_spaces())

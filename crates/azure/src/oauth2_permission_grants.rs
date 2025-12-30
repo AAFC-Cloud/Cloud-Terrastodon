@@ -10,7 +10,6 @@ use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::LazyLock;
-use std::time::Duration;
 use tracing::info;
 
 pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
@@ -19,10 +18,9 @@ pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
 pub async fn fetch_oauth2_permission_grants() -> eyre::Result<Vec<OAuth2PermissionGrant>> {
     let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.to_path_buf(),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(
+        FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.to_path_buf(),
+    )));
     cmd.arg("rest");
     cmd.args(["--method", "GET"]);
     cmd.args(["--url", url]);

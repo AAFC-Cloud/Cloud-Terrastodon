@@ -4,7 +4,6 @@ use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_all_virtual_networks() -> Result<Vec<VirtualNetwork>> {
@@ -25,10 +24,11 @@ pub async fn fetch_all_virtual_networks() -> Result<Vec<VirtualNetwork>> {
 
     let virtual_networks = ResourceGraphHelper::new(
         query,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "virtual_networks"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "virtual_networks",
+        ]))),
     )
     .collect_all::<VirtualNetwork>()
     .await?;

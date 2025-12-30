@@ -7,7 +7,6 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::bstr::ByteSlice;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 #[deprecated(note = "WIP, the return type and behaviour isn't in a good spot yet.")]
@@ -33,10 +32,12 @@ pub async fn fetch_work_items_for_query(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter(["az", "boards", "query", &query_id.to_string()]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "boards",
+        "query",
+        &query_id.to_string(),
+    ]))));
     let output = cmd.run_raw().await?;
     if output.stdout.trim().is_empty() {
         return Ok(None);

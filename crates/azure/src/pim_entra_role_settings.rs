@@ -8,7 +8,6 @@ use eyre::Result;
 use eyre::bail;
 use serde::Deserialize;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_entra_pim_role_settings(
     role_definition_id: &Uuid,
@@ -25,16 +24,13 @@ pub async fn fetch_entra_pim_role_settings(
 
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter([
-            "az",
-            "rest",
-            "GET",
-            "pim_roleSettings",
-            role_definition_id.to_string().as_ref(),
-        ]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "rest",
+        "GET",
+        "pim_roleSettings",
+        role_definition_id.to_string().as_ref(),
+    ]))));
 
     #[derive(Deserialize)]
     struct Response {

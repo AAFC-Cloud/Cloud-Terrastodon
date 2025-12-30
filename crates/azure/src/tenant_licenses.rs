@@ -5,16 +5,17 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use serde::Deserialize;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_all_tenant_licenses() -> eyre::Result<TenantLicenseCollection> {
     let url = "https://graph.microsoft.com/v1.0/subscribedSkus";
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", url]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter(["az", "rest", "GET", "subscribedSkus"]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "rest",
+        "GET",
+        "subscribedSkus",
+    ]))));
 
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]

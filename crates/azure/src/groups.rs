@@ -4,17 +4,15 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_all_groups() -> Result<Vec<Group>> {
     debug!("Fetching Azure AD groups");
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["ad", "group", "list", "--output", "json"]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter(["az", "ad", "group", "list"]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az", "ad", "group", "list",
+    ]))));
     let rtn: Vec<Group> = cmd.run().await?;
     debug!("Found {} groups", rtn.len());
     Ok(rtn)

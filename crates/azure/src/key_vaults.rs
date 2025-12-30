@@ -8,7 +8,6 @@ use eyre::Result;
 use serde::Deserialize;
 use serde_json::Value;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_all_key_vaults() -> Result<Vec<KeyVault>> {
     let mut query = ResourceGraphHelper::new(
@@ -17,10 +16,11 @@ resources
 | where type =~ "microsoft.keyvault/vaults"
 | project id,name,location,properties,tags
         "#,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "key_vaults"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "key_vaults",
+        ]))),
     );
     query.collect_all().await
 }

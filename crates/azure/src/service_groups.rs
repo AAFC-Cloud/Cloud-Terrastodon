@@ -4,7 +4,6 @@ use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_all_service_groups() -> Result<Vec<ServiceGroup>> {
@@ -21,10 +20,11 @@ pub async fn fetch_all_service_groups() -> Result<Vec<ServiceGroup>> {
 
     let service_groups = ResourceGraphHelper::new(
         query,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "service_groups"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "service_groups",
+        ]))),
     )
     .collect_all::<ServiceGroup>()
     .await?;

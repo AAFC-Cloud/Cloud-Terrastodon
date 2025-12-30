@@ -7,7 +7,6 @@ use eyre::Result;
 use itertools::Itertools;
 use serde::Deserialize;
 use std::path::PathBuf;
-use std::time::Duration;
 
 pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<GovernanceRoleAssignment>> {
     let my_object_id = fetch_current_user().await?.id;
@@ -38,10 +37,12 @@ pub async fn fetch_my_entra_pim_role_assignments() -> Result<Vec<GovernanceRoleA
     );
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter(["az", "rest", "GET", "pim_roleAssignments"]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "rest",
+        "GET",
+        "pim_roleAssignments",
+    ]))));
 
     #[derive(Deserialize)]
     struct Response {

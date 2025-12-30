@@ -4,7 +4,6 @@ use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use indoc::indoc;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::info;
 
 pub async fn fetch_all_route_tables() -> Result<Vec<RouteTable>> {
@@ -25,10 +24,11 @@ pub async fn fetch_all_route_tables() -> Result<Vec<RouteTable>> {
 
     let route_tables = ResourceGraphHelper::new(
         query,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "route_tables"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "route_tables",
+        ]))),
     )
     .collect_all::<RouteTable>()
     .await?;

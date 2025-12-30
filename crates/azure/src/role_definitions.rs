@@ -3,7 +3,6 @@ use cloud_terrastodon_azure_types::prelude::RoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 /// Fetches all AzureRM role definitions.
@@ -22,10 +21,11 @@ pub async fn fetch_all_role_definitions() -> Result<Vec<RoleDefinition>> {
     display_name = properties.roleName,
     ['kind'] = properties.type
 | project-away properties"#,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "role-definitions"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "role-definitions",
+        ]))),
     )
     .collect_all()
     .await?;

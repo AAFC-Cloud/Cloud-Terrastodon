@@ -6,7 +6,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 pub async fn fetch_azure_devops_team_members(
@@ -30,19 +29,16 @@ pub async fn fetch_azure_devops_team_members(
         "--output",
         "json",
     ]);
-    cmd.use_cache_behaviour(Some(CacheKey {
-        path: PathBuf::from_iter([
-            "az",
-            "devops",
-            "team",
-            "list-member",
-            "--project",
-            &project.to_string(),
-            "--team",
-            &team_id.to_string(),
-        ]),
-        valid_for: Duration::MAX,
-    }));
+    cmd.use_cache_behaviour(Some(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "devops",
+        "team",
+        "list-member",
+        "--project",
+        &project.to_string(),
+        "--team",
+        &team_id.to_string(),
+    ]))));
 
     let response = cmd.run::<Vec<AzureDevOpsTeamMember>>().await?;
     debug!(

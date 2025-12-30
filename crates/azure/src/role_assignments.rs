@@ -3,7 +3,6 @@ use cloud_terrastodon_azure_types::prelude::RoleAssignment;
 use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 /// Fetches all AzureRM role assignments.
@@ -21,10 +20,11 @@ authorizationresources
     role_definition_id=properties.roleDefinitionId,
     principal_id=properties.principalId
 "#,
-        Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "role_assignments"]),
-            valid_for: Duration::MAX,
-        }),
+        Some(CacheKey::new(PathBuf::from_iter([
+            "az",
+            "resource_graph",
+            "role_assignments",
+        ]))),
     );
     let role_assignments: Vec<RoleAssignment> = query.collect_all().await?;
     debug!("Found {} role assignments", role_assignments.len());
