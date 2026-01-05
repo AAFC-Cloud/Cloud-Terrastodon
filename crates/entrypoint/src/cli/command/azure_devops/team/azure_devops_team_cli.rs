@@ -1,4 +1,5 @@
 use crate::cli::azure_devops::team::list::AzureDevOpsTeamListArgs;
+use crate::cli::azure_devops::team::show::AzureDevOpsTeamShowArgs;
 use clap::Args;
 use clap::Subcommand;
 use eyre::Result;
@@ -14,12 +15,15 @@ pub struct AzureDevOpsTeamArgs {
 pub enum AzureDevOpsTeamCommand {
     /// List Azure DevOps teams in the project.
     List(AzureDevOpsTeamListArgs),
+    /// Show details for a single Azure DevOps team.
+    Show(AzureDevOpsTeamShowArgs),
 }
 
 impl AzureDevOpsTeamArgs {
     pub async fn invoke(self) -> Result<()> {
         match self.command {
             AzureDevOpsTeamCommand::List(args) => args.invoke().await?,
+            AzureDevOpsTeamCommand::Show(args) => args.invoke().await?,
         }
 
         Ok(())

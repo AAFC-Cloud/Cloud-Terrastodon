@@ -1,4 +1,5 @@
 use crate::cli::azure_devops::service_endpoint::list::AzureDevOpsServiceEndpointListArgs;
+use crate::cli::azure_devops::service_endpoint::show::AzureDevOpsServiceEndpointShowArgs;
 use clap::Args;
 use clap::Subcommand;
 use eyre::Result;
@@ -14,12 +15,15 @@ pub struct AzureDevOpsServiceEndpointArgs {
 pub enum AzureDevOpsServiceEndpointCommand {
     /// List Azure DevOps service endpoints in a project.
     List(AzureDevOpsServiceEndpointListArgs),
+    /// Show details for a single service endpoint.
+    Show(AzureDevOpsServiceEndpointShowArgs),
 }
 
 impl AzureDevOpsServiceEndpointArgs {
     pub async fn invoke(self) -> Result<()> {
         match self.command {
             AzureDevOpsServiceEndpointCommand::List(args) => args.invoke().await?,
+            AzureDevOpsServiceEndpointCommand::Show(args) => args.invoke().await?,
         }
 
         Ok(())

@@ -1,5 +1,4 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops::prelude::fetch_work_items_for_query;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
@@ -10,9 +9,6 @@ use std::io::stdout;
 /// Invoke a work item query.
 #[derive(Args, Debug, Clone)]
 pub struct AzureDevOpsWorkItemQueryInvokeArgs {
-    /// Project id or project name.
-    pub project: AzureDevOpsProjectArgument<'static>,
-
     /// Query id.
     pub id: AzureDevOpsWorkItemQueryId,
 }
