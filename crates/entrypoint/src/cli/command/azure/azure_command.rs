@@ -5,6 +5,7 @@ use super::policy::AzurePolicyArgs;
 use super::role::AzureRoleArgs;
 use super::tag::AzureTagArgs;
 use super::vm::AzureVmArgs;
+use crate::cli::azure_devops::AzureDevOpsArgs;
 use clap::Subcommand;
 use eyre::Result;
 
@@ -25,6 +26,9 @@ pub enum AzureCommand {
     Pim(AzurePimArgs),
     /// VM-related commands (images, publishers, sizes, etc.)
     Vm(AzureVmArgs),
+    /// Azure DevOps-specific commands.
+    #[command(alias = "devops")]
+    DevOps(AzureDevOpsArgs),
 }
 
 impl AzureCommand {
@@ -49,6 +53,9 @@ impl AzureCommand {
                 args.invoke().await?;
             }
             AzureCommand::Vm(args) => {
+                args.invoke().await?;
+            }
+            AzureCommand::DevOps(args) => {
                 args.invoke().await?;
             }
         }
