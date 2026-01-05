@@ -43,13 +43,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsLicenseEntit
         cmd.args(["--resource", "entitlements"]);
         cmd.args(["--api-version", "7.2-preview"]);
         cmd.args(["--encoding", "utf-8"]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "devops",
-            "license",
-            "entitlement",
-            "list",
-        ])));
+        cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]
         struct InvokeResponse {

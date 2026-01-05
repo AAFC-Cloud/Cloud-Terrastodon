@@ -1,3 +1,10 @@
+# v0.32.0
+
+- Alias `devops` as child of `ct az` command
+- Add `ct az devops project list` command
+- Rename `get_azure_devops_access_token` to `fetch_azure_devops_personal_access_token`
+- Rename `get_azure_devops_pat` to `get_azure_devops_personal_access_token_from_credential_manager`
+
 # v0.31.0
 
 - Add `ct tf reflow` command to rewrite directories containing HCL in an opinionated way.

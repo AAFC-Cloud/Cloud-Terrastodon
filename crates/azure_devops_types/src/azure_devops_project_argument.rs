@@ -4,6 +4,7 @@ use crate::prelude::AzureDevOpsProjectName;
 use eyre::bail;
 use std::str::FromStr;
 
+#[derive(Debug, Clone)]
 pub enum AzureDevOpsProjectArgument<'a> {
     Id(AzureDevOpsProjectId),
     IdRef(&'a AzureDevOpsProjectId),

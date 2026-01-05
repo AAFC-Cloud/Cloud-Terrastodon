@@ -40,8 +40,7 @@ impl<'a> CacheableCommand for AzureDevOpsTeamsForProjectRequest<'a> {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let project = self.project;
-        debug!("Fetching Azure DevOps teams for project {project}");
+        debug!("Fetching Azure DevOps teams for project {}", self.project);
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args([
             "devops",
@@ -52,21 +51,15 @@ impl<'a> CacheableCommand for AzureDevOpsTeamsForProjectRequest<'a> {
             "--output",
             "json",
             "--project",
-            &project.to_string(),
+            &self.project.to_string(),
         ]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "devops",
-            "team",
-            "list",
-            "--project",
-            &project.to_string(),
-        ])));
+        cmd.cache(self.cache_key());
 
         let response = cmd.run::<Vec<AzureDevOpsTeam>>().await?;
         debug!(
-            "Found {} Azure DevOps teams for project {project}",
-            response.len()
+            "Found {} Azure DevOps teams for project {}",
+            response.len(),
+            self.project
         );
         Ok(response)
     }

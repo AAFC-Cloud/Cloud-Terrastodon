@@ -33,7 +33,6 @@ impl CacheableCommand for AzureDevOpsCliConfigRequest {
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsCliConfigRequest);
 
-
 #[cfg(test)]
 mod test {
     use crate::prelude::get_azure_devops_cli_config;

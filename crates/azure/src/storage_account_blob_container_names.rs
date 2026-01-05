@@ -20,7 +20,9 @@ pub fn fetch_storage_account_blob_container_names<'a>(
 }
 
 #[async_trait]
-impl<'a> cloud_terrastodon_command::CacheableCommand for StorageAccountBlobContainerNamesListRequest<'a> {
+impl<'a> cloud_terrastodon_command::CacheableCommand
+    for StorageAccountBlobContainerNamesListRequest<'a>
+{
     type Output = HashSet<StorageAccountBlobContainerName>;
 
     fn cache_key(&self) -> CacheKey {
@@ -50,7 +52,8 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for StorageAccountBlobConta
             "--auth-mode",
             "login",
         ]);
-        cmd.cache(CacheKey::new(PathBuf::from("storage_accounts")));
+        cmd.cache(self.cache_key());
+
         let rtn = cmd.run().await?;
         Ok(rtn)
     }
@@ -68,9 +71,7 @@ mod test {
     pub async fn blob_works() -> eyre::Result<()> {
         let storage_accounts = fetch_all_storage_accounts().await?;
         for sa in storage_accounts.into_iter() {
-            if let Ok(blob_containers) =
-                fetch_storage_account_blob_container_names(&sa.id).await
-            {
+            if let Ok(blob_containers) = fetch_storage_account_blob_container_names(&sa.id).await {
                 println!("Storage account: {sa:#?}");
                 println!("Blob containers: {blob_containers:#?}");
                 return Ok(());

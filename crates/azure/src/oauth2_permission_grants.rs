@@ -33,9 +33,8 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
     async fn run(self) -> eyre::Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.cache(CacheKey::new(
-            FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.to_path_buf(),
-        ));
+        cmd.cache(self.cache_key());
+
         cmd.arg("rest");
         cmd.args(["--method", "GET"]);
         cmd.args(["--url", url]);

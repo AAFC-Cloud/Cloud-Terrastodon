@@ -31,6 +31,7 @@ pub enum CommandKind {
     Echo,
     Pwsh,
     Git,
+    CloudTerrastodon,
     Other(String),
 }
 
@@ -60,6 +61,13 @@ impl CommandKind {
             CommandKind::Echo => "pwsh".to_string(),
             CommandKind::Pwsh => "pwsh".to_string(),
             CommandKind::Git => "git".to_string(),
+            CommandKind::CloudTerrastodon => {
+                // return current exe
+                env::current_exe()
+                    .unwrap_or_else(|_| "cloud_terrastodon".into())
+                    .to_string_lossy()
+                    .to_string()
+            }
             CommandKind::Other(x) => x.to_owned(),
         }
     }

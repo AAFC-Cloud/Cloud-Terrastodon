@@ -40,28 +40,18 @@ impl<'a> CacheableCommand for AzureDevOpsServiceEndpointsListRequest<'a> {
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        let org_name = self.org_url.organization_name.clone();
-        let org = self.org_url.to_string();
-        let project = self.project;
         cmd.args([
             "devops",
             "service-endpoint",
             "list",
             "--organization",
-            &org,
+            &self.org_url.to_string(),
             "--project",
-            &project.to_string(),
+            &self.project.to_string(),
             "--output",
             "json",
         ]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "devops",
-            "service-endpoint",
-            "list",
-            &org_name,
-            &project.to_string(),
-        ])));
+        cmd.cache(self.cache_key());
 
         let response = cmd.run::<Vec<AzureDevOpsServiceEndpoint>>().await?;
         Ok(response)

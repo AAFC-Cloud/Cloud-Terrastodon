@@ -1,12 +1,10 @@
-use std::pin::Pin;
-
+use crate::prelude::get_azure_devops_cli_config;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::async_trait;
 use eyre::OptionExt;
 use eyre::bail;
-
-use crate::prelude::get_azure_devops_cli_config;
+use std::pin::Pin;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct DefaultAzureDevOpsProjectNameRequest;
@@ -37,13 +35,12 @@ impl IntoFuture for DefaultAzureDevOpsProjectNameRequest {
             let Some((_, project)) = project.split_once('=') else {
                 bail!("Expected project to have a slash before the name, found {project:?}");
             };
-            
+
             let project = project.trim();
             Ok(AzureDevOpsProjectName::new(project.to_string()))
         })
     }
 }
-
 
 #[cfg(test)]
 mod test {

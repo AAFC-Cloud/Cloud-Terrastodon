@@ -42,9 +42,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
             "--output",
             "json",
         ]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
-            "az", "devops", "project", "list",
-        ])));
+        cmd.cache(self.cache_key());
 
         #[derive(Serialize, Deserialize)]
         pub struct Response {

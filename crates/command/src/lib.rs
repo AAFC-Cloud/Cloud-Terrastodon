@@ -1,5 +1,5 @@
 //! This crate provides utilities for building, running, and managing external commands within the Cloud Terrastodon project. It includes features for:
-//! 
+//!
 //! - Specifying different command kinds (Azure CLI, Terraform, VSCode, Echo, Pwsh).
 //! - Building command arguments and environment variables.
 //! - Handling file arguments for commands like Azure CLI.

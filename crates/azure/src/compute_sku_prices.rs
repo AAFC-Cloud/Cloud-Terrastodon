@@ -41,11 +41,7 @@ impl CacheableCommand for ComputeSkuPricesRequest {
         );
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "vm",
-            "list-sku-pricings",
-        ])));
+        cmd.cache(self.cache_key());
 
         #[derive(serde::Deserialize)]
         #[serde(deny_unknown_fields)]

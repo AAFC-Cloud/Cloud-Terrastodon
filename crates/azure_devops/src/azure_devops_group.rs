@@ -41,7 +41,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsListRe
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let project = self.project;
+        let project = &self.project;
         debug!("Fetching Azure DevOps groups for project {project}");
 
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -58,15 +58,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsListRe
             "--output",
             "json",
         ]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "devops",
-            "security",
-            "group",
-            "list",
-            "--project",
-            &project.to_string(),
-        ])));
+        cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
