@@ -27,6 +27,7 @@ mod azure_devops_team_member;
 mod azure_devops_user_id;
 mod azure_devops_work_item_query;
 mod azure_devops_work_items;
+mod azure_devops_test_plan;
 
 pub mod prelude {
     pub use crate::azure_devops_account_id::*;
@@ -52,6 +53,7 @@ pub mod prelude {
     pub use crate::azure_devops_service_endpoint_name::*;
     pub use crate::azure_devops_service_endpoint_operation_status::*;
     pub use crate::azure_devops_service_endpoint_owner::*;
+    pub use crate::azure_devops_test_plan::*;
     pub use crate::azure_devops_service_endpoint_project_reference::*;
     pub use crate::azure_devops_team::*;
     pub use crate::azure_devops_team_member::*;
