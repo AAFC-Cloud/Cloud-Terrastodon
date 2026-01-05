@@ -1,6 +1,12 @@
 use super::audit::AzureDevOpsAuditArgs;
 use super::azure_devops_rest_command::AzureDevOpsRestArgs;
-use super::project::AzureDevOpsProjectArgs;
+use crate::cli::azure_devops::group::AzureDevOpsGroupArgs;
+use crate::cli::azure_devops::license_entitlement::AzureDevOpsLicenseEntitlementArgs;
+use crate::cli::azure_devops::project::AzureDevOpsProjectArgs;
+use crate::cli::azure_devops::repo::AzureDevOpsRepoArgs;
+use crate::cli::azure_devops::service_endpoint::AzureDevOpsServiceEndpointArgs;
+use crate::cli::azure_devops::team::AzureDevOpsTeamArgs;
+use crate::cli::azure_devops::work_item_query::AzureDevOpsWorkItemQueryArgs;
 use clap::Subcommand;
 use eyre::Result;
 
@@ -13,6 +19,18 @@ pub enum AzureDevOpsCommand {
     Rest(AzureDevOpsRestArgs),
     /// Project-level operations (list, show, ...)
     Project(AzureDevOpsProjectArgs),
+    /// Group-related operations.
+    Group(AzureDevOpsGroupArgs),
+    /// Team-related operations.
+    Team(AzureDevOpsTeamArgs),
+    /// Repository-related operations.
+    Repo(AzureDevOpsRepoArgs),
+    /// Service endpoint-related operations.
+    ServiceEndpoint(AzureDevOpsServiceEndpointArgs),
+    /// License entitlement-related operations.
+    LicenseEntitlement(AzureDevOpsLicenseEntitlementArgs),
+    /// Work item query operations.
+    Query(AzureDevOpsWorkItemQueryArgs),
 }
 
 impl AzureDevOpsCommand {
@@ -25,6 +43,24 @@ impl AzureDevOpsCommand {
                 args.invoke().await?;
             }
             AzureDevOpsCommand::Project(args) => {
+                args.invoke().await?;
+            }
+            AzureDevOpsCommand::Group(args) => {
+                args.invoke().await?;
+            }
+            AzureDevOpsCommand::Team(args) => {
+                args.invoke().await?;
+            }
+            AzureDevOpsCommand::Repo(args) => {
+                args.invoke().await?;
+            }
+            AzureDevOpsCommand::ServiceEndpoint(args) => {
+                args.invoke().await?;
+            }
+            AzureDevOpsCommand::LicenseEntitlement(args) => {
+                args.invoke().await?;
+            }
+            AzureDevOpsCommand::Query(args) => {
                 args.invoke().await?;
             }
         }

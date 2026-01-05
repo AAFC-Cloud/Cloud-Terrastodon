@@ -1,7 +1,13 @@
 pub mod audit;
 pub mod azure_devops_command;
 pub mod azure_devops_rest_command;
+pub mod group;
+pub mod license_entitlement;
 pub mod project;
+pub mod repo;
+pub mod service_endpoint;
+pub mod team;
+pub mod work_item_query;
 
 use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;
 use clap::Args;
