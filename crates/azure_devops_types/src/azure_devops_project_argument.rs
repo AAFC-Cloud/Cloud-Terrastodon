@@ -1,6 +1,8 @@
 use crate::prelude::AzureDevOpsProject;
 use crate::prelude::AzureDevOpsProjectId;
 use crate::prelude::AzureDevOpsProjectName;
+use eyre::bail;
+use std::str::FromStr;
 
 pub enum AzureDevOpsProjectArgument<'a> {
     Id(AzureDevOpsProjectId),
@@ -58,6 +60,34 @@ impl AzureDevOpsProjectArgument<'_> {
             AzureDevOpsProjectArgument::NameRef(name) => {
                 AzureDevOpsProjectArgument::Name(name.clone())
             }
+        }
+    }
+
+    /// Returns true if this argument matches the supplied project.
+    pub fn matches(&self, project: &AzureDevOpsProject) -> bool {
+        match self {
+            AzureDevOpsProjectArgument::Id(id) => project.id == *id,
+            AzureDevOpsProjectArgument::IdRef(id) => project.id == **id,
+            AzureDevOpsProjectArgument::Name(name) => {
+                project.name.as_ref().eq_ignore_ascii_case(name.as_ref())
+            }
+            AzureDevOpsProjectArgument::NameRef(name) => {
+                project.name.as_ref().eq_ignore_ascii_case(name.as_ref())
+            }
+        }
+    }
+}
+
+impl FromStr for AzureDevOpsProjectArgument<'static> {
+    type Err = eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(id) = s.parse::<AzureDevOpsProjectId>() {
+            Ok(AzureDevOpsProjectArgument::Id(id))
+        } else if let Ok(name) = AzureDevOpsProjectName::try_new(s) {
+            Ok(AzureDevOpsProjectArgument::Name(name))
+        } else {
+            bail!("'{s}' is not a valid Azure DevOps project id or name")
         }
     }
 }

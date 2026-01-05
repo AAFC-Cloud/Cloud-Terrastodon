@@ -1,5 +1,6 @@
 use super::audit::AzureDevOpsAuditArgs;
 use super::azure_devops_rest_command::AzureDevOpsRestArgs;
+use super::project::AzureDevOpsProjectArgs;
 use clap::Subcommand;
 use eyre::Result;
 
@@ -10,6 +11,8 @@ pub enum AzureDevOpsCommand {
     Audit(AzureDevOpsAuditArgs),
     /// Issue raw Azure DevOps REST requests.
     Rest(AzureDevOpsRestArgs),
+    /// Project-level operations (list, show, ...)
+    Project(AzureDevOpsProjectArgs),
 }
 
 impl AzureDevOpsCommand {
@@ -19,6 +22,9 @@ impl AzureDevOpsCommand {
                 args.invoke().await?;
             }
             AzureDevOpsCommand::Rest(args) => {
+                args.invoke().await?;
+            }
+            AzureDevOpsCommand::Project(args) => {
                 args.invoke().await?;
             }
         }
