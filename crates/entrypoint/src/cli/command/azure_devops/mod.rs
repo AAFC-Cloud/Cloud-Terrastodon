@@ -7,6 +7,7 @@ pub mod project;
 pub mod repo;
 pub mod service_endpoint;
 pub mod team;
+pub mod test;
 pub mod work_item_query;
 
 use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;

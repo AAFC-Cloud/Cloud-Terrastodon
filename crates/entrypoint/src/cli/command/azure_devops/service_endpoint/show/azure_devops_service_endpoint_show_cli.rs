@@ -21,9 +21,10 @@ impl AzureDevOpsServiceEndpointShowArgs {
     pub async fn invoke(self) -> Result<()> {
         let org_url = get_default_organization_url().await?;
         let endpoints = fetch_all_azure_devops_service_endpoints(&org_url, self.project).await?;
-        if let Some(ep) = endpoints.into_iter().find(|e| {
-            e.name.to_string() == self.endpoint || e.id.to_string() == self.endpoint
-        }) {
+        if let Some(ep) = endpoints
+            .into_iter()
+            .find(|e| e.name.to_string() == self.endpoint || e.id.to_string() == self.endpoint)
+        {
             to_writer_pretty(stdout(), &ep)?;
             Ok(())
         } else {

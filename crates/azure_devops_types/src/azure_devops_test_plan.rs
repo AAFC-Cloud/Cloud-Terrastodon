@@ -4,13 +4,12 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
-
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
 pub struct AzureDevOpsTestPlan {
-    pub area: Option<ShallowReference>,
-    pub build: Option<ShallowReference>,
+    pub area: Option<AzureDevOpsTestPlanShallowReference>,
+    pub build: Option<AzureDevOpsTestPlanShallowReference>,
     #[serde(rename = "buildDefinition")]
-    pub build_definition: Option<ShallowReference>,
+    pub build_definition: Option<AzureDevOpsTestPlanShallowReference>,
     pub description: Option<String>,
     #[serde(rename = "endDate")]
     pub end_date: Option<DateTime<Utc>>,
@@ -19,13 +18,14 @@ pub struct AzureDevOpsTestPlan {
     pub name: String,
     pub owner: Option<AzureDevOpsTestPlanIdentityRef>,
     #[serde(rename = "previousBuild")]
-    pub previous_build: Option<ShallowReference>,
-    pub project: Option<ShallowReference>,
+    pub previous_build: Option<AzureDevOpsTestPlanShallowReference>,
+    pub project: Option<AzureDevOpsTestPlanShallowReference>,
     #[serde(rename = "releaseEnvironmentDefinition")]
-    pub release_environment_definition: Option<AzureDevOpsTestPlanReleaseEnvironmentDefinitionReference>,
+    pub release_environment_definition:
+        Option<AzureDevOpsTestPlanReleaseEnvironmentDefinitionReference>,
     pub revision: Option<u32>,
     #[serde(rename = "rootSuite")]
-    pub root_suite: Option<ShallowReference>,
+    pub root_suite: Option<AzureDevOpsTestPlanShallowReference>,
     #[serde(rename = "startDate")]
     pub start_date: Option<DateTime<Utc>>,
     pub state: Option<String>,
@@ -41,7 +41,7 @@ pub struct AzureDevOpsTestPlan {
 }
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
-pub struct ShallowReference {
+pub struct AzureDevOpsTestPlanShallowReference {
     pub id: Option<String>,
     pub name: Option<String>,
     pub url: Option<String>,

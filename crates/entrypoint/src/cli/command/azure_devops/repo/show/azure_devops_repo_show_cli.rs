@@ -28,11 +28,18 @@ impl AzureDevOpsRepoShowArgs {
 
         if let Some(project) = maybe {
             let repos = fetch_all_azure_devops_repos_for_project(&org_url, &project.id).await?;
-            if let Some(repo) = repos.into_iter().find(|r| r.name == self.repo || r.id.to_string() == self.repo) {
+            if let Some(repo) = repos
+                .into_iter()
+                .find(|r| r.name == self.repo || r.id.to_string() == self.repo)
+            {
                 to_writer_pretty(stdout(), &repo)?;
                 Ok(())
             } else {
-                bail!("No repository found matching '{}' in project {}.", self.repo, project.name);
+                bail!(
+                    "No repository found matching '{}' in project {}.",
+                    self.repo,
+                    project.name
+                );
             }
         } else {
             bail!("No project found matching '{}'.", self.project);

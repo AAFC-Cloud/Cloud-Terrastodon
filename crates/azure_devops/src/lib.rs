@@ -8,6 +8,8 @@ mod azure_devops_service_endpoint;
 mod azure_devops_team;
 mod azure_devops_team_member;
 mod azure_devops_test_plans;
+mod azure_devops_test_suite_cases;
+mod azure_devops_test_suites;
 mod azure_devops_user_onboarding_statuses;
 mod azure_devops_work_item_queries;
 mod azure_devops_work_items_for_query;
@@ -28,6 +30,8 @@ pub mod prelude {
     pub use crate::azure_devops_team::*;
     pub use crate::azure_devops_team_member::*;
     pub use crate::azure_devops_test_plans::*;
+    pub use crate::azure_devops_test_suite_cases::*;
+    pub use crate::azure_devops_test_suites::*;
     pub use crate::azure_devops_user_onboarding_statuses::*;
     pub use crate::azure_devops_work_item_queries::*;
     pub use crate::azure_devops_work_items_for_query::*;

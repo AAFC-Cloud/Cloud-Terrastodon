@@ -11,6 +11,7 @@ use eyre::OptionExt;
 use eyre::Result;
 use eyre::bail;
 use eyre::eyre;
+use tracing::info;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::OsString;
@@ -105,8 +106,8 @@ impl CommandKind {
                 new_args.push(guh);
                 args = new_args.into_iter().map(CommandArgument::Literal).collect();
             }
-            CommandKind::AzureCLI => {
-                // Always add --debug for AzureCLI if not present
+            CommandKind::AzureCLI |  CommandKind::CloudTerrastodon => {
+                // Always add --debug if not present
                 let has_debug = args
                     .iter()
                     .any(|a| matches!(a, CommandArgument::Literal(lit) if lit == "--debug"));

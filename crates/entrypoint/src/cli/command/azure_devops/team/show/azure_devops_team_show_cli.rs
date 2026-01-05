@@ -21,9 +21,10 @@ impl AzureDevOpsTeamShowArgs {
     pub async fn invoke(self) -> Result<()> {
         let org_url = get_default_organization_url().await?;
         let teams = fetch_azure_devops_teams_for_project(&org_url, self.project).await?;
-        if let Some(team) = teams.into_iter().find(|t| {
-            t.name == self.team || t.id.to_string() == self.team
-        }) {
+        if let Some(team) = teams
+            .into_iter()
+            .find(|t| t.name == self.team || t.id.to_string() == self.team)
+        {
             to_writer_pretty(stdout(), &team)?;
             Ok(())
         } else {
