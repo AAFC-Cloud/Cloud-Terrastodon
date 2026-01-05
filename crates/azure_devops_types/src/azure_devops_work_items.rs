@@ -67,6 +67,7 @@ pub struct WorkItemLink {
 
 /// The result of a work item query.
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-id?view=azure-devops-rest-7.1
+/// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1&tabs=HTTP#workitemqueryresult
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkItemQueryResult {
@@ -79,9 +80,9 @@ pub struct WorkItemQueryResult {
     /// The type of the query.
     pub query_type: QueryType,
     /// The sort columns of the query.
-    pub sort_columns: Vec<WorkItemQuerySortColumn>,
+    pub sort_columns: Option<Vec<WorkItemQuerySortColumn>>,
     /// The work item links returned by the query.
-    pub work_item_relations: Vec<WorkItemLink>,
+    pub work_item_relations: Option<Vec<WorkItemLink>>,
     /// The work items returned by the query.
     pub work_items: Vec<WorkItemReference>,
 }

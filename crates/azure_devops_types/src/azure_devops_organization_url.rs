@@ -10,6 +10,9 @@ use serde::Serialize;
 use serde::Serializer;
 use std::str::FromStr;
 
+/// Represents an Azure DevOps organization URL, which can be in either the
+/// modern dev.azure.com format or the legacy visualstudio.com format.
+/// Does NOT contain a trailing slash when expanded.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
 pub struct AzureDevOpsOrganizationUrl {
     pub base_url: CompactString,

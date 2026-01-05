@@ -1,6 +1,5 @@
 #![allow(deprecated)]
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops_types::prelude::WorkItemQueryResult;
 use cloud_terrastodon_command::CacheKey;
@@ -8,28 +7,19 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::bstr::ByteSlice;
 use std::path::PathBuf;
 use tracing::debug;
 
-/// <https://developercommunity.visualstudio.com/t/Its-impossible-to-use-az-devops-invoke/10880749>
-#[deprecated(note = "WIP, the return type and behaviour isn't in a good spot yet.")]
 pub struct WorkItemsForQueryRequest<'a> {
     org_url: &'a AzureDevOpsOrganizationUrl,
-    project_name: &'a AzureDevOpsProjectName,
     query_id: &'a AzureDevOpsWorkItemQueryId,
 }
 
 pub fn fetch_work_items_for_query<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
-    project_name: &'a AzureDevOpsProjectName,
     query_id: &'a AzureDevOpsWorkItemQueryId,
 ) -> WorkItemsForQueryRequest<'a> {
-    WorkItemsForQueryRequest {
-        org_url,
-        project_name,
-        query_id,
-    }
+    WorkItemsForQueryRequest { org_url, query_id }
 }
 
 #[async_trait]
@@ -39,6 +29,7 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
             "az",
+            "devops",
             "boards",
             "query",
             &self.query_id.to_string(),
@@ -47,43 +38,30 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
 
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!(
-            "Fetching work item query results for {} from project {} in organization {}",
-            self.query_id, self.project_name, self.org_url.organization_name
+            "Fetching work item query results for {} from in organization {}",
+            self.query_id, self.org_url.organization_name
+        );
+        // We have to use REST instead of `az devops invoke` because of https://developercommunity.visualstudio.com/t/Its-impossible-to-use-az-devops-invoke/10880749
+        // There is also `az boards query --organization {} --id {}` but it has a different output format.
+        // We want to hit the API to get the fields as described in https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1&tabs=HTTP
+        let url = format!(
+            "{org_url}/_apis/wit/wiql/{query_id}?api-version=7.1",
+            org_url = self.org_url,
+            query_id = self.query_id,
         );
 
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.cache(self.cache_key());
         cmd.args([
-            "boards",
-            "query",
-            "--organization",
-            self.org_url.to_string().as_str(),
-            "--id",
-            self.query_id.to_string().as_str(),
-            "--output",
-            "json",
-        ]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
             "az",
-            "boards",
-            "query",
-            &self.query_id.to_string(),
-        ])));
-        let output = cmd.run_raw().await?;
-        if output.stdout.trim().is_empty() {
-            return Ok(None);
-        }
-        let mut rtn: Vec<WorkItemQueryResult> = output.try_interpret(&cmd).await?;
-        assert_eq!(rtn.len(), 1);
-        Ok(Some(rtn.remove(0)))
-
-        // let url = format!(
-        //     "https://dev.azure.com/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version=7.1"
-        // );
-        // debug!("Fetching work item query results from {url}");
-        // let client = create_azure_devops_rest_client().await?;
-        // let resp = client.get(&url).send().await?.error_for_status()?;
-        // let rtn: WorkItemQueryResult = resp.json().await?;
-        // Ok(Some(rtn))
+            "devops",
+            "rest",
+            "--method",
+            "GET",
+            "--url",
+            url.as_ref(),
+        ]);
+        Ok(cmd.run().await?)
     }
 }
 
@@ -121,7 +99,7 @@ mod test {
             };
 
             // get items from the query
-            let items = fetch_work_items_for_query(&org_url, &project.name, &query.id)
+            let items = fetch_work_items_for_query(&org_url, &query.id)
                 .await
                 .wrap_err(format!(
                     "Failed to fetch work items for query {query} from project {project}",

@@ -11,8 +11,7 @@ pub const AZURE_DEVOPS_RESOURCE_ID: &str = "499b84ac-1321-427f-aa17-267ca6975798
 /// Please explicitly log in with:
 /// az login --scope 499b84ac-1321-427f-aa17-267ca6975798/.default
 /// ```
-#[allow(unused)]
-pub async fn get_azure_devops_access_token()
+pub async fn fetch_azure_devops_personal_access_token()
 -> eyre::Result<AccessToken<AzureDevOpsPersonalAccessToken>> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     // https://www.dylanberry.com/2021/02/21/how-to-get-a-pat-personal-access-token-for-azure-devops-from-the-az-cli/
@@ -30,7 +29,7 @@ pub async fn get_azure_devops_access_token()
 
 #[cfg(test)]
 mod test {
-    use crate::azure_access_token::get_azure_devops_access_token;
+    use crate::azure_access_token::fetch_azure_devops_personal_access_token;
     use crate::create_azure_devops_rest_client;
     use serde_json::Value;
 
@@ -39,7 +38,9 @@ mod test {
         // this endpoint only works with the `az account get-access-token`, not with a raw PAT
         let url = "https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=6.0";
 
-        let pat = get_azure_devops_access_token().await?.access_token;
+        let pat = fetch_azure_devops_personal_access_token()
+            .await?
+            .access_token;
         let client = create_azure_devops_rest_client(&pat).await?;
 
         let resp = client.get(url).send().await?;
@@ -58,7 +59,9 @@ mod test {
         // this endpoint only works with the `az account get-access-token`, not with a raw PAT
         let url = "https://dev.azure.com/aafc/_apis/projects?api-version=7.1";
 
-        let pat = get_azure_devops_access_token().await?.access_token;
+        let pat = fetch_azure_devops_personal_access_token()
+            .await?
+            .access_token;
         let client = create_azure_devops_rest_client(&pat).await?;
 
         let resp = client.get(url).send().await?;

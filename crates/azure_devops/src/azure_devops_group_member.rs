@@ -6,7 +6,7 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
-use cloud_terrastodon_credentials::get_azure_devops_pat;
+use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -56,16 +56,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             "--output",
             "json",
         ]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "devops",
-            "security",
-            "group",
-            "membership",
-            "list",
-            "--id",
-            gid.as_str(),
-        ])));
+        cmd.cache(self.cache_key());
         cmd.run().await
     }
 }
@@ -106,7 +97,10 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             organization = organization,
             subject_descriptor = subject_descriptor
         );
-        let client = create_azure_devops_rest_client(&get_azure_devops_pat().await?).await?;
+        let client = create_azure_devops_rest_client(
+            &get_azure_devops_personal_access_token_from_credential_manager().await?,
+        )
+        .await?;
         let resp = client.get(url).send().await?;
         let resp = resp.json().await?;
         Ok(resp)
@@ -149,7 +143,10 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMem
             organization = organization,
             subject_descriptor = subject_descriptor
         );
-        let client = create_azure_devops_rest_client(&get_azure_devops_pat().await?).await?;
+        let client = create_azure_devops_rest_client(
+            &get_azure_devops_personal_access_token_from_credential_manager().await?,
+        )
+        .await?;
         let resp = client.get(url).send().await?;
         let resp = resp.json().await?;
         Ok(resp)

@@ -1,6 +1,6 @@
 use clap::Args;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
-use cloud_terrastodon_credentials::get_azure_devops_pat;
+use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
 use eyre::Result;
 use http::Method;
 
@@ -22,7 +22,7 @@ pub struct AzureDevOpsRestArgs {
 
 impl AzureDevOpsRestArgs {
     pub async fn invoke(self) -> Result<()> {
-        let pat = get_azure_devops_pat().await?;
+        let pat = get_azure_devops_personal_access_token_from_credential_manager().await?;
         let client = create_azure_devops_rest_client(&pat).await?;
         let mut request_builder = client.request(self.method, &self.url);
         if let Some(body) = self.body {

@@ -20,14 +20,14 @@ pub async fn create_azure_devops_rest_client(token: &impl AuthBearerExt) -> eyre
 #[cfg(test)]
 mod test {
     use crate::create_azure_devops_rest_client;
-    use crate::get_azure_devops_pat;
+    use crate::get_azure_devops_personal_access_token_from_credential_manager;
     use serde_json::Value;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let url = "https://dev.azure.com/aafc/_apis/projects?api-version=7.1";
 
-        let pat = get_azure_devops_pat().await?;
+        let pat = get_azure_devops_personal_access_token_from_credential_manager().await?;
         let client = create_azure_devops_rest_client(&pat).await?;
 
         let resp = client.get(url).send().await?;

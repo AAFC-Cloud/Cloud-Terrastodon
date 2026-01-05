@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -13,16 +13,16 @@ use tracing::info;
 
 pub struct WorkItemQueriesForProjectRequest<'a> {
     org_url: &'a AzureDevOpsOrganizationUrl,
-    project_name: &'a AzureDevOpsProjectName,
+    project: AzureDevOpsProjectArgument<'a>,
 }
 
 pub fn fetch_queries_for_project<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
-    project_name: &'a AzureDevOpsProjectName,
+    project: impl Into<AzureDevOpsProjectArgument<'a>>,
 ) -> WorkItemQueriesForProjectRequest<'a> {
     WorkItemQueriesForProjectRequest {
         org_url,
-        project_name,
+        project: project.into(),
     }
 }
 
@@ -36,15 +36,12 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
             "devops",
             "query",
             "list",
-            self.project_name.as_ref(),
+            self.project.to_string().as_ref(),
         ]))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        info!(
-            "Fetching queries for Azure DevOps project {}",
-            self.project_name
-        );
+        info!("Fetching queries for Azure DevOps project {}", self.project);
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["devops", "invoke"]);
         cmd.args(["--organization", self.org_url.to_string().as_str()]);
@@ -53,16 +50,10 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
         cmd.args(["--encoding", "utf-8"]);
         cmd.args([
             "--route-parameters",
-            format!("project={}", self.project_name).as_str(),
+            format!("project={}", self.project).as_str(),
         ]);
         cmd.args(["--query-parameters", "$expand=all", "$depth=2"]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "devops",
-            "query",
-            "list",
-            self.project_name.as_ref(),
-        ])));
+        cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]
         struct InvokeResponse {
@@ -75,7 +66,7 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
         let total = AzureDevOpsWorkItemQuery::flatten_many(&queries).len();
         info!(
             "Found {} queries for Azure DevOps project {} ({} counting children)",
-            resp.count, self.project_name, total
+            resp.count, self.project, total
         );
         if resp.continuation_token.is_some() {
             todo!("Add support for continuation token...");

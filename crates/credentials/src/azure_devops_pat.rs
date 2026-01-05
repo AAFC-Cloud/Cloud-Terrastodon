@@ -47,7 +47,8 @@ impl From<AzureDevOpsPersonalAccessToken> for HeaderValue {
     }
 }
 
-pub async fn get_azure_devops_pat() -> eyre::Result<AzureDevOpsPersonalAccessToken> {
+pub async fn get_azure_devops_personal_access_token_from_credential_manager()
+-> eyre::Result<AzureDevOpsPersonalAccessToken> {
     #[cfg(windows)]
     return read_azure_devops_pat_from_credential_manager();
     #[cfg(not(windows))]
@@ -58,11 +59,13 @@ pub async fn get_azure_devops_pat() -> eyre::Result<AzureDevOpsPersonalAccessTok
 
 #[cfg(test)]
 mod test {
-    use crate::get_azure_devops_pat;
+    use crate::get_azure_devops_personal_access_token_from_credential_manager;
 
     #[tokio::test]
     pub async fn non_empty() -> eyre::Result<()> {
-        let credential = get_azure_devops_pat().await.ok();
+        let credential = get_azure_devops_personal_access_token_from_credential_manager()
+            .await
+            .ok();
         if let Some(credential) = credential {
             assert!(!credential.is_empty());
         } else {

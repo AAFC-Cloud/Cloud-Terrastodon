@@ -9,7 +9,7 @@ mod azure_devops_team;
 mod azure_devops_team_member;
 mod azure_devops_user_onboarding_statuses;
 mod azure_devops_work_item_queries;
-mod azure_devops_work_item_queries_invoke;
+mod azure_devops_work_items_for_query;
 mod default_organization;
 #[cfg(feature = "tui")]
 mod default_organization_tui;
@@ -28,7 +28,7 @@ pub mod prelude {
     pub use crate::azure_devops_team_member::*;
     pub use crate::azure_devops_user_onboarding_statuses::*;
     pub use crate::azure_devops_work_item_queries::*;
-    pub use crate::azure_devops_work_item_queries_invoke::*;
+    pub use crate::azure_devops_work_items_for_query::*;
     pub use crate::default_organization::*;
     #[cfg(feature = "tui")]
     pub use crate::default_organization_tui::*;
