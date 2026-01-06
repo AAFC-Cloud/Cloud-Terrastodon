@@ -11,7 +11,6 @@ use eyre::OptionExt;
 use eyre::Result;
 use eyre::bail;
 use eyre::eyre;
-use tracing::info;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::OsString;

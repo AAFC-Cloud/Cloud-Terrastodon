@@ -7,6 +7,7 @@ use crate::cli::azure_devops::repo::AzureDevOpsRepoArgs;
 use crate::cli::azure_devops::service_endpoint::AzureDevOpsServiceEndpointArgs;
 use crate::cli::azure_devops::team::AzureDevOpsTeamArgs;
 use crate::cli::azure_devops::test::AzureDevOpsTestArgs;
+use crate::cli::azure_devops::agent::AzureDevOpsAgentArgs;
 use crate::cli::azure_devops::work_item_query::AzureDevOpsWorkItemQueryArgs;
 use clap::Subcommand;
 use eyre::Result;
@@ -30,6 +31,8 @@ pub enum AzureDevOpsCommand {
     ServiceEndpoint(AzureDevOpsServiceEndpointArgs),
     /// License entitlement-related operations.
     LicenseEntitlement(AzureDevOpsLicenseEntitlementArgs),
+    /// Agent-related operations (e.g. package list).
+    Agent(AzureDevOpsAgentArgs),
     /// Work item query operations.
     Query(AzureDevOpsWorkItemQueryArgs),
     /// Test-related commands (e.g. test plan subcommands).
@@ -61,6 +64,9 @@ impl AzureDevOpsCommand {
                 args.invoke().await?;
             }
             AzureDevOpsCommand::LicenseEntitlement(args) => {
+                args.invoke().await?;
+            }
+            AzureDevOpsCommand::Agent(args) => {
                 args.invoke().await?;
             }
             AzureDevOpsCommand::Query(args) => {

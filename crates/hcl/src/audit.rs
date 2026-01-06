@@ -13,6 +13,8 @@ use tracing::warn;
 pub async fn audit(source_dir: &Path) -> eyre::Result<()> {
     info!(?source_dir, "Auditing");
 
+    // todo: use `ct az devops agent package show-newest` to identify outdated azurerm_virtual_machine_scale_set_extension
+
     // todo: rewrite this fn to do recursive and to not discard the keys that tell us what file a block came from
     let mut main_body = discover_hcl(source_dir, DiscoveryDepth::Shallow)
         .await?

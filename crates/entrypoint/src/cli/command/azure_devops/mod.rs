@@ -3,6 +3,8 @@ pub mod azure_devops_command;
 pub mod azure_devops_rest_command;
 pub mod group;
 pub mod license_entitlement;
+pub mod agent;
+pub mod agent_package;
 pub mod project;
 pub mod repo;
 pub mod service_endpoint;

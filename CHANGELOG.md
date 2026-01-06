@@ -4,6 +4,7 @@
 - Add `ct az devops project list` command
 - Rename `get_azure_devops_access_token` to `fetch_azure_devops_personal_access_token`
 - Rename `get_azure_devops_pat` to `get_azure_devops_personal_access_token_from_credential_manager`
+- Add `ct az devops agent package show-newest` command
 
 # v0.31.0
 

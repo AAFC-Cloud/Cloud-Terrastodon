@@ -2,6 +2,7 @@ mod azure_devops_configure;
 mod azure_devops_group;
 mod azure_devops_group_member;
 mod azure_devops_license_entitlements;
+mod azure_devops_agent_packages;
 mod azure_devops_projects;
 mod azure_devops_repos;
 mod azure_devops_service_endpoint;
@@ -24,6 +25,7 @@ pub mod prelude {
     pub use crate::azure_devops_group::*;
     pub use crate::azure_devops_group_member::*;
     pub use crate::azure_devops_license_entitlements::*;
+    pub use crate::azure_devops_agent_packages::*;
     pub use crate::azure_devops_projects::*;
     pub use crate::azure_devops_repos::*;
     pub use crate::azure_devops_service_endpoint::*;
