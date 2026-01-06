@@ -66,6 +66,11 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
     }
 
     // Emit a warning for licenses assigned to admin accounts for which no user account exists
+    // blocker TODO: create entra helper to cleanly map between user and admin accounts
+
+    // Emit a warning for users with a AccountAdvanced license who have not used a test plan in the past 30 days
+    // TODO: enumerate test plans using new test plan functions to find edited date and stuff
+
 
     // Emit summary
     if total_problems > 0 {
