@@ -1,6 +1,6 @@
 use clap::Args;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use eyre::Result;
 use eyre::bail;
@@ -20,7 +20,7 @@ pub struct AzureDevOpsGroupShowArgs {
 impl AzureDevOpsGroupShowArgs {
     pub async fn invoke(self) -> Result<()> {
         let org_url = get_default_organization_url().await?;
-        let groups = fetch_azure_devops_groups(&org_url, self.project).await?;
+        let groups = fetch_azure_devops_groups_for_project(&org_url, self.project).await?;
         if let Some(group) = groups.into_iter().find(|g| {
             g.display_name == self.group
                 || g.principal_name == self.group

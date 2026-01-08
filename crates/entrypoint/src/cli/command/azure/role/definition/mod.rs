@@ -1,10 +1,10 @@
-pub mod azure_role_definition;
-pub mod azure_role_definition_browse;
-pub mod azure_role_definition_list;
+pub mod azure_role_definition_cli;
+pub mod azure_role_definition_browse_cli;
+pub mod azure_role_definition_list_cli;
 
-pub use azure_role_definition::AzureRoleDefinitionCommand;
-pub use azure_role_definition_browse::AzureRoleDefinitionBrowseArgs;
-pub use azure_role_definition_list::AzureRoleDefinitionListArgs;
+pub use azure_role_definition_cli::AzureRoleDefinitionCommand;
+pub use azure_role_definition_browse_cli::AzureRoleDefinitionBrowseArgs;
+pub use azure_role_definition_list_cli::AzureRoleDefinitionListArgs;
 use clap::Args;
 use eyre::Result;
 

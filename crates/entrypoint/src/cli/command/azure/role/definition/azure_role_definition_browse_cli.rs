@@ -1,5 +1,6 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
+use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
@@ -11,14 +12,19 @@ pub struct AzureRoleDefinitionBrowseArgs {}
 
 impl AzureRoleDefinitionBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
-        info!("Fetching Azure role definitions");
-        let role_definitions = fetch_all_role_definitions().await?;
-        info!(
-            count = role_definitions.len(),
-            "Fetched Azure role definitions"
-        );
-
-        let chosen = PickerTui::new().pick_many(role_definitions)?;
+        let chosen = PickerTui::new()
+            .pick_many_reloadable(async |invalidate| {
+                info!("Fetching Azure role definitions");
+                let role_definitions = fetch_all_role_definitions()
+                    .with_invalidation(invalidate)
+                    .await?;
+                info!(
+                    count = role_definitions.len(),
+                    "Fetched Azure role definitions"
+                );
+                Ok(role_definitions)
+            })
+            .await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

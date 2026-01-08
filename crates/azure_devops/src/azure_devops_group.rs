@@ -14,7 +14,7 @@ pub struct AzureDevOpsGroupsListRequest<'a> {
     project: AzureDevOpsProjectArgument<'a>,
 }
 
-pub fn fetch_azure_devops_groups<'a>(
+pub fn fetch_azure_devops_groups_for_project<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
 ) -> AzureDevOpsGroupsListRequest<'a> {
@@ -87,7 +87,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsListRequ
 #[cfg(test)]
 mod test {
     use crate::prelude::fetch_all_azure_devops_projects;
-    use crate::prelude::fetch_azure_devops_groups;
+    use crate::prelude::fetch_azure_devops_groups_for_project;
     use crate::prelude::get_default_organization_url;
 
     #[tokio::test]
@@ -98,7 +98,7 @@ mod test {
             .into_iter()
             .next()
             .expect("No Azure DevOps projects found");
-        let groups = fetch_azure_devops_groups(&org_url, &project.name).await?;
+        let groups = fetch_azure_devops_groups_for_project(&org_url, &project.name).await?;
         assert!(
             !groups.is_empty(),
             "Expected at least one Azure DevOps group"

@@ -160,7 +160,7 @@ mod test {
     use crate::prelude::fetch_all_azure_devops_projects;
     use crate::prelude::fetch_azure_devops_group_members;
     use crate::prelude::fetch_azure_devops_group_members_v2;
-    use crate::prelude::fetch_azure_devops_groups;
+    use crate::prelude::fetch_azure_devops_groups_for_project;
     use crate::prelude::get_default_organization_url;
     use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsDescriptor;
     use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
@@ -172,7 +172,7 @@ mod test {
         let org_url = get_default_organization_url().await?;
         let projects = fetch_all_azure_devops_projects(&org_url).await?;
         for project in &projects {
-            let groups = fetch_azure_devops_groups(&org_url, &project.name).await?;
+            let groups = fetch_azure_devops_groups_for_project(&org_url, &project.name).await?;
             for group in &groups {
                 let members = fetch_azure_devops_group_members(&org_url, &group.descriptor).await?;
                 if !members.is_empty() {

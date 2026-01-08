@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_group_members;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
@@ -21,7 +21,7 @@ pub async fn dump_azure_devops() -> eyre::Result<()> {
         let org_url = org_url.clone();
         let project_id = project.id.clone();
         project_groups.enqueue(async move {
-            let groups = fetch_azure_devops_groups(&org_url, &project_id).await?;
+            let groups = fetch_azure_devops_groups_for_project(&org_url, &project_id).await?;
             eyre::Ok((project_id, groups))
         });
     }

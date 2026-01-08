@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::project::list::AzureDevOpsProjectListArgs;
 use crate::cli::azure_devops::project::show::AzureDevOpsProjectShowArgs;
+use crate::cli::azure_devops::project::dump::AzureDevOpsProjectDumpArgs;
 use clap::Args;
 use clap::Subcommand;
 use eyre::Result;
@@ -17,6 +18,8 @@ pub enum AzureDevOpsProjectCommand {
     List(AzureDevOpsProjectListArgs),
     /// Show details for a single Azure DevOps project by id or name.
     Show(AzureDevOpsProjectShowArgs),
+    /// Dump details for a single Azure DevOps project by id or name.
+    Dump(AzureDevOpsProjectDumpArgs),
 }
 
 impl AzureDevOpsProjectArgs {
@@ -24,6 +27,7 @@ impl AzureDevOpsProjectArgs {
         match self.command {
             AzureDevOpsProjectCommand::List(args) => args.invoke().await?,
             AzureDevOpsProjectCommand::Show(args) => args.invoke().await?,
+            AzureDevOpsProjectCommand::Dump(args) => args.invoke().await?,
         }
 
         Ok(())
