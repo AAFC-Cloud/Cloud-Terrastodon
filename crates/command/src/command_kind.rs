@@ -65,9 +65,7 @@ impl CommandKind {
                 let current_exe = env::current_exe().unwrap_or_else(|_| "cloud_terrastodon".into());
                 let is_test = current_exe
                     .parent()
-                    .map(|parent| {
-                        parent.ends_with(PathBuf::from_iter(["target", "debug", "deps"]))
-                    })
+                    .map(|parent| parent.ends_with(PathBuf::from_iter(["target", "debug", "deps"])))
                     .unwrap_or(false);
                 if is_test {
                     // return target/debug/cloud_terrastodon.exe instead of target/debug/deps/cloud_terrastodon_123.exe used by cargo test
@@ -84,11 +82,13 @@ impl CommandKind {
                     }
                     path.to_string_lossy().to_string()
                 } else {
-                    // return current exe
-                    env::current_exe()
-                        .unwrap_or_else(|_| "cloud_terrastodon".into())
-                        .to_string_lossy()
-                        .to_string()
+                    if current_exe.file_name() == Some("cloud_terrastodon".as_ref()) {
+                        // use current binary if THIS is cloud terrastodon
+                        return current_exe.to_string_lossy().to_string();
+                    } else {
+                        // this may be being used by a library, use cloud terrastodon from path
+                        return "cloud_terrastodon".to_string();
+                    }
                 }
             }
             CommandKind::Other(x) => x.to_owned(),
