@@ -109,51 +109,6 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersV2Request<'a>, 'a);
 
-pub struct AzureDevOpsGroupsForMemberRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    member_id: &'a AzureDevOpsDescriptor,
-}
-
-pub fn fetch_azure_devops_groups_for_member<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    member_id: &'a AzureDevOpsDescriptor,
-) -> AzureDevOpsGroupsForMemberRequest<'a> {
-    AzureDevOpsGroupsForMemberRequest { org_url, member_id }
-}
-
-#[async_trait]
-impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMemberRequest<'a> {
-    type Output = serde_json::Value;
-
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
-            "az",
-            "devops",
-            "graph",
-            "memberships",
-            self.member_id.to_string().as_ref(),
-        ]))
-    }
-
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let organization = &self.org_url.organization_name;
-        let subject_descriptor = self.member_id;
-        let url = format!(
-            "https://vssps.dev.azure.com/{organization}/_apis/graph/Memberships/{subject_descriptor}?api-version=7.1-preview.1&direction=up",
-            organization = organization,
-            subject_descriptor = subject_descriptor
-        );
-        let client = create_azure_devops_rest_client(
-            &get_azure_devops_personal_access_token_from_credential_manager().await?,
-        )
-        .await?;
-        let resp = client.get(url).send().await?;
-        let resp = resp.json().await?;
-        Ok(resp)
-    }
-}
-
-cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsForMemberRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {

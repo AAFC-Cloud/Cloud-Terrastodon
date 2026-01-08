@@ -19,10 +19,12 @@ mod default_organization;
 mod default_organization_tui;
 mod default_project;
 mod get_pat;
+mod azure_devops_groups_for_member;
 
 pub mod prelude {
     pub use crate::azure_devops_configure::*;
     pub use crate::azure_devops_group::*;
+    pub use crate::azure_devops_groups_for_member::*;
     pub use crate::azure_devops_group_member::*;
     pub use crate::azure_devops_license_entitlements::*;
     pub use crate::azure_devops_agent_packages::*;
