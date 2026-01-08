@@ -7,6 +7,8 @@
 - Add `ct az devops agent package show-newest` command
 - Rename `fetch_azure_devops_groups` to `fetch_azure_devops_groups_for_project`
 - Make role definition browse command reloadable
+- Fix entra pim role assignments not using cache
+- Cache `az ad signed-in-user show`
 
 # v0.31.0
 
