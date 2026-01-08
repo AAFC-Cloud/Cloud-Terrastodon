@@ -47,3 +47,30 @@ impl AzureDevOpsRestArgs {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+    use cloud_terrastodon_command::CommandBuilder;
+    use cloud_terrastodon_command::CommandKind;
+
+    #[tokio::test]
+    pub async fn it_works() -> eyre::Result<()> {
+        // Because this command uses the current EXE, we are testing if it works in tests.
+        // Cargo builds a different kind of EXE for tests, so we want to double check it works.
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        let org_url = get_default_organization_url().await?;
+        let url = format!("{}/_apis/projects?api-version=7.1", org_url);
+        cmd.args([
+            "az",
+            "devops",
+            "rest",
+            "--method",
+            "GET",
+            "--url",
+            url.as_ref(),
+        ]);
+        println!("{}", cmd.run_raw().await?);
+        Ok(())
+    }
+}
