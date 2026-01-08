@@ -4,8 +4,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::create_azure_devops_rest_client;
-use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
+use serde::Deserialize;
 use std::path::PathBuf;
 
 pub fn fetch_azure_devops_groups_for_member<'a>(
@@ -20,9 +19,23 @@ pub struct AzureDevOpsGroupsForMemberRequest<'a> {
     member_id: &'a AzureDevOpsDescriptor,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct AzureDevOpsGroupsForMemberResponse {
+    pub count: usize,
+    pub value: Vec<AzureDevOpsGroupsForMemberResponseEntry>,
+}
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AzureDevOpsGroupsForMemberResponseEntry {
+    pub container_descriptor: AzureDevOpsDescriptor,
+    pub member_descriptor: AzureDevOpsDescriptor,
+    #[serde(rename="_links")]
+    pub _links: serde_json::Value,
+}
+
 #[async_trait]
 impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMemberRequest<'a> {
-    type Output = serde_json::Value;
+    type Output = AzureDevOpsGroupsForMemberResponse;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
