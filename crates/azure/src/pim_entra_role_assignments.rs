@@ -56,6 +56,7 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraPimRoleAssignmentsLi
             )
         );
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.cache(self.cache_key());
         cmd.args(["rest", "--method", "GET", "--url", &url]);
 
         #[derive(Deserialize)]
