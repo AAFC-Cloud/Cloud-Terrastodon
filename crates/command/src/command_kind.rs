@@ -84,10 +84,10 @@ impl CommandKind {
                 } else {
                     if current_exe.file_name() == Some("cloud_terrastodon".as_ref()) {
                         // use current binary if THIS is cloud terrastodon
-                        return current_exe.to_string_lossy().to_string();
+                        current_exe.to_string_lossy().to_string()
                     } else {
                         // this may be being used by a library, use cloud terrastodon from path
-                        return "cloud_terrastodon".to_string();
+                        "cloud_terrastodon".to_string()
                     }
                 }
             }

@@ -1,5 +1,7 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::{fetch_azure_devops_agent_packages, get_default_organization_url, AzureDevOpsAgentPackage};
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsAgentPackage;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_agent_packages;
+use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use eyre::Result;
 use serde_json::to_writer_pretty;
 use std::collections::HashMap;

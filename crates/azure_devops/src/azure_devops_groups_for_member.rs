@@ -29,7 +29,7 @@ pub struct AzureDevOpsGroupsForMemberResponse {
 pub struct AzureDevOpsGroupsForMemberResponseEntry {
     pub container_descriptor: AzureDevOpsDescriptor,
     pub member_descriptor: AzureDevOpsDescriptor,
-    #[serde(rename="_links")]
+    #[serde(rename = "_links")]
     pub _links: serde_json::Value,
 }
 

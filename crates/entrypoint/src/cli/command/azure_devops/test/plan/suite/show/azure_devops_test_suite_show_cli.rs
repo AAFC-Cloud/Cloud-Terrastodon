@@ -26,8 +26,7 @@ pub struct AzureDevOpsTestSuiteShowArgs {
 impl AzureDevOpsTestSuiteShowArgs {
     pub async fn invoke(self) -> Result<()> {
         let org_url = get_default_organization_url().await?;
-        let suites =
-            fetch_azure_devops_test_suites(&org_url, self.project, self.plan).await?;
+        let suites = fetch_azure_devops_test_suites(&org_url, self.project, self.plan).await?;
         if let Some(suite) = suites
             .into_iter()
             .find(|s| s.name == self.suite || s.id.to_string() == self.suite)

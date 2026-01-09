@@ -63,12 +63,10 @@ impl AzureDevOpsProjectDumpArgs {
             let group_descriptor = group.descriptor.clone();
             let span = span.clone();
             group_members.enqueue(async move {
-                Ok(
-                    fetch_azure_devops_group_members_v2(&org_url, &group_descriptor)
-                        .into_future()
-                        .instrument(span.clone())
-                        .await?,
-                )
+                fetch_azure_devops_group_members_v2(&org_url, &group_descriptor)
+                    .into_future()
+                    .instrument(span.clone())
+                    .await
             });
         }
         let group_members = group_members.join().await?;

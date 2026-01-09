@@ -60,8 +60,7 @@ impl Default for PickerTui {
 }
 
 fn check_choices<T>(
-    #[cfg_attr(not(debug_assertions), expect(unused_variables))]
-    choices: &[Choice<T>]
+    #[cfg_attr(not(debug_assertions), expect(unused_variables))] choices: &[Choice<T>],
 ) {
     #[cfg(debug_assertions)]
     {

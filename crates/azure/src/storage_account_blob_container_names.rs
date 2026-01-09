@@ -27,7 +27,10 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
     type Output = HashSet<StorageAccountBlobContainerName>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter(["storage_accounts", self.storage_account_id.expanded_form().as_ref()]))
+        CacheKey::new(PathBuf::from_iter([
+            "storage_accounts",
+            self.storage_account_id.expanded_form().as_ref(),
+        ]))
     }
 
     async fn run(self) -> Result<Self::Output> {

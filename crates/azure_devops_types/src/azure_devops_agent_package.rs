@@ -1,6 +1,7 @@
 use chrono::DateTime;
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct AzureDevOpsAgentPackageVersion {

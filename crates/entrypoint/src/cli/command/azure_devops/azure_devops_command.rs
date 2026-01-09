@@ -1,5 +1,6 @@
 use super::audit::AzureDevOpsAuditArgs;
 use super::azure_devops_rest_command::AzureDevOpsRestArgs;
+use crate::cli::azure_devops::agent::AzureDevOpsAgentArgs;
 use crate::cli::azure_devops::group::AzureDevOpsGroupArgs;
 use crate::cli::azure_devops::license_entitlement::AzureDevOpsLicenseEntitlementArgs;
 use crate::cli::azure_devops::project::AzureDevOpsProjectArgs;
@@ -7,7 +8,6 @@ use crate::cli::azure_devops::repo::AzureDevOpsRepoArgs;
 use crate::cli::azure_devops::service_endpoint::AzureDevOpsServiceEndpointArgs;
 use crate::cli::azure_devops::team::AzureDevOpsTeamArgs;
 use crate::cli::azure_devops::test::AzureDevOpsTestArgs;
-use crate::cli::azure_devops::agent::AzureDevOpsAgentArgs;
 use crate::cli::azure_devops::work_item_query::AzureDevOpsWorkItemQueryArgs;
 use clap::Subcommand;
 use eyre::Result;

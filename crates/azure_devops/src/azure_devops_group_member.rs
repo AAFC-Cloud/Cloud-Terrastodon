@@ -111,7 +111,6 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersV2Request<'a>, 'a);
 
-
 #[cfg(test)]
 mod test {
     use crate::prelude::fetch_all_azure_devops_projects;

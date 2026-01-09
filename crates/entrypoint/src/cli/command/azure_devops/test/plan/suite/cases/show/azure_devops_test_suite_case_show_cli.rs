@@ -34,9 +34,12 @@ impl AzureDevOpsTestSuiteCaseShowArgs {
             fetch_azure_devops_test_suite_cases(&org_url, self.project, self.plan, self.suite)
                 .await?;
         if let Some(case) = cases.into_iter().find(|c| {
-            c.test_case.name.as_ref().map(|n| n == &self.case).unwrap_or(false)
-                || c
-                    .test_case
+            c.test_case
+                .name
+                .as_ref()
+                .map(|n| n == &self.case)
+                .unwrap_or(false)
+                || c.test_case
                     .id
                     .as_ref()
                     .map(|id| id == &self.case)

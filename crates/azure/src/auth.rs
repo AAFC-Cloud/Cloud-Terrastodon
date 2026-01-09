@@ -1,10 +1,9 @@
-use std::path::PathBuf;
-
 use cloud_terrastodon_azure_types::prelude::User;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
+use std::path::PathBuf;
 use tracing::warn;
 
 pub async fn fetch_current_user() -> Result<User> {
