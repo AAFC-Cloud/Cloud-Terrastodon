@@ -26,19 +26,23 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
     type Output = Vec<AzureDevOpsProject>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter(["az", "devops", "project", "list"]))
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "devops",
+            self.org_url.organization_name.as_ref(),
+            "project",
+            "list",
+        ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching Azure DevOps projects");
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        let org = self.org_url.to_string();
         cmd.args([
             "devops",
+            self.org_url.organization_name.as_ref(),
             "project",
             "list",
-            "--organization",
-            org.as_str(),
             "--output",
             "json",
         ]);

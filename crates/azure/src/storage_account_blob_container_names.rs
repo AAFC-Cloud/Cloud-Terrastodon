@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_azure_types::prelude::StorageAccountBlobContainerName;
 use cloud_terrastodon_azure_types::prelude::StorageAccountId;
 use cloud_terrastodon_command::CacheKey;
@@ -26,7 +27,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
     type Output = HashSet<StorageAccountBlobContainerName>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from("storage_accounts"))
+        CacheKey::new(PathBuf::from_iter(["storage_accounts", self.storage_account_id.expanded_form().as_ref()]))
     }
 
     async fn run(self) -> Result<Self::Output> {

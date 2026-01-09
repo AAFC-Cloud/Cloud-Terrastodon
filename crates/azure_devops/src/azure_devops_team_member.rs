@@ -36,6 +36,7 @@ impl<'a> CacheableCommand for AzureDevOpsTeamMembersRequest<'a> {
         CacheKey::new(PathBuf::from_iter([
             "az",
             "devops",
+            self.org_url.organization_name.as_ref(),
             "team",
             "list-member",
             "--project",

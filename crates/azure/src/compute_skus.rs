@@ -22,7 +22,12 @@ impl CacheableCommand for ComputeSkuListRequest {
     type Output = Vec<ComputeSku>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"]))
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "vm",
+            "list-skus",
+            self.subscription_id.to_string().as_ref(),
+        ]))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {

@@ -32,6 +32,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsListRe
         CacheKey::new(PathBuf::from_iter([
             "az",
             "devops",
+            self.org_url.organization_name.as_ref(),
             "security",
             "group",
             "list",

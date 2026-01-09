@@ -26,7 +26,13 @@ impl CacheableCommand for ComputeSkuPricesRequest {
     type Output = Vec<Price>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter(["az", "vm", "list-sku-pricings"]))
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "vm",
+            "list-sku-pricings",
+            self.location.to_string().as_ref(),
+            self.sku.as_ref(),
+        ]))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {

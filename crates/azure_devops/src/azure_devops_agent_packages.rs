@@ -13,7 +13,9 @@ pub struct AzureDevOpsAgentPackagesRequest<'a> {
     org_url: &'a AzureDevOpsOrganizationUrl,
 }
 
-pub fn fetch_azure_devops_agent_packages<'a>(org_url: &'a AzureDevOpsOrganizationUrl) -> AzureDevOpsAgentPackagesRequest<'a> {
+pub fn fetch_azure_devops_agent_packages<'a>(
+    org_url: &'a AzureDevOpsOrganizationUrl,
+) -> AzureDevOpsAgentPackagesRequest<'a> {
     AzureDevOpsAgentPackagesRequest { org_url }
 }
 
@@ -22,7 +24,14 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsAgentPackage
     type Output = Vec<AzureDevOpsAgentPackage>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter(["az", "devops", "packages", "list", "agent"]))
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "devops",
+            self.org_url.organization_name.as_ref(),
+            "packages",
+            "list",
+            "agent",
+        ]))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {

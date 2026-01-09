@@ -30,6 +30,7 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
         CacheKey::new(PathBuf::from_iter([
             "az",
             "devops",
+            self.org_url.organization_name.as_ref(),
             "boards",
             "query",
             &self.query_id.to_string(),
