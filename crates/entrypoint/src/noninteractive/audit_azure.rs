@@ -9,6 +9,9 @@ use tracing::warn;
 #[allow(unused_mut)]
 #[allow(unused)]
 pub async fn audit_azure() -> eyre::Result<()> {
+
+    // TODO: audit admin accounts without corresponding user accounts should be disabled
+    // TODO: audit admin accounts without corresponding user accounts should be deleted
     info!("Fetching a buncha information...");
 
     let mut total_problems = 0;

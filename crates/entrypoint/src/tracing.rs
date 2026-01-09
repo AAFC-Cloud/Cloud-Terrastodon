@@ -57,14 +57,9 @@ pub fn init_tracing(
             })
         };
 
-        let json_format = tracing_subscriber::fmt::format().json();
         let json_layer = tracing_subscriber::fmt::layer()
-            .event_format(json_format)
-            .with_file(true)
-            .with_target(false)
-            .with_line_number(true)
-            .with_writer(json_writer)
-            .without_time();
+            .event_format(tracing_subscriber::fmt::format().json())
+            .with_writer(json_writer);
 
         tracing_subscriber::registry()
             .with(make_env_filter())

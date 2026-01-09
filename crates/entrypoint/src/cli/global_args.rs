@@ -8,6 +8,10 @@ pub struct GlobalArgs {
     #[arg(long, global = true, default_value_t = false)]
     pub debug: bool,
 
+    /// Log level filter directive.
+    #[arg(long, global = true, default_value = "info", value_name = "DIRECTIVE")]
+    pub log_filter: String,
+
     /// Write structured ndjson logs to this file or directory. If a directory is provided,
     /// a filename will be generated there. If omitted, no JSON log file will be written.
     #[arg(long, global = true, value_name = "FILE|DIR")]

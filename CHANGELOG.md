@@ -9,6 +9,9 @@
 - Make role definition browse command reloadable
 - Fix entra pim role assignments not using cache
 - Cache `az ad signed-in-user show`
+- Add `--log-filter {}` global cli arg
+- Update `--log-file` tracing config to include timestamp and exclude file and line
+- Update `ct az devops audit` to include test plan license usage analysis
 
 # v0.31.0
 

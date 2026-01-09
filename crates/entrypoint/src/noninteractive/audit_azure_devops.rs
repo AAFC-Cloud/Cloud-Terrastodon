@@ -12,7 +12,6 @@ use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_test_suites;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-use color_eyre::owo_colors::OwoColorize;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -20,11 +19,12 @@ use tracing::info;
 use tracing::warn;
 
 pub async fn audit_azure_devops() -> eyre::Result<()> {
+    warn!("Use `cloud_terrastodon clean` to wipe the cache if you think results are stale.");
     info!("Fetching a buncha information...");
 
     let mut total_problems = 0;
     let mut total_cost_waste_cad = 0.00;
-    let mut message_counts: HashMap<&'static str, usize> = HashMap::new();
+    let mut message_counts: HashMap<String, usize> = HashMap::new();
 
     let org_url = get_default_organization_url().await?;
     let entitlements = fetch_azure_devops_license_entitlements(&org_url).await?;
@@ -34,24 +34,61 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
         .map(|user| (user.user_principal_name.to_lowercase(), user))
         .collect::<HashMap<_, _>>();
 
+    let license_inactivity_period = chrono::Duration::days(30);
+
     // Emit a warning for anyone who has never accessed azure devops and have greater than stakeholder license
     for entitlement in entitlements
         .iter()
-        .filter(|e| e.last_accessed_date == LastAccessedDate::Never)
         .filter(|e| e.license != AzureDevOpsLicenseEntitlementLicense::AccountStakeholder)
+        .filter(|e| {
+            e.assignment_date.max(e.date_created).max(e.last_updated)
+                < Utc::now() - license_inactivity_period
+        })
     {
-        let msg = "User has never accessed Azure DevOps but has a paid license; consider downgrading to stakeholder license or removing access";
-        warn!(
-            user_display_name = %entitlement.user.display_name,
-            user_unique_name = %entitlement.user.unique_name,
-            license = ?entitlement.license,
-            status = ?entitlement.status,
-            cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
-            "{}", msg
-        );
-        total_problems += 1;
-        total_cost_waste_cad += entitlement.license.cost_per_month_cad();
-        *message_counts.entry(msg).or_insert(0) += 1;
+        match entitlement.last_accessed_date {
+            LastAccessedDate::Never => {
+                let msg = "User has never accessed Azure DevOps but has a paid license; consider downgrading license";
+                warn!(
+                    user_display_name = %entitlement.user.display_name,
+                    user_unique_name = %entitlement.user.unique_name,
+                    license = ?entitlement.license,
+                    status = ?entitlement.status,
+                    cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
+                    "{}", msg
+                );
+                total_problems += 1;
+                total_cost_waste_cad += entitlement.license.cost_per_month_cad();
+                *message_counts.entry(msg.to_string()).or_insert(0) += 1;
+            }
+            LastAccessedDate::Some(date) if date < Utc::now() - license_inactivity_period => {
+                let msg = format!(
+                    "User has not accessed Azure DevOps in the last {} days but has a paid license; consider downgrading license",
+                    license_inactivity_period.num_days()
+                );
+                warn!(
+                    user_display_name = %entitlement.user.display_name,
+                    user_unique_name = %entitlement.user.unique_name,
+                    last_accessed_date = %date.to_rfc3339(),
+                    last_accessed_ago = humantime::format_duration({
+                        let mut duration = (Utc::now() - date)
+                            .to_std()
+                            .expect("Time went backwards");
+                        duration = Duration::from_hours(duration.as_secs() / 3600);
+                        duration
+                    })
+                    .to_string(),
+                    last_accessed_ago_days = ((Utc::now() - date).num_days()),
+                    license = ?entitlement.license,
+                    status = ?entitlement.status,
+                    cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
+                    "{}", msg
+                );
+                total_problems += 1;
+                total_cost_waste_cad += entitlement.license.cost_per_month_cad();
+                *message_counts.entry(msg).or_insert(0) += 1;
+            }
+            _ => {}
+        }
     }
 
     // Emit a warning for entitlements for users who do not exist in entra
@@ -64,7 +101,7 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
             warn!(
                 user_display_name = %entitlement.user.display_name,
                 user_unique_name = %entitlement.user.unique_name,
-                user_descriptor = ?entitlement.user.descriptor,
+                user_descriptor = %entitlement.user.descriptor,
                 license = ?entitlement.license,
                 status = ?entitlement.status,
                 cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
@@ -72,7 +109,7 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
             );
             total_problems += 1;
             total_cost_waste_cad += entitlement.license.cost_per_month_cad();
-            *message_counts.entry(msg).or_insert(0) += 1;
+            *message_counts.entry(msg.to_string()).or_insert(0) += 1;
         }
     }
 
@@ -83,10 +120,14 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
     let test_plan_licenses = entitlements
         .iter()
         .filter(|e| e.license == AzureDevOpsLicenseEntitlementLicense::AccountAdvanced)
+        .filter(|e| {
+            e.assignment_date.max(e.date_created).max(e.last_updated)
+                < Utc::now() - license_inactivity_period
+        })
         .collect_vec();
     info!(
         test_plan_license_entitlement_count = test_plan_licenses.len(),
-        "Identifying test plan license usage",
+        "Analyzing test plan license usage",
     );
 
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
@@ -238,45 +279,36 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
         let now = Local::now();
         let thirty_days_ago = now - chrono::Duration::days(30);
         let license_wasted = last_used.filter(|date| date > &thirty_days_ago).is_none();
-        println!(
-            "User: {} last used {} ({} ago) (Projects: {}, Test Plans: {}, Test Suites: {})",
-            if license_wasted {
-                test_plan_entitlement.user.display_name.red().to_string()
-            } else {
-                test_plan_entitlement.user.display_name.blue().to_string()
-            },
-            last_used
-                .map(|date| date.to_string())
-                .as_deref()
-                .unwrap_or("never")
-                .yellow(),
-            last_used
-                .map(|date| humantime::format_duration({
-                    let mut duration = (Utc::now() - date).to_std().expect("Time went backwards");
-                    duration = Duration::from_hours(duration.as_secs() / 3600);
-                    duration
-                })
-                .to_string())
-                .as_deref()
-                .unwrap_or("N/A")
-                .cyan(),
-            project_count.blue(),
-            test_plan_count.blue(),
-            test_suite_count.blue(),
-        );
         if license_wasted {
-            let msg = "User has an Advanced license for Test Plans but has not used any test plans; consider downgrading license to save costs";
+            let msg = "User has an Advanced license for Test Plans but has not used any test plans; consider downgrading license";
             warn!(
                 user_display_name = %test_plan_entitlement.user.display_name,
                 user_unique_name = %test_plan_entitlement.user.unique_name,
+                last_used = last_used
+                    .map(|date| date.to_string())
+                    .as_deref()
+                    .unwrap_or("never"),
+                last_used_ago = last_used
+                    .map(|date| humantime::format_duration({
+                        let mut duration = (Utc::now() - date).to_std().expect("Time went backwards");
+                        duration = Duration::from_hours(duration.as_secs() / 3600);
+                        duration
+                    })
+                    .to_string())
+                    .as_deref()
+                    .unwrap_or("N/A"),
+                last_used_ago_days = last_used.map(|date| (Utc::now() - date).num_days()),
                 license = ?test_plan_entitlement.license,
                 status = ?test_plan_entitlement.status,
                 cost_per_month_cad = %test_plan_entitlement.license.cost_per_month_cad(),
-                "{}", msg
+                project_count,
+                test_plan_count,
+                test_suite_count,
+                "{msg}"
             );
             total_problems += 1;
             total_cost_waste_cad += test_plan_entitlement.license.cost_per_month_cad();
-            *message_counts.entry(msg).or_insert(0) += 1;
+            *message_counts.entry(msg.to_string()).or_insert(0) += 1;
         }
     }
 
@@ -285,17 +317,12 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
         warn!(
             total_problems,
             total_cost_waste_cad,
-            message_counts = ?message_counts,
-            "Found potential problems in Azure DevOps"
+            "Found potential problems in Azure DevOps; cost waste: ${:.2} CAD",
+            total_cost_waste_cad
         );
-        warn!(
-            total_cost_waste_cad,
-            "Potential monthly cost waste: ${:.2} CAD", total_cost_waste_cad
-        );
-
         // Emit message type summary
         for (msg, count) in &message_counts {
-            warn!(count = %count, "{}", msg);
+            warn!(count, "{}", msg);
         }
     } else {
         info!("No potential problems found in Azure DevOps");

@@ -4,6 +4,7 @@ use crate::tracing::init_tracing;
 use clap::CommandFactory;
 use clap::FromArgMatches;
 use eyre::Result;
+use std::str::FromStr;
 use tracing::level_filters::LevelFilter;
 
 pub fn entrypoint(version: Version) -> Result<()> {
@@ -35,7 +36,7 @@ pub fn entrypoint(version: Version) -> Result<()> {
     init_tracing(
         match cli.global_args.debug {
             true => LevelFilter::DEBUG,
-            false => LevelFilter::INFO,
+            false => LevelFilter::from_str(&cli.global_args.log_filter)?,
         },
         cli.global_args.log_file.as_ref(),
     )?;
