@@ -35,7 +35,7 @@ pub struct AzureDevOpsGroupsForMemberResponseEntry {
 
 #[async_trait]
 impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMemberRequest<'a> {
-    type Output = AzureDevOpsGroupsForMemberResponse;
+    type Output = Vec<AzureDevOpsGroupsForMemberResponseEntry>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
@@ -66,7 +66,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMem
             "--url",
             url.as_ref(),
         ]);
-        Ok(cmd.run().await?)
+        Ok(cmd.run::<AzureDevOpsGroupsForMemberResponse>().await?.value)
     }
 }
 
