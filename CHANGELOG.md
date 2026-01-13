@@ -15,6 +15,7 @@
 - Update fetcher fn cache keys to fix uniqueness
 - Add `ct az ad user list` and `ct az ad user browse` commands
 - Add `ct az ad sp list` and `ct az ad sp browse` commands
+- Add reload support to PIM activation dialogs
 
 # v0.31.0
 

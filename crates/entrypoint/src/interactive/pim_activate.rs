@@ -1,5 +1,4 @@
 use cloud_terrastodon_azure::prelude::GovernanceRoleAssignmentState;
-use cloud_terrastodon_azure::prelude::PimEntraRoleDefinition;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::activate_pim_entra_role;
 use cloud_terrastodon_azure::prelude::activate_pim_role;
@@ -10,6 +9,7 @@ use cloud_terrastodon_azure::prelude::fetch_entra_pim_role_settings;
 use cloud_terrastodon_azure::prelude::fetch_my_entra_pim_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_my_role_eligibility_schedules;
 use cloud_terrastodon_azure::prelude::fetch_role_management_policy_assignments;
+use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
@@ -17,7 +17,6 @@ use eyre::Result;
 use humantime::format_duration;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::time::Duration;
 use tracing::info;
 
@@ -51,82 +50,69 @@ pub async fn pim_activate_entra() -> Result<()> {
     // https://learn.microsoft.com/en-us/graph/api/rbacapplication-list-roleassignmentschedulerequests?view=graph-rest-1.0&tabs=http
     // https://learn.microsoft.com/en-us/graph/api/resources/privilegedidentitymanagementv3-overview?view=graph-rest-1.0
     // https://github.com/Azure/azure-cli/issues/28854
-    info!("Fetching role definitions");
-    let role_definitions = fetch_all_entra_pim_role_definitions()
-        .await?
-        .into_iter()
-        .map(|role_definition| (role_definition.id, role_definition))
-        .collect::<HashMap<_, _>>();
-
-    info!("Fetching role assignments");
-    let role_assignments = fetch_my_entra_pim_role_assignments()
-        .await?
-        .into_iter()
-        .map(|ra| (ra.id.clone(), ra))
-        .collect::<HashMap<_, _>>();
-
-    info!("Identifying already-activated assignments");
-    let already_activated = role_assignments
-        .values()
-        .filter_map(|ra| {
-            let GovernanceRoleAssignmentState::Active = ra.assignment_state else {
-                return None;
-            };
-            ra.linked_eligible_role_assignment_id.clone()
-        })
-        .collect::<HashSet<_>>();
-
-    info!("Building role to activate choice list");
-    let activatable_assignments = role_assignments
-        .values()
-        .filter_map(|ra| {
-            // filter out activated
-            let GovernanceRoleAssignmentState::Eligible = ra.assignment_state else {
-                return None;
-            };
-            if already_activated.contains(&ra.id) {
-                return None;
-            }
-
-            // get role display name
-            let PimEntraRoleDefinition { display_name, .. } =
-                role_definitions.get(&ra.role_definition_id)?;
-
-            Some(Choice {
-                key: display_name.to_owned(),
-                value: ra,
-            })
-        })
-        .unique_by(|c| c.key.to_owned())
-        .collect_vec();
 
     info!("Prompting user choice");
     let chosen_roles = PickerTui::new()
         .set_header("Choose roles to activate")
-        .pick_many(activatable_assignments)?;
+        .pick_many_reloadable(async |invalidate| {
+            info!("Fetching role definitions");
+            let role_definitions = fetch_all_entra_pim_role_definitions()
+                .with_invalidation(invalidate)
+                .await?
+                .into_iter()
+                .map(|role_definition| (role_definition.id, role_definition))
+                .collect::<HashMap<_, _>>();
 
-    info!("Fetching maximum activation durations");
-    let mut max_duration = Duration::MAX;
-    for role in &chosen_roles {
-        let duration = fetch_entra_pim_role_settings(role.role_definition_id)
-            .await?
-            .get_maximum_grant_period()?;
-        if duration < max_duration {
-            max_duration = duration;
-        }
-    }
+            info!("Fetching role assignments");
+            let activatable_assignments = fetch_my_entra_pim_role_assignments()
+                .with_invalidation(invalidate)
+                .await?
+                .into_iter()
+                .filter_map(|ra| {
+                    let role_definition = role_definitions.get(&ra.role_definition_id)?;
+                    Some(Choice {
+                        key: format!(
+                            "{definition} ({state})",
+                            definition = role_definition.display_name,
+                            state = match ra.assignment_state {
+                                GovernanceRoleAssignmentState::Active => "already activated",
+                                GovernanceRoleAssignmentState::Eligible => "eligible",
+                            }
+                        ),
+                        value: ra,
+                    })
+                })
+                .unique_by(|c| c.key.to_owned())
+                .collect_vec();
+            Ok(activatable_assignments)
+        })
+        .await?;
 
-    info!("Maximum duration is {}", format_duration(max_duration));
     let chosen_duration: Duration = PickerTui::new()
         .set_header("Duration to activate PIM for")
-        .pick_one(
-            build_duration_choices(&max_duration)
+        .pick_one_reloadable(async |invalidate| {
+            info!("Fetching maximum activation durations");
+            let mut max_duration = Duration::MAX;
+            for role in &chosen_roles {
+                let duration = fetch_entra_pim_role_settings(role.role_definition_id)
+                    .with_invalidation(invalidate)
+                    .await?
+                    .get_maximum_grant_period()?;
+                if duration < max_duration {
+                    max_duration = duration;
+                }
+            }
+
+            info!("Maximum duration is {}", format_duration(max_duration));
+            Ok(build_duration_choices(&max_duration)
                 .into_iter()
                 .map(|d| Choice {
                     key: format_duration(d).to_string(),
                     value: d,
-                }),
-        )?;
+                }))
+        })
+        .await?;
+
     info!("Chosen duration is {}", format_duration(chosen_duration));
 
     let justification = prompt_line("Justification: ").await?;
@@ -144,14 +130,20 @@ pub async fn pim_activate_entra() -> Result<()> {
     Ok(())
 }
 pub async fn pim_activate_azurerm() -> Result<()> {
-    info!("Fetching role eligibility schedules");
-    let possible_roles = fetch_my_role_eligibility_schedules().await?;
     let chosen_roles = PickerTui::new()
         .set_header("Choose roles to activate")
-        .pick_many(possible_roles.into_iter().map(|x| Choice {
-            key: x.to_string(),
-            value: x,
-        }))?;
+        .pick_many_reloadable(async |invalidate| {
+            info!("Fetching role eligibility schedules");
+            let possible_roles = fetch_my_role_eligibility_schedules()
+                .with_invalidation(invalidate)
+                .await?;
+            let choices = possible_roles.into_iter().map(|x| Choice {
+                key: x.to_string(),
+                value: x,
+            });
+            Ok(choices)
+        })
+        .await?;
 
     let chosen_roles_display = chosen_roles
         .iter()
@@ -164,50 +156,59 @@ pub async fn pim_activate_azurerm() -> Result<()> {
         })
         .join(", ");
 
-    info!("Fetching eligible scopes");
-    let possible_scopes = fetch_all_resources().await?.into_iter().map(|r| {
-        let key = format!(
-            "{} \"{}\"",
-            r.display_name
-                .as_ref()
-                .map(|display_name| format!("{} ({})", display_name, r.name))
-                .unwrap_or_else(|| r.name.clone()),
-            r.id.expanded_form()
-        );
-        Choice { key, value: r }
-    });
     let chosen_scopes = PickerTui::new()
         .set_header(format!("Activating {chosen_roles_display}"))
-        .pick_many(possible_scopes)?;
-
-    info!("Fetching maximum eligible duration");
-    let mut maximum_duration = Duration::MAX;
-    for (role, scope) in chosen_roles.iter().zip(chosen_scopes.iter()) {
-        let policies = fetch_role_management_policy_assignments(
-            scope.id.clone(),
-            role.properties.role_definition_id.clone(),
-        )
+        .pick_many_reloadable(async |invalidate| {
+            info!("Fetching eligible scopes");
+            let possible_scopes = fetch_all_resources()
+                .with_invalidation(invalidate)
+                .await?
+                .into_iter()
+                .map(|r| {
+                    let key = format!(
+                        "{} \"{}\"",
+                        r.display_name
+                            .as_ref()
+                            .map(|display_name| format!("{} ({})", display_name, r.name))
+                            .unwrap_or_else(|| r.name.clone()),
+                        r.id.expanded_form()
+                    );
+                    Choice { key, value: r }
+                });
+            Ok(possible_scopes)
+        })
         .await?;
-        for policy in policies {
-            if let Some(duration) = policy.get_maximum_activation_duration()
-                && duration < maximum_duration
-            {
-                maximum_duration = duration;
-            }
-        }
-    }
 
-    info!("Maximum duration is {}", format_duration(maximum_duration));
     let chosen_duration: Duration = PickerTui::new()
         .set_header("Duration to activate PIM for")
-        .pick_one(
-            build_duration_choices(&maximum_duration)
+        .pick_one_reloadable(async |invalidate| {
+            info!("Fetching maximum eligible duration");
+            let mut maximum_duration = Duration::MAX;
+            for (role, scope) in chosen_roles.iter().zip(chosen_scopes.iter()) {
+                let policies = fetch_role_management_policy_assignments(
+                    scope.id.clone(),
+                    role.properties.role_definition_id.clone(),
+                )
+                .with_invalidation(invalidate)
+                .await?;
+                for policy in policies {
+                    if let Some(duration) = policy.get_maximum_activation_duration()
+                        && duration < maximum_duration
+                    {
+                        maximum_duration = duration;
+                    }
+                }
+            }
+            info!("Maximum duration is {}", format_duration(maximum_duration));
+
+            Ok(build_duration_choices(&maximum_duration)
                 .into_iter()
                 .map(|d| Choice {
                     key: format_duration(d).to_string(),
                     value: d,
-                }),
-        )?;
+                }))
+        })
+        .await?;
     info!("Chosen duration is {}", format_duration(chosen_duration));
 
     let justification = prompt_line("Justification: ").await?;
