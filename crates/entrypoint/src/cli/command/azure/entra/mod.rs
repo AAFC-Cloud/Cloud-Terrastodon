@@ -1,9 +1,11 @@
 pub mod azure_entra;
+pub mod service_principal;
 pub mod user;
 
 pub use azure_entra::AzureEntraCommand;
 use clap::Args;
 use eyre::Result;
+pub use service_principal::AzureEntraServicePrincipalArgs;
 pub use user::AzureEntraUserArgs;
 
 /// Entra (Azure AD) related commands.

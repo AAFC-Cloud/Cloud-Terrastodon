@@ -1,5 +1,5 @@
-use clap::Args;
 use crate::interactive::prelude::browse_users;
+use clap::Args;
 use eyre::Result;
 
 /// Interactively browse Entra (Azure AD) users.

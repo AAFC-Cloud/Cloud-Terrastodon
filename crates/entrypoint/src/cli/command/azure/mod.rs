@@ -1,8 +1,8 @@
 pub mod audit;
 pub mod azure_command;
+pub mod entra;
 pub mod group;
 pub mod pim;
-pub mod entra;
 pub mod policy;
 pub mod role;
 pub mod tag;
