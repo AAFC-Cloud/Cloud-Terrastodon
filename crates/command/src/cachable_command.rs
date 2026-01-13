@@ -54,4 +54,32 @@ macro_rules! impl_cacheable_into_future {
             }
         }
     };
+
+    // With explicit type generics (e.g., `T: Scope + Send`): adds the generics to the impl
+    // but does not attempt to add a lifetime bound to the boxed future.
+    ($ty:ty, $($gens:tt)+) => {
+        impl<$($gens)+> ::std::future::IntoFuture for $ty {
+            type Output = ::eyre::Result<<$ty as $crate::CacheableCommand>::Output>;
+            type IntoFuture =
+                ::std::pin::Pin<Box<dyn ::std::future::Future<Output = Self::Output> + Send>>;
+
+            fn into_future(self) -> Self::IntoFuture {
+                Box::pin($crate::CacheableCommand::run(self))
+            }
+        }
+    };
+
+    // With both a lifetime and generics: e.g., `MyReq<'a, T>, 'a, T: Foo`
+    ($ty:ty, $lt:lifetime, $($gens:tt)+) => {
+        impl<$lt, $($gens)+> ::std::future::IntoFuture for $ty {
+            type Output = ::eyre::Result<<$ty as $crate::CacheableCommand>::Output>;
+            type IntoFuture = ::std::pin::Pin<
+                Box<dyn ::std::future::Future<Output = Self::Output> + Send + $lt>
+            >;
+
+            fn into_future(self) -> Self::IntoFuture {
+                Box::pin($crate::CacheableCommand::run(self))
+            }
+        }
+    };
 }
