@@ -46,7 +46,8 @@ impl CacheableCommand for ComputeSkuPricesRequest {
             )
         );
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
+        cmd.args(["rest", "--method", "GET", "--url"]);
+        cmd.azure_file_arg("url.txt", url);
         cmd.cache(self.cache_key());
 
         #[derive(serde::Deserialize)]
@@ -79,7 +80,7 @@ mod test {
         let sku = ComputeSkuName::try_new("Standard_D2s_v5")?;
         let location = LocationName::CanadaCentral;
         let prices = fetch_compute_sku_prices(location, sku).await?;
-        assert!(!prices.is_empty());
+        assert!(!prices.is_empty()); // idk why failing, add CLI for sku browse
         println!("{prices:#?}");
         Ok(())
     }

@@ -40,9 +40,10 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args([
             "devops",
-            self.org_url.organization_name.as_ref(),
             "project",
             "list",
+            "--organization",
+            self.org_url.to_string().as_ref(),
             "--output",
             "json",
         ]);
