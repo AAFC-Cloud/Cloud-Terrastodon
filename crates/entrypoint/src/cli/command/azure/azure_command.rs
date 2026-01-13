@@ -5,6 +5,7 @@ use super::policy::AzurePolicyArgs;
 use super::role::AzureRoleArgs;
 use super::tag::AzureTagArgs;
 use super::vm::AzureVmArgs;
+use crate::cli::azure::entra::AzureEntraArgs;
 use crate::cli::azure_devops::AzureDevOpsArgs;
 use clap::Subcommand;
 use eyre::Result;
@@ -24,6 +25,9 @@ pub enum AzureCommand {
     Role(AzureRoleArgs),
     /// Manage Azure Privileged Identity Management operations.
     Pim(AzurePimArgs),
+    /// Entra (Azure AD) commands.
+    #[command(alias = "ad")]
+    Entra(AzureEntraArgs),
     /// VM-related commands (images, publishers, sizes, etc.)
     Vm(AzureVmArgs),
     /// Azure DevOps-specific commands.
@@ -50,6 +54,9 @@ impl AzureCommand {
                 args.invoke().await?;
             }
             AzureCommand::Pim(args) => {
+                args.invoke().await?;
+            }
+            AzureCommand::Entra(args) => {
                 args.invoke().await?;
             }
             AzureCommand::Vm(args) => {

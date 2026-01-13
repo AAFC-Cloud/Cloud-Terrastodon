@@ -12,6 +12,8 @@
 - Add `--log-filter {}` global cli arg
 - Update `--log-file` tracing config to include timestamp and exclude file and line
 - Update `ct az devops audit` to include test plan license usage analysis
+- Update fetcher fn cache keys to fix uniqueness
+- Add `ct az ad user list` and `ct az ad user browse` commands
 
 # v0.31.0
 
