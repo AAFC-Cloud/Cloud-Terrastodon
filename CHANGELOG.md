@@ -16,6 +16,7 @@
 - Add `ct az ad user list` and `ct az ad user browse` commands
 - Add `ct az ad sp list` and `ct az ad sp browse` commands
 - Add reload support to PIM activation dialogs
+- Add WIP `ct tf apply` command which identifies required and missing permissions from proposed changes in Terraform plans
 
 # v0.31.0
 
