@@ -32,6 +32,7 @@ mod duration;
 mod eligible_child_resources;
 mod governance_role_assignment;
 mod governance_role_definition;
+mod governance_role_definition_name;
 mod group;
 mod group_id;
 mod key_vault;
@@ -181,6 +182,7 @@ pub mod prelude {
     pub use crate::eligible_child_resources::*;
     pub use crate::governance_role_assignment::*;
     pub use crate::governance_role_definition::*;
+    pub use crate::governance_role_definition_name::*;
     pub use crate::group::*;
     pub use crate::group_id::*;
     pub use crate::key_vault::*;

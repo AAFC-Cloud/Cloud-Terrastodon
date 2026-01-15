@@ -1,3 +1,4 @@
+pub mod terraform_apply;
 pub mod terraform_audit;
 pub mod terraform_command;
 pub mod terraform_reflow;

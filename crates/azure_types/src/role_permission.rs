@@ -1,34 +1,48 @@
 use crate::prelude::RolePermissionAction;
+use ordermap::OrderSet;
 use serde::Deserialize;
 use serde::Serialize;
 use std::cmp::Ordering;
 
 /// See also: `az provider operation list`
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Hash)]
 pub struct RolePermissions {
     #[serde(rename = "actions")]
     #[serde(alias = "Actions")]
-    pub actions: Vec<RolePermissionAction>,
+    pub actions: OrderSet<RolePermissionAction>,
     #[serde(rename = "notActions")]
     #[serde(alias = "NotActions")]
-    pub not_actions: Vec<RolePermissionAction>,
+    pub not_actions: OrderSet<RolePermissionAction>,
     #[serde(rename = "dataActions")]
     #[serde(alias = "DataActions")]
-    pub data_actions: Vec<RolePermissionAction>,
+    pub data_actions: OrderSet<RolePermissionAction>,
     #[serde(rename = "notDataActions")]
     #[serde(alias = "NotDataActions")]
-    pub not_data_actions: Vec<RolePermissionAction>,
+    pub not_data_actions: OrderSet<RolePermissionAction>,
 }
 
 impl RolePermissions {
+    pub fn new(
+        actions: impl IntoIterator<Item = RolePermissionAction>,
+        not_actions: impl IntoIterator<Item = RolePermissionAction>,
+        data_actions: impl IntoIterator<Item = RolePermissionAction>,
+        not_data_actions: impl IntoIterator<Item = RolePermissionAction>,
+    ) -> Self {
+        Self {
+            actions: actions.into_iter().collect(),
+            not_actions: not_actions.into_iter().collect(),
+            data_actions: data_actions.into_iter().collect(),
+            not_data_actions: not_data_actions.into_iter().collect(),
+        }
+    }
     /// Returns a Principal of Least Privilege (PoLP) score.
     ///
     /// Lower scores indicate more restrictive permission sets. Scores grow with
     /// the number of allowed actions/data-actions and increase sharply when
     /// wildcard segments are used near the start of the action path.
     pub fn polp_score(&self) -> u64 {
-        fn bag_cost(actions: &[RolePermissionAction]) -> u64 {
-            actions.iter().map(RolePermissions::action_cost).sum()
+        fn bag_cost<'a>(actions: impl IntoIterator<Item = &'a RolePermissionAction>) -> u64 {
+            actions.into_iter().map(RolePermissions::action_cost).sum()
         }
 
         bag_cost(&self.actions) + bag_cost(&self.data_actions)
@@ -117,23 +131,26 @@ impl PartialOrd for RolePermissions {
 
 #[cfg(test)]
 mod test {
+    use super::RolePermissions;
+    use crate::prelude::RolePermissionAction;
+
     #[test]
     pub fn it_works() -> eyre::Result<()> {
-        let perm = super::RolePermissions {
-            actions: vec![super::RolePermissionAction::new(
+        let perm = RolePermissions::new(
+            [RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/secrets/*/action",
             )],
-            not_actions: vec![],
-            data_actions: vec![super::RolePermissionAction::new(
+            [],
+            [RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
             )],
-            not_data_actions: vec![],
-        };
+            [],
+        );
         assert!(perm.satisfies(
-            &[super::RolePermissionAction::new(
+            &[RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/secrets/list/action"
             )],
-            &[super::RolePermissionAction::new(
+            &[RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
             )]
         ));
@@ -142,21 +159,21 @@ mod test {
     #[test]
     pub fn denies_not_actions() -> eyre::Result<()> {
         // User asks for read & write, but write is explicitly denied.
-        let perm = super::RolePermissions {
-            actions: vec![
-                super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action"),
-                super::RolePermissionAction::new("Microsoft.Storage/accounts/write/action"),
+        let perm = RolePermissions::new(
+            [
+                RolePermissionAction::new("Microsoft.Storage/accounts/read/action"),
+                RolePermissionAction::new("Microsoft.Storage/accounts/write/action"),
             ],
-            not_actions: vec![super::RolePermissionAction::new(
+            [RolePermissionAction::new(
                 "Microsoft.Storage/accounts/write/action",
             )],
-            data_actions: vec![],
-            not_data_actions: vec![],
-        };
+            [],
+            [],
+        );
         assert!(!perm.satisfies(
             &[
-                super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),
-                super::RolePermissionAction::new("Microsoft.Storage/accounts/write/action",),
+                RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),
+                RolePermissionAction::new("Microsoft.Storage/accounts/write/action",),
             ],
             &[]
         ));
@@ -165,19 +182,19 @@ mod test {
 
     #[test]
     pub fn denies_not_data_actions() -> eyre::Result<()> {
-        let perm = super::RolePermissions {
-            actions: vec![],
-            not_actions: vec![],
-            data_actions: vec![super::RolePermissionAction::new(
+        let perm = RolePermissions::new(
+            [],
+            [],
+            [RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/secrets/*/action",
             )],
-            not_data_actions: vec![super::RolePermissionAction::new(
+            [RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
             )],
-        };
+        );
         assert!(!perm.satisfies(
             &[],
-            &[super::RolePermissionAction::new(
+            &[RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
             )]
         ));
@@ -186,19 +203,19 @@ mod test {
 
     #[test]
     pub fn requires_all_requested_actions_present() -> eyre::Result<()> {
-        let perm = super::RolePermissions {
-            actions: vec![super::RolePermissionAction::new(
+        let perm = RolePermissions::new(
+            [RolePermissionAction::new(
                 "Microsoft.Storage/accounts/read/action",
             )],
-            not_actions: vec![],
-            data_actions: vec![],
-            not_data_actions: vec![],
-        };
+            [],
+            [],
+            [],
+        );
         // Requests read + write but role only grants read.
         assert!(!perm.satisfies(
             &[
-                super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),
-                super::RolePermissionAction::new("Microsoft.Storage/accounts/write/action",),
+                RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),
+                RolePermissionAction::new("Microsoft.Storage/accounts/write/action",),
             ],
             &[]
         ));
@@ -207,18 +224,16 @@ mod test {
 
     #[test]
     pub fn wildcard_action_satisfies_multiple_requested() -> eyre::Result<()> {
-        let perm = super::RolePermissions {
-            actions: vec![super::RolePermissionAction::new(
-                "Microsoft.Storage/accounts/*",
-            )],
-            not_actions: vec![],
-            data_actions: vec![],
-            not_data_actions: vec![],
-        };
+        let perm = RolePermissions::new(
+            [RolePermissionAction::new("Microsoft.Storage/accounts/*")],
+            [],
+            [],
+            [],
+        );
         assert!(perm.satisfies(
             &[
-                super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),
-                super::RolePermissionAction::new("Microsoft.Storage/accounts/write/action",),
+                RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),
+                RolePermissionAction::new("Microsoft.Storage/accounts/write/action",),
             ],
             &[]
         ));
@@ -227,21 +242,21 @@ mod test {
 
     #[test]
     pub fn data_actions_independent_from_actions() -> eyre::Result<()> {
-        let perm = super::RolePermissions {
-            actions: vec![super::RolePermissionAction::new(
+        let perm = RolePermissions::new(
+            [RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/read/action",
             )],
-            not_actions: vec![],
-            data_actions: vec![super::RolePermissionAction::new(
+            [],
+            [RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/secrets/list/action",
             )],
-            not_data_actions: vec![],
-        };
+            [],
+        );
         assert!(perm.satisfies(
-            &[super::RolePermissionAction::new(
+            &[RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/read/action",
             )],
-            &[super::RolePermissionAction::new(
+            &[RolePermissionAction::new(
                 "Microsoft.KeyVault/vaults/secrets/list/action",
             )]
         ));
@@ -250,12 +265,7 @@ mod test {
 
     #[test]
     pub fn empty_requests_are_always_satisfied() -> eyre::Result<()> {
-        let perm = super::RolePermissions {
-            actions: vec![],
-            not_actions: vec![],
-            data_actions: vec![],
-            not_data_actions: vec![],
-        };
+        let perm = RolePermissions::new([], [], [], []);
         assert!(perm.satisfies(&[], &[]));
         Ok(())
     }

@@ -600,9 +600,12 @@ impl CommandBuilder {
 
     #[track_caller]
     pub async fn run_raw(&self) -> Result<CommandOutput> {
+        let summary = self.summarize().await;
+        let span = info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key).or_current();
+
         async {
             // Check cache
-            match self.get_cached_output().await {
+            match self.get_cached_output().instrument(span.clone()).await {
                 Ok(None) => {}
                 Ok(Some(output)) => {
                     return Ok(output);
@@ -613,7 +616,7 @@ impl CommandBuilder {
             }
 
             let start = Instant::now();
-            let rtn = self.run_raw_inner().await;
+            let rtn = self.run_raw_inner().instrument(span.clone()).await;
             let elapsed = Instant::now().duration_since(start);
             debug!(
                 elapsed_ms = elapsed.as_millis(),
@@ -622,15 +625,13 @@ impl CommandBuilder {
             );
             rtn
         }
+        .instrument(span.clone())
         .await
         .wrap_err(format!(
             "Command::run_raw failed, called from {}",
             RelativeLocation::from(std::panic::Location::caller())
         ))
-        .wrap_err(format!(
-            "Invoking command failed: {}",
-            self.summarize().await
-        ))
+        .wrap_err(format!("Invoking command failed: {summary}",))
     }
 
     #[track_caller]

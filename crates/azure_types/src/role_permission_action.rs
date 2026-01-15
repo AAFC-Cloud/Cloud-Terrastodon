@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use tracing::warn;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct RolePermissionAction {
     inner: String,
 }

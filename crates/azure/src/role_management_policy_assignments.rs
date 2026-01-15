@@ -26,7 +26,9 @@ pub fn fetch_role_management_policy_assignments<T: Scope + Send>(
 }
 
 #[async_trait]
-impl<T: Scope + Send> cloud_terrastodon_command::CacheableCommand for RoleManagementPolicyAssignmentsForRoleRequest<T> {
+impl<T: Scope + Send> cloud_terrastodon_command::CacheableCommand
+    for RoleManagementPolicyAssignmentsForRoleRequest<T>
+{
     type Output = Vec<RoleManagementPolicyAssignment>;
 
     fn cache_key(&self) -> CacheKey {

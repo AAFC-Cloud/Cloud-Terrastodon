@@ -8,6 +8,7 @@ mod data_block_kind_other;
 mod data_block_reference;
 mod data_block_resource_kind;
 mod import_block;
+mod plan;
 mod provider_block;
 mod provider_kind;
 mod provider_reference;
@@ -25,7 +26,6 @@ mod terraform_registry_provider;
 mod tf_work_dir;
 mod users_lookup_body;
 mod version;
-
 pub mod prelude {
     pub use crate::block::*;
     pub use crate::code_reference::*;
@@ -37,6 +37,7 @@ pub mod prelude {
     pub use crate::data_block_reference::*;
     pub use crate::data_block_resource_kind::*;
     pub use crate::import_block::*;
+    pub use crate::plan::*;
     pub use crate::provider_block::*;
     pub use crate::provider_kind::*;
     pub use crate::provider_reference::*;
