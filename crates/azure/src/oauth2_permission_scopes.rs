@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 pub struct OAuth2PermissionScopesListRequest {
-    service_principal_id: ServicePrincipalId,
+    pub service_principal_id: ServicePrincipalId,
 }
 
 pub fn fetch_oauth2_permission_scopes(

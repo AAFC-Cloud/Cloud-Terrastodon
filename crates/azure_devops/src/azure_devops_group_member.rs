@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub struct AzureDevOpsGroupMembersListRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    group_id: &'a AzureDevOpsDescriptor,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub group_id: &'a AzureDevOpsDescriptor,
 }
 
 pub fn fetch_azure_devops_group_members<'a>(
@@ -65,8 +65,8 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersListRequest<'a>, 'a);
 
 pub struct AzureDevOpsGroupMembersV2Request<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    group_id: &'a AzureDevOpsDescriptor,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub group_id: &'a AzureDevOpsDescriptor,
 }
 
 pub fn fetch_azure_devops_group_members_v2<'a>(

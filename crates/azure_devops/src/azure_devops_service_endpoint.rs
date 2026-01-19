@@ -9,8 +9,8 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
 pub struct AzureDevOpsServiceEndpointsListRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: AzureDevOpsProjectArgument<'a>,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub project: AzureDevOpsProjectArgument<'a>,
 }
 
 pub fn fetch_all_azure_devops_service_endpoints<'a>(

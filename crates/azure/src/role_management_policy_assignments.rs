@@ -11,8 +11,8 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 pub struct RoleManagementPolicyAssignmentsForRoleRequest<T: Scope + Send> {
-    scope: T,
-    role_definition_id: RoleDefinitionId,
+    pub scope: T,
+    pub role_definition_id: RoleDefinitionId,
 }
 
 pub fn fetch_role_management_policy_assignments<T: Scope + Send>(

@@ -8,7 +8,7 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
 pub struct LocationListRequest {
-    subscription_id: SubscriptionId,
+    pub subscription_id: SubscriptionId,
 }
 
 pub fn fetch_all_locations(subscription_id: SubscriptionId) -> LocationListRequest {

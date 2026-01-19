@@ -10,25 +10,25 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoleAssignmentRequest {
     #[serde(rename = "roleDefinitionId")]
-    role_definition_id: Uuid,
+    pub role_definition_id: Uuid,
     #[serde(rename = "resourceId")]
-    resource_id: Uuid,
+    pub resource_id: Uuid,
     #[serde(rename = "subjectId")]
-    subject_id: PrincipalId,
+    pub subject_id: PrincipalId,
     #[serde(rename = "assignmentState")]
-    assignment_state: RoleAssignmentRequestAssignmentState,
+    pub assignment_state: RoleAssignmentRequestAssignmentState,
     #[serde(rename = "type")]
-    kind: RoleAssignmentRequestKind,
+    pub kind: RoleAssignmentRequestKind,
     #[serde(rename = "reason")]
-    reason: String,
+    pub reason: String,
     #[serde(rename = "ticketNumber")]
-    ticket_number: String,
+    pub ticket_number: String,
     #[serde(rename = "ticketSystem")]
-    ticket_system: String,
+    pub ticket_system: String,
     #[serde(rename = "schedule")]
-    schedule: RoleAssignmentRequestSchedule,
+    pub schedule: RoleAssignmentRequestSchedule,
     #[serde(rename = "linkedEligibleRoleAssignmentId")]
-    linked_eligible_role_assignment_id: String,
+    pub linked_eligible_role_assignment_id: String,
     // #[serde(rename = "scopedResourceId")]
     // scoped_resource_id: Value,
 }
@@ -44,8 +44,8 @@ pub enum RoleAssignmentRequestKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoleAssignmentRequestSchedule {
     #[serde(rename = "type")]
-    kind: RoleAssignmentRequestScheduleKind,
-    duration: iso8601_duration::Duration,
+    pub kind: RoleAssignmentRequestScheduleKind,
+    pub duration: iso8601_duration::Duration,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

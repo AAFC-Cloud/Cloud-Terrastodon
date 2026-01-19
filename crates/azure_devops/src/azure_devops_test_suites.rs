@@ -11,9 +11,9 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct AzureDevOpsTestSuiteListRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: AzureDevOpsProjectArgument<'a>,
-    plan: String,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub project: AzureDevOpsProjectArgument<'a>,
+    pub plan: String,
 }
 
 pub fn fetch_azure_devops_test_suites<'a>(

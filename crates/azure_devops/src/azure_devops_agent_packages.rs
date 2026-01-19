@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct AzureDevOpsAgentPackagesRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
 }
 
 pub fn fetch_azure_devops_agent_packages<'a>(

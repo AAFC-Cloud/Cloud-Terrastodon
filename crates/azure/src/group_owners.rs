@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct GroupOwnersListRequest {
-    group_id: GroupId,
+    pub group_id: GroupId,
 }
 
 pub fn fetch_group_owners(group_id: GroupId) -> GroupOwnersListRequest {

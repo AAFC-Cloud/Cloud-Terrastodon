@@ -11,8 +11,8 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct WorkItemsForQueryRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    query_id: &'a AzureDevOpsWorkItemQueryId,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub query_id: &'a AzureDevOpsWorkItemQueryId,
 }
 
 pub fn fetch_work_items_for_query<'a>(

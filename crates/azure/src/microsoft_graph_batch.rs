@@ -12,9 +12,9 @@ use std::ops::DerefMut;
 #[derive(Serialize)]
 pub struct MicrosoftGraphBatchRequest<REQ: Serialize> {
     /// The requests to be made in the batch
-    requests: Vec<MicrosoftGraphBatchRequestEntry<REQ>>,
+    pub requests: Vec<MicrosoftGraphBatchRequestEntry<REQ>>,
     /// The IDs of the requests, in the order the requests were added
-    ids: Vec<String>,
+    pub ids: Vec<String>,
 }
 impl<T: Serialize> Default for MicrosoftGraphBatchRequest<T> {
     fn default() -> Self {

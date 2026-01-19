@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct AzureDevOpsLicenseEntitlementsRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
 }
 
 pub fn fetch_azure_devops_license_entitlements<'a>(

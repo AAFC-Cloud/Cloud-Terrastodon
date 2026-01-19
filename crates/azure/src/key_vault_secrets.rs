@@ -8,7 +8,7 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
 pub struct KeyVaultSecretsListRequest<'a> {
-    key_vault_id: &'a KeyVaultId,
+    pub key_vault_id: &'a KeyVaultId,
 }
 
 pub fn fetch_key_vault_secrets<'a>(key_vault_id: &'a KeyVaultId) -> KeyVaultSecretsListRequest<'a> {

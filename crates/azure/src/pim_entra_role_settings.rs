@@ -11,7 +11,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 pub struct EntraPimRoleSettingsRequest {
-    role_definition_id: Uuid,
+    pub role_definition_id: Uuid,
 }
 
 pub fn fetch_entra_pim_role_settings(role_definition_id: Uuid) -> EntraPimRoleSettingsRequest {

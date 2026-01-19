@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 /// Fetch an individual Entra role assignment
 pub struct UnifiedRoleDefinitionRequest {
-    role_definition_id: UnifiedRoleDefinitionId,
+    pub role_definition_id: UnifiedRoleDefinitionId,
 }
 
 pub fn fetch_unified_role_definition(

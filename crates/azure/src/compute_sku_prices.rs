@@ -10,8 +10,8 @@ use compact_str::CompactString;
 use std::path::PathBuf;
 
 pub struct ComputeSkuPricesRequest {
-    location: LocationName,
-    sku: ComputeSkuName,
+    pub location: LocationName,
+    pub sku: ComputeSkuName,
 }
 
 pub fn fetch_compute_sku_prices(

@@ -9,8 +9,8 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
 pub struct ComputePublishersListRequest {
-    subscription_id: SubscriptionId,
-    location: LocationName,
+    pub subscription_id: SubscriptionId,
+    pub location: LocationName,
 }
 
 pub fn fetch_compute_publishers(

@@ -12,11 +12,11 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
 pub struct ComputePublisherImageOfferSkuVersionListRequest {
-    subscription_id: SubscriptionId,
-    location: LocationName,
-    publisher_name: ComputePublisherName,
-    offer_name: ComputePublisherVmImageOfferName,
-    sku_name: ComputePublisherVmImageOfferSkuName,
+    pub subscription_id: SubscriptionId,
+    pub location: LocationName,
+    pub publisher_name: ComputePublisherName,
+    pub offer_name: ComputePublisherVmImageOfferName,
+    pub sku_name: ComputePublisherVmImageOfferSkuName,
 }
 
 pub fn fetch_compute_publisher_image_offer_sku_versions(

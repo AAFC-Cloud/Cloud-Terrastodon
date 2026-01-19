@@ -11,9 +11,9 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct AzureDevOpsTeamMembersRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: AzureDevOpsProjectArgument<'a>,
-    team_id: &'a AzureDevOpsTeamId,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub project: AzureDevOpsProjectArgument<'a>,
+    pub team_id: &'a AzureDevOpsTeamId,
 }
 
 pub fn fetch_azure_devops_team_members<'a>(

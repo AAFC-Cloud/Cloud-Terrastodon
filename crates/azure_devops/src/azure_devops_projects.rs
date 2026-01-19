@@ -12,7 +12,7 @@ use tracing::debug;
 use tracing::field::debug;
 
 pub struct AzureDevOpsProjectsListRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
 }
 
 pub fn fetch_all_azure_devops_projects<'a>(

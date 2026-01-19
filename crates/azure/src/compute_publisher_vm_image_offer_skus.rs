@@ -11,10 +11,10 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
 pub struct ComputePublisherImageOfferSkuListRequest {
-    subscription_id: SubscriptionId,
-    location: LocationName,
-    publisher_name: ComputePublisherName,
-    offer_name: ComputePublisherVmImageOfferName,
+    pub subscription_id: SubscriptionId,
+    pub location: LocationName,
+    pub publisher_name: ComputePublisherName,
+    pub offer_name: ComputePublisherVmImageOfferName,
 }
 
 pub fn fetch_compute_publisher_image_offer_skus(

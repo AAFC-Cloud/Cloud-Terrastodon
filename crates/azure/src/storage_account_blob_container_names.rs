@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 /// This can fail due to network rules on the storage account
 pub struct StorageAccountBlobContainerNamesListRequest<'a> {
-    storage_account_id: &'a StorageAccountId,
+    pub storage_account_id: &'a StorageAccountId,
 }
 
 pub fn fetch_storage_account_blob_container_names<'a>(

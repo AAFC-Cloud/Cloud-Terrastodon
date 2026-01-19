@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct ComputeSkuListRequest {
-    subscription_id: SubscriptionId,
+    pub subscription_id: SubscriptionId,
 }
 
 pub fn fetch_all_compute_skus(subscription_id: SubscriptionId) -> ComputeSkuListRequest {

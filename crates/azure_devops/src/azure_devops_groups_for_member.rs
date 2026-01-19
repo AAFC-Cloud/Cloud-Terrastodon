@@ -15,8 +15,8 @@ pub fn fetch_azure_devops_groups_for_member<'a>(
 }
 
 pub struct AzureDevOpsGroupsForMemberRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    member_id: &'a AzureDevOpsDescriptor,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub member_id: &'a AzureDevOpsDescriptor,
 }
 
 #[derive(Debug, Deserialize)]

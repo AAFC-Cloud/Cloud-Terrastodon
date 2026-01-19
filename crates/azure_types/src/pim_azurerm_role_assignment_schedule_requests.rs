@@ -11,7 +11,7 @@ use std::time::Duration;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RoleAssignmentScheduleRequest {
     #[serde(rename = "Properties")]
-    properties: RoleAssignmentScheduleRequestProperties,
+    pub properties: RoleAssignmentScheduleRequestProperties,
 }
 impl RoleAssignmentScheduleRequest {
     pub fn new_self_activation(
@@ -47,23 +47,23 @@ impl RoleAssignmentScheduleRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RoleAssignmentScheduleRequestProperties {
     #[serde(rename = "PrincipalId")]
-    principal_id: PrincipalId,
+    pub principal_id: PrincipalId,
     #[serde(rename = "RoleDefinitionId")]
-    role_definition_id: RoleDefinitionId,
+    pub role_definition_id: RoleDefinitionId,
     #[serde(rename = "RequestType")]
-    request_type: RoleAssignmentScheduleRequestPropertiesRequestType,
+    pub request_type: RoleAssignmentScheduleRequestPropertiesRequestType,
     #[serde(rename = "LinkedRoleEligibilityScheduleId")]
-    linked_role_eligibility_schedule_id: RoleEligibilityScheduleId,
+    pub linked_role_eligibility_schedule_id: RoleEligibilityScheduleId,
     #[serde(rename = "Justification")]
-    justification: String,
+    pub justification: String,
     #[serde(rename = "ScheduleInfo")]
-    schedule_info: RoleAssignmentScheduleRequestPropertiesScheduleInfo,
+    pub schedule_info: RoleAssignmentScheduleRequestPropertiesScheduleInfo,
     #[serde(rename = "TicketInfo")]
-    ticket_info: RoleAssignmentScheduleRequestPropertiesTicketInfo,
+    pub ticket_info: RoleAssignmentScheduleRequestPropertiesTicketInfo,
     #[serde(rename = "IsValidationOnly")]
-    is_validation_only: bool,
+    pub is_validation_only: bool,
     #[serde(rename = "IsActivativation")]
-    is_activativation: bool,
+    pub is_activativation: bool,
 }
 
 // https://learn.microsoft.com/en-us/azure/templates/microsoft.authorization/roleassignmentschedulerequests?pivots=deployment-language-terraform#roleassignmentschedulerequestproperties-2
@@ -83,9 +83,9 @@ pub enum RoleAssignmentScheduleRequestPropertiesRequestType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RoleAssignmentScheduleRequestPropertiesScheduleInfo {
     #[serde(rename = "StartDateTime")]
-    start_date_time: Option<DateTime<Utc>>,
+    pub start_date_time: Option<DateTime<Utc>>,
     #[serde(rename = "Expiration")]
-    expiration: RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration,
+    pub expiration: RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -105,7 +105,7 @@ pub enum RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RoleAssignmentScheduleRequestPropertiesTicketInfo {
     #[serde(rename = "TicketNumber")]
-    ticket_number: String,
+    pub ticket_number: String,
     #[serde(rename = "TicketSystem")]
-    ticket_system: String,
+    pub ticket_system: String,
 }

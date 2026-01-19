@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct AzureDevOpsGroupsListRequest<'a> {
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: AzureDevOpsProjectArgument<'a>,
+    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub project: AzureDevOpsProjectArgument<'a>,
 }
 
 pub fn fetch_azure_devops_groups_for_project<'a>(
