@@ -2,7 +2,7 @@ use chrono::Local;
 use chrono::Utc;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsDescriptor;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseEntitlementLicense;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseKind;
 use cloud_terrastodon_azure_devops::prelude::LastAccessedDate;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_member;
@@ -18,7 +18,13 @@ use std::time::Duration;
 use tracing::info;
 use tracing::warn;
 
-pub async fn audit_azure_devops() -> eyre::Result<()> {
+pub async fn audit_azure_devops(
+    test_license_inactivity_threshold: Duration,
+    paid_license_inactivity_threshold: Duration,
+) -> eyre::Result<()> {
+    let test_license_inactivity_threshold = chrono::Duration::from_std(test_license_inactivity_threshold)?;
+    let paid_license_inactivity_threshold = chrono::Duration::from_std(paid_license_inactivity_threshold)?;
+
     warn!("Use `cloud_terrastodon clean` to wipe the cache if you think results are stale.");
     info!("Fetching a buncha information...");
 
@@ -34,15 +40,13 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
         .map(|user| (user.user_principal_name.to_lowercase(), user))
         .collect::<HashMap<_, _>>();
 
-    let license_inactivity_period = chrono::Duration::days(30);
-
-    // Emit a warning for anyone who has never accessed azure devops and have greater than stakeholder license
+    // Emit a warning for anyone who has not recently accessed azure devops and have greater than stakeholder license
     for entitlement in entitlements
         .iter()
-        .filter(|e| e.license != AzureDevOpsLicenseEntitlementLicense::AccountStakeholder)
+        .filter(|e| e.license != AzureDevOpsLicenseKind::AccountStakeholder)
         .filter(|e| {
             e.assignment_date.max(e.date_created).max(e.last_updated)
-                < Utc::now() - license_inactivity_period
+                < Utc::now() - paid_license_inactivity_threshold
         })
     {
         match entitlement.last_accessed_date {
@@ -60,10 +64,10 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
                 total_cost_waste_cad += entitlement.license.cost_per_month_cad();
                 *message_counts.entry(msg.to_string()).or_insert(0) += 1;
             }
-            LastAccessedDate::Some(date) if date < Utc::now() - license_inactivity_period => {
+            LastAccessedDate::Some(date) if date < Utc::now() - paid_license_inactivity_threshold => {
                 let msg = format!(
                     "User has not accessed Azure DevOps in the last {} days but has a paid license; consider downgrading license",
-                    license_inactivity_period.num_days()
+                    paid_license_inactivity_threshold.num_days()
                 );
                 warn!(
                     user_display_name = %entitlement.user.display_name,
@@ -119,10 +123,10 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
     // Identify unused test plan license assignments.
     let test_plan_licenses = entitlements
         .iter()
-        .filter(|e| e.license == AzureDevOpsLicenseEntitlementLicense::AccountAdvanced)
+        .filter(|e| e.license == AzureDevOpsLicenseKind::AccountAdvanced)
         .filter(|e| {
             e.assignment_date.max(e.date_created).max(e.last_updated)
-                < Utc::now() - license_inactivity_period
+                < Utc::now() - test_license_inactivity_threshold
         })
         .collect_vec();
     info!(
@@ -204,7 +208,6 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
         .into_iter()
         .collect::<HashMap<_, _>>();
 
-    // this was vibed and needs work
     let groups_for_projects = projects
         .iter()
         .map(|project| {
@@ -228,6 +231,16 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
         .collect::<HashMap<_, _>>();
 
     // for each license haver, print their projects and the test plans in those projects (plan name, last date)
+    let now = Local::now();
+    let test_license_inactivity_threshold_ago = now - test_license_inactivity_threshold;
+    let basic_license_inactivity_threshold_ago = now - paid_license_inactivity_threshold;
+    info!(
+        ?test_license_inactivity_threshold_ago,
+        ?basic_license_inactivity_threshold_ago,
+        test_license_inactivity_threshold = %humantime::format_duration(test_license_inactivity_threshold.to_std()?),
+        basic_license_inactivity_threshold = %humantime::format_duration(paid_license_inactivity_threshold.to_std()?),
+        "Using inactivity threshold for license usage audit",
+    );
     for test_plan_entitlement in test_plan_licenses {
         // Get the groups for the user
         let Some(user_groups) =
@@ -276,9 +289,9 @@ pub async fn audit_azure_devops() -> eyre::Result<()> {
             }
         }
 
-        let now = Local::now();
-        let thirty_days_ago = now - chrono::Duration::days(30);
-        let license_wasted = last_used.filter(|date| date > &thirty_days_ago).is_none();
+        let license_wasted = last_used
+            .filter(|date| date > &test_license_inactivity_threshold_ago)
+            .is_none();
         if license_wasted {
             let msg = "User has an Advanced license for Test Plans but has not used any test plans; consider downgrading license";
             warn!(
