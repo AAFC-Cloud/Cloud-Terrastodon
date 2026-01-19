@@ -1,7 +1,5 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::GovernanceRoleDefinitionName;
-use cloud_terrastodon_azure::prelude::PimEntraRoleDefinition;
-use cloud_terrastodon_azure::prelude::RolePermissions;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
@@ -52,7 +50,7 @@ impl TerraformApplyArgs {
         #[derive(Debug, Eq, PartialEq, Hash)]
         pub enum RequiredPermission {
             Entra(GovernanceRoleDefinitionName),
-            Arm(RolePermissions),
+            // Arm(RolePermissions),
         }
         let mut required_roles = HashSet::new();
         for resource_change in &plan_json.resource_changes {
