@@ -5,6 +5,7 @@ mod azure_devops_entra_user_descriptor;
 mod azure_devops_group;
 mod azure_devops_group_member;
 mod azure_devops_license_entitlement;
+mod azure_devops_license_kind;
 mod azure_devops_organization_name;
 mod azure_devops_organization_url;
 mod azure_devops_project;
@@ -40,6 +41,7 @@ pub mod prelude {
     pub use crate::azure_devops_group::*;
     pub use crate::azure_devops_group_member::*;
     pub use crate::azure_devops_license_entitlement::*;
+    pub use crate::azure_devops_license_kind::*;
     pub use crate::azure_devops_organization_name::*;
     pub use crate::azure_devops_organization_url::*;
     pub use crate::azure_devops_project::*;
