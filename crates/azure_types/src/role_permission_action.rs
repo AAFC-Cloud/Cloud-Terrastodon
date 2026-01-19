@@ -91,59 +91,61 @@ impl RolePermissionAction {
 
 #[cfg(test)]
 mod test {
+    use super::RolePermissionAction;
+
     #[test]
     pub fn it_works() -> eyre::Result<()> {
-        let a = super::RolePermissionAction::new(
+        let a = RolePermissionAction::new(
             "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
         );
-        let b = super::RolePermissionAction::new("Microsoft.KeyVault/vaults/secrets/*/action");
+        let b = RolePermissionAction::new("Microsoft.KeyVault/vaults/secrets/*/action");
         assert!(a.is_satisfied_by(&b));
         Ok(())
     }
     #[test]
     pub fn exact_match_is_satisfied() -> eyre::Result<()> {
-        let a = super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
-        let b = super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
+        let a = RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
+        let b = RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
         assert!(a.is_satisfied_by(&b));
         Ok(())
     }
 
     #[test]
     pub fn wildcard_at_end_is_satisfied() -> eyre::Result<()> {
-        let a = super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
-        let b = super::RolePermissionAction::new("Microsoft.Storage/accounts/*");
+        let a = RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
+        let b = RolePermissionAction::new("Microsoft.Storage/accounts/*");
         assert!(a.is_satisfied_by(&b));
         Ok(())
     }
 
     #[test]
     pub fn wildcard_at_start_is_satisfied() -> eyre::Result<()> {
-        let a = super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
-        let b = super::RolePermissionAction::new("*/read/action");
+        let a = RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
+        let b = RolePermissionAction::new("*/read/action");
         assert!(a.is_satisfied_by(&b));
         Ok(())
     }
 
     #[test]
     pub fn wildcard_in_middle_is_satisfied() -> eyre::Result<()> {
-        let a = super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
-        let b = super::RolePermissionAction::new("Microsoft.Storage/*/action");
+        let a = RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
+        let b = RolePermissionAction::new("Microsoft.Storage/*/action");
         assert!(a.is_satisfied_by(&b));
         Ok(())
     }
 
     #[test]
     pub fn wildcard_multiple_parts_is_not_satisfied() -> eyre::Result<()> {
-        let a = super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
-        let b = super::RolePermissionAction::new("Microsoft.*/*/action");
+        let a = RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
+        let b = RolePermissionAction::new("Microsoft.*/*/action");
         assert!(!a.is_satisfied_by(&b));
         Ok(())
     }
 
     #[test]
     pub fn no_wildcard_and_not_equal_is_not_satisfied() -> eyre::Result<()> {
-        let a = super::RolePermissionAction::new("Microsoft.Storage/accounts/write/action");
-        let b = super::RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
+        let a = RolePermissionAction::new("Microsoft.Storage/accounts/write/action");
+        let b = RolePermissionAction::new("Microsoft.Storage/accounts/read/action");
         assert!(!a.is_satisfied_by(&b));
         Ok(())
     }

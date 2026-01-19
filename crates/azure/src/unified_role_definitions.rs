@@ -13,6 +13,9 @@ pub struct UnifiedRoleDefinitionListRequest;
 pub fn fetch_all_unified_role_definitions() -> UnifiedRoleDefinitionListRequest {
     UnifiedRoleDefinitionListRequest
 }
+pub fn fetch_all_entra_role_definitions() -> UnifiedRoleDefinitionListRequest {
+    UnifiedRoleDefinitionListRequest
+}
 
 #[async_trait]
 impl CacheableCommand for UnifiedRoleDefinitionListRequest {
