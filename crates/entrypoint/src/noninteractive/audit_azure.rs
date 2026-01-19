@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
+use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments;
 use std::collections::HashMap;
 use tokio::try_join;
@@ -100,6 +101,43 @@ pub async fn audit_azure() -> eyre::Result<()> {
                 );
                 *message_counts.entry(msg).or_insert(0) += 1;
             }
+        }
+    }
+
+    // Audit resources which have tag keys that the parent have but where the values do not match the parent
+    info!("Fetching all resources for tag analysis");
+    let resources = fetch_all_resources().await?;
+    let resource_tags = resources
+        .iter()
+        .map(|resource| (resource.id.expanded_form(), &resource.tags))
+        .collect::<HashMap<_, _>>();
+    for resource in resource_tags.keys() {
+        let mut chunky: &str = &resource;
+        while let Some((parent, _)) = chunky.rsplit_once("/") {
+            if let Some(parent_tags) = resource_tags.get(parent) {
+                if let Some(resource_tags) = resource_tags.get(resource) {
+                    for (tag_key, parent_tag_value) in parent_tags.iter() {
+                        if let Some(resource_tag_value) = resource_tags.get(tag_key) {
+                            if resource_tag_value != parent_tag_value {
+                                total_problems += 1;
+                                let msg =
+                                    "Resource tag value does not match parent resource tag value";
+                                warn!(
+                                    resource = %resource,
+                                    parent = %parent,
+                                    tag_key = %tag_key,
+                                    resource_tag_value = %resource_tag_value,
+                                    parent_tag_value = %parent_tag_value,
+                                    "{}", msg,
+                                );
+                                *message_counts.entry(msg).or_insert(0) += 1;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+            chunky = parent;
         }
     }
 
