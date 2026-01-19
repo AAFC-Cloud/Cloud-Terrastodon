@@ -1,3 +1,5 @@
+#![feature(impl_trait_in_assoc_type)]
+
 mod azure_devops_agent_packages;
 mod azure_devops_configure;
 mod azure_devops_group;
@@ -20,9 +22,11 @@ mod default_organization;
 mod default_organization_tui;
 mod default_project;
 mod get_pat;
+mod azure_devops_license_entitlement_update;
 
 pub mod prelude {
     pub use crate::azure_devops_agent_packages::*;
+    pub use crate::azure_devops_license_entitlement_update::*;
     pub use crate::azure_devops_configure::*;
     pub use crate::azure_devops_group::*;
     pub use crate::azure_devops_group_member::*;

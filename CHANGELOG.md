@@ -17,6 +17,10 @@
 - Add `ct az ad sp list` and `ct az ad sp browse` commands
 - Add reload support to PIM activation dialogs
 - Add WIP `ct tf apply` command which identifies required and missing permissions from proposed changes in Terraform plans
+- Add azure audit for resources which have tag keys that the parent have but where the values do not match the parent
+- Make request structs fields pub
+- Add `ct az devops user update` command
+- Add `ct az devops user update tui` command
 
 # v0.31.0
 
