@@ -1,6 +1,6 @@
 [package]
 name = "cloud_terrastodon_relative_location"
-version = "0.31.0" # CT_VERSION
+version = "0.32.0" # CT_VERSION
 description = "A helper for converting std::panic::Location to relative paths with displayed"
 readme.workspace = true
 edition.workspace = true
@@ -14,6 +14,7 @@ categories.workspace = true
 
 [dev-dependencies]
 eyre.workspace=true
+
 
 
 

@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_config"
 description = "Configuration helpers for the Cloud Terrastodon project"
-version = "0.31.0" # CT_VERSION
+version = "0.32.0" # CT_VERSION
 readme.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -21,6 +21,7 @@ ordermap = { workspace = true }
 serde_json = { workspace = true }
 async-trait.workspace = true
 emath = { workspace = true, features = ["serde"] }
+
 
 
 
