@@ -2,14 +2,14 @@ use clap::Args;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseKind;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsUserId;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
-use cloud_terrastodon_azure_devops::prelude::update_azure_devops_license_entitlement;
+use cloud_terrastodon_azure_devops::prelude::update_azure_devops_user_license_entitlement;
 use eyre::Result;
 use eyre::bail;
 use tracing::info;
 
 #[derive(Args, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
-pub struct AzureDevOpsUserUpdateArgs {
+pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
     /// User id to update. Required unless using `tui` subcommand.
     #[arg(long)]
     pub user_id: AzureDevOpsUserId,
@@ -19,7 +19,7 @@ pub struct AzureDevOpsUserUpdateArgs {
     pub license: String,
 }
 
-impl AzureDevOpsUserUpdateArgs {
+impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
     pub async fn invoke(self) -> Result<()> {
         let org_url = get_default_organization_url().await?;
 
@@ -28,7 +28,7 @@ impl AzureDevOpsUserUpdateArgs {
             bail!("Invalid license kind specified: {}", s);
         };
 
-        let resp = update_azure_devops_license_entitlement(
+        let resp = update_azure_devops_user_license_entitlement(
             &org_url,
             self.user_id.clone(),
             license.clone(),

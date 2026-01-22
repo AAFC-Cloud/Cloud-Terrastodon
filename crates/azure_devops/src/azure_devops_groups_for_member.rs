@@ -76,13 +76,13 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsForMembe
 #[cfg(test)]
 mod test {
     use crate::prelude::fetch_azure_devops_groups_for_member;
-    use crate::prelude::fetch_azure_devops_license_entitlements;
+    use crate::prelude::fetch_azure_devops_user_license_entitlements;
     use crate::prelude::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let users = fetch_azure_devops_license_entitlements(&org_url).await?;
+        let users = fetch_azure_devops_user_license_entitlements(&org_url).await?;
         for user in users.iter().take(2) {
             let groups_for_user =
                 fetch_azure_devops_groups_for_member(&org_url, &user.user.descriptor).await?;

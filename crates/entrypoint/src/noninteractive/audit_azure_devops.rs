@@ -1,4 +1,5 @@
 use chrono::Local;
+use chrono::TimeDelta;
 use chrono::Utc;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsDescriptor;
@@ -7,7 +8,7 @@ use cloud_terrastodon_azure_devops::prelude::LastAccessedDate;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_member;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_project;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_license_entitlements;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_test_suites;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
@@ -22,8 +23,10 @@ pub async fn audit_azure_devops(
     test_license_inactivity_threshold: Duration,
     paid_license_inactivity_threshold: Duration,
 ) -> eyre::Result<()> {
-    let test_license_inactivity_threshold = chrono::Duration::from_std(test_license_inactivity_threshold)?;
-    let paid_license_inactivity_threshold = chrono::Duration::from_std(paid_license_inactivity_threshold)?;
+    let test_license_inactivity_threshold =
+        chrono::Duration::from_std(test_license_inactivity_threshold)?;
+    let paid_license_inactivity_threshold =
+        chrono::Duration::from_std(paid_license_inactivity_threshold)?;
 
     warn!("Use `cloud_terrastodon clean` to wipe the cache if you think results are stale.");
     info!("Fetching a buncha information...");
@@ -33,7 +36,7 @@ pub async fn audit_azure_devops(
     let mut message_counts: HashMap<String, usize> = HashMap::new();
 
     let org_url = get_default_organization_url().await?;
-    let entitlements = fetch_azure_devops_license_entitlements(&org_url).await?;
+    let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
     let users_by_principal_name = fetch_all_users()
         .await?
         .into_iter()
@@ -55,7 +58,7 @@ pub async fn audit_azure_devops(
                 warn!(
                     user_display_name = %entitlement.user.display_name,
                     user_unique_name = %entitlement.user.unique_name,
-                    license = ?entitlement.license,
+                    license = %entitlement.license,
                     status = ?entitlement.status,
                     cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
                     "{}", msg
@@ -64,7 +67,9 @@ pub async fn audit_azure_devops(
                 total_cost_waste_cad += entitlement.license.cost_per_month_cad();
                 *message_counts.entry(msg.to_string()).or_insert(0) += 1;
             }
-            LastAccessedDate::Some(date) if date < Utc::now() - paid_license_inactivity_threshold => {
+            LastAccessedDate::Some(date)
+                if date < Utc::now() - paid_license_inactivity_threshold =>
+            {
                 let msg = format!(
                     "User has not accessed Azure DevOps in the last {} days but has a paid license; consider downgrading license",
                     paid_license_inactivity_threshold.num_days()
@@ -73,16 +78,9 @@ pub async fn audit_azure_devops(
                     user_display_name = %entitlement.user.display_name,
                     user_unique_name = %entitlement.user.unique_name,
                     last_accessed_date = %date.to_rfc3339(),
-                    last_accessed_ago = humantime::format_duration({
-                        let mut duration = (Utc::now() - date)
-                            .to_std()
-                            .expect("Time went backwards");
-                        duration = Duration::from_hours(duration.as_secs() / 3600);
-                        duration
-                    })
-                    .to_string(),
+                    last_accessed_ago = format_duration_human(Utc::now() - date)?,
                     last_accessed_ago_days = ((Utc::now() - date).num_days()),
-                    license = ?entitlement.license,
+                    license = %entitlement.license,
                     status = ?entitlement.status,
                     cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
                     "{}", msg
@@ -106,7 +104,7 @@ pub async fn audit_azure_devops(
                 user_display_name = %entitlement.user.display_name,
                 user_unique_name = %entitlement.user.unique_name,
                 user_descriptor = %entitlement.user.descriptor,
-                license = ?entitlement.license,
+                license = %entitlement.license,
                 status = ?entitlement.status,
                 cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
                 "{}", msg
@@ -237,8 +235,8 @@ pub async fn audit_azure_devops(
     info!(
         ?test_license_inactivity_threshold_ago,
         ?basic_license_inactivity_threshold_ago,
-        test_license_inactivity_threshold = %humantime::format_duration(test_license_inactivity_threshold.to_std()?),
-        basic_license_inactivity_threshold = %humantime::format_duration(paid_license_inactivity_threshold.to_std()?),
+        test_license_inactivity_threshold = %format_duration_human(test_license_inactivity_threshold)?,
+        basic_license_inactivity_threshold = %format_duration_human(paid_license_inactivity_threshold)?,
         "Using inactivity threshold for license usage audit",
     );
     for test_plan_entitlement in test_plan_licenses {
@@ -302,16 +300,11 @@ pub async fn audit_azure_devops(
                     .as_deref()
                     .unwrap_or("never"),
                 last_used_ago = last_used
-                    .map(|date| humantime::format_duration({
-                        let mut duration = (Utc::now() - date).to_std().expect("Time went backwards");
-                        duration = Duration::from_hours(duration.as_secs() / 3600);
-                        duration
-                    })
-                    .to_string())
+                    .map(|date| format_duration_human(Utc::now() - date).unwrap())
                     .as_deref()
                     .unwrap_or("N/A"),
                 last_used_ago_days = last_used.map(|date| (Utc::now() - date).num_days()),
-                license = ?test_plan_entitlement.license,
+                license = %test_plan_entitlement.license,
                 status = ?test_plan_entitlement.status,
                 cost_per_month_cad = %test_plan_entitlement.license.cost_per_month_cad(),
                 project_count,
@@ -341,4 +334,56 @@ pub async fn audit_azure_devops(
         info!("No potential problems found in Azure DevOps");
     }
     Ok(())
+}
+
+/// Format a duration into a human-readable string, granularity limited to days (no minutes or seconds shown)
+fn format_duration_human<T>(duration: T) -> eyre::Result<String>
+where
+    T: TryInto<TimeDelta>,
+    T::Error: std::error::Error + Send + Sync + 'static,
+{
+    let duration = duration.try_into()?;
+    let std_duration = duration.to_std()?;
+    let std_duration = Duration::from_secs(std_duration.as_secs());
+    let mut formatted = humantime::format_duration(std_duration).to_string();
+    
+    // Remove seconds if present (ends with 's')
+    if formatted.ends_with('s') && !formatted.ends_with("days") && !formatted.ends_with("months") && !formatted.ends_with("years") {
+        if let Some(pos) = formatted.rfind(' ') {
+            formatted.truncate(pos);
+        }
+    }
+    
+    // Remove minutes if present (ends with 'm')
+    if formatted.ends_with('m') {
+        if let Some(pos) = formatted.rfind(' ') {
+            formatted.truncate(pos);
+        }
+    }
+    
+    // Remove hours if present (ends with 'h')
+    if formatted.ends_with('h') {
+        if let Some(pos) = formatted.rfind(' ') {
+            formatted.truncate(pos);
+        }
+    }
+    
+    Ok(formatted)
+}
+
+#[cfg(test)]
+mod test {
+    use chrono::TimeDelta;
+
+    use crate::noninteractive::audit_azure_devops::format_duration_human;
+
+    #[test]
+    pub fn it_works() -> eyre::Result<()> {
+        let x = "5months 7days 16h 15m 50s 736ms 926us";
+        let y = humantime::parse_duration(x)?;
+        let z = format_duration_human(TimeDelta::from_std(y)?)?;
+        println!("{} -> {:?} -> {}", x, y, z);
+        assert_eq!(z, "5months 7days");
+        Ok(())
+    }
 }

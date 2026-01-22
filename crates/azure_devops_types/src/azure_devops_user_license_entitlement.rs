@@ -28,7 +28,7 @@ pub enum AzureDevOpsLicenseAssignmentSource {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AzureDevOpsLicenseEntitlement {
+pub struct AzureDevOpsUserLicenseEntitlement {
     #[serde(rename = "accountId")]
     pub account_id: AzureDevOpsAccountId,
     #[serde(rename = "assignmentDate")]
@@ -92,10 +92,12 @@ mod test {
     use chrono::DateTime;
     use chrono::Utc;
 
+    use crate::azure_devops_user_license_entitlement;
+
     #[test]
     pub fn it_works() -> eyre::Result<()> {
         let x = serde_json::from_str::<super::LastAccessedDate>(r#""0001-01-01T00:00:00+00:00""#)?;
-        assert_eq!(x, super::LastAccessedDate::Never);
+        assert_eq!(x, azure_devops_user_license_entitlement::LastAccessedDate::Never);
         Ok(())
     }
 
@@ -104,7 +106,7 @@ mod test {
         let x = serde_json::from_str::<super::LastAccessedDate>(r#""2023-10-05T12:34:56+00:00""#)?;
         assert_eq!(
             x,
-            super::LastAccessedDate::Some("2023-10-05T12:34:56+00:00".parse::<DateTime<Utc>>()?)
+            azure_devops_user_license_entitlement::LastAccessedDate::Some("2023-10-05T12:34:56+00:00".parse::<DateTime<Utc>>()?)
         );
         Ok(())
     }

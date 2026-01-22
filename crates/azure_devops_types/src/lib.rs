@@ -3,9 +3,10 @@ mod azure_devops_agent_package;
 mod azure_devops_descriptor;
 mod azure_devops_entra_user_descriptor;
 mod azure_devops_group;
+mod azure_devops_group_license_entitlement;
 mod azure_devops_group_member;
-mod azure_devops_license_entitlement;
 mod azure_devops_license_kind;
+mod azure_devops_license_rule;
 mod azure_devops_organization_name;
 mod azure_devops_organization_url;
 mod azure_devops_project;
@@ -30,6 +31,7 @@ mod azure_devops_team_member;
 mod azure_devops_test_plan;
 mod azure_devops_test_suite;
 mod azure_devops_user_id;
+mod azure_devops_user_license_entitlement;
 mod azure_devops_work_item_query;
 mod azure_devops_work_items;
 
@@ -39,9 +41,10 @@ pub mod prelude {
     pub use crate::azure_devops_descriptor::*;
     pub use crate::azure_devops_entra_user_descriptor::*;
     pub use crate::azure_devops_group::*;
+    pub use crate::azure_devops_group_license_entitlement::*;
     pub use crate::azure_devops_group_member::*;
-    pub use crate::azure_devops_license_entitlement::*;
     pub use crate::azure_devops_license_kind::*;
+    pub use crate::azure_devops_license_rule::*;
     pub use crate::azure_devops_organization_name::*;
     pub use crate::azure_devops_organization_url::*;
     pub use crate::azure_devops_project::*;
@@ -66,6 +69,7 @@ pub mod prelude {
     pub use crate::azure_devops_test_plan::*;
     pub use crate::azure_devops_test_suite::*;
     pub use crate::azure_devops_user_id::*;
+    pub use crate::azure_devops_user_license_entitlement::*;
     pub use crate::azure_devops_work_item_query::*;
     pub use crate::azure_devops_work_items::*;
 }

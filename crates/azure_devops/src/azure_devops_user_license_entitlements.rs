@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseEntitlement;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
@@ -9,19 +9,19 @@ use serde_json::Value;
 use std::path::PathBuf;
 use tracing::debug;
 
-pub struct AzureDevOpsLicenseEntitlementsRequest<'a> {
+pub struct AzureDevOpsUserLicenseEntitlementsRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
 }
 
-pub fn fetch_azure_devops_license_entitlements<'a>(
+pub fn fetch_azure_devops_user_license_entitlements<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
-) -> AzureDevOpsLicenseEntitlementsRequest<'a> {
-    AzureDevOpsLicenseEntitlementsRequest { org_url }
+) -> AzureDevOpsUserLicenseEntitlementsRequest<'a> {
+    AzureDevOpsUserLicenseEntitlementsRequest { org_url }
 }
 
 #[async_trait]
-impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsLicenseEntitlementsRequest<'a> {
-    type Output = Vec<AzureDevOpsLicenseEntitlement>;
+impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsUserLicenseEntitlementsRequest<'a> {
+    type Output = Vec<AzureDevOpsUserLicenseEntitlement>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
@@ -50,7 +50,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsLicenseEntit
         struct InvokeResponse {
             continuation_token: Option<Value>,
             count: u32,
-            value: Vec<AzureDevOpsLicenseEntitlement>,
+            value: Vec<AzureDevOpsUserLicenseEntitlement>,
         }
 
         let resp = cmd.run::<InvokeResponse>().await?;
@@ -66,7 +66,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsLicenseEntit
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsLicenseEntitlementsRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsUserLicenseEntitlementsRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {
@@ -76,7 +76,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let entitlements = fetch_azure_devops_license_entitlements(&org_url).await?;
+        let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
         println!("Found {} user entitlements", entitlements.len());
         for entitlement in entitlements.iter().take(5) {
             println!(

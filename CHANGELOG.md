@@ -1,3 +1,16 @@
+# v0.33.0
+
+- Rename `fetch_azure_devops_license_entitlements` to `fetch_azure_devops_user_license_entitlements`
+- Rename `update_azure_devops_license_entitlement` to `update_azure_devops_user_license_entitlement`
+- Rename `AzureDevOpsLicenseEntitlement` to `AzureDevOpsUserLicenseEntitlement`
+- Rework Azure DevOps license entitlement CLI layout:
+  - Old: `ct az devops user update` (and TUI variant) and `ct az devops license-entitlement list`
+  - New:
+    - `ct az devops license-entitlement user list`
+    - `ct az devops license-entitlement user update`
+    - `ct az devops license-entitlement user update-tui`
+    - `ct az devops license-entitlement group list`
+
 # v0.32.0
 
 - Alias `devops` as child of `ct az` command

@@ -1,8 +1,8 @@
 use clap::Args;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseKind;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_license_entitlements;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
-use cloud_terrastodon_azure_devops::prelude::update_azure_devops_license_entitlement;
+use cloud_terrastodon_azure_devops::prelude::update_azure_devops_user_license_entitlement;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -11,16 +11,16 @@ use tracing::info;
 
 #[derive(Args, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
-pub struct AzureDevOpsUserUpdateTuiArgs {}
+pub struct AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {}
 
-impl AzureDevOpsUserUpdateTuiArgs {
+impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
     pub async fn invoke(self) -> Result<()> {
         let org_url = get_default_organization_url().await?;
 
         let chosen_entitlements = PickerTui::new()
             .set_header("Azure DevOps License Entitlements")
             .pick_many_reloadable(async |invalidate| {
-                fetch_azure_devops_license_entitlements(&org_url)
+                fetch_azure_devops_user_license_entitlements(&org_url)
                     .with_invalidation(invalidate)
                     .await
                     .map(|ents| {
@@ -43,7 +43,7 @@ impl AzureDevOpsUserUpdateTuiArgs {
             .pick_one(AzureDevOpsLicenseKind::VARIANTS)?;
 
         for entitlement in chosen_entitlements {
-            let resp = update_azure_devops_license_entitlement(
+            let resp = update_azure_devops_user_license_entitlement(
                 &org_url,
                 entitlement.user_id.clone(),
                 license.clone(),

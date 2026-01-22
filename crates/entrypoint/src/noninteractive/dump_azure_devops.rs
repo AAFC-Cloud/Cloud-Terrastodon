@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_group_members;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_project;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_license_entitlements;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use std::collections::HashMap;
@@ -13,7 +13,7 @@ pub async fn dump_azure_devops() -> eyre::Result<()> {
     let mut payload = HashMap::<_, serde_json::Value>::new();
     payload.insert("projects", serde_json::to_value(&projects)?);
 
-    let users = fetch_azure_devops_license_entitlements(&org_url).await?;
+    let users = fetch_azure_devops_user_license_entitlements(&org_url).await?;
     payload.insert("users", serde_json::to_value(&users)?);
 
     let mut project_groups = ParallelFallibleWorkQueue::new("fetch_azure_devops_groups", 10);

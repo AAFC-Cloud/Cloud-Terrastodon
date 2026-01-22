@@ -1,6 +1,7 @@
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseKind;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseRule;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsUserId;
 use cloud_terrastodon_azure_devops_types::prelude::LastAccessedDate;
@@ -17,18 +18,18 @@ use tracing::debug;
 
 /// <https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1>
 #[must_use = "This is an unsent request, you must .await it"]
-pub struct AzureDevOpsLicenseEntitlementUpdateRequest<'a> {
+pub struct AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
     pub user_id: AzureDevOpsUserId,
     pub license_kind: AzureDevOpsLicenseKind,
 }
 
-pub fn update_azure_devops_license_entitlement<'a>(
+pub fn update_azure_devops_user_license_entitlement<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     user_id: AzureDevOpsUserId,
     license_kind: AzureDevOpsLicenseKind,
-) -> AzureDevOpsLicenseEntitlementUpdateRequest<'a> {
-    AzureDevOpsLicenseEntitlementUpdateRequest {
+) -> AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
+    AzureDevOpsUserLicenseEntitlementUpdateRequest {
         org_url,
         user_id,
         license_kind,
@@ -36,7 +37,7 @@ pub fn update_azure_devops_license_entitlement<'a>(
 }
 
 #[async_trait]
-impl<'a> CacheableCommand for AzureDevOpsLicenseEntitlementUpdateRequest<'a> {
+impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     type Output = AzureDevOpsLicenseEntitlementUpdateResponse;
 
     fn cache_key(&self) -> CacheKey {
@@ -84,12 +85,12 @@ impl<'a> CacheableCommand for AzureDevOpsLicenseEntitlementUpdateRequest<'a> {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsLicenseEntitlementUpdateRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>, 'a);
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AzureDevOpsLicenseEntitlementUpdateResponse {
-    pub access_level: AzureDevOpsLicenseEntitlementUpdateResponseAccessLevel,
+    pub access_level: AzureDevOpsLicenseRule,
     pub date_created: DateTime<Utc>,
     pub extensions: Vec<Value>,
     pub group_assignments: Vec<Value>,
@@ -97,16 +98,4 @@ pub struct AzureDevOpsLicenseEntitlementUpdateResponse {
     pub last_accessed_date: LastAccessedDate,
     pub project_entitlements: Vec<Value>,
     pub user: Value,
-}
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct AzureDevOpsLicenseEntitlementUpdateResponseAccessLevel {
-    pub licensing_source: String,
-    pub account_license_type: String,
-    pub msdn_license_type: String,
-    pub git_hub_license_type: String,
-    pub license_display_name: String,
-    pub status: String,
-    pub status_message: String,
-    pub assignment_source: String,
 }
