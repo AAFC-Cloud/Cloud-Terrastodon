@@ -7,6 +7,7 @@ use crate::cli::azure_devops::license_entitlement::user::{
     AzureDevOpsLicenseEntitlementUserUpdateArgs,
     AzureDevOpsLicenseEntitlementUserUpdateTuiArgs,
     AzureDevOpsLicenseEntitlementUserShowArgs,
+    AzureDevOpsLicenseEntitlementUserRevokeArgs,
 };
 use crate::cli::azure_devops::license_entitlement::group::AzureDevOpsLicenseEntitlementGroupListArgs;
 
@@ -41,6 +42,8 @@ pub enum AzureDevOpsLicenseEntitlementUserCommand {
     UpdateTui(AzureDevOpsLicenseEntitlementUserUpdateTuiArgs),
     /// Show a specific user's license entitlement by id.
     Show(AzureDevOpsLicenseEntitlementUserShowArgs),
+    /// Revoke group rule assignment (show groups that grant this user's license).
+    Revoke(AzureDevOpsLicenseEntitlementUserRevokeArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -63,6 +66,7 @@ impl AzureDevOpsLicenseEntitlementArgs {
                 AzureDevOpsLicenseEntitlementUserCommand::Update(a) => a.invoke().await?,
                 AzureDevOpsLicenseEntitlementUserCommand::UpdateTui(a) => a.invoke().await?,
                 AzureDevOpsLicenseEntitlementUserCommand::Show(a) => a.invoke().await?,
+                AzureDevOpsLicenseEntitlementUserCommand::Revoke(a) => a.invoke().await?,
             },
             AzureDevOpsLicenseEntitlementCommand::Group(args) => match args.command {
                 AzureDevOpsLicenseEntitlementGroupCommand::List(a) => a.invoke().await?,
