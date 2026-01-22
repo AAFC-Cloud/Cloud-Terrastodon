@@ -33,6 +33,7 @@ pub enum AzureDevOpsLicenseType {
     #[serde(rename = "Msdn-Professional")]
     MsdnProfessional,
 
+    #[serde(alias = "none")]
     None,
 
     #[serde(untagged)]

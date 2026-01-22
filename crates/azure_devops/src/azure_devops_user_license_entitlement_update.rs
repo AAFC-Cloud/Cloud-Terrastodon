@@ -78,6 +78,7 @@ impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>
                 AzureDevOpsLicenseType::MsdnEnterprise => "professional",
                 AzureDevOpsLicenseType::MsdnProfessional => "professional",
                 AzureDevOpsLicenseType::Other(s) => s,
+                AzureDevOpsLicenseType::None => "none",
             },
         ]);
         cmd.cache(self.cache_key());
