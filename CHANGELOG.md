@@ -9,6 +9,7 @@
     - `ct az devops license-entitlement user list`
     - `ct az devops license-entitlement user update`
     - `ct az devops license-entitlement user update-tui`
+    - `ct az devops license-entitlement user show --id {}`
     - `ct az devops license-entitlement group list`
 
 # v0.32.0

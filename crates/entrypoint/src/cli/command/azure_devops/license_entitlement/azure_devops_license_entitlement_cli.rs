@@ -6,6 +6,7 @@ use crate::cli::azure_devops::license_entitlement::user::{
     AzureDevOpsLicenseEntitlementUserListArgs,
     AzureDevOpsLicenseEntitlementUserUpdateArgs,
     AzureDevOpsLicenseEntitlementUserUpdateTuiArgs,
+    AzureDevOpsLicenseEntitlementUserShowArgs,
 };
 use crate::cli::azure_devops::license_entitlement::group::AzureDevOpsLicenseEntitlementGroupListArgs;
 
@@ -38,6 +39,8 @@ pub enum AzureDevOpsLicenseEntitlementUserCommand {
     Update(AzureDevOpsLicenseEntitlementUserUpdateArgs),
     /// Update Azure DevOps user license entitlement via TUI picker.
     UpdateTui(AzureDevOpsLicenseEntitlementUserUpdateTuiArgs),
+    /// Show a specific user's license entitlement by id.
+    Show(AzureDevOpsLicenseEntitlementUserShowArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -59,6 +62,7 @@ impl AzureDevOpsLicenseEntitlementArgs {
                 AzureDevOpsLicenseEntitlementUserCommand::List(a) => a.invoke().await?,
                 AzureDevOpsLicenseEntitlementUserCommand::Update(a) => a.invoke().await?,
                 AzureDevOpsLicenseEntitlementUserCommand::UpdateTui(a) => a.invoke().await?,
+                AzureDevOpsLicenseEntitlementUserCommand::Show(a) => a.invoke().await?,
             },
             AzureDevOpsLicenseEntitlementCommand::Group(args) => match args.command {
                 AzureDevOpsLicenseEntitlementGroupCommand::List(a) => a.invoke().await?,

@@ -9,6 +9,7 @@ use std::collections::HashSet;
 use tracing::info;
 
 pub async fn create_oauth2_permission_grants() -> Result<()> {
+    info!("Fetching all service principals");
     let service_principals = fetch_all_service_principals().await?;
     let resource = PickerTui::new()
         .set_header("Pick the underlying resource being granted access to")
