@@ -37,7 +37,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        debug!("Fetching Azure DevOps user entitlements");
+        debug!("Fetching Azure DevOps group entitlements");
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["devops", "invoke"]);
         let org = self.org_url.to_string();
@@ -58,7 +58,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
         let resp = cmd.run::<InvokeResponse>().await?;
         let entitlements = resp.value;
 
-        debug!("Found {} Azure DevOps user entitlements", resp.count);
+        debug!("Found {} Azure DevOps group entitlements", resp.count);
 
         if resp.continuation_token.is_some() {
             todo!("Add support for continuation token...");
