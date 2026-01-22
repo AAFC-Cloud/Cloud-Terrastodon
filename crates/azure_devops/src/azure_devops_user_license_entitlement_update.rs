@@ -1,6 +1,6 @@
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseKind;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseRule;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsUserId;
@@ -21,13 +21,13 @@ use tracing::debug;
 pub struct AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
     pub user_id: AzureDevOpsUserId,
-    pub license_kind: AzureDevOpsLicenseKind,
+    pub license_kind: AzureDevOpsLicenseType,
 }
 
 pub fn update_azure_devops_user_license_entitlement<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     user_id: AzureDevOpsUserId,
-    license_kind: AzureDevOpsLicenseKind,
+    license_kind: AzureDevOpsLicenseType,
 ) -> AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     AzureDevOpsUserLicenseEntitlementUpdateRequest {
         org_url,
@@ -71,13 +71,13 @@ impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>
             &self.org_url.to_string(),
             "--license-type",
             match &self.license_kind {
-                AzureDevOpsLicenseKind::AccountExpress => "express",
-                AzureDevOpsLicenseKind::AccountStakeholder => "stakeholder",
-                AzureDevOpsLicenseKind::AccountAdvanced => "advanced",
-                AzureDevOpsLicenseKind::MsdnEligible => "professional",
-                AzureDevOpsLicenseKind::MsdnEnterprise => "professional",
-                AzureDevOpsLicenseKind::MsdnProfessional => "professional",
-                AzureDevOpsLicenseKind::Other(s) => s,
+                AzureDevOpsLicenseType::AccountExpress => "express",
+                AzureDevOpsLicenseType::AccountStakeholder => "stakeholder",
+                AzureDevOpsLicenseType::AccountAdvanced => "advanced",
+                AzureDevOpsLicenseType::MsdnEligible => "professional",
+                AzureDevOpsLicenseType::MsdnEnterprise => "professional",
+                AzureDevOpsLicenseType::MsdnProfessional => "professional",
+                AzureDevOpsLicenseType::Other(s) => s,
             },
         ]);
         cmd.cache(self.cache_key());

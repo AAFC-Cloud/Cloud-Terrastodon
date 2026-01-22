@@ -1,7 +1,7 @@
 use crate::azure_devops_account_id::AzureDevOpsAccountId;
 use crate::azure_devops_user_id::AzureDevOpsUserId;
 use crate::prelude::AzureDevOpsDescriptor;
-use crate::prelude::AzureDevOpsLicenseKind;
+use crate::prelude::AzureDevOpsLicenseType;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -42,7 +42,7 @@ pub struct AzureDevOpsUserLicenseEntitlement {
     #[serde(rename = "lastUpdated")]
     pub last_updated: DateTime<Utc>,
     #[serde(rename = "license")]
-    pub license: AzureDevOpsLicenseKind,
+    pub license: AzureDevOpsLicenseType,
     #[serde(rename = "origin")]
     pub origin: AzureDevOpsLicenseEntitlementOrigin,
     #[serde(rename = "status")]

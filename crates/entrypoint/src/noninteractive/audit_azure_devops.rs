@@ -3,7 +3,7 @@ use chrono::TimeDelta;
 use chrono::Utc;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsDescriptor;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseKind;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::prelude::LastAccessedDate;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_member;
@@ -46,7 +46,7 @@ pub async fn audit_azure_devops(
     // Emit a warning for anyone who has not recently accessed azure devops and have greater than stakeholder license
     for entitlement in entitlements
         .iter()
-        .filter(|e| e.license != AzureDevOpsLicenseKind::AccountStakeholder)
+        .filter(|e| e.license != AzureDevOpsLicenseType::AccountStakeholder)
         .filter(|e| {
             e.assignment_date.max(e.date_created).max(e.last_updated)
                 < Utc::now() - paid_license_inactivity_threshold
@@ -121,7 +121,7 @@ pub async fn audit_azure_devops(
     // Identify unused test plan license assignments.
     let test_plan_licenses = entitlements
         .iter()
-        .filter(|e| e.license == AzureDevOpsLicenseKind::AccountAdvanced)
+        .filter(|e| e.license == AzureDevOpsLicenseType::AccountAdvanced)
         .filter(|e| {
             e.assignment_date.max(e.date_created).max(e.last_updated)
                 < Utc::now() - test_license_inactivity_threshold

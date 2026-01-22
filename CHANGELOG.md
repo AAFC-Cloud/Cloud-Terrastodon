@@ -11,6 +11,7 @@
     - `ct az devops license-entitlement user update-tui`
     - `ct az devops license-entitlement user show --id {}`
     - `ct az devops license-entitlement group list`
+- Rename `AzureDevOpsLicenseKind` to `AzureDevOpsLicenseType`, add stronger typing
 
 # v0.32.0
 

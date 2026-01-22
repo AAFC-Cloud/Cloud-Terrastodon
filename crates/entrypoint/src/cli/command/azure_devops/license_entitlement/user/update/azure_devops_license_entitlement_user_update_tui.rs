@@ -1,5 +1,5 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseKind;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_azure_devops::prelude::update_azure_devops_user_license_entitlement;
@@ -40,7 +40,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
         // Choose a single license kind
         let license = PickerTui::new()
             .set_header("Azure DevOps License Kind")
-            .pick_one(AzureDevOpsLicenseKind::VARIANTS)?;
+            .pick_one(AzureDevOpsLicenseType::VARIANTS)?;
 
         for entitlement in chosen_entitlements {
             let resp = update_azure_devops_user_license_entitlement(

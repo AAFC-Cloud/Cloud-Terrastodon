@@ -1,5 +1,5 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseKind;
+use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsUserId;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_azure_devops::prelude::update_azure_devops_user_license_entitlement;
@@ -23,8 +23,8 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
     pub async fn invoke(self) -> Result<()> {
         let org_url = get_default_organization_url().await?;
 
-        let license = self.license.parse::<AzureDevOpsLicenseKind>()?;
-        if let AzureDevOpsLicenseKind::Other(s) = &license {
+        let license = self.license.parse::<AzureDevOpsLicenseType>()?;
+        if let AzureDevOpsLicenseType::Other(s) = &license {
             bail!("Invalid license kind specified: {}", s);
         };
 
