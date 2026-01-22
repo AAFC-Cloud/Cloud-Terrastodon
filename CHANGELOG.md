@@ -12,6 +12,8 @@
     - `ct az devops license-entitlement user show --id {}`
     - `ct az devops license-entitlement group list`
 - Rename `AzureDevOpsLicenseKind` to `AzureDevOpsLicenseType`, add stronger typing
+- Fix Microsoft graph helper failing to deserialize error bodies
+- Add cache key support to Microsoft graph helper
 
 # v0.32.0
 

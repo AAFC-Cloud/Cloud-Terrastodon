@@ -1,7 +1,9 @@
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
+use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
+use eyre::bail;
 use http::Method;
 use serde::Deserialize;
 use serde::Serialize;
@@ -15,12 +17,16 @@ pub struct MicrosoftGraphBatchRequest<REQ: Serialize> {
     pub requests: Vec<MicrosoftGraphBatchRequestEntry<REQ>>,
     /// The IDs of the requests, in the order the requests were added
     pub ids: Vec<String>,
+    /// The key to use for caching the batch request
+    #[serde(skip)]
+    pub cache_key: Option<CacheKey>,
 }
 impl<T: Serialize> Default for MicrosoftGraphBatchRequest<T> {
     fn default() -> Self {
         MicrosoftGraphBatchRequest {
             requests: Vec::new(),
             ids: Vec::new(),
+            cache_key: None,
         }
     }
 }
@@ -28,28 +34,26 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
     pub fn new() -> Self {
         MicrosoftGraphBatchRequest::default()
     }
-    pub fn add(&mut self, entry: MicrosoftGraphBatchRequestEntry<REQ>) {
+    pub fn add(&mut self, entry: impl Into<MicrosoftGraphBatchRequestEntry<REQ>>) {
+        let entry = entry.into();
         self.ids.push(entry.id.clone());
         self.requests.push(entry);
-    }
-    pub fn add_get(&mut self, url: String) {
-        let id = Uuid::new_v4().to_string();
-        self.ids.push(id.clone());
-        self.requests.push(MicrosoftGraphBatchRequestEntry::new(
-            id,
-            Method::GET,
-            url,
-            HashMap::new(),
-            None,
-        ));
     }
     pub fn add_all<T: Into<MicrosoftGraphBatchRequestEntry<REQ>>>(
         &mut self,
         entries: impl IntoIterator<Item = T>,
     ) {
         for entry in entries {
-            self.add(entry.into());
+            self.add(entry);
         }
+    }
+    pub fn cache(&mut self, cache_key: CacheKey) -> &mut Self {
+        self.cache_key = Some(cache_key);
+        self
+    }
+    pub fn use_cache(&mut self, cache_key: Option<CacheKey>) -> &mut Self {
+        self.cache_key = cache_key;
+        self
     }
     pub async fn send<RESP: FromCommandOutput>(
         self,
@@ -58,7 +62,8 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
         cmd.args(["rest", "--method", "POST", "--url"]);
         cmd.args(["https://graph.microsoft.com/v1.0/$batch"]);
         cmd.args(["--body"]);
-        cmd.azure_file_arg("body.json", serde_json::to_string(&self)?);
+        cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&self)?);
+        cmd.use_cache(self.cache_key);
         let mut response = cmd.run::<MicrosoftGraphBatchResponse<RESP>>().await?;
         // reorder the responses to match the order of the requests
         response.responses.sort_by_key(|r| {
@@ -81,6 +86,7 @@ pub struct MicrosoftGraphBatchRequestEntry<T> {
     pub method: Method,
     pub url: String,
     pub headers: HashMap<String, String>,
+    /// None if this is a GET request
     pub body: Option<T>,
 }
 
@@ -95,19 +101,22 @@ impl<T> MicrosoftGraphBatchRequestEntry<T> {
         MicrosoftGraphBatchRequestEntry {
             id,
             method,
-            url,
+            url: Self::prepare_url(url),
             headers,
             body,
         }
     }
-    pub fn new_get(id: String, url: String) -> Self {
+    pub fn new_get(url: String) -> Self {
         MicrosoftGraphBatchRequestEntry {
-            id,
+            id: Uuid::new_v4().to_string(),
             method: Method::GET,
-            url,
+            url: Self::prepare_url(url),
             headers: HashMap::new(),
             body: None,
         }
+    }
+    pub fn prepare_url(url: String) -> String {
+        url.trim_start_matches("https://graph.microsoft.com/v1.0").to_string()
     }
 }
 
@@ -136,6 +145,20 @@ pub struct MicrosoftGraphBatchResponseEntry<T: FromCommandOutput> {
     pub headers: HashMap<String, String>,
     pub body: MicrosoftGraphBatchResponseEntryBody<T>,
 }
+impl<T: FromCommandOutput> MicrosoftGraphBatchResponseEntry<T> {
+    pub fn into_body(self) -> eyre::Result<T> {
+        match self.body {
+            MicrosoftGraphBatchResponseEntryBody::Success(t) => Ok(t),
+            MicrosoftGraphBatchResponseEntryBody::Error(e) => bail!(
+                "Microsoft Graph API error for request {} (status {}): {} - {}",
+                self.id,
+                self.status,
+                e.code,
+                e.message
+            ),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum MicrosoftGraphBatchResponseEntryBody<T: FromCommandOutput> {
@@ -147,10 +170,12 @@ impl<'de, T: FromCommandOutput> Deserialize<'de> for MicrosoftGraphBatchResponse
     where
         D: serde::Deserializer<'de>,
     {
-        let v = serde_json::Value::deserialize(deserializer)?;
-        if v.get("error").is_some() {
-            let err = serde_json::from_value::<MicrosoftGraphBatchResponseEntryError>(v)
-                .map_err(serde::de::Error::custom)?;
+        let mut v = serde_json::Value::deserialize(deserializer)?;
+        if let Some(error) = v.get_mut("error") {
+            let err = serde_json::from_value::<MicrosoftGraphBatchResponseEntryError>(
+                std::mem::take(error),
+            )
+            .map_err(serde::de::Error::custom)?;
             Ok(MicrosoftGraphBatchResponseEntryBody::Error(err))
         } else {
             let t = serde_json::from_value::<T>(v).map_err(serde::de::Error::custom)?;
