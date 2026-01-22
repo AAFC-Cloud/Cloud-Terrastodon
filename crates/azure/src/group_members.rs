@@ -21,7 +21,7 @@ impl GroupMembersListRequest {
 }
 impl From<GroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<Principal>> {
     fn from(request: GroupMembersListRequest) -> Self {
-        MicrosoftGraphBatchRequestEntry::new_get(request.url())
+        MicrosoftGraphBatchRequestEntry::new_get(format!("group-members-for-{}", request.group_id), request.url())
     }
 }
 

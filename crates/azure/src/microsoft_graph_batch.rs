@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -106,15 +105,18 @@ impl<T> MicrosoftGraphBatchRequestEntry<T> {
             body,
         }
     }
-    pub fn new_get(url: String) -> Self {
+
+    /// We want the ID to be consistent such that caching change detection doesn't get unnecessarily invalidated.
+    pub fn new_get(id: String, url: String) -> Self {
         MicrosoftGraphBatchRequestEntry {
-            id: Uuid::new_v4().to_string(),
+            id: id,
             method: Method::GET,
             url: Self::prepare_url(url),
             headers: HashMap::new(),
             body: None,
         }
     }
+    
     pub fn prepare_url(url: String) -> String {
         url.trim_start_matches("https://graph.microsoft.com/v1.0").to_string()
     }
