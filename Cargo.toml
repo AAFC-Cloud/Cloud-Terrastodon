@@ -79,6 +79,7 @@ jsonpath-rust = "1.0.4"
 jmespath = "0.4"
 http = "1.3.1"
 liquid = "0.26.11"
+blake3 = "1.8"
 
 [workspace.dependencies.cloud_terrastodon_pathing]
 version = "0.32.0"        # CT_VERSION

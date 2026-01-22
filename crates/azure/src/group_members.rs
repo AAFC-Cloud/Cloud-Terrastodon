@@ -1,3 +1,4 @@
+use crate::prelude::MicrosoftGraphBatchRequestEntry;
 use crate::prelude::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::prelude::GroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
@@ -9,6 +10,19 @@ use tracing::debug;
 
 pub struct GroupMembersListRequest {
     pub group_id: GroupId,
+}
+impl GroupMembersListRequest {
+    pub fn url(&self) -> String {
+        format!(
+            "https://graph.microsoft.com/v1.0/groups/{}/members",
+            self.group_id
+        )
+    }
+}
+impl From<GroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<Principal>> {
+    fn from(request: GroupMembersListRequest) -> Self {
+        MicrosoftGraphBatchRequestEntry::new_get(request.url())
+    }
 }
 
 pub fn fetch_group_members(group_id: GroupId) -> GroupMembersListRequest {
