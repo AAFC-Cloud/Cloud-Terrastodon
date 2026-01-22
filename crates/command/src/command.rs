@@ -601,7 +601,8 @@ impl CommandBuilder {
     #[track_caller]
     pub async fn run_raw(&self) -> Result<CommandOutput> {
         let summary = self.summarize().await;
-        let span = info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key).or_current();
+        let span =
+            info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key).or_current();
 
         async {
             // Check cache
@@ -681,12 +682,9 @@ impl CommandBuilder {
                     .instrument(span.or_current())
                     .await?;
                 Err(eyre::Error::new(e)
-                    // .wrap_err(format!(
-                    //     "Called from {}",
-                    //     RelativeLocation::from(std::panic::Location::caller())
-                    // ))
                     .wrap_err(format!(
-                        "deserializing `{summary}` failed, dumped to {dir:?}",
+                        "Deserialization failed!\n - Command: `{summary}`\n - Dumped to: {dir:?}\n - Type: {}",
+                        std::any::type_name::<T>()
                     )))
             }
         }
