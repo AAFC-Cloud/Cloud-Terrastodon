@@ -14,6 +14,8 @@ pub struct GroupMembersListBatchRequest {
     pub group_ids: Vec<GroupId>,
 }
 
+/// TODO! This does n't auto fetch nextLink stuff :(
+#[deprecated = "This function does not handle pagination yet."]
 pub fn fetch_group_members_batch(
     group_ids: impl IntoIterator<Item = GroupId>,
 ) -> GroupMembersListBatchRequest {
