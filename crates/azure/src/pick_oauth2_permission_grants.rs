@@ -4,7 +4,7 @@ use crate::prelude::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure_types::prelude::ConsentType;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
-use cloud_terrastodon_azure_types::prelude::User;
+use cloud_terrastodon_azure_types::prelude::EntraUser;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
@@ -24,7 +24,7 @@ pub struct Grant {
 #[derive(Debug)]
 pub enum Target {
     AllPrincipals,
-    User(Box<User>),
+    User(Box<EntraUser>),
 }
 
 impl PartialEq for Grant {

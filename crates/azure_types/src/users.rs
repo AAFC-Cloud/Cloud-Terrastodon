@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Arbitrary)]
-pub struct User {
+pub struct EntraUser {
     #[serde(rename = "businessPhones")]
     pub business_phones: Vec<String>,
     #[serde(rename = "displayName")]
@@ -30,7 +30,7 @@ pub struct User {
     #[serde(rename = "userPrincipalName")]
     pub user_principal_name: String,
 }
-impl std::fmt::Display for User {
+impl std::fmt::Display for EntraUser {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.id.to_string().as_str())?;
         f.write_str(" - ")?;
@@ -38,8 +38,8 @@ impl std::fmt::Display for User {
         Ok(())
     }
 }
-impl From<User> for HclImportBlock {
-    fn from(user: User) -> Self {
+impl From<EntraUser> for HclImportBlock {
+    fn from(user: EntraUser) -> Self {
         HclImportBlock {
             provider: HclProviderReference::Inherited,
             id: user.id.to_string(),

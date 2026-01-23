@@ -21,6 +21,7 @@
 - Add `ct az ad group member remove --group-id {} --member-id {}` and supporting aspects
 - Change `--log-file` to append instead of truncate
 - Add `--log-level` alias for `--log-filter`
+- Rename `User` to `EntraUser`
 
 # v0.32.0
 

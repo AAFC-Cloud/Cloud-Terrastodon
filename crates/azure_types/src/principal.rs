@@ -1,7 +1,7 @@
 use crate::prelude::Group;
 use crate::prelude::PrincipalId;
 use crate::prelude::ServicePrincipal;
-use crate::prelude::User;
+use crate::prelude::EntraUser;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
@@ -12,7 +12,7 @@ use uuid::Uuid;
 #[serde(tag = "@odata.type")]
 pub enum Principal {
     #[serde(rename = "#microsoft.graph.user")]
-    User(User),
+    User(EntraUser),
     #[serde(rename = "#microsoft.graph.group")]
     Group(Group),
     #[serde(rename = "#microsoft.graph.servicePrincipal")]
@@ -20,8 +20,8 @@ pub enum Principal {
     // #[serde(rename = "#microsoft.graph.device")]
     // Device(Value),
 }
-impl From<User> for Principal {
-    fn from(value: User) -> Self {
+impl From<EntraUser> for Principal {
+    fn from(value: EntraUser) -> Self {
         Self::User(value)
     }
 }
@@ -64,7 +64,7 @@ impl Principal {
     pub fn kind(&self) -> PrincipalKind {
         PrincipalKind::from(self)
     }
-    pub fn as_user(&self) -> Option<&User> {
+    pub fn as_user(&self) -> Option<&EntraUser> {
         match self {
             Principal::User(user) => Some(user),
             _ => None,
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn it_works() -> eyre::Result<()> {
-        let user: User = User {
+        let user: EntraUser = EntraUser {
             business_phones: vec![],
             display_name: "User, Fake".to_string(),
             given_name: Some("User".to_string()),

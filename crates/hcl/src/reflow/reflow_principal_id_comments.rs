@@ -71,7 +71,7 @@ mod test {
     use arbitrary::Unstructured;
     use cloud_terrastodon_azure::prelude::Principal;
     use cloud_terrastodon_azure::prelude::PrincipalCollection;
-    use cloud_terrastodon_azure::prelude::User;
+    use cloud_terrastodon_azure::prelude::EntraUser;
     use hcl::edit::structure::Body;
     use indoc::formatdoc;
     use rand::Rng;
@@ -83,7 +83,7 @@ mod test {
         let mut raw = [0u8; 128];
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
-        let mut user = User::arbitrary(&mut noise)?;
+        let mut user = EntraUser::arbitrary(&mut noise)?;
         user.user_principal_name = "first.last@agr.gc.ca".to_string();
         let user_id = user.id;
 
@@ -131,11 +131,11 @@ mod test {
         let mut raw = [0u8; 128];
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
-        let mut user1 = User::arbitrary(&mut noise)?;
+        let mut user1 = EntraUser::arbitrary(&mut noise)?;
         user1.user_principal_name = "first.last@agr.gc.ca".to_string();
         let user_id1 = user1.id;
 
-        let mut user2 = User::arbitrary(&mut noise)?;
+        let mut user2 = EntraUser::arbitrary(&mut noise)?;
         user2.user_principal_name = "hot.rod@agr.gc.ca".to_string();
         let user_id2 = user2.id;
 
@@ -184,11 +184,11 @@ mod test {
         let mut raw = [0u8; 128];
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
-        let mut user1 = User::arbitrary(&mut noise)?;
+        let mut user1 = EntraUser::arbitrary(&mut noise)?;
         user1.user_principal_name = "first.last@agr.gc.ca".to_string();
         let user_id1 = user1.id;
 
-        let mut user2 = User::arbitrary(&mut noise)?;
+        let mut user2 = EntraUser::arbitrary(&mut noise)?;
         user2.user_principal_name = "hot.rod@agr.gc.ca".to_string();
         let user_id2 = user2.id;
 
@@ -243,7 +243,7 @@ mod test {
         let mut raw = [0u8; 128];
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
-        let mut user = User::arbitrary(&mut noise)?;
+        let mut user = EntraUser::arbitrary(&mut noise)?;
         user.user_principal_name = "first.last@agr.gc.ca".to_string();
         let user_id = user.id;
 
@@ -291,11 +291,11 @@ mod test {
         let mut raw = [0u8; 128];
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
-        let mut user1 = User::arbitrary(&mut noise)?;
+        let mut user1 = EntraUser::arbitrary(&mut noise)?;
         user1.user_principal_name = "first.last@agr.gc.ca".to_string();
         let user_id1 = user1.id;
 
-        let mut user2 = User::arbitrary(&mut noise)?;
+        let mut user2 = EntraUser::arbitrary(&mut noise)?;
         user2.user_principal_name = "hot.rod@agr.gc.ca".to_string();
         let user_id2 = user2.id;
 

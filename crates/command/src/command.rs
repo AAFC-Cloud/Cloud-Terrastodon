@@ -295,7 +295,13 @@ impl CommandBuilder {
         }
 
         let timestamp = load_from_path("timestamp.txt").await?;
-        let timestamp = DateTime::parse_from_rfc2822(timestamp.to_str()?)?;
+        // The timestamp file is append-only. Use the first line as the original cached timestamp
+        // so that age is calculated from the cache creation time.
+        let timestamp_first_line = timestamp
+            .lines()
+            .next()
+            .ok_or_else(|| eyre::eyre!("timestamp.txt contained no lines"))?;
+        let timestamp = DateTime::parse_from_rfc2822(timestamp_first_line.to_str()?)?;
         let now = Local::now();
         let time_remaining = if *valid_for == Duration::MAX {
             TimeDelta::MAX
@@ -365,26 +371,54 @@ impl CommandBuilder {
 
         // Write to files
         for (file_name, file_contents) in files {
-            // Open file
+            // Open file path
             let path = parent_dir.join(file_name);
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&path)
-                .await
-                .context(format!(
-                    "opening file {}",
-                    path.to_string_lossy().into_owned()
-                ))?;
 
-            // Write content
-            file.write_all(file_contents.as_bytes())
-                .await
-                .context(format!(
+            if file_name == "timestamp.txt" {
+                // Append a timestamp line. Keep this file as an append-only log so we can
+                // track most-recently-used times without losing creation history.
+                let mut file = OpenOptions::new()
+                    .append(true)
+                    .create(true)
+                    .open(&path)
+                    .await
+                    .context(format!(
+                        "opening file {}",
+                        path.to_string_lossy().into_owned()
+                    ))?;
+
+                // Ensure newline separation. Write contents then a newline.
+                file.write_all(file_contents.as_bytes())
+                    .await
+                    .context(format!(
+                        "writing file {}",
+                        path.to_string_lossy().into_owned()
+                    ))?;
+                file.write_all(b"\n").await.context(format!(
                     "writing file {}",
                     path.to_string_lossy().into_owned()
                 ))?;
+            } else {
+                // Default behavior: overwrite other files
+                let mut file = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&path)
+                    .await
+                    .context(format!(
+                        "opening file {}",
+                        path.to_string_lossy().into_owned()
+                    ))?;
+
+                // Write content
+                file.write_all(file_contents.as_bytes())
+                    .await
+                    .context(format!(
+                        "writing file {}",
+                        path.to_string_lossy().into_owned()
+                    ))?;
+            }
         }
 
         Ok(())

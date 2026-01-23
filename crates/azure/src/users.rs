@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::prelude::User;
+use cloud_terrastodon_azure_types::prelude::EntraUser;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -17,7 +17,7 @@ pub fn fetch_all_users() -> UserListRequest {
 
 #[async_trait]
 impl CacheableCommand for UserListRequest {
-    type Output = Vec<User>;
+    type Output = Vec<EntraUser>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter(["az", "ad", "user", "list"]))
@@ -28,7 +28,7 @@ impl CacheableCommand for UserListRequest {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["ad", "user", "list", "--output", "json"]);
         cmd.cache(self.cache_key());
-        let users: Vec<User> = cmd.run().await?;
+        let users: Vec<EntraUser> = cmd.run().await?;
         debug!("Found {} users", users.len());
         Ok(users)
     }
