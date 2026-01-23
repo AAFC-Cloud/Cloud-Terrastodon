@@ -3,6 +3,7 @@ use chrono::Utc;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseRule;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsUserId;
 use cloud_terrastodon_azure_devops_types::prelude::LastAccessedDate;
 use cloud_terrastodon_command::CacheKey;
@@ -20,18 +21,18 @@ use tracing::debug;
 #[must_use = "This is an unsent request, you must .await it"]
 pub struct AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
-    pub user_id: AzureDevOpsUserId,
+    pub user: AzureDevOpsUserArgument<'a>,
     pub license_kind: AzureDevOpsLicenseType,
 }
 
 pub fn update_azure_devops_user_license_entitlement<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
-    user_id: AzureDevOpsUserId,
+    user: impl Into<AzureDevOpsUserArgument<'a>>,
     license_kind: AzureDevOpsLicenseType,
 ) -> AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     AzureDevOpsUserLicenseEntitlementUpdateRequest {
         org_url,
-        user_id,
+        user: user.into(),
         license_kind,
     }
 }
@@ -49,14 +50,14 @@ impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>
                 "license",
                 "entitlement",
                 "update-user",
-                &self.user_id.to_string(),
+                &self.user.to_string(),
             ]),
             valid_for: Duration::ZERO, // this is an update operation, so no caching
         }
     }
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!(
-            user_id = %self.user_id,
+            user = %self.user,
             license_kind = ?self.license_kind,
             "Updating license entitlement for user",
         );
@@ -66,7 +67,7 @@ impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>
             "user",
             "update",
             "--user",
-            &self.user_id.to_string(),
+            &self.user.to_string(),
             "--organization",
             &self.org_url.to_string(),
             "--license-type",

@@ -5,8 +5,6 @@ use cloud_terrastodon_azure::prelude::Principal;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseAssignmentSource;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsUserId;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_group_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
@@ -15,32 +13,18 @@ use eyre::bail;
 use tracing::debug;
 use tracing::info;
 
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
+
 /// Find group-based license assignments that grant the provided user a given license.
 #[derive(Args, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
-    /// User id to inspect (GUID or value accepted by `AzureDevOpsUserId`).
-    #[arg(long)]
-    pub devops_user_id: Option<AzureDevOpsUserId>,
-    #[arg(long)]
-    pub user_email: Option<String>,
+    #[clap(flatten)]
+    pub user_matcher: AzureDevOpsLicenseEntitlementUserMatcher
 }
 
 impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
     pub async fn invoke(self) -> Result<()> {
-        let user_matcher: Box<dyn Fn(&AzureDevOpsUserLicenseEntitlement) -> bool> =
-            match (&self.devops_user_id, &self.user_email) {
-                (None, None) => {
-                    bail!("No user filter was provided");
-                }
-                (Some(devops_user_id), None) => Box::new(move |e| e.user_id == *devops_user_id),
-                (None, Some(user_email)) => {
-                    Box::new(move |e| e.user.unique_name.eq_ignore_ascii_case(&user_email))
-                }
-                (Some(devops_user_id), Some(user_email)) => Box::new(move |e| {
-                    e.user_id == *devops_user_id
-                        && e.user.unique_name.eq_ignore_ascii_case(&user_email)
-                }),
-            };
+        let user_predicate = self.user_matcher.as_predicate()?;
 
         let org_url = get_default_organization_url().await?;
 
@@ -48,7 +32,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
 
         let user_entitlement = entitlements
             .into_iter()
-            .find(|e| user_matcher(e))
+            .find(|e| user_predicate(e))
             .ok_or_else(|| eyre::eyre!("No license entitlement found matching {self:?}",))?;
 
         debug!(?user_entitlement, "Found entitlement");

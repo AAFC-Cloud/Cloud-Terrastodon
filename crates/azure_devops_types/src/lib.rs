@@ -34,6 +34,7 @@ mod azure_devops_user_id;
 mod azure_devops_user_license_entitlement;
 mod azure_devops_work_item_query;
 mod azure_devops_work_items;
+mod azure_devops_user_argument;
 
 pub mod prelude {
     pub use crate::azure_devops_account_id::*;
@@ -49,6 +50,7 @@ pub mod prelude {
     pub use crate::azure_devops_organization_url::*;
     pub use crate::azure_devops_project::*;
     pub use crate::azure_devops_project_argument::*;
+    pub use crate::azure_devops_user_argument::*;
     pub use crate::azure_devops_project_id::*;
     pub use crate::azure_devops_project_name::*;
     pub use crate::azure_devops_repos::*;

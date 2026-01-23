@@ -1,18 +1,18 @@
 use clap::Args;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsUserId;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_azure_devops::prelude::update_azure_devops_user_license_entitlement;
 use eyre::Result;
 use eyre::bail;
 use tracing::info;
 
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
+
 #[derive(Args, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
 pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
-    /// User id to update. Required unless using `tui` subcommand.
-    #[arg(long)]
-    pub user_id: AzureDevOpsUserId,
+    #[clap(flatten)]
+    pub user_matcher: AzureDevOpsLicenseEntitlementUserMatcher,
 
     /// Desired license kind (e.g. "Account-Express", "Account-Advanced"). Required unless using `tui` subcommand.
     #[arg(long)]
@@ -30,13 +30,13 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
 
         let resp = update_azure_devops_user_license_entitlement(
             &org_url,
-            self.user_id.clone(),
+            self.user_matcher.as_argument()?,
             license.clone(),
         )
         .await?;
 
         info!(
-            %self.user_id,
+            ?self.user_matcher,
             %self.license,
             ?resp,
             "Successfully updated license entitlement for user"
