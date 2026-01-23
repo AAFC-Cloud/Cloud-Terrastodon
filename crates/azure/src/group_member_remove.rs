@@ -8,6 +8,7 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[derive(Debug)]
 pub struct GroupMemberRemoveRequest {
     pub group_id: GroupId,
     pub member_id: PrincipalId,

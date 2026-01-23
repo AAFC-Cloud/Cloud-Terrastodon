@@ -1,16 +1,3 @@
-use std::env::current_exe;
-
-use crate::cli::CloudTerrastodonCommand;
-use crate::cli::ToArgs;
-use crate::cli::azure::AzureArgs;
-use crate::cli::azure::azure_command::AzureCommand;
-use crate::cli::azure::entra::AzureEntraArgs;
-use crate::cli::azure::entra::AzureEntraCommand;
-use crate::cli::azure::entra::AzureEntraGroupArgs;
-use crate::cli::azure::entra::group::AzureEntraGroupCommand;
-use crate::cli::azure::entra::group::AzureEntraGroupMemberArgs;
-use crate::cli::azure::entra::group::member::AzureEntraGroupMemberCommand;
-use crate::cli::azure::entra::group::member::AzureEntraGroupMemberRemoveArgs;
 use clap::Args;
 use cloud_terrastodon_azure::prelude::GroupId;
 use cloud_terrastodon_azure::prelude::GroupMemberRemoveRequest;
@@ -141,35 +128,14 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                     group_id: group_entra_id,
                     member_id: user.id.into(),
                 });
-                // actions.push(CloudTerrastodonCommand::Azure(AzureArgs {
-                //     command: AzureCommand::Entra(AzureEntraArgs {
-                //         command: AzureEntraCommand::Group(AzureEntraGroupArgs {
-                //             command: AzureEntraGroupCommand::Member(AzureEntraGroupMemberArgs {
-                //                 command: AzureEntraGroupMemberCommand::Remove(
-                //                     AzureEntraGroupMemberRemoveArgs {
-                //                         group_id: group_entra_id,
-                //                         member_id: user.id.into(),
-                //                     },
-                //                 ),
-                //             }),
-                //         }),
-                //     }),
-                // }))
             }
         }
 
-        // for action in actions {
-        //     println!(
-        //         "{} {}",
-        //         current_exe()?.to_string_lossy(),
-        //         action
-        //             .to_args()
-        //             .iter()
-        //             .map(|s| s.to_string_lossy())
-        //             .collect::<Vec<_>>()
-        //             .join(" ")
-        //     );
-        // }
+        debug!(?actions, "Planned group member removals to revoke license");
+
+        for action in actions {
+            action.await?;
+        }
 
         Ok(())
     }
