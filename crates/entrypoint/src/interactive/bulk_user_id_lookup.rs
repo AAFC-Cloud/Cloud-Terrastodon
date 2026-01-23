@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure::prelude::UserId;
+use cloud_terrastodon_azure::prelude::EntraUserId;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
@@ -14,7 +14,7 @@ pub async fn bulk_user_id_lookup() -> Result<()> {
         if x.is_empty() {
             break;
         } else {
-            user_ids.insert(x.parse::<UserId>()?);
+            user_ids.insert(x.parse::<EntraUserId>()?);
         }
     }
 

@@ -1,14 +1,14 @@
-use crate::prelude::GroupId;
-use crate::prelude::ServicePrincipalId;
-use crate::prelude::UserId;
+use crate::prelude::EntraGroupId;
+use crate::prelude::EntraServicePrincipalId;
+use crate::prelude::EntraUserId;
 use std::hash::Hash;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy)]
 pub enum PrincipalId {
-    UserId(UserId),
-    GroupId(GroupId),
-    ServicePrincipalId(ServicePrincipalId),
+    UserId(EntraUserId),
+    GroupId(EntraGroupId),
+    ServicePrincipalId(EntraServicePrincipalId),
     Unknown(Uuid),
 }
 
@@ -81,18 +81,18 @@ impl From<Uuid> for PrincipalId {
         Self::Unknown(value)
     }
 }
-impl From<UserId> for PrincipalId {
-    fn from(value: UserId) -> Self {
+impl From<EntraUserId> for PrincipalId {
+    fn from(value: EntraUserId) -> Self {
         Self::UserId(value)
     }
 }
-impl From<GroupId> for PrincipalId {
-    fn from(value: GroupId) -> Self {
+impl From<EntraGroupId> for PrincipalId {
+    fn from(value: EntraGroupId) -> Self {
         Self::GroupId(value)
     }
 }
-impl From<ServicePrincipalId> for PrincipalId {
-    fn from(value: ServicePrincipalId) -> Self {
+impl From<EntraServicePrincipalId> for PrincipalId {
+    fn from(value: EntraServicePrincipalId) -> Self {
         Self::ServicePrincipalId(value)
     }
 }
@@ -101,18 +101,18 @@ impl From<&Uuid> for PrincipalId {
         Self::Unknown(*value)
     }
 }
-impl From<&UserId> for PrincipalId {
-    fn from(value: &UserId) -> Self {
+impl From<&EntraUserId> for PrincipalId {
+    fn from(value: &EntraUserId) -> Self {
         Self::UserId(*value)
     }
 }
-impl From<&GroupId> for PrincipalId {
-    fn from(value: &GroupId) -> Self {
+impl From<&EntraGroupId> for PrincipalId {
+    fn from(value: &EntraGroupId) -> Self {
         Self::GroupId(*value)
     }
 }
-impl From<&ServicePrincipalId> for PrincipalId {
-    fn from(value: &ServicePrincipalId) -> Self {
+impl From<&EntraServicePrincipalId> for PrincipalId {
+    fn from(value: &EntraServicePrincipalId) -> Self {
         Self::ServicePrincipalId(*value)
     }
 }

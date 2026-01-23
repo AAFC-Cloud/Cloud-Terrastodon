@@ -22,6 +22,11 @@
 - Change `--log-file` to append instead of truncate
 - Add `--log-level` alias for `--log-filter`
 - Rename `User` to `EntraUser`
+- Rename `UserId` to `EntraUserId`
+- Rename `Group` to `EntraGroup`
+- Rename `GroupId` to `EntraGroupId`
+- Rename `ServicePrincipal` to `EntraServicePrincipal`
+- Rename `ServicePrincipalId` to `EntraServicePrincipalId`
 
 # v0.32.0
 

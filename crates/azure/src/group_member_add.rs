@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::prelude::GroupId;
+use cloud_terrastodon_azure_types::prelude::EntraGroupId;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -9,12 +9,12 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 pub struct GroupMemberAddRequest {
-    pub group_id: GroupId,
+    pub group_id: EntraGroupId,
     pub member_id: PrincipalId,
 }
 
 pub fn add_group_member(
-    group_id: impl Into<GroupId>,
+    group_id: impl Into<EntraGroupId>,
     member_id: impl Into<PrincipalId>,
 ) -> GroupMemberAddRequest {
     GroupMemberAddRequest {

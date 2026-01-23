@@ -1,9 +1,9 @@
 use crate::prelude::fetch_all_security_groups;
-use cloud_terrastodon_azure_types::prelude::Group;
+use cloud_terrastodon_azure_types::prelude::EntraGroup;
 use cloud_terrastodon_user_input::Choice;
 use itertools::Itertools;
 
-pub async fn get_security_group_choices() -> eyre::Result<Vec<Choice<Group>>> {
+pub async fn get_security_group_choices() -> eyre::Result<Vec<Choice<EntraGroup>>> {
     let security_groups = fetch_all_security_groups().await?;
     let choices = security_groups
         .into_iter()

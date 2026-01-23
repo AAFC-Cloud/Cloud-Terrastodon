@@ -1,6 +1,6 @@
-use crate::prelude::Group;
+use crate::prelude::EntraGroup;
 use crate::prelude::PrincipalId;
-use crate::prelude::ServicePrincipal;
+use crate::prelude::EntraServicePrincipal;
 use crate::prelude::EntraUser;
 use serde::Deserialize;
 use serde::Serialize;
@@ -14,9 +14,9 @@ pub enum Principal {
     #[serde(rename = "#microsoft.graph.user")]
     User(EntraUser),
     #[serde(rename = "#microsoft.graph.group")]
-    Group(Group),
+    Group(EntraGroup),
     #[serde(rename = "#microsoft.graph.servicePrincipal")]
-    ServicePrincipal(Box<ServicePrincipal>),
+    ServicePrincipal(Box<EntraServicePrincipal>),
     // #[serde(rename = "#microsoft.graph.device")]
     // Device(Value),
 }
@@ -25,13 +25,13 @@ impl From<EntraUser> for Principal {
         Self::User(value)
     }
 }
-impl From<Group> for Principal {
-    fn from(value: Group) -> Self {
+impl From<EntraGroup> for Principal {
+    fn from(value: EntraGroup) -> Self {
         Self::Group(value)
     }
 }
-impl From<ServicePrincipal> for Principal {
-    fn from(value: ServicePrincipal) -> Self {
+impl From<EntraServicePrincipal> for Principal {
+    fn from(value: EntraServicePrincipal) -> Self {
         Self::ServicePrincipal(Box::new(value))
     }
 }
@@ -70,13 +70,13 @@ impl Principal {
             _ => None,
         }
     }
-    pub fn as_group(&self) -> Option<&Group> {
+    pub fn as_group(&self) -> Option<&EntraGroup> {
         match self {
             Principal::Group(group) => Some(group),
             _ => None,
         }
     }
-    pub fn as_service_principal(&self) -> Option<&ServicePrincipal> {
+    pub fn as_service_principal(&self) -> Option<&EntraServicePrincipal> {
         match self {
             Principal::ServicePrincipal(service_principal) => Some(service_principal),
             _ => None,
@@ -101,7 +101,7 @@ impl std::fmt::Display for Principal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::user_id::UserId;
+    use crate::user_id::EntraUserId;
     use serde_json::Value;
 
     #[test]
@@ -110,7 +110,7 @@ mod tests {
             business_phones: vec![],
             display_name: "User, Fake".to_string(),
             given_name: Some("User".to_string()),
-            id: UserId::new(Uuid::nil()),
+            id: EntraUserId::new(Uuid::nil()),
             job_title: None,
             mail: None,
             mobile_phone: None,

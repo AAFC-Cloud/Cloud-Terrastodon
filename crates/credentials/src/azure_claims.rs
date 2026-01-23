@@ -1,7 +1,7 @@
 use chrono::DateTime;
 use chrono::Local;
 use cloud_terrastodon_azure_types::prelude::AppId;
-use cloud_terrastodon_azure_types::prelude::GroupId;
+use cloud_terrastodon_azure_types::prelude::EntraGroupId;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_azure_types::prelude::TenantId;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
@@ -46,7 +46,7 @@ pub struct AzureClaims {
     #[serde(rename = "given_name")]
     pub given_name: String,
     #[serde(rename = "groups")]
-    pub groups: Vec<GroupId>,
+    pub groups: Vec<EntraGroupId>,
     #[serde(rename = "idtyp")]
     pub identity_type: String,
     #[serde(rename = "ipaddr")]

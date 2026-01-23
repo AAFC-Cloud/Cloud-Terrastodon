@@ -1,5 +1,5 @@
 use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::GroupId;
+use cloud_terrastodon_azure_types::prelude::EntraGroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -8,10 +8,10 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct GroupOwnersListRequest {
-    pub group_id: GroupId,
+    pub group_id: EntraGroupId,
 }
 
-pub fn fetch_group_owners(group_id: GroupId) -> GroupOwnersListRequest {
+pub fn fetch_group_owners(group_id: EntraGroupId) -> GroupOwnersListRequest {
     GroupOwnersListRequest { group_id }
 }
 

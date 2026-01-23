@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure_types::prelude::ScopeImpl;
-use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
+use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::TenantId;
 use cloud_terrastodon_azure_types::serde_helpers::deserialize_none_if_empty_string;
 use compact_str::CompactString;
@@ -19,7 +19,7 @@ pub enum AzureDevOpsServiceEndpointAuthorization {
     Other(serde_json::Value),
 }
 impl AzureDevOpsServiceEndpointAuthorization {
-    pub fn service_principal_id(&self) -> Option<&ServicePrincipalId> {
+    pub fn service_principal_id(&self) -> Option<&EntraServicePrincipalId> {
         match self {
             AzureDevOpsServiceEndpointAuthorization::ServicePrincipal(data) => {
                 Some(&data.service_principal_id)
@@ -40,7 +40,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationServicePrincipal {
     pub authentication_type:
         AzureDevOpsServiceEndpointAuthorizationServicePrincipalAuthenticationType,
     #[serde(rename = "serviceprincipalid")]
-    pub service_principal_id: ServicePrincipalId,
+    pub service_principal_id: EntraServicePrincipalId,
     #[serde(rename = "tenantId")]
     #[serde(alias = "tenantid")]
     pub tenant_id: TenantId,
@@ -70,7 +70,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
     #[serde(alias = "serviceprincipalid")]
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_none_if_empty_string")]
-    pub service_principal_id: Option<ServicePrincipalId>,
+    pub service_principal_id: Option<EntraServicePrincipalId>,
     #[serde(rename = "tenantId")]
     #[serde(alias = "tenantid")]
     pub tenant_id: TenantId,

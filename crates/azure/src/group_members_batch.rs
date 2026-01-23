@@ -1,7 +1,7 @@
 use crate::prelude::GroupMembersListRequest;
 use crate::prelude::MicrosoftGraphBatchRequest;
 use crate::prelude::MicrosoftGraphResponse;
-use cloud_terrastodon_azure_types::prelude::GroupId;
+use cloud_terrastodon_azure_types::prelude::EntraGroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -11,13 +11,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub struct GroupMembersListBatchRequest {
-    pub group_ids: Vec<GroupId>,
+    pub group_ids: Vec<EntraGroupId>,
 }
 
 /// TODO! This does n't auto fetch nextLink stuff :(
 #[deprecated = "This function does not handle pagination yet."]
 pub fn fetch_group_members_batch(
-    group_ids: impl IntoIterator<Item = GroupId>,
+    group_ids: impl IntoIterator<Item = EntraGroupId>,
 ) -> GroupMembersListBatchRequest {
     GroupMembersListBatchRequest {
         group_ids: group_ids.into_iter().collect(),
@@ -26,7 +26,7 @@ pub fn fetch_group_members_batch(
 
 #[async_trait]
 impl CacheableCommand for GroupMembersListBatchRequest {
-    type Output = HashMap<GroupId, Vec<Principal>>;
+    type Output = HashMap<EntraGroupId, Vec<Principal>>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([

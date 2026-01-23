@@ -2,8 +2,8 @@
 use cloud_terrastodon_azure_types::prelude::ConsentType;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
-use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
-use cloud_terrastodon_azure_types::prelude::UserId;
+use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
+use cloud_terrastodon_azure_types::prelude::EntraUserId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -54,9 +54,9 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
 cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantListRequest);
 
 pub async fn create_oauth2_permission_grant(
-    resource_id: ServicePrincipalId,
-    client_id: ServicePrincipalId,
-    user_id: UserId,
+    resource_id: EntraServicePrincipalId,
+    client_id: EntraServicePrincipalId,
+    user_id: EntraUserId,
     scope: String,
 ) -> eyre::Result<OAuth2PermissionGrant> {
     info!(

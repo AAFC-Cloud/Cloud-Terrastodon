@@ -1,4 +1,4 @@
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct ServicePrincipalId(uuid::Uuid);
+pub struct EntraServicePrincipalId(uuid::Uuid);
 
-crate::impl_uuid_newtype!(ServicePrincipalId);
+crate::impl_uuid_newtype!(EntraServicePrincipalId);

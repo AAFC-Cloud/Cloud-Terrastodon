@@ -1,6 +1,6 @@
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
 use clap::Args;
-use cloud_terrastodon_azure::prelude::GroupId;
+use cloud_terrastodon_azure::prelude::EntraGroupId;
 use cloud_terrastodon_azure::prelude::Principal;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
 use cloud_terrastodon_azure::prelude::remove_group_member;
@@ -75,7 +75,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                 let group_entra_id = group_license_entitlement
                     .group
                     .origin_id
-                    .parse::<GroupId>()?;
+                    .parse::<EntraGroupId>()?;
                 let group_entra_members = fetch_group_members(group_entra_id).await?;
                 let user_in_group = group_entra_members
                     .iter()

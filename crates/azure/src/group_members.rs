@@ -1,6 +1,6 @@
 use crate::prelude::MicrosoftGraphBatchRequestEntry;
 use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::GroupId;
+use cloud_terrastodon_azure_types::prelude::EntraGroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 pub struct GroupMembersListRequest {
-    pub group_id: GroupId,
+    pub group_id: EntraGroupId,
 }
 impl GroupMembersListRequest {
     pub fn url(&self) -> String {
@@ -28,7 +28,7 @@ impl From<GroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<Princ
     }
 }
 
-pub fn fetch_group_members(group_id: GroupId) -> GroupMembersListRequest {
+pub fn fetch_group_members(group_id: EntraGroupId) -> GroupMembersListRequest {
     GroupMembersListRequest { group_id }
 }
 

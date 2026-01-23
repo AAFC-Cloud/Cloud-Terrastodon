@@ -1,5 +1,5 @@
 use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
+use cloud_terrastodon_azure_types::prelude::EntraServicePrincipal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -16,7 +16,7 @@ pub fn fetch_all_service_principals() -> ServicePrincipalListRequest {
 
 #[async_trait]
 impl CacheableCommand for ServicePrincipalListRequest {
-    type Output = Vec<ServicePrincipal>;
+    type Output = Vec<EntraServicePrincipal>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
@@ -33,7 +33,7 @@ impl CacheableCommand for ServicePrincipalListRequest {
             "https://graph.microsoft.com/v1.0/servicePrincipals",
             Some(self.cache_key()),
         );
-        let entries: Vec<ServicePrincipal> = query.fetch_all().await?;
+        let entries: Vec<EntraServicePrincipal> = query.fetch_all().await?;
         debug!("Found {} service principals", entries.len());
         Ok(entries)
     }
@@ -44,11 +44,11 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ServicePrincipalListReque
 #[cfg(test)]
 mod tests {
     use crate::prelude::fetch_all_service_principals;
-    use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
+    use cloud_terrastodon_azure_types::prelude::EntraServicePrincipal;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let found: Vec<ServicePrincipal> = fetch_all_service_principals().await?;
+        let found: Vec<EntraServicePrincipal> = fetch_all_service_principals().await?;
         println!("Found {} service principals", found.len());
         assert!(found.len() > 10);
         Ok(())

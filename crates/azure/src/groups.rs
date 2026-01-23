@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::prelude::Group;
+use cloud_terrastodon_azure_types::prelude::EntraGroup;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -17,7 +17,7 @@ pub fn fetch_all_groups() -> GroupListRequest {
 
 #[async_trait]
 impl CacheableCommand for GroupListRequest {
-    type Output = Vec<Group>;
+    type Output = Vec<EntraGroup>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter(["az", "ad", "group", "list"]))
@@ -28,7 +28,7 @@ impl CacheableCommand for GroupListRequest {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["ad", "group", "list", "--output", "json"]);
         cmd.cache(self.cache_key());
-        let rtn: Vec<Group> = cmd.run().await?;
+        let rtn: Vec<EntraGroup> = cmd.run().await?;
         debug!("Found {} groups", rtn.len());
         Ok(rtn)
     }

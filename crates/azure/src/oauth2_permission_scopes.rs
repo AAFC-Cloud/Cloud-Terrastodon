@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionScope;
-use cloud_terrastodon_azure_types::prelude::ServicePrincipalId;
+use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -9,11 +9,11 @@ use std::path::PathBuf;
 use tracing::info;
 
 pub struct OAuth2PermissionScopesListRequest {
-    pub service_principal_id: ServicePrincipalId,
+    pub service_principal_id: EntraServicePrincipalId,
 }
 
 pub fn fetch_oauth2_permission_scopes(
-    service_principal_id: ServicePrincipalId,
+    service_principal_id: EntraServicePrincipalId,
 ) -> OAuth2PermissionScopesListRequest {
     OAuth2PermissionScopesListRequest {
         service_principal_id,

@@ -3,7 +3,7 @@ use crate::prelude::fetch_all_users;
 use crate::prelude::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure_types::prelude::ConsentType;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
-use cloud_terrastodon_azure_types::prelude::ServicePrincipal;
+use cloud_terrastodon_azure_types::prelude::EntraServicePrincipal;
 use cloud_terrastodon_azure_types::prelude::EntraUser;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -18,7 +18,7 @@ use tokio::try_join;
 #[derive(Debug)]
 pub struct Grant {
     pub grant: OAuth2PermissionGrant,
-    pub service_principal: ServicePrincipal,
+    pub service_principal: EntraServicePrincipal,
     pub target: Target,
 }
 #[derive(Debug)]

@@ -1,5 +1,5 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::GroupId;
+use cloud_terrastodon_azure::prelude::EntraGroupId;
 use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::remove_group_member;
 use eyre::Result;
@@ -10,7 +10,7 @@ use tracing::info;
 pub struct AzureEntraGroupMemberRemoveArgs {
     /// Entra group id (GUID).
     #[arg(long = "group-id")]
-    pub group_id: GroupId,
+    pub group_id: EntraGroupId,
 
     /// Principal id to remove from the group (user/service-principal/group GUID).
     #[arg(long = "member-id")]

@@ -1,8 +1,8 @@
 use crate::all_or::AllOr;
 use crate::prelude::ConditionalAccessNamedLocationId;
 use crate::prelude::ConditionalAccessPolicyId;
-use crate::prelude::GroupId;
-use crate::prelude::UserId;
+use crate::prelude::EntraGroupId;
+use crate::prelude::EntraUserId;
 use chrono::DateTime;
 use chrono::Utc;
 use compact_str::CompactString;
@@ -62,10 +62,10 @@ pub struct ConditionalAccessPolicyConditionsApplications {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsUsers {
-    pub include_users: Vec<AllOr<UserId>>,
-    pub exclude_users: Vec<AllOr<UserId>>,
-    pub include_groups: Vec<AllOr<GroupId>>,
-    pub exclude_groups: Vec<AllOr<GroupId>>,
+    pub include_users: Vec<AllOr<EntraUserId>>,
+    pub exclude_users: Vec<AllOr<EntraUserId>>,
+    pub include_groups: Vec<AllOr<EntraGroupId>>,
+    pub exclude_groups: Vec<AllOr<EntraGroupId>>,
     pub include_roles: Vec<AllOr<Uuid>>, // TODO: dedicated type for entra role definition IDs
     pub exclude_roles: Vec<AllOr<Uuid>>, // TODO: dedicated type for entra role definition IDs
     pub include_guests_or_external_users: Option<Value>,

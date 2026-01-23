@@ -1,4 +1,4 @@
-use crate::prelude::ServicePrincipalId;
+use crate::prelude::EntraServicePrincipalId;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -7,7 +7,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct ServicePrincipal {
+pub struct EntraServicePrincipal {
     #[serde(rename = "accountEnabled")]
     pub account_enabled: bool,
     #[serde(rename = "addIns")]
@@ -38,7 +38,7 @@ pub struct ServicePrincipal {
     #[serde(rename = "displayName")]
     pub display_name: String,
     pub homepage: Option<String>,
-    pub id: ServicePrincipalId,
+    pub id: EntraServicePrincipalId,
     pub info: Option<Value>,
     #[serde(rename = "keyCredentials")]
     pub key_credentials: Vec<ServicePrincipalKeyCredential>,

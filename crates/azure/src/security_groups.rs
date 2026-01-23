@@ -1,5 +1,5 @@
 use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::Group;
+use cloud_terrastodon_azure_types::prelude::EntraGroup;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -17,7 +17,7 @@ pub fn fetch_all_security_groups() -> SecurityGroupListRequest {
 
 #[async_trait]
 impl CacheableCommand for SecurityGroupListRequest {
-    type Output = Vec<Group>;
+    type Output = Vec<EntraGroup>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey {
@@ -32,7 +32,7 @@ impl CacheableCommand for SecurityGroupListRequest {
             "https://graph.microsoft.com/v1.0/groups?$select=id,displayName,description,securityEnabled,isAssignableToRole&$filter=securityEnabled eq true",
             Some(self.cache_key()),
         );
-        let groups: Vec<Group> = query.fetch_all().await?;
+        let groups: Vec<EntraGroup> = query.fetch_all().await?;
         debug!("Found {} security groups", groups.len());
         Ok(groups)
     }
@@ -44,11 +44,11 @@ cloud_terrastodon_command::impl_cacheable_into_future!(SecurityGroupListRequest)
 mod tests {
     use super::*;
     use crate::prelude::fetch_all_security_groups;
-    use cloud_terrastodon_azure_types::prelude::Group;
+    use cloud_terrastodon_azure_types::prelude::EntraGroup;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let groups: Vec<Group> = fetch_all_security_groups().await?;
+        let groups: Vec<EntraGroup> = fetch_all_security_groups().await?;
         println!("Found {} groups", groups.len());
         assert!(groups.len() > 1);
         Ok(())

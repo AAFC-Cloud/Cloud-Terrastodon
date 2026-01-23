@@ -1,4 +1,4 @@
-use crate::user_id::UserId;
+use crate::user_id::EntraUserId;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::prelude::AzureAdResourceBlockKind;
 use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
@@ -16,7 +16,7 @@ pub struct EntraUser {
     pub display_name: String,
     #[serde(rename = "givenName")]
     pub given_name: Option<String>,
-    pub id: UserId,
+    pub id: EntraUserId,
     #[serde(rename = "jobTitle")]
     pub job_title: Option<String>,
     pub mail: Option<String>,
