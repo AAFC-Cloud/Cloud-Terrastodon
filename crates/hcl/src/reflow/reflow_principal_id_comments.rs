@@ -85,7 +85,7 @@ mod test {
         let mut noise = Unstructured::new(&raw);
         let mut user = User::arbitrary(&mut noise)?;
         user.user_principal_name = "first.last@agr.gc.ca".to_string();
-        let user_id = user.id.clone();
+        let user_id = user.id;
 
         // Create principal collection
         let principal_collection = PrincipalCollection::new(vec![Principal::User(user)]);
@@ -133,11 +133,11 @@ mod test {
         let mut noise = Unstructured::new(&raw);
         let mut user1 = User::arbitrary(&mut noise)?;
         user1.user_principal_name = "first.last@agr.gc.ca".to_string();
-        let user_id1 = user1.id.clone();
+        let user_id1 = user1.id;
 
         let mut user2 = User::arbitrary(&mut noise)?;
         user2.user_principal_name = "hot.rod@agr.gc.ca".to_string();
-        let user_id2 = user2.id.clone();
+        let user_id2 = user2.id;
 
         // Create principal collection
         let principal_collection =
@@ -186,11 +186,11 @@ mod test {
         let mut noise = Unstructured::new(&raw);
         let mut user1 = User::arbitrary(&mut noise)?;
         user1.user_principal_name = "first.last@agr.gc.ca".to_string();
-        let user_id1 = user1.id.clone();
+        let user_id1 = user1.id;
 
         let mut user2 = User::arbitrary(&mut noise)?;
         user2.user_principal_name = "hot.rod@agr.gc.ca".to_string();
-        let user_id2 = user2.id.clone();
+        let user_id2 = user2.id;
 
         // Create principal collection
         let principal_collection =
@@ -245,7 +245,7 @@ mod test {
         let mut noise = Unstructured::new(&raw);
         let mut user = User::arbitrary(&mut noise)?;
         user.user_principal_name = "first.last@agr.gc.ca".to_string();
-        let user_id = user.id.clone();
+        let user_id = user.id;
 
         // Create principal collection
         let principal_collection = PrincipalCollection::new(vec![Principal::User(user)]);
@@ -293,11 +293,11 @@ mod test {
         let mut noise = Unstructured::new(&raw);
         let mut user1 = User::arbitrary(&mut noise)?;
         user1.user_principal_name = "first.last@agr.gc.ca".to_string();
-        let user_id1 = user1.id.clone();
+        let user_id1 = user1.id;
 
         let mut user2 = User::arbitrary(&mut noise)?;
         user2.user_principal_name = "hot.rod@agr.gc.ca".to_string();
-        let user_id2 = user2.id.clone();
+        let user_id2 = user2.id;
 
         // Create principal collection
         let principal_collection =

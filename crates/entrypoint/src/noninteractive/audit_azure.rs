@@ -112,26 +112,25 @@ pub async fn audit_azure() -> eyre::Result<()> {
         .map(|resource| (resource.id.expanded_form(), &resource.tags))
         .collect::<HashMap<_, _>>();
     for resource in resource_tags.keys() {
-        let mut chunky: &str = &resource;
+        let mut chunky: &str = resource;
         while let Some((parent, _)) = chunky.rsplit_once("/") {
             if let Some(parent_tags) = resource_tags.get(parent) {
                 if let Some(resource_tags) = resource_tags.get(resource) {
                     for (tag_key, parent_tag_value) in parent_tags.iter() {
-                        if let Some(resource_tag_value) = resource_tags.get(tag_key) {
-                            if resource_tag_value != parent_tag_value {
-                                total_problems += 1;
-                                let msg =
-                                    "Resource tag value does not match parent resource tag value";
-                                warn!(
-                                    resource = %resource,
-                                    parent = %parent,
-                                    tag_key = %tag_key,
-                                    resource_tag_value = %resource_tag_value,
-                                    parent_tag_value = %parent_tag_value,
-                                    "{}", msg,
-                                );
-                                *message_counts.entry(msg).or_insert(0) += 1;
-                            }
+                        if let Some(resource_tag_value) = resource_tags.get(tag_key)
+                            && resource_tag_value != parent_tag_value
+                        {
+                            total_problems += 1;
+                            let msg = "Resource tag value does not match parent resource tag value";
+                            warn!(
+                                resource = %resource,
+                                parent = %parent,
+                                tag_key = %tag_key,
+                                resource_tag_value = %resource_tag_value,
+                                parent_tag_value = %parent_tag_value,
+                                "{}", msg,
+                            );
+                            *message_counts.entry(msg).or_insert(0) += 1;
                         }
                     }
                 }

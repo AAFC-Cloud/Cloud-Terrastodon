@@ -352,24 +352,23 @@ where
         && !formatted.ends_with("days")
         && !formatted.ends_with("months")
         && !formatted.ends_with("years")
+        && let Some(pos) = formatted.rfind(' ')
     {
-        if let Some(pos) = formatted.rfind(' ') {
-            formatted.truncate(pos);
-        }
+        formatted.truncate(pos);
     }
 
     // Remove minutes if present (ends with 'm')
-    if formatted.ends_with('m') {
-        if let Some(pos) = formatted.rfind(' ') {
-            formatted.truncate(pos);
-        }
+    if formatted.ends_with('m')
+        && let Some(pos) = formatted.rfind(' ')
+    {
+        formatted.truncate(pos);
     }
 
     // Remove hours if present (ends with 'h')
-    if formatted.ends_with('h') {
-        if let Some(pos) = formatted.rfind(' ') {
-            formatted.truncate(pos);
-        }
+    if formatted.ends_with('h')
+        && let Some(pos) = formatted.rfind(' ')
+    {
+        formatted.truncate(pos);
     }
 
     Ok(formatted)

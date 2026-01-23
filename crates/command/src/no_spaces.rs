@@ -153,7 +153,7 @@ mod tests {
     fn test_string_ref_type() {
         let input = String::from("A B C");
         let expected = "A_B_C";
-        assert_eq!((&input).no_spaces(), expected);
+        assert_eq!(input.no_spaces(), expected);
     }
 
     #[test]
@@ -167,7 +167,7 @@ mod tests {
     fn test_compact_string_ref_type() {
         let input = CompactString::new("  Compact String  ");
         let expected = "Compact_String";
-        assert_eq!((&input).no_spaces(), expected);
+        assert_eq!(input.no_spaces(), expected);
     }
 
     #[test]

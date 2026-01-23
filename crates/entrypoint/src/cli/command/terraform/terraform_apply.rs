@@ -39,10 +39,9 @@ impl TerraformApplyArgs {
 
         // Verify the plan file exists
         let plan_file_path = self.source_dir.join(plan_file);
-        if tokio::fs::try_exists(&plan_file_path)
+        if !tokio::fs::try_exists(&plan_file_path)
             .await
             .unwrap_or_default()
-            != true
         {
             bail!(
                 "Terraform plan file not found: {}",
@@ -105,7 +104,7 @@ impl TerraformApplyArgs {
             match requirement {
                 RequiredPermission::Entra(action) => {
                     for (_role_assignment, role_definition) in &current_user_rbac {
-                        if role_definition.satisfies(&[action.clone()]) {
+                        if role_definition.satisfies(std::slice::from_ref(action)) {
                             *satisfied = true;
                             debug!(
                                 "Requirement {:?} satisfied by role {}",
