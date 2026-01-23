@@ -109,16 +109,17 @@ impl<T> MicrosoftGraphBatchRequestEntry<T> {
     /// We want the ID to be consistent such that caching change detection doesn't get unnecessarily invalidated.
     pub fn new_get(id: String, url: String) -> Self {
         MicrosoftGraphBatchRequestEntry {
-            id: id,
+            id,
             method: Method::GET,
             url: Self::prepare_url(url),
             headers: HashMap::new(),
             body: None,
         }
     }
-    
+
     pub fn prepare_url(url: String) -> String {
-        url.trim_start_matches("https://graph.microsoft.com/v1.0").to_string()
+        url.trim_start_matches("https://graph.microsoft.com/v1.0")
+            .to_string()
     }
 }
 

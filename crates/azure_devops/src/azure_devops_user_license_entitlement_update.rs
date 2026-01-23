@@ -1,7 +1,7 @@
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseRule;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsUserId;
 use cloud_terrastodon_azure_devops_types::prelude::LastAccessedDate;

@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -20,7 +20,9 @@ pub fn fetch_azure_devops_user_license_entitlements<'a>(
 }
 
 #[async_trait]
-impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsUserLicenseEntitlementsRequest<'a> {
+impl<'a> cloud_terrastodon_command::CacheableCommand
+    for AzureDevOpsUserLicenseEntitlementsRequest<'a>
+{
     type Output = Vec<AzureDevOpsUserLicenseEntitlement>;
 
     fn cache_key(&self) -> CacheKey {

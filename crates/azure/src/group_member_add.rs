@@ -1,4 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::{GroupId, PrincipalId};
+use cloud_terrastodon_azure_types::prelude::GroupId;
+use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -12,8 +13,14 @@ pub struct GroupMemberAddRequest {
     pub member_id: PrincipalId,
 }
 
-pub fn add_group_member(group_id: impl Into<GroupId>, member_id: impl Into<PrincipalId>) -> GroupMemberAddRequest {
-    GroupMemberAddRequest { group_id: group_id.into(), member_id: member_id.into() }
+pub fn add_group_member(
+    group_id: impl Into<GroupId>,
+    member_id: impl Into<PrincipalId>,
+) -> GroupMemberAddRequest {
+    GroupMemberAddRequest {
+        group_id: group_id.into(),
+        member_id: member_id.into(),
+    }
 }
 
 #[async_trait]

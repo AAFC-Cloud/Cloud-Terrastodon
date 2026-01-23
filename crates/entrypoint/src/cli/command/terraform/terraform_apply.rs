@@ -1,3 +1,5 @@
+use crate::interactive::prelude::pim_activate_entra;
+use crate::menu::press_enter_to_continue;
 use clap::Args;
 use cloud_terrastodon_azure::prelude::RolePermissionAction;
 use cloud_terrastodon_azure::prelude::UnifiedRoleDefinitionsAndAssignmentsIterTools;
@@ -16,9 +18,6 @@ use std::collections::HashSet;
 use std::ops::Not;
 use std::path::PathBuf;
 use tracing::debug;
-
-use crate::interactive::prelude::pim_activate_entra;
-use crate::menu::press_enter_to_continue;
 
 /// Reflow generated Terraform source files.
 #[derive(Args, Debug, Clone)]

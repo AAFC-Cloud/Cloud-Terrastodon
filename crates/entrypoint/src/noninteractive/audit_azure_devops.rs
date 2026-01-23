@@ -8,9 +8,9 @@ use cloud_terrastodon_azure_devops::prelude::LastAccessedDate;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_member;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_project;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_test_suites;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use itertools::Itertools;
@@ -346,36 +346,39 @@ where
     let std_duration = duration.to_std()?;
     let std_duration = Duration::from_secs(std_duration.as_secs());
     let mut formatted = humantime::format_duration(std_duration).to_string();
-    
+
     // Remove seconds if present (ends with 's')
-    if formatted.ends_with('s') && !formatted.ends_with("days") && !formatted.ends_with("months") && !formatted.ends_with("years") {
+    if formatted.ends_with('s')
+        && !formatted.ends_with("days")
+        && !formatted.ends_with("months")
+        && !formatted.ends_with("years")
+    {
         if let Some(pos) = formatted.rfind(' ') {
             formatted.truncate(pos);
         }
     }
-    
+
     // Remove minutes if present (ends with 'm')
     if formatted.ends_with('m') {
         if let Some(pos) = formatted.rfind(' ') {
             formatted.truncate(pos);
         }
     }
-    
+
     // Remove hours if present (ends with 'h')
     if formatted.ends_with('h') {
         if let Some(pos) = formatted.rfind(' ') {
             formatted.truncate(pos);
         }
     }
-    
+
     Ok(formatted)
 }
 
 #[cfg(test)]
 mod test {
-    use chrono::TimeDelta;
-
     use crate::noninteractive::audit_azure_devops::format_duration_human;
+    use chrono::TimeDelta;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

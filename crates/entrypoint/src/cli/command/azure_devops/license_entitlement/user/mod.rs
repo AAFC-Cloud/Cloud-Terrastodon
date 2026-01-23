@@ -1,12 +1,10 @@
 pub mod list;
-pub mod update;
-pub mod show;
 pub mod revoke;
+pub mod show;
+pub mod update;
 
 pub use list::AzureDevOpsLicenseEntitlementUserListArgs;
-pub use update::{
-    AzureDevOpsLicenseEntitlementUserUpdateArgs,
-    AzureDevOpsLicenseEntitlementUserUpdateTuiArgs,
-};
-pub use show::AzureDevOpsLicenseEntitlementUserShowArgs;
 pub use revoke::AzureDevOpsLicenseEntitlementUserRevokeArgs;
+pub use show::AzureDevOpsLicenseEntitlementUserShowArgs;
+pub use update::AzureDevOpsLicenseEntitlementUserUpdateArgs;
+pub use update::AzureDevOpsLicenseEntitlementUserUpdateTuiArgs;

@@ -31,7 +31,7 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraRoleEligibilitySched
 
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.cache(self.cache_key());
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
+        cmd.args(["rest", "--method", "GET", "--url", url]);
 
         #[derive(Deserialize)]
         struct Response {

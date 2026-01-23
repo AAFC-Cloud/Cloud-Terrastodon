@@ -1,7 +1,7 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::remove_group_member;
 use cloud_terrastodon_azure::prelude::GroupId;
 use cloud_terrastodon_azure::prelude::PrincipalId;
+use cloud_terrastodon_azure::prelude::remove_group_member;
 use eyre::Result;
 use tracing::info;
 

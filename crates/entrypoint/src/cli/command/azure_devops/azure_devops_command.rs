@@ -8,7 +8,8 @@ use crate::cli::azure_devops::repo::AzureDevOpsRepoArgs;
 use crate::cli::azure_devops::service_endpoint::AzureDevOpsServiceEndpointArgs;
 use crate::cli::azure_devops::team::AzureDevOpsTeamArgs;
 use crate::cli::azure_devops::test::AzureDevOpsTestArgs;
-use crate::cli::azure_devops::work_item_query::AzureDevOpsWorkItemQueryArgs;use clap::Subcommand;
+use crate::cli::azure_devops::work_item_query::AzureDevOpsWorkItemQueryArgs;
+use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps-specific commands.

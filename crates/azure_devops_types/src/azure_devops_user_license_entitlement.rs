@@ -89,15 +89,17 @@ impl Serialize for LastAccessedDate {
 }
 #[cfg(test)]
 mod test {
+    use crate::azure_devops_user_license_entitlement;
     use chrono::DateTime;
     use chrono::Utc;
-
-    use crate::azure_devops_user_license_entitlement;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
         let x = serde_json::from_str::<super::LastAccessedDate>(r#""0001-01-01T00:00:00+00:00""#)?;
-        assert_eq!(x, azure_devops_user_license_entitlement::LastAccessedDate::Never);
+        assert_eq!(
+            x,
+            azure_devops_user_license_entitlement::LastAccessedDate::Never
+        );
         Ok(())
     }
 
@@ -106,7 +108,9 @@ mod test {
         let x = serde_json::from_str::<super::LastAccessedDate>(r#""2023-10-05T12:34:56+00:00""#)?;
         assert_eq!(
             x,
-            azure_devops_user_license_entitlement::LastAccessedDate::Some("2023-10-05T12:34:56+00:00".parse::<DateTime<Utc>>()?)
+            azure_devops_user_license_entitlement::LastAccessedDate::Some(
+                "2023-10-05T12:34:56+00:00".parse::<DateTime<Utc>>()?
+            )
         );
         Ok(())
     }

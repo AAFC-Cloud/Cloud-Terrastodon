@@ -1,6 +1,6 @@
+use super::group::AzureEntraGroupArgs;
 use super::service_principal::AzureEntraServicePrincipalArgs;
 use super::user::AzureEntraUserArgs;
-use super::group::AzureEntraGroupArgs;
 use clap::Subcommand;
 use eyre::Result;
 

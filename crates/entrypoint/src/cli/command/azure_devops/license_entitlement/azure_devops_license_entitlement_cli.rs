@@ -1,15 +1,12 @@
+use crate::cli::azure_devops::license_entitlement::group::AzureDevOpsLicenseEntitlementGroupListArgs;
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserListArgs;
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserRevokeArgs;
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserShowArgs;
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateArgs;
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateTuiArgs;
 use clap::Args;
 use clap::Subcommand;
 use eyre::Result;
-
-use crate::cli::azure_devops::license_entitlement::user::{
-    AzureDevOpsLicenseEntitlementUserListArgs,
-    AzureDevOpsLicenseEntitlementUserUpdateArgs,
-    AzureDevOpsLicenseEntitlementUserUpdateTuiArgs,
-    AzureDevOpsLicenseEntitlementUserShowArgs,
-    AzureDevOpsLicenseEntitlementUserRevokeArgs,
-};
-use crate::cli::azure_devops::license_entitlement::group::AzureDevOpsLicenseEntitlementGroupListArgs;
 
 /// Azure DevOps license entitlement-related commands.
 #[derive(Args, Debug, Clone)]

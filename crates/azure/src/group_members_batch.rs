@@ -70,7 +70,8 @@ impl CacheableCommand for GroupMembersListBatchRequest {
         for (group_id, response) in self
             .group_ids
             .into_iter()
-            .zip(batch_response.responses.into_iter()) // Responses are ordered to match requests
+            .zip(batch_response.responses.into_iter())
+        // Responses are ordered to match requests
         {
             let members = response
                 .into_body()
