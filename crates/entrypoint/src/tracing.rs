@@ -1,6 +1,6 @@
 use chrono::Local;
 use eyre::Result;
-use std::fs::File;
+use std::fs::OpenOptions;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -45,7 +45,10 @@ pub fn init_tracing(
             std::fs::create_dir_all(parent)?;
         }
 
-        let file = File::create(&json_log_path)?;
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&json_log_path)?;
         let file = Arc::new(Mutex::new(file));
         let json_writer = {
             let file = Arc::clone(&file);

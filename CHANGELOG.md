@@ -17,6 +17,8 @@
 - Add `ct az devops license-entitlement user revoke --user-id {}` <-- currently just shows what group to remove them from without doing the removal
 - Add `ct az ad group member add --group-id {} --member-id {}` and supporting aspects
 - Add `ct az ad group member remove --group-id {} --member-id {}` and supporting aspects
+- Change `--log-file` to append instead of truncate
+- Add `--log-level` alias for `--log-filter`
 
 # v0.32.0
 

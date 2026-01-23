@@ -9,7 +9,7 @@ pub struct GlobalArgs {
     pub debug: bool,
 
     /// Log level filter directive.
-    #[arg(long, global = true, default_value = "info", value_name = "DIRECTIVE")]
+    #[arg(long, global = true, default_value = "info", value_name = "DIRECTIVE", alias = "log-level")]
     pub log_filter: String,
 
     /// Write structured ndjson logs to this file or directory. If a directory is provided,
