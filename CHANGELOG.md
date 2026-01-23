@@ -15,6 +15,8 @@
 - Fix Microsoft graph helper failing to deserialize error bodies
 - Add cache key support to Microsoft graph helper
 - Add `ct az devops license-entitlement user revoke --user-id {}` <-- currently just shows what group to remove them from without doing the removal
+- Add `ct az ad group member add --group-id {} --member-id {}` and supporting aspects
+- Add `ct az ad group member remove --group-id {} --member-id {}` and supporting aspects
 
 # v0.32.0
 

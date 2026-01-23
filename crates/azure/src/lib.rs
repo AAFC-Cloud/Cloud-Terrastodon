@@ -74,7 +74,11 @@ mod virtual_machine_prices;
 mod virtual_machine_sizes;
 mod virtual_machine_skus;
 mod virtual_network;
+mod group_member_add;
+mod group_member_remove;
 pub mod prelude {
+    pub use crate::group_member_add::*;
+    pub use crate::group_member_remove::*;
     pub use crate::access_token::*;
     pub use crate::accounts::*;
     pub use crate::auth::*;
