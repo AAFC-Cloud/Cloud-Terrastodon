@@ -101,7 +101,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                         user_devops_license = ?user_entitlement.license,
                         group_display_name = %group_license_entitlement.group.display_name,
                         group_origin_id = %group_license_entitlement.group.origin_id,
-                        "User is granted license via this group - remove the user from this group to revoke the license"
+                        "User is granted license via this group - removing the user from this group to revoke the license"
                     );
 
                     remove_group_member(group_entra_id, entra_user.id).await?;

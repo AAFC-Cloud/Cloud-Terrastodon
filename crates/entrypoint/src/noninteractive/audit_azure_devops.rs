@@ -79,6 +79,7 @@ pub async fn audit_azure_devops(
                     user_unique_name = %entitlement.user.unique_name,
                     last_accessed_date = %date.to_rfc3339(),
                     last_accessed_ago = format_duration_human(Utc::now() - date)?,
+                    last_accessed_ago_fr = format_duration_human_fr(Utc::now() - date)?,
                     last_accessed_ago_days = ((Utc::now() - date).num_days()),
                     license = %entitlement.license,
                     status = ?entitlement.status,
@@ -303,6 +304,10 @@ pub async fn audit_azure_devops(
                     .map(|date| format_duration_human(Utc::now() - date).unwrap())
                     .as_deref()
                     .unwrap_or("N/A"),
+                last_used_ago_fr = last_used
+                    .map(|date| format_duration_human_fr(Utc::now() - date).unwrap())
+                    .as_deref()
+                    .unwrap_or("N/A"),
                 last_used_ago_days = last_used.map(|date| (Utc::now() - date).num_days()),
                 license = %test_plan_entitlement.license,
                 status = ?test_plan_entitlement.status,
@@ -371,12 +376,66 @@ where
         formatted.truncate(pos);
     }
 
+    // Ensure there is a space between the number and its unit: "5months" -> "5 months"
+    let mut spaced = String::with_capacity(formatted.len() + 8);
+    let chars: Vec<char> = formatted.chars().collect();
+    for i in 0..chars.len() {
+        spaced.push(chars[i]);
+        // If current char is a digit and the next char is a letter (or µ), insert a space
+        if chars[i].is_ascii_digit() {
+            if i + 1 < chars.len() {
+                let next = chars[i + 1];
+                if !next.is_whitespace() && !next.is_ascii_digit() && (next.is_alphabetic() || next == 'µ') {
+                    spaced.push(' ');
+                }
+            }
+        }
+    }
+
+    // Insert commas between unit and next value: "3 months 12 days" -> "3 months, 12 days"
+    let mut with_commas = String::with_capacity(spaced.len() + 8);
+    let schars: Vec<char> = spaced.chars().collect();
+    let mut i = 0;
+    while i < schars.len() {
+        let c = schars[i];
+        if (c.is_alphabetic() || c == 'µ') && i + 2 < schars.len() && schars[i + 1] == ' ' && schars[i + 2].is_ascii_digit() {
+            with_commas.push(c);
+            with_commas.push(',');
+            with_commas.push(' ');
+            i += 2; // skip original space
+            continue;
+        } else {
+            with_commas.push(c);
+            i += 1;
+        }
+    }
+
+    Ok(with_commas)
+} 
+
+fn format_duration_human_fr<T>(duration: T) -> eyre::Result<String>
+where
+    T: TryInto<TimeDelta>,
+    T::Error: std::error::Error + Send + Sync + 'static,
+{
+    let text = format_duration_human(duration)?;
+
+    // Basic, conservative replacements for french words. We replace plurals first
+    // to avoid partial matches from interfering with singular replacements.
+    let formatted = text
+        .replace("years", "ans")
+        .replace("year", "an")
+        .replace("months", "mois")
+        .replace("month", "mois")
+        .replace("days", "jours")
+        .replace("day", "jour");
+
     Ok(formatted)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::noninteractive::audit_azure_devops::format_duration_human;
+    use crate::noninteractive::audit_azure_devops::{format_duration_human, format_duration_human_fr};
     use chrono::TimeDelta;
 
     #[test]
@@ -385,7 +444,36 @@ mod test {
         let y = humantime::parse_duration(x)?;
         let z = format_duration_human(TimeDelta::from_std(y)?)?;
         println!("{} -> {:?} -> {}", x, y, z);
-        assert_eq!(z, "5months 7days");
+        assert_eq!(z, "5 months, 7 days");
+        Ok(())
+    }
+
+    #[test]
+    pub fn it_works_fr() -> eyre::Result<()> {
+        // simple single-unit
+        let x = "3days";
+        let y = humantime::parse_duration(x)?;
+        let z = format_duration_human_fr(TimeDelta::from_std(y)?)?;
+        println!("{} -> {:?} -> {}", x, y, z);
+        assert_eq!(z, "3jours");
+
+        // months + days, extra smaller units should be removed by the formatter
+        let x2 = "3months 2days 16h 15m 50s";
+        let y2 = humantime::parse_duration(x2)?;
+        let z2 = format_duration_human_fr(TimeDelta::from_std(y2)?)?;
+        println!("{} -> {:?} -> {}", x2, y2, z2);
+        assert_eq!(z2, "3mois 2jours");
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn it_works_commas() -> eyre::Result<()> {
+        let x = "3months 12days 5h";
+        let y = humantime::parse_duration(x)?;
+        let z = format_duration_human(TimeDelta::from_std(y)?)?;
+        println!("{} -> {:?} -> {}", x, y, z);
+        assert_eq!(z, "3 months, 12 days");
         Ok(())
     }
 }
