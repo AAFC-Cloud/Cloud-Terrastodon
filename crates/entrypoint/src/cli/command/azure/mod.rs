@@ -5,6 +5,7 @@ pub mod group;
 pub mod pim;
 pub mod policy;
 pub mod role;
+pub mod subscription;
 pub mod tag;
 pub mod vm;
 

@@ -39,7 +39,8 @@ impl CacheableCommand for SubscriptionListRequest {
             name,
             id,
             tenant_id=tenantId,
-            management_group_ancestors_chain=properties.managementGroupAncestorsChain
+            management_group_ancestors_chain=properties.managementGroupAncestorsChain,
+            tags=tags
     "#};
 
         let subscriptions = ResourceGraphHelper::new(query, Some(self.cache_key()))

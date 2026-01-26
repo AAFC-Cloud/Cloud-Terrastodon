@@ -27,6 +27,8 @@
 - Rename `GroupId` to `EntraGroupId`
 - Rename `ServicePrincipal` to `EntraServicePrincipal`
 - Rename `ServicePrincipalId` to `EntraServicePrincipalId`
+- Add `ct az subscription list` command
+- Add `tags` field to `Subscription` type
 
 # v0.32.0
 

@@ -9,6 +9,7 @@ use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 use std::hash::Hash;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subscription {
@@ -16,6 +17,8 @@ pub struct Subscription {
     pub name: SubscriptionName,
     pub tenant_id: TenantId,
     pub management_group_ancestors_chain: ManagementGroupAncestorsChain,
+    #[serde(default)]
+    pub tags: HashMap<String, String>,
 }
 
 impl AsScope for Subscription {
