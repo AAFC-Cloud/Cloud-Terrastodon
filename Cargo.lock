@@ -1027,6 +1027,7 @@ dependencies = [
  "cloud_terrastodon_credentials",
  "cloud_terrastodon_hcl",
  "cloud_terrastodon_pathing",
+ "cloud_terrastodon_tracing",
  "cloud_terrastodon_ui_egui",
  "cloud_terrastodon_ui_ratatui",
  "cloud_terrastodon_user_input",
@@ -1125,6 +1126,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_tracing"
+version = "0.32.0"
+dependencies = [
+ "chrono",
+ "egui_tracing",
+ "eyre",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "cloud_terrastodon_ui_egui"
 version = "0.32.0"
 dependencies = [
@@ -1134,11 +1146,14 @@ dependencies = [
  "cloud_terrastodon_config",
  "cloud_terrastodon_hcl",
  "cloud_terrastodon_pathing",
+ "cloud_terrastodon_tracing",
  "cloud_terrastodon_user_input",
  "cloud_terrastodon_zombies",
  "crossterm",
  "eframe",
+ "egui-toast",
  "egui_extras",
+ "egui_tracing",
  "eyre",
  "futures",
  "indexmap",
@@ -1776,6 +1791,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-toast"
+version = "0.19.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d70ffb0cc3f04ee54e4ce7a202bbbe2bc10020fa9287d10812cda8c92b033f2"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui-wgpu"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1848,6 +1872,21 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
  "winit",
+]
+
+[[package]]
+name = "egui_tracing"
+version = "0.2.6"
+source = "git+https://github.com/TeamDman/egui_tracing?branch=dev#1042b72161d2462ab8dc89095663456e2f08ad5a"
+dependencies = [
+ "chrono",
+ "egui",
+ "globset",
+ "serde",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -2370,6 +2409,20 @@ dependencies = [
  "khronos_api",
  "log",
  "xml-rs",
+]
+
+[[package]]
+name = "globset"
+version = "0.4.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52dfc19153a48bde0cbd630453615c8151bce3a5adfac7a0aebfbf0a1e1f57e3"
+dependencies = [
+ "aho-corasick",
+ "bstr",
+ "log",
+ "regex-automata",
+ "regex-syntax",
+ "serde",
 ]
 
 [[package]]

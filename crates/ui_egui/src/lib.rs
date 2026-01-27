@@ -15,8 +15,9 @@ pub mod work_tracker;
 pub mod workers;
 
 use tracing::info;
-pub async fn egui_main() -> eyre::Result<()> {
+
+pub async fn egui_main(app_info: String) -> eyre::Result<()> {
     info!("Hello from egui!");
-    run_app::run_app().await?;
+    run_app::run_app(app_info).await?;
     Ok(())
 }

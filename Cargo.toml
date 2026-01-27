@@ -145,6 +145,10 @@ path = "./crates/ui_ratatui"
 version = "0.32.0"        # CT_VERSION
 path = "./crates/ui_egui"
 
+[workspace.dependencies.cloud_terrastodon_tracing]
+version = "0.32.0"            # CT_VERSION
+path = "./crates/tracing"
+
 [workspace.dependencies.cloud_terrastodon_credentials]
 version = "0.32.0"            # CT_VERSION
 path = "./crates/credentials"

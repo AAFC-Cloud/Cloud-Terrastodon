@@ -9,7 +9,7 @@ use tokio::runtime;
 use tokio::task::block_in_place;
 use tracing::info;
 
-pub async fn run_app() -> eyre::Result<()> {
+pub async fn run_app(app_info: String) -> eyre::Result<()> {
     let native_options = NativeOptions {
         persist_window: true,
         persistence_path: Some(AppDir::Config.join("egui_window_state.ron")),
@@ -29,7 +29,7 @@ pub async fn run_app() -> eyre::Result<()> {
                     // This gives us image support:
                     egui_extras::install_image_loaders(&cc.egui_ctx);
                     let app = runtime::Handle::current()
-                        .block_on(async move { MyApp::new(cc, work_tracker2).await })?;
+                        .block_on(async move { MyApp::new(cc, work_tracker2, app_info).await })?;
                     Ok(Box::new(app))
                 }),
             )

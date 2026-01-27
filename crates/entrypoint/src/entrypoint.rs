@@ -1,29 +1,27 @@
 use crate::cli::Cli;
+use crate::cli::CloudTerrastodonCommand;
+use crate::git_revision::GitRevision;
+use crate::git_revision::set_git_revision;
 use crate::prelude::Version;
-use crate::tracing::init_tracing;
+use crate::version::full_version;
+use crate::version::set_version;
 use clap::CommandFactory;
 use clap::FromArgMatches;
+use cloud_terrastodon_tracing::init_tracing;
 use eyre::Result;
 use std::str::FromStr;
 use tracing::level_filters::LevelFilter;
 
-pub fn entrypoint(version: Version) -> Result<()> {
-    // let panic_hook = std::panic::take_hook();
-    // std::panic::set_hook(Box::new(move |info| {
-    //     tracing::error!(
-    //         "Panic encountered at {}",
-    //         info.location()
-    //             .map(|x| x.to_string())
-    //             .unwrap_or("unknown location".to_string())
-    //     );
-    //     panic_hook(info);
-    // }));
+pub fn entrypoint(version: Version, git_rev: GitRevision) -> Result<()> {
+    // Track version information globally
+    set_git_revision(git_rev);
+    set_version(version);
 
     color_eyre::install()?;
 
     // Parse command line arguments
     let mut cmd = Cli::command();
-    cmd = cmd.version(version.to_string());
+    cmd = cmd.version(full_version().to_string());
     let cli = Cli::from_arg_matches(&cmd.get_matches())?;
 
     // Configure backtrace-always
@@ -39,6 +37,7 @@ pub fn entrypoint(version: Version) -> Result<()> {
             false => LevelFilter::from_str(&cli.global_args.log_filter)?,
         },
         cli.global_args.log_file.as_ref(),
+        matches!(cli.command, Some(CloudTerrastodonCommand::Egui(_))),
     )?;
 
     // Configure terminal colour support
