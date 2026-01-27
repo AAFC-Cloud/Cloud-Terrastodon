@@ -5,6 +5,8 @@ use crate::work_tracker::WorkTracker;
 use cloud_terrastodon_azure::prelude::ResourceGroupMap;
 use cloud_terrastodon_azure::prelude::Subscription;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject;
+use cloud_terrastodon_azure::prelude::Resource;
+use std::sync::Arc;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
@@ -28,6 +30,7 @@ pub struct MyApp {
     pub subscriptions: Loadable<Rc<Vec<Subscription>>, eyre::ErrReport>,
     pub azure_devops_projects: Loadable<Rc<Vec<AzureDevOpsProject>>, eyre::ErrReport>,
     pub resource_groups: Loadable<Rc<ResourceGroupMap>, eyre::ErrReport>,
+    pub resources: Loadable<Arc<Vec<Resource>>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,
     pub rx: UnboundedReceiver<AppMessage>,
     pub egui_config: EguiConfig,
@@ -65,6 +68,7 @@ impl MyApp {
             checkboxes: Default::default(),
             subscriptions: Default::default(),
             resource_groups: Default::default(),
+            resources: Default::default(),
             azure_devops_projects: Default::default(),
             tx,
             rx,

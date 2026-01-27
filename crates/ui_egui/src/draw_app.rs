@@ -48,6 +48,54 @@ impl MyApp {
             behavior.set_app(app_ptr);
             app.tiles.ui(behavior, ui);
             behavior.clear_app();
+
+            // Handle pending behavior requests that must be done outside of the tree UI pass
+            use egui_tiles::Tile;
+            use egui_tiles::Container;
+
+            // Add requested Home tabs
+            let add_count = behavior.take_pending_new_home_tabs();
+            if add_count > 0 {
+                for _ in 0..add_count {
+                    let new_pane = app.tiles.tiles.insert_pane(crate::tiles::Pane::Home);
+                    if let Some(root) = app.tiles.root {
+                        if let Some(Tile::Container(Container::Tabs(tabs))) = app.tiles.tiles.get_mut(root) {
+                            tabs.add_child(new_pane);
+                            tabs.set_active(new_pane);
+                        }
+                    }
+                }
+            }
+
+            // Open a resources tab if requested
+            if behavior.take_pending_open_resources_tab() {
+                let new_pane = app.tiles.tiles.insert_pane(crate::tiles::Pane::Resources);
+                if let Some(root) = app.tiles.root {
+                    if let Some(Tile::Container(Container::Tabs(tabs))) = app.tiles.tiles.get_mut(root) {
+                        tabs.add_child(new_pane);
+                        tabs.set_active(new_pane);
+                    }
+                }
+            }
+
+            // Ensure there is at least one Home tab if requested
+            if behavior.take_ensure_home_tab() {
+                if app.tiles.root.is_none() {
+                    let home = app.tiles.tiles.insert_pane(crate::tiles::Pane::Home);
+                    let root = app.tiles.tiles.insert_tab_tile(vec![home]);
+                    app.tiles.root = Some(root);
+                } else if let Some(root) = app.tiles.root {
+                    // Check empty using an immutable borrow first to avoid double mutable borrows.
+                    let need_home = matches!(app.tiles.tiles.get(root), Some(Tile::Container(Container::Tabs(tabs))) if tabs.children.is_empty());
+                    if need_home {
+                        let new_child = app.tiles.tiles.insert_pane(crate::tiles::Pane::Home);
+                        if let Some(Tile::Container(Container::Tabs(tabs_mut))) = app.tiles.tiles.get_mut(root) {
+                            tabs_mut.add_child(new_child);
+                            tabs_mut.set_active(new_child);
+                        }
+                    }
+                }
+            }
         });
 
         // Keep directory pop-out windows for now
