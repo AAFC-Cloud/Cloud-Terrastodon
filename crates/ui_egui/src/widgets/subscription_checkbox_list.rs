@@ -4,7 +4,7 @@ use crate::loadable::Loadable;
 use eframe::egui::Context;
 use eframe::egui::Ui;
 
-pub fn draw_subscription_checkbox_list(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
+pub fn draw_subscription_checkbox_list(app: &mut MyApp, ui: &mut Ui) {
     ui.vertical(|ui| match &app.subscriptions {
         Loadable::NotLoaded => {
             ui.label("Not loaded");
@@ -15,7 +15,7 @@ pub fn draw_subscription_checkbox_list(app: &mut MyApp, ctx: &Context, ui: &mut 
         Loadable::Loaded(subs) => {
             let subs = subs.clone();
             for subscription in subs.iter() {
-                draw_subscription_checkbox(app, ctx, ui, subscription);
+                draw_subscription_checkbox(app, ui, subscription);
             }
         }
         Loadable::Failed(err) => {

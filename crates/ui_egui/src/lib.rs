@@ -10,6 +10,7 @@ pub mod run_app;
 pub mod state_mutator;
 pub mod widgets;
 pub mod windows;
+pub mod tiles;
 pub mod work;
 pub mod work_tracker;
 pub mod workers;

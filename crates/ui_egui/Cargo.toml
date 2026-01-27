@@ -31,5 +31,6 @@ futures = { workspace = true }
 eframe = { version = "0.33.0", features = ["persistence"] }
 egui_extras = { version = "0.33.0", features = ["default", "image"] }
 egui-toast = "0.19.1"
+egui_tiles = "0.14.1"
 egui_tracing = { git = "https://github.com/TeamDman/egui_tracing", branch = "dev" }
 cloud_terrastodon_tracing = { workspace = true }

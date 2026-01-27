@@ -4,6 +4,9 @@ use crate::windows::dir_window::ui_dir_windows;
 use crate::windows::selected_items_window::draw_selected_items_window;
 use crate::windows::starting_points_window::draw_starting_points_window;
 use crate::windows::work_dirs_window::draw_work_dirs_window;
+use eframe::egui::MenuBar;
+use eframe::egui::TopBottomPanel;
+use eframe::egui::Window;
 use tracing::Level;
 use egui_toast::Toast;
 use egui_toast::ToastKind;
@@ -13,8 +16,8 @@ impl MyApp {
         let app = self;
 
         // Top menu bar with About and Logs
-        eframe::egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            eframe::egui::MenuBar::new().ui(ui, |ui| {
+        TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            MenuBar::new().ui(ui, |ui| {
                 // Logs toggle button
                 if ui
                     .button(if app.logs_visible { "Logs (on)" } else { "Logs" })
@@ -37,16 +40,22 @@ impl MyApp {
             });
         });
 
-        // Draw existing windows
-        draw_starting_points_window(app, ctx);
-        draw_selected_items_window(app, ctx);
-        draw_work_dirs_window(app, ctx);
-        ui_file_drag_and_drop(app, ctx);
+        // Draw existing windows as tiles in the central panel
+        eframe::egui::CentralPanel::default().show(ctx, |ui| {
+            // Compute app pointer first, then borrow the behavior.
+            let app_ptr = app as *mut _;
+            let behavior = &mut app.tiles_behavior;
+            behavior.set_app(app_ptr);
+            app.tiles.ui(behavior, ui);
+            behavior.clear_app();
+        });
+
+        // Keep directory pop-out windows for now
         ui_dir_windows(app, ctx);
 
         // About window
         if app.about_open {
-            eframe::egui::Window::new("About")
+            Window::new("About")
                 .resizable(false)
                 .collapsible(false)
                 .anchor(eframe::egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -66,7 +75,7 @@ impl MyApp {
 
         // Logs window (egui_tracing widget)
         if app.logs_visible {
-            eframe::egui::Window::new("Logs")
+            Window::new("Logs")
                 .default_size([800.0, 400.0])
                 .open(&mut app.logs_visible)
                 .show(ctx, |ui| {

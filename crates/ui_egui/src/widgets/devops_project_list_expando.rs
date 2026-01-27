@@ -11,9 +11,9 @@ use eframe::egui::Widget;
 use eframe::egui::collapsing_header::CollapsingState;
 use tracing::debug;
 
-pub fn draw_devops_project_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
+pub fn draw_devops_project_list_expando(app: &mut MyApp, ui: &mut Ui) {
     let mut expando =
-        CollapsingState::load_with_default_open(ctx, "azure devops projects".into(), false);
+        CollapsingState::load_with_default_open(ui.ctx(), "azure devops projects".into(), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
         expando.toggle(ui);
@@ -25,7 +25,7 @@ pub fn draw_devops_project_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut
     expando
         .clone()
         .show_header(ui, |ui| draw_expando_header(app, ui, toggle_key))
-        .body(|ui| draw_expando_body(app, ctx, ui));
+        .body(|ui| draw_expando_body(app, ui));
 }
 
 fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
@@ -62,7 +62,7 @@ fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
     }
 }
 
-fn draw_expando_body(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
+fn draw_expando_body(app: &mut MyApp, ui: &mut Ui) {
     ui.vertical(|ui| match &app.azure_devops_projects {
         Loadable::NotLoaded => {
             ui.label("Not loaded");
@@ -73,7 +73,7 @@ fn draw_expando_body(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
         Loadable::Loaded(subs) => {
             let projects = subs.clone();
             for project in projects.iter() {
-                draw_entry(app, ctx, ui, project);
+                draw_entry(app, ui, project);
             }
         }
         Loadable::Failed(err) => {
@@ -82,7 +82,7 @@ fn draw_expando_body(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
     });
 }
 
-fn draw_entry(app: &mut MyApp, _ctx: &Context, ui: &mut Ui, project: &AzureDevOpsProject) {
+fn draw_entry(app: &mut MyApp, ui: &mut Ui, project: &AzureDevOpsProject) {
     ui.horizontal(|ui| {
         let label = format!("{}", project.name);
         let checked = app.checkbox_for(&project.id);

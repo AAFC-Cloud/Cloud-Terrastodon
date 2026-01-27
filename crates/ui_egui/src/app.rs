@@ -45,6 +45,12 @@ pub struct MyApp {
     pub work_tracker: Rc<WorkTracker>,
     /// Formatted application info (version + revision) shown in About window
     pub app_info: String,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub tiles: egui_tiles::Tree<crate::tiles::Pane>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub tiles_behavior: crate::tiles::TreeBehavior,
 }
 
 impl MyApp {
@@ -74,6 +80,8 @@ impl MyApp {
             last_seen_event_count: event_collector().events().len(),
             work_tracker,
             app_info,
+            tiles: crate::tiles::create_tree(),
+            tiles_behavior: Default::default(),
         })
     }
     pub fn checkbox_for(&mut self, key: impl Hash) -> &mut bool {

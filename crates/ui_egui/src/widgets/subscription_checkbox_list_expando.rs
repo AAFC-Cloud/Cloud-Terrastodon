@@ -10,8 +10,8 @@ use eframe::egui::Ui;
 use eframe::egui::Widget;
 use eframe::egui::collapsing_header::CollapsingState;
 
-pub fn draw_subscription_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut Ui) {
-    let mut expando = CollapsingState::load_with_default_open(ctx, "subscriptions".into(), false);
+pub fn draw_subscription_list_expando(app: &mut MyApp, ui: &mut Ui) {
+    let mut expando = CollapsingState::load_with_default_open(ui.ctx(), "subscriptions".into(), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
         expando.toggle(ui);
@@ -22,7 +22,7 @@ pub fn draw_subscription_list_expando(app: &mut MyApp, ctx: &Context, ui: &mut U
     expando
         .clone()
         .show_header(ui, |ui| draw_header(app, ui, toggle_key))
-        .body(|ui| draw_subscription_checkbox_list(app, ctx, ui));
+        .body(|ui| draw_subscription_checkbox_list(app, ui));
 }
 
 fn draw_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {

@@ -12,11 +12,10 @@ use tracing::debug;
 
 pub fn draw_subscription_checkbox(
     app: &mut MyApp,
-    ctx: &Context,
     ui: &mut Ui,
     subscription: &Subscription,
 ) {
-    let mut expando = CollapsingState::load_with_default_open(ctx, Id::new(subscription.id), false);
+    let mut expando = CollapsingState::load_with_default_open(ui.ctx(), Id::new(subscription.id), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
         expando.toggle(ui);
@@ -30,7 +29,7 @@ pub fn draw_subscription_checkbox(
         .show_header(ui, |ui| {
             draw_header(app, subscription, ui);
         })
-        .body(|ui| draw_body(app, ctx, subscription, ui));
+        .body(|ui| draw_body(app, subscription, ui));
 }
 
 fn draw_header(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
@@ -57,7 +56,7 @@ fn draw_header(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
     });
 }
 
-fn draw_body(app: &mut MyApp, ctx: &Context, subscription: &Subscription, ui: &mut Ui) {
+fn draw_body(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
     match &app.resource_groups {
         Loadable::NotLoaded => {
             ui.label("Not loaded");
@@ -73,7 +72,7 @@ fn draw_body(app: &mut MyApp, ctx: &Context, subscription: &Subscription, ui: &m
                     ui.label("This subscription has no resource groups");
                 } else {
                     for resource_group in resource_groups {
-                        draw_resource_group_checkbox(app, ctx, ui, resource_group);
+                        draw_resource_group_checkbox(app, ui, resource_group);
                     }
                 }
             });

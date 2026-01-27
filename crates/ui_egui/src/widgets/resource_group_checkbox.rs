@@ -7,7 +7,6 @@ use tracing::debug;
 
 pub fn draw_resource_group_checkbox(
     app: &mut MyApp,
-    _ctx: &Context,
     ui: &mut Ui,
     resource_group: &ResourceGroup,
 ) {

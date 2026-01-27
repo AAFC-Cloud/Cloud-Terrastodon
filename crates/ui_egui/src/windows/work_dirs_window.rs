@@ -13,35 +13,11 @@ use std::path::PathBuf;
 use tracing::info;
 
 pub fn draw_work_dirs_window(app: &mut MyApp, ctx: &Context) {
+    // Keep the existing floating-window behavior for backwards compatibility
     let mut dnd_response = None;
 
-    // draw window
     Window::new("TF Work Dirs").show(ctx, |ui| {
-        let frame = Frame::default().inner_margin(4.0);
-        let old = ui.visuals_mut().widgets.inactive.bg_fill;
-        ui.visuals_mut().widgets.inactive.bg_fill = Color32::TRANSPARENT;
-        let (_, dropped_payload) = ui.dnd_drop_zone::<usize, ()>(frame, |ui| {
-            let work_dirs = app.work_dirs_config.work_dirs.clone();
-            if work_dirs.is_empty() {
-                ui.label("There's nothing here!");
-            } else {
-                ui.vertical(|ui| {
-                    for (i, work_dir) in work_dirs.into_iter().enumerate() {
-                        if let Some(response) = ui_work_dir_row(ui, app, i, &work_dir) {
-                            dnd_response = Some(response);
-                        }
-                    }
-                });
-            }
-        });
-        ui.visuals_mut().widgets.inactive.bg_fill = old;
-        if let Some(source_index) = dropped_payload {
-            // Dropped onto the area but not on any one item
-            dnd_response = Some(DNDResponse {
-                source_index: *source_index,
-                destination_index: app.work_dirs_config.work_dirs.len(),
-            });
-        }
+        work_dirs_ui(app, ui, &mut dnd_response);
     });
 
     // handle drag and drop logic
@@ -75,10 +51,41 @@ pub fn draw_work_dirs_window(app: &mut MyApp, ctx: &Context) {
     }
 }
 
+/// Tile-friendly body for the Work Dirs pane
+pub fn work_dirs_ui(app: &mut MyApp, ui: &mut Ui, dnd_response: &mut Option<DNDResponse>) {
+    use eframe::egui::Frame;
+
+    let frame = Frame::default().inner_margin(4.0);
+    let old = ui.visuals_mut().widgets.inactive.bg_fill;
+    ui.visuals_mut().widgets.inactive.bg_fill = Color32::TRANSPARENT;
+    let (_, dropped_payload) = ui.dnd_drop_zone::<usize, ()>(frame, |ui| {
+        let work_dirs = app.work_dirs_config.work_dirs.clone();
+        if work_dirs.is_empty() {
+            ui.label("There's nothing here!");
+        } else {
+            ui.vertical(|ui| {
+                for (i, work_dir) in work_dirs.into_iter().enumerate() {
+                    if let Some(response) = ui_work_dir_row(ui, app, i, &work_dir) {
+                        *dnd_response = Some(response);
+                    }
+                }
+            });
+        }
+    });
+    ui.visuals_mut().widgets.inactive.bg_fill = old;
+    if let Some(source_index) = dropped_payload {
+        // Dropped onto the area but not on any one item
+        *dnd_response = Some(DNDResponse {
+            source_index: *source_index,
+            destination_index: app.work_dirs_config.work_dirs.len(),
+        });
+    }
+}
+
 /// Drag-and-drop response data
-struct DNDResponse {
-    source_index: usize,
-    destination_index: usize,
+pub struct DNDResponse {
+    pub source_index: usize,
+    pub destination_index: usize,
 }
 
 /// Returns the drag-and-drop destination index
