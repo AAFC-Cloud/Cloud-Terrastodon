@@ -1,0 +1,1 @@
+.\make-icon -Source "..\media\logo.png" -Output ".\logo.ico"

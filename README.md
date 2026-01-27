@@ -1,6 +1,6 @@
 <div align="center">
     <h1>☁🐘 Cloud Terrastodon</h1>
-    <img src="logo.png" width="230">
+    <img src="media/logo.png" width="230">
     <br/>
 
 
@@ -28,7 +28,7 @@ Grab the latest version from the [GitHub releases page](https://github.com/AAFC-
 
 By defauilt, the app takes no arguments and enters an interactive terminal user interface.
 
-![A terminal showing a list of commands](./main_menu.png)
+![A terminal showing a list of commands](./media/main_menu.png)
 
 The most helpful commands are "pim activate" and the "browse ..." ones.
 

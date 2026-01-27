@@ -1,6 +1,6 @@
 <div align="center">
     <h1>☁🐘 Nuage Terrastodon</h1>
-    <img src="logo.png" width="230">
+    <img src="media/logo.png" width="230">
     <br/>
 
 ![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fdeepwiki.com%2FAAFC-Cloud%2FCloud-Terrastodon&label=Visiteurs&countColor=%23263759&style=flat) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/AAFC-Cloud/Cloud-Terrastodon)
@@ -26,7 +26,7 @@ Téléchargez la dernière version depuis la [page des publications GitHub](http
 
 Par défaut, l'application ne prend aucun argument et démarre une interface utilisateur de terminal interactive.
 
-![Un terminal affichant une liste de commandes](./main_menu.png)
+![Un terminal affichant une liste de commandes](./media/main_menu.png)
 
 Les commandes les plus utiles sont « pim activate » et celles commençant par « browse ... ».
 
