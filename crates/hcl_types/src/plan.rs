@@ -50,6 +50,7 @@ pub struct TerraformPlanResourceChange {
 
 #[derive(Debug, Deserialize)]
 pub struct TerraformPlanResourceChangeChange {
+    /// <https://developer.hashicorp.com/terraform/internals/json-format#change-representation>
     pub actions: Vec<TerraformChangeAction>,
     pub before: Option<Value>,
     pub after: Option<Value>,
@@ -59,10 +60,13 @@ pub struct TerraformPlanResourceChangeChange {
     pub after_sensitive: serde_json::Map<String, Value>,
 }
 
+/// <https://developer.hashicorp.com/terraform/internals/json-format#change-representation>
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum TerraformChangeAction {
-    Create,
     NoOp,
+    Create,
+    Read,
     Update,
+    Delete,
 }
