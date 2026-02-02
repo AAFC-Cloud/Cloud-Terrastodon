@@ -1,6 +1,7 @@
 use super::terraform_audit::TerraformAuditArgs;
 use super::terraform_reflow::TerraformReflowArgs;
 use super::terraform_source::TerraformSourceArgs;
+use super::terraform_show::TerraformShowArgs;
 use crate::cli::terraform::terraform_apply::TerraformApplyArgs;
 use clap::Subcommand;
 use eyre::Result;
@@ -19,6 +20,8 @@ pub enum TerraformCommand {
     Source(TerraformSourceArgs),
     /// Reflow generated Terraform source files.
     Reflow(TerraformReflowArgs),
+    /// Show a Terraform plan (supports .tfplan or .json)
+    Show(TerraformShowArgs),
     /// Apply Terraform source files.
     Apply(TerraformApplyArgs),
 }
@@ -29,6 +32,7 @@ impl TerraformCommand {
             TerraformCommand::Audit(args) => args.invoke().await,
             TerraformCommand::Source(args) => args.invoke().await,
             TerraformCommand::Reflow(args) => args.invoke().await,
+            TerraformCommand::Show(args) => args.invoke().await,
             TerraformCommand::Apply(args) => args.invoke().await,
         }
     }
