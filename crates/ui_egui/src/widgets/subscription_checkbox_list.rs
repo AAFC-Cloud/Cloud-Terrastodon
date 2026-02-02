@@ -1,7 +1,6 @@
 use super::subscription_checkbox::draw_subscription_checkbox;
 use crate::app::MyApp;
 use crate::loadable::Loadable;
-use eframe::egui::Context;
 use eframe::egui::Ui;
 
 pub fn draw_subscription_checkbox_list(app: &mut MyApp, ui: &mut Ui) {

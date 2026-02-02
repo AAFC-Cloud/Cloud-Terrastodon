@@ -8,10 +8,11 @@ use egui_tiles::TileId;
 use egui_tiles::Tiles;
 use egui_tiles::Tree;
 use egui_tiles::UiResponse;
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt::Debug;
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Pane {
     Home,
     Subscriptions,
@@ -215,7 +216,7 @@ impl Behavior<Pane> for TreeBehavior {
         true
     }
 
-    fn on_tab_close(&mut self, tiles: &mut Tiles<Pane>, tile_id: TileId) -> bool {
+    fn on_tab_close(&mut self, tiles: &mut Tiles<Pane>, _tile_id: TileId) -> bool {
         // If closing this tile would leave no tiles, request the outer code to ensure a Home tab exists.
         if tiles.len() <= 1 {
             self.ensure_home_tab = true;

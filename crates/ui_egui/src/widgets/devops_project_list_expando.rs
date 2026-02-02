@@ -4,7 +4,6 @@ use crate::loadable::Loadable;
 use crate::workers::load_azure_devops_projects::load_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject;
 use eframe::egui::Checkbox;
-use eframe::egui::Context;
 use eframe::egui::Id;
 use eframe::egui::Ui;
 use eframe::egui::Widget;

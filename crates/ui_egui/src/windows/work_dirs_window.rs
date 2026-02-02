@@ -2,7 +2,6 @@ use crate::app::MyApp;
 use eframe::egui::Color32;
 use eframe::egui::Context;
 use eframe::egui::DragAndDrop;
-use eframe::egui::Frame;
 use eframe::egui::Id;
 use eframe::egui::Rect;
 use eframe::egui::Stroke;

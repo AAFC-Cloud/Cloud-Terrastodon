@@ -49,10 +49,8 @@ pub struct MyApp {
     /// Formatted application info (version + revision) shown in About window
     pub app_info: String,
 
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub tiles: egui_tiles::Tree<crate::tiles::Pane>,
 
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub tiles_behavior: crate::tiles::TreeBehavior,
 }
 

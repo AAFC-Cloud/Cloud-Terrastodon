@@ -1,10 +1,8 @@
 use crate::app::MyApp;
 use crate::widgets::devops_project_list_expando::draw_devops_project_list_expando;
 use crate::widgets::subscription_checkbox_list_expando::draw_subscription_list_expando;
-use eframe::egui;
 use eframe::egui::Context;
 use eframe::egui::Id;
-use eframe::egui::ScrollArea;
 use eframe::egui::Window;
 
 pub fn draw_starting_points_window(app: &mut MyApp, ctx: &Context) {
@@ -27,7 +25,6 @@ pub fn draw_starting_points_window(app: &mut MyApp, ctx: &Context) {
 /// Tile-friendly UI for the Starting Points pane
 pub fn starting_points_ui(app: &mut MyApp, ui: &mut eframe::egui::Ui) {
     use eframe::egui::ScrollArea;
-    let ctx = ui.ctx();
     ui.vertical_centered(|ui| {
         ScrollArea::both().show(ui, |ui| {
             draw_subscription_list_expando(app, ui);

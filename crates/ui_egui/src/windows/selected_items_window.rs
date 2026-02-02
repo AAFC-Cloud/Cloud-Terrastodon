@@ -4,9 +4,7 @@ use crate::icons::SUBSCRIPTION_ICON;
 use crate::loadable::Loadable;
 use eframe::egui;
 use eframe::egui::Context;
-use eframe::egui::ScrollArea;
 use eframe::egui::Window;
-use tracing::debug;
 
 pub fn draw_selected_items_window(app: &mut MyApp, ctx: &Context) {
     // Kept for backwards compatibility; still render as a floating window when needed.

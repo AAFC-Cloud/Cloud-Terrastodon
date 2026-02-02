@@ -4,7 +4,6 @@ use crate::icons::SUBSCRIPTION_ICON;
 use crate::loadable::Loadable;
 use crate::workers::load_subscriptions::load_subscriptions;
 use eframe::egui::Checkbox;
-use eframe::egui::Context;
 use eframe::egui::Id;
 use eframe::egui::Ui;
 use eframe::egui::Widget;

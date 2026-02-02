@@ -56,7 +56,6 @@ pub fn ui_file_drag_and_drop(app: &mut MyApp, ctx: &Context) {
 
 /// Tile-friendly UI for file drag-and-drop (uses ui.ctx())
 pub fn file_drag_ui(app: &mut MyApp, ui: &mut eframe::egui::Ui) {
-    let ctx = ui.ctx();
     use egui::Align2;
     use egui::Color32;
     use egui::Id;
