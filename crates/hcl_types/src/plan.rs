@@ -64,4 +64,5 @@ pub struct TerraformPlanResourceChangeChange {
 pub enum TerraformChangeAction {
     Create,
     NoOp,
+    Update,
 }
