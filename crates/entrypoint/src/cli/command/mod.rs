@@ -12,6 +12,7 @@ pub mod pick;
 pub mod ratatui;
 pub mod terraform;
 pub mod write_all_imports;
+pub mod extract_uuid;
 pub mod cache;
 
 use crate::cli::add_work_dir::AddWorkDirArgs;
@@ -28,6 +29,7 @@ use crate::cli::pick::PickArgs;
 use crate::cli::ratatui::RatatuiArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
+use crate::cli::extract_uuid::ExtractUuidArgs;
 use crate::cli::cache::CacheArgs;
 use clap::Subcommand;
 use eyre::Result;
@@ -64,6 +66,8 @@ pub enum CloudTerrastodonCommand {
     /// Perform Azure-specific operations.
     #[command(alias = "az")]
     Azure(AzureArgs),
+    /// Extract UUIDs from text input (use '-' to read from stdin)
+    ExtractUuid(ExtractUuidArgs),
     /// Pick from options supplied on stdin
     Pick(PickArgs),
     /// Inspect and manage the command cache
@@ -86,6 +90,7 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::Terraform(args) => args.invoke().await,
             CloudTerrastodonCommand::AzureDevOps(args) => args.invoke().await,
             CloudTerrastodonCommand::Azure(args) => args.invoke().await,
+            CloudTerrastodonCommand::ExtractUuid(args) => args.invoke().await,
             CloudTerrastodonCommand::Pick(args) => args.invoke().await,
             CloudTerrastodonCommand::Cache(args) => args.invoke().await,
         }

@@ -50,6 +50,7 @@ tracing-subscriber.workspace = true
 compact_str = { workspace = true, features = ["serde"] }
 jsonpath-rust.workspace = true
 jmespath.workspace = true
+uuid.workspace = true
 http.workspace = true
 liquid.workspace = true
 
