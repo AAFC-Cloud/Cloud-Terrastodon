@@ -22,6 +22,7 @@ impl MicrosoftGraphHelper {
         }
     }
 
+    #[track_caller]
     pub async fn fetch_one<T: FromCommandOutput>(self) -> Result<T> {
         // Build command
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
@@ -37,6 +38,7 @@ impl MicrosoftGraphHelper {
     }
 
     /// This doesn't handle 'singleton' responses like https://graph.microsoft.com/v1.0/me
+    #[track_caller]
     pub async fn fetch_all<T: FromCommandOutput>(&self) -> Result<Vec<T>> {
         let mut results = Vec::new();
         let mut next_link = NextLink::Uninitialized;
