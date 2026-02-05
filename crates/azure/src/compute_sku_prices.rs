@@ -39,7 +39,7 @@ impl CacheableCommand for ComputeSkuPricesRequest {
         let url = format!(
             "https://prices.azure.com/api/retail/prices?{filter}&meterRegion='primary'&currencyCode='CAD'",
             filter = format_args!(
-                "$filter=serviceName eq '{service_name}' and armRegionName eq '{location}' and armSkuName eq '{sku}'",
+                "$filter=serviceName eq '{service_name}' and tolower(armRegionName) eq tolower('{location}') and armSkuName eq '{sku}'",
                 service_name = "Virtual Machines",
                 location = self.location,
                 sku = self.sku
