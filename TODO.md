@@ -1,5 +1,10 @@
 # TODO
 
+## Tests
+
+- Update tests to not print details when fetching resources; avoid AI agents seeing our resource info. Just print "Found {} resource groups" instead of printing the names and stuff.
+- Should ensure a `browse` or `list` cli command exists for the tests that will no longer print names and stuff
+
 ## Azure DevOps
 
 Add optional --org-url arg to commands that use an org url to support overriding the default organization url
