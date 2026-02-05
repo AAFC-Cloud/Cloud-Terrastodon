@@ -36,6 +36,7 @@
 - Add `VirtualMachine` and supporting types
 - Add `ct az vm list` command
 - Add `ct az vm browse` command
+- Add `fetch_azure_devops_agent_pools` fn
 
 # v0.32.0
 

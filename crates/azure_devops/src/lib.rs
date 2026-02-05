@@ -1,6 +1,7 @@
 #![feature(impl_trait_in_assoc_type)]
 
 mod azure_devops_agent_packages;
+mod azure_devops_agent_pools;
 mod azure_devops_configure;
 mod azure_devops_group;
 mod azure_devops_group_license_entitlements;
@@ -27,6 +28,7 @@ mod get_pat;
 
 pub mod prelude {
     pub use crate::azure_devops_agent_packages::*;
+    pub use crate::azure_devops_agent_pools::*;
     pub use crate::azure_devops_configure::*;
     pub use crate::azure_devops_group::*;
     pub use crate::azure_devops_group_license_entitlements::*;
