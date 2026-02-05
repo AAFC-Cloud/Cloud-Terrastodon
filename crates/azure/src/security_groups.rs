@@ -29,7 +29,7 @@ impl CacheableCommand for SecurityGroupListRequest {
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching security groups");
         let query = MicrosoftGraphHelper::new(
-            "https://graph.microsoft.com/v1.0/groups?$select=id,displayName,description,securityEnabled,isAssignableToRole&$filter=securityEnabled eq true",
+            "https://graph.microsoft.com/v1.0/groups?$filter=securityEnabled eq true",
             Some(self.cache_key()),
         );
         let groups: Vec<EntraGroup> = query.fetch_all().await?;
