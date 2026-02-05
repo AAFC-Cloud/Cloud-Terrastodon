@@ -52,6 +52,13 @@ impl Principal {
             Principal::ServicePrincipal(service_principal) => &service_principal.display_name,
         }
     }
+    pub fn name(&self) -> &str {
+        match self {
+            Principal::User(user) => &user.user_principal_name,
+            Principal::Group(group) => &group.display_name,
+            Principal::ServicePrincipal(service_principal) => &service_principal.display_name,
+        }
+    }
     pub fn id(&self) -> PrincipalId {
         match self {
             Principal::User(user) => PrincipalId::UserId(user.id),
