@@ -396,8 +396,8 @@ mod test {
             assert_eq!(parsed, expected);
         }
 
-        assert_eq!(expected.to_string(), "canadacentral");
-        assert_eq!(serde_json::to_string(&expected)?, "\"canadacentral\"");
+        assert_eq!(expected.to_string(), "CanadaCentral");
+        assert_eq!(serde_json::to_string(&expected)?, "\"CanadaCentral\"");
         assert_eq!(
             serde_json::from_str::<LocationName>("\"canadaCENTRAL\"")?,
             expected
