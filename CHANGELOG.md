@@ -33,6 +33,9 @@
 - Add `Get-Clipboard | ct extract-uuid -` command to extract UUIDs from text
 - Add missing `pub` on `EntraGroup.description`
 - Add missing fields to `EntraGroup`
+- Add `VirtualMachine` and supporting types
+- Add `ct az vm list` command
+- Add `ct az vm browse` command
 
 # v0.32.0
 
