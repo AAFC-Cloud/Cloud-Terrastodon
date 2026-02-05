@@ -75,6 +75,7 @@ mod users;
 mod virtual_machine_prices;
 mod virtual_machine_sizes;
 mod virtual_machine_skus;
+mod virtual_machines;
 mod virtual_network;
 pub mod prelude {
     pub use crate::access_token::*;
@@ -153,6 +154,7 @@ pub mod prelude {
     pub use crate::virtual_machine_prices::*;
     pub use crate::virtual_machine_sizes::*;
     pub use crate::virtual_machine_skus::*;
+    pub use crate::virtual_machines::*;
     pub use crate::virtual_network::*;
     pub use cloud_terrastodon_azure_types::prelude::*;
 }
