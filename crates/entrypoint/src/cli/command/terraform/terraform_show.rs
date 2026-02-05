@@ -17,7 +17,6 @@ use tracing::info;
 use std::sync::Arc;
 use std::rc::Rc;
 use std::cell::RefCell;
-use cloud_terrastodon_azure::prelude::Principal;
 
 /// Show a Terraform plan or plan JSON as a parsed `TerraformPlan`.
 #[derive(Args, Debug, Clone)]
@@ -111,11 +110,7 @@ impl TerraformShowArgs {
                     .map(|id| {
                         principals
                             .get(id)
-                            .map(|p| match p {
-                                Principal::User(u) => u.user_principal_name.clone(),
-                                Principal::Group(g) => g.display_name.clone(),
-                                Principal::ServicePrincipal(sp) => sp.display_name.clone(),
-                            })
+                            .map(|p| p.name().to_string())
                             .unwrap_or_else(|| id.to_string())
                     })
                     .collect::<Vec<_>>();
@@ -125,11 +120,7 @@ impl TerraformShowArgs {
                     .map(|id| {
                         principals
                             .get(id)
-                            .map(|p| match p {
-                                Principal::User(u) => u.user_principal_name.clone(),
-                                Principal::Group(g) => g.display_name.clone(),
-                                Principal::ServicePrincipal(sp) => sp.display_name.clone(),
-                            })
+                            .map(|p| p.name().to_string())
                             .unwrap_or_else(|| id.to_string())
                     })
                     .collect::<Vec<_>>();
@@ -139,11 +130,7 @@ impl TerraformShowArgs {
                     .map(|id| {
                         principals
                             .get(id)
-                            .map(|p| match p {
-                                Principal::User(u) => u.user_principal_name.clone(),
-                                Principal::Group(g) => g.display_name.clone(),
-                                Principal::ServicePrincipal(sp) => sp.display_name.clone(),
-                            })
+                            .map(|p| p.name().to_string())
                             .unwrap_or_else(|| id.to_string())
                     })
                     .collect::<Vec<_>>();
@@ -153,11 +140,7 @@ impl TerraformShowArgs {
                     .map(|id| {
                         principals
                             .get(id)
-                            .map(|p| match p {
-                                Principal::User(u) => u.user_principal_name.clone(),
-                                Principal::Group(g) => g.display_name.clone(),
-                                Principal::ServicePrincipal(sp) => sp.display_name.clone(),
-                            })
+                            .map(|p| p.name().to_string())
                             .unwrap_or_else(|| id.to_string())
                     })
                     .collect::<Vec<_>>();
