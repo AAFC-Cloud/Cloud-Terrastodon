@@ -2,27 +2,27 @@ use crate::app_message::AppMessage;
 use crate::autosave_info::AutoSaveBehaviour;
 use crate::loadable::Loadable;
 use crate::work_tracker::WorkTracker;
+use cloud_terrastodon_azure::prelude::Resource;
 use cloud_terrastodon_azure::prelude::ResourceGroupMap;
 use cloud_terrastodon_azure::prelude::Subscription;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject;
-use cloud_terrastodon_azure::prelude::Resource;
-use std::sync::Arc;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
+use cloud_terrastodon_tracing::event_collector;
 use eframe::App;
-use eframe::egui::Id;
 use eframe::egui::Align2;
 use eframe::egui::Direction;
+use eframe::egui::Id;
 use egui_toast::Toasts;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::rc::Rc;
+use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
-use cloud_terrastodon_tracing::event_collector; 
 
 pub struct MyApp {
     pub toggle_intents: HashSet<Id>,

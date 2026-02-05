@@ -385,7 +385,10 @@ where
         if chars[i].is_ascii_digit() {
             if i + 1 < chars.len() {
                 let next = chars[i + 1];
-                if !next.is_whitespace() && !next.is_ascii_digit() && (next.is_alphabetic() || next == 'µ') {
+                if !next.is_whitespace()
+                    && !next.is_ascii_digit()
+                    && (next.is_alphabetic() || next == 'µ')
+                {
                     spaced.push(' ');
                 }
             }
@@ -398,7 +401,11 @@ where
     let mut i = 0;
     while i < schars.len() {
         let c = schars[i];
-        if (c.is_alphabetic() || c == 'µ') && i + 2 < schars.len() && schars[i + 1] == ' ' && schars[i + 2].is_ascii_digit() {
+        if (c.is_alphabetic() || c == 'µ')
+            && i + 2 < schars.len()
+            && schars[i + 1] == ' '
+            && schars[i + 2].is_ascii_digit()
+        {
             with_commas.push(c);
             with_commas.push(',');
             with_commas.push(' ');
@@ -411,7 +418,7 @@ where
     }
 
     Ok(with_commas)
-} 
+}
 
 fn format_duration_human_fr<T>(duration: T) -> eyre::Result<String>
 where
@@ -435,7 +442,8 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::noninteractive::audit_azure_devops::{format_duration_human, format_duration_human_fr};
+    use crate::noninteractive::audit_azure_devops::format_duration_human;
+    use crate::noninteractive::audit_azure_devops::format_duration_human_fr;
     use chrono::TimeDelta;
 
     #[test]

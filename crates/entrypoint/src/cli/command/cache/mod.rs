@@ -1,11 +1,11 @@
-pub mod list;
 pub mod clean_tui;
+pub mod list;
 
+use crate::cli::cache::clean_tui::CacheCleanTuiArgs;
+use crate::cli::cache::list::cache_list_cli::CacheListArgs;
 use clap::Args;
 use clap::Subcommand;
 use eyre::Result;
-use crate::cli::cache::list::cache_list_cli::CacheListArgs;
-use crate::cli::cache::clean_tui::CacheCleanTuiArgs;
 
 /// Cache-related commands
 #[derive(Args, Debug, Clone)]

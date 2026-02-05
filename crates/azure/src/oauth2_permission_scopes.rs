@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::OAuth2PermissionScope;
 use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
+use cloud_terrastodon_azure_types::prelude::OAuth2PermissionScope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;

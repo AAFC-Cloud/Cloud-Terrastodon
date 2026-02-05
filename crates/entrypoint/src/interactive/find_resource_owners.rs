@@ -1,5 +1,6 @@
 use crate::menu::press_enter_to_continue;
 use cloud_terrastodon_azure::prelude::EntraGroup;
+use cloud_terrastodon_azure::prelude::EntraServicePrincipal;
 use cloud_terrastodon_azure::prelude::Principal;
 use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::Resource;
@@ -8,7 +9,6 @@ use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::ScopeImpl;
-use cloud_terrastodon_azure::prelude::EntraServicePrincipal;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;

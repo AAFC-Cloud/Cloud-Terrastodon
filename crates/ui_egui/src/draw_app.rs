@@ -3,10 +3,10 @@ use crate::windows::dir_window::ui_dir_windows;
 use eframe::egui::MenuBar;
 use eframe::egui::TopBottomPanel;
 use eframe::egui::Window;
-use tracing::Level;
 use egui_toast::Toast;
 use egui_toast::ToastKind;
 use egui_toast::ToastOptions;
+use tracing::Level;
 impl MyApp {
     pub fn draw_app(&mut self, ctx: &eframe::egui::Context) {
         let app = self;
@@ -16,7 +16,11 @@ impl MyApp {
             MenuBar::new().ui(ui, |ui| {
                 // Logs toggle button
                 if ui
-                    .button(if app.logs_visible { "Logs (on)" } else { "Logs" })
+                    .button(if app.logs_visible {
+                        "Logs (on)"
+                    } else {
+                        "Logs"
+                    })
                     .clicked()
                 {
                     app.logs_visible = !app.logs_visible;
@@ -28,11 +32,14 @@ impl MyApp {
                 }
 
                 // Right-align Quit (if desired) placeholder
-                ui.with_layout(eframe::egui::Layout::right_to_left(eframe::egui::Align::Center), |ui| {
-                    if ui.button("Quit").clicked() {
-                        ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Close);
-                    }
-                });
+                ui.with_layout(
+                    eframe::egui::Layout::right_to_left(eframe::egui::Align::Center),
+                    |ui| {
+                        if ui.button("Quit").clicked() {
+                            ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Close);
+                        }
+                    },
+                );
             });
         });
 
@@ -54,11 +61,9 @@ impl MyApp {
             if add_count > 0 {
                 for _ in 0..add_count {
                     let new_pane = app.tiles.tiles.insert_pane(crate::tiles::Pane::Home);
-                    if let Some(root) = app.tiles.root {
-                        if let Some(Tile::Container(Container::Tabs(tabs))) = app.tiles.tiles.get_mut(root) {
-                            tabs.add_child(new_pane);
-                            tabs.set_active(new_pane);
-                        }
+                    if let Some(root) = app.tiles.root && let Some(Tile::Container(Container::Tabs(tabs))) = app.tiles.tiles.get_mut(root) {
+                        tabs.add_child(new_pane);
+                        tabs.set_active(new_pane);
                     }
                 }
             }
@@ -66,11 +71,9 @@ impl MyApp {
             // Open a resources tab if requested
             if behavior.take_pending_open_resources_tab() {
                 let new_pane = app.tiles.tiles.insert_pane(crate::tiles::Pane::Resources);
-                if let Some(root) = app.tiles.root {
-                    if let Some(Tile::Container(Container::Tabs(tabs))) = app.tiles.tiles.get_mut(root) {
-                        tabs.add_child(new_pane);
-                        tabs.set_active(new_pane);
-                    }
+                if let Some(root) = app.tiles.root && let Some(Tile::Container(Container::Tabs(tabs))) = app.tiles.tiles.get_mut(root) {
+                    tabs.add_child(new_pane);
+                    tabs.set_active(new_pane);
                 }
             }
 
@@ -108,7 +111,7 @@ impl MyApp {
                     ui.vertical_centered(|ui| {
                         ui.heading("cloud_terrastodon_ui_egui");
                         ui.add_space(10.0);
-                        ui.label(format!("{}", app.app_info));
+                        ui.label(app.app_info.to_string());
                         ui.add_space(10.0);
                         ui.label("UI for the Cloud Terrastodon project.");
                         ui.add_space(10.0);
@@ -145,15 +148,12 @@ impl MyApp {
                     .map_or("", std::string::String::as_str)
                     .to_string();
                 app.toasts.add(
-                    Toast::default()
-                        .kind(kind)
-                        .text(message)
-                        .options(
-                            ToastOptions::default()
-                                .duration_in_seconds(5.0)
-                                .show_progress(true)
-                                .show_icon(true),
-                        ),
+                    Toast::default().kind(kind).text(message).options(
+                        ToastOptions::default()
+                            .duration_in_seconds(5.0)
+                            .show_progress(true)
+                            .show_icon(true),
+                    ),
                 );
             }
         }

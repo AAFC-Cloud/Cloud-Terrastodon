@@ -10,13 +10,13 @@ use eyre::OptionExt;
 use eyre::Result;
 use serde_json;
 use serde_json::Value;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::Arc;
 use tokio::fs;
 use tracing::info;
-use std::sync::Arc;
-use std::rc::Rc;
-use std::cell::RefCell;
 
 /// Show a Terraform plan or plan JSON as a parsed `TerraformPlan`.
 #[derive(Args, Debug, Clone)]
@@ -47,8 +47,7 @@ impl TerraformShowArgs {
         // Async lazy loader for principals scoped to this function.
         // On first call it fetches and caches the value; subsequent calls return the cached Arc.
         let principals = {
-            let cache: Rc<RefCell<Option<Arc<PrincipalCollection>>>> =
-                Rc::new(RefCell::new(None));
+            let cache: Rc<RefCell<Option<Arc<PrincipalCollection>>>> = Rc::new(RefCell::new(None));
 
             move || {
                 let cache = cache.clone();

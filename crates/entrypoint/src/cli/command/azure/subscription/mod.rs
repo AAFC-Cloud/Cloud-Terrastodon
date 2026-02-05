@@ -1,7 +1,6 @@
 pub mod azure_subscription_list;
 
 pub use azure_subscription_list::AzureSubscriptionListArgs;
-
 use clap::Args;
 use eyre::Result;
 

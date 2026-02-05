@@ -69,9 +69,9 @@ mod test {
     use crate::reflow::HclReflower;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
+    use cloud_terrastodon_azure::prelude::EntraUser;
     use cloud_terrastodon_azure::prelude::Principal;
     use cloud_terrastodon_azure::prelude::PrincipalCollection;
-    use cloud_terrastodon_azure::prelude::EntraUser;
     use hcl::edit::structure::Body;
     use indoc::formatdoc;
     use rand::Rng;
@@ -88,7 +88,7 @@ mod test {
         let user_id = user.id;
 
         // Create principal collection
-        let principal_collection = PrincipalCollection::new(vec![Principal::User(user)]);
+        let principal_collection = PrincipalCollection::new(vec![Principal::User(Box::new(user))]);
 
         // Create reflower
         let mut reflower = super::ReflowPrincipalIdComments::new(principal_collection);
@@ -140,8 +140,10 @@ mod test {
         let user_id2 = user2.id;
 
         // Create principal collection
-        let principal_collection =
-            PrincipalCollection::new(vec![Principal::User(user1), Principal::User(user2)]);
+        let principal_collection = PrincipalCollection::new(vec![
+            Principal::User(Box::new(user1)),
+            Principal::User(Box::new(user2)),
+        ]);
 
         // Create reflower
         let mut reflower = super::ReflowPrincipalIdComments::new(principal_collection);
@@ -193,8 +195,10 @@ mod test {
         let user_id2 = user2.id;
 
         // Create principal collection
-        let principal_collection =
-            PrincipalCollection::new(vec![Principal::User(user1), Principal::User(user2)]);
+        let principal_collection = PrincipalCollection::new(vec![
+            Principal::User(Box::new(user1)),
+            Principal::User(Box::new(user2)),
+        ]);
 
         // Create reflower
         let mut reflower = super::ReflowPrincipalIdComments::new(principal_collection);
@@ -248,7 +252,7 @@ mod test {
         let user_id = user.id;
 
         // Create principal collection
-        let principal_collection = PrincipalCollection::new(vec![Principal::User(user)]);
+        let principal_collection = PrincipalCollection::new(vec![Principal::User(Box::new(user))]);
 
         // Create reflower
         let mut reflower = super::ReflowPrincipalIdComments::new(principal_collection);
@@ -300,8 +304,10 @@ mod test {
         let user_id2 = user2.id;
 
         // Create principal collection
-        let principal_collection =
-            PrincipalCollection::new(vec![Principal::User(user1), Principal::User(user2)]);
+        let principal_collection = PrincipalCollection::new(vec![
+            Principal::User(Box::new(user1)),
+            Principal::User(Box::new(user2)),
+        ]);
 
         // Create reflower
         let mut reflower = super::ReflowPrincipalIdComments::new(principal_collection);

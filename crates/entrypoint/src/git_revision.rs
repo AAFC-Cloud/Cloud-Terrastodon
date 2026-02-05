@@ -1,7 +1,6 @@
+use compact_str::CompactString;
 use std::sync::LazyLock;
 use std::sync::Mutex;
-
-use compact_str::CompactString;
 
 #[derive(Debug, Clone)]
 pub struct GitRevision(pub CompactString);
@@ -25,7 +24,8 @@ impl AsRef<str> for GitRevision {
     }
 }
 
-static GIT_REVISION: LazyLock<Mutex<GitRevision>> = LazyLock::new(|| Mutex::new(GitRevision::new("unknown")));
+static GIT_REVISION: LazyLock<Mutex<GitRevision>> =
+    LazyLock::new(|| Mutex::new(GitRevision::new("unknown")));
 
 /// Set the global git revision used by the application (used by UI About dialogs)
 pub fn set_git_revision(rev: impl Into<GitRevision>) {

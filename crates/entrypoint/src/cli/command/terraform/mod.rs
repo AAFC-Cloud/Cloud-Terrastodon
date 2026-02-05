@@ -2,10 +2,10 @@ pub mod terraform_apply;
 pub mod terraform_audit;
 pub mod terraform_command;
 pub mod terraform_reflow;
+pub mod terraform_show;
 pub mod terraform_source;
 pub mod terraform_source_add_imports;
 pub mod terraform_source_generate;
-pub mod terraform_show;
 
 use clap::Args;
 use eyre::Result;

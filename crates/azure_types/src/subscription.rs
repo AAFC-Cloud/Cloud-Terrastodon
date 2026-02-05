@@ -8,8 +8,8 @@ use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
-use std::hash::Hash;
 use std::collections::HashMap;
+use std::hash::Hash;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subscription {

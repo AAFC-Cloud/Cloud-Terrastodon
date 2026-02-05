@@ -1,11 +1,12 @@
 use crate::app::MyApp;
 use crate::loadable::Loadable;
 use crate::loadable_work::LoadableWorkBuilder;
+use cloud_terrastodon_azure::prelude::Resource;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
-use cloud_terrastodon_azure::prelude::Resource;
 use eframe::egui::Ui;
-use egui_extras::{Column, TableBuilder};
+use egui_extras::Column;
+use egui_extras::TableBuilder;
 use std::sync::Arc;
 
 pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
@@ -28,7 +29,7 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
             ui.label(format!("Failed to load resources: {:#?}", err));
         }
         Loadable::Loaded(resources_rc) => {
-            let resources: &Vec<Resource> = &*resources_rc;
+            let resources: &Vec<Resource> = resources_rc;
 
             let available_height = ui.available_height();
             let mut table = TableBuilder::new(ui)

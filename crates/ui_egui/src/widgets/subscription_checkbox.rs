@@ -9,12 +9,9 @@ use eframe::egui::Ui;
 use eframe::egui::collapsing_header::CollapsingState;
 use tracing::debug;
 
-pub fn draw_subscription_checkbox(
-    app: &mut MyApp,
-    ui: &mut Ui,
-    subscription: &Subscription,
-) {
-    let mut expando = CollapsingState::load_with_default_open(ui.ctx(), Id::new(subscription.id), false);
+pub fn draw_subscription_checkbox(app: &mut MyApp, ui: &mut Ui, subscription: &Subscription) {
+    let mut expando =
+        CollapsingState::load_with_default_open(ui.ctx(), Id::new(subscription.id), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
         expando.toggle(ui);

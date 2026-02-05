@@ -18,11 +18,9 @@ impl CacheCleanTuiArgs {
         // Build choices for the picker: show the disk path and last-used timestamp
         let choices: Vec<Choice<CacheKey>> = caches
             .into_iter()
-            .map(|(cache_key, dt)| {
-                Choice {
-                    key: format!("{} ({})", cache_key.path.display(), dt.to_rfc2822()),
-                    value: cache_key,
-                }
+            .map(|(cache_key, dt)| Choice {
+                key: format!("{} ({})", cache_key.path.display(), dt.to_rfc2822()),
+                value: cache_key,
             })
             .collect();
 

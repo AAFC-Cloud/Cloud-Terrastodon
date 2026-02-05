@@ -1,3 +1,4 @@
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
 use clap::Args;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
@@ -5,8 +6,6 @@ use cloud_terrastodon_azure_devops::prelude::update_azure_devops_user_license_en
 use eyre::Result;
 use eyre::bail;
 use tracing::info;
-
-use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
 
 #[derive(Args, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.

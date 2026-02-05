@@ -1,7 +1,7 @@
 use crate::prelude::EntraGroup;
-use crate::prelude::PrincipalId;
 use crate::prelude::EntraServicePrincipal;
 use crate::prelude::EntraUser;
+use crate::prelude::PrincipalId;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
@@ -12,9 +12,9 @@ use uuid::Uuid;
 #[serde(tag = "@odata.type")]
 pub enum Principal {
     #[serde(rename = "#microsoft.graph.user")]
-    User(EntraUser),
+    User(Box<EntraUser>),
     #[serde(rename = "#microsoft.graph.group")]
-    Group(EntraGroup),
+    Group(Box<EntraGroup>),
     #[serde(rename = "#microsoft.graph.servicePrincipal")]
     ServicePrincipal(Box<EntraServicePrincipal>),
     // #[serde(rename = "#microsoft.graph.device")]
@@ -22,12 +22,12 @@ pub enum Principal {
 }
 impl From<EntraUser> for Principal {
     fn from(value: EntraUser) -> Self {
-        Self::User(value)
+        Self::User(Box::new(value))
     }
 }
 impl From<EntraGroup> for Principal {
     fn from(value: EntraGroup) -> Self {
-        Self::Group(value)
+        Self::Group(Box::new(value))
     }
 }
 impl From<EntraServicePrincipal> for Principal {

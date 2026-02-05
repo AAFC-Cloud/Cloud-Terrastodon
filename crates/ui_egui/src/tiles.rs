@@ -198,8 +198,6 @@ impl Behavior<Pane> for TreeBehavior {
         }
     }
 
-
-
     fn tab_bar_height(&self, _style: &egui::Style) -> f32 {
         self.tab_bar_height
     }

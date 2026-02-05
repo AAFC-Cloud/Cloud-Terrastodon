@@ -1,9 +1,9 @@
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
 use cloud_terrastodon_azure_types::prelude::ConsentType;
-use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
-use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
 use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::EntraUserId;
+use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
+use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;

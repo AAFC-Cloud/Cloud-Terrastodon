@@ -38,7 +38,9 @@ impl AzureDevOpsUserArgument<'_> {
             AzureDevOpsUserArgument::Id(id) => AzureDevOpsUserArgument::Id(id),
             AzureDevOpsUserArgument::IdRef(id) => AzureDevOpsUserArgument::Id(id.clone()),
             AzureDevOpsUserArgument::Email(email) => AzureDevOpsUserArgument::Email(email),
-            AzureDevOpsUserArgument::EmailRef(email) => AzureDevOpsUserArgument::Email(email.into()),
+            AzureDevOpsUserArgument::EmailRef(email) => {
+                AzureDevOpsUserArgument::Email(email.into())
+            }
         }
     }
 

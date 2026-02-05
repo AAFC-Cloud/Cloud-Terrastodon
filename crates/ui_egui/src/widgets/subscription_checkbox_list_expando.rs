@@ -10,7 +10,8 @@ use eframe::egui::Widget;
 use eframe::egui::collapsing_header::CollapsingState;
 
 pub fn draw_subscription_list_expando(app: &mut MyApp, ui: &mut Ui) {
-    let mut expando = CollapsingState::load_with_default_open(ui.ctx(), "subscriptions".into(), false);
+    let mut expando =
+        CollapsingState::load_with_default_open(ui.ctx(), "subscriptions".into(), false);
     let toggle_key = expando.id();
     if app.toggle_intents.remove(&toggle_key) {
         expando.toggle(ui);

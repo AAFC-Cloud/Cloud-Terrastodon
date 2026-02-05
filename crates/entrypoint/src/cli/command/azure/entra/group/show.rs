@@ -24,7 +24,6 @@ use std::io::BufRead;
 use std::io::IsTerminal;
 use std::io::stdin;
 use std::io::stdout;
-use tokio::task::JoinSet;
 use tracing::info;
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -112,7 +111,7 @@ impl AzureEntraGroupShowArgs {
                 group_id: EntraGroupId,
                 principals: Vec<Principal>,
             },
-            RBAC(RoleDefinitionsAndAssignments),
+            Rbac(RoleDefinitionsAndAssignments),
         }
         let mut work =
             ParallelFallibleWorkQueue::new("group members, owners, and role assignments", 8);
@@ -135,7 +134,7 @@ impl AzureEntraGroupShowArgs {
         }
         work.enqueue(async move {
             let rbac = fetch_all_role_definitions_and_assignments().await?;
-            eyre::Ok(Resp::RBAC(rbac))
+            eyre::Ok(Resp::Rbac(rbac))
         });
         let work_results = work.join().await?;
         let mut rbac = None;
@@ -153,7 +152,7 @@ impl AzureEntraGroupShowArgs {
                 } => {
                     chosen_group_owners.insert(group_id, principals);
                 }
-                Resp::RBAC(r) => {
+                Resp::Rbac(r) => {
                     assert!(rbac.is_none());
                     rbac = Some(r);
                 }

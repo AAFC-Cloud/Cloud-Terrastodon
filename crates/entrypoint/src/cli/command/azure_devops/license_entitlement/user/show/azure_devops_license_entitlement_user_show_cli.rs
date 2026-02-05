@@ -1,3 +1,4 @@
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
 use clap::Args;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
@@ -6,13 +7,11 @@ use eyre::bail;
 use serde_json::to_writer_pretty;
 use std::io::stdout;
 
-use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
-
 /// Show a single Azure DevOps user license entitlement by user id.
 #[derive(Args, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserShowArgs {
     #[clap(flatten)]
-    pub user_matcher: AzureDevOpsLicenseEntitlementUserMatcher
+    pub user_matcher: AzureDevOpsLicenseEntitlementUserMatcher,
 }
 
 impl AzureDevOpsLicenseEntitlementUserShowArgs {
@@ -26,7 +25,10 @@ impl AzureDevOpsLicenseEntitlementUserShowArgs {
                 to_writer_pretty(stdout(), &ent)?;
                 Ok(())
             }
-            None => bail!("No license entitlement found for user matching criteria {:?}", self.user_matcher),
+            None => bail!(
+                "No license entitlement found for user matching criteria {:?}",
+                self.user_matcher
+            ),
         }
     }
 }
