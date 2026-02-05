@@ -51,12 +51,12 @@ pub fn extract_uuids(data: &str) -> Vec<String> {
             if slice.iter().any(|b| *b == 0 || (*b as char).is_control()) {
                 continue;
             }
-            if let Ok(s) = std::str::from_utf8(slice) {
-                if let Ok(u) = Uuid::parse_str(s) {
-                    let s = u.to_string();
-                    if seen.insert(s.clone()) {
-                        results.push(s);
-                    }
+            if let Ok(s) = std::str::from_utf8(slice)
+                && let Ok(u) = Uuid::parse_str(s)
+            {
+                let s = u.to_string();
+                if seen.insert(s.clone()) {
+                    results.push(s);
                 }
             }
         }
