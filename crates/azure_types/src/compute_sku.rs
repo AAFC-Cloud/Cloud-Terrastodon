@@ -24,6 +24,20 @@ pub enum ComputeSkuResourceType {
     Other(String),
 }
 
+impl core::fmt::Display for ComputeSkuResourceType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            ComputeSkuResourceType::VirtualMachines => "virtualMachines",
+            ComputeSkuResourceType::AvailabilitySets => "availabilitySets",
+            ComputeSkuResourceType::HostGroupsSlashHosts => "hostGroups/hosts",
+            ComputeSkuResourceType::Disks => "disks",
+            ComputeSkuResourceType::Snapshots => "snapshots",
+            ComputeSkuResourceType::Other(other) => other.as_str(),
+        };
+        write!(f, "{value}")
+    }
+}
+
 impl serde::Serialize for ComputeSkuResourceType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
