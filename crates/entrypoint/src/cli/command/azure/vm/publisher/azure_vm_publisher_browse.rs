@@ -19,7 +19,7 @@ use tracing::info;
 
 /// Interactively pick subscriptions, locations and publishers.
 #[derive(Args, Debug, Clone)]
-pub struct AzureVmPublisherBrowseArgs {}
+pub struct AzureVmPublisherBrowseArgs;
 
 impl AzureVmPublisherBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
