@@ -14,20 +14,21 @@ pub struct AzureDevOpsLicenseEntitlementUserMatcher {
     #[arg(long)]
     pub user_email: Option<String>,
 }
+
+pub type AzureDevOpsLicenseEntitlementPredicate<'a> =
+    Box<dyn Fn(&AzureDevOpsUserLicenseEntitlement) -> bool + 'a>;
 impl AzureDevOpsLicenseEntitlementUserMatcher {
-    pub fn as_predicate<'a>(
-        &'a self,
-    ) -> eyre::Result<Box<dyn Fn(&AzureDevOpsUserLicenseEntitlement) -> bool + 'a>> {
+    pub fn as_predicate<'a>(&'a self) -> eyre::Result<AzureDevOpsLicenseEntitlementPredicate<'a>> {
         Ok(match (&self.user_devops_id, &self.user_email) {
             (None, None) => {
                 bail!("No user filter was provided");
             }
             (Some(devops_user_id), None) => Box::new(move |e| e.user_id == *devops_user_id),
             (None, Some(user_email)) => {
-                Box::new(move |e| e.user.unique_name.eq_ignore_ascii_case(&user_email))
+                Box::new(move |e| e.user.unique_name.eq_ignore_ascii_case(user_email))
             }
             (Some(devops_user_id), Some(user_email)) => Box::new(move |e| {
-                e.user_id == *devops_user_id && e.user.unique_name.eq_ignore_ascii_case(&user_email)
+                e.user_id == *devops_user_id && e.user.unique_name.eq_ignore_ascii_case(user_email)
             }),
         })
     }

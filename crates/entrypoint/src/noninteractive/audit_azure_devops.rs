@@ -382,15 +382,13 @@ where
     for i in 0..chars.len() {
         spaced.push(chars[i]);
         // If current char is a digit and the next char is a letter (or µ), insert a space
-        if chars[i].is_ascii_digit() {
-            if i + 1 < chars.len() {
-                let next = chars[i + 1];
-                if !next.is_whitespace()
-                    && !next.is_ascii_digit()
-                    && (next.is_alphabetic() || next == 'µ')
-                {
-                    spaced.push(' ');
-                }
+        if chars[i].is_ascii_digit() && i + 1 < chars.len() {
+            let next = chars[i + 1];
+            if !next.is_whitespace()
+                && !next.is_ascii_digit()
+                && (next.is_alphabetic() || next == 'µ')
+            {
+                spaced.push(' ');
             }
         }
     }
