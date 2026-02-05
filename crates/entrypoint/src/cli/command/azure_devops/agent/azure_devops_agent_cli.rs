@@ -1,4 +1,5 @@
 use crate::cli::azure_devops::agent_package::AzureDevOpsAgentPackageArgs;
+use crate::cli::azure_devops::agent::pool::AzureDevOpsAgentPoolArgs;
 use clap::Args;
 use clap::Subcommand;
 use eyre::Result;
@@ -14,12 +15,15 @@ pub struct AzureDevOpsAgentArgs {
 pub enum AzureDevOpsAgentCommand {
     /// Package-related agent commands.
     Package(AzureDevOpsAgentPackageArgs),
+    /// Agent pool-related commands.
+    Pool(AzureDevOpsAgentPoolArgs),
 }
 
 impl AzureDevOpsAgentArgs {
     pub async fn invoke(self) -> Result<()> {
         match self.command {
             AzureDevOpsAgentCommand::Package(args) => args.invoke().await?,
+            AzureDevOpsAgentCommand::Pool(args) => args.invoke().await?,
         }
 
         Ok(())

@@ -37,6 +37,7 @@
 - Add `ct az vm list` command
 - Add `ct az vm browse` command
 - Add `fetch_azure_devops_agent_pools` fn
+- Add `ct az devops agent pool list` command
 
 # v0.32.0
 
