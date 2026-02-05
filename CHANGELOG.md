@@ -31,6 +31,8 @@
 - Add `tags` field to `Subscription` type
 - Add `ct terraform show plan.json|apply.tfplan` to show names for the object IDs being changed in `azuread_group` members and owners
 - Add `Get-Clipboard | ct extract-uuid -` command to extract UUIDs from text
+- Add missing `pub` on `EntraGroup.description`
+- Add missing fields to `EntraGroup`
 
 # v0.32.0
 
