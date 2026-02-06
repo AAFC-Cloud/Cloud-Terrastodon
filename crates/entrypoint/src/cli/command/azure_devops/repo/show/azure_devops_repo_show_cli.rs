@@ -12,9 +12,11 @@ use std::io::stdout;
 #[derive(Args, Debug, Clone)]
 pub struct AzureDevOpsRepoShowArgs {
     /// Project id or project name.
+    #[arg(long)]
     pub project: AzureDevOpsProjectArgument<'static>,
 
     /// Repository id (UUID) or repository name.
+    #[arg(long)]
     pub repo: String,
 }
 

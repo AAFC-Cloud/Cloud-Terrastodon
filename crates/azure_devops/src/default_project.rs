@@ -37,7 +37,7 @@ impl IntoFuture for DefaultAzureDevOpsProjectNameRequest {
             };
 
             let project = project.trim();
-            Ok(AzureDevOpsProjectName::new(project.to_string()))
+            Ok(AzureDevOpsProjectName::try_new(project.to_string())?)
         })
     }
 }

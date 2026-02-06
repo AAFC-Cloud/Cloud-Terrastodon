@@ -7,22 +7,22 @@ use chrono::Utc;
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
 pub struct AzureDevOpsAgentPool {
-    agent_cloud_id: Option<usize>,
-    auto_provision: bool,
-    auto_size: bool,
-    auto_update: bool,
-    created_by: AzureDevOpsAgentPoolCreatedBy,
-    created_on: DateTime<Utc>,
-    id: AzureDevOpsAgentPoolId,
-    is_hosted: bool,
-    is_legacy: bool,
-    name: AzureDevOpsAgentPoolName,
-    options: String, // comma separated, weird
-    owner: AzureDevOpsAgentPoolOwner,
-    pool_type: String,
-    scope: String,
-    size: usize,
-    target_size: Option<usize>,
+    pub agent_cloud_id: Option<usize>,
+    pub auto_provision: bool,
+    pub auto_size: bool,
+    pub auto_update: bool,
+    pub created_by: AzureDevOpsAgentPoolCreatedBy,
+    pub created_on: DateTime<Utc>,
+    pub id: AzureDevOpsAgentPoolId,
+    pub is_hosted: bool,
+    pub is_legacy: bool,
+    pub name: AzureDevOpsAgentPoolName,
+    pub options: String, // comma separated, weird
+    pub owner: AzureDevOpsAgentPoolOwner,
+    pub pool_type: String,
+    pub scope: String,
+    pub size: usize,
+    pub target_size: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

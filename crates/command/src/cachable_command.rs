@@ -21,7 +21,8 @@ where
     }
 }
 
-/// Implement `IntoFuture` for a concrete `CacheableCommand` type without repeating boilerplate.
+/// Implement `IntoFuture` and `CacheInvalidatableIntoFuture` for a concrete
+/// `CacheableCommand` type without repeating boilerplate.
 ///
 /// Usage:
 /// - `impl_cacheable_into_future!(MyCommandType);`
@@ -40,6 +41,20 @@ macro_rules! impl_cacheable_into_future {
                 Box::pin($crate::CacheableCommand::run(self))
             }
         }
+
+        impl $crate::CacheInvalidatableIntoFuture for $ty {
+            type WithInvalidation =
+                ::std::pin::Pin<Box<dyn ::std::future::Future<Output = <Self as ::std::future::IntoFuture>::Output> + Send>>;
+
+            fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
+                Box::pin(async move {
+                    if invalidate_cache {
+                        <Self as $crate::CacheInvalidatable>::invalidate(&self).await?;
+                    }
+                    $crate::CacheableCommand::run(self).await
+                })
+            }
+        }
     };
 
     // With an explicit lifetime: attaches the lifetime bound to the boxed future.
@@ -51,6 +66,20 @@ macro_rules! impl_cacheable_into_future {
 
             fn into_future(self) -> Self::IntoFuture {
                 Box::pin($crate::CacheableCommand::run(self))
+            }
+        }
+
+        impl<$lt> $crate::CacheInvalidatableIntoFuture for $ty {
+            type WithInvalidation =
+                ::std::pin::Pin<Box<dyn ::std::future::Future<Output = <Self as ::std::future::IntoFuture>::Output> + Send + $lt>>;
+
+            fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
+                Box::pin(async move {
+                    if invalidate_cache {
+                        <Self as $crate::CacheInvalidatable>::invalidate(&self).await?;
+                    }
+                    $crate::CacheableCommand::run(self).await
+                })
             }
         }
     };
@@ -67,6 +96,20 @@ macro_rules! impl_cacheable_into_future {
                 Box::pin($crate::CacheableCommand::run(self))
             }
         }
+
+        impl<$($gens)+ + Sync> $crate::CacheInvalidatableIntoFuture for $ty {
+            type WithInvalidation =
+                ::std::pin::Pin<Box<dyn ::std::future::Future<Output = <Self as ::std::future::IntoFuture>::Output> + Send>>;
+
+            fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
+                Box::pin(async move {
+                    if invalidate_cache {
+                        <Self as $crate::CacheInvalidatable>::invalidate(&self).await?;
+                    }
+                    $crate::CacheableCommand::run(self).await
+                })
+            }
+        }
     };
 
     // With both a lifetime and generics: e.g., `MyReq<'a, T>, 'a, T: Foo`
@@ -79,6 +122,21 @@ macro_rules! impl_cacheable_into_future {
 
             fn into_future(self) -> Self::IntoFuture {
                 Box::pin($crate::CacheableCommand::run(self))
+            }
+        }
+
+        impl<$lt, $($gens)+ + Sync> $crate::CacheInvalidatableIntoFuture for $ty {
+            type WithInvalidation = ::std::pin::Pin<
+                Box<dyn ::std::future::Future<Output = <Self as ::std::future::IntoFuture>::Output> + Send + $lt>
+            >;
+
+            fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
+                Box::pin(async move {
+                    if invalidate_cache {
+                        <Self as $crate::CacheInvalidatable>::invalidate(&self).await?;
+                    }
+                    $crate::CacheableCommand::run(self).await
+                })
             }
         }
     };

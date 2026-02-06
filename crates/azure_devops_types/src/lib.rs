@@ -1,6 +1,9 @@
 mod azure_devops_account_id;
 mod azure_devops_agent_package;
 mod azure_devops_agent_pool;
+mod azure_devops_agent_pool_argument;
+mod azure_devops_agent_pool_entitlement;
+mod azure_devops_agent_pool_entitlement_id;
 mod azure_devops_agent_pool_id;
 mod azure_devops_agent_pool_name;
 mod azure_devops_descriptor;
@@ -43,6 +46,9 @@ pub mod prelude {
     pub use crate::azure_devops_account_id::*;
     pub use crate::azure_devops_agent_package::*;
     pub use crate::azure_devops_agent_pool::*;
+    pub use crate::azure_devops_agent_pool_argument::*;
+    pub use crate::azure_devops_agent_pool_entitlement::*;
+    pub use crate::azure_devops_agent_pool_entitlement_id::*;
     pub use crate::azure_devops_agent_pool_id::*;
     pub use crate::azure_devops_agent_pool_name::*;
     pub use crate::azure_devops_descriptor::*;

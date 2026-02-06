@@ -1,5 +1,13 @@
 # TODO
 
+## Formatting
+
+> https://mina86.com/2024/fmt-display-impl/
+> You’re implementing fmt::Display wrong
+> Posted by Michał ‘mina86’ Nazarewicz on 12th of May 2024
+
+Update our `std::fmt::Display` to `core::fmt::Display` following the guidance in that blog post
+
 ## Tests
 
 - Update tests to not print details when fetching resources; avoid AI agents seeing our resource info. Just print "Found {} resource groups" instead of printing the names and stuff.

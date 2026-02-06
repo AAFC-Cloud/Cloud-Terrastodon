@@ -4,6 +4,7 @@ use crate::prelude::AzureDevOpsProjectName;
 use eyre::bail;
 use std::str::FromStr;
 
+/// Project ID or name
 #[derive(Debug, Clone)]
 pub enum AzureDevOpsProjectArgument<'a> {
     Id(AzureDevOpsProjectId),
@@ -14,10 +15,10 @@ pub enum AzureDevOpsProjectArgument<'a> {
 impl std::fmt::Display for AzureDevOpsProjectArgument<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AzureDevOpsProjectArgument::Id(id) => write!(f, "{id}"),
-            AzureDevOpsProjectArgument::IdRef(id) => write!(f, "{id}"),
-            AzureDevOpsProjectArgument::Name(name) => write!(f, "{name}"),
-            AzureDevOpsProjectArgument::NameRef(name) => write!(f, "{name}"),
+            AzureDevOpsProjectArgument::Id(id) => id.fmt(f),
+            AzureDevOpsProjectArgument::IdRef(id) => id.fmt(f),
+            AzureDevOpsProjectArgument::Name(name) => name.fmt(f),
+            AzureDevOpsProjectArgument::NameRef(name) => name.fmt(f),
         }
     }
 }

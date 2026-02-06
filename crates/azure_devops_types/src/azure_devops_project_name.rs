@@ -239,16 +239,11 @@ impl std::fmt::Display for AzureDevOpsProjectName {
     }
 }
 
-impl AzureDevOpsProjectName {
-    pub fn new(name: String) -> AzureDevOpsProjectName {
-        AzureDevOpsProjectName { inner: name.into() }
-    }
-}
 impl FromStr for AzureDevOpsProjectName {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(AzureDevOpsProjectName::new(s.to_string()))
+        AzureDevOpsProjectName::try_new(s.to_string())
     }
 }
 impl AsRef<str> for AzureDevOpsProjectName {
@@ -282,7 +277,7 @@ impl<'de> serde::Deserialize<'de> for AzureDevOpsProjectName {
         D: serde::Deserializer<'de>,
     {
         let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
+        Self::try_new(value).map_err(serde::de::Error::custom)
     }
 }
 

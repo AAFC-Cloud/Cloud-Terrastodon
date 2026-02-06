@@ -11,9 +11,11 @@ use std::io::stdout;
 #[derive(Args, Debug, Clone)]
 pub struct AzureDevOpsServiceEndpointShowArgs {
     /// Project id or project name.
+    #[arg(long)]
     pub project: AzureDevOpsProjectArgument<'static>,
 
     /// Service endpoint id or service endpoint name.
+    #[arg(long)]
     pub endpoint: String,
 }
 

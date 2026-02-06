@@ -25,22 +25,8 @@ where
     }
 }
 
-#[async_trait]
-pub trait CacheInvalidatableIntoFuture: IntoFuture + CacheInvalidatable + Sized {
-    async fn with_invalidation(self, invalidate_cache: bool) -> Self::Output;
-}
-
-#[async_trait]
-impl<T, S> CacheInvalidatableIntoFuture for T
-where
-    T: IntoFuture<Output = eyre::Result<S>> + CacheInvalidatable + Sized + Send,
-    T::IntoFuture: Send,
-    S: Send,
-{
-    async fn with_invalidation(self, invalidate_cache: bool) -> Self::Output {
-        if invalidate_cache {
-            self.invalidate().await?;
-        }
-        self.into_future().await
-    }
+pub trait CacheInvalidatableIntoFuture: IntoFuture + Sized {
+    type WithInvalidation: IntoFuture<Output = Self::Output>;
+    /// Invoke the command, optionally invalidating cache entries as part of execution.
+    fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation;
 }

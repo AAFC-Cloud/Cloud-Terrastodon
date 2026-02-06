@@ -2,6 +2,7 @@
 
 mod azure_devops_agent_packages;
 mod azure_devops_agent_pools;
+mod azure_devops_agent_pool_entitlements_for_project;
 mod azure_devops_configure;
 mod azure_devops_group;
 mod azure_devops_group_license_entitlements;
@@ -25,6 +26,7 @@ mod default_organization;
 mod default_organization_tui;
 mod default_project;
 mod get_pat;
+mod azure_devops_agent_pool_entitlements_for_pool;
 
 pub mod prelude {
     pub use crate::azure_devops_agent_packages::*;
@@ -52,5 +54,7 @@ pub mod prelude {
     pub use crate::default_organization_tui::*;
     pub use crate::default_project::*;
     pub use crate::get_pat::*;
+    pub use crate::azure_devops_agent_pool_entitlements_for_project::*;
+    pub use crate::azure_devops_agent_pool_entitlements_for_pool::*;
     pub use cloud_terrastodon_azure_devops_types::prelude::*;
 }
