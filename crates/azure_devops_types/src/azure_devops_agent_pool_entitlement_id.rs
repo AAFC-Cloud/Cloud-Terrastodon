@@ -1,4 +1,7 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
 
 #[derive(Debug, Clone)]
 pub struct AzureDevOpsAgentPoolEntitlementId(usize);

@@ -1,5 +1,5 @@
-use crate::cli::azure_devops::agent_package::AzureDevOpsAgentPackageArgs;
 use crate::cli::azure_devops::agent::pool::AzureDevOpsAgentPoolArgs;
+use crate::cli::azure_devops::agent_package::AzureDevOpsAgentPackageArgs;
 use clap::Args;
 use clap::Subcommand;
 use eyre::Result;

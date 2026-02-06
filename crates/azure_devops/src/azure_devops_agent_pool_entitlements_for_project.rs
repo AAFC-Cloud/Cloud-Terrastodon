@@ -53,7 +53,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
         cmd.args(["--organization", org.as_str()]);
         cmd.args(["--area", "distributedtask"]);
         cmd.args(["--resource", "queues"]);
-        let route = format!("project={}", project.to_string());
+        let route = format!("project={}", project);
         cmd.args(["--route-parameters", route.as_str()]);
         cmd.args(["--api-version", "7.1"]);
         cmd.args(["--encoding", "utf-8"]);
@@ -99,7 +99,8 @@ mod test {
         let mut found = false;
         for project in projects {
             let entitlements =
-                fetch_azure_devops_agent_pool_entitlements_for_project(&org_url, &project.name).await?;
+                fetch_azure_devops_agent_pool_entitlements_for_project(&org_url, &project.name)
+                    .await?;
             if !entitlements.is_empty() {
                 println!(
                     "Found {} Azure DevOps queue/pool entitlements",

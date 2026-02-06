@@ -13,7 +13,7 @@ pub struct AzureDevOpsGroupShowArgs {
     /// Project id or project name.
     #[arg(long)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    
+
     /// Group identifier (display name, principal name, origin id, or descriptor).
     #[arg(long)]
     pub group: String,

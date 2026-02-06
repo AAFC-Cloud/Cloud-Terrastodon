@@ -36,7 +36,7 @@ impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
 
     fn into_future(self) -> Self::IntoFuture {
         async move {
-            let projects = fetch_all_azure_devops_projects(&self.org_url)
+            let projects = fetch_all_azure_devops_projects(self.org_url)
                 .with_invalidation(self.invalidate_cache)
                 .await?;
             let mut all_entitlements = Vec::new();
@@ -46,7 +46,9 @@ impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
                         .with_invalidation(self.invalidate_cache)
                         .await?;
                 for entitlement in entitlements {
-                    if self.pool.matches(&entitlement.pool.id) || self.pool.matches(&entitlement.pool.name) {
+                    if self.pool.matches(entitlement.pool.id)
+                        || self.pool.matches(&entitlement.pool.name)
+                    {
                         all_entitlements.push(entitlement);
                     }
                 }

@@ -1,7 +1,6 @@
 use crate::prelude::AzureDevOpsAgentPool;
 use crate::prelude::AzureDevOpsAgentPoolId;
 use crate::prelude::AzureDevOpsAgentPoolName;
-use crate::prelude::AzureDevOpsProjectArgument;
 use eyre::bail;
 use std::str::FromStr;
 
@@ -58,7 +57,7 @@ impl AzureDevOpsAgentPoolArgument<'_> {
     pub fn into_owned(self) -> AzureDevOpsAgentPoolArgument<'static> {
         match self {
             AzureDevOpsAgentPoolArgument::Id(id) => AzureDevOpsAgentPoolArgument::Id(id),
-            AzureDevOpsAgentPoolArgument::IdRef(id) => AzureDevOpsAgentPoolArgument::Id(id.clone()),
+            AzureDevOpsAgentPoolArgument::IdRef(id) => AzureDevOpsAgentPoolArgument::Id(*id),
             AzureDevOpsAgentPoolArgument::Name(name) => AzureDevOpsAgentPoolArgument::Name(name),
             AzureDevOpsAgentPoolArgument::NameRef(name) => {
                 AzureDevOpsAgentPoolArgument::Name(name.clone())

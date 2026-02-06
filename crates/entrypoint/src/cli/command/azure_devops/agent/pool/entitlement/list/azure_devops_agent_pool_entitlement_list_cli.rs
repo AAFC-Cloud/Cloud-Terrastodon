@@ -1,8 +1,8 @@
 use clap::Args;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsAgentPoolArgument;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_agent_pool_entitlements_for_pool;
+use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
 use eyre::Result;
 use serde_json::to_writer_pretty;
@@ -16,7 +16,6 @@ pub struct AzureDevOpsAgentPoolEntitlementListArgs {
     pub project: Option<AzureDevOpsProjectArgument<'static>>,
     #[arg(long)]
     pub pool: Option<AzureDevOpsAgentPoolArgument<'static>>,
-
 }
 
 impl AzureDevOpsAgentPoolEntitlementListArgs {
@@ -31,15 +30,17 @@ impl AzureDevOpsAgentPoolEntitlementListArgs {
             (Some(project), None) => {
                 // Print the entitlements for this project
                 let org_url = get_default_organization_url().await?;
-                let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(&org_url, project).await?;
+                let entitlements =
+                    fetch_azure_devops_agent_pool_entitlements_for_project(&org_url, project)
+                        .await?;
                 to_writer_pretty(stdout(), &entitlements)?;
             }
             (None, Some(pool)) => {
                 // Print the entitlements for this pool by enumerating projects
                 let org_url = get_default_organization_url().await?;
-                let entitlements = fetch_azure_devops_agent_pool_entitlements_for_pool(&org_url, pool).await?;
+                let entitlements =
+                    fetch_azure_devops_agent_pool_entitlements_for_pool(&org_url, pool).await?;
                 to_writer_pretty(stdout(), &entitlements)?;
-
             }
         }
         Ok(())

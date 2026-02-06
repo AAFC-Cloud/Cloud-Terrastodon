@@ -1,11 +1,8 @@
-use std::str::FromStr;
-
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
-
-use crate::prelude::AzureDevOpsAgentPoolArgument;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Copy)]
 pub struct AzureDevOpsAgentPoolId(usize);

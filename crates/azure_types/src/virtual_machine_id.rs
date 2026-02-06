@@ -29,9 +29,7 @@ impl core::fmt::Display for VirtualMachineId {
         write!(
             f,
             "{}{}{}",
-            self.resource_group_id,
-            VIRTUAL_MACHINE_ID_PREFIX,
-            self.vm_name
+            self.resource_group_id, VIRTUAL_MACHINE_ID_PREFIX, self.vm_name
         )
     }
 }
