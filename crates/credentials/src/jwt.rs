@@ -11,6 +11,7 @@ pub async fn get_azure_access_token_jwt() -> eyre::Result<()> {
     cmd.args(["account", "get-access-token"]);
     let access_token: AccessToken<String> = cmd.run().await?;
     let mut validation = Validation::default();
+    #[expect(deprecated)]
     validation.insecure_disable_signature_validation();
     validation.set_audience(&[
         "https://management.core.windows.net/",
