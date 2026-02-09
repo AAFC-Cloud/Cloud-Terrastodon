@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::agent::pool::entitlement::AzureDevOpsAgentPoolEntitlementArgs;
 use crate::cli::azure_devops::agent::pool::list::AzureDevOpsAgentPoolListArgs;
+use crate::cli::azure_devops::agent::pool::summary::AzureDevOpsAgentPoolSummaryArgs;
 use clap::Args;
 use clap::Subcommand;
 use eyre::Result;
@@ -17,6 +18,8 @@ pub enum AzureDevOpsAgentPoolCommand {
     List(AzureDevOpsAgentPoolListArgs),
     /// Agent pool entitlement-related commands.
     Entitlement(AzureDevOpsAgentPoolEntitlementArgs),
+    /// Summary of agent pools and projects that use them.
+    Summary(AzureDevOpsAgentPoolSummaryArgs),
 }
 
 impl AzureDevOpsAgentPoolArgs {
@@ -24,6 +27,7 @@ impl AzureDevOpsAgentPoolArgs {
         match self.command {
             AzureDevOpsAgentPoolCommand::List(args) => args.invoke().await?,
             AzureDevOpsAgentPoolCommand::Entitlement(args) => args.invoke().await?,
+            AzureDevOpsAgentPoolCommand::Summary(args) => args.invoke().await?,
         }
 
         Ok(())

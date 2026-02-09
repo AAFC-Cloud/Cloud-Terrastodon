@@ -1,4 +1,5 @@
 use crate::prelude::AzureDevOpsAgentPool;
+use crate::prelude::AzureDevOpsAgentPoolEntitlement;
 use crate::prelude::AzureDevOpsAgentPoolId;
 use crate::prelude::AzureDevOpsAgentPoolName;
 use eyre::bail;
@@ -85,6 +86,9 @@ impl AzureDevOpsAgentPoolArgument<'_> {
             ) => name1.as_ref().eq_ignore_ascii_case(name2.as_ref()),
             _ => false,
         }
+    }
+    pub fn matches_entitlement(&self, entitlement: &AzureDevOpsAgentPoolEntitlement) -> bool {
+        self.matches(entitlement.pool.id) || self.matches(&entitlement.pool.name)
     }
 }
 

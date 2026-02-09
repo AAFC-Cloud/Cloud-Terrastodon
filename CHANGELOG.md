@@ -39,6 +39,7 @@
 - Add `fetch_azure_devops_agent_pools` fn
 - Add `ct az devops agent pool list` command
 - Add `ct az devops agent pool entitlement list` command
+- Add `ct az devops agent pool summary` command
 - Change `ct az devops ...` commands to take `--project {}` instead of it being a positional parameter
 - Remove `AzureDevOpsProjectName::new` in favour of `AzureDevOpsProjectName::try_new` to ensure name is validated
 - Relax type bounds on `trait CacheInvalidatableIntoFuture`

@@ -46,9 +46,7 @@ impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
                         .with_invalidation(self.invalidate_cache)
                         .await?;
                 for entitlement in entitlements {
-                    if self.pool.matches(entitlement.pool.id)
-                        || self.pool.matches(&entitlement.pool.name)
-                    {
+                    if self.pool.matches_entitlement(&entitlement) {
                         all_entitlements.push(entitlement);
                     }
                 }
