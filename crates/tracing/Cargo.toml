@@ -1,6 +1,6 @@
 [package]
 name = "cloud_terrastodon_tracing"
-version = "0.32.0" # CT_VERSION
+version = "0.33.0" # CT_VERSION
 description = "Tracing utilities for the Cloud Terrastodon project"
 readme.workspace = true
 edition.workspace = true
@@ -20,3 +20,4 @@ tracing = { workspace = true }
 
 [features]
 default = []
+
