@@ -12,11 +12,11 @@ categories.workspace = true
 
 
 [dependencies]
-egui_tracing = { git = "https://github.com/TeamDman/egui_tracing", branch = "dev" }
-eyre = { workspace = true }
-chrono = { workspace = true }
-tracing-subscriber = { workspace = true }
-tracing = { workspace = true }
+chrono.workspace = true
+egui_tracing.workspace = true
+eyre.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
 
 [features]
 default = []
