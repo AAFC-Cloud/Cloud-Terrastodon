@@ -7,13 +7,7 @@ authors = ["TeamDman"]
 repository = "https://github.com/AAFC-Cloud/Cloud-Terrastodon.git"
 readme = "README.md"
 license = "LiLiQ-R-1.1"
-keywords = [
-    "azure",
-    "cli",
-    "iac",
-    "cloud",
-    "sdk",
-]
+keywords = ["azure", "cli", "iac", "cloud", "sdk"]
 categories = [
     "command-line-interface",
     "command-line-utilities",
@@ -36,7 +30,9 @@ hcl-rs = "0.19.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 indexmap = { version = "2.2.6", features = ["serde"] }
-ordermap = { version = "0.5.0", features = ["serde"] } # ordered map cares abour equality for comparison?
+ordermap = { version = "0.5.0", features = [
+    "serde",
+] } # ordered map cares abour equality for comparison?
 hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["serde", "v4", "arbitrary"] }
 chrono = { version = "0.4.38", features = ["serde", "arbitrary"] }
@@ -46,7 +42,7 @@ clap = { version = "4.5.9", features = ["derive", "string"] }
 iso8601-duration = { version = "0.2.0", features = ["serde", "chrono"] }
 humantime = "2.1.0"
 directories-next = "2.0.0"
-ratatui = "0.29.0"
+ratatui = "0.30.0"
 opener = "0.8.3"
 emath = { version = "0.33.0", features = ["serde"] }
 crossterm = { version = "0.28.1", features = ["event-stream"] }
@@ -72,7 +68,7 @@ arbitrary = { version = "1.4.1", features = ["derive"] }
 unicode_categories = "0.1.1"
 ipnetwork = { version = "0.21.1", features = ["serde"] }
 nucleo = "0.5.0"
-tui-textarea = "0.7.0"
+tui-textarea = { version = "0.7.0", features = ["crossterm"] }
 rustc-hash = "2.1.1"
 jsonwebtoken = { version = "10.0.0", features = ["rust_crypto"] }
 jsonpath-rust = "1.0.4"
@@ -146,7 +142,7 @@ version = "0.32.0"        # CT_VERSION
 path = "./crates/ui_egui"
 
 [workspace.dependencies.cloud_terrastodon_tracing]
-version = "0.32.0"            # CT_VERSION
+version = "0.32.0"        # CT_VERSION
 path = "./crates/tracing"
 
 [workspace.dependencies.cloud_terrastodon_credentials]
@@ -289,6 +285,3 @@ unnecessary_safety_doc = "warn"
 unneeded_field_pattern = "warn"
 unused_result_ok = "warn"
 # module_inception = "allow"
-
-
-
