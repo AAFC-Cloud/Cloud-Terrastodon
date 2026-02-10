@@ -13,7 +13,7 @@ categories.workspace = true
 
 [dependencies]
 chrono.workspace = true
-egui_tracing.workspace = true
+# egui_tracing.workspace = true # TODO(EGUI-TRACING)
 eyre.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true

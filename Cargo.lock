@@ -1162,7 +1162,6 @@ name = "cloud_terrastodon_tracing"
 version = "0.33.0"
 dependencies = [
  "chrono",
- "egui_tracing",
  "eyre",
  "tracing",
  "tracing-subscriber",
@@ -1186,7 +1185,6 @@ dependencies = [
  "egui-toast",
  "egui_extras",
  "egui_tiles",
- "egui_tracing",
  "eyre",
  "futures",
  "indexmap",
@@ -1920,21 +1918,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui_tracing"
-version = "0.2.6"
-source = "git+https://github.com/TeamDman/egui_tracing?branch=dev#1042b72161d2462ab8dc89095663456e2f08ad5a"
-dependencies = [
- "chrono",
- "egui",
- "globset",
- "serde",
- "tracing",
- "tracing-log",
- "tracing-subscriber",
- "unicode-segmentation",
-]
-
-[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2467,20 +2450,6 @@ dependencies = [
  "khronos_api",
  "log",
  "xml-rs",
-]
-
-[[package]]
-name = "globset"
-version = "0.4.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52dfc19153a48bde0cbd630453615c8151bce3a5adfac7a0aebfbf0a1e1f57e3"
-dependencies = [
- "aho-corasick",
- "bstr",
- "log",
- "regex-automata",
- "regex-syntax",
- "serde",
 ]
 
 [[package]]

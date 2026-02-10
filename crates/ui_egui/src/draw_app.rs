@@ -120,44 +120,46 @@ impl MyApp {
                 });
         }
 
+        // TODO(EGUI-TRACING)
         // Logs window (egui_tracing widget)
-        if app.logs_visible {
-            Window::new("Logs")
-                .default_size([800.0, 400.0])
-                .open(&mut app.logs_visible)
-                .show(ctx, |ui| {
-                    let collector = cloud_terrastodon_tracing::event_collector();
-                    ui.add(egui_tracing::Logs::new(collector));
-                });
-        }
+        // if app.logs_visible {
+        //     Window::new("Logs")
+        //         .default_size([800.0, 400.0])
+        //         .open(&mut app.logs_visible)
+        //         .show(ctx, |ui| {
+        //             let collector = cloud_terrastodon_tracing::event_collector();
+        //             ui.add(egui_tracing::Logs::new(collector));
+        //         });
+        // }
 
+        // TODO(EGUI-TRACING)
         // Process new tracing events and create toasts for INFO and ERROR levels
-        let collector = cloud_terrastodon_tracing::event_collector();
-        let events = collector.events();
-        let new_events = &events[app.last_seen_event_count..];
-        for event in new_events {
-            let kind = match event.level {
-                Level::INFO => Some(ToastKind::Info),
-                Level::ERROR => Some(ToastKind::Error),
-                _ => None,
-            };
-            if let Some(kind) = kind {
-                let message = event
-                    .fields
-                    .get("message")
-                    .map_or("", std::string::String::as_str)
-                    .to_string();
-                app.toasts.add(
-                    Toast::default().kind(kind).text(message).options(
-                        ToastOptions::default()
-                            .duration_in_seconds(5.0)
-                            .show_progress(true)
-                            .show_icon(true),
-                    ),
-                );
-            }
-        }
-        app.last_seen_event_count = events.len();
+        // let collector = cloud_terrastodon_tracing::event_collector();
+        // let events = collector.events();
+        // let new_events = &events[app.last_seen_event_count..];
+        // for event in new_events {
+        //     let kind = match event.level {
+        //         Level::INFO => Some(ToastKind::Info),
+        //         Level::ERROR => Some(ToastKind::Error),
+        //         _ => None,
+        //     };
+        //     if let Some(kind) = kind {
+        //         let message = event
+        //             .fields
+        //             .get("message")
+        //             .map_or("", std::string::String::as_str)
+        //             .to_string();
+        //         app.toasts.add(
+        //             Toast::default().kind(kind).text(message).options(
+        //                 ToastOptions::default()
+        //                     .duration_in_seconds(5.0)
+        //                     .show_progress(true)
+        //                     .show_icon(true),
+        //             ),
+        //         );
+        //     }
+        // }
+        // app.last_seen_event_count = events.len();
 
         // Show toasts
         app.toasts.show(ctx);

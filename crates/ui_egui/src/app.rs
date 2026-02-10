@@ -9,7 +9,7 @@ use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
-use cloud_terrastodon_tracing::event_collector;
+// use cloud_terrastodon_tracing::event_collector; // TODO(EGUI-TRACING)
 use eframe::App;
 use eframe::egui::Align2;
 use eframe::egui::Direction;
@@ -79,7 +79,7 @@ impl MyApp {
             toasts: Toasts::new()
                 .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
                 .direction(Direction::BottomUp),
-            last_seen_event_count: event_collector().events().len(),
+            last_seen_event_count: 0, //event_collector().events().len(), // TODO(EGUI-TRACING)
             work_tracker,
             app_info,
             tiles: crate::tiles::create_tree(),

@@ -1,5 +1,6 @@
 use chrono::Local;
-use egui_tracing::tracing::collector::EventCollector;
+// TODO(EGUI-TRACING)
+// use egui_tracing::tracing::collector::EventCollector;
 use eyre::Result;
 use std::fs::OpenOptions;
 use std::path::Path;
@@ -14,12 +15,14 @@ use tracing_subscriber::layer::Layer;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
-static EVENT_COLLECTOR: LazyLock<EventCollector> = LazyLock::new(EventCollector::default);
+// TODO(EGUI-TRACING)
+// static EVENT_COLLECTOR: LazyLock<EventCollector> = LazyLock::new(EventCollector::default);
 
-/// Return a clone of the global EventCollector for use in GUI widgets
-pub fn event_collector() -> EventCollector {
-    EVENT_COLLECTOR.clone()
-}
+// TODO(EGUI-TRACING)
+// /// Return a clone of the global EventCollector for use in GUI widgets
+// pub fn event_collector() -> EventCollector {
+//     EVENT_COLLECTOR.clone()
+// }
 
 /// Initialize tracing for the whole application, registering a stderr layer, an
 /// optional JSON file writer, an env filter, and the GUI event collector so that
@@ -44,13 +47,14 @@ pub fn init_tracing(
                 .pretty()
                 .without_time(),
         )
-        .with({
-            if enable_egui_collector {
-                Some(event_collector().clone())
-            } else {
-                None
-            }
-        })
+        // TODO(EGUI-TRACING)
+        // .with({
+        //     if enable_egui_collector {
+        //         Some(event_collector().clone())
+        //     } else {
+        //         None
+        //     }
+        // })
         .with({
             // Build registry with optional JSON layer; Option<Layer> implements Layer so
             // the resulting type is the same whether the layer is Some(_) or None.
