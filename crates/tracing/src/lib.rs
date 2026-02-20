@@ -5,7 +5,6 @@ use eyre::Result;
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::LazyLock;
 use std::sync::Mutex;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -30,6 +29,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 pub fn init_tracing(
     level: impl Into<Directive>,
     json_path: Option<impl AsRef<Path>>,
+    #[expect(unused)] // TODO(EGUI-TRACING)
     enable_egui_collector: bool,
 ) -> Result<()> {
     tracing_subscriber::registry()

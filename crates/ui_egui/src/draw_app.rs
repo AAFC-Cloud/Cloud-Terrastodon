@@ -3,9 +3,13 @@ use crate::windows::dir_window::ui_dir_windows;
 use eframe::egui::MenuBar;
 use eframe::egui::TopBottomPanel;
 use eframe::egui::Window;
+#[expect(unused)] // TODO(EGUI-TRACING)
 use egui_toast::Toast;
+#[expect(unused)] // TODO(EGUI-TRACING)
 use egui_toast::ToastKind;
+#[expect(unused)] // TODO(EGUI-TRACING)
 use egui_toast::ToastOptions;
+#[expect(unused)] // TODO(EGUI-TRACING)
 use tracing::Level;
 impl MyApp {
     pub fn draw_app(&mut self, ctx: &eframe::egui::Context) {
