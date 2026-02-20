@@ -1,3 +1,7 @@
+# v0.34.0
+
+- Add `ct az role assignment create` command
+
 # v0.33.0
 
 - Rename `fetch_azure_devops_license_entitlements` to `fetch_azure_devops_user_license_entitlements`

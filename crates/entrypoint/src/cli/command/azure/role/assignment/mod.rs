@@ -1,9 +1,11 @@
 pub mod azure_role_assignment_browse_cli;
 pub mod azure_role_assignment_cli;
+pub mod azure_role_assignment_create_cli;
 pub mod azure_role_assignment_list_cli;
 
 pub use azure_role_assignment_browse_cli::AzureRoleAssignmentBrowseArgs;
 pub use azure_role_assignment_cli::AzureRoleAssignmentCommand;
+pub use azure_role_assignment_create_cli::AzureRoleAssignmentCreateArgs;
 pub use azure_role_assignment_list_cli::AzureRoleAssignmentListArgs;
 use clap::Args;
 use eyre::Result;

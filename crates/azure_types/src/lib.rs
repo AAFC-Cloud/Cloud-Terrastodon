@@ -5,6 +5,8 @@ mod address_prefix;
 mod address_prefixes;
 mod all_or;
 mod app;
+mod azure_principal_argument;
+mod azure_role_definition_argument;
 mod compute_publisher_id;
 mod compute_publisher_name;
 mod compute_publisher_vm_image_offer_id;
@@ -160,6 +162,8 @@ pub mod prelude {
     pub use crate::address_prefixes::*;
     pub use crate::all_or::*;
     pub use crate::app::*;
+    pub use crate::azure_principal_argument::*;
+    pub use crate::azure_role_definition_argument::*;
     pub use crate::compute_publisher_id::*;
     pub use crate::compute_publisher_name::*;
     pub use crate::compute_publisher_vm_image_offer_id::*;

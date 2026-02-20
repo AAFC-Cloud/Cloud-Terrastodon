@@ -5,6 +5,7 @@ use eyre::Result;
 
 /// Subcommands for Azure RBAC operations.
 #[derive(Subcommand, Debug, Clone)]
+#[expect(clippy::large_enum_variant)]
 pub enum AzureRoleCommand {
     /// Manage Azure role definitions.
     Definition(AzureRoleDefinitionArgs),
