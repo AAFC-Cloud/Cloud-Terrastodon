@@ -9,6 +9,7 @@ pub mod dump_everything;
 pub mod egui;
 pub mod extract_uuid;
 pub mod get_path;
+pub mod nslookup;
 pub mod perform_code_generation_from_imports;
 pub mod pick;
 pub mod ratatui;
@@ -26,6 +27,7 @@ use crate::cli::dump_everything::DumpEverythingArgs;
 use crate::cli::egui::EguiArgs;
 use crate::cli::extract_uuid::ExtractUuidArgs;
 use crate::cli::get_path::GetPathArgs;
+use crate::cli::nslookup::NslookupArgs;
 use crate::cli::perform_code_generation_from_imports::PerformCodeGenerationFromImportsArgs;
 use crate::cli::pick::PickArgs;
 use crate::cli::ratatui::RatatuiArgs;
@@ -53,6 +55,8 @@ pub enum CloudTerrastodonCommand {
     DumpAzureDevOps(DumpAzureDevOpsArgs),
     /// Print the path to a well-known application directory.
     GetPath(GetPathArgs),
+    /// Resolve DNS names to IP addresses.
+    Nslookup(NslookupArgs),
     /// Copy the latest run results to another location.
     CopyResults(CopyResultsArgs),
     /// Register a directory as a working directory.
@@ -85,6 +89,7 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::DumpEverything(args) => args.invoke().await,
             CloudTerrastodonCommand::DumpAzureDevOps(args) => args.invoke().await,
             CloudTerrastodonCommand::GetPath(args) => args.invoke().await,
+            CloudTerrastodonCommand::Nslookup(args) => args.invoke().await,
             CloudTerrastodonCommand::CopyResults(args) => args.invoke().await,
             CloudTerrastodonCommand::AddWorkDir(args) => args.invoke().await,
             CloudTerrastodonCommand::Terraform(args) => args.invoke().await,

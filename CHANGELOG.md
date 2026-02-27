@@ -1,6 +1,9 @@
 # v0.34.0
 
 - Add `ct az role assignment create` command
+- Add `ct az find <query>` command to search resources
+- Add `ct az resource list|browse|show` commands
+- Add `ct nslookup <query>` command
 
 # v0.33.0
 

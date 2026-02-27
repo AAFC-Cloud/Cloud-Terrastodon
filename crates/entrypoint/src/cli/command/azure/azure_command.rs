@@ -1,7 +1,9 @@
 use super::audit::AzureAuditArgs;
+use super::find::AzureFindArgs;
 use super::group::AzureGroupArgs;
 use super::pim::AzurePimArgs;
 use super::policy::AzurePolicyArgs;
+use super::resource::AzureResourceArgs;
 use super::role::AzureRoleArgs;
 use super::subscription::AzureSubscriptionArgs;
 use super::tag::AzureTagArgs;
@@ -16,12 +18,17 @@ use eyre::Result;
 pub enum AzureCommand {
     /// Audit Azure resources for configuration issues.
     Audit(AzureAuditArgs),
+    /// Find resources where resource JSON contains the given text.
+    Find(AzureFindArgs),
     /// Manage Azure resource groups.
     Group(AzureGroupArgs),
     /// Manage Azure policy resources.
     Policy(AzurePolicyArgs),
     /// Manage Azure resource tags.
     Tag(AzureTagArgs),
+    /// Manage Azure resources.
+    #[command(alias = "res")]
+    Resource(AzureResourceArgs),
     /// Manage Azure role-based access control.
     Role(AzureRoleArgs),
     /// Manage Azure Privileged Identity Management operations.
@@ -45,6 +52,9 @@ impl AzureCommand {
             AzureCommand::Audit(args) => {
                 args.invoke().await?;
             }
+            AzureCommand::Find(args) => {
+                args.invoke().await?;
+            }
             AzureCommand::Group(args) => {
                 args.invoke().await?;
             }
@@ -52,6 +62,9 @@ impl AzureCommand {
                 args.invoke().await?;
             }
             AzureCommand::Tag(args) => {
+                args.invoke().await?;
+            }
+            AzureCommand::Resource(args) => {
                 args.invoke().await?;
             }
             AzureCommand::Role(args) => {

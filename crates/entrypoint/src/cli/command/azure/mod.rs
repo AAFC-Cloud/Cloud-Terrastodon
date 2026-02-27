@@ -1,9 +1,11 @@
 pub mod audit;
 pub mod azure_command;
 pub mod entra;
+pub mod find;
 pub mod group;
 pub mod pim;
 pub mod policy;
+pub mod resource;
 pub mod role;
 pub mod subscription;
 pub mod tag;

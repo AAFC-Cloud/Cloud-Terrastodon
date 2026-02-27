@@ -53,6 +53,8 @@ jmespath.workspace = true
 uuid.workspace = true
 http.workspace = true
 liquid.workspace = true
+hickory-resolver.workspace = true
+nucleo.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [
