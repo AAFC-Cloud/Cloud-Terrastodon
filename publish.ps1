@@ -98,7 +98,7 @@ foreach ($pkg_name in $sorted_packages) {
     Push-Location $packagePath
     
     try {
-        cargo publish
+        cargo publish --registry crates-io
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to publish $($package.name)"
             Pop-Location
