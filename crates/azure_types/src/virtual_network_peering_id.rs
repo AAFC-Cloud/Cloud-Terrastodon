@@ -88,6 +88,7 @@ impl HasPrefix for VirtualNetworkPeeringId {
 }
 
 impl Scope for VirtualNetworkPeeringId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         let (subscription_id, remaining) =
             strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;

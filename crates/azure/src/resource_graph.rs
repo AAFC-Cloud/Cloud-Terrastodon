@@ -63,7 +63,6 @@ impl ResourceGraphHelper {
         }
     }
 
-    #[track_caller]
     pub async fn fetch<T: FromCommandOutput>(
         &mut self,
     ) -> Result<Option<ResourceGraphQueryResponse<T>>> {
@@ -152,7 +151,6 @@ impl ResourceGraphHelper {
         Ok(Some(results))
     }
 
-    #[track_caller]
     pub async fn collect_all<T: FromCommandOutput>(&mut self) -> Result<Vec<T>> {
         let mut all_data = Vec::new();
         while let Some(response) = self.fetch().await? {

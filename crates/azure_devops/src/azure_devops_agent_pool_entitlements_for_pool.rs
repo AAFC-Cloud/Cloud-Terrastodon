@@ -3,6 +3,7 @@ use crate::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsAgentPoolArgument;
 use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use std::pin::Pin;
 
 pub struct AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
@@ -32,10 +33,10 @@ impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsAgentPoolEntitlementListFor
 impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
     type Output = eyre::Result<Vec<crate::prelude::AzureDevOpsAgentPoolEntitlement>>;
 
-    type IntoFuture = impl std::future::Future<Output = Self::Output> + 'a;
+    type IntoFuture = Pin<Box<dyn std::future::Future<Output = Self::Output> + 'a>>;
 
     fn into_future(self) -> Self::IntoFuture {
-        async move {
+        Box::pin(async move {
             let projects = fetch_all_azure_devops_projects(self.org_url)
                 .with_invalidation(self.invalidate_cache)
                 .await?;
@@ -52,7 +53,7 @@ impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
                 }
             }
             Ok(all_entitlements)
-        }
+        })
     }
 }
 

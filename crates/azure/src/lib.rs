@@ -1,4 +1,3 @@
-#![feature(impl_trait_in_assoc_type, duration_constructors, async_fn_track_caller)]
 mod access_token;
 mod accounts;
 mod auth;

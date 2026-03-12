@@ -176,6 +176,7 @@ impl TryFromManagementGroupScoped for RoleAssignmentId {
 
 // MARK: impl Scope
 impl Scope for RoleAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         try_from_expanded_hierarchy_scoped_with_portal(expanded)
     }

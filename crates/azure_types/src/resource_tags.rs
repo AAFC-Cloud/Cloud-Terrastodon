@@ -47,6 +47,7 @@ impl FromStr for ResourceTagsId {
 }
 
 impl Scope for ResourceTagsId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         self.expanded.clone()
     }

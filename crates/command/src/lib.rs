@@ -9,11 +9,6 @@
 //! - Sending content to command stdin.
 //! - Writing command failures and successes to files for debugging and caching.
 
-#![feature(
-    duration_constructors,
-    string_from_utf8_lossy_owned,
-    async_fn_track_caller
-)]
 pub mod app_work;
 mod cachable_command;
 mod cache_invalidatable;

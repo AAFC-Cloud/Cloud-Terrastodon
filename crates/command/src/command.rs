@@ -20,6 +20,8 @@ use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::ffi::OsString;
+use std::future::Future;
+use std::panic::Location;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -430,9 +432,7 @@ impl CommandBuilder {
         self
     }
 
-    #[async_recursion]
-    #[track_caller]
-    pub async fn run_raw_inner(&self) -> Result<CommandOutput> {
+    async fn run_raw_inner(&self, caller: &'static Location<'static>) -> Result<CommandOutput> {
         let mut command = Command::new(self.kind.program().await);
         match self.output_behaviour {
             OutputBehaviour::Capture => {
@@ -516,7 +516,7 @@ impl CommandBuilder {
                     info!("It's been 30 seconds, retrying command `{}`", self.summarize().await);
                     let mut retry = self.clone();
                     retry.use_retry_behaviour(RetryBehaviour::Fail);
-                    let output = retry.run_raw().await;
+                    let output = retry.run_raw_from(caller).await;
 
                     // Return the result
                     return output;
@@ -556,7 +556,7 @@ impl CommandBuilder {
                                     "--output",
                                     "tsv",
                                 ])
-                                .run_raw()
+                                .run_raw_from(caller)
                                 .await?
                                 .stdout;
                             let tenant_id = tenant_id.trim();
@@ -566,7 +566,7 @@ impl CommandBuilder {
                                 );
                                 CommandBuilder::new(CommandKind::AzureCLI)
                                     .arg("login")
-                                    .run_raw()
+                                    .run_raw_from(caller)
                                     .await?;
                             } else {
                                 CommandBuilder::new(CommandKind::AzureCLI)
@@ -577,7 +577,7 @@ impl CommandBuilder {
                                             .to_str()
                                             .wrap_err("converting tenant id to str")?,
                                     ])
-                                    .run_raw()
+                                    .run_raw_from(caller)
                                     .await?;
                             }
 
@@ -596,7 +596,7 @@ impl CommandBuilder {
                     info!("Retrying command with refreshed credential...");
                     let mut retry = self.clone();
                     retry.use_retry_behaviour(RetryBehaviour::Fail);
-                    let output = retry.run_raw().await;
+                    let output = retry.run_raw_from(caller).await;
 
                     // Return the result
                     return output;
@@ -633,7 +633,12 @@ impl CommandBuilder {
     }
 
     #[track_caller]
-    pub async fn run_raw(&self) -> Result<CommandOutput> {
+    pub fn run_raw(&self) -> impl Future<Output = Result<CommandOutput>> + Send + '_ {
+        self.run_raw_from(Location::caller())
+    }
+
+    #[async_recursion]
+    async fn run_raw_from(&self, caller: &'static Location<'static>) -> Result<CommandOutput> {
         let summary = self.summarize().await;
         let span =
             info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key).or_current();
@@ -651,7 +656,7 @@ impl CommandBuilder {
             }
 
             let start = Instant::now();
-            let rtn = self.run_raw_inner().instrument(span.clone()).await;
+            let rtn = self.run_raw_inner(caller).instrument(span.clone()).await;
             let elapsed = Instant::now().duration_since(start);
             debug!(
                 elapsed_ms = elapsed.as_millis(),
@@ -664,23 +669,30 @@ impl CommandBuilder {
         .await
         .wrap_err(format!(
             "Command::run_raw failed, called from {}",
-            RelativeLocation::from(std::panic::Location::caller())
+            RelativeLocation::from(caller)
         ))
         .wrap_err(format!("Invoking command failed: {summary}",))
     }
 
     #[track_caller]
-    pub async fn run<T: FromCommandOutput>(&self) -> Result<T> {
+    pub fn run<T: FromCommandOutput>(&self) -> impl Future<Output = Result<T>> + Send + '_ {
+        self.run_from(Location::caller())
+    }
+
+    async fn run_from<T: FromCommandOutput>(
+        &self,
+        caller: &'static Location<'static>,
+    ) -> Result<T> {
         let summary = self.summarize().await;
         let span = info_span!("command_run", summary, ?self.run_dir, ?self.cache_key).or_current();
 
         let output = self
-            .run_raw()
+            .run_raw_from(caller)
             .instrument(span.clone())
             .await
             .wrap_err(format!(
                 "Command::run failed, called from {}",
-                RelativeLocation::from(std::panic::Location::caller())
+                RelativeLocation::from(caller)
             ))?;
         let output = Arc::new(output);
 

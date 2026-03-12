@@ -66,7 +66,7 @@ policyResources
                 )
                 .as_str(),
             ]),
-            valid_for: Duration::from_mins(15),
+            valid_for: Duration::from_secs(15 * 60),
         }),
     )
     .collect_all::<ReferenceIdRow>()
@@ -132,7 +132,7 @@ policyResources
                 "resource_graph".to_string(),
                 resource_cache_key,
             ]),
-            valid_for: Duration::from_mins(15),
+            valid_for: Duration::from_secs(15 * 60),
         }),
     )
     .collect_all::<ResourceRow>()

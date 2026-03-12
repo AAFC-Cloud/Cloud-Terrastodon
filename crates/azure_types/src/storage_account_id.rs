@@ -107,6 +107,7 @@ impl FromStr for StorageAccountId {
 }
 
 impl Scope for StorageAccountId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         StorageAccountId::try_from_expanded_resource_group_scoped(expanded)
     }

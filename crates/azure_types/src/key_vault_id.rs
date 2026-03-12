@@ -120,6 +120,7 @@ impl FromStr for KeyVaultId {
 }
 
 impl Scope for KeyVaultId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         KeyVaultId::try_from_expanded_resource_group_scoped(expanded)
     }

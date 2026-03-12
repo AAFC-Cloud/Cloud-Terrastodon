@@ -12,6 +12,8 @@ use eyre::OptionExt;
 use eyre::Result;
 use eyre::eyre;
 use std::collections::HashSet;
+use std::future::Future;
+use std::panic::Location;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs;
@@ -36,7 +38,11 @@ impl GenerateConfigOutHelper {
         self
     }
     #[track_caller]
-    pub async fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> impl Future<Output = Result<()>> + '_ {
+        self.run_from(Location::caller())
+    }
+
+    async fn run_from(&mut self, caller: &'static Location<'static>) -> Result<()> {
         // Check preconditions
         let Some(ref work_dir) = self.run_dir else {
             return Err(eyre!("Run dir not set!"));
@@ -167,7 +173,7 @@ impl GenerateConfigOutHelper {
         result
             .wrap_err(format!(
                 "GenerateConfigOutHelper::run called from {}",
-                RelativeLocation::from(std::panic::Location::caller())
+                RelativeLocation::from(caller)
             ))
             .wrap_err(format!(
                 "GenerateConfigOutHelper::run failed with dir \"{}\"",

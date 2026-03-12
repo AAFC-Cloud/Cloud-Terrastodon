@@ -225,6 +225,7 @@ impl TryFromResourceScoped for ResourceScopedRoleAssignmentId {
 // MARK: impl Scope
 
 impl Scope for UnscopedRoleAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{ROLE_ASSIGNMENT_ID_PREFIX}{}",
@@ -246,6 +247,7 @@ impl Scope for UnscopedRoleAssignmentId {
 }
 
 impl Scope for PortalScopedRoleAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "/providers/Microsoft.PortalServices/{ROLE_ASSIGNMENT_ID_PREFIX}{}",
@@ -267,6 +269,7 @@ impl Scope for PortalScopedRoleAssignmentId {
 }
 
 impl Scope for ServiceGroupScopedRoleAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -290,6 +293,7 @@ impl Scope for ServiceGroupScopedRoleAssignmentId {
 }
 
 impl Scope for ManagementGroupScopedRoleAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -312,6 +316,7 @@ impl Scope for ManagementGroupScopedRoleAssignmentId {
     }
 }
 impl Scope for SubscriptionScopedRoleAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -335,6 +340,7 @@ impl Scope for SubscriptionScopedRoleAssignmentId {
 }
 
 impl Scope for ResourceGroupScopedRoleAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -358,6 +364,7 @@ impl Scope for ResourceGroupScopedRoleAssignmentId {
 }
 
 impl Scope for ResourceScopedRoleAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",

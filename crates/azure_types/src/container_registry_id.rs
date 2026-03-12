@@ -99,6 +99,7 @@ impl TryFromResourceGroupScoped for ContainerRegistryId {
 }
 
 impl Scope for ContainerRegistryId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         ContainerRegistryId::try_from_expanded_resource_group_scoped(expanded)
     }

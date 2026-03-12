@@ -28,8 +28,7 @@ impl Slug for CompactString {
 */
 
 pub trait HasSlug {
-    /// Associated type with a default
-    type Name: Slug = CompactString;
+    type Name: Slug;
 
     /// Gets a reference to the name
     fn name(&self) -> &Self::Name;

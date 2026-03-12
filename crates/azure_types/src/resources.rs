@@ -67,6 +67,7 @@ impl TryFromResourceScoped for ResourceId {
 }
 
 impl Scope for ResourceId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}/providers/{}/{}",

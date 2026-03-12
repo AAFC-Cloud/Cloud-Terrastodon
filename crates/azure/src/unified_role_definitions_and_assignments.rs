@@ -4,7 +4,7 @@ use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionsAndAssignments
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use std::future::Future;
+use std::pin::Pin;
 use tokio::try_join;
 
 /// Fetches Entra role assignments and role definitions.
@@ -30,17 +30,17 @@ impl CacheInvalidatable for UnifiedRoleDefinitionsAndAssignmentsListRequest {
 
 impl IntoFuture for UnifiedRoleDefinitionsAndAssignmentsListRequest {
     type Output = eyre::Result<UnifiedRoleDefinitionsAndAssignments>;
-    type IntoFuture = impl Future<Output = Self::Output>;
+    type IntoFuture = Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
 
     fn into_future(self) -> Self::IntoFuture {
-        async move {
+        Box::pin(async move {
             let (role_definitions, role_assignments) = try_join!(
                 fetch_all_unified_role_definitions(),
                 fetch_all_unified_role_assignments()
             )?;
 
             UnifiedRoleDefinitionsAndAssignments::try_new(role_definitions, role_assignments)
-        }
+        })
     }
 }
 

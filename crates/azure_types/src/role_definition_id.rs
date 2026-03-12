@@ -139,6 +139,7 @@ impl TryFromManagementGroupScoped for RoleDefinitionId {
 
 // MARK: impl Scope
 impl Scope for RoleDefinitionId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         try_from_expanded_hierarchy_scoped(expanded)
     }

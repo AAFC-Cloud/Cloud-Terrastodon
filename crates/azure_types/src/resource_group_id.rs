@@ -169,6 +169,7 @@ impl TryFrom<&String> for ResourceGroupId {
 }
 
 impl Scope for ResourceGroupId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",

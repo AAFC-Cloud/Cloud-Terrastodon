@@ -100,6 +100,7 @@ impl TryFromResourceGroupScoped for RouteTableId {
 }
 
 impl Scope for RouteTableId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         RouteTableId::try_from_expanded_resource_group_scoped(expanded)
     }

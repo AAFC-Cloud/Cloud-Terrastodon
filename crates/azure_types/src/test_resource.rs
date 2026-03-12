@@ -27,6 +27,7 @@ impl TestResourceId {
 }
 
 impl Scope for TestResourceId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         self.expanded.to_owned()
     }

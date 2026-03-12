@@ -1,4 +1,3 @@
-#![feature(async_fn_track_caller)]
 mod audit;
 mod block_lister;
 mod body_formatter;

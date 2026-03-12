@@ -22,7 +22,7 @@ impl CacheableCommand for SecurityGroupListRequest {
     fn cache_key(&self) -> CacheKey {
         CacheKey {
             path: PathBuf::from_iter(["ms", "graph", "GET", "security_groups"]),
-            valid_for: Duration::from_hours(2),
+            valid_for: Duration::from_secs(2 * 60 * 60),
         }
     }
 

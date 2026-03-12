@@ -139,6 +139,7 @@ impl TryFromManagementGroupScoped for PolicyAssignmentId {
 
 // MARK: impl Scope
 impl Scope for PolicyAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         try_from_expanded_hierarchy_scoped(expanded)
     }

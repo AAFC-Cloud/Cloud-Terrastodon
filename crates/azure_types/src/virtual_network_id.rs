@@ -96,6 +96,7 @@ impl TryFromResourceGroupScoped for VirtualNetworkId {
 }
 
 impl Scope for VirtualNetworkId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> Result<Self> {
         VirtualNetworkId::try_from_expanded_resource_group_scoped(expanded)
     }

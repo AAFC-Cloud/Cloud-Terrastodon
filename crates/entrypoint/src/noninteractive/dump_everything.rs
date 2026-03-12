@@ -556,51 +556,45 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
             tf_work_dirs.push(project_teams_dir.clone());
 
             join_set.spawn(async move {
-                try {
-                    let provider_manager = ProviderManager::try_new()?;
-                    provider_manager
-                        .write_default_provider_configs(&project_creation_dir)
-                        .await?;
-                }
+                let provider_manager = ProviderManager::try_new()?;
+                provider_manager
+                    .write_default_provider_configs(&project_creation_dir)
+                    .await?;
+                Ok(())
             });
             join_set.spawn(async move {
-                try {
-                    let provider_manager = ProviderManager::try_new()?;
+                let provider_manager = ProviderManager::try_new()?;
 
-                    provider_manager
-                        .write_default_provider_configs(&project_repos_dir)
-                        .await?;
-                }
+                provider_manager
+                    .write_default_provider_configs(&project_repos_dir)
+                    .await?;
+                Ok(())
             });
             join_set.spawn(async move {
-                try {
-                    let provider_manager = ProviderManager::try_new()?;
-                    provider_manager
-                        .write_default_provider_configs(&project_teams_dir)
-                        .await?;
-                }
+                let provider_manager = ProviderManager::try_new()?;
+                provider_manager
+                    .write_default_provider_configs(&project_teams_dir)
+                    .await?;
+                Ok(())
             });
         }
 
         let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
-            try {
-                write_import_blocks(project_tf_file, vec![project], sender, strategy).await?;
-            }
+            write_import_blocks(project_tf_file, vec![project], sender, strategy).await?;
+            Ok(())
         });
 
         let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
-            try {
-                write_import_blocks(repos_tf_file, repos, sender, strategy).await?;
-            }
+            write_import_blocks(repos_tf_file, repos, sender, strategy).await?;
+            Ok(())
         });
 
         let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
-            try {
-                write_import_blocks(teams_tf_file, teams, sender, strategy).await?;
-            }
+            write_import_blocks(teams_tf_file, teams, sender, strategy).await?;
+            Ok(())
         });
     }
 
@@ -637,22 +631,21 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
 
         let sender = all_in_one_imports_tx.clone();
         join_set.spawn(async move {
-            try {
-                if strategy.split() {
-                    HclWriter::new(&boilerplate_file)
-                        .format_on_write()
-                        .merge([azurerm_provider_block])
-                        .await?;
-                }
-
-                write_import_blocks(
-                    resource_group_import_file,
-                    [resource_group_import_block],
-                    sender,
-                    strategy,
-                )
-                .await?;
+            if strategy.split() {
+                HclWriter::new(&boilerplate_file)
+                    .format_on_write()
+                    .merge([azurerm_provider_block])
+                    .await?;
             }
+
+            write_import_blocks(
+                resource_group_import_file,
+                [resource_group_import_block],
+                sender,
+                strategy,
+            )
+            .await?;
+            Ok(())
         });
     }
 
@@ -662,12 +655,11 @@ async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTF
         tf_work_dirs.push(all_in_one_dir.clone());
         let all_in_one_dir = all_in_one_dir.clone();
         join_set.spawn(async move {
-            try {
-                let provider_manager = ProviderManager::try_new()?;
-                provider_manager
-                    .write_default_provider_configs(&all_in_one_dir)
-                    .await?;
-            }
+            let provider_manager = ProviderManager::try_new()?;
+            provider_manager
+                .write_default_provider_configs(&all_in_one_dir)
+                .await?;
+            Ok(())
         });
     }
 

@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_types::prelude::RoleDefinitionsAndAssignments;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use std::pin::Pin;
 use tokio::try_join;
 
 /// Fetches all AzureRM role assignments and role definitions.
@@ -28,15 +29,15 @@ impl CacheInvalidatable for RoleDefinitionsAndAssignmentsListRequest {
 
 impl IntoFuture for RoleDefinitionsAndAssignmentsListRequest {
     type Output = eyre::Result<RoleDefinitionsAndAssignments>;
-    type IntoFuture = impl Future<Output = Self::Output>;
+    type IntoFuture = Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
 
     fn into_future(self) -> Self::IntoFuture {
-        async move {
+        Box::pin(async move {
             let (role_definitions, role_assignments) =
                 try_join!(fetch_all_role_definitions(), fetch_all_role_assignments())?;
 
             RoleDefinitionsAndAssignments::try_new(role_definitions, role_assignments)
-        }
+        })
     }
 }
 

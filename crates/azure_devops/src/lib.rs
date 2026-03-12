@@ -1,5 +1,3 @@
-#![feature(impl_trait_in_assoc_type)]
-
 mod azure_devops_agent_packages;
 mod azure_devops_agent_pool_entitlements_for_pool;
 mod azure_devops_agent_pool_entitlements_for_project;

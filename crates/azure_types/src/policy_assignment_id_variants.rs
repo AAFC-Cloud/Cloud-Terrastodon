@@ -168,6 +168,7 @@ impl TryFromResourceScoped for ResourceScopedPolicyAssignmentId {
 // MARK: impl Scope
 
 impl Scope for UnscopedPolicyAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!("{POLICY_ASSIGNMENT_ID_PREFIX}{}", self.role_assignment_name)
     }
@@ -186,6 +187,7 @@ impl Scope for UnscopedPolicyAssignmentId {
 }
 
 impl Scope for ManagementGroupScopedPolicyAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -208,6 +210,7 @@ impl Scope for ManagementGroupScopedPolicyAssignmentId {
     }
 }
 impl Scope for SubscriptionScopedPolicyAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -231,6 +234,7 @@ impl Scope for SubscriptionScopedPolicyAssignmentId {
 }
 
 impl Scope for ResourceGroupScopedPolicyAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -254,6 +258,7 @@ impl Scope for ResourceGroupScopedPolicyAssignmentId {
 }
 
 impl Scope for ResourceScopedPolicyAssignmentId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",

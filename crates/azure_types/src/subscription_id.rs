@@ -72,6 +72,7 @@ impl<'de> serde::Deserialize<'de> for SubscriptionId {
     }
 }
 impl Scope for SubscriptionId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!("{}{}", SUBSCRIPTION_ID_PREFIX, self.0)
     }

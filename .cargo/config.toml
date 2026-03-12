@@ -6,10 +6,10 @@
 [target.x86_64-pc-windows-msvc]
 # [target.'cfg(target_os = "windows")']
 linker = "rust-lld.exe" # Use LLD Linker
-rustflags = [
-  "-Zshare-generics=n",
-  "-Zthreads=0",        # (Nightly) Use improved multithreading with the recommended amount of threads.
-]
+# rustflags = [
+#   "-Zshare-generics=n",
+#   "-Zthreads=0",        # (Nightly) Use improved multithreading with the recommended amount of threads.
+# ]
 
 [future-incompat-report]
 frequency = "never"

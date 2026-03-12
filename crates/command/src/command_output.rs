@@ -8,6 +8,8 @@ use eyre::Result;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use std::future::Future;
+use std::panic::Location;
 #[cfg(not(windows))]
 use std::os::unix::process::ExitStatusExt;
 #[cfg(windows)]
@@ -29,9 +31,17 @@ impl CommandOutput {
         return ExitStatus::from_raw(self.status).success();
     }
     #[track_caller]
-    pub async fn try_interpret<T: DeserializeOwned>(
+    pub fn try_interpret<'a, T: DeserializeOwned + 'a>(
+        &'a self,
+        command: &'a CommandBuilder,
+    ) -> impl Future<Output = eyre::Result<T>> + 'a {
+        self.try_interpret_from(command, Location::caller())
+    }
+
+    async fn try_interpret_from<T: DeserializeOwned>(
         &self,
         command: &CommandBuilder,
+        caller: &'static Location<'static>,
     ) -> eyre::Result<T> {
         match serde_json::from_slice(self.stdout.to_str_lossy().as_bytes()) {
             Ok(results) => Ok(results),
@@ -40,7 +50,7 @@ impl CommandOutput {
                 Err(eyre::Error::new(e)
                     .wrap_err(format!(
                         "Called from {}",
-                        RelativeLocation::from(std::panic::Location::caller())
+                        RelativeLocation::from(caller)
                     ))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}",

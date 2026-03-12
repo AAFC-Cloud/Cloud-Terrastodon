@@ -1,4 +1,3 @@
-#![feature(iter_collect_into, try_blocks)]
 mod cli;
 mod entrypoint;
 mod git_revision;

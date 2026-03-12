@@ -1,4 +1,3 @@
-#![feature(pattern, associated_type_defaults)]
 mod access_token;
 mod accounts;
 mod address_prefix;

@@ -167,6 +167,7 @@ impl TryFromResourceScoped for ResourceScopedRoleEligibilityScheduleId {
 // MARK: impl Scope
 
 impl Scope for UnscopedRoleEligibilityScheduleId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX}{}",
@@ -188,6 +189,7 @@ impl Scope for UnscopedRoleEligibilityScheduleId {
 }
 
 impl Scope for ManagementGroupScopedRoleEligibilityScheduleId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -214,6 +216,7 @@ impl Scope for ManagementGroupScopedRoleEligibilityScheduleId {
     }
 }
 impl Scope for SubscriptionScopedRoleEligibilityScheduleId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -239,6 +242,7 @@ impl Scope for SubscriptionScopedRoleEligibilityScheduleId {
 }
 
 impl Scope for ResourceGroupScopedRoleEligibilityScheduleId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",
@@ -266,6 +270,7 @@ impl Scope for ResourceGroupScopedRoleEligibilityScheduleId {
 }
 
 impl Scope for ResourceScopedRoleEligibilityScheduleId {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
             "{}{}{}",

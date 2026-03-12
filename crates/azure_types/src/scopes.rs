@@ -43,10 +43,9 @@ use serde::de::{self};
 use std::convert::Infallible;
 use std::fmt;
 use std::str::FromStr;
-use std::str::pattern::Pattern;
 
 pub trait Scope: Sized + FromStr {
-    type Err = <Self as FromStr>::Err;
+    type Err;
     fn expanded_form(&self) -> String;
     fn short_form(&self) -> String {
         self.expanded_form()
@@ -66,6 +65,7 @@ pub trait Scope: Sized + FromStr {
     fn kind(&self) -> ScopeImplKind;
 }
 impl Scope for CompactString {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         self.to_string()
     }
@@ -102,7 +102,7 @@ pub trait HasPrefix {
 }
 
 pub fn strip_prefix_case_insensitive<'a>(expanded: &'a str, prefix: &str) -> eyre::Result<&'a str> {
-    if !prefix.to_lowercase().is_prefix_of(&expanded.to_lowercase()) {
+    if !expanded.to_lowercase().starts_with(&prefix.to_lowercase()) {
         return Err(ScopeError::Malformed).context(format!(
             "String {expanded:?} must begin with {prefix:?} (case insensitive)"
         ));
@@ -112,7 +112,7 @@ pub fn strip_prefix_case_insensitive<'a>(expanded: &'a str, prefix: &str) -> eyr
 }
 
 pub fn strip_suffix_case_insensitive<'a>(expanded: &'a str, suffix: &str) -> eyre::Result<&'a str> {
-    if !suffix.to_lowercase().is_suffix_of(&expanded.to_lowercase()) {
+    if !expanded.to_lowercase().ends_with(&suffix.to_lowercase()) {
         return Err(ScopeError::Malformed).context(format!(
             "String {expanded:?} must end with {suffix:?} (case insensitive)"
         ));

@@ -15,6 +15,7 @@ pub enum PolicyDefinitionIdReference {
     PolicySetDefinitionId(PolicySetDefinitionId),
 }
 impl Scope for PolicyDefinitionIdReference {
+    type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         match self {
             PolicyDefinitionIdReference::PolicyDefinitionId(policy_definition_id) => {
