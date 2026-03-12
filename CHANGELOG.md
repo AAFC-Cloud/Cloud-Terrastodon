@@ -6,6 +6,8 @@
 - Add `ct nslookup <query>` command
 - Add `ct az role definition find <action>` command
     - Example `ct az role definition find Microsoft.ContainerInstance/containerGroups/containers/exec/action`
+- Migrate to stable rust, nightly is no longer required :D
+- Fix `AzureDevOpsAgentPoolArgument::matches` implementation correctness
 
 # v0.33.0
 
