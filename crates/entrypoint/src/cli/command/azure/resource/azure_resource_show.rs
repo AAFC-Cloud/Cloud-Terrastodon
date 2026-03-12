@@ -54,7 +54,7 @@ impl AzureResourceShowArgs {
                 Ok(())
             }
             _ => {
-                named_matches.sort_by(|a, b| a.id.expanded_form().cmp(&b.id.expanded_form()));
+                named_matches.sort_by_key(|a| a.id.expanded_form());
                 let ids = named_matches
                     .iter()
                     .map(|resource| resource.id.expanded_form())

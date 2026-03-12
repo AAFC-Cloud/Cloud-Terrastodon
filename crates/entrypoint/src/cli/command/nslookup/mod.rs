@@ -2,15 +2,15 @@ use clap::Args;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
+use hickory_resolver::TokioResolver;
 use hickory_resolver::config::ResolverConfig;
 use hickory_resolver::config::ResolverOpts;
-use std::collections::BTreeSet;
-use std::collections::HashSet;
-use std::net::IpAddr;
-use hickory_resolver::TokioResolver;
 use hickory_resolver::proto::rr::RData;
 use hickory_resolver::proto::rr::RecordType;
 use hickory_resolver::system_conf::read_system_conf;
+use std::collections::BTreeSet;
+use std::collections::HashSet;
+use std::net::IpAddr;
 
 /// Resolve a host name to IP addresses.
 #[derive(Args, Debug, Clone)]
@@ -34,10 +34,10 @@ impl NslookupArgs {
         }
 
         if let Ok(ip) = target.parse::<IpAddr>() {
-            if let Ok(reverse) = resolver.reverse_lookup(ip).await {
-                if let Some(name) = reverse.iter().next() {
-                    println!("Name:\t{}", trim_fqdn_dot(name.to_utf8()));
-                }
+            if let Ok(reverse) = resolver.reverse_lookup(ip).await
+                && let Some(name) = reverse.iter().next()
+            {
+                println!("Name:\t{}", trim_fqdn_dot(name.to_utf8()));
             }
             println!("Address:\t{ip}");
             return Ok(());
@@ -74,8 +74,8 @@ impl NslookupArgs {
 }
 
 async fn build_system_resolver() -> Result<(TokioResolver, Option<String>)> {
-    let (config, opts): (ResolverConfig, ResolverOpts) = read_system_conf()
-        .context("reading system DNS configuration")?;
+    let (config, opts): (ResolverConfig, ResolverOpts) =
+        read_system_conf().context("reading system DNS configuration")?;
 
     let server_ip = config.name_servers().first().map(|ns| ns.socket_addr.ip());
 
@@ -84,11 +84,12 @@ async fn build_system_resolver() -> Result<(TokioResolver, Option<String>)> {
         .build();
 
     let server_display = if let Some(ip) = server_ip {
-        let hostname = resolver
-            .reverse_lookup(ip)
-            .await
-            .ok()
-            .and_then(|lookup| lookup.iter().next().map(|name| trim_fqdn_dot(name.to_utf8())));
+        let hostname = resolver.reverse_lookup(ip).await.ok().and_then(|lookup| {
+            lookup
+                .iter()
+                .next()
+                .map(|name| trim_fqdn_dot(name.to_utf8()))
+        });
         Some(match hostname {
             Some(hostname) => format!("{hostname}\nAddress:\t{ip}"),
             None => format!("{ip}"),
@@ -100,7 +101,10 @@ async fn build_system_resolver() -> Result<(TokioResolver, Option<String>)> {
     Ok((resolver, server_display))
 }
 
-async fn resolve_cname_chain(resolver: &TokioResolver, query: &str) -> Result<(String, Vec<String>)> {
+async fn resolve_cname_chain(
+    resolver: &TokioResolver,
+    query: &str,
+) -> Result<(String, Vec<String>)> {
     let mut current = query.to_string();
     let mut aliases = vec![current.clone()];
     let mut seen = HashSet::from([current.clone()]);
