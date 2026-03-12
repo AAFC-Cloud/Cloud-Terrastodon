@@ -445,41 +445,59 @@ mod test {
     use chrono::TimeDelta;
 
     #[test]
-    pub fn it_works() -> eyre::Result<()> {
-        let x = "5months 7days 16h 15m 50s 736ms 926us";
-        let y = humantime::parse_duration(x)?;
-        let z = format_duration_human(TimeDelta::from_std(y)?)?;
-        println!("{} -> {:?} -> {}", x, y, z);
-        assert_eq!(z, "5 months, 7 days");
+    pub fn it_works_1() -> eyre::Result<()> {
+        let input = "5months 7days 16h 15m 50s 736ms 926us";
+        let duration = humantime::parse_duration(input)?;
+        let delta = TimeDelta::from_std(duration)?;
+        let en = format_duration_human(delta)?;
+        let fr = format_duration_human_fr(delta)?;
+        println!("{input} -> {duration:?} -> {en}");
+        println!("{input} -> {duration:?} -> {fr}");
+        assert_eq!(en, "5 months, 7 days");
         Ok(())
     }
 
     #[test]
-    pub fn it_works_fr() -> eyre::Result<()> {
+    pub fn it_works_2() -> eyre::Result<()> {
         // simple single-unit
-        let x = "3days";
-        let y = humantime::parse_duration(x)?;
-        let z = format_duration_human_fr(TimeDelta::from_std(y)?)?;
-        println!("{} -> {:?} -> {}", x, y, z);
-        assert_eq!(z, "3jours");
-
-        // months + days, extra smaller units should be removed by the formatter
-        let x2 = "3months 2days 16h 15m 50s";
-        let y2 = humantime::parse_duration(x2)?;
-        let z2 = format_duration_human_fr(TimeDelta::from_std(y2)?)?;
-        println!("{} -> {:?} -> {}", x2, y2, z2);
-        assert_eq!(z2, "3mois 2jours");
-
+        let input = "3days";
+        let duration = humantime::parse_duration(input)?;
+        let delta = TimeDelta::from_std(duration)?;
+        let en = format_duration_human(delta)?;
+        let fr = format_duration_human_fr(delta)?;
+        println!("{input} -> {duration:?} -> {en}");
+        println!("{input} -> {duration:?} -> {fr}");
+        assert_eq!(en, "3 days");
+        assert_eq!(fr, "3 jours");
         Ok(())
     }
 
     #[test]
-    pub fn it_works_commas() -> eyre::Result<()> {
-        let x = "3months 12days 5h";
-        let y = humantime::parse_duration(x)?;
-        let z = format_duration_human(TimeDelta::from_std(y)?)?;
-        println!("{} -> {:?} -> {}", x, y, z);
-        assert_eq!(z, "3 months, 12 days");
+    pub fn it_works_3() -> eyre::Result<()> {
+        // months + days, extra smaller units should be removed by the formatter
+        let input = "3months 2days 16h 15m 50s";
+        let duration = humantime::parse_duration(input)?;
+        let delta = TimeDelta::from_std(duration)?;
+        let en = format_duration_human(delta)?;
+        let fr = format_duration_human_fr(delta)?;
+        println!("{input} -> {duration:?} -> {en}");
+        println!("{input} -> {duration:?} -> {fr}");
+        assert_eq!(en, "3 months, 2 days");
+        assert_eq!(fr, "3 mois, 2 jours");
+        Ok(())
+    }
+
+    #[test]
+    pub fn it_works_4() -> eyre::Result<()> {
+        let input = "3months 12days 5h";
+        let duration = humantime::parse_duration(input)?;
+        let delta = TimeDelta::from_std(duration)?;
+        let en = format_duration_human(delta)?;
+        let fr = format_duration_human_fr(delta)?;
+        println!("{input} -> {duration:?} -> {en}");
+        println!("{input} -> {duration:?} -> {fr}");
+        assert_eq!(en, "3 months, 12 days");
+        assert_eq!(fr, "3 mois, 12 jours");
         Ok(())
     }
 }
