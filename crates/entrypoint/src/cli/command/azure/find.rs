@@ -6,8 +6,8 @@ use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
 use nucleo::pattern::Normalization;
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// Find Azure resources where the serialized JSON contains the provided text.

@@ -1,4 +1,5 @@
 use super::AzureRoleDefinitionBrowseArgs;
+use super::AzureRoleDefinitionFindArgs;
 use super::AzureRoleDefinitionListArgs;
 use clap::Subcommand;
 use eyre::Result;
@@ -10,6 +11,8 @@ pub enum AzureRoleDefinitionCommand {
     List(AzureRoleDefinitionListArgs),
     /// Browse Azure role definitions interactively.
     Browse(AzureRoleDefinitionBrowseArgs),
+    /// Find role definitions and assignments that satisfy an action or data action.
+    Find(AzureRoleDefinitionFindArgs),
 }
 
 impl AzureRoleDefinitionCommand {
@@ -17,6 +20,7 @@ impl AzureRoleDefinitionCommand {
         match self {
             AzureRoleDefinitionCommand::List(args) => args.invoke().await,
             AzureRoleDefinitionCommand::Browse(args) => args.invoke().await,
+            AzureRoleDefinitionCommand::Find(args) => args.invoke().await,
         }
     }
 }

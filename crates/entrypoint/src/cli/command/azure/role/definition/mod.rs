@@ -1,9 +1,11 @@
 pub mod azure_role_definition_browse_cli;
 pub mod azure_role_definition_cli;
+pub mod azure_role_definition_find_cli;
 pub mod azure_role_definition_list_cli;
 
 pub use azure_role_definition_browse_cli::AzureRoleDefinitionBrowseArgs;
 pub use azure_role_definition_cli::AzureRoleDefinitionCommand;
+pub use azure_role_definition_find_cli::AzureRoleDefinitionFindArgs;
 pub use azure_role_definition_list_cli::AzureRoleDefinitionListArgs;
 use clap::Args;
 use eyre::Result;

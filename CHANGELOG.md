@@ -4,6 +4,8 @@
 - Add `ct az find <query>` command to search resources
 - Add `ct az resource list|browse|show` commands
 - Add `ct nslookup <query>` command
+- Add `ct az role definition find <action>` command
+    - Example `ct az role definition find Microsoft.ContainerInstance/containerGroups/containers/exec/action`
 
 # v0.33.0
 
