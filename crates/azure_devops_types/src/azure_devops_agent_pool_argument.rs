@@ -66,24 +66,27 @@ impl AzureDevOpsAgentPoolArgument<'_> {
         }
     }
 
+    pub fn as_id<'a>(&'a self) -> Option<&'a AzureDevOpsAgentPoolId> {
+        match self {
+            AzureDevOpsAgentPoolArgument::Id(id) => Some(id),
+            AzureDevOpsAgentPoolArgument::IdRef(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    pub fn as_name<'a>(&'a self) -> Option<&'a AzureDevOpsAgentPoolName> {
+        match self {
+            AzureDevOpsAgentPoolArgument::Name(name) => Some(name),
+            AzureDevOpsAgentPoolArgument::NameRef(name) => Some(name),
+            _ => None,
+        }
+    }
+
     pub fn matches<'a>(&self, other: impl Into<AzureDevOpsAgentPoolArgument<'a>>) -> bool {
         let other = other.into();
-        match (self, other) {
-            (AzureDevOpsAgentPoolArgument::Id(id1), AzureDevOpsAgentPoolArgument::Id(id2)) => {
-                *id1 == id2
-            }
-            (
-                AzureDevOpsAgentPoolArgument::IdRef(id1),
-                AzureDevOpsAgentPoolArgument::IdRef(id2),
-            ) => *id1 == id2,
-            (
-                AzureDevOpsAgentPoolArgument::Name(name1),
-                AzureDevOpsAgentPoolArgument::Name(name2),
-            ) => name1.as_ref().eq_ignore_ascii_case(name2.as_ref()),
-            (
-                AzureDevOpsAgentPoolArgument::NameRef(name1),
-                AzureDevOpsAgentPoolArgument::NameRef(name2),
-            ) => name1.as_ref().eq_ignore_ascii_case(name2.as_ref()),
+        match (self.as_id(), other.as_id(), self.as_name(), other.as_name()) {
+            (Some(id1), Some(id2), _, _) => id1 == id2,
+            (_, _, Some(name1), Some(name2)) => name1.as_ref().eq_ignore_ascii_case(name2.as_ref()),
             _ => false,
         }
     }
