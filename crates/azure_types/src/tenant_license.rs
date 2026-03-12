@@ -43,6 +43,7 @@ pub enum TenantLicenseAppliesTo {
 pub enum TenantLicenseCapabilityStatus {
     Enabled,
     LockedOut,
+    Suspended,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
