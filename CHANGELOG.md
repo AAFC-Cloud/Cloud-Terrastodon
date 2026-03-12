@@ -8,6 +8,7 @@
     - Example `ct az role definition find Microsoft.ContainerInstance/containerGroups/containers/exec/action`
 - Migrate to stable rust, nightly is no longer required :D
 - Fix `AzureDevOpsAgentPoolArgument::matches` implementation correctness
+- Add new Azure regions and Tenant-level properties
 
 # v0.33.0
 
