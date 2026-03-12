@@ -9,7 +9,7 @@
 //! the value returned by
 //!
 //! ```rust
-//! std::panic::Location::caller()
+//! std::panic::Location::caller();
 //! ```
 //!
 //! uses an absolute path.
