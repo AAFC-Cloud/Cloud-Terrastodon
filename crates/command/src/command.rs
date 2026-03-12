@@ -505,15 +505,37 @@ impl CommandBuilder {
                  RetryBehaviour::Retry
                     if [
                         "ERROR: Too Many Requests",
+                        "Error: Too Many Requests"
                     ]
                     .into_iter()
                     .any(|x| output.stderr.contains_str(x)) =>
                 {
-                    // Retry the failed command, no further retries
-                    warn!("Rate limit detected ⏳ Retrying command after 30 second wait...");
-                    tokio::time::sleep(Duration::from_secs(30)).await;
+                    let mut sleep_duration = Duration::from_secs(30);
 
-                    info!("It's been 30 seconds, retrying command `{}`", self.summarize().await);
+                    // Scan output to determine a tighter sleep duration
+                    //  'x-ms-user-quota-resets-after': '00:00:04'
+                    let needle = "'x-ms-user-quota-resets-after': '";
+                    if let Some(pos) = output.stderr.find(needle) {
+                        let start = pos + needle.len();
+                        if let Some(end) = output.stderr[start..].find("'") {
+                            let reset_after_str = String::from_utf8_lossy(&output.stderr[start..start + end]);
+                            // parse duration in format "hh:mm:ss"
+                            let parts = reset_after_str.split(':').map(|x| x.parse::<u64>()).collect::<Result<Vec<_>, _>>()?;
+                            sleep_duration = match parts.as_slice() {
+                                [hh, mm, ss] => {
+                                    Duration::from_secs(hh * 3600 + mm * 60 + ss) + Duration::from_secs(5)
+                                }
+                                _ => sleep_duration,
+                            };
+                        }
+                    }
+
+
+                    // Retry the failed command, no further retries
+                    warn!("Rate limit detected ⏳ Retrying command after {sleep_duration:?} wait...");
+                    tokio::time::sleep(sleep_duration).await;
+
+                    info!("It's been {sleep_duration:?}, retrying command `{}`", self.summarize().await);
                     let mut retry = self.clone();
                     retry.use_retry_behaviour(RetryBehaviour::Fail);
                     let output = retry.run_raw_from(caller).await;
@@ -729,7 +751,8 @@ impl CommandBuilder {
                     .await?;
                 Err(eyre::Error::new(e)
                     .wrap_err(format!(
-                        "Deserialization failed!\n - Command: `{summary}`\n - Dumped to: {dir:?}\n - Type: {}",
+                        "Deserialization failed!\n - Command: `{summary}`\n - Called by: `{}`\n - Dumped to: {dir:?}\n - Type: {}",
+                        RelativeLocation::from(caller),
                         std::any::type_name::<T>()
                     )))
             }
@@ -750,8 +773,9 @@ impl CommandBuilder {
                 Ok(results) => Ok(results),
                 Err(e) => {
                     let dir = self.write_failure(&output).await?;
-                    Err(e).context(format!("Encountered validation error after successful invocation of {}, dumped to {:?}",
+                    Err(e).context(format!("Encountered validation error after successful invocation of {}, called by `{}`, dumped to {:?}",
                             self.summarize().await,
+                            RelativeLocation::from(Location::caller()),
                             dir
                         ))
                 }
@@ -759,8 +783,9 @@ impl CommandBuilder {
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
                 Err(eyre::Error::new(e).wrap_err(format!(
-                    "deserializing {} failed, dumped to {:?}",
+                    "deserializing {} failed, called by `{}`, dumped to {:?}",
                     self.summarize().await,
+                    RelativeLocation::from(Location::caller()),
                     dir
                 )))
             }
