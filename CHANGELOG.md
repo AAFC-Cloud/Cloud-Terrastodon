@@ -1,6 +1,7 @@
 # v0.35.0 (PRE)
 
 - Change `ct az devops agent pool list` to hide `is_hosted` pools unless `--all` specified
+- Revamp `ct pick` command to have `ct pick stdin` and `ct pick fs` subcommands
 
 # v0.34.0
 

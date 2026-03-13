@@ -72,7 +72,7 @@ pub enum CloudTerrastodonCommand {
     Azure(AzureArgs),
     /// Extract UUIDs from text input (use '-' to read from stdin)
     ExtractUuid(ExtractUuidArgs),
-    /// Pick from options supplied on stdin
+    /// Pick from stdin or the filesystem
     Pick(PickArgs),
     /// Inspect and manage the command cache
     Cache(CacheArgs),
