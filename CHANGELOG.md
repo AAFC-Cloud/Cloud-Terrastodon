@@ -1,3 +1,7 @@
+# v0.35.0 (PRE)
+
+- Change `ct az devops agent pool list` to hide `is_hosted` pools unless `--all` specified
+
 # v0.34.0
 
 - Add `ct az role assignment create` command
