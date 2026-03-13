@@ -22,14 +22,6 @@ pub struct PickFsArgs {
     pub recursive: bool,
 }
 
-fn default_fs_query(query: &str) -> &str {
-    if query == "*" {
-        "path"
-    } else {
-        query
-    }
-}
-
 fn collect_fs_entries(root: &Path, recursive: bool) -> Result<Vec<FsPickEntry>> {
     let mut entries = Vec::new();
     collect_fs_entries_inner(root, root, recursive, 0, &mut entries)?;
@@ -93,11 +85,9 @@ impl PickFsArgs {
     pub(crate) async fn invoke(self, common: PickCommonArgs) -> Result<()> {
         let cwd = std::env::current_dir()?;
         let entries = collect_fs_entries(&cwd, self.recursive)?;
-        let query = default_fs_query(&common.query);
-
         let mut choices = Vec::with_capacity(entries.len());
         for entry in &entries {
-            let key = common.query_engine.query(&entry.value, query)?;
+            let key = common.query_engine.query(&entry.value, &common.query)?;
             choices.push(Choice {
                 key,
                 value: entry.path.clone(),
@@ -117,16 +107,9 @@ impl PickFsArgs {
 #[cfg(test)]
 mod test {
     use crate::cli::pick::pick_fs_command::collect_fs_entries;
-    use crate::cli::pick::pick_fs_command::default_fs_query;
     use std::fs;
     use std::path::MAIN_SEPARATOR;
     use tempfile::tempdir;
-
-    #[test]
-    fn uses_path_as_default_fs_query() {
-        assert_eq!(default_fs_query("*"), "path");
-        assert_eq!(default_fs_query("name"), "name");
-    }
 
     #[test]
     fn collects_fs_entries_recursively() -> eyre::Result<()> {

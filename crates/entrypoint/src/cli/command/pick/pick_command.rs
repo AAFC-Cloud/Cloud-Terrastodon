@@ -29,19 +29,19 @@ pub enum PickCommand {
 #[derive(Args, Debug, Clone, Default)]
 pub struct PickCommonArgs {
     /// Query to be passed to the query engine, determines the display value for the choices
-    #[clap(long, short = 'q', default_value = "*")]
+    #[clap(global=true, long, short = 'q', default_value = "")]
     pub query: String,
     /// Query engine to use
-    #[clap(long, short = 'e', default_value_t = Default::default())]
+    #[clap(global=true, long, short = 'e', default_value_t = Default::default())]
     pub query_engine: QueryEngine,
     /// Allow multiple selections
-    #[clap(long, short = 'm')]
+    #[clap(global=true, long, short = 'm')]
     pub many: bool,
     /// Automatically accept if there is only one choice
-    #[clap(long, short = 'a')]
+    #[clap(global=true, long, short = 'a')]
     pub auto_accept: bool,
     /// Default query for the TUI
-    #[clap(long, short = 'd')]
+    #[clap(global=true, long, short = 'd')]
     pub default_query: Option<String>,
 }
 
@@ -53,26 +53,25 @@ pub enum QueryEngine {
     JsonPath,
     /// See https://jmespath.org/ and https://crates.io/crates/jmespath for details.
     /// Example: `[name, age]`
-    #[default]
     JmesPath,
     /// See https://github.com/cobalt-org/liquid-rust for details.
     /// Example: `{{ name }} {{ description }}`
+    #[default]
     Liquid,
 }
 
 impl QueryEngine {
     pub fn query(&self, data: &Value, query: &str) -> Result<String> {
+        if query == "" {
+            return Ok(serde_json::to_string(data)?);
+        }
         match self {
-            QueryEngine::JsonPath => {
-                // TODO: pretty print since picker tui should support multi-line keys
-                Ok(serde_json::to_string(&data.query(query)?)?)
-            }
+            QueryEngine::JsonPath => Ok(serde_json::to_string(&data.query(query)?)?),
             QueryEngine::JmesPath => {
                 let expr = jmespath::compile(query)?;
                 let result = expr.search(data)?;
                 match *result {
                     Variable::String(ref s) => Ok(s.to_owned()),
-                    // TODO: pretty print since picker tui should support multi-line keys
                     _ => Ok(serde_json::to_string(&result)?),
                 }
             }
@@ -125,9 +124,9 @@ impl PickCommand {
 
 #[cfg(test)]
 mod test {
-    use crate::cli::pick::pick_command::resolve_default_pick_command;
     use crate::cli::pick::PickCommand;
     use crate::cli::pick::QueryEngine;
+    use crate::cli::pick::pick_command::resolve_default_pick_command;
     use clap::ValueEnum;
     use serde_json::json;
 
