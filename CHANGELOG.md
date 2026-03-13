@@ -2,6 +2,8 @@
 
 - Change `ct az devops agent pool list` to hide `is_hosted` pools unless `--all` specified
 - Revamp `ct pick` command to have `ct pick stdin` and `ct pick fs` subcommands
+    - `--many` replaced with `--single` as many is now default
+    - Changed default query engine to Liquid
 
 # v0.34.0
 
