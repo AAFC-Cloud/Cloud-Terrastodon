@@ -36,7 +36,7 @@ pub struct PickCommonArgs {
     pub query_engine: QueryEngine,
     /// Allow multiple selections
     #[clap(global=true, long, short = 'm')]
-    pub many: bool,
+    pub single: bool,
     /// Automatically accept if there is only one choice
     #[clap(global=true, long, short = 'a')]
     pub auto_accept: bool,
