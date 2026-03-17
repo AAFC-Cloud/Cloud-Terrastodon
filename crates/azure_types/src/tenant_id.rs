@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -6,7 +7,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord)]
 pub struct TenantId(Uuid);
 
 impl TenantId {
@@ -24,7 +25,7 @@ impl Deref for TenantId {
 
 impl std::fmt::Display for TenantId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0.to_string().as_str())
+        self.hyphenated().fmt(f)
     }
 }
 
@@ -41,7 +42,7 @@ impl Serialize for TenantId {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.0.to_string().as_str())
+        self.hyphenated().to_string().serialize(serializer)
     }
 }
 

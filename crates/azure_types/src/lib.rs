@@ -6,6 +6,8 @@ mod all_or;
 mod app;
 mod azure_principal_argument;
 mod azure_role_definition_argument;
+mod azure_tenant_argument;
+mod azure_tenant_cloud_terrastodon_alias;
 mod compute_publisher_id;
 mod compute_publisher_name;
 mod compute_publisher_vm_image_offer_id;
@@ -163,6 +165,8 @@ pub mod prelude {
     pub use crate::app::*;
     pub use crate::azure_principal_argument::*;
     pub use crate::azure_role_definition_argument::*;
+    pub use crate::azure_tenant_argument::*;
+    pub use crate::azure_tenant_cloud_terrastodon_alias::*;
     pub use crate::compute_publisher_id::*;
     pub use crate::compute_publisher_name::*;
     pub use crate::compute_publisher_vm_image_offer_id::*;

@@ -16,7 +16,7 @@ pub async fn get_default_tenant_id() -> eyre::Result<TenantId> {
 
 #[cfg(test)]
 mod test {
-    use crate::tenants::get_default_tenant_id;
+    use crate::tenant_default::get_default_tenant_id;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

@@ -27,6 +27,7 @@ pub enum AppDir {
     Processed,
     Temp,
     Config,
+    Tenants,
     WorkItems,
 }
 impl std::fmt::Display for AppDir {
@@ -37,6 +38,7 @@ impl std::fmt::Display for AppDir {
             AppDir::Processed => "Processed",
             AppDir::Temp => "Temp",
             AppDir::Config => "Config",
+            AppDir::Tenants => "Tenants",
             AppDir::WorkItems => "Work Items",
         })
     }
@@ -50,6 +52,7 @@ impl AppDir {
             AppDir::Processed => DATA_DIR.join("processed"),
             AppDir::Temp => DATA_DIR.join("temp"),
             AppDir::Config => CONFIG_DIR.clone(),
+            AppDir::Tenants => CONFIG_DIR.join("tenants"),
         }
     }
     pub fn join(self, path: impl AsRef<Path>) -> PathBuf {
@@ -59,7 +62,7 @@ impl AppDir {
     pub fn ok_to_clean() -> Vec<AppDir> {
         Self::variants()
             .iter()
-            .filter(|x| !matches!(x, Self::Config))
+            .filter(|x| !matches!(x, Self::Config | Self::Tenants))
             .cloned()
             .collect()
     }

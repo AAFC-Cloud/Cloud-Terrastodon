@@ -7,6 +7,7 @@ use super::resource::AzureResourceArgs;
 use super::role::AzureRoleArgs;
 use super::subscription::AzureSubscriptionArgs;
 use super::tag::AzureTagArgs;
+use super::tenant::AzureTenantArgs;
 use super::vm::AzureVmArgs;
 use crate::cli::azure::entra::AzureEntraArgs;
 use crate::cli::azure_devops::AzureDevOpsArgs;
@@ -41,6 +42,8 @@ pub enum AzureCommand {
     /// Manage subscriptions within the tenant.
     #[command(alias = "sub")]
     Subscription(AzureSubscriptionArgs),
+    /// Manage tracked tenants for later login flows.
+    Tenant(AzureTenantArgs),
     /// Azure DevOps-specific commands.
     #[command(alias = "devops")]
     DevOps(AzureDevOpsArgs),
@@ -80,6 +83,9 @@ impl AzureCommand {
                 args.invoke().await?;
             }
             AzureCommand::Subscription(args) => {
+                args.invoke().await?;
+            }
+            AzureCommand::Tenant(args) => {
                 args.invoke().await?;
             }
             AzureCommand::DevOps(args) => {
