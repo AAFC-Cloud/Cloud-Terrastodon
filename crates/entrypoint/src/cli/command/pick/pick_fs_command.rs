@@ -126,9 +126,15 @@ mod test {
         assert_eq!(top_level_paths, vec!["alpha.txt", "nested"]);
 
         let recursive_paths: Vec<_> = recursive.iter().map(|entry| entry.path.as_str()).collect();
-        assert_eq!(recursive_paths, vec!["alpha.txt", "nested", nested_file_path.as_str()]);
+        assert_eq!(
+            recursive_paths,
+            vec!["alpha.txt", "nested", nested_file_path.as_str()]
+        );
 
-        let nested_dir = recursive.iter().find(|entry| entry.path == "nested").unwrap();
+        let nested_dir = recursive
+            .iter()
+            .find(|entry| entry.path == "nested")
+            .unwrap();
         assert_eq!(nested_dir.value["type"], "dir");
         assert_eq!(nested_dir.value["depth"], 0);
 

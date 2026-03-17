@@ -9,11 +9,11 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::future::Future;
-use std::panic::Location;
 #[cfg(not(windows))]
 use std::os::unix::process::ExitStatusExt;
 #[cfg(windows)]
 use std::os::windows::process::ExitStatusExt;
+use std::panic::Location;
 use std::process::ExitStatus;
 use std::process::Output;
 
@@ -48,10 +48,7 @@ impl CommandOutput {
             Err(e) => {
                 let dir = command.write_failure(self).await?;
                 Err(eyre::Error::new(e)
-                    .wrap_err(format!(
-                        "Called from {}",
-                        RelativeLocation::from(caller)
-                    ))
+                    .wrap_err(format!("Called from {}", RelativeLocation::from(caller)))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}",
                         command.summarize().await,

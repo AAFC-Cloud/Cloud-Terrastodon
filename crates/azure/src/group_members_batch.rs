@@ -67,10 +67,7 @@ impl CacheableCommand for GroupMembersListBatchRequest {
 
         // Extract the members from the response
         let mut rtn = HashMap::new();
-        for (group_id, response) in self
-            .group_ids
-            .into_iter()
-            .zip(batch_response.responses.into_iter())
+        for (group_id, response) in self.group_ids.into_iter().zip(batch_response.responses)
         // Responses are ordered to match requests
         {
             let members = response

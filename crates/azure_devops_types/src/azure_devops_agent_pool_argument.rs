@@ -66,7 +66,7 @@ impl AzureDevOpsAgentPoolArgument<'_> {
         }
     }
 
-    pub fn as_id<'a>(&'a self) -> Option<&'a AzureDevOpsAgentPoolId> {
+    pub fn as_id(&self) -> Option<&AzureDevOpsAgentPoolId> {
         match self {
             AzureDevOpsAgentPoolArgument::Id(id) => Some(id),
             AzureDevOpsAgentPoolArgument::IdRef(id) => Some(id),
@@ -74,7 +74,7 @@ impl AzureDevOpsAgentPoolArgument<'_> {
         }
     }
 
-    pub fn as_name<'a>(&'a self) -> Option<&'a AzureDevOpsAgentPoolName> {
+    pub fn as_name(&self) -> Option<&AzureDevOpsAgentPoolName> {
         match self {
             AzureDevOpsAgentPoolArgument::Name(name) => Some(name),
             AzureDevOpsAgentPoolArgument::NameRef(name) => Some(name),

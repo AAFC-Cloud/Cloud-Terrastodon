@@ -29,19 +29,19 @@ pub enum PickCommand {
 #[derive(Args, Debug, Clone, Default)]
 pub struct PickCommonArgs {
     /// Query to be passed to the query engine, determines the display value for the choices
-    #[clap(global=true, long, short = 'q', default_value = "")]
+    #[clap(global = true, long, short = 'q', default_value = "")]
     pub query: String,
     /// Query engine to use
     #[clap(global=true, long, short = 'e', default_value_t = Default::default())]
     pub query_engine: QueryEngine,
     /// Allow multiple selections
-    #[clap(global=true, long, short = 'm')]
+    #[clap(global = true, long, short = 'm')]
     pub single: bool,
     /// Automatically accept if there is only one choice
-    #[clap(global=true, long, short = 'a')]
+    #[clap(global = true, long, short = 'a')]
     pub auto_accept: bool,
     /// Default query for the TUI
-    #[clap(global=true, long, short = 'd')]
+    #[clap(global = true, long, short = 'd')]
     pub default_query: Option<String>,
 }
 
@@ -62,7 +62,7 @@ pub enum QueryEngine {
 
 impl QueryEngine {
     pub fn query(&self, data: &Value, query: &str) -> Result<String> {
-        if query == "" {
+        if query.is_empty() {
             return Ok(serde_json::to_string(data)?);
         }
         match self {

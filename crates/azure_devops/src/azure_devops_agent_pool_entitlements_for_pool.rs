@@ -59,11 +59,10 @@ impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
 
 #[cfg(test)]
 mod test {
-    use itertools::Itertools;
-
     use super::*;
     use crate::prelude::fetch_azure_devops_agent_pools;
     use crate::prelude::get_default_organization_url;
+    use itertools::Itertools;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -78,7 +77,10 @@ mod test {
             agent_pools.len(),
             our_agent_pools.len()
         );
-        assert!(!our_agent_pools.is_empty(), "Expected at least one of our agent pools");
+        assert!(
+            !our_agent_pools.is_empty(),
+            "Expected at least one of our agent pools"
+        );
         for pool in our_agent_pools {
             let entitlements =
                 fetch_azure_devops_agent_pool_entitlements_for_pool(&org_url, pool).await?;

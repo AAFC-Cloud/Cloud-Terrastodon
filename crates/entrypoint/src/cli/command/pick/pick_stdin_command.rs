@@ -99,7 +99,10 @@ mod test {
 
     #[test]
     fn resolves_pick_mode_from_stdin_content() {
-        assert!(matches!(resolve_input_format(None, "[1,2,3]"), InputFormat::Json));
+        assert!(matches!(
+            resolve_input_format(None, "[1,2,3]"),
+            InputFormat::Json
+        ));
         assert!(matches!(
             resolve_input_format(None, "hello\nworld"),
             InputFormat::Lines
