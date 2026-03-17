@@ -1,7 +1,7 @@
 use crate::prelude::PrincipalId;
 use crate::prelude::UnifiedRoleAssignmentId;
 use crate::prelude::UnifiedRoleDefinitionId;
-use crate::tenants::TenantId;
+use crate::tenant_id::TenantId;
 use serde::Deserialize;
 use serde::Serialize;
 

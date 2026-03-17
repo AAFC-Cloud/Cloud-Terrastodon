@@ -1,5 +1,5 @@
 use crate::prelude::KeyVaultAccessPolicy;
-use crate::tenants::TenantId;
+use crate::tenant_id::TenantId;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;

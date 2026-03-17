@@ -1,5 +1,5 @@
 use crate::prelude::SubscriptionId;
-use crate::tenants::TenantId;
+use crate::tenant_id::TenantId;
 use chrono::DateTime;
 use chrono::Local;
 use serde::Deserialize;

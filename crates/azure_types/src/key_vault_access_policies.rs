@@ -3,7 +3,7 @@ use crate::prelude::KeyVaultAccessPolicyKeyPrivilege;
 use crate::prelude::KeyVaultAccessPolicySecretPrivilege;
 use crate::prelude::PrincipalId;
 use crate::serde_helpers::deserialize_default_if_null;
-use crate::tenants::TenantId;
+use crate::tenant_id::TenantId;
 use serde::Deserialize;
 use serde::Serialize;
 
