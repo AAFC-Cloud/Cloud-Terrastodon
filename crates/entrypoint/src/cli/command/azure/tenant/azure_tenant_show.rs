@@ -4,7 +4,6 @@ use cloud_terrastodon_azure::prelude::get_tracked_tenant;
 use cloud_terrastodon_azure::prelude::resolve_tracked_tenant_argument;
 use eyre::Result;
 use eyre::bail;
-use std::io::Write;
 
 /// Arguments for showing a tracked Azure tenant.
 #[derive(Args, Debug, Clone)]
@@ -20,10 +19,7 @@ impl AzureTenantShowArgs {
             bail!("Tracked tenant '{}' was not found.", tenant_id);
         };
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &tenant)?;
-        handle.write_all(b"\n")?;
+        println!("{}", tenant.as_hyphenated());
         Ok(())
     }
 }
