@@ -1,8 +1,8 @@
 use crate::prelude::az_account_list;
-use cloud_terrastodon_azure_types::prelude::TenantId;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use eyre::bail;
 
-pub async fn get_default_tenant_id() -> eyre::Result<TenantId> {
+pub async fn get_default_tenant_id() -> eyre::Result<AzureTenantId> {
     let accounts = az_account_list().await?;
     let num_accounts = accounts.len();
     let Some(default_account) = accounts.into_iter().find(|account| account.is_default) else {

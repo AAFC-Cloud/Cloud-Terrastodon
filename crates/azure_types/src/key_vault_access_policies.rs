@@ -3,7 +3,7 @@ use crate::prelude::KeyVaultAccessPolicyKeyPrivilege;
 use crate::prelude::KeyVaultAccessPolicySecretPrivilege;
 use crate::prelude::PrincipalId;
 use crate::serde_helpers::deserialize_default_if_null;
-use crate::tenant_id::TenantId;
+use crate::tenant_id::AzureTenantId;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -11,7 +11,7 @@ use serde::Serialize;
 #[serde(rename_all = "camelCase")]
 pub struct KeyVaultAccessPolicy {
     pub object_id: PrincipalId,
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
     pub permissions: KeyVaultAccessPolicyPermissions,
 }
 

@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::ScopeImpl;
-use cloud_terrastodon_azure_types::prelude::TenantId;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::serde_helpers::deserialize_none_if_empty_string;
 use compact_str::CompactString;
 use serde::Deserialize;
@@ -43,7 +43,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationServicePrincipal {
     pub service_principal_id: EntraServicePrincipalId,
     #[serde(rename = "tenantId")]
     #[serde(alias = "tenantid")]
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
@@ -73,7 +73,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
     pub service_principal_id: Option<EntraServicePrincipalId>,
     #[serde(rename = "tenantId")]
     #[serde(alias = "tenantid")]
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
     #[serde(rename = "workloadIdentityFederationIssuer")]
     pub workload_identity_federation_issuer: String,
     #[serde(rename = "workloadIdentityFederationSubject")]
@@ -88,7 +88,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
 pub struct AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity {
     #[serde(rename = "tenantId")]
     #[serde(alias = "tenantid")]
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
     /// For stuff like Azure Container Registry authorization
     /// "loginServer": "pipelineimage.azurecr.io",
     #[serde(flatten)]

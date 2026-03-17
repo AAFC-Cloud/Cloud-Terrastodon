@@ -8,14 +8,14 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord)]
-pub struct TenantId(Uuid);
+pub struct AzureTenantId(Uuid);
 
-impl TenantId {
+impl AzureTenantId {
     pub fn new(uuid: Uuid) -> Self {
-        TenantId(uuid)
+        AzureTenantId(uuid)
     }
 }
-impl Deref for TenantId {
+impl Deref for AzureTenantId {
     type Target = Uuid;
 
     fn deref(&self) -> &Self::Target {
@@ -23,21 +23,21 @@ impl Deref for TenantId {
     }
 }
 
-impl std::fmt::Display for TenantId {
+impl std::fmt::Display for AzureTenantId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.hyphenated().fmt(f)
     }
 }
 
-impl FromStr for TenantId {
+impl FromStr for AzureTenantId {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(TenantId(uuid::Uuid::parse_str(s)?))
+        Ok(AzureTenantId(uuid::Uuid::parse_str(s)?))
     }
 }
 
-impl Serialize for TenantId {
+impl Serialize for AzureTenantId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -46,7 +46,7 @@ impl Serialize for TenantId {
     }
 }
 
-impl<'de> Deserialize<'de> for TenantId {
+impl<'de> Deserialize<'de> for AzureTenantId {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

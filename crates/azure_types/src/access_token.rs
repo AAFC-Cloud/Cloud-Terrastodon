@@ -1,5 +1,5 @@
 use crate::prelude::SubscriptionId;
-use crate::tenant_id::TenantId;
+use crate::tenant_id::AzureTenantId;
 use chrono::DateTime;
 use chrono::Local;
 use serde::Deserialize;
@@ -13,7 +13,7 @@ pub struct AccessToken<T> {
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_local_date_time_from_epoch")]
     pub expires_on: DateTime<Local>,
     pub subscription: SubscriptionId,
-    pub tenant: TenantId,
+    pub tenant: AzureTenantId,
     #[serde(rename = "tokenType")]
     pub token_type: TokenType,
 }

@@ -1,7 +1,7 @@
 use crate::prelude::PrincipalId;
 use crate::prelude::UnifiedRoleAssignmentId;
 use crate::prelude::UnifiedRoleDefinitionId;
-use crate::tenant_id::TenantId;
+use crate::tenant_id::AzureTenantId;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -14,7 +14,7 @@ pub struct UnifiedRoleAssignment {
     pub directory_scope_id: String,
     pub id: UnifiedRoleAssignmentId,
     pub principal_id: PrincipalId,
-    pub principal_organization_id: TenantId,
+    pub principal_organization_id: AzureTenantId,
     pub resource_scope: String,
     pub role_definition_id: UnifiedRoleDefinitionId,
 }

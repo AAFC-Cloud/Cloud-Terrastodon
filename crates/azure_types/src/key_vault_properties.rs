@@ -1,5 +1,5 @@
 use crate::prelude::KeyVaultAccessPolicy;
-use crate::tenant_id::TenantId;
+use crate::tenant_id::AzureTenantId;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
@@ -12,7 +12,7 @@ pub struct KeyVaultProperties {
     pub network_acls: Option<NetworkAcls>,
     pub provisioning_state: ProvisioningState,
     pub enabled_for_deployment: bool,
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
     pub public_network_access: PublicNetworkAccess,
     pub enabled_for_disk_encryption: Option<bool>,
     pub enable_soft_delete: Option<bool>,

@@ -3,7 +3,7 @@ use chrono::Local;
 use cloud_terrastodon_azure_types::prelude::AppId;
 use cloud_terrastodon_azure_types::prelude::EntraGroupId;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
-use cloud_terrastodon_azure_types::prelude::TenantId;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
@@ -68,7 +68,7 @@ pub struct AzureClaims {
     #[serde(rename = "sub")]
     pub subject: String,
     #[serde(rename = "tid")]
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
     #[serde(rename = "unique_name")]
     pub unique_name: String,
     #[serde(rename = "upn")]

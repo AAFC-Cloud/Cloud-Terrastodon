@@ -1,7 +1,7 @@
 use crate::prelude::ManagementGroupAncestorsChain;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionName;
-use crate::prelude::TenantId;
+use crate::prelude::AzureTenantId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
@@ -15,7 +15,7 @@ use std::hash::Hash;
 pub struct Subscription {
     pub id: SubscriptionId,
     pub name: SubscriptionName,
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
     pub management_group_ancestors_chain: ManagementGroupAncestorsChain,
     #[serde(default)]
     pub tags: HashMap<String, String>,

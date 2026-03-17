@@ -1,6 +1,6 @@
 use crate::prelude::GovernanceRoleAssignment;
 use crate::prelude::PrincipalId;
-use crate::prelude::TenantId;
+use crate::prelude::AzureTenantId;
 use crate::prelude::to_iso8601;
 use serde::Deserialize;
 use serde::Serialize;
@@ -56,7 +56,7 @@ pub enum RoleAssignmentRequestScheduleKind {
 impl RoleAssignmentRequest {
     pub fn new_self_activation(
         principal_id: PrincipalId,
-        tenant_id: TenantId,
+        tenant_id: AzureTenantId,
         role_assignment: &GovernanceRoleAssignment,
         justification: String,
         duration: Duration,

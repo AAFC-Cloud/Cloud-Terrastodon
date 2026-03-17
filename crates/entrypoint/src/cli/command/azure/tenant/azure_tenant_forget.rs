@@ -1,5 +1,5 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::TenantId;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::forget_tracked_tenant;
 use eyre::Result;
 use eyre::bail;
@@ -9,7 +9,7 @@ use std::io::Write;
 #[derive(Args, Debug, Clone)]
 pub struct AzureTenantForgetArgs {
     /// Tenant id (GUID) to forget.
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
 }
 
 impl AzureTenantForgetArgs {

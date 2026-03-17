@@ -1,4 +1,4 @@
-use crate::tenant_id::TenantId;
+use crate::tenant_id::AzureTenantId;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
@@ -9,7 +9,7 @@ pub struct Account {
     #[serde(rename = "cloudName")]
     pub cloud_name: String,
     #[serde(rename = "homeTenantId")]
-    pub home_tenant_id: TenantId,
+    pub home_tenant_id: AzureTenantId,
     pub id: Uuid,
     #[serde(rename = "isDefault")]
     pub is_default: bool,
@@ -18,14 +18,14 @@ pub struct Account {
     pub name: String,
     pub state: String,
     #[serde(rename = "tenantId")]
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
     pub user: AccountUser,
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct TenantIdHolder {
     #[serde(rename = "tenantId")]
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]

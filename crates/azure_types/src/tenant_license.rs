@@ -1,5 +1,5 @@
 use crate::prelude::SubscriptionId;
-use crate::tenant_id::TenantId;
+use crate::tenant_id::AzureTenantId;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
@@ -19,7 +19,7 @@ impl TenantLicenseCollection {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TenantLicense {
-    pub account_id: TenantId,
+    pub account_id: AzureTenantId,
     pub account_name: String,
     pub applies_to: TenantLicenseAppliesTo,
     pub capability_status: TenantLicenseCapabilityStatus,

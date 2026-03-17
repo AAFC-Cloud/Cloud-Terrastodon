@@ -1,5 +1,5 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::TenantId;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::add_tracked_tenant;
 use eyre::Result;
 use std::io::Write;
@@ -8,7 +8,7 @@ use std::io::Write;
 #[derive(Args, Debug, Clone)]
 pub struct AzureTenantAddArgs {
     /// Tenant id (GUID) to track.
-    pub tenant_id: TenantId,
+    pub tenant_id: AzureTenantId,
 }
 
 impl AzureTenantAddArgs {

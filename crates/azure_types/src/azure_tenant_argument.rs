@@ -1,13 +1,13 @@
 use crate::prelude::AzureTenantAlias;
-use crate::prelude::TenantId;
+use crate::prelude::AzureTenantId;
 use eyre::bail;
 use std::str::FromStr;
 
 /// Tenant can be specified as a tenant id or a Cloud Terrastodon tenant alias.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AzureTenantArgument<'a> {
-    Id(TenantId),
-    IdRef(&'a TenantId),
+    Id(AzureTenantId),
+    IdRef(&'a AzureTenantId),
     Alias(AzureTenantAlias),
     AliasRef(&'a AzureTenantAlias),
 }
@@ -23,14 +23,14 @@ impl std::fmt::Display for AzureTenantArgument<'_> {
     }
 }
 
-impl From<TenantId> for AzureTenantArgument<'_> {
-    fn from(value: TenantId) -> Self {
+impl From<AzureTenantId> for AzureTenantArgument<'_> {
+    fn from(value: AzureTenantId) -> Self {
         AzureTenantArgument::Id(value)
     }
 }
 
-impl<'a> From<&'a TenantId> for AzureTenantArgument<'a> {
-    fn from(value: &'a TenantId) -> Self {
+impl<'a> From<&'a AzureTenantId> for AzureTenantArgument<'a> {
+    fn from(value: &'a AzureTenantId) -> Self {
         AzureTenantArgument::IdRef(value)
     }
 }
@@ -62,7 +62,7 @@ impl FromStr for AzureTenantArgument<'static> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(id) = s.parse::<TenantId>() {
+        if let Ok(id) = s.parse::<AzureTenantId>() {
             Ok(AzureTenantArgument::Id(id))
         } else if let Ok(alias) = AzureTenantAlias::try_new(s) {
             Ok(AzureTenantArgument::Alias(alias))
