@@ -6,7 +6,6 @@ use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::bail;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
@@ -15,12 +14,6 @@ use tokio::fs;
 use tracing::warn;
 
 const ALIASES_FILE_NAME: &str = "aliases.txt";
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct TrackedTenant {
-    pub tenant_id: AzureTenantId,
-    pub path: PathBuf,
-}
 
 pub fn tracked_tenants_dir() -> PathBuf {
     AppDir::Tenants.as_path_buf()
@@ -38,20 +31,24 @@ pub fn tracked_tenant_aliases_file_for_alias(tenant_id: AzureTenantId) -> PathBu
     tracked_tenant_aliases_file(tenant_id)
 }
 
-pub async fn list_tracked_tenants() -> eyre::Result<Vec<TrackedTenant>> {
+pub async fn list_tracked_tenants() -> eyre::Result<Vec<AzureTenantId>> {
     list_tracked_tenants_in(&tracked_tenants_dir()).await
 }
 
-pub async fn get_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<Option<TrackedTenant>> {
-    get_tracked_tenant_in(&tracked_tenants_dir(), tenant_id).await
+pub async fn get_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<Option<AzureTenantId>> {
+    Ok(get_tracked_tenant_in(&tracked_tenants_dir(), tenant_id)
+        .await?
+        .map(|(tenant_id, _)| tenant_id))
 }
 
-pub async fn add_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<TrackedTenant> {
-    add_tracked_tenant_in(&tracked_tenants_dir(), tenant_id).await
+pub async fn add_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<AzureTenantId> {
+    Ok(add_tracked_tenant_in(&tracked_tenants_dir(), tenant_id).await?.0)
 }
 
-pub async fn forget_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<Option<TrackedTenant>> {
-    forget_tracked_tenant_in(&tracked_tenants_dir(), tenant_id).await
+pub async fn forget_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<Option<AzureTenantId>> {
+    Ok(forget_tracked_tenant_in(&tracked_tenants_dir(), tenant_id)
+        .await?
+        .map(|(tenant_id, _)| tenant_id))
 }
 
 pub async fn resolve_tracked_tenant_argument(
@@ -93,14 +90,14 @@ pub async fn remove_tracked_tenant_aliases(
     remove_tracked_tenant_aliases_in(&tracked_tenants_dir(), tenant_id, aliases).await
 }
 
-pub async fn discover_and_track_tenants() -> eyre::Result<Vec<TrackedTenant>> {
+pub async fn discover_and_track_tenants() -> eyre::Result<Vec<AzureTenantId>> {
     let accounts = az_account_list().await?;
     discover_tracked_tenants_from_accounts(accounts).await
 }
 
 pub async fn discover_tracked_tenants_from_accounts(
     accounts: Vec<Account>,
-) -> eyre::Result<Vec<TrackedTenant>> {
+) -> eyre::Result<Vec<AzureTenantId>> {
     discover_tracked_tenants_in(
         &tracked_tenants_dir(),
         accounts.into_iter().map(|account| account.tenant_id),
@@ -111,7 +108,7 @@ pub async fn discover_tracked_tenants_from_accounts(
 async fn discover_tracked_tenants_in<I>(
     root: &Path,
     tenant_ids: I,
-) -> eyre::Result<Vec<TrackedTenant>>
+) -> eyre::Result<Vec<AzureTenantId>>
 where
     I: IntoIterator<Item = AzureTenantId>,
 {
@@ -124,13 +121,13 @@ where
 
     let mut discovered = Vec::with_capacity(unique_tenant_ids.len());
     for tenant_id in unique_tenant_ids {
-        discovered.push(add_tracked_tenant_in(root, tenant_id).await?);
+        discovered.push(add_tracked_tenant_in(root, tenant_id).await?.0);
     }
 
     Ok(discovered)
 }
 
-async fn list_tracked_tenants_in(root: &Path) -> eyre::Result<Vec<TrackedTenant>> {
+async fn list_tracked_tenants_in(root: &Path) -> eyre::Result<Vec<AzureTenantId>> {
     if !fs::try_exists(root).await? {
         return Ok(Vec::new());
     }
@@ -152,21 +149,21 @@ async fn list_tracked_tenants_in(root: &Path) -> eyre::Result<Vec<TrackedTenant>
         };
 
         match name.parse::<AzureTenantId>() {
-            Ok(tenant_id) => tenants.push(TrackedTenant { tenant_id, path }),
+            Ok(tenant_id) => tenants.push(tenant_id),
             Err(error) => {
                 warn!(path=%path.display(), %error, "Skipping tracked tenant directory with invalid tenant id name");
             }
         }
     }
 
-    tenants.sort_by_key(|tenant| tenant.tenant_id.to_string());
+    tenants.sort_by_key(|tenant| tenant.to_string());
     Ok(tenants)
 }
 
 async fn get_tracked_tenant_in(
     root: &Path,
     tenant_id: AzureTenantId,
-) -> eyre::Result<Option<TrackedTenant>> {
+) -> eyre::Result<Option<(AzureTenantId, PathBuf)>> {
     let path = root.join(tenant_id.to_string());
     if !fs::try_exists(&path).await? {
         return Ok(None);
@@ -182,10 +179,10 @@ async fn get_tracked_tenant_in(
         );
     }
 
-    Ok(Some(TrackedTenant { tenant_id, path }))
+    Ok(Some((tenant_id, path)))
 }
 
-async fn add_tracked_tenant_in(root: &Path, tenant_id: AzureTenantId) -> eyre::Result<TrackedTenant> {
+async fn add_tracked_tenant_in(root: &Path, tenant_id: AzureTenantId) -> eyre::Result<(AzureTenantId, PathBuf)> {
     fs::create_dir_all(root)
         .await
         .wrap_err_with(|| format!("Creating tracked tenants root {}", root.display()))?;
@@ -207,24 +204,25 @@ async fn add_tracked_tenant_in(root: &Path, tenant_id: AzureTenantId) -> eyre::R
             .wrap_err_with(|| format!("Creating tracked tenant directory {}", path.display()))?;
     }
 
-    Ok(TrackedTenant { tenant_id, path })
+    Ok((tenant_id, path))
 }
 
 async fn forget_tracked_tenant_in(
     root: &Path,
     tenant_id: AzureTenantId,
-) -> eyre::Result<Option<TrackedTenant>> {
+) -> eyre::Result<Option<(AzureTenantId, PathBuf)>> {
     let Some(tenant) = get_tracked_tenant_in(root, tenant_id).await? else {
         return Ok(None);
     };
 
-    fs::remove_dir_all(&tenant.path).await.wrap_err_with(|| {
+    let (tenant_id, path) = tenant;
+    fs::remove_dir_all(&path).await.wrap_err_with(|| {
         format!(
             "Removing tracked tenant directory {}",
-            tenant.path.display()
+            path.display()
         )
     })?;
-    Ok(Some(tenant))
+    Ok(Some((tenant_id, path)))
 }
 
 async fn resolve_tracked_tenant_id(tenant_id: AzureTenantId) -> eyre::Result<AzureTenantId> {
@@ -378,11 +376,11 @@ async fn list_tracked_tenant_aliases_in(
 ) -> eyre::Result<HashMap<AzureTenantId, Vec<AzureTenantAlias>>> {
     let tenants = list_tracked_tenants_in(root).await?;
     let mut tracked_tenants = HashMap::with_capacity(tenants.len());
-    for tenant in tenants {
-        let mut aliases = read_tracked_tenant_aliases_in(root, tenant.tenant_id).await?;
+    for tenant_id in tenants {
+        let mut aliases = read_tracked_tenant_aliases_in(root, tenant_id).await?;
         aliases.sort();
         aliases.dedup();
-        tracked_tenants.insert(tenant.tenant_id, aliases);
+        tracked_tenants.insert(tenant_id, aliases);
     }
     Ok(tracked_tenants)
 }
@@ -488,8 +486,8 @@ mod tests {
 
         let tenants = list_tracked_tenants_in(temp.path()).await?;
         assert_eq!(tenants.len(), 2);
-        assert_eq!(tenants[0].tenant_id.to_string(), tenant_a.to_string());
-        assert_eq!(tenants[1].tenant_id.to_string(), tenant_b.to_string());
+        assert_eq!(tenants[0], tenant_a);
+        assert_eq!(tenants[1], tenant_b);
         Ok(())
     }
 
@@ -505,7 +503,7 @@ mod tests {
         );
 
         let created = add_tracked_tenant_in(temp.path(), tenant_id).await?;
-        assert!(created.path.ends_with(tenant_id.to_string()));
+        assert!(created.1.ends_with(tenant_id.to_string()));
 
         let fetched = get_tracked_tenant_in(temp.path(), tenant_id).await?;
         assert_eq!(fetched, Some(created.clone()));
