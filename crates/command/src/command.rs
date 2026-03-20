@@ -549,6 +549,7 @@ impl CommandBuilder {
                         "No subscription found. Run 'az account set' to select a subscription.",
                         "Please run 'az login' to setup account.",
                         "ERROR: (pii). Status: Response_Status.Status_InteractionRequired, Error code: 3399614467",
+                        // r#"ERROR: cli.azure.cli.core.azclierror: Forbidden({"error":{"code":"UnauthorizedAccessException"#, // this one is because the wrong tenant was used - `az rest` ignores `--subscription` and only cares about the active account, we will need to migrate to reqwest+`az account get-access-token` or some `az account set` shenanigans
                         // "Continuous access evaluation resulted in challenge with result: InteractionRequired" // may require `az logout` first? https://github.com/Azure/azure-cli/issues/26504
                     ]
                     .into_iter()
