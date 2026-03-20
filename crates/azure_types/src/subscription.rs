@@ -1,7 +1,7 @@
+use crate::prelude::AzureTenantId;
 use crate::prelude::ManagementGroupAncestorsChain;
 use crate::prelude::SubscriptionId;
 use crate::prelude::SubscriptionName;
-use crate::prelude::AzureTenantId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;

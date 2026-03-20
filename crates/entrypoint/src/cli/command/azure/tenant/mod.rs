@@ -1,13 +1,13 @@
 pub mod alias;
-pub mod azure_tenant_discover;
 pub mod azure_tenant_add;
+pub mod azure_tenant_discover;
 pub mod azure_tenant_forget;
 pub mod azure_tenant_list;
 pub mod azure_tenant_show;
 
 pub use alias::AzureTenantAliasArgs;
-pub use azure_tenant_discover::AzureTenantDiscoverArgs;
 pub use azure_tenant_add::AzureTenantAddArgs;
+pub use azure_tenant_discover::AzureTenantDiscoverArgs;
 pub use azure_tenant_forget::AzureTenantForgetArgs;
 pub use azure_tenant_list::AzureTenantListArgs;
 pub use azure_tenant_show::AzureTenantShowArgs;

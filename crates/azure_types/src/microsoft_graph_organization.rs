@@ -1,7 +1,8 @@
+use crate::prelude::AzureTenantId;
+use crate::prelude::MicrosoftGraphDirectoryObject;
+use crate::prelude::MicrosoftGraphEntity;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::prelude::{AzureTenantId, MicrosoftGraphDirectoryObject, MicrosoftGraphEntity};
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]

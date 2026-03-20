@@ -15,14 +15,13 @@ impl AzureTenantAlias {
         let value = value.into();
         validate_alias(&value)?;
         Ok(Self {
-            inner: CompactString::from(value.to_ascii_lowercase()),
+            inner: value.to_ascii_lowercase(),
         })
     }
 }
 
 fn validate_alias(value: &str) -> eyre::Result<()> {
-    validate_alias_inner(value)
-        .wrap_err_with(|| format!("Invalid Azure tenant alias: {value}"))
+    validate_alias_inner(value).wrap_err_with(|| format!("Invalid Azure tenant alias: {value}"))
 }
 
 fn validate_alias_inner(value: &str) -> eyre::Result<()> {

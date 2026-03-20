@@ -48,11 +48,10 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureTenantDetailsRequest
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
-
     use crate::prelude::fetch_azure_tenant_details;
     use crate::prelude::list_tracked_tenants;
     use eyre::ensure;
+    use std::collections::HashSet;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

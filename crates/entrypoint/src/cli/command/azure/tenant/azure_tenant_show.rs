@@ -1,7 +1,7 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::fetch_azure_tenant_details;
-use cloud_terrastodon_azure::prelude::resolve_tracked_tenant_argument;
 use eyre::Result;
 use std::io::Write;
 
@@ -14,7 +14,7 @@ pub struct AzureTenantShowArgs {
 
 impl AzureTenantShowArgs {
     pub async fn invoke(self) -> Result<()> {
-        let tenant_id = resolve_tracked_tenant_argument(self.tenant).await?;
+        let tenant_id = self.tenant.resolve().await?;
         let details = fetch_azure_tenant_details(tenant_id).await?;
 
         let stdout = std::io::stdout();

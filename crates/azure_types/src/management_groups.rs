@@ -1,8 +1,8 @@
 use crate::naming::validate_management_group_name;
+use crate::prelude::AzureTenantId;
 use crate::prelude::HasPrefix;
 use crate::prelude::ManagementGroupAncestorsChain;
 use crate::prelude::NameValidatable;
-use crate::prelude::AzureTenantId;
 use crate::prelude::strip_prefix_case_insensitive;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;

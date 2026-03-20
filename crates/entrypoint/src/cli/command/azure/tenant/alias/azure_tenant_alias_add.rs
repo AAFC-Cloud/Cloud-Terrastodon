@@ -1,8 +1,8 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
 use cloud_terrastodon_azure::prelude::AzureTenantAlias;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::add_tracked_tenant_aliases;
-use cloud_terrastodon_azure::prelude::resolve_tracked_tenant_argument;
 use eyre::Result;
 use std::io::Write;
 
@@ -20,7 +20,7 @@ pub struct AzureTenantAliasAddArgs {
 
 impl AzureTenantAliasAddArgs {
     pub async fn invoke(self) -> Result<()> {
-        let tenant_id = resolve_tracked_tenant_argument(self.tenant).await?;
+        let tenant_id = self.tenant.resolve().await?;
         let aliases = add_tracked_tenant_aliases(tenant_id, &self.aliases).await?;
 
         let stdout = std::io::stdout();

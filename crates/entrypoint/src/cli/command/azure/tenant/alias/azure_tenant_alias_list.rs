@@ -1,8 +1,8 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::list_tracked_tenant_aliases;
 use cloud_terrastodon_azure::prelude::list_tracked_tenant_aliases_for;
-use cloud_terrastodon_azure::prelude::resolve_tracked_tenant_argument;
 use eyre::Result;
 use std::io::Write;
 
@@ -20,7 +20,7 @@ impl AzureTenantAliasListArgs {
         let mut handle = stdout.lock();
 
         if let Some(tenant) = self.tenant {
-            let tenant_id = resolve_tracked_tenant_argument(tenant).await?;
+            let tenant_id = tenant.resolve().await?;
             let mut aliases = list_tracked_tenant_aliases_for(tenant_id).await?;
             aliases.sort();
             serde_json::to_writer_pretty(&mut handle, &aliases)?;

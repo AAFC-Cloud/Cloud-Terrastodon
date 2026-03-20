@@ -1,6 +1,6 @@
+use crate::prelude::AzureTenantId;
 use crate::prelude::GovernanceRoleAssignment;
 use crate::prelude::PrincipalId;
-use crate::prelude::AzureTenantId;
 use crate::prelude::to_iso8601;
 use serde::Deserialize;
 use serde::Serialize;

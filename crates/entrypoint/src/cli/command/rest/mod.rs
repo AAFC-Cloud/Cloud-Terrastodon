@@ -45,8 +45,9 @@ impl RestArgs {
             None => None,
         };
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
-        let service = RestService::infer(&url)
-            .ok_or_else(|| eyre::eyre!("unsupported REST host '{}'", url.host_str().unwrap_or("")))?;
+        let service = RestService::infer(&url).ok_or_else(|| {
+            eyre::eyre!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
+        })?;
         let body = read_optional_body(self.body).await?;
 
         let response = match service {
@@ -57,8 +58,14 @@ impl RestArgs {
                 execute_azure_devops_request(self.method, url, body).await?
             }
             RestService::MicrosoftGraph => {
-                execute_azure_bearer_request(self.method, url, body, tenant, AzureResource::MicrosoftGraph)
-                    .await?
+                execute_azure_bearer_request(
+                    self.method,
+                    url,
+                    body,
+                    tenant,
+                    AzureResource::MicrosoftGraph,
+                )
+                .await?
             }
             RestService::AzureResourceManager => {
                 execute_azure_bearer_request(
@@ -89,8 +96,11 @@ impl RestService {
         match host.as_str() {
             "graph.microsoft.com" => Some(Self::MicrosoftGraph),
             "management.azure.com" => Some(Self::AzureResourceManager),
-            "dev.azure.com" | "vssps.dev.azure.com" | "vsrm.dev.azure.com"
-            | "vsaex.dev.azure.com" | "app.vssps.visualstudio.com" => Some(Self::AzureDevOps),
+            "dev.azure.com"
+            | "vssps.dev.azure.com"
+            | "vsrm.dev.azure.com"
+            | "vsaex.dev.azure.com"
+            | "app.vssps.visualstudio.com" => Some(Self::AzureDevOps),
             _ => None,
         }
     }
@@ -138,7 +148,9 @@ async fn execute_azure_devops_request(
     let client = create_azure_devops_rest_client(&pat).await?;
     let mut request_builder = client.request(method, url);
     if let Some(body) = body {
-        request_builder = request_builder.header(CONTENT_TYPE, "application/json").body(body);
+        request_builder = request_builder
+            .header(CONTENT_TYPE, "application/json")
+            .body(body);
     }
     Ok(request_builder.send().await?)
 }
@@ -154,7 +166,9 @@ async fn execute_azure_bearer_request(
     let client = create_tls12_client()?;
     let mut request_builder = client.request(method, url).bearer_auth(&token.access_token);
     if let Some(body) = body {
-        request_builder = request_builder.header(CONTENT_TYPE, "application/json").body(body);
+        request_builder = request_builder
+            .header(CONTENT_TYPE, "application/json")
+            .body(body);
     }
     Ok(request_builder.send().await?)
 }
@@ -208,8 +222,12 @@ mod test {
 
     #[test]
     fn infers_azure_resource_manager() {
-        let url = Url::parse("https://management.azure.com/subscriptions?api-version=2020-01-01").unwrap();
-        assert_eq!(RestService::infer(&url), Some(RestService::AzureResourceManager));
+        let url = Url::parse("https://management.azure.com/subscriptions?api-version=2020-01-01")
+            .unwrap();
+        assert_eq!(
+            RestService::infer(&url),
+            Some(RestService::AzureResourceManager)
+        );
     }
 
     #[test]

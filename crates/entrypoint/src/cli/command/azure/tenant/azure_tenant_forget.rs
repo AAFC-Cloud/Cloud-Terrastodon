@@ -1,5 +1,6 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantId;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::forget_tracked_tenant;
 use eyre::Result;
 use eyre::bail;
@@ -8,14 +9,14 @@ use std::io::Write;
 /// Arguments for forgetting a tracked Azure tenant.
 #[derive(Args, Debug, Clone)]
 pub struct AzureTenantForgetArgs {
-    /// Tenant id (GUID) to forget.
-    pub tenant_id: AzureTenantId,
+    /// Tenant id (GUID) or alias to forget.
+    pub tenant: AzureTenantArgument<'static>,
 }
 
 impl AzureTenantForgetArgs {
     pub async fn invoke(self) -> Result<()> {
-        let tenant_id = self.tenant_id.clone();
-        let Some(tenant) = forget_tracked_tenant(tenant_id.clone()).await? else {
+        let tenant_id = self.tenant.resolve().await?;
+        let Some(tenant) = forget_tracked_tenant(tenant_id).await? else {
             bail!("Tracked tenant '{}' was not found.", tenant_id);
         };
 

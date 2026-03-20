@@ -1,7 +1,7 @@
 use crate::prelude::az_account_list;
 use cloud_terrastodon_azure_types::prelude::Account;
-use cloud_terrastodon_azure_types::prelude::AzureTenantArgument;
 use cloud_terrastodon_azure_types::prelude::AzureTenantAlias;
+use cloud_terrastodon_azure_types::prelude::AzureTenantArgument;
 use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
@@ -42,10 +42,14 @@ pub async fn get_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<Option
 }
 
 pub async fn add_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<AzureTenantId> {
-    Ok(add_tracked_tenant_in(&tracked_tenants_dir(), tenant_id).await?.0)
+    Ok(add_tracked_tenant_in(&tracked_tenants_dir(), tenant_id)
+        .await?
+        .0)
 }
 
-pub async fn forget_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<Option<AzureTenantId>> {
+pub async fn forget_tracked_tenant(
+    tenant_id: AzureTenantId,
+) -> eyre::Result<Option<AzureTenantId>> {
     Ok(forget_tracked_tenant_in(&tracked_tenants_dir(), tenant_id)
         .await?
         .map(|(tenant_id, _)| tenant_id))
@@ -204,7 +208,10 @@ async fn get_tracked_tenant_in(
     Ok(Some((tenant_id, path)))
 }
 
-async fn add_tracked_tenant_in(root: &Path, tenant_id: AzureTenantId) -> eyre::Result<(AzureTenantId, PathBuf)> {
+async fn add_tracked_tenant_in(
+    root: &Path,
+    tenant_id: AzureTenantId,
+) -> eyre::Result<(AzureTenantId, PathBuf)> {
     fs::create_dir_all(root)
         .await
         .wrap_err_with(|| format!("Creating tracked tenants root {}", root.display()))?;
@@ -238,12 +245,9 @@ async fn forget_tracked_tenant_in(
     };
 
     let (tenant_id, path) = tenant;
-    fs::remove_dir_all(&path).await.wrap_err_with(|| {
-        format!(
-            "Removing tracked tenant directory {}",
-            path.display()
-        )
-    })?;
+    fs::remove_dir_all(&path)
+        .await
+        .wrap_err_with(|| format!("Removing tracked tenant directory {}", path.display()))?;
     Ok(Some((tenant_id, path)))
 }
 
@@ -260,9 +264,7 @@ async fn ensure_tracked_tenant_exists(tenant_id: AzureTenantId) -> eyre::Result<
     }
 }
 
-async fn resolve_tracked_tenant_alias(
-    alias: &AzureTenantAlias,
-) -> eyre::Result<AzureTenantId> {
+async fn resolve_tracked_tenant_alias(alias: &AzureTenantAlias) -> eyre::Result<AzureTenantId> {
     resolve_tracked_tenant_alias_in(&tracked_tenants_dir(), alias).await
 }
 
@@ -339,7 +341,7 @@ async fn add_tracked_tenant_aliases_in(
     let mut current_aliases = read_tracked_tenant_aliases_in(root, tenant_id).await?;
     let tenant_id_string = tenant_id.to_string();
     for alias in aliases {
-        if current_aliases.iter().any(|current| *current == alias) {
+        if current_aliases.contains(&alias) {
             continue;
         }
 
@@ -347,7 +349,7 @@ async fn add_tracked_tenant_aliases_in(
         let mut conflict_tenant_id = None;
         for (existing_tenant_id, current_aliases) in &existing_all {
             if existing_tenant_id.to_string() != tenant_id_string
-                && current_aliases.iter().any(|current| *current == alias)
+                && current_aliases.contains(&alias)
             {
                 conflict_tenant_id = Some(existing_tenant_id.to_string());
                 break;
@@ -430,9 +432,7 @@ async fn read_tracked_tenant_aliases_in(
     Ok(Vec::new())
 }
 
-async fn read_tracked_tenant_aliases_file(
-    file: &Path,
-) -> eyre::Result<Vec<AzureTenantAlias>> {
+async fn read_tracked_tenant_aliases_file(file: &Path) -> eyre::Result<Vec<AzureTenantAlias>> {
     let content = fs::read_to_string(file)
         .await
         .wrap_err_with(|| format!("Reading tracked tenant aliases from {}", file.display()))?;
@@ -567,18 +567,12 @@ mod tests {
         let listed = list_tracked_tenant_aliases_for_in(temp.path(), tenant_id).await?;
         assert_eq!(listed, aliases);
 
-        let resolved = resolve_tracked_tenant_alias_in(
-            temp.path(),
-            &AzureTenantAlias::try_new("PROD")?,
-        )
-        .await;
+        let resolved =
+            resolve_tracked_tenant_alias_in(temp.path(), &AzureTenantAlias::try_new("PROD")?).await;
         assert_eq!(resolved?, tenant_id);
 
-        let substring_resolved = resolve_tracked_tenant_alias_in(
-            temp.path(),
-            &AzureTenantAlias::try_new("4444")?,
-        )
-        .await;
+        let substring_resolved =
+            resolve_tracked_tenant_alias_in(temp.path(), &AzureTenantAlias::try_new("4444")?).await;
         assert_eq!(substring_resolved?, tenant_id);
 
         let removed = remove_tracked_tenant_aliases_in(

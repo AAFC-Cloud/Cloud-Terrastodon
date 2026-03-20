@@ -18,7 +18,7 @@ pub async fn get_azure_access_token_jwt() -> eyre::Result<()> {
         AZURE_DEVOPS_RESOURCE_ID,
     ]);
     let decoding_key = DecodingKey::from_rsa_raw_components(&[], &[]);
-    let token_data = jsonwebtoken::decode::<AzureClaims>(
+    let _token_data = jsonwebtoken::decode::<AzureClaims>(
         &access_token.access_token,
         &decoding_key,
         &validation,
