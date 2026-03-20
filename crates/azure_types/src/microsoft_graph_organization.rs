@@ -1,8 +1,9 @@
 use serde::Deserialize;
+use serde::Serialize;
 
 use crate::prelude::{AzureTenantId, MicrosoftGraphDirectoryObject, MicrosoftGraphEntity};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MicrosoftGraphOrganization {
     #[serde(flatten)]

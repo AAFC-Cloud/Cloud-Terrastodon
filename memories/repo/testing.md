@@ -1,0 +1,1 @@
+- Tests that use `CommandKind::CloudTerrastodon` call `target/debug/cloud_terrastodon(.exe)`; after changing CLI subcommands, run `cargo build --bin cloud_terrastodon` before rerunning those tests.

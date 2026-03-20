@@ -2,6 +2,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use eyre::Result;
 use serde::Deserialize;
 
@@ -13,26 +14,44 @@ enum NextLink {
 pub struct MicrosoftGraphHelper {
     url: String,
     cache_key: Option<CacheKey>,
+    tenant_id: Option<AzureTenantId>,
 }
 impl MicrosoftGraphHelper {
     pub fn new(url: impl ToString, cache_key: Option<CacheKey>) -> Self {
         MicrosoftGraphHelper {
             url: url.to_string(),
             cache_key,
+            tenant_id: None,
         }
     }
 
+    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
+        self.tenant_id = Some(tenant_id);
+        self
+    }
+
+    fn get_command(&self, url: &str) -> CommandBuilder {
+        let mut cmd = match self.tenant_id {
+            Some(tenant_id) => {
+                let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+                let tenant_id = tenant_id.to_string();
+                cmd.args(["rest", "--method", "GET", "--url", url, "--tenant", tenant_id.as_str()]);
+                cmd
+            }
+            None => {
+                let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+                cmd.args(["rest", "--method", "GET", "--url"]);
+                cmd.azure_file_arg("url.txt", url.to_string());
+                cmd
+            }
+        };
+        cmd.use_cache(self.cache_key.clone());
+        cmd
+    }
+
     pub async fn fetch_one<T: FromCommandOutput>(self) -> Result<T> {
-        // Build command
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["rest", "--method", "GET", "--url"]);
-        cmd.azure_file_arg("url.txt", self.url);
-
-        // Set up caching
-        cmd.use_cache(self.cache_key);
-
         // Perform request
-        let response = cmd.run::<T>().await?;
+        let response = self.get_command(&self.url).run::<T>().await?;
         Ok(response)
     }
 
@@ -49,12 +68,7 @@ impl MicrosoftGraphHelper {
                 NextLink::StopIteration => break,
             };
 
-            // Build command
-            let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-            cmd.args(["rest", "--method", "GET", "--url"]);
-            cmd.azure_file_arg("url.txt", url.clone());
-
-            // Set up caching
+            let mut cmd = self.get_command(url);
             if let Some(ref cache_key) = self.cache_key {
                 cmd.cache(CacheKey {
                     path: cache_key.path.join(request_index.to_string()),

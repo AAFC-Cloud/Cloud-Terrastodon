@@ -13,6 +13,7 @@ pub mod nslookup;
 pub mod perform_code_generation_from_imports;
 pub mod pick;
 pub mod ratatui;
+pub mod rest;
 pub mod terraform;
 pub mod write_all_imports;
 
@@ -31,6 +32,7 @@ use crate::cli::nslookup::NslookupArgs;
 use crate::cli::perform_code_generation_from_imports::PerformCodeGenerationFromImportsArgs;
 use crate::cli::pick::PickArgs;
 use crate::cli::ratatui::RatatuiArgs;
+use crate::cli::rest::RestArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
 use clap::Subcommand;
@@ -57,6 +59,8 @@ pub enum CloudTerrastodonCommand {
     GetPath(GetPathArgs),
     /// Resolve DNS names to IP addresses.
     Nslookup(NslookupArgs),
+    /// Issue raw REST requests with service-specific authentication.
+    Rest(RestArgs),
     /// Copy the latest run results to another location.
     CopyResults(CopyResultsArgs),
     /// Register a directory as a working directory.
@@ -90,6 +94,7 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::DumpAzureDevOps(args) => args.invoke().await,
             CloudTerrastodonCommand::GetPath(args) => args.invoke().await,
             CloudTerrastodonCommand::Nslookup(args) => args.invoke().await,
+            CloudTerrastodonCommand::Rest(args) => args.invoke().await,
             CloudTerrastodonCommand::CopyResults(args) => args.invoke().await,
             CloudTerrastodonCommand::AddWorkDir(args) => args.invoke().await,
             CloudTerrastodonCommand::Terraform(args) => args.invoke().await,
@@ -101,3 +106,4 @@ impl CloudTerrastodonCommand {
         }
     }
 }
+

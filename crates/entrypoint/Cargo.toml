@@ -52,6 +52,7 @@ jsonpath-rust.workspace = true
 jmespath.workspace = true
 uuid.workspace = true
 http.workspace = true
+reqwest.workspace = true
 liquid.workspace = true
 hickory-resolver.workspace = true
 nucleo.workspace = true
