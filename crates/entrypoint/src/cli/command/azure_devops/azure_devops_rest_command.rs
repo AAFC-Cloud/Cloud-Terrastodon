@@ -4,6 +4,7 @@ use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_c
 use eyre::Result;
 use http::Method;
 
+// TODO: deprecate in favour of top-level rest command
 /// Arguments for issuing raw Azure DevOps REST calls.
 #[derive(Args, Debug, Clone)]
 pub struct AzureDevOpsRestArgs {
