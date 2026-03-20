@@ -54,11 +54,33 @@ pub async fn forget_tracked_tenant(tenant_id: AzureTenantId) -> eyre::Result<Opt
 pub async fn resolve_tracked_tenant_argument(
     arg: AzureTenantArgument<'_>,
 ) -> eyre::Result<AzureTenantId> {
-    match arg {
-        AzureTenantArgument::Id(id) => resolve_tracked_tenant_id(id).await,
-        AzureTenantArgument::IdRef(id) => resolve_tracked_tenant_id(*id).await,
-        AzureTenantArgument::Alias(alias) => resolve_tracked_tenant_alias(&alias).await,
-        AzureTenantArgument::AliasRef(alias) => resolve_tracked_tenant_alias(alias).await,
+    arg.resolve().await
+}
+
+#[expect(async_fn_in_trait)]
+pub trait AzureTenantAliasExt {
+    async fn resolve(&self) -> eyre::Result<AzureTenantId>;
+}
+
+impl AzureTenantAliasExt for AzureTenantAlias {
+    async fn resolve(&self) -> eyre::Result<AzureTenantId> {
+        resolve_tracked_tenant_alias(self).await
+    }
+}
+
+#[expect(async_fn_in_trait)]
+pub trait AzureTenantArgumentExt {
+    async fn resolve(&self) -> eyre::Result<AzureTenantId>;
+}
+
+impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
+    async fn resolve(&self) -> eyre::Result<AzureTenantId> {
+        match self {
+            AzureTenantArgument::Id(id) => resolve_tracked_tenant_id(*id).await,
+            AzureTenantArgument::IdRef(id) => resolve_tracked_tenant_id(**id).await,
+            AzureTenantArgument::Alias(alias) => alias.resolve().await,
+            AzureTenantArgument::AliasRef(alias) => alias.resolve().await,
+        }
     }
 }
 
@@ -241,7 +263,14 @@ async fn ensure_tracked_tenant_exists(tenant_id: AzureTenantId) -> eyre::Result<
 async fn resolve_tracked_tenant_alias(
     alias: &AzureTenantAlias,
 ) -> eyre::Result<AzureTenantId> {
-    let tracked_tenants = list_tracked_tenant_aliases().await?;
+    resolve_tracked_tenant_alias_in(&tracked_tenants_dir(), alias).await
+}
+
+async fn resolve_tracked_tenant_alias_in(
+    root: &Path,
+    alias: &AzureTenantAlias,
+) -> eyre::Result<AzureTenantId> {
+    let tracked_tenants = list_tracked_tenant_aliases_in(root).await?;
 
     let exact_matches = tracked_tenants
         .iter()
@@ -468,7 +497,7 @@ mod tests {
     use super::list_tracked_tenant_aliases_in;
     use super::list_tracked_tenants_in;
     use super::remove_tracked_tenant_aliases_in;
-    use super::resolve_tracked_tenant_alias;
+    use super::resolve_tracked_tenant_alias_in;
     use crate::tracked_tenants::discover_tracked_tenants_in;
     use cloud_terrastodon_azure_types::prelude::AzureTenantAlias;
     use cloud_terrastodon_azure_types::prelude::AzureTenantId;
@@ -538,12 +567,18 @@ mod tests {
         let listed = list_tracked_tenant_aliases_for_in(temp.path(), tenant_id).await?;
         assert_eq!(listed, aliases);
 
-        let resolved =
-            resolve_tracked_tenant_alias(&AzureTenantAlias::try_new("PROD")?).await;
-        assert!(resolved.is_err());
+        let resolved = resolve_tracked_tenant_alias_in(
+            temp.path(),
+            &AzureTenantAlias::try_new("PROD")?,
+        )
+        .await;
+        assert_eq!(resolved?, tenant_id);
 
-        let substring_resolved =
-            resolve_tracked_tenant_alias(&AzureTenantAlias::try_new("4444")?).await;
+        let substring_resolved = resolve_tracked_tenant_alias_in(
+            temp.path(),
+            &AzureTenantAlias::try_new("4444")?,
+        )
+        .await;
         assert_eq!(substring_resolved?, tenant_id);
 
         let removed = remove_tracked_tenant_aliases_in(

@@ -1,7 +1,7 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::resolve_tracked_tenant_argument;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
@@ -41,7 +41,7 @@ pub struct RestArgs {
 impl RestArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant = match self.tenant {
-            Some(tenant) => Some(resolve_tracked_tenant_argument(tenant).await?),
+            Some(tenant) => Some(tenant.resolve().await?),
             None => None,
         };
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
