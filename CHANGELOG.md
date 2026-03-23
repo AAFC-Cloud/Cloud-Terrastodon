@@ -4,6 +4,7 @@
 - Revamp `ct pick` command to have `ct pick stdin` and `ct pick fs` subcommands
     - `--many` replaced with `--single` as many is now default
     - Changed default query engine to Liquid
+- Add `ct az devops license-entitlement user summary` command
 
 # v0.34.0
 

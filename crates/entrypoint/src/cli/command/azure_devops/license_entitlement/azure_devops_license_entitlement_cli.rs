@@ -2,6 +2,7 @@ use crate::cli::azure_devops::license_entitlement::group::AzureDevOpsLicenseEnti
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserListArgs;
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserRevokeArgs;
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserShowArgs;
+use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserSummaryArgs;
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateArgs;
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateTuiArgs;
 use clap::Args;
@@ -33,6 +34,8 @@ pub struct AzureDevOpsLicenseEntitlementUserArgs {
 pub enum AzureDevOpsLicenseEntitlementUserCommand {
     /// List Azure DevOps user license entitlements.
     List(AzureDevOpsLicenseEntitlementUserListArgs),
+    /// Summarize Azure DevOps user license entitlements by license type.
+    Summary(AzureDevOpsLicenseEntitlementUserSummaryArgs),
     /// Update Azure DevOps user license entitlement.
     Update(AzureDevOpsLicenseEntitlementUserUpdateArgs),
     /// Update Azure DevOps user license entitlement via TUI picker.
@@ -60,6 +63,7 @@ impl AzureDevOpsLicenseEntitlementArgs {
         match self.command {
             AzureDevOpsLicenseEntitlementCommand::User(args) => match args.command {
                 AzureDevOpsLicenseEntitlementUserCommand::List(a) => a.invoke().await?,
+                AzureDevOpsLicenseEntitlementUserCommand::Summary(a) => a.invoke().await?,
                 AzureDevOpsLicenseEntitlementUserCommand::Update(a) => a.invoke().await?,
                 AzureDevOpsLicenseEntitlementUserCommand::UpdateTui(a) => a.invoke().await?,
                 AzureDevOpsLicenseEntitlementUserCommand::Show(a) => a.invoke().await?,
