@@ -190,7 +190,13 @@ impl MenuAction {
         match self {
             MenuAction::ResourceGroupImportWizard => resource_group_import_wizard_menu().await?,
             MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu().await?,
-            MenuAction::BrowseResourceGroups => AzureResourceGroupBrowseArgs.invoke().await?,
+            MenuAction::BrowseResourceGroups => {
+                AzureResourceGroupBrowseArgs {
+                    tenant: Default::default(),
+                }
+                .invoke()
+                .await?
+            }
             MenuAction::BrowseRoleAssignments => browse_role_assignments().await?,
             MenuAction::BuildAllImports => {
                 write_imports_for_all_resource_groups().await?;

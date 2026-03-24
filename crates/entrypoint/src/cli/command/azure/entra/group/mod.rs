@@ -1,14 +1,14 @@
 pub mod azure_entra_group;
-pub mod list;
+pub mod azure_entra_group_list;
+pub mod azure_entra_group_show;
 pub mod member;
-pub mod show;
 
 pub use azure_entra_group::AzureEntraGroupCommand;
+pub use azure_entra_group_list::AzureEntraGroupListArgs;
+pub use azure_entra_group_show::AzureEntraGroupShowArgs;
 use clap::Args;
 use eyre::Result;
-pub use list::AzureEntraGroupListArgs;
 pub use member::AzureEntraGroupMemberArgs;
-pub use show::AzureEntraGroupShowArgs;
 
 /// Entra group subcommands
 #[derive(Args, Debug, Clone)]

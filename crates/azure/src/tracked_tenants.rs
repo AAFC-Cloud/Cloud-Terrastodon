@@ -1,4 +1,5 @@
 use crate::prelude::az_account_list;
+use crate::prelude::get_default_tenant_id;
 use cloud_terrastodon_azure_types::prelude::Account;
 use cloud_terrastodon_azure_types::prelude::AzureTenantAlias;
 use cloud_terrastodon_azure_types::prelude::AzureTenantArgument;
@@ -74,6 +75,7 @@ pub trait AzureTenantArgumentExt {
 impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
     async fn resolve(&self) -> eyre::Result<AzureTenantId> {
         match self {
+            AzureTenantArgument::Default => get_default_tenant_id().await,
             AzureTenantArgument::Id(id) => resolve_tracked_tenant_id(*id).await,
             AzureTenantArgument::IdRef(id) => resolve_tracked_tenant_id(**id).await,
             AzureTenantArgument::Alias(alias) => alias.resolve().await,

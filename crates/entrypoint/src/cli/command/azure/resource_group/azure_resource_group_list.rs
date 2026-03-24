@@ -1,18 +1,23 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
 
 /// Arguments for listing Azure resource groups.
 #[derive(Args, Debug, Clone)]
-pub struct AzureResourceGroupListArgs {}
+pub struct AzureResourceGroupListArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+}
 
 impl AzureResourceGroupListArgs {
     pub async fn invoke(self) -> Result<()> {
-        info!("Fetching all Azure resource groups");
-        let tenant_id = get_default_tenant_id().await?;
+        let tenant_id = self.tenant.resolve().await?;
+        info!(%tenant_id, "Fetching all Azure resource groups");
         let groups = fetch_all_resource_groups(tenant_id).await?;
         info!(count = groups.len(), "Fetched resource groups");
 
