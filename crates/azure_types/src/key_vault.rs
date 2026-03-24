@@ -65,7 +65,7 @@ mod tests {
 
     #[test]
     fn deserializes() -> Result<()> {
-        // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.KeyVault/Vaults/bruh
+        // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.KeyVault/vaults/bruh
         let expanded = KeyVaultId {
             resource_group_id: ResourceGroupId::new(
                 SubscriptionId::new(Uuid::new_v4()),
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn not_ambiguous() -> Result<()> {
         let expanded = format!(
-            "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.KeyVault/Vaults/bruh",
+            "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.KeyVault/vaults/bruh",
             nil = Uuid::nil()
         );
         let id = KeyVaultId::try_from_expanded(&expanded)?;
