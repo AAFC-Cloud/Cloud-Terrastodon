@@ -1,8 +1,9 @@
-use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_azure_types::prelude::VirtualMachineSize;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use std::path::PathBuf;
 
 pub async fn fetch_virtual_machine_sizes(
@@ -12,16 +13,15 @@ pub async fn fetch_virtual_machine_sizes(
     let url = format!(
         "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/vmSizes?api-version=2022-11-01"
     );
-    let cmd = build_arm_rest_get_command(
-        &url,
-        CacheKey::new(PathBuf::from_iter([
-            "az",
-            "vm",
-            "list-sizes",
-            subscription_id.to_string().as_str(),
-            location.to_string().as_str(),
-        ])),
-    );
+    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+    cmd.args(["rest", "--method", "GET", "--url", &url]);
+    cmd.cache(CacheKey::new(PathBuf::from_iter([
+        "az",
+        "vm",
+        "list-sizes",
+        subscription_id.to_string().as_str(),
+        location.to_string().as_str(),
+    ])));
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Response {

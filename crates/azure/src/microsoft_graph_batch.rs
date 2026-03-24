@@ -1,5 +1,7 @@
-use crate::prelude::build_microsoft_graph_rest_command;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
 use eyre::bail;
 use http::Method;
@@ -18,6 +20,8 @@ pub struct MicrosoftGraphBatchRequest<REQ: Serialize> {
     /// The key to use for caching the batch request
     #[serde(skip)]
     pub cache_key: Option<CacheKey>,
+    #[serde(skip)]
+    pub tenant_id: Option<AzureTenantId>,
 }
 impl<T: Serialize> Default for MicrosoftGraphBatchRequest<T> {
     fn default() -> Self {
@@ -25,6 +29,7 @@ impl<T: Serialize> Default for MicrosoftGraphBatchRequest<T> {
             requests: Vec::new(),
             ids: Vec::new(),
             cache_key: None,
+            tenant_id: None,
         }
     }
 }
@@ -53,14 +58,25 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
         self.cache_key = cache_key;
         self
     }
+    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
+        self.tenant_id = Some(tenant_id);
+        self
+    }
     pub async fn send<RESP: FromCommandOutput>(
         self,
     ) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>> {
-        let mut cmd = build_microsoft_graph_rest_command(
-            Method::POST,
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args([
+            "rest",
+            "--method",
+            Method::POST.as_str(),
+            "--url",
             "https://graph.microsoft.com/v1.0/$batch",
-            None,
-        );
+        ]);
+        if let Some(tenant_id) = self.tenant_id.as_ref() {
+            let tenant_id = tenant_id.to_string();
+            cmd.args(["--tenant", tenant_id.as_str()]);
+        }
         cmd.arg("--body");
         cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&self)?);
         cmd.use_cache(self.cache_key);

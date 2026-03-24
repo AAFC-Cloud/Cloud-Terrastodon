@@ -1,13 +1,12 @@
-use crate::prelude::build_arm_rest_command;
 use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
 use eyre::Result;
 #[cfg(debug_assertions)]
 use eyre::bail;
-use http::Method;
 use serde::Deserialize;
 use serde::Serialize;
 #[cfg(debug_assertions)]
@@ -74,13 +73,11 @@ impl ResourceGraphHelper {
     }
 
     fn get_command(&self, body: String) -> CommandBuilder {
-        let mut cmd = build_arm_rest_command(
-            Method::POST,
-            "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
-            self.cache_behaviour.clone().unwrap_or_else(|| {
-                CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "query"]))
-            }),
-        );
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", "POST", "--url", "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01"]);
+        cmd.cache(self.cache_behaviour.clone().unwrap_or_else(|| {
+            CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "query"]))
+        }));
         cmd.arg("--body");
         cmd.azure_file_arg("body.json", body);
         if let Some(tenant_id) = &self.tenant_id {

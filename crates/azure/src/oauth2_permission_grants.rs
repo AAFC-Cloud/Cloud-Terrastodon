@@ -1,12 +1,12 @@
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
-use crate::prelude::build_microsoft_graph_rest_command;
-use crate::prelude::build_microsoft_graph_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::ConsentType;
 use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::EntraUserId;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use http::Method;
 use std::path::PathBuf;
@@ -32,7 +32,8 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
-        let mut cmd = build_microsoft_graph_rest_get_command(url, None);
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", "GET", "--url", url]);
         cmd.cache(self.cache_key());
         let resp = cmd
             .run::<crate::microsoft_graph::MicrosoftGraphResponse<OAuth2PermissionGrant>>()
@@ -62,7 +63,8 @@ pub async fn create_oauth2_permission_grant(
         principal_id: Some(user_id),
         scope,
     };
-    let mut cmd = build_microsoft_graph_rest_command(Method::POST, url, None);
+    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+    cmd.args(["rest", "--method", Method::POST.as_str(), "--url", url]);
     cmd.arg("--body");
     cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&body)?);
     cmd.run().await

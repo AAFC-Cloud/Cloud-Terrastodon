@@ -1,8 +1,9 @@
-use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure_types::prelude::RoleManagementPolicyAssignment;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use eyre::Result;
@@ -49,7 +50,9 @@ impl<T: Scope + Send> cloud_terrastodon_command::CacheableCommand
             self.role_definition_id.expanded_form()
         );
 
-        let cmd = build_arm_rest_get_command(&url, self.cache_key());
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", "GET", "--url", &url]);
+        cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]
         struct Response {

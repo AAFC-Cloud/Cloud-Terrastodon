@@ -1,8 +1,9 @@
-use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::Location;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
@@ -33,7 +34,9 @@ impl CacheableCommand for LocationListRequest {
             "https://management.azure.com/subscriptions/{}/locations?api-version=2022-12-01",
             self.subscription_id
         );
-        let cmd = build_arm_rest_get_command(&url, self.cache_key());
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", "GET", "--url", &url]);
+        cmd.cache(self.cache_key());
 
         #[derive(serde::Deserialize)]
         struct Response {

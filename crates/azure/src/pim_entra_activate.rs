@@ -1,9 +1,10 @@
 use crate::management_groups::fetch_root_management_group;
-use crate::prelude::build_microsoft_graph_rest_command;
 use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_azure_types::prelude::RoleAssignmentRequest;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use http::Method;
 use std::path::PathBuf;
@@ -17,7 +18,8 @@ pub async fn activate_pim_entra_role(
 ) -> Result<()> {
     let tenant_id = fetch_root_management_group().await?.tenant_id;
     let url = "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests";
-    let mut cmd = build_microsoft_graph_rest_command(Method::POST, url, None);
+    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+    cmd.args(["rest", "--method", Method::POST.as_str(), "--url", url]);
     cmd.arg("--body");
     cmd.azure_file_arg(
         "body.json",

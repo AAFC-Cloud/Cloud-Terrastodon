@@ -1,6 +1,6 @@
-use crate::prelude::build_arm_rest_command;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
-use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
 use eyre::bail;
 use http::Method;
@@ -9,8 +9,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
-use std::path::PathBuf;
-use std::time::Duration;
 use tracing::debug;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -82,14 +80,8 @@ where
 {
     // create the base command
     let url = "https://management.azure.com/batch?api-version=2020-06-01";
-    let mut cmd_base = build_arm_rest_command(
-        Method::POST,
-        url,
-        CacheKey {
-            path: PathBuf::from_iter(["az", "rest", "POST", "batch"]),
-            valid_for: Duration::ZERO,
-        },
-    );
+    let mut cmd_base = CommandBuilder::new(CommandKind::CloudTerrastodon);
+    cmd_base.args(["rest", "--method", "POST", "--url", url]);
     cmd_base.arg("--body");
 
     // create the status=200 validator

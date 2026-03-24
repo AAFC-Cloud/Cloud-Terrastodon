@@ -1,8 +1,9 @@
-use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::ComputeSku;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -38,10 +39,9 @@ impl CacheableCommand for ComputeSkuListRequest {
             "https://management.azure.com/subscriptions/{}/providers/Microsoft.Compute/skus?api-version=2019-04-01",
             self.subscription_id
         );
-        let cmd = build_arm_rest_get_command(
-            &url,
-            CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"])),
-        );
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", "GET", "--url", &url]);
+        cmd.cache(CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"])));
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Response {

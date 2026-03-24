@@ -1,4 +1,3 @@
-use crate::prelude::build_arm_rest_command;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_azure_types::prelude::RoleAssignmentScheduleRequest;
 use cloud_terrastodon_azure_types::prelude::RoleDefinitionId;
@@ -6,8 +5,9 @@ use cloud_terrastodon_azure_types::prelude::RoleEligibilityScheduleId;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
-use http::Method;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -24,14 +24,13 @@ pub async fn activate_pim_role(
     let url = format!(
         "https://management.azure.com/{scope}/providers/Microsoft.Authorization/roleAssignmentScheduleRequests/{id}?api-version=2020-10-01"
     );
-    let mut cmd = build_arm_rest_command(
-        Method::PUT,
-        &url,
-        CacheKey {
-            path: PathBuf::from_iter(["az", "rest", "PUT", "roleAssignmentScheduleRequests"]),
-            valid_for: Duration::ZERO,
-        },
-    );
+    let url: &str = &url;
+    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+    cmd.args(["rest", "--method", "PUT", "--url", url]);
+    cmd.cache(CacheKey {
+        path: PathBuf::from_iter(["az", "rest", "PUT", "roleAssignmentScheduleRequests"]),
+        valid_for: Duration::ZERO,
+    });
     cmd.arg("--body");
     cmd.azure_file_arg(
         "body.json",

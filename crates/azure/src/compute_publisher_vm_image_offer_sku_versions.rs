@@ -1,4 +1,3 @@
-use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::ComputePublisherName;
 use cloud_terrastodon_azure_types::prelude::ComputePublisherVmImageOfferName;
 use cloud_terrastodon_azure_types::prelude::ComputePublisherVmImageOfferSkuName;
@@ -7,6 +6,8 @@ use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
@@ -60,7 +61,9 @@ impl CacheableCommand for ComputePublisherImageOfferSkuVersionListRequest {
             offer_name = self.offer_name,
             sku_name = self.sku_name
         );
-        let cmd = build_arm_rest_get_command(&url, self.cache_key());
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", "GET", "--url", &url]);
+        cmd.cache(self.cache_key());
         #[derive(serde::Deserialize)]
         struct Row {
             id: ComputePublisherVmImageOfferSkuVersionId,

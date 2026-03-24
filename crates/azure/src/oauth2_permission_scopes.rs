@@ -1,7 +1,8 @@
-use crate::prelude::build_microsoft_graph_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionScope;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -42,7 +43,8 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionScopesListR
             "https://graph.microsoft.com/v1.0/servicePrincipals/{service_principal_id}?$select=oauth2PermissionScopes",
             service_principal_id = self.service_principal_id
         );
-        let mut cmd = build_microsoft_graph_rest_get_command(url.as_ref(), None);
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", "GET", "--url", url.as_ref()]);
         cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]

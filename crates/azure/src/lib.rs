@@ -1,6 +1,5 @@
 mod access_token;
 mod accounts;
-mod arm_rest;
 mod auth;
 mod batch_api;
 mod compute_publisher_vm_image_offer_sku_versions;
@@ -17,7 +16,6 @@ mod create_role_assignment;
 mod eligible_child_resources;
 mod evaluate_policy_assignment_compliance;
 mod governance_role_assignments;
-mod graph_rest;
 mod group_member_add;
 mod group_member_remove;
 mod group_members;
@@ -83,7 +81,6 @@ mod virtual_network;
 pub mod prelude {
     pub use crate::access_token::*;
     pub use crate::accounts::*;
-    pub use crate::arm_rest::*;
     pub use crate::auth::*;
     pub use crate::batch_api::*;
     pub use crate::compute_publisher_vm_image_offer_sku_versions::*;
@@ -100,7 +97,6 @@ pub mod prelude {
     pub use crate::eligible_child_resources::*;
     pub use crate::evaluate_policy_assignment_compliance::*;
     pub use crate::governance_role_assignments::*;
-    pub use crate::graph_rest::*;
     pub use crate::group_member_add::*;
     pub use crate::group_member_remove::*;
     pub use crate::group_members::*;

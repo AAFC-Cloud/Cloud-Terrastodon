@@ -1,5 +1,4 @@
 use crate::management_groups::fetch_root_management_group;
-use crate::prelude::build_arm_rest_get_command;
 use crate::prelude::get_default_tenant_id;
 use crate::resource_groups::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::prelude::AsScope;
@@ -8,6 +7,8 @@ use cloud_terrastodon_azure_types::prelude::EligibleChildResourceKind;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use serde::Deserialize;
@@ -38,7 +39,9 @@ pub async fn fetch_eligible_child_resources(
         .split("/")
         .filter(|x| !x.is_empty())
         .for_each(|x| cache_chunks.push(x));
-    let cmd = build_arm_rest_get_command(&url, CacheKey::new(cache_chunks));
+    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+    cmd.args(["rest", "--method", "GET", "--url", &url]);
+    cmd.cache(CacheKey::new(cache_chunks));
 
     #[derive(Deserialize)]
     struct Response {

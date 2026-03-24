@@ -1,8 +1,9 @@
 use crate::management_groups::fetch_root_management_group;
-use crate::prelude::build_microsoft_graph_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::PimEntraRoleSettings;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use eyre::bail;
@@ -42,7 +43,8 @@ impl cloud_terrastodon_command::CacheableCommand for EntraPimRoleSettingsRequest
             )
         );
 
-        let mut cmd = build_microsoft_graph_rest_get_command(&url, None);
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", "GET", "--url", &url]);
         cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]

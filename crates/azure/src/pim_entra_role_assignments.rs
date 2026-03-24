@@ -1,7 +1,8 @@
-use crate::prelude::build_microsoft_graph_rest_get_command;
 use crate::prelude::fetch_current_user;
 use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CommandBuilder;
+use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use itertools::Itertools;
@@ -54,7 +55,8 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraPimRoleAssignmentsLi
                 .join(",")
             )
         );
-        let mut cmd = build_microsoft_graph_rest_get_command(&url, None);
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", "GET", "--url", &url]);
         cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]
