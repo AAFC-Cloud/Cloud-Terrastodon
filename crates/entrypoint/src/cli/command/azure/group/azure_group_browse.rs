@@ -1,5 +1,6 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -12,11 +13,12 @@ pub struct AzureGroupBrowseArgs;
 
 impl AzureGroupBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = get_default_tenant_id().await?;
         let chosen = PickerTui::new()
             .pick_many_reloadable(async |invalidate| {
                 info!("Fetching Azure resource groups...");
 
-                fetch_all_resource_groups()
+                fetch_all_resource_groups(tenant_id)
                     .with_invalidation(invalidate)
                     .await
             })

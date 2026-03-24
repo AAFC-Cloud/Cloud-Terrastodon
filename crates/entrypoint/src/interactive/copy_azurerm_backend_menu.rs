@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::SubscriptionName;
 use cloud_terrastodon_azure::prelude::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_user_input::Choice;
@@ -15,8 +16,11 @@ use tracing::info;
 pub async fn copy_azurerm_backend_menu() -> Result<()> {
     info!("Fetching storage accounts");
     info!("Fetching subscriptions");
-    let (storage_accounts, subscriptions) =
-        join!(fetch_all_storage_accounts(), fetch_all_subscriptions());
+    let tenant_id = get_default_tenant_id().await?;
+    let (storage_accounts, subscriptions) = join!(
+        fetch_all_storage_accounts(),
+        fetch_all_subscriptions(tenant_id)
+    );
     let storage_accounts = storage_accounts?;
     let subscriptions = subscriptions?
         .into_iter()

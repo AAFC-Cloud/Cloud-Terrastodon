@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::prelude::Subscription;
 use cloud_terrastodon_azure::prelude::SubscriptionId;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_hcl::prelude::HclImportBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderReference;
 use cloud_terrastodon_hcl::prelude::HclWriter;
@@ -16,15 +17,16 @@ use tracing::info;
 
 pub async fn write_imports_for_all_resource_groups() -> Result<()> {
     info!("Writing imports for all resource groups");
+    let tenant_id = get_default_tenant_id().await?;
 
     info!("Fetching resource groups");
-    let subscriptions = fetch_all_subscriptions()
+    let subscriptions = fetch_all_subscriptions(tenant_id)
         .await?
         .into_iter()
         .map(|sub| (sub.id, sub))
         .collect::<HashMap<SubscriptionId, Subscription>>();
 
-    let resource_groups = fetch_all_resource_groups().await?;
+    let resource_groups = fetch_all_resource_groups(tenant_id).await?;
 
     info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();

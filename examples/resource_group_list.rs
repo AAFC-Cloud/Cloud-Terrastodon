@@ -2,6 +2,7 @@
 
 use cloud_terrastodon::azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon::azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon::azure::prelude::get_default_tenant_id;
 use color_eyre::eyre::Result;
 use std::collections::HashMap;
 use tokio::try_join;
@@ -13,8 +14,11 @@ async fn main() -> Result<()> {
     }
 
     // Fetch info in parallel
-    let (resource_groups, subscriptions) =
-        try_join!(fetch_all_resource_groups(), fetch_all_subscriptions())?;
+    let tenant_id = get_default_tenant_id().await?;
+    let (resource_groups, subscriptions) = try_join!(
+        fetch_all_resource_groups(tenant_id),
+        fetch_all_subscriptions(tenant_id)
+    )?;
 
     // Create lookup table for subscription names
     let subscriptions = subscriptions

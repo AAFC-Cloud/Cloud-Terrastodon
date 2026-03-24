@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_hcl::prelude::HclImportBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderReference;
 use cloud_terrastodon_hcl::prelude::HclWriter;
@@ -17,11 +18,12 @@ use tracing::info;
 
 pub async fn build_policy_imports() -> Result<()> {
     info!("Fetching information");
+    let tenant_id = get_default_tenant_id().await?;
     let (policy_definitions, policy_set_definitions, policy_assignments, subscriptions) = try_join!(
         fetch_all_policy_definitions(),
         fetch_all_policy_set_definitions(),
         fetch_all_policy_assignments(),
-        fetch_all_subscriptions(),
+        fetch_all_subscriptions(tenant_id),
     )?;
 
     let subscriptions = subscriptions

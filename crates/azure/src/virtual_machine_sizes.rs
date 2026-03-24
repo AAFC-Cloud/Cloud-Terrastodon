@@ -34,11 +34,13 @@ pub async fn fetch_virtual_machine_sizes(
 #[cfg(test)]
 mod test {
     use crate::prelude::fetch_all_subscriptions;
+    use crate::prelude::get_default_tenant_id;
     use cloud_terrastodon_azure_types::prelude::LocationName;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let subs = fetch_all_subscriptions().await?;
+        let tenant_id = get_default_tenant_id().await?;
+        let subs = fetch_all_subscriptions(tenant_id).await?;
         let sub = subs.first().unwrap();
         let sizes =
             crate::prelude::fetch_virtual_machine_sizes(&sub.id, &LocationName::CanadaCentral)

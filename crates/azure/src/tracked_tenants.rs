@@ -55,7 +55,6 @@ pub async fn forget_tracked_tenant(
         .map(|(tenant_id, _)| tenant_id))
 }
 
-
 #[expect(async_fn_in_trait)]
 pub trait AzureTenantAliasExt {
     async fn resolve(&self) -> eyre::Result<AzureTenantId>;
@@ -609,9 +608,10 @@ mod tests {
         add_tracked_tenant_in(temp.path(), tenant_a).await?;
         add_tracked_tenant_in(temp.path(), tenant_b).await?;
 
-        let error = resolve_tracked_tenant_alias_in(temp.path(), &AzureTenantAlias::try_new("1234")?)
-            .await
-            .unwrap_err();
+        let error =
+            resolve_tracked_tenant_alias_in(temp.path(), &AzureTenantAlias::try_new("1234")?)
+                .await
+                .unwrap_err();
         let error = error.to_string();
         assert!(error.contains("matched multiple tenant ids"), "{error}");
         assert!(error.contains(&tenant_a.to_string()), "{error}");

@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::prelude::LocationName;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_azure::prelude::fetch_compute_publisher_image_offers;
 use cloud_terrastodon_azure::prelude::get_active_subscription_id;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -28,6 +29,7 @@ pub struct AzureVmPublisherOfferListArgs {
 
 impl AzureVmPublisherOfferListArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = get_default_tenant_id().await?;
         // Resolve the subscription argument (string) into a SubscriptionId.
         let subscription = match self.subscription {
             Some(s) => {
@@ -37,7 +39,7 @@ impl AzureVmPublisherOfferListArgs {
                     Ok(id) => id,
                     Err(_) => {
                         // Try to match by subscription name (case-insensitive).
-                        let subs = fetch_all_subscriptions().await?;
+                        let subs = fetch_all_subscriptions(tenant_id).await?;
                         let target = s.to_lowercase();
                         if let Some(found) = subs
                             .into_iter()

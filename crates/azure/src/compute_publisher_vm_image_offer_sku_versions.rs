@@ -87,11 +87,17 @@ cloud_terrastodon_command::impl_cacheable_into_future!(
 mod test {
     use crate::prelude::fetch_all_subscriptions;
     use crate::prelude::fetch_compute_publisher_image_offer_sku_versions;
+    use crate::prelude::get_default_tenant_id;
     use cloud_terrastodon_azure_types::prelude::LocationName;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let subscription_id = fetch_all_subscriptions().await?.first().unwrap().id;
+        let tenant_id = get_default_tenant_id().await?;
+        let subscription_id = fetch_all_subscriptions(tenant_id)
+            .await?
+            .first()
+            .unwrap()
+            .id;
         let publisher = "center-for-internet-security-inc".parse()?;
         let offer = "cis-windows-server-2016-v1-0-0-l2".parse()?;
         let sku = "cis-ws2016-l2".parse()?;

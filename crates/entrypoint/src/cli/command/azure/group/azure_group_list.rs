@@ -1,5 +1,6 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -11,7 +12,8 @@ pub struct AzureGroupListArgs {}
 impl AzureGroupListArgs {
     pub async fn invoke(self) -> Result<()> {
         info!("Fetching all Azure resource groups");
-        let groups = fetch_all_resource_groups().await?;
+        let tenant_id = get_default_tenant_id().await?;
+        let groups = fetch_all_resource_groups(tenant_id).await?;
         info!(count = groups.len(), "Fetched resource groups");
 
         let stdout = std::io::stdout();

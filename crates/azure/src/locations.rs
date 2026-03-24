@@ -54,10 +54,12 @@ cloud_terrastodon_command::impl_cacheable_into_future!(LocationListRequest);
 mod test {
     use crate::prelude::fetch_all_locations;
     use crate::prelude::fetch_all_subscriptions;
+    use crate::prelude::get_default_tenant_id;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let subs = fetch_all_subscriptions().await?;
+        let tenant_id = get_default_tenant_id().await?;
+        let subs = fetch_all_subscriptions(tenant_id).await?;
         let mut fail = false;
         for sub in subs {
             println!("Checking locations for subscription {}", sub.name);

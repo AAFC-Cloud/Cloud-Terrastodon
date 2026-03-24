@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_repos_batch;
@@ -488,10 +489,11 @@ async fn discover_existing_dirs(strategy: Strategy) -> eyre::Result<Vec<FreshTFW
 async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Writing all import blocks; fetching a lot of data");
     let org_url = get_default_organization_url().await?;
+    let tenant_id = get_default_tenant_id().await?;
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
         fetch_all_azure_devops_projects(&org_url),
-        fetch_all_subscriptions(),
-        fetch_all_resource_groups(),
+        fetch_all_subscriptions(tenant_id),
+        fetch_all_resource_groups(tenant_id),
     )?;
 
     let mut tf_work_dirs: Vec<PathBuf> = Vec::new();

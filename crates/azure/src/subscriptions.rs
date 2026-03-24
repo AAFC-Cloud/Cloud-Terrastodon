@@ -1,4 +1,5 @@
 use crate::prelude::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::Subscription;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
@@ -12,10 +13,12 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct SubscriptionListRequest;
+pub struct SubscriptionListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_subscriptions() -> SubscriptionListRequest {
-    SubscriptionListRequest
+pub fn fetch_all_subscriptions(tenant_id: AzureTenantId) -> SubscriptionListRequest {
+    SubscriptionListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -27,6 +30,7 @@ impl CacheableCommand for SubscriptionListRequest {
             "az",
             "resource_graph",
             "subscriptions",
+            self.tenant_id.to_string().as_str(),
         ]))
     }
 
@@ -44,6 +48,7 @@ impl CacheableCommand for SubscriptionListRequest {
     "#};
 
         let subscriptions = ResourceGraphHelper::new(query, Some(self.cache_key()))
+            .tenant_id(self.tenant_id)
             .collect_all::<Subscription>()
             .await?;
         debug!("Found {} subscriptions", subscriptions.len());
@@ -70,10 +75,12 @@ cloud_terrastodon_command::impl_cacheable_into_future!(SubscriptionListRequest);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::get_default_tenant_id;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_subscriptions().await?;
+        let tenant_id = get_default_tenant_id().await?;
+        let result = fetch_all_subscriptions(tenant_id).await?;
         println!("Found {} subscriptions:", result.len());
         for sub in result {
             println!(

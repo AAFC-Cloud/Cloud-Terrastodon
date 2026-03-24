@@ -11,6 +11,7 @@ use cloud_terrastodon_azure::prelude::fetch_compute_publisher_image_offer_sku_ve
 use cloud_terrastodon_azure::prelude::fetch_compute_publisher_image_offer_skus;
 use cloud_terrastodon_azure::prelude::fetch_compute_publisher_image_offers;
 use cloud_terrastodon_azure::prelude::fetch_compute_publishers;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -30,7 +31,8 @@ impl AzureVmPublisherBrowseArgs {
         }
         // 1) Pick subscriptions
         info!("Fetching subscriptions");
-        let subs = fetch_all_subscriptions().await?;
+        let tenant_id = get_default_tenant_id().await?;
+        let subs = fetch_all_subscriptions(tenant_id).await?;
         let chosen_subs = PickerTui::new()
             .set_header("Select one or more subscriptions (Tab to mark multiple)")
             .pick_many(subs)?;

@@ -1,4 +1,5 @@
 use crate::management_groups::fetch_root_management_group;
+use crate::prelude::get_default_tenant_id;
 use crate::resource_groups::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::prelude::AsScope;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResource;
@@ -73,13 +74,14 @@ impl CacheableCommand for EligibleChildResourceListRequest {
     }
 
     async fn run(self) -> Result<Self::Output> {
+        let tenant_id = get_default_tenant_id().await?;
         let root_mg = fetch_root_management_group().await?;
         let scope = root_mg.as_scope();
         let mut resource_containers =
             fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
         // this contains management groups and subscriptions
 
-        let rgs = fetch_all_resource_groups()
+        let rgs = fetch_all_resource_groups(tenant_id)
             .await?
             .into_iter()
             .map(|x| EligibleChildResource {
@@ -141,7 +143,8 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works3() -> Result<()> {
-        let rg = fetch_all_resource_groups()
+        let tenant_id = get_default_tenant_id().await?;
+        let rg = fetch_all_resource_groups(tenant_id)
             .await?
             .into_iter()
             .next()
@@ -161,7 +164,8 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works4() -> Result<()> {
-        let subs = fetch_all_subscriptions().await?;
+        let tenant_id = get_default_tenant_id().await?;
+        let subs = fetch_all_subscriptions(tenant_id).await?;
         let sub = subs.first().unwrap();
         let result = expect_aad_premium_p2_license(
             fetch_eligible_child_resources(sub.as_scope(), FetchChildrenBehaviour::GetAllChildren)

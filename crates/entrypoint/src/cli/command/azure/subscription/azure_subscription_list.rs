@@ -1,5 +1,6 @@
 use clap::Args;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -11,7 +12,8 @@ pub struct AzureSubscriptionListArgs {}
 impl AzureSubscriptionListArgs {
     pub async fn invoke(self) -> Result<()> {
         info!("Fetching all Azure subscriptions");
-        let subs = fetch_all_subscriptions().await?;
+        let tenant_id = get_default_tenant_id().await?;
+        let subs = fetch_all_subscriptions(tenant_id).await?;
         info!(count = subs.len(), "Fetched subscriptions");
 
         let stdout = std::io::stdout();

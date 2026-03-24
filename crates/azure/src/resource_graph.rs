@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
@@ -15,6 +16,7 @@ use tracing::debug;
 pub struct ResourceGraphHelper {
     query: String,
     cache_behaviour: Option<CacheKey>,
+    tenant_id: Option<AzureTenantId>,
     skip: Option<(u64, String)>,
     index: usize,
     #[cfg(debug_assertions)]
@@ -56,11 +58,52 @@ impl ResourceGraphHelper {
         Self {
             query: query.into(),
             cache_behaviour,
+            tenant_id: None,
             skip: None,
             index: 0,
             #[cfg(debug_assertions)]
             seen_skip_tokens: Default::default(),
         }
+    }
+
+    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
+        self.tenant_id = Some(tenant_id);
+        self
+    }
+
+    fn get_command(&self, body: String) -> CommandBuilder {
+        let mut cmd = match self.tenant_id {
+            Some(tenant_id) => {
+                let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+                let tenant_id = tenant_id.to_string();
+                cmd.args([
+                    "rest",
+                    "--method",
+                    "POST",
+                    "--url",
+                    "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
+                    "--body",
+                ]);
+                cmd.azure_file_arg("body.json", body);
+                cmd.args(["--tenant", tenant_id.as_str()]);
+                cmd
+            }
+            None => {
+                let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+                cmd.args([
+                    "rest",
+                    "--method",
+                    "POST",
+                    "--url",
+                    "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
+                    "--body",
+                ]);
+                cmd.azure_file_arg("body.json", body);
+                cmd
+            }
+        };
+        cmd.use_cache(self.cache_behaviour.clone());
+        cmd
     }
 
     pub async fn fetch<T: FromCommandOutput>(
@@ -73,40 +116,25 @@ impl ResourceGraphHelper {
             bail!("Saw the same skip token twice, infinite loop detected");
         }
 
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        // Previously tried using `az graph query` but hit issues with scopes
-        // we want the results to be identical to the resource graph explorer in the portal
-        // so we must be able to pass authorizationScopeFilter: AtScopeAboveandBelow
-        // in the body, so we will use `az rest` instead.
-
-        /*
-        cmd.args(["graph", "query", "--graph-query"]);
-        cmd.file_arg("query.kql", self.query.to_string());
-        if let Some(ref skip_token) = self.skip_token {
-            cmd.args(["--skip-token", skip_token]);
-        }
-        */
-
-        cmd.args(["rest","--method","POST","--url","https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01", "--body"]);
+        // Previously tried using `az graph query` but hit issues with scopes.
+        // We use the REST endpoint so we can pass authorizationScopeFilter.
         let batch_size = 1000;
         let (skip, skip_token) = match &self.skip {
             Some((skip, token)) => (*skip, Some(token.to_owned())),
             None => (0u64, None),
         };
-        cmd.azure_file_arg(
-            "body.json",
-            serde_json::to_string_pretty(&ResourceGraphQueryRestBody {
-                query: self.query.to_string(),
-                options: ResourceGraphQueryRestOptions {
-                    skip,
-                    top: batch_size,
-                    skip_token,
-                    authorization_scope_filter:
-                        ResourceGraphQueryRestScopeFilterOption::AtScopeAboveAndBelow,
-                    result_format: QueryRestResultFormat::Table,
-                },
-            })?,
-        );
+        let body = serde_json::to_string_pretty(&ResourceGraphQueryRestBody {
+            query: self.query.to_string(),
+            options: ResourceGraphQueryRestOptions {
+                skip,
+                top: batch_size,
+                skip_token,
+                authorization_scope_filter:
+                    ResourceGraphQueryRestScopeFilterOption::AtScopeAboveAndBelow,
+                result_format: QueryRestResultFormat::Table,
+            },
+        })?;
+        let mut cmd = self.get_command(body);
 
         // Set up caching
         if let Some(CacheKey {
@@ -124,6 +152,7 @@ impl ResourceGraphHelper {
             batch_index=self.index,
             batch_size,
             skip,
+            ?self.tenant_id,
             ?self.cache_behaviour,
             "Fetching resource graph batch",
         );
@@ -163,6 +192,7 @@ impl ResourceGraphHelper {
 
         debug!(
             total_items=all_data.len(),
+            ?self.tenant_id,
             ?self.cache_behaviour,
             "Completed fetching all resource graph data",
         );

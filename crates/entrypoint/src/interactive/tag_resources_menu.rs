@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::prelude::ResourceTagsId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_azure::prelude::get_tags_for_resources;
 use cloud_terrastodon_azure::prelude::replace_tags_for_resources;
 use cloud_terrastodon_user_input::Choice;
@@ -13,7 +14,8 @@ use itertools::Itertools;
 use tracing::info;
 
 pub async fn tag_resources_menu() -> eyre::Result<()> {
-    let resource_groups = fetch_all_resource_groups().await?;
+    let tenant_id = get_default_tenant_id().await?;
+    let resource_groups = fetch_all_resource_groups(tenant_id).await?;
     let resource_group: ResourceGroup = PickerTui::new()
         .set_header("Choose a resource group")
         .pick_one(resource_groups.into_iter().map(|rg| Choice {

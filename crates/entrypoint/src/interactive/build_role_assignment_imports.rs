@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_hcl::prelude::HclImportBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderReference;
 use cloud_terrastodon_hcl::prelude::HclWriter;
@@ -23,7 +24,8 @@ pub async fn build_role_assignment_imports() -> Result<()> {
     let mut seen_ids = HashSet::new();
     let mut import_blocks = Vec::new();
 
-    let subscriptions = fetch_all_subscriptions()
+    let tenant_id = get_default_tenant_id().await?;
+    let subscriptions = fetch_all_subscriptions(tenant_id)
         .await?
         .into_iter()
         .map(|sub| (sub.id, sub))

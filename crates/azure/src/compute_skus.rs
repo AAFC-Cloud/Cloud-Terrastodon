@@ -63,13 +63,15 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ComputeSkuListRequest);
 mod test {
     use crate::prelude::fetch_all_compute_skus;
     use crate::prelude::fetch_all_subscriptions;
+    use crate::prelude::get_default_tenant_id;
     use cloud_terrastodon_azure_types::prelude::ComputeSkuResourceType;
     use cloud_terrastodon_azure_types::prelude::LocationName;
 
     #[tokio::test]
     #[ignore] // this endpoint takes forever
     pub async fn it_works() -> eyre::Result<()> {
-        let subs = fetch_all_subscriptions().await?;
+        let tenant_id = get_default_tenant_id().await?;
+        let subs = fetch_all_subscriptions(tenant_id).await?;
         let sub = subs.first().unwrap();
         let vm_skus = fetch_all_compute_skus(sub.id).await?;
         let canada_vm_skus = vm_skus

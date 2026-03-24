@@ -4,6 +4,7 @@ use clap::Args;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_azure::prelude::fetch_all_virtual_machines;
 use cloud_terrastodon_azure::prelude::fetch_virtual_machine_skus;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -38,10 +39,11 @@ impl AzureVmBrowseArgs {
                 println!("{}", serde_json::to_string_pretty(&chosen_resources)?);
             }
             AzureVmBrowseOption::Skus => {
+                let tenant_id = get_default_tenant_id().await?;
                 let chosen_subscription = PickerTui::new()
                     .pick_one_reloadable(async |invalidate| {
                         info!("Fetching subscriptions");
-                        let subscriptions = fetch_all_subscriptions()
+                        let subscriptions = fetch_all_subscriptions(tenant_id)
                             .with_invalidation(invalidate)
                             .await?;
                         Ok(subscriptions)

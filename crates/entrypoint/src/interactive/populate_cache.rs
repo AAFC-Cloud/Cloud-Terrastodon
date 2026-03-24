@@ -4,10 +4,12 @@ use cloud_terrastodon_azure::prelude::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use eyre::Result;
 use indicatif::ProgressBar;
 use tokio::task::JoinSet;
 pub async fn populate_cache() -> Result<()> {
+    let tenant_id = get_default_tenant_id().await?;
     let mut work: JoinSet<(&str, bool)> = JoinSet::new();
     work.spawn(async {
         (
@@ -27,10 +29,10 @@ pub async fn populate_cache() -> Result<()> {
             fetch_all_policy_set_definitions().await.is_ok(),
         )
     });
-    work.spawn(async {
+    work.spawn(async move {
         (
             "fetch_all_resource_groups",
-            fetch_all_resource_groups().await.is_ok(),
+            fetch_all_resource_groups(tenant_id).await.is_ok(),
         )
     });
     work.spawn(async {

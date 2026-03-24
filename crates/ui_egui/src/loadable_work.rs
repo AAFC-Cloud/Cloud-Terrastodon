@@ -69,7 +69,7 @@ where
     }
 
     /// Provide the actual future that fetches a T (or errors with E).
-    /// For example: `.work(async { fetch_all_subscriptions().await })`
+    /// For example: `.work(async { fetch_all_subscriptions(tenant_id).await })`
     #[track_caller]
     pub fn work<F>(mut self, future: F) -> Self
     where

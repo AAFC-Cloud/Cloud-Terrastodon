@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_security_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_azure::prelude::uuid::Uuid;
 use cloud_terrastodon_hcl::prelude::HclImportBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderReference;
@@ -42,6 +43,7 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
     }
 
     info!("Fetching a bunch of data");
+    let tenant_id = get_default_tenant_id().await?;
     let (
         subscriptions,
         resource_groups,
@@ -50,8 +52,8 @@ pub async fn resource_group_import_wizard_menu() -> Result<()> {
         security_groups,
         // users,
     ) = join!(
-        fetch_all_subscriptions(),
-        fetch_all_resource_groups(),
+        fetch_all_subscriptions(tenant_id),
+        fetch_all_resource_groups(tenant_id),
         fetch_all_role_assignments(),
         // fetch_all_role_definitions(),
         fetch_all_security_groups(),

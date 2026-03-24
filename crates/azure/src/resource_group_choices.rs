@@ -1,5 +1,6 @@
 use crate::prelude::fetch_all_resource_groups;
 use crate::prelude::fetch_all_subscriptions;
+use crate::prelude::get_default_tenant_id;
 use cloud_terrastodon_azure_types::prelude::ResourceGroup;
 use cloud_terrastodon_azure_types::prelude::Subscription;
 use cloud_terrastodon_user_input::Choice;
@@ -10,13 +11,14 @@ use tracing::info;
 /// Returns (Resource group, Subscription name)
 pub async fn get_resource_group_choices() -> eyre::Result<Vec<Choice<(ResourceGroup, Subscription)>>>
 {
-    let subscriptions = fetch_all_subscriptions()
+    let tenant_id = get_default_tenant_id().await?;
+    let subscriptions = fetch_all_subscriptions(tenant_id)
         .await?
         .into_iter()
         .map(|sub| (sub.id.to_owned(), sub))
         .collect::<HashMap<_, _>>();
     info!("Fetching resource groups");
-    let resource_groups = fetch_all_resource_groups().await?;
+    let resource_groups = fetch_all_resource_groups(tenant_id).await?;
 
     let mut choices = Vec::new();
     for rg in resource_groups {
