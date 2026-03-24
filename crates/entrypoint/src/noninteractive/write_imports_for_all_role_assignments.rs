@@ -3,9 +3,9 @@ use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::Subscription;
 use cloud_terrastodon_azure::prelude::SubscriptionId;
 use cloud_terrastodon_azure::prelude::SubscriptionScoped;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_hcl::prelude::HclImportBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderReference;
@@ -19,9 +19,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use tracing::info;
 
-pub async fn write_imports_for_all_role_assignments() -> Result<()> {
+pub async fn write_imports_for_all_role_assignments(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching role assignments");
-    let tenant_id = get_default_tenant_id().await?;
     let subscriptions = fetch_all_subscriptions(tenant_id)
         .await?
         .into_iter()

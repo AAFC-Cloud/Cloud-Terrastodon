@@ -75,11 +75,11 @@ cloud_terrastodon_command::impl_cacheable_into_future!(SubscriptionListRequest);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::get_default_tenant_id;
+    use crate::prelude::get_test_tenant_id;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let tenant_id = get_default_tenant_id().await?;
+        let tenant_id = get_test_tenant_id().await?;
         let result = fetch_all_subscriptions(tenant_id).await?;
         println!("Found {} subscriptions:", result.len());
         for sub in result {

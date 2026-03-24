@@ -57,13 +57,13 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ResourceGroupListRequest)
 mod tests {
 
     use super::*;
-    use crate::prelude::get_default_tenant_id;
+    use crate::prelude::get_test_tenant_id;
     use cloud_terrastodon_azure_types::prelude::Scope;
     use cloud_terrastodon_user_input::PickerTui;
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
-        let tenant_id = get_default_tenant_id().await?;
+        let tenant_id = get_test_tenant_id().await?;
         let result = fetch_all_resource_groups(tenant_id).await?;
         assert!(!result.is_empty());
         println!("Found {} resource groups:", result.len());
@@ -77,7 +77,7 @@ mod tests {
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn invalidation() -> Result<()> {
-        let tenant_id = get_default_tenant_id().await?;
+        let tenant_id = get_test_tenant_id().await?;
         fetch_all_resource_groups(tenant_id)
             .cache_key()
             .invalidate()
@@ -90,7 +90,7 @@ mod tests {
     async fn pick() -> Result<()> {
         let chosen = PickerTui::new()
             .pick_many_reloadable(async |invalidate| {
-                let tenant_id = get_default_tenant_id().await?;
+                let tenant_id = get_test_tenant_id().await?;
                 if invalidate {
                     fetch_all_resource_groups(tenant_id)
                         .cache_key()

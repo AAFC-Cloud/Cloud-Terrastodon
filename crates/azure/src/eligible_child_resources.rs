@@ -103,6 +103,7 @@ mod tests {
     use super::*;
     use crate::management_groups::fetch_root_management_group;
     use crate::prelude::test_helpers::expect_aad_premium_p2_license;
+    use crate::prelude::get_test_tenant_id;
     use crate::subscriptions::fetch_all_subscriptions;
     use cloud_terrastodon_azure_types::prelude::AsScope;
     use cloud_terrastodon_azure_types::prelude::Scope;
@@ -143,7 +144,7 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works3() -> Result<()> {
-        let tenant_id = get_default_tenant_id().await?;
+        let tenant_id = get_test_tenant_id().await?;
         let rg = fetch_all_resource_groups(tenant_id)
             .await?
             .into_iter()
@@ -164,7 +165,7 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works4() -> Result<()> {
-        let tenant_id = get_default_tenant_id().await?;
+        let tenant_id = get_test_tenant_id().await?;
         let subs = fetch_all_subscriptions(tenant_id).await?;
         let sub = subs.first().unwrap();
         let result = expect_aad_premium_p2_license(

@@ -1,10 +1,11 @@
 use crate::cli::azure::vm::browse::AzureVmBrowseOption;
 use crate::cli::azure::vm::publisher::AzureVmPublisherBrowseArgs;
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_azure::prelude::fetch_all_virtual_machines;
 use cloud_terrastodon_azure::prelude::fetch_virtual_machine_skus;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -12,7 +13,11 @@ use strum::VariantArray;
 use tracing::info;
 
 #[derive(Args, Debug, Clone)]
-pub struct AzureVmBrowseArgs;
+pub struct AzureVmBrowseArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+}
 
 impl AzureVmBrowseArgs {
     pub async fn invoke(self) -> eyre::Result<()> {
@@ -39,7 +44,7 @@ impl AzureVmBrowseArgs {
                 println!("{}", serde_json::to_string_pretty(&chosen_resources)?);
             }
             AzureVmBrowseOption::Skus => {
-                let tenant_id = get_default_tenant_id().await?;
+                let tenant_id = self.tenant.resolve().await?;
                 let chosen_subscription = PickerTui::new()
                     .pick_one_reloadable(async |invalidate| {
                         info!("Fetching subscriptions");
@@ -60,7 +65,13 @@ impl AzureVmBrowseArgs {
                 }).await?;
                 println!("{}", serde_json::to_string_pretty(&chosen_skus)?);
             }
-            AzureVmBrowseOption::Publishers => AzureVmPublisherBrowseArgs.invoke().await?,
+            AzureVmBrowseOption::Publishers => {
+                AzureVmPublisherBrowseArgs {
+                    tenant: self.tenant,
+                }
+                .invoke()
+                .await?
+            }
         }
         Ok(())
     }

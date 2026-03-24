@@ -143,11 +143,11 @@ fn extract_tags_from_response(
 mod tests {
     use super::*;
     use crate::prelude::fetch_all_resource_groups;
-    use crate::prelude::get_default_tenant_id;
+    use crate::prelude::get_test_tenant_id;
 
     #[tokio::test]
     async fn get_tags_test() -> Result<()> {
-        let tenant_id = get_default_tenant_id().await?;
+        let tenant_id = get_test_tenant_id().await?;
         let resource_groups = fetch_all_resource_groups(tenant_id).await?;
         let tags = get_tags_for_resources(
             resource_groups

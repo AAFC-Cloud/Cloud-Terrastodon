@@ -72,14 +72,14 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ComputePublisherImageOffe
 #[cfg(test)]
 mod test {
     use crate::prelude::fetch_all_subscriptions;
-    use crate::prelude::get_default_tenant_id;
+    use crate::prelude::get_test_tenant_id;
     use cloud_terrastodon_azure_types::prelude::ComputePublisherName;
     use cloud_terrastodon_azure_types::prelude::LocationName;
     use cloud_terrastodon_azure_types::prelude::Slug;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let tenant_id = get_default_tenant_id().await?;
+        let tenant_id = get_test_tenant_id().await?;
         let subs = fetch_all_subscriptions(tenant_id).await?;
         let sub = subs.first().unwrap();
         let publisher = ComputePublisherName::try_new("center-for-internet-security-inc")?;

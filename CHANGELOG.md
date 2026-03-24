@@ -6,7 +6,7 @@
     - Changed default query engine to Liquid
 - Add `ct az devops license-entitlement user summary` command
 - Move `ct az group` to `ct az resource-group` with `ct az rg` alias
-- Add `--tenant {alias or id or 'default'}` optional flag to `ct az resource-group` and `ct az subsription` commands
+- Add `--tenant {alias or id or 'default'}` optional flag to many commands, e.g., `ct az resource-group list --tenant 123`, `ct az subsription list --tenant 321`
 
 # v0.34.0
 

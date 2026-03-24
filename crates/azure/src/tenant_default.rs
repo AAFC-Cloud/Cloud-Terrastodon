@@ -15,12 +15,20 @@ pub async fn get_default_tenant_id() -> eyre::Result<AzureTenantId> {
 }
 
 #[cfg(test)]
+pub async fn get_test_tenant_id() -> eyre::Result<AzureTenantId> {
+    use crate::prelude::AzureTenantAliasExt;
+    use cloud_terrastodon_azure_types::prelude::AzureTenantAlias;
+
+    AzureTenantAlias::try_new("test")?.resolve().await
+}
+
+#[cfg(test)]
 mod test {
-    use crate::tenant_default::get_default_tenant_id;
+    use crate::prelude::get_test_tenant_id;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let tenant = get_default_tenant_id().await?;
+        let tenant = get_test_tenant_id().await?;
         dbg!(&tenant);
         Ok(())
     }

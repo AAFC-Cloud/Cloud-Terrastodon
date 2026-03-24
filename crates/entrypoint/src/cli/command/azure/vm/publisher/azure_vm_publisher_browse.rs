@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::ComputePublisherId;
 use cloud_terrastodon_azure::prelude::ComputePublisherVmImageOfferId;
 use cloud_terrastodon_azure::prelude::ComputePublisherVmImageOfferSkuId;
@@ -11,7 +13,6 @@ use cloud_terrastodon_azure::prelude::fetch_compute_publisher_image_offer_sku_ve
 use cloud_terrastodon_azure::prelude::fetch_compute_publisher_image_offer_skus;
 use cloud_terrastodon_azure::prelude::fetch_compute_publisher_image_offers;
 use cloud_terrastodon_azure::prelude::fetch_compute_publishers;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -20,7 +21,11 @@ use tracing::info;
 
 /// Interactively pick subscriptions, locations and publishers.
 #[derive(Args, Debug, Clone)]
-pub struct AzureVmPublisherBrowseArgs;
+pub struct AzureVmPublisherBrowseArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+}
 
 impl AzureVmPublisherBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
@@ -31,7 +36,7 @@ impl AzureVmPublisherBrowseArgs {
         }
         // 1) Pick subscriptions
         info!("Fetching subscriptions");
-        let tenant_id = get_default_tenant_id().await?;
+        let tenant_id = self.tenant.resolve().await?;
         let subs = fetch_all_subscriptions(tenant_id).await?;
         let chosen_subs = PickerTui::new()
             .set_header("Select one or more subscriptions (Tab to mark multiple)")

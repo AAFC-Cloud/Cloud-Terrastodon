@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_repos_batch;
@@ -62,10 +62,10 @@ where
     Ok((rtn, duration))
 }
 
-pub async fn dump_everything() -> eyre::Result<()> {
+pub async fn dump_everything(tenant_id: AzureTenantId) -> eyre::Result<()> {
     info!("Ensuring Azure DevOps PAT is set for future steps");
     _ = get_personal_access_token().await?;
-    let (rtn, took) = measure(dump_everything_inner()).await?;
+    let (rtn, took) = measure(dump_everything_inner(tenant_id)).await?;
     info!("Overall dump took {took}");
     Ok(rtn)
 }
@@ -100,7 +100,7 @@ impl Strategy {
         }
     }
 }
-pub async fn dump_everything_inner() -> eyre::Result<()> {
+pub async fn dump_everything_inner(tenant_id: AzureTenantId) -> eyre::Result<()> {
     let strategy = *PickerTui::new()
         .set_header("Dump strategy")
         .pick_one(Strategy::VARIANTS)?;
@@ -168,7 +168,7 @@ pub async fn dump_everything_inner() -> eyre::Result<()> {
     let tf_work_dirs = match behaviour {
         Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
         | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess => {
-            write_all_import_blocks(strategy).await?
+            write_all_import_blocks(strategy, tenant_id).await?
         }
         _ => discover_existing_dirs(strategy).await?,
     };
@@ -486,10 +486,12 @@ async fn discover_existing_dirs(strategy: Strategy) -> eyre::Result<Vec<FreshTFW
     Ok(rtn)
 }
 
-async fn write_all_import_blocks(strategy: Strategy) -> eyre::Result<Vec<FreshTFWorkDir>> {
+async fn write_all_import_blocks(
+    strategy: Strategy,
+    tenant_id: AzureTenantId,
+) -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Writing all import blocks; fetching a lot of data");
     let org_url = get_default_organization_url().await?;
-    let tenant_id = get_default_tenant_id().await?;
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
         fetch_all_azure_devops_projects(&org_url),
         fetch_all_subscriptions(tenant_id),

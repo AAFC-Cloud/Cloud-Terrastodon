@@ -47,6 +47,7 @@ use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_azure::prelude::evaluate_policy_assignment_compliance;
 use cloud_terrastodon_azure::prelude::remediate_policy_assignment;
 use cloud_terrastodon_command::USE_TOFU_FLAG_KEY;
@@ -199,9 +200,10 @@ impl MenuAction {
             }
             MenuAction::BrowseRoleAssignments => browse_role_assignments().await?,
             MenuAction::BuildAllImports => {
-                write_imports_for_all_resource_groups().await?;
+                let tenant_id = get_default_tenant_id().await?;
+                write_imports_for_all_resource_groups(tenant_id).await?;
                 write_imports_for_all_security_groups().await?;
-                write_imports_for_all_role_assignments().await?;
+                write_imports_for_all_role_assignments(tenant_id).await?;
             }
             MenuAction::BrowseUsers => browse_users().await?,
             MenuAction::BrowseSecurityGroups => browse_security_groups().await?,
