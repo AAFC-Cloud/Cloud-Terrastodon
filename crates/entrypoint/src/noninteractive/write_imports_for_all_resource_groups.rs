@@ -1,6 +1,6 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::Subscription;
 use cloud_terrastodon_azure::prelude::SubscriptionId;
-use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
 use cloud_terrastodon_hcl::prelude::HclImportBlock;

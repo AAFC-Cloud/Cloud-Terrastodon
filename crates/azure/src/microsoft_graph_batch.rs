@@ -56,8 +56,11 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
     pub async fn send<RESP: FromCommandOutput>(
         self,
     ) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>> {
-        let mut cmd =
-            build_microsoft_graph_rest_command(Method::POST, "https://graph.microsoft.com/v1.0/$batch", None);
+        let mut cmd = build_microsoft_graph_rest_command(
+            Method::POST,
+            "https://graph.microsoft.com/v1.0/$batch",
+            None,
+        );
         cmd.arg("--body");
         cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&self)?);
         cmd.use_cache(self.cache_key);

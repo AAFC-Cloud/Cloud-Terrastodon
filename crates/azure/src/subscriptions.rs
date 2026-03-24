@@ -117,7 +117,11 @@ mod tests {
     #[tokio::test]
     async fn resolves_tenant_for_subscription_id() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subscription_id = fetch_all_subscriptions(tenant_id).await?.first().unwrap().id;
+        let subscription_id = fetch_all_subscriptions(tenant_id)
+            .await?
+            .first()
+            .unwrap()
+            .id;
         let resolved = subscription_id.resolve_tenant_id().await?;
         assert_eq!(resolved, tenant_id);
         Ok(())

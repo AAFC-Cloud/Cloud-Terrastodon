@@ -93,7 +93,10 @@ mod tests {
             .filter(|x| *x.0 != ScopeImplKind::Unknown)
             .map(|(_, v)| *v)
             .sum();
-        let unknown_count = ids.get(&ScopeImplKind::Unknown).cloned().unwrap_or_default();
+        let unknown_count = ids
+            .get(&ScopeImplKind::Unknown)
+            .cloned()
+            .unwrap_or_default();
 
         let unknown_kinds: HashMap<ResourceType, i32> = resources
             .iter()

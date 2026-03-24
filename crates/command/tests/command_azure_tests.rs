@@ -184,8 +184,7 @@ async fn reauth() -> Result<()> {
         }
         Err(e) => match e.downcast_ref::<CommandOutput>() {
             Some(CommandOutput { stderr, .. })
-                if stderr.contains_str("ERROR: There are no active accounts.") =>
-            {}
+                if stderr.contains_str("ERROR: There are no active accounts.") => {}
             _ => {
                 return Err(e).context("unknown logout failure");
             }

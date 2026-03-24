@@ -83,9 +83,8 @@ mod test {
             "Expected at least one Azure DevOps agent package"
         );
         assert!(
-            pkgs.iter().all(|p| !p.filename.is_empty()
-                && !p.platform.is_empty()
-                && p.version.major > 0),
+            pkgs.iter()
+                .all(|p| !p.filename.is_empty() && !p.platform.is_empty() && p.version.major > 0),
             "Expected sampled Azure DevOps agent packages to include filename, platform, and version"
         );
 

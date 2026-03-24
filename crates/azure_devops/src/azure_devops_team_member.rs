@@ -105,9 +105,11 @@ mod test {
             !members.is_empty(),
             "Expected at least one member in the team"
         );
-        assert!(members
-            .iter()
-            .all(|member| !member.identity.display_name.is_empty()));
+        assert!(
+            members
+                .iter()
+                .all(|member| !member.identity.display_name.is_empty())
+        );
         Ok(())
     }
 }

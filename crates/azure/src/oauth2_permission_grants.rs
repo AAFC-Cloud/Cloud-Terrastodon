@@ -34,7 +34,9 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
         let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
         let mut cmd = build_microsoft_graph_rest_get_command(url, None);
         cmd.cache(self.cache_key());
-        let resp = cmd.run::<crate::microsoft_graph::MicrosoftGraphResponse<OAuth2PermissionGrant>>().await?;
+        let resp = cmd
+            .run::<crate::microsoft_graph::MicrosoftGraphResponse<OAuth2PermissionGrant>>()
+            .await?;
         Ok(resp.value)
     }
 }

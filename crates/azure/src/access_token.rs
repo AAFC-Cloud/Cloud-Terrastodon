@@ -17,7 +17,10 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let token = fetch_access_token::<String>().await?;
-        assert_eq!(token.token_type, cloud_terrastodon_azure_types::prelude::TokenType::Bearer);
+        assert_eq!(
+            token.token_type,
+            cloud_terrastodon_azure_types::prelude::TokenType::Bearer
+        );
         Ok(())
     }
 }

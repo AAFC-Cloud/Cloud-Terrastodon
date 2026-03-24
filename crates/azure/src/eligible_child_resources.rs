@@ -1,6 +1,6 @@
 use crate::management_groups::fetch_root_management_group;
-use crate::prelude::get_default_tenant_id;
 use crate::prelude::build_arm_rest_get_command;
+use crate::prelude::get_default_tenant_id;
 use crate::resource_groups::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::prelude::AsScope;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResource;
@@ -97,8 +97,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(EligibleChildResourceList
 mod tests {
     use super::*;
     use crate::management_groups::fetch_root_management_group;
-    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
     use crate::prelude::get_test_tenant_id;
+    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
     use crate::subscriptions::fetch_all_subscriptions;
     use cloud_terrastodon_azure_types::prelude::AsScope;
     use cloud_terrastodon_azure_types::prelude::Scope;

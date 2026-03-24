@@ -78,9 +78,11 @@ mod test {
             let proj = get_default_project_name().await?;
             let service_endpoints =
                 super::fetch_all_azure_devops_service_endpoints(&org_url, &proj).await?;
-            assert!(service_endpoints
-                .iter()
-                .all(|endpoint| !endpoint.name.to_string().is_empty()));
+            assert!(
+                service_endpoints
+                    .iter()
+                    .all(|endpoint| !endpoint.name.to_string().is_empty())
+            );
         } else {
             let projects = fetch_all_azure_devops_projects(&org_url).await?;
             let azure_devops_service_endpoints = {
@@ -105,9 +107,11 @@ mod test {
                 }
                 work.join().await?.into_iter().flatten().collect_vec()
             };
-            assert!(azure_devops_service_endpoints
-                .iter()
-                .all(|endpoint| !endpoint.name.to_string().is_empty()));
+            assert!(
+                azure_devops_service_endpoints
+                    .iter()
+                    .all(|endpoint| !endpoint.name.to_string().is_empty())
+            );
             assert!(!projects.is_empty());
         }
 

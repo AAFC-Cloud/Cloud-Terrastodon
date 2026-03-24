@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::RoleEligibilitySchedule;
 use crate::prelude::build_arm_rest_get_command;
+use cloud_terrastodon_azure_types::prelude::RoleEligibilitySchedule;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;

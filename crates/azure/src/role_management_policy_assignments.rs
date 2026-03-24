@@ -86,9 +86,11 @@ mod tests {
         let found_policy_assignments =
             fetch_role_management_policy_assignments(scope, role_definition_id).await?;
         assert!(!found_policy_assignments.is_empty());
-        assert!(found_policy_assignments
-            .iter()
-            .any(|assignment| assignment.get_maximum_activation_duration().is_some()));
+        assert!(
+            found_policy_assignments
+                .iter()
+                .any(|assignment| assignment.get_maximum_activation_duration().is_some())
+        );
         Ok(())
     }
 }

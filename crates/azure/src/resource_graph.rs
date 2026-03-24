@@ -77,9 +77,9 @@ impl ResourceGraphHelper {
         let mut cmd = build_arm_rest_command(
             Method::POST,
             "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
-            self.cache_behaviour
-                .clone()
-                .unwrap_or_else(|| CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "query"]))),
+            self.cache_behaviour.clone().unwrap_or_else(|| {
+                CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "query"]))
+            }),
         );
         cmd.arg("--body");
         cmd.azure_file_arg("body.json", body);

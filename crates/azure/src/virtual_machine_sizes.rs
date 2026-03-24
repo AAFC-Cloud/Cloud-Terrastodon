@@ -12,13 +12,16 @@ pub async fn fetch_virtual_machine_sizes(
     let url = format!(
         "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/vmSizes?api-version=2022-11-01"
     );
-    let cmd = build_arm_rest_get_command(&url, CacheKey::new(PathBuf::from_iter([
-        "az",
-        "vm",
-        "list-sizes",
-        subscription_id.to_string().as_str(),
-        location.to_string().as_str(),
-    ])));
+    let cmd = build_arm_rest_get_command(
+        &url,
+        CacheKey::new(PathBuf::from_iter([
+            "az",
+            "vm",
+            "list-sizes",
+            subscription_id.to_string().as_str(),
+            location.to_string().as_str(),
+        ])),
+    );
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Response {
