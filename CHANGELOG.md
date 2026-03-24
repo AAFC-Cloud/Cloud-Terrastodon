@@ -5,6 +5,7 @@
     - `--many` replaced with `--single` as many is now default
     - Changed default query engine to Liquid
 - Add `ct az devops license-entitlement user summary` command
+- Move `ct az group` to `ct az resource-group` with `ct az rg` alias
 
 # v0.34.0
 
