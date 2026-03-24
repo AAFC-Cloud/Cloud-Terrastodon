@@ -22,7 +22,7 @@ pub enum AzureCommand {
     /// Find resources where resource JSON contains the given text.
     Find(AzureFindArgs),
     /// Manage Azure resource groups.
-    #[command(alias = "rg")]
+    #[command(aliases = ["rg", "group"])]
     ResourceGroup(AzureResourceGroupArgs),
     /// Manage Azure policy resources.
     Policy(AzurePolicyArgs),
