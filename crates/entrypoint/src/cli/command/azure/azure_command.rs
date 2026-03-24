@@ -1,9 +1,9 @@
 use super::audit::AzureAuditArgs;
 use super::find::AzureFindArgs;
-use super::group::AzureGroupArgs;
 use super::pim::AzurePimArgs;
 use super::policy::AzurePolicyArgs;
 use super::resource::AzureResourceArgs;
+use super::resource_group::AzureResourceGroupArgs;
 use super::role::AzureRoleArgs;
 use super::subscription::AzureSubscriptionArgs;
 use super::tag::AzureTagArgs;
@@ -22,7 +22,8 @@ pub enum AzureCommand {
     /// Find resources where resource JSON contains the given text.
     Find(AzureFindArgs),
     /// Manage Azure resource groups.
-    Group(AzureGroupArgs),
+    #[command(alias = "rg")]
+    ResourceGroup(AzureResourceGroupArgs),
     /// Manage Azure policy resources.
     Policy(AzurePolicyArgs),
     /// Manage Azure resource tags.
@@ -58,7 +59,7 @@ impl AzureCommand {
             AzureCommand::Find(args) => {
                 args.invoke().await?;
             }
-            AzureCommand::Group(args) => {
+            AzureCommand::ResourceGroup(args) => {
                 args.invoke().await?;
             }
             AzureCommand::Policy(args) => {
