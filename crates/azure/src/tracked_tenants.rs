@@ -55,11 +55,6 @@ pub async fn forget_tracked_tenant(
         .map(|(tenant_id, _)| tenant_id))
 }
 
-pub async fn resolve_tracked_tenant_argument(
-    arg: AzureTenantArgument<'_>,
-) -> eyre::Result<AzureTenantId> {
-    arg.resolve().await
-}
 
 #[expect(async_fn_in_trait)]
 pub trait AzureTenantAliasExt {
@@ -603,6 +598,24 @@ mod tests {
                 .await
                 .is_err()
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn it_rejects_ambiguous_tenant_id_substring_resolution() -> eyre::Result<()> {
+        let temp = tempdir()?;
+        let tenant_a = AzureTenantId::from_str("12345678-1111-1111-1111-111111111111")?;
+        let tenant_b = AzureTenantId::from_str("abcd1234-2222-2222-2222-222222222222")?;
+        add_tracked_tenant_in(temp.path(), tenant_a).await?;
+        add_tracked_tenant_in(temp.path(), tenant_b).await?;
+
+        let error = resolve_tracked_tenant_alias_in(temp.path(), &AzureTenantAlias::try_new("1234")?)
+            .await
+            .unwrap_err();
+        let error = error.to_string();
+        assert!(error.contains("matched multiple tenant ids"), "{error}");
+        assert!(error.contains(&tenant_a.to_string()), "{error}");
+        assert!(error.contains(&tenant_b.to_string()), "{error}");
         Ok(())
     }
 

@@ -16,13 +16,13 @@ pub struct AzureTenantForgetArgs {
 impl AzureTenantForgetArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        let Some(tenant) = forget_tracked_tenant(tenant_id).await? else {
+        let Some(tenant_id) = forget_tracked_tenant(tenant_id).await? else {
             bail!("Tracked tenant '{}' was not found.", tenant_id);
         };
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &tenant)?;
+        serde_json::to_writer_pretty(&mut handle, &tenant_id)?;
         handle.write_all(b"\n")?;
         Ok(())
     }
