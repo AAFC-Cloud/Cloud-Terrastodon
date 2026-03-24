@@ -1,6 +1,6 @@
-use super::list::AzureEntraGroupListArgs;
+use super::azure_entra_group_list::AzureEntraGroupListArgs;
+use super::azure_entra_group_show::AzureEntraGroupShowArgs;
 use super::member::AzureEntraGroupMemberArgs;
-use super::show::AzureEntraGroupShowArgs;
 use clap::Subcommand;
 use eyre::Result;
 
