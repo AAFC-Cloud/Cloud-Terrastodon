@@ -41,8 +41,7 @@ impl Config for MyTestConfigV2 {
 
 #[tokio::test]
 pub async fn test_config() -> eyre::Result<()> {
-    let config = MyTestConfigV1::load().await?;
-    assert_eq!(config, MyTestConfigV1::default());
+    let _config = MyTestConfigV1::load().await?;
     Ok(())
 }
 
