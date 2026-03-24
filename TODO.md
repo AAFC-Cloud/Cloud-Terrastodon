@@ -1,5 +1,10 @@
 # TODO
 
+## Tenant ID
+
+- Tenant ID still needs to be standardized for MS Graph/entra usage
+
+
 ## Formatting
 
 > https://mina86.com/2024/fmt-display-impl/
