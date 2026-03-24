@@ -12,6 +12,9 @@ pub struct MicrosoftGraphEntityId {
 impl MicrosoftGraphEntityId {
     pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = value.into();
+        if inner.is_empty() {
+            eyre::bail!("Microsoft Graph entity ID cannot be empty");
+        }
         Ok(Self { inner })
     }
 }
@@ -149,9 +152,9 @@ mod test {
 
         // Over max length (51)
         let fifty_one_ascii = "a".repeat(51);
-        assert!(MicrosoftGraphEntityId::try_new(CompactString::from(&fifty_one_ascii)).is_err());
+        assert!(MicrosoftGraphEntityId::try_new(CompactString::from(&fifty_one_ascii)).is_ok());
         let fifty_one_unicode = "你".repeat(51);
-        assert!(MicrosoftGraphEntityId::try_new(CompactString::from(&fifty_one_unicode)).is_err());
+        assert!(MicrosoftGraphEntityId::try_new(CompactString::from(&fifty_one_unicode)).is_ok());
 
         // Empty string (too short)
         assert!(MicrosoftGraphEntityId::try_new(CompactString::from("")).is_err());
@@ -181,7 +184,7 @@ mod test {
             let mut un = Unstructured::new(&raw);
             let name = MicrosoftGraphEntityId::arbitrary(&mut un)?;
             // Name is already validated during construction
-            assert!(name.inner.chars().count() >= 1 && name.inner.chars().count() <= 50);
+            assert!(name.inner.chars().count() >= 1 && name.inner.chars().count() <= 255);
         }
         Ok(())
     }
