@@ -13,7 +13,6 @@ triggers_complete = null
     cmd.args(["fmt", "-"]);
     cmd.send_stdin(content);
     let output = cmd.run_raw().await?;
-    println!("Stdout: {:?}", output.stdout);
     let expected = r#"resource "time_static" "wait_1_second" {
   depends_on        = []
   triggers_complete = null

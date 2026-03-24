@@ -1,9 +1,8 @@
+use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::RoleDefinitionId;
 use cloud_terrastodon_azure_types::prelude::RoleManagementPolicyAssignment;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_hcl_types::prelude::Sanitizable;
 use eyre::Result;
@@ -50,9 +49,7 @@ impl<T: Scope + Send> cloud_terrastodon_command::CacheableCommand
             self.role_definition_id.expanded_form()
         );
 
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.cache(self.cache_key());
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
+        let cmd = build_arm_rest_get_command(&url, self.cache_key());
 
         #[derive(Deserialize)]
         struct Response {
@@ -75,7 +72,6 @@ mod tests {
     use super::*;
     use crate::prelude::test_helpers::expect_aad_premium_p2_license;
     use crate::role_eligibility_schedules::fetch_my_role_eligibility_schedules;
-    use humantime::format_duration;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
@@ -90,16 +86,9 @@ mod tests {
         let found_policy_assignments =
             fetch_role_management_policy_assignments(scope, role_definition_id).await?;
         assert!(!found_policy_assignments.is_empty());
-        for ass in found_policy_assignments {
-            println!(
-                "- {} up to {}",
-                role.properties
-                    .expanded_properties
-                    .role_definition
-                    .display_name,
-                format_duration(ass.get_maximum_activation_duration().unwrap())
-            );
-        }
+        assert!(found_policy_assignments
+            .iter()
+            .any(|assignment| assignment.get_maximum_activation_duration().is_some()));
         Ok(())
     }
 }

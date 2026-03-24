@@ -46,8 +46,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let found = fetch_all_conditional_access_named_locations().await?;
-        println!("Found {} entries", found.len());
-        println!("{:#?}", found);
+        assert!(!found.is_empty());
         Ok(())
     }
 }

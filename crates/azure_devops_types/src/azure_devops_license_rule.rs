@@ -75,7 +75,8 @@ mod test {
             "assignmentSource": "unknown"
         }"#;
         let rule: AzureDevOpsLicenseRule = serde_json::from_str(json)?;
-        println!("Deserialized rule: {:#?}", rule);
+          assert_eq!(rule.license_display_name, "Basic");
+          assert!(rule.status_message.is_empty());
 
         Ok(())
     }

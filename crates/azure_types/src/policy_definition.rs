@@ -97,11 +97,6 @@ mod test {
         let start = Instant::now();
         let deserialized: Vec<PolicyDefinition> = serde_json::from_str(&json)?;
         let duration = Instant::now().duration_since(start);
-        println!(
-            "Deserialized {} policy definitions in {:?}",
-            count,
-            humantime::format_duration(duration)
-        );
         assert_eq!(deserialized, policies);
         assert!(
             duration < Duration::from_secs(1),

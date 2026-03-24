@@ -132,13 +132,12 @@ mod test {
             for group in &groups {
                 let members = fetch_azure_devops_group_members(&org_url, &group.descriptor).await?;
                 if !members.is_empty() {
-                    println!(
-                        "Found group with members in project '{}': group '{}'",
-                        project.name, group.display_name
+                    assert!(
+                        members.into_iter().all(|(descriptor, member)| {
+                            descriptor == member.descriptor && !member.display_name.is_empty()
+                        }),
+                        "Expected Azure DevOps group members to include matching descriptors and display names"
                     );
-                    for (descriptor, member) in members {
-                        println!("Member: {} - {}", descriptor, member.display_name);
-                    }
                     return Ok(());
                 }
             }
@@ -152,7 +151,10 @@ mod test {
         let org = AzureDevOpsOrganizationUrl::from_str("https://dev.azure.com/aafc/")?;
         let desc = AzureDevOpsDescriptor::AzureDevOpsGroup("vssgp.redacted".to_string());
         let resp = fetch_azure_devops_group_members_v2(&org, &desc).await?;
-        println!("{resp:#?}");
+        assert!(
+            resp.get("value").is_some() || resp.get("count").is_some(),
+            "Expected Azure DevOps group memberships V2 response payload"
+        );
         Ok(())
     }
 }

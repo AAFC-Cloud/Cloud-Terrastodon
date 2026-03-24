@@ -102,9 +102,12 @@ mod test {
                 fetch_azure_devops_agent_pool_entitlements_for_project(&org_url, &project.name)
                     .await?;
             if !entitlements.is_empty() {
-                println!(
-                    "Found {} Azure DevOps queue/pool entitlements",
-                    entitlements.len()
+                assert!(
+                    entitlements
+                        .iter()
+                        .all(|entitlement| !entitlement.name.is_empty()
+                            && !entitlement.pool.name.as_ref().is_empty()),
+                    "Expected Azure DevOps queue/pool entitlements to include names"
                 );
                 found = true;
                 break;

@@ -59,10 +59,8 @@ mod tests {
     async fn it_works() -> eyre::Result<()> {
         let result = fetch_all_virtual_networks().await?;
         assert!(!result.is_empty());
-        println!("Found {} virtual networks:", result.len());
         for vnet in result {
             assert!(!vnet.name.is_empty());
-            println!("{:#?}", vnet);
         }
         Ok(())
     }

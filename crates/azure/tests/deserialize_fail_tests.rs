@@ -10,7 +10,8 @@ fn bruh() -> eyre::Result<()> {
         name: String,
     }
     let v: Response = serde_json::from_str(json)?;
-    println!("Value: {v:#?}");
+    assert_eq!(v.id, 1);
+    assert_eq!(v.name, "Test");
     Ok(())
 }
 #[test]
@@ -27,7 +28,6 @@ fn bruh2() -> eyre::Result<()> {
     }
     let v: Result<Response, _> = serde_json::from_str(json);
     assert!(v.is_err());
-    println!("Value: {v:#?}");
     Ok(())
 }
 
@@ -50,6 +50,5 @@ fn bruh3() -> eyre::Result<()> {
     }
     let v: Result<Vec<Response>, _> = serde_json::from_str(json);
     assert!(v.is_err());
-    println!("Value: {v:#?}");
     Ok(())
 }

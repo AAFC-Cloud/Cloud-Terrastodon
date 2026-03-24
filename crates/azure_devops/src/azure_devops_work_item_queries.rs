@@ -89,21 +89,16 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let project_name = get_default_project_name().await?;
-        println!("Fetching queries for {project_name:?}");
         let queries = fetch_queries_for_project(&org_url, &project_name).await?;
-        for entry in AzureDevOpsWorkItemQuery::flatten_many(&queries) {
-            println!(
-                "{}{} ({}) ({})",
-                ".".repeat(entry.parents.len()),
-                entry.child.name,
-                if entry.child.is_folder {
-                    "folder"
-                } else {
-                    "query"
-                },
-                entry.child.id
-            );
-        }
+        let flattened = AzureDevOpsWorkItemQuery::flatten_many(&queries);
+        assert!(
+            !flattened.is_empty(),
+            "Expected at least one Azure DevOps work item query"
+        );
+        assert!(
+            flattened.iter().all(|entry| !entry.child.name.is_empty()),
+            "Expected Azure DevOps work item queries to include names"
+        );
         Ok(())
     }
 }

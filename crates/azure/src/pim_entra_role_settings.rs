@@ -1,9 +1,8 @@
 use crate::management_groups::fetch_root_management_group;
+use crate::prelude::build_microsoft_graph_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::PimEntraRoleSettings;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use eyre::bail;
@@ -43,15 +42,8 @@ impl cloud_terrastodon_command::CacheableCommand for EntraPimRoleSettingsRequest
             )
         );
 
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "rest",
-            "GET",
-            "pim_roleSettings",
-            self.role_definition_id.to_string().as_ref(),
-        ])));
+        let mut cmd = build_microsoft_graph_rest_get_command(&url, None);
+        cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]
         struct Response {
@@ -87,11 +79,10 @@ mod tests {
         else {
             return Ok(());
         };
-        println!("Found {} role assignments", role_assignments.len());
+        assert!(!role_assignments.is_empty());
         for role_assignment in role_assignments {
             let role_setting =
                 fetch_entra_pim_role_settings(role_assignment.role_definition_id).await?;
-            println!("- {:?}", role_setting);
             assert!(role_setting.get_maximum_grant_period()?.as_secs() % (60 * 30) == 0);
         }
         Ok(())

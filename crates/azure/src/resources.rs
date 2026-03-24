@@ -61,9 +61,6 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let resources = fetch_all_resources().await?;
-        for res in resources.iter().take(10) {
-            println!("{res:?}");
-        }
         assert!(resources.len() > 10);
         Ok(())
     }
@@ -75,10 +72,6 @@ mod tests {
             .into_iter()
             .filter(|res| res.kind.is_resource_group())
             .collect_vec();
-
-        for res in resources.iter() {
-            println!("{res:?}");
-        }
         assert!(!resources.is_empty());
         Ok(())
     }
@@ -95,23 +88,12 @@ mod tests {
                     acc
                 });
 
-        for (k, v) in ids
+        let known_count: i32 = ids
             .iter()
             .filter(|x| *x.0 != ScopeImplKind::Unknown)
-            .sorted_by(|a, b| b.1.cmp(a.1))
-        {
-            println!("{:?}: {}", k, v);
-        }
-
-        // print unknown count
-        println!();
-        println!(
-            "{:?}: {}",
-            ScopeImplKind::Unknown,
-            ids.get(&ScopeImplKind::Unknown)
-                .cloned()
-                .unwrap_or_default()
-        );
+            .map(|(_, v)| *v)
+            .sum();
+        let unknown_count = ids.get(&ScopeImplKind::Unknown).cloned().unwrap_or_default();
 
         let unknown_kinds: HashMap<ResourceType, i32> = resources
             .iter()
@@ -121,10 +103,9 @@ mod tests {
                 *acc.entry(kind).or_insert(0) += 1;
                 acc
             });
-        // print descending order
-        for (k, v) in unknown_kinds.iter().sorted_by(|a, b| b.1.cmp(a.1)) {
-            println!("{k}: {v}");
-        }
+
+        assert_eq!(known_count + unknown_count, resources.len() as i32);
+        assert_eq!(unknown_kinds.values().sum::<i32>(), unknown_count);
 
         Ok(())
     }

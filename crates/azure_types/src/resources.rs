@@ -165,7 +165,6 @@ mod test {
             ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
             "MY-VNET",
         );
-        println!("{:?}", id.expanded_form());
         assert_eq!(
             id.expanded_form(),
             format!(

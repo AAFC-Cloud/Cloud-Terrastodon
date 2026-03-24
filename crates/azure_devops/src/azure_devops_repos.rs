@@ -80,9 +80,7 @@ mod tests {
         let mut repo_counts = Vec::new();
         for project in projects.into_iter().take(5) {
             let repos = fetch_all_azure_devops_repos_for_project(&org_url, &project.id).await?;
-            for repo in repos.iter().take(3) {
-                println!("Found project {} repo: {}", project.name, repo.name);
-            }
+            assert!(repos.iter().all(|repo| !repo.name.is_empty()));
             repo_counts.push(repos.len());
         }
         assert!(repo_counts.into_iter().sum::<usize>() > 0);

@@ -23,7 +23,6 @@ pub async fn get_azure_access_token_jwt() -> eyre::Result<()> {
         &decoding_key,
         &validation,
     )?;
-    // println!("{:#?}", token_data);
     Ok(())
 }
 

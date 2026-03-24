@@ -49,7 +49,6 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
         let found: Vec<EntraServicePrincipal> = fetch_all_service_principals().await?;
-        println!("Found {} service principals", found.len());
         assert!(found.len() > 10);
         Ok(())
     }

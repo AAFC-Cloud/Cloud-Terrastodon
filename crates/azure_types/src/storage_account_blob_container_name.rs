@@ -241,7 +241,6 @@ mod test {
             let mut un = Unstructured::new(&raw);
             let name = StorageAccountBlobContainerName::arbitrary(&mut un)?;
             assert!(name.validate_slug().is_ok());
-            println!("{name}");
         }
         Ok(())
     }

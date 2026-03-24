@@ -115,11 +115,11 @@ mod test {
                         suite.id.to_string(),
                     )
                     .await?;
-                    println!(
-                        "Found {} cases for plan {} suite {}",
-                        cases.len(),
-                        plan.id,
-                        suite.id
+                    assert!(
+                        cases.iter().all(|case| {
+                            case.test_case.id.is_some() && case.test_case.wtype.is_some()
+                        }),
+                        "Expected Azure DevOps suite test cases to include work item references"
                     );
                 }
             }

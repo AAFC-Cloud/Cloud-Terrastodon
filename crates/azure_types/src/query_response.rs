@@ -328,7 +328,6 @@ mod tests {
         assert_eq!(records.len(), 3);
 
         for record in records {
-            println!("{:?}", record);
             assert!(!record.name.is_empty());
         }
     }

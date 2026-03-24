@@ -34,10 +34,10 @@ mod test {
         let status = resp.status();
 
         let content = resp.text().await?;
-        println!("{:#?}", content);
 
         assert_eq!(200, status.as_u16(), "{:?}", status.canonical_reason());
-        serde_json::from_str::<Value>(&content)?;
+        let parsed = serde_json::from_str::<Value>(&content)?;
+        assert!(parsed.is_object());
         Ok(())
     }
 }

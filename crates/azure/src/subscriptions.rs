@@ -1,4 +1,5 @@
 use crate::prelude::ResourceGraphHelper;
+use crate::prelude::list_tracked_tenants;
 use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::Subscription;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
@@ -8,6 +9,7 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
+use eyre::bail;
 use indoc::indoc;
 use std::path::PathBuf;
 use tracing::debug;
@@ -19,6 +21,33 @@ pub struct SubscriptionListRequest {
 
 pub fn fetch_all_subscriptions(tenant_id: AzureTenantId) -> SubscriptionListRequest {
     SubscriptionListRequest { tenant_id }
+}
+
+#[expect(async_fn_in_trait)]
+pub trait SubscriptionIdExt {
+    async fn resolve_tenant_id(&self) -> Result<AzureTenantId>;
+}
+
+impl SubscriptionIdExt for SubscriptionId {
+    async fn resolve_tenant_id(&self) -> Result<AzureTenantId> {
+        let tracked_tenants = list_tracked_tenants().await?;
+        for tenant_id in tracked_tenants.iter().copied() {
+            let Some(subscription) = fetch_all_subscriptions(tenant_id)
+                .await?
+                .into_iter()
+                .find(|subscription| subscription.id == *self)
+            else {
+                continue;
+            };
+            return Ok(subscription.tenant_id);
+        }
+
+        bail!(
+            "Failed to resolve tracked tenant for subscription '{}' across {} tracked tenants.",
+            self,
+            tracked_tenants.len()
+        )
+    }
 }
 
 #[async_trait]
@@ -81,21 +110,24 @@ mod tests {
     async fn it_works() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
         let result = fetch_all_subscriptions(tenant_id).await?;
-        println!("Found {} subscriptions:", result.len());
-        for sub in result {
-            println!(
-                "- {} ({}) under {}",
-                sub.name,
-                sub.id,
-                sub.management_group_ancestors_chain.first().unwrap().name
-            );
-        }
+        assert!(!result.is_empty());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn resolves_tenant_for_subscription_id() -> Result<()> {
+        let tenant_id = get_test_tenant_id().await?;
+        let subscription_id = fetch_all_subscriptions(tenant_id).await?.first().unwrap().id;
+        let resolved = subscription_id.resolve_tenant_id().await?;
+        assert_eq!(resolved, tenant_id);
         Ok(())
     }
 
     #[tokio::test]
     pub async fn get_active() -> eyre::Result<()> {
-        println!("{}", get_active_subscription_id().await?);
+        let active = get_active_subscription_id().await?;
+        let active_text = active.to_string();
+        assert!(!active_text.is_empty());
         Ok(())
     }
 }

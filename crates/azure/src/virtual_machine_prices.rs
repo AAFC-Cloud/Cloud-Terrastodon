@@ -23,7 +23,7 @@ mod test {
         let location = LocationName::CanadaCentral;
         let prices = fetch_virtual_machine_prices(location, sku).await?;
         assert!(!prices.is_empty());
-        println!("{prices:#?}");
+        assert!(prices.iter().any(|price| price.unit_price > 0.0));
         Ok(())
     }
 }

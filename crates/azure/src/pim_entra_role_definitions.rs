@@ -1,9 +1,8 @@
 use crate::management_groups::fetch_root_management_group;
+use crate::prelude::build_microsoft_graph_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::PimEntraRoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use serde::Deserialize;
@@ -34,8 +33,7 @@ impl CacheableCommand for PimEntraRoleDefinitionListRequest {
         let url = format!(
             "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleDefinitions?$select=id,displayName,type,isbuiltIn&$orderby=displayName"
         );
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
+        let mut cmd = build_microsoft_graph_rest_get_command(&url, None);
         cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]
@@ -66,10 +64,7 @@ mod tests {
         else {
             return Ok(());
         };
-        for role_definition in &result {
-            println!("- {:?}", role_definition)
-        }
-        println!("Found {} role definitions", result.len());
+        assert!(!result.is_empty());
         Ok(())
     }
 }

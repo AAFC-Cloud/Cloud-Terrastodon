@@ -1,10 +1,9 @@
+use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::ComputePublisherId;
 use cloud_terrastodon_azure_types::prelude::LocationName;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
@@ -43,9 +42,7 @@ impl CacheableCommand for ComputePublishersListRequest {
             subscription_id = self.subscription_id,
             location = self.location
         );
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(self.cache_key());
+        let cmd = build_arm_rest_get_command(&url, self.cache_key());
         #[derive(serde::Deserialize)]
         struct Row {
             id: ComputePublisherId,
@@ -77,8 +74,6 @@ mod test {
         let publishers =
             crate::prelude::fetch_compute_publishers(sub.id, LocationName::CanadaCentral).await?;
         assert!(!publishers.is_empty());
-        println!("Found {} VM publishers", publishers.len());
-        println!("{publishers:#?}");
         Ok(())
     }
 }

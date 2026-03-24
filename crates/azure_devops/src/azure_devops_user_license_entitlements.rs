@@ -79,16 +79,17 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
-        println!("Found {} user entitlements", entitlements.len());
-        for entitlement in entitlements.iter().take(5) {
-            println!(
-                "User: {} ({}) - License: {:?} - Status: {:?}",
-                entitlement.user.display_name,
-                entitlement.user.unique_name,
-                entitlement.license,
-                entitlement.status
-            );
-        }
+        assert!(
+            !entitlements.is_empty(),
+            "Expected at least one Azure DevOps user entitlement"
+        );
+        assert!(
+            entitlements.iter().all(|entitlement| {
+                !entitlement.user.display_name.is_empty()
+                    && !entitlement.user.unique_name.is_empty()
+            }),
+            "Expected sampled Azure DevOps user entitlements to include user identity data"
+        );
 
         Ok(())
     }

@@ -62,8 +62,7 @@ mod tests {
     async fn it_works() -> eyre::Result<()> {
         let resources = fetch_all_storage_accounts().await?;
         let resources = resources.iter().take(3);
-        let metrics = fetch_metrics(resources).await?;
-        dbg!(metrics);
+        let _metrics = fetch_metrics(resources).await?;
         Ok(())
     }
 }

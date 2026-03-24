@@ -330,7 +330,6 @@ mod tests {
         // Surrogates (should never occur in Rust chars), but test anyway
         let surrogate = unsafe { CompactString::from_utf8_unchecked(0xD800u16.to_le_bytes()) };
         let result = validate(&CompactString::from(format!("foo{}bar", surrogate)));
-        println!("{:?}", result);
         assert!(result.is_err(), "Surrogate character should be rejected");
     }
 
@@ -389,7 +388,6 @@ mod tests {
             let raw: Vec<u8> = (0..128).map(|_| rand::random::<u8>()).collect();
             let mut u = Unstructured::new(&raw);
             if let Ok(proj) = AzureDevOpsProjectName::arbitrary(&mut u) {
-                println!("Generated: {}", proj);
                 let validation = validate(&proj.inner);
                 assert!(
                     validation.is_ok(),

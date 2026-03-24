@@ -104,9 +104,7 @@ mod test {
             !groups.is_empty(),
             "Expected at least one Azure DevOps group"
         );
-        for group in &groups {
-            println!("Group: {:#?}", group);
-        }
+        assert!(groups.iter().all(|group| !group.display_name.is_empty()));
         Ok(())
     }
 }

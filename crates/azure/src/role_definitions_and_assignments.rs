@@ -48,11 +48,8 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let found = fetch_all_role_definitions_and_assignments().await?;
-        println!(
-            "Found {} role assignments and {} role definitions.",
-            found.role_assignments.len(),
-            found.role_definitions.len()
-        );
+        assert!(!found.role_assignments.is_empty());
+        assert!(!found.role_definitions.is_empty());
         Ok(())
     }
 }

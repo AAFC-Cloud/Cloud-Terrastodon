@@ -98,16 +98,16 @@ mod test {
             .next()
             .expect("Expected at least one team in the project");
 
-        println!("{team:?}");
+        assert!(!team.name.is_empty());
         let members = fetch_azure_devops_team_members(&org_url, &project.id, &team.id).await?;
 
         assert!(
             !members.is_empty(),
             "Expected at least one member in the team"
         );
-        for member in members {
-            println!("Found member: {member:?}");
-        }
+        assert!(members
+            .iter()
+            .all(|member| !member.identity.display_name.is_empty()));
         Ok(())
     }
 }

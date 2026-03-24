@@ -86,9 +86,7 @@ mod tests {
         let org_url = get_default_organization_url().await?;
         let projects = fetch_all_azure_devops_projects(&org_url).await?;
         assert!(!projects.is_empty());
-        for project in projects.iter().take(5) {
-            println!("Found project: {project:#?}");
-        }
+        assert!(projects.iter().all(|project| !project.name.is_empty()));
         Ok(())
     }
 }

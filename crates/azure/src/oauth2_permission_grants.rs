@@ -1,14 +1,14 @@
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
+use crate::prelude::build_microsoft_graph_rest_command;
+use crate::prelude::build_microsoft_graph_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::ConsentType;
 use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::EntraUserId;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use serde::Deserialize;
+use http::Method;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use tracing::info;
@@ -32,21 +32,9 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        let mut cmd = build_microsoft_graph_rest_get_command(url, None);
         cmd.cache(self.cache_key());
-
-        cmd.arg("rest");
-        cmd.args(["--method", "GET"]);
-        cmd.args(["--url", url]);
-
-        #[derive(Debug, Deserialize)]
-        struct Response {
-            // #[serde(rename = "@odata.context")]
-            // context: String,
-            value: Vec<OAuth2PermissionGrant>,
-        }
-
-        let resp = cmd.run::<Response>().await?;
+        let resp = cmd.run::<crate::microsoft_graph::MicrosoftGraphResponse<OAuth2PermissionGrant>>().await?;
         Ok(resp.value)
     }
 }
@@ -72,9 +60,7 @@ pub async fn create_oauth2_permission_grant(
         principal_id: Some(user_id),
         scope,
     };
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["rest", "--method", "POST"]);
-    cmd.args(["--url", url]);
+    let mut cmd = build_microsoft_graph_rest_command(Method::POST, url, None);
     cmd.arg("--body");
     cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&body)?);
     cmd.run().await
@@ -87,9 +73,7 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
         let found = fetch_oauth2_permission_grants().await?;
-        for row in found {
-            println!("- {row:?}");
-        }
+        assert!(!found.is_empty());
         Ok(())
     }
 }

@@ -2,6 +2,8 @@ use clap::Args;
 use cloud_terrastodon_azure::prelude::AzureTenantArgument;
 use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::AzureTenantId;
+use cloud_terrastodon_azure::prelude::SubscriptionId;
+use cloud_terrastodon_azure::prelude::SubscriptionIdExt;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
@@ -40,14 +42,14 @@ pub struct RestArgs {
 
 impl RestArgs {
     pub async fn invoke(self) -> Result<()> {
-        let tenant = match self.tenant {
-            Some(tenant) => Some(tenant.resolve().await?),
-            None => None,
-        };
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
         let service = RestService::infer(&url).ok_or_else(|| {
             eyre::eyre!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
+        let tenant = match self.tenant {
+            Some(tenant) => Some(tenant.resolve().await?),
+            None => infer_tenant_id_for_request(service, &url).await?,
+        };
         let body = read_optional_body(self.body).await?;
 
         let response = match service {
@@ -81,6 +83,37 @@ impl RestArgs {
 
         print_response(response).await
     }
+}
+
+async fn infer_tenant_id_for_request(
+    service: RestService,
+    url: &Url,
+) -> Result<Option<AzureTenantId>> {
+    if service != RestService::AzureResourceManager {
+        return Ok(None);
+    }
+
+    let Some(subscription_id) = extract_arm_subscription_id(url) else {
+        return Ok(None);
+    };
+
+    let tenant_id = subscription_id.resolve_tenant_id().await.with_context(|| {
+        format!(
+            "Failed to infer tracked tenant for subscription '{}' from '{}'. If the Azure CLI default tenant is intended, specify '--tenant default'.",
+            subscription_id, url
+        )
+    })?;
+    Ok(Some(tenant_id))
+}
+
+fn extract_arm_subscription_id(url: &Url) -> Option<SubscriptionId> {
+    let mut segments = url.path_segments()?;
+    let first = segments.next()?;
+    if !first.eq_ignore_ascii_case("subscriptions") {
+        return None;
+    }
+    let subscription = segments.next()?;
+    subscription.parse().ok()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -212,6 +245,8 @@ async fn print_response(response: Response) -> Result<()> {
 #[cfg(test)]
 mod test {
     use super::RestService;
+    use super::extract_arm_subscription_id;
+    use cloud_terrastodon_azure::prelude::SubscriptionId;
     use reqwest::Url;
 
     #[test]
@@ -246,5 +281,35 @@ mod test {
     fn rejects_unknown_hosts() {
         let url = Url::parse("https://example.com/api").unwrap();
         assert_eq!(RestService::infer(&url), None);
+    }
+
+    #[test]
+    fn extracts_subscription_id_from_arm_subscription_url() {
+        let url = Url::parse(
+            "https://management.azure.com/subscriptions/11111111-1111-1111-1111-111111111111/locations?api-version=2022-12-01",
+        )
+        .unwrap();
+        let expected = "11111111-1111-1111-1111-111111111111"
+            .parse::<SubscriptionId>()
+            .unwrap();
+        assert_eq!(extract_arm_subscription_id(&url), Some(expected));
+    }
+
+    #[test]
+    fn ignores_non_subscription_arm_urls() {
+        let url = Url::parse(
+            "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
+        )
+        .unwrap();
+        assert_eq!(extract_arm_subscription_id(&url), None);
+    }
+
+    #[test]
+    fn ignores_invalid_subscription_ids_in_arm_urls() {
+        let url = Url::parse(
+            "https://management.azure.com/subscriptions/not-a-guid/locations?api-version=2022-12-01",
+        )
+        .unwrap();
+        assert_eq!(extract_arm_subscription_id(&url), None);
     }
 }

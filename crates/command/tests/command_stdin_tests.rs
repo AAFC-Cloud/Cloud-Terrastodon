@@ -8,7 +8,6 @@ async fn send_stdin_echo() -> eyre::Result<()> {
     cmd.args(["-NoProfile", "-Command", "-" /* Read from stdin */]); // For pwsh, "-" means read from stdin for command
     cmd.send_stdin("echo 'hello stdin'");
     let output = cmd.run_raw().await?;
-    println!("Stdout: {:?}", output.stdout);
     assert_eq!(output.stdout.trim(), "hello stdin".as_bytes());
     Ok(())
 }

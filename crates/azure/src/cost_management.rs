@@ -10,7 +10,7 @@ pub async fn fetch_cost_query_results(query: &QueryDefinition) -> eyre::Result<Q
         "https://management.azure.com/providers/Microsoft.Management/managementGroups/{}/providers/Microsoft.CostManagement/query?api-version=2021-10-01",
         root.tenant_id
     );
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
     cmd.args(["rest", "--method", "post", "--url", url.as_ref(), "--body"]);
     cmd.azure_file_arg("body.json", serde_json::to_string_pretty(query)?);
     let resp = cmd.run::<QueryResult>().await?;
@@ -23,28 +23,25 @@ mod tests {
     #[tokio::test]
     async fn it_works1() -> eyre::Result<()> {
         let query = QueryDefinition::new_cost_total_this_month();
-        println!("{:#?}", query);
         let resp = fetch_cost_query_results(&query).await?;
-        println!("{:#?}", resp);
         assert_eq!(resp.properties.next_link, None);
+        assert!(!resp.properties.columns.is_empty());
         Ok(())
     }
     #[tokio::test]
     async fn it_works2() -> eyre::Result<()> {
         let query = QueryDefinition::new_cost_by_day_this_month();
-        println!("{:#?}", query);
         let resp = fetch_cost_query_results(&query).await?;
-        println!("{:#?}", resp);
         assert_eq!(resp.properties.next_link, None);
+        assert!(!resp.properties.columns.is_empty());
         Ok(())
     }
     #[tokio::test]
     async fn it_works3() -> eyre::Result<()> {
         let query = QueryDefinition::new_cost_by_resource_group_this_month();
-        println!("{:#?}", query);
         let resp = fetch_cost_query_results(&query).await?;
-        println!("{:#?}", resp);
         assert_eq!(resp.properties.next_link, None);
+        assert!(!resp.properties.columns.is_empty());
         Ok(())
     }
 }

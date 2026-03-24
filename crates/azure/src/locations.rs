@@ -1,9 +1,8 @@
+use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::Location;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
@@ -34,10 +33,7 @@ impl CacheableCommand for LocationListRequest {
             "https://management.azure.com/subscriptions/{}/locations?api-version=2022-12-01",
             self.subscription_id
         );
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        let key = self.cache_key();
-        cmd.cache(key);
+        let cmd = build_arm_rest_get_command(&url, self.cache_key());
 
         #[derive(serde::Deserialize)]
         struct Response {
@@ -60,19 +56,14 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
         let subs = fetch_all_subscriptions(tenant_id).await?;
-        let mut fail = false;
+        let mut found_unrecognized_location = false;
         for sub in subs {
-            println!("Checking locations for subscription {}", sub.name);
             let locations = fetch_all_locations(sub.id).await?;
-            for other in locations.iter().filter_map(|loc| loc.name.as_other()) {
-                println!(
-                    "Subscription {} has unrecognized location {other:?}",
-                    sub.name
-                );
-                fail = true;
-            }
+            found_unrecognized_location |= locations
+                .iter()
+                .any(|location| location.name.as_other().is_some());
         }
-        if fail {
+        if found_unrecognized_location {
             eyre::bail!("One or more subscriptions had unrecognized locations");
         }
         Ok(())

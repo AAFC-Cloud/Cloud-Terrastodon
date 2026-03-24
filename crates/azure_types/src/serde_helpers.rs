@@ -89,7 +89,6 @@ mod tests {
     fn it_works() -> eyre::Result<()> {
         let json = json!({});
         let thing: MyThing = serde_json::from_value(json)?;
-        dbg!(&thing);
         assert!(thing.my_option.is_none());
         Ok(())
     }
@@ -98,7 +97,6 @@ mod tests {
     fn empty_string_is_none() -> eyre::Result<()> {
         let json = json!({ "my_option": "" });
         let thing: MyThing = serde_json::from_value(json)?;
-        dbg!(&thing);
         assert!(thing.my_option.is_none());
         Ok(())
     }
@@ -107,7 +105,6 @@ mod tests {
     fn null_is_none() -> eyre::Result<()> {
         let json = json!({ "my_option": null });
         let thing: MyThing = serde_json::from_value(json)?;
-        dbg!(&thing);
         assert!(thing.my_option.is_none());
         Ok(())
     }
@@ -119,7 +116,6 @@ mod tests {
         let id = SubscriptionId::arbitrary(&mut u)?;
         let json = json!({ "my_option": id });
         let thing: MyThing = serde_json::from_value(json)?;
-        dbg!(&thing);
         assert!(thing.my_option.is_some());
         assert_eq!(thing.my_option, Some(id));
         Ok(())

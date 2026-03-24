@@ -72,11 +72,6 @@ mod test {
             .iter()
             .filter(|pool| !pool.is_hosted)
             .collect_vec();
-        println!(
-            "Found {} agent pools, {} ours",
-            agent_pools.len(),
-            our_agent_pools.len()
-        );
         assert!(
             !our_agent_pools.is_empty(),
             "Expected at least one of our agent pools"
@@ -84,8 +79,15 @@ mod test {
         for pool in our_agent_pools {
             let entitlements =
                 fetch_azure_devops_agent_pool_entitlements_for_pool(&org_url, pool).await?;
-            println!("Found {} entitlements for pool", entitlements.len());
             if !entitlements.is_empty() {
+                assert!(
+                    entitlements.iter().all(|entitlement| {
+                        !entitlement.name.is_empty()
+                            && entitlement.pool.id == pool.id
+                            && entitlement.pool.name == pool.name
+                    }),
+                    "Expected agent pool entitlements to match the requested pool"
+                );
                 return Ok(());
             }
         }

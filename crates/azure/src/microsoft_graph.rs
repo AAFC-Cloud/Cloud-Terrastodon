@@ -1,7 +1,7 @@
+use crate::prelude::build_microsoft_graph_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
 use eyre::Result;
 use serde::Deserialize;
@@ -31,28 +31,7 @@ impl MicrosoftGraphHelper {
     }
 
     fn get_command(&self, url: &str) -> CommandBuilder {
-        let mut cmd = match self.tenant_id {
-            Some(tenant_id) => {
-                let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-                let tenant_id = tenant_id.to_string();
-                cmd.args([
-                    "rest",
-                    "--method",
-                    "GET",
-                    "--url",
-                    url,
-                    "--tenant",
-                    tenant_id.as_str(),
-                ]);
-                cmd
-            }
-            None => {
-                let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-                cmd.args(["rest", "--method", "GET", "--url"]);
-                cmd.azure_file_arg("url.txt", url.to_string());
-                cmd
-            }
-        };
+        let mut cmd = build_microsoft_graph_rest_get_command(url, self.tenant_id.as_ref());
         cmd.use_cache(self.cache_key.clone());
         cmd
     }

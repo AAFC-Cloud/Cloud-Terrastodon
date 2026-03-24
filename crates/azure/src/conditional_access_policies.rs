@@ -54,8 +54,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let found = fetch_all_conditional_access_policies().await?;
-        println!("Found {} entries", found.len());
-        println!("{:#?}", found);
+        assert!(!found.is_empty());
         Ok(())
     }
 
@@ -65,6 +64,8 @@ mod test {
             fetch_all_conditional_access_named_locations(),
             fetch_all_conditional_access_policies(),
         )?;
+        assert!(!locations.is_empty());
+        assert!(!policies.is_empty());
         let locations_by_id = locations
             .into_iter()
             .map(|location| (*location.id(), location))
@@ -98,9 +99,8 @@ mod test {
                 );
                 continue;
             }
-            println!("Policy {:?}", policy.display_name);
             if let Some(locations) = policy.conditions.locations {
-                for (location, mode) in locations
+                for (location, _mode) in locations
                     .include_locations
                     .iter()
                     .map(|location| (location, IncludeOrExclude::Include))
@@ -111,7 +111,7 @@ mod test {
                             .map(|location| (location, IncludeOrExclude::Exclude)),
                     )
                 {
-                    let ips = match location {
+                    let _ips = match location {
                         AllOr::All => {
                             vec![(
                                 "All".to_string(),
@@ -134,18 +134,19 @@ mod test {
                             vec![]
                         }
                     };
-                    match mode {
-                        IncludeOrExclude::Include => {
-                            for (display, ip) in ips {
-                                println!("\tInclude: {} | {}", display, ip);
-                            }
-                        }
-                        IncludeOrExclude::Exclude => {
-                            for (display, ip) in ips {
-                                println!("\tExclude: {} | {}", display, ip);
-                            }
-                        }
-                    }
+                    // todo: this should become a cli command to preview this info
+                    // match mode {
+                    //     IncludeOrExclude::Include => {
+                    //         for (display, ip) in ips {
+                    //             println!("\tInclude: {} | {}", display, ip);
+                    //         }
+                    //     }
+                    //     IncludeOrExclude::Exclude => {
+                    //         for (display, ip) in ips {
+                    //             println!("\tExclude: {} | {}", display, ip);
+                    //         }
+                    //     }
+                    // }
                 }
             }
         }

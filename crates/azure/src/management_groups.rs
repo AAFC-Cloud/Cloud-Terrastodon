@@ -77,10 +77,7 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let result = fetch_all_management_groups().await?;
-        println!("Found {} management groups:", result.len());
-        for mg in result {
-            println!("{:?}", mg);
-        }
+        assert!(!result.is_empty());
         Ok(())
     }
 }

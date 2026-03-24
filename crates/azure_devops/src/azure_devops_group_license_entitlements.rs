@@ -79,15 +79,17 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let entitlements = fetch_azure_devops_group_license_entitlements(&org_url).await?;
-        println!("Found {} group license entitlements", entitlements.len());
-        for entitlement in entitlements.iter().take(5) {
-            println!(
-                "Group {} ({}) has {}",
-                entitlement.group.display_name,
-                entitlement.group.origin_id,
-                entitlement.license_rule.account_license_type
-            );
-        }
+        assert!(
+            !entitlements.is_empty(),
+            "Expected at least one Azure DevOps group license entitlement"
+        );
+        assert!(
+            entitlements.iter().all(|entitlement| {
+                !entitlement.group.display_name.is_empty()
+                    && !entitlement.group.origin_id.is_empty()
+            }),
+            "Expected sampled Azure DevOps group entitlements to include group identity data"
+        );
 
         Ok(())
     }

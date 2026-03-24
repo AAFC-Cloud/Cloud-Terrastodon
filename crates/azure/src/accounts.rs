@@ -28,7 +28,6 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let accounts = az_account_list().await?;
-        dbg!(&accounts);
         assert_ne!(accounts.as_slice(), []);
         Ok(())
     }
@@ -42,7 +41,6 @@ mod test {
             path: PathBuf::from_iter(["az", "account", "list"]),
         });
         let rtn = cmd.run_raw().await?;
-        dbg!(&rtn);
         assert!(rtn.status == 0);
         Ok(())
     }

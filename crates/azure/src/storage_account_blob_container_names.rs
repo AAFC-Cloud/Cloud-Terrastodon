@@ -76,8 +76,8 @@ mod test {
         let storage_accounts = fetch_all_storage_accounts().await?;
         for sa in storage_accounts.into_iter() {
             if let Ok(blob_containers) = fetch_storage_account_blob_container_names(&sa.id).await {
-                println!("Storage account: {sa:#?}");
-                println!("Blob containers: {blob_containers:#?}");
+                assert!(!sa.name.is_empty());
+                assert!(blob_containers.iter().all(|name| !name.to_string().is_empty()));
                 return Ok(());
             }
         }

@@ -102,7 +102,7 @@ mod tests {
             nil = Uuid::nil()
         );
         let id = StorageAccountId::try_from_expanded(&expanded)?;
-        dbg!(id);
+        assert_eq!(id.expanded_form(), expanded);
         Ok(())
     }
 }

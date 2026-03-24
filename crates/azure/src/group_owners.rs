@@ -56,14 +56,13 @@ mod tests {
     #[tokio::test]
     async fn list_group_owners() -> eyre::Result<()> {
         let groups = fetch_all_groups().await?;
+        assert!(!groups.is_empty());
         // there's a chance that some groups just don't have members lol
         // lets hope that we aren't unlucky many times in a row
         let tries = 10.min(groups.len());
         for group in groups.iter().take(tries) {
-            println!("Checking group {} for owners", group.id);
             let owners = fetch_group_owners(group.id).await?;
             if !owners.is_empty() {
-                println!("Found {} owners for group {}", owners.len(), group.id);
                 return Ok(());
             }
         }

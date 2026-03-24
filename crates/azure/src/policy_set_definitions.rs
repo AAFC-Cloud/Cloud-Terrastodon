@@ -56,19 +56,13 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let result = fetch_all_policy_set_definitions().await?;
-        println!("Found {} policy set definitions:", result.len());
-        for v in result {
-            println!("- {}", v);
-        }
+        assert!(!result.is_empty());
         Ok(())
     }
     #[tokio::test]
     async fn it_works_v2() -> Result<()> {
         let result = fetch_all_policy_set_definitions().await?;
-        println!("Found {} policy set definitions:", result.len());
-        for v in result {
-            println!("- {}", v);
-        }
+        assert!(!result.is_empty());
         Ok(())
     }
 }

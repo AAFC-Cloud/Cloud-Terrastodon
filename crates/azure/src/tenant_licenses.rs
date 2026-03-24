@@ -1,9 +1,8 @@
+use crate::prelude::build_microsoft_graph_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::TenantLicense;
 use cloud_terrastodon_azure_types::prelude::TenantLicenseCollection;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use serde::Deserialize;
@@ -26,8 +25,7 @@ impl CacheableCommand for TenantLicenseListRequest {
 
     async fn run(self) -> Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/subscribedSkus";
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["rest", "--method", "GET", "--url", url]);
+        let mut cmd = build_microsoft_graph_rest_get_command(url, None);
         cmd.cache(self.cache_key());
 
         #[derive(Deserialize)]
@@ -95,11 +93,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_licenses = fetch_all_tenant_licenses().await?;
-        println!("Tenant licenses: {tenant_licenses:#?}");
-        println!(
-            "Has AAD_PREMIUM_P2: {}",
-            tenant_licenses.has_aad_premium_p2()
-        );
+        assert!(!tenant_licenses.0.is_empty());
         Ok(())
     }
 }

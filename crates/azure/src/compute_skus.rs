@@ -1,9 +1,8 @@
+use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_azure_types::prelude::ComputeSku;
 use cloud_terrastodon_azure_types::prelude::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -39,9 +38,10 @@ impl CacheableCommand for ComputeSkuListRequest {
             "https://management.azure.com/subscriptions/{}/providers/Microsoft.Compute/skus?api-version=2019-04-01",
             self.subscription_id
         );
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"])));
+        let cmd = build_arm_rest_get_command(
+            &url,
+            CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"])),
+        );
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Response {
@@ -78,14 +78,11 @@ mod test {
             .iter()
             .filter(|s| s.locations.iter().any(LocationName::is_canada))
             .collect::<Vec<_>>();
-        println!("Found {} VM SKUs in Canada", canada_vm_skus.len());
-
-        for sku in canada_vm_skus {
-            if sku.resource_type != ComputeSkuResourceType::VirtualMachines {
-                continue;
-            }
-            println!("{sku:#?}");
-        }
+        let vm_skus_in_canada = canada_vm_skus
+            .into_iter()
+            .filter(|sku| sku.resource_type == ComputeSkuResourceType::VirtualMachines)
+            .count();
+        assert!(vm_skus_in_canada > 0);
         Ok(())
     }
 }

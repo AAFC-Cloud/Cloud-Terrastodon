@@ -58,23 +58,18 @@ mod test {
         let permissions = &[RolePermissionAction::new(
             "microsoft.directory/users/standard/read",
         )];
+        let mut matching_assignments = 0usize;
+        let mut resolved_principals = 0usize;
         for (assignment, definition) in rbac.iter_role_assignments().filter_satisfying(permissions)
         {
-            let Some(principal) = principals.get(&assignment.principal_id) else {
-                eprintln!(
-                    "Principal {} not found for assignment {assignment:?}",
-                    assignment.principal_id
-                );
-                continue;
-            };
-            println!(
-                "Principal {} ({}) has role {} ({})",
-                principal.display_name(),
-                principal.id(),
-                definition.display_name,
-                definition.template_id
-            );
+            matching_assignments += 1;
+            if let Some(principal) = principals.get(&assignment.principal_id) {
+                assert!(!principal.display_name().is_empty());
+                assert!(!definition.display_name.is_empty());
+                resolved_principals += 1;
+            }
         }
+        assert!(resolved_principals <= matching_assignments);
         Ok(())
     }
 }

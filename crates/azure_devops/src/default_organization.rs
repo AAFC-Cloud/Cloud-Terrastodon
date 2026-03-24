@@ -76,7 +76,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let x = get_default_organization_url().await?;
-        println!("The default org is {x}");
+        assert!(!x.to_string().is_empty());
         Ok(())
     }
 }

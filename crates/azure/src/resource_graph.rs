@@ -1,16 +1,18 @@
+use crate::prelude::build_arm_rest_command;
 use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
 use eyre::Result;
 #[cfg(debug_assertions)]
 use eyre::bail;
+use http::Method;
 use serde::Deserialize;
 use serde::Serialize;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
+use std::path::PathBuf;
 use tracing::debug;
 
 pub struct ResourceGraphHelper {
@@ -72,36 +74,19 @@ impl ResourceGraphHelper {
     }
 
     fn get_command(&self, body: String) -> CommandBuilder {
-        let mut cmd = match self.tenant_id {
-            Some(tenant_id) => {
-                let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-                let tenant_id = tenant_id.to_string();
-                cmd.args([
-                    "rest",
-                    "--method",
-                    "POST",
-                    "--url",
-                    "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
-                    "--body",
-                ]);
-                cmd.azure_file_arg("body.json", body);
-                cmd.args(["--tenant", tenant_id.as_str()]);
-                cmd
-            }
-            None => {
-                let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-                cmd.args([
-                    "rest",
-                    "--method",
-                    "POST",
-                    "--url",
-                    "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
-                    "--body",
-                ]);
-                cmd.azure_file_arg("body.json", body);
-                cmd
-            }
-        };
+        let mut cmd = build_arm_rest_command(
+            Method::POST,
+            "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
+            self.cache_behaviour
+                .clone()
+                .unwrap_or_else(|| CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "query"]))),
+        );
+        cmd.arg("--body");
+        cmd.azure_file_arg("body.json", body);
+        if let Some(tenant_id) = &self.tenant_id {
+            let tenant_id = tenant_id.to_string();
+            cmd.args(["--tenant", tenant_id.as_str()]);
+        }
         cmd.use_cache(self.cache_behaviour.clone());
         cmd
     }
@@ -228,11 +213,7 @@ resourcecontainers
         .collect_all::<Row>()
         .await?;
         assert!(data.len() > 10);
-        for row in data.iter().take(5) {
-            println!("- {}", row.name);
-            assert!(!row.name.is_empty());
-        }
-        println!("({} rows omitted)", data.len() - 5);
+        assert!(data.iter().all(|row| !row.name.is_empty()));
         Ok(())
     }
 }

@@ -215,22 +215,13 @@ mod tests {
     #[test]
     fn test_pathbuf_no_spaces_only_spaces() {
         let input = PathBuf::from("     /     ");
-        dbg!(&input);
-        dbg!(input.components().collect::<Vec<_>>());
         let expected = PathBuf::from_iter(vec!["(blankstring)", "(blankstring)"]);
-        dbg!(&expected);
-        dbg!(expected.components().collect::<Vec<_>>());
         assert_eq!(input.no_spaces(), expected);
     }
 
     #[test]
     fn understand_pathbuf() {
         let input = PathBuf::from("/");
-        dbg!(
-            input
-                .components()
-                .map(|c| (PathBuf::from_iter(vec![&c]), c.as_os_str(), c))
-                .collect::<Vec<_>>()
-        );
+        assert_eq!(input.components().count(), 1);
     }
 }

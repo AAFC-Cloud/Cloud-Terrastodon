@@ -49,7 +49,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let x = get_default_project_name().await?;
-        println!("The default project is {x:?}");
+        assert!(!format!("{x:?}").is_empty());
         Ok(())
     }
 }

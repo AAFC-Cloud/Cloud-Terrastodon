@@ -52,10 +52,7 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let result = fetch_all_policy_assignments().await?;
-        println!("Found {} policy assignments:", result.len());
-        for v in result {
-            println!("- {}", v);
-        }
+        assert!(!result.is_empty());
         Ok(())
     }
 }

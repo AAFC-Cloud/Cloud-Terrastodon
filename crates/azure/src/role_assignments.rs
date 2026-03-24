@@ -54,47 +54,21 @@ cloud_terrastodon_command::impl_cacheable_into_future!(RoleAssignmentListRequest
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::fetch_all_role_definitions;
     use cloud_terrastodon_azure_types::prelude::RoleAssignmentId;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let result = fetch_all_role_assignments().await?;
-        println!("Found {} role assignments:", result.len());
         assert!(result.len() > 2);
-        for role_assignment in result {
-            match role_assignment.id {
-                RoleAssignmentId::Unscoped(_) | RoleAssignmentId::PortalScoped(_) => {
-                    match fetch_all_role_definitions().await {
-                        Ok(role_definitions) => {
-                            match role_definitions
-                                .iter()
-                                .find(|rd| rd.id == role_assignment.role_definition_id)
-                            {
-                                Some(role_definition) => {
-                                    eprintln!(
-                                        "Interesting role assignment found: {role_definition:#?}\n{role_assignment:#?}"
-                                    );
-                                }
-                                None => {
-                                    eprintln!(
-                                        "Found interesting role assignment, but couldn't find role definition D:\n{:#?}",
-                                        role_assignment
-                                    );
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!(
-                                "Found interesting role assignment, couldn't fetch role definitions D:\n{:#?}\nrole definition fetch error: {e:?}",
-                                role_assignment
-                            );
-                        }
-                    }
-                }
-                _ => (),
-            }
-        }
+        let _interesting_assignments = result
+            .into_iter()
+            .filter(|role_assignment| {
+                matches!(
+                    role_assignment.id,
+                    RoleAssignmentId::Unscoped(_) | RoleAssignmentId::PortalScoped(_)
+                )
+            })
+            .count();
         Ok(())
     }
 }

@@ -120,7 +120,6 @@ mod test {
     pub fn it_fails() -> eyre::Result<()> {
         let s = "https://my@@@kv.vault.azure.net/secrets/SECRETNAME";
         let parsed: Result<KeyVaultSecretId, _> = s.parse();
-        println!("{parsed:?}");
         assert!(parsed.is_err());
         Ok(())
     }

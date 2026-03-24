@@ -241,13 +241,11 @@ mod tests {
     fn test_roundtrip_serialization() -> Result<()> {
         let original_dev = AzureDevOpsOrganizationUrl::try_new_dev_azure_com("test-org")?;
         let serialized = serde_json::to_string(&original_dev)?;
-        println!("Serialized: {}", serialized);
         let deserialized: AzureDevOpsOrganizationUrl = serde_json::from_str(&serialized)?;
         assert_eq!(original_dev, deserialized);
 
         let original_vs = AzureDevOpsOrganizationUrl::try_new_visual_studio_com("test-org")?;
         let serialized = serde_json::to_string(&original_vs)?;
-        println!("Serialized: {}", serialized);
         let deserialized: AzureDevOpsOrganizationUrl = serde_json::from_str(&serialized)?;
         assert_eq!(original_vs, deserialized);
         Ok(())

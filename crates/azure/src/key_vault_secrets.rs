@@ -65,7 +65,7 @@ mod test {
         if let Ok(expanded) = std::env::var("TEST_KEY_VAULT_ID") {
             let id: KeyVaultId = expanded.parse()?;
             let secrets = fetch_key_vault_secrets(&id).await?;
-            println!("Fetched {} secrets", secrets.len());
+            assert!(secrets.iter().all(|secret| !secret.id.to_string().is_empty()));
         }
         Ok(())
     }

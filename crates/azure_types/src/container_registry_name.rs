@@ -165,7 +165,6 @@ mod test {
             if name.chars().any(|c| c.is_ascii_uppercase()) {
                 found_uppercase = true;
             }
-            println!("{name}");
         }
         assert!(
             found_uppercase,

@@ -1,7 +1,6 @@
 use cloud_terrastodon_azure_types::prelude::RoleEligibilitySchedule;
+use crate::prelude::build_arm_rest_get_command;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use serde::Deserialize;
@@ -29,9 +28,7 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraRoleEligibilitySched
     async fn run(self) -> Result<Self::Output> {
         let url = "https://management.azure.com/providers/Microsoft.Authorization/roleEligibilitySchedules?api-version=2020-10-01&$filter=asTarget()";
 
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.cache(self.cache_key());
-        cmd.args(["rest", "--method", "GET", "--url", url]);
+        let cmd = build_arm_rest_get_command(url, self.cache_key());
 
         #[derive(Deserialize)]
         struct Response {
@@ -62,9 +59,6 @@ mod tests {
             return Ok(());
         };
         assert!(!found.is_empty());
-        for x in found {
-            println!("- {x}");
-        }
         Ok(())
     }
 }

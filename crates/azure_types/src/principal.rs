@@ -128,7 +128,6 @@ mod tests {
         };
         let principal = Principal::from(user);
         let encoded = serde_json::to_string_pretty(&principal)?;
-        println!("Encoded:\n{encoded}");
         let decoded: Value = serde_json::from_str(&encoded)?;
         assert_eq!(
             decoded.get("@odata.type").unwrap().as_str().unwrap(),

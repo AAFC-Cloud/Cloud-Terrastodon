@@ -75,7 +75,14 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let pools = fetch_azure_devops_agent_pools(&org_url).await?;
-        println!("Found {} pools", pools.len());
+        assert!(
+            !pools.is_empty(),
+            "Expected at least one Azure DevOps agent pool"
+        );
+        assert!(
+            pools.iter().all(|pool| !pool.name.as_ref().is_empty()),
+            "Expected sampled Azure DevOps agent pools to have names"
+        );
 
         Ok(())
     }

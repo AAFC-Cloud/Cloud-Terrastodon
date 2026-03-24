@@ -95,10 +95,12 @@ mod test {
             if test_plans.is_empty() {
                 continue;
             }
-            println!("Found {} test plans", test_plans.len());
-            for test_plan in test_plans.iter().take(5) {
-                println!(" - {} ({})", test_plan.name, test_plan.id);
-            }
+            assert!(
+                test_plans
+                    .iter()
+                    .all(|test_plan| !test_plan.name.is_empty() && test_plan.id > 0),
+                "Expected sampled Azure DevOps test plans to include names and ids"
+            );
             return Ok(());
         }
 

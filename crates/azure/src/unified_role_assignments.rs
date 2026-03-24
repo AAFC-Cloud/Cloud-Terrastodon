@@ -45,8 +45,6 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let assignments = super::fetch_all_unified_role_assignments().await?;
-        println!("Assignments: {:#?}", assignments);
-        println!("Count: {}", assignments.len());
         assert!(!assignments.is_empty());
         Ok(())
     }

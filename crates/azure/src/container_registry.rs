@@ -102,14 +102,13 @@ mod test {
     use crate::prelude::fetch_all_container_registries;
     use crate::prelude::fetch_container_registry_repository_names;
     use crate::prelude::fetch_container_registry_repository_tags;
-    use cloud_terrastodon_azure_types::prelude::Scope;
     use cloud_terrastodon_azure_types::prelude::Slug;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let found = fetch_all_container_registries().await?;
+        assert!(!found.is_empty());
         for registry in found.into_iter() {
-            println!("{}", registry.id.expanded_form());
             registry.name.validate_slug()?;
         }
         Ok(())
@@ -118,34 +117,23 @@ mod test {
     #[tokio::test]
     #[ignore]
     pub async fn it_works2() -> eyre::Result<()> {
-        println!("Fetching container registries...");
         let mut pass = false;
         let found = fetch_all_container_registries().await?;
         let found_count = found.len();
         for (i, container_registry) in found.into_iter().enumerate() {
             let repository_names =
                 fetch_container_registry_repository_names(&container_registry.id).await?;
-            println!(
-                "[{}/{found_count}] Found {} repositories for {}",
-                i + 1,
-                repository_names.len(),
-                container_registry.id.short_form()
-            );
+            assert!(i < found_count);
 
             let found = repository_names.iter();
             let found_count = found.len();
             for (i, repository) in found.enumerate() {
-                println!("  - [{}/{found_count}] {}", i + 1, repository);
+                assert!(i < found_count);
                 let tags =
                     fetch_container_registry_repository_tags(&container_registry.id, repository)
                         .await?;
-                println!("    Found {} tags", tags.len());
                 for tag in tags.iter() {
-                    println!(
-                        "      - {} updated at {}",
-                        tag.name,
-                        tag.last_update_time.naive_local()
-                    );
+                    assert!(!tag.name.is_empty());
                     pass = true;
                 }
                 // comment this out to display all tags

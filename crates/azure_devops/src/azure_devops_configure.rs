@@ -40,7 +40,10 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let config = get_azure_devops_cli_config().await?;
-        println!("Config:\n{config}");
+        assert!(
+            !config.trim().is_empty(),
+            "Expected Azure DevOps CLI config output"
+        );
         Ok(())
     }
 }

@@ -57,10 +57,8 @@ mod tests {
     async fn it_works() -> eyre::Result<()> {
         let result = fetch_all_route_tables().await?;
         assert!(!result.is_empty());
-        println!("Found {} route tables:", result.len());
         for route_table in result {
             assert!(!route_table.name.is_empty());
-            println!(" - {:#?}", route_table);
         }
         Ok(())
     }

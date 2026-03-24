@@ -48,11 +48,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let role_definitions = fetch_all_unified_role_definitions().await?;
-        println!(
-            "Sample role definition: {:#?}",
-            role_definitions.values().next()
-        );
-        println!("Found {} role definitions", role_definitions.len());
+        assert!(!role_definitions.is_empty());
         assert!(
             role_definitions
                 .values()

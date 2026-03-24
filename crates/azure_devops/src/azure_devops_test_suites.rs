@@ -104,7 +104,12 @@ mod test {
             for plan in plans.iter().take(3) {
                 let suites =
                     fetch_azure_devops_test_suites(&org_url, &project, plan.id.to_string()).await?;
-                println!("Found {} suites for plan {}", suites.len(), plan.id);
+                assert!(
+                    suites
+                        .iter()
+                        .all(|suite| !suite.name.is_empty() && suite.id > 0),
+                    "Expected Azure DevOps test suites to include names and ids"
+                );
             }
             return Ok(());
         }

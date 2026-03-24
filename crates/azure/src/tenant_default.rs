@@ -29,7 +29,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let tenant = get_test_tenant_id().await?;
-        dbg!(&tenant);
+        assert!(!tenant.to_string().is_empty());
         Ok(())
     }
 }

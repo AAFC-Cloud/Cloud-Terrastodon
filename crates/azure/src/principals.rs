@@ -55,7 +55,6 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
         let found = fetch_all_principals().await?;
-        println!("Found {} principals", found.len());
         assert!(found.len() > 10);
         Ok(())
     }

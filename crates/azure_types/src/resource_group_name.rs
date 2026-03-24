@@ -223,10 +223,8 @@ impl<'a> Arbitrary<'a> for ResourceGroupName {
             chars.push('_');
         }
         let name: String = chars.into_iter().collect();
-        ResourceGroupName::try_new(CompactString::from(name)).map_err(|e| {
-            eprintln!("Failed to generate ResourceGroupName: {e:?}");
-            arbitrary::Error::IncorrectFormat
-        })
+        ResourceGroupName::try_new(CompactString::from(name))
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 
@@ -267,7 +265,6 @@ mod test {
             let mut un = Unstructured::new(&raw);
             let name = ResourceGroupName::arbitrary(&mut un)?;
             assert!(name.validate_slug().is_ok());
-            println!("{name}");
         }
         Ok(())
     }

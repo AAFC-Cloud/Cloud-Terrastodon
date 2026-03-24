@@ -43,10 +43,7 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let result = fetch_all_users().await?;
-        println!("Found {} users:", result.len());
-        for group in result {
-            println!("- {} ({})", group.display_name, group.id);
-        }
+        assert!(!result.is_empty());
         Ok(())
     }
 }

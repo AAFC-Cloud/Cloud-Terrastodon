@@ -131,7 +131,6 @@ mod tests {
             let raw: Vec<u8> = (0..128).map(|_| rand::random::<u8>()).collect();
             let mut u = Unstructured::new(&raw);
             if let Ok(name) = AzureDevOpsServiceEndpointName::arbitrary(&mut u) {
-                println!("Generated: {:?} - \"{}\"", name, name);
                 // Since Arbitrary generates valid names, just check it's not empty
                 assert!(!name.inner.is_empty(), "Arbitrary produced empty name");
             }

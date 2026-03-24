@@ -44,9 +44,7 @@ mod test {
             return Ok(());
         };
 
-        for role in governance_role_assignments {
-            println!("Role assignment: {role:#?}");
-        }
+        assert!(!governance_role_assignments.is_empty());
 
         Ok(())
     }

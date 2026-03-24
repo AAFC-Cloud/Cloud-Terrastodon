@@ -1,5 +1,6 @@
 use crate::management_groups::fetch_root_management_group;
 use crate::prelude::get_default_tenant_id;
+use crate::prelude::build_arm_rest_get_command;
 use crate::resource_groups::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::prelude::AsScope;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResource;
@@ -7,8 +8,6 @@ use cloud_terrastodon_azure_types::prelude::EligibleChildResourceKind;
 use cloud_terrastodon_azure_types::prelude::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use serde::Deserialize;
@@ -34,16 +33,12 @@ pub async fn fetch_eligible_child_resources(
     if behaviour == FetchChildrenBehaviour::GetAllChildren {
         url.push_str("&getAllChildren=true");
     }
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["rest", "--method", "GET", "--url", &url]);
-
     let mut cache_chunks = PathBuf::from_iter(["az", "rest", "GET", "eligibleChildResources"]);
     scope
         .split("/")
         .filter(|x| !x.is_empty())
         .for_each(|x| cache_chunks.push(x));
-
-    cmd.cache(CacheKey::new(cache_chunks));
+    let cmd = build_arm_rest_get_command(&url, CacheKey::new(cache_chunks));
 
     #[derive(Deserialize)]
     struct Response {
@@ -122,9 +117,6 @@ mod tests {
             return Ok(());
         };
         assert!(!found.is_empty());
-        for x in found {
-            println!("- {x:?}");
-        }
         Ok(())
     }
 
@@ -136,9 +128,6 @@ mod tests {
             return Ok(());
         };
         assert!(!found.is_empty());
-        for x in found {
-            println!("- {x:?}");
-        }
         Ok(())
     }
 
@@ -187,7 +176,6 @@ mod tests {
         let mg = fetch_root_management_group().await?;
         let mut scope = mg.as_scope().as_scope_impl().to_owned();
         loop {
-            println!("{}", scope);
             let Some(resources) = expect_aad_premium_p2_license(
                 fetch_eligible_child_resources(&scope, FetchChildrenBehaviour::default()).await,
             )

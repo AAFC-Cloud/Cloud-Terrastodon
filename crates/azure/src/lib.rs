@@ -1,6 +1,7 @@
 mod access_token;
 mod accounts;
 mod auth;
+mod arm_rest;
 mod batch_api;
 mod compute_publisher_vm_image_offer_sku_versions;
 mod compute_publisher_vm_image_offer_skus;
@@ -27,6 +28,7 @@ mod key_vault_secrets;
 mod key_vaults;
 mod locations;
 mod management_groups;
+mod graph_rest;
 mod metrics;
 mod microsoft_graph;
 mod microsoft_graph_batch;
@@ -82,6 +84,7 @@ pub mod prelude {
     pub use crate::access_token::*;
     pub use crate::accounts::*;
     pub use crate::auth::*;
+    pub use crate::arm_rest::*;
     pub use crate::batch_api::*;
     pub use crate::compute_publisher_vm_image_offer_sku_versions::*;
     pub use crate::compute_publisher_vm_image_offer_skus::*;
@@ -102,6 +105,7 @@ pub mod prelude {
     pub use crate::group_members::*;
     pub use crate::group_members_batch::*;
     pub use crate::group_owners::*;
+    pub use crate::graph_rest::*;
     pub use crate::groups::*;
     pub use crate::import::*;
     pub use crate::key_vault_secrets::*;

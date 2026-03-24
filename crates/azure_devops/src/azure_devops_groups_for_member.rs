@@ -86,7 +86,9 @@ mod test {
         for user in users.iter().take(2) {
             let groups_for_user =
                 fetch_azure_devops_groups_for_member(&org_url, &user.user.descriptor).await?;
-            println!("{:#?}", groups_for_user);
+            assert!(groups_for_user
+                .iter()
+                .all(|entry| entry.member_descriptor == user.user.descriptor));
         }
         Ok(())
     }

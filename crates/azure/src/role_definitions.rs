@@ -63,24 +63,7 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let results = fetch_all_role_definitions().await?;
-        println!("Found {} role definitions:", results.len());
-        for role in results {
-            println!(
-                "- {:?} {} ({})",
-                role.kind,
-                role.display_name,
-                role.id.short_form()
-            );
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn understanding_context() -> Result<()> {
-        let e1 = eyre!("Something went wrong! (base error)").wrap_err("e1 context");
-        let e2 = e1.wrap_err("e2 context");
-
-        println!("{e2:#}\n=====\n{e2:#?}\n=====");
+        assert!(!results.is_empty());
         Ok(())
     }
 

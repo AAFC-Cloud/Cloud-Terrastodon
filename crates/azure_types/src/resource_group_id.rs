@@ -230,6 +230,7 @@ impl<'de> Deserialize<'de> for ResourceGroupId {
 #[cfg(test)]
 mod test {
     use super::ResourceGroupId;
+    use crate::scopes::Scope;
     use uuid::Uuid;
 
     #[test]
@@ -245,7 +246,10 @@ mod test {
         let subscription_id = Uuid::nil().to_string();
         let resource_group_name = "My-RG".to_string();
         let id = ResourceGroupId::try_new(subscription_id, resource_group_name)?;
-        println!("{id}");
+        assert_eq!(
+            id.expanded_form(),
+            "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG"
+        );
         Ok(())
     }
 }

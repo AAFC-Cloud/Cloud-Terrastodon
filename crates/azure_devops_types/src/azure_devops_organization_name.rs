@@ -281,7 +281,6 @@ mod tests {
             let raw: Vec<u8> = (0..128).map(|_| rand::random::<u8>()).collect();
             let mut u = Unstructured::new(&raw);
             if let Ok(org) = AzureDevOpsOrganizationName::arbitrary(&mut u) {
-                println!("Generated: {}", org);
                 // Since Arbitrary uses the validation function, names should be valid
                 assert!(
                     validate_azure_devops_organization_name_contents(&org.inner).is_ok(),

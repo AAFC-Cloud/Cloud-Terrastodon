@@ -83,7 +83,6 @@ mod test {
         let directory_readers_role_id: UnifiedRoleDefinitionId =
             "88d8e3e3-8f55-4a1e-953a-9b9898b8876b".parse()?;
         let found = fetch_unified_role_definition(application_developer_role_id).await?;
-        println!("{:#?}", found);
         assert!(
             matches!(found.inherits_permissions_from.as_slice(), [x] if x.id == directory_readers_role_id)
         );
@@ -95,7 +94,7 @@ mod test {
         let application_developer_role_id: UnifiedRoleDefinitionId =
             "cf1c38e5-3621-4004-a7cb-879624dced7c".parse()?;
         let found = fetch_unified_role_definition_deep(application_developer_role_id).await?;
-        println!("{:#?}", found);
+        assert!(!found.role_permissions.is_empty());
         Ok(())
     }
 }

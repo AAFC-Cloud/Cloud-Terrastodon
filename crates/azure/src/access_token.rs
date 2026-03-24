@@ -17,8 +17,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let token = fetch_access_token::<String>().await?;
-        // The debug representation of AccessToken<T> will redact the inner token.
-        println!("{:?}", token);
+        assert_eq!(token.token_type, cloud_terrastodon_azure_types::prelude::TokenType::Bearer);
         Ok(())
     }
 }

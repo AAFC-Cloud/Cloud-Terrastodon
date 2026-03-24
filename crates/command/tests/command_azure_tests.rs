@@ -18,7 +18,8 @@ async fn it_works() -> Result<()> {
         .args(["--version"])
         .run_raw()
         .await?;
-    println!("{}", result);
+    assert!(result.success());
+    assert!(!result.stdout.trim().is_empty());
     Ok(())
 }
 
@@ -29,7 +30,8 @@ async fn it_works_cached() -> Result<()> {
         .cache(CacheKey::new(PathBuf::from("version")))
         .run_raw()
         .await?;
-    println!("{}", result);
+    assert!(result.success());
+    assert!(!result.stdout.trim().is_empty());
     Ok(())
 }
 
@@ -48,7 +50,8 @@ resourcecontainers
         )
         .run_raw()
         .await?;
-    println!("{}", result);
+    assert!(result.success());
+    assert!(!result.stdout.trim().is_empty());
     Ok(())
 }
 
@@ -73,7 +76,8 @@ resourcecontainers
         ])))
         .run_raw()
         .await?;
-    println!("{}", result);
+    assert!(result.success());
+    assert!(!result.stdout.trim().is_empty());
     Ok(())
 }
 
@@ -122,7 +126,6 @@ Resources
                 let result3 = cmd.run_raw().await?;
 
                 // ensure first two match and don't match third
-                println!("result1: {result1:?}\nresult2: {result2:?}\nresult3: {result3:?}");
                 assert_eq!(result1, result2);
                 assert_ne!(result1, result3);
                 Ok::<(), eyre::Error>(())
@@ -139,7 +142,9 @@ async fn user() -> Result<()> {
         .use_retry_behaviour(RetryBehaviour::Fail)
         .run_raw()
         .await;
-    println!("{:?}", result);
+    let result = result?;
+    assert!(result.success());
+    assert!(!result.stdout.trim().is_empty());
     Ok(())
 }
 
@@ -150,7 +155,7 @@ async fn login() -> Result<()> {
         .args(["login"])
         .run_raw()
         .await?;
-    println!("{}", result);
+    assert!(result.success());
     Ok(())
 }
 
@@ -161,37 +166,36 @@ async fn logout() -> Result<()> {
         .args(["logout"])
         .run_raw()
         .await;
-    println!("{:?}", result);
+    if let Ok(output) = result {
+        assert!(output.success());
+    }
     Ok(())
 }
 #[tokio::test]
 #[ignore]
 async fn reauth() -> Result<()> {
-    println!("Logging out...");
     let logout_result = CommandBuilder::new(CommandKind::AzureCLI)
         .args(["logout"])
         .run_raw()
         .await;
     match logout_result {
-        Ok(msg) => println!("{}", msg),
+        Ok(msg) => {
+            assert!(msg.success());
+        }
         Err(e) => match e.downcast_ref::<CommandOutput>() {
             Some(CommandOutput { stderr, .. })
                 if stderr.contains_str("ERROR: There are no active accounts.") =>
-            {
-                println!("Already logged out!")
-            }
+            {}
             _ => {
                 return Err(e).context("unknown logout failure");
             }
         },
     }
-    println!("Performing command, it should prompt for login...");
-    println!(
-        "{}",
-        CommandBuilder::new(CommandKind::AzureCLI)
-            .args(["ad", "signed-in-user", "show"])
-            .run_raw()
-            .await?
-    );
+    let result = CommandBuilder::new(CommandKind::AzureCLI)
+        .args(["ad", "signed-in-user", "show"])
+        .run_raw()
+        .await?;
+    assert!(result.success());
+    assert!(!result.stdout.trim().is_empty());
     Ok(())
 }

@@ -58,7 +58,6 @@ mod tests {
 
     use super::*;
     use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::Scope;
     use cloud_terrastodon_user_input::PickerTui;
 
     #[test_log::test(tokio::test)]
@@ -66,10 +65,8 @@ mod tests {
         let tenant_id = get_test_tenant_id().await?;
         let result = fetch_all_resource_groups(tenant_id).await?;
         assert!(!result.is_empty());
-        println!("Found {} resource groups:", result.len());
         for rg in result {
             assert!(!rg.name.is_empty());
-            println!(" - {} (sub={})", rg.name, rg.subscription_id);
         }
         Ok(())
     }
@@ -100,9 +97,7 @@ mod tests {
                 fetch_all_resource_groups(tenant_id).await
             })
             .await?;
-        for rg in chosen {
-            println!("{}", rg.id.expanded_form());
-        }
+        assert!(!chosen.is_empty());
         Ok(())
     }
 }

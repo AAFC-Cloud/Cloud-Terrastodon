@@ -60,10 +60,7 @@ mod tests {
     async fn it_works() -> eyre::Result<()> {
         let result = fetch_all_virtual_machines().await?;
         assert!(!result.is_empty());
-        println!("Found {} virtual machines:", result.len());
-        for vm in result.iter().take(5) {
-            println!("{:#?}", vm);
-        }
+        assert!(result.iter().all(|vm| !vm.name.is_empty()));
         Ok(())
     }
 }

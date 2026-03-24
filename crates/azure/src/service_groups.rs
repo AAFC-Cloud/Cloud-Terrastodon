@@ -56,9 +56,8 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
         let result = fetch_all_service_groups().await?;
-        for sg in &result {
-            println!("service group {}", sg.name);
-        }
+        assert!(!result.is_empty());
+        assert!(result.iter().all(|sg| !sg.name.is_empty()));
         Ok(())
     }
 }

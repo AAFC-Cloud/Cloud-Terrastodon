@@ -107,12 +107,6 @@ mod test {
                     query = query.name,
                     project = project.name
                 ))?;
-            println!(
-                "Result for query {query} from project {project}",
-                query = query.name,
-                project = project.name
-            );
-            println!("{:#?}", items);
 
             // success if found some items
             if let Some(items) = items {

@@ -78,10 +78,16 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let pkgs = fetch_azure_devops_agent_packages(&org_url).await?;
-        println!("Found {} packages", pkgs.len());
-        for p in pkgs.iter().take(5) {
-            println!("{} - {} ({})", p.filename, p.platform, p.version.major);
-        }
+        assert!(
+            !pkgs.is_empty(),
+            "Expected at least one Azure DevOps agent package"
+        );
+        assert!(
+            pkgs.iter().all(|p| !p.filename.is_empty()
+                && !p.platform.is_empty()
+                && p.version.major > 0),
+            "Expected sampled Azure DevOps agent packages to include filename, platform, and version"
+        );
 
         Ok(())
     }
