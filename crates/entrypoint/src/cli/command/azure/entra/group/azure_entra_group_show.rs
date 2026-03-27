@@ -1,5 +1,7 @@
 use clap::Args;
 use clap::ValueEnum;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::EntraGroup;
 use cloud_terrastodon_azure::prelude::EntraGroupId;
 use cloud_terrastodon_azure::prelude::Principal;
@@ -36,6 +38,10 @@ pub enum OutputFormat {
 /// Show one or more Entra (Azure AD) groups by id.
 #[derive(Args, Debug, Clone)]
 pub struct AzureEntraGroupShowArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     /// Group identifier(s) (UUID). Use '-' to read IDs from stdin (one per line).
     #[arg(long = "group-id")]
     pub group_id: Vec<String>,
@@ -82,8 +88,9 @@ impl AzureEntraGroupShowArgs {
             bail!("At least one group ID must be provided.");
         }
 
-        info!(count = ids.len(), "Fetching Entra groups");
-        let groups = fetch_all_groups().await?;
+        let tenant_id = self.tenant.resolve().await?;
+        info!(count = ids.len(), %tenant_id, "Fetching Entra groups");
+        let groups = fetch_all_groups(tenant_id).await?;
 
         // Map by id for fast lookup
         let mut map: HashMap<EntraGroupId, EntraGroup> =
@@ -118,14 +125,14 @@ impl AzureEntraGroupShowArgs {
         for group in &chosen_groups {
             let group_id = group.id;
             work.enqueue(async move {
-                let members = fetch_group_members(group_id).await?;
+                let members = fetch_group_members(group_id).tenant_id(tenant_id).await?;
                 eyre::Ok(Resp::Members {
                     group_id,
                     principals: members,
                 })
             });
             work.enqueue(async move {
-                let owners = fetch_group_owners(group_id).await?;
+                let owners = fetch_group_owners(group_id).tenant_id(tenant_id).await?;
                 eyre::Ok(Resp::Owners {
                     group_id,
                     principals: owners,

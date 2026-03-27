@@ -1,4 +1,5 @@
 use crate::prelude::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::EntraGroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
 use cloud_terrastodon_command::CacheKey;
@@ -9,10 +10,21 @@ use tracing::debug;
 
 pub struct GroupOwnersListRequest {
     pub group_id: EntraGroupId,
+    pub tenant_id: Option<AzureTenantId>,
 }
 
 pub fn fetch_group_owners(group_id: EntraGroupId) -> GroupOwnersListRequest {
-    GroupOwnersListRequest { group_id }
+    GroupOwnersListRequest {
+        group_id,
+        tenant_id: None,
+    }
+}
+
+impl GroupOwnersListRequest {
+    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
+        self.tenant_id = Some(tenant_id);
+        self
+    }
 }
 
 #[async_trait]
@@ -31,15 +43,17 @@ impl CacheableCommand for GroupOwnersListRequest {
 
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!("Fetching owners for group {}", self.group_id);
-        let owners = MicrosoftGraphHelper::new(
+        let mut query = MicrosoftGraphHelper::new(
             format!(
                 "https://graph.microsoft.com/v1.0/groups/{}/owners",
                 self.group_id
             ),
             Some(self.cache_key()),
-        )
-        .fetch_all::<Principal>()
-        .await?;
+        );
+        if let Some(tenant_id) = self.tenant_id {
+            query = query.tenant_id(tenant_id);
+        }
+        let owners = query.fetch_all::<Principal>().await?;
         debug!("Found {} owners for group {}", owners.len(), self.group_id);
         Ok(owners)
     }
@@ -51,17 +65,19 @@ cloud_terrastodon_command::impl_cacheable_into_future!(GroupOwnersListRequest);
 mod tests {
     use super::*;
     use crate::groups::fetch_all_groups;
+    use crate::prelude::get_test_tenant_id;
     use eyre::bail;
 
     #[tokio::test]
     async fn list_group_owners() -> eyre::Result<()> {
-        let groups = fetch_all_groups().await?;
+        let tenant_id = get_test_tenant_id().await?;
+        let groups = fetch_all_groups(tenant_id).await?;
         assert!(!groups.is_empty());
         // there's a chance that some groups just don't have members lol
         // lets hope that we aren't unlucky many times in a row
         let tries = 10.min(groups.len());
         for group in groups.iter().take(tries) {
-            let owners = fetch_group_owners(group.id).await?;
+            let owners = fetch_group_owners(group.id).tenant_id(tenant_id).await?;
             if !owners.is_empty() {
                 return Ok(());
             }

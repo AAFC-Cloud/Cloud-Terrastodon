@@ -1,6 +1,7 @@
 use crate::prelude::GroupMembersListRequest;
 use crate::prelude::MicrosoftGraphBatchRequest;
 use crate::prelude::MicrosoftGraphResponse;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::EntraGroupId;
 use cloud_terrastodon_azure_types::prelude::Principal;
 use cloud_terrastodon_command::CacheKey;
@@ -12,6 +13,7 @@ use std::path::PathBuf;
 
 pub struct GroupMembersListBatchRequest {
     pub group_ids: Vec<EntraGroupId>,
+    pub tenant_id: Option<AzureTenantId>,
 }
 
 /// TODO! This does n't auto fetch nextLink stuff :(
@@ -21,6 +23,14 @@ pub fn fetch_group_members_batch(
 ) -> GroupMembersListBatchRequest {
     GroupMembersListBatchRequest {
         group_ids: group_ids.into_iter().collect(),
+        tenant_id: None,
+    }
+}
+
+impl GroupMembersListBatchRequest {
+    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
+        self.tenant_id = Some(tenant_id);
+        self
     }
 }
 
@@ -46,17 +56,26 @@ impl CacheableCommand for GroupMembersListBatchRequest {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
+        let cache_key = self.cache_key();
+        let GroupMembersListBatchRequest {
+            group_ids,
+            tenant_id,
+        } = self;
         // Construct the request
         let mut batch_request: MicrosoftGraphBatchRequest<Vec<Principal>> =
             MicrosoftGraphBatchRequest::new();
+        if let Some(tenant_id) = tenant_id {
+            batch_request = batch_request.tenant_id(tenant_id);
+        }
 
         // Enable caching since it's a GET request
-        batch_request.cache(self.cache_key());
+        batch_request.cache(cache_key);
 
         // Add the request for each group
-        for group_id in &self.group_ids {
+        for group_id in &group_ids {
             batch_request.add(GroupMembersListRequest {
                 group_id: *group_id,
+                tenant_id: None,
             });
         }
 
@@ -67,7 +86,7 @@ impl CacheableCommand for GroupMembersListBatchRequest {
 
         // Extract the members from the response
         let mut rtn = HashMap::new();
-        for (group_id, response) in self.group_ids.into_iter().zip(batch_response.responses)
+        for (group_id, response) in group_ids.into_iter().zip(batch_response.responses)
         // Responses are ordered to match requests
         {
             let members = response

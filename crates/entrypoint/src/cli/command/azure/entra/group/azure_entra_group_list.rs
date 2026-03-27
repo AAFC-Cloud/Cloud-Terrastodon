@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::fetch_all_groups;
 use eyre::Result;
 use std::io::Write;
@@ -6,12 +8,17 @@ use tracing::info;
 
 /// List Entra (Azure AD) groups.
 #[derive(Args, Debug, Clone)]
-pub struct AzureEntraGroupListArgs {}
+pub struct AzureEntraGroupListArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+}
 
 impl AzureEntraGroupListArgs {
     pub async fn invoke(self) -> Result<()> {
-        info!("Fetching Entra groups");
-        let groups = fetch_all_groups().await?;
+        let tenant_id = self.tenant.resolve().await?;
+        info!(%tenant_id, "Fetching Entra groups");
+        let groups = fetch_all_groups(tenant_id).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
