@@ -1,5 +1,5 @@
-use crate::prelude::KeyVaultSecretId;
-use crate::prelude::KeyVaultSecretName;
+use crate::KeyVaultSecretId;
+use crate::KeyVaultSecretName;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;

@@ -90,11 +90,11 @@ impl Scope for SubscriptionId {
         Ok(Self(expanded.parse()?))
     }
 
-    fn as_scope_impl(&self) -> crate::prelude::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::ScopeImpl {
         ScopeImpl::Subscription(*self)
     }
 
-    fn kind(&self) -> crate::prelude::ScopeImplKind {
+    fn kind(&self) -> crate::ScopeImplKind {
         ScopeImplKind::Subscription
     }
 }

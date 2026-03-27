@@ -1,4 +1,4 @@
-use crate::prelude::AzureDevOpsDescriptor;
+use crate::AzureDevOpsDescriptor;
 use compact_str::CompactString;
 use serde::Deserialize;
 use serde::Serialize;

@@ -1,11 +1,11 @@
-use crate::prelude::AzureTenantId;
-use crate::prelude::ManagementGroupAncestorsChain;
-use crate::prelude::SubscriptionId;
-use crate::prelude::SubscriptionName;
+use crate::AzureTenantId;
+use crate::ManagementGroupAncestorsChain;
+use crate::SubscriptionId;
+use crate::SubscriptionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::HclProviderBlock;
+use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;

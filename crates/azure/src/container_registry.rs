@@ -1,11 +1,11 @@
-use crate::prelude::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::ContainerRegistry;
-use cloud_terrastodon_azure_types::prelude::ContainerRegistryId;
-use cloud_terrastodon_azure_types::prelude::ContainerRegistryRepositoryName;
-use cloud_terrastodon_azure_types::prelude::ContainerRegistryRepositoryTag;
-use cloud_terrastodon_azure_types::prelude::HasSlug;
-use cloud_terrastodon_azure_types::prelude::Scope;
+use crate::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::ContainerRegistry;
+use cloud_terrastodon_azure_types::ContainerRegistryId;
+use cloud_terrastodon_azure_types::ContainerRegistryRepositoryName;
+use cloud_terrastodon_azure_types::ContainerRegistryRepositoryTag;
+use cloud_terrastodon_azure_types::HasSlug;
+use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -104,11 +104,11 @@ pub async fn fetch_container_registry_repository_tags(
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_container_registries;
-    use crate::prelude::fetch_container_registry_repository_names;
-    use crate::prelude::fetch_container_registry_repository_tags;
-    use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::Slug;
+    use crate::fetch_all_container_registries;
+    use crate::fetch_container_registry_repository_names;
+    use crate::fetch_container_registry_repository_tags;
+    use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::Slug;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

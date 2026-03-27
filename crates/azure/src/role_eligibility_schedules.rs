@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::prelude::RoleEligibilitySchedule;
+use cloud_terrastodon_azure_types::RoleEligibilitySchedule;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -52,7 +52,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(MyEntraRoleEligibilitySch
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
+    use crate::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

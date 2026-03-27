@@ -1,7 +1,7 @@
-use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
-use cloud_terrastodon_azure_types::prelude::PrincipalId;
+use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
+use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use std::path::PathBuf;
 
@@ -34,9 +34,9 @@ pub async fn fetch_governance_role_assignments_for_principal(
 #[cfg(test)]
 mod test {
     use crate::auth::fetch_current_user;
-    use crate::prelude::fetch_governance_role_assignments_for_principal;
-    use crate::prelude::get_test_tenant_id;
-    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
+    use crate::fetch_governance_role_assignments_for_principal;
+    use crate::get_test_tenant_id;
+    use crate::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

@@ -1,7 +1,7 @@
 use crate::AzureDevOpsPersonalAccessToken;
 use base64::prelude::BASE64_STANDARD;
 use base64::write::EncoderWriter;
-use cloud_terrastodon_azure_types::prelude::AccessToken;
+use cloud_terrastodon_azure_types::AccessToken;
 use reqwest::header::HeaderValue;
 use std::io::Write;
 

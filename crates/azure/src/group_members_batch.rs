@@ -1,9 +1,9 @@
-use crate::prelude::GroupMembersListRequest;
-use crate::prelude::MicrosoftGraphBatchRequest;
-use crate::prelude::MicrosoftGraphResponse;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::EntraGroupId;
-use cloud_terrastodon_azure_types::prelude::Principal;
+use crate::GroupMembersListRequest;
+use crate::MicrosoftGraphBatchRequest;
+use crate::MicrosoftGraphResponse;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::EntraGroupId;
+use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;

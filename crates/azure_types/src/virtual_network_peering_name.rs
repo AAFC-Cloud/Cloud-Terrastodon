@@ -202,7 +202,7 @@ impl<'a> Arbitrary<'a> for VirtualNetworkPeeringName {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::VirtualNetworkPeeringName;
+    use crate::VirtualNetworkPeeringName;
     use crate::slug::Slug;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;

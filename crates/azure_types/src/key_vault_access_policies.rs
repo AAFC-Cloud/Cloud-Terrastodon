@@ -1,7 +1,7 @@
-use crate::prelude::KeyVaultAccessPolicyCertificatePrivilege;
-use crate::prelude::KeyVaultAccessPolicyKeyPrivilege;
-use crate::prelude::KeyVaultAccessPolicySecretPrivilege;
-use crate::prelude::PrincipalId;
+use crate::KeyVaultAccessPolicyCertificatePrivilege;
+use crate::KeyVaultAccessPolicyKeyPrivilege;
+use crate::KeyVaultAccessPolicySecretPrivilege;
+use crate::PrincipalId;
 use crate::serde_helpers::deserialize_default_if_null;
 use crate::tenant_id::AzureTenantId;
 use serde::Deserialize;
@@ -30,7 +30,7 @@ pub struct KeyVaultAccessPolicyPermissions {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::KeyVaultAccessPolicy;
+    use crate::KeyVaultAccessPolicy;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

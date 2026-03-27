@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_user_input::PickerTui;
 use serde_json::Value;
 use std::path::PathBuf;

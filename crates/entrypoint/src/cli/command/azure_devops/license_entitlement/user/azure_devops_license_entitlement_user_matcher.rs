@@ -1,7 +1,7 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsUserArgument;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsUserId;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsUserLicenseEntitlement;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserId;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlement;
 use eyre::bail;
 
 #[derive(Args, Debug, Clone)]

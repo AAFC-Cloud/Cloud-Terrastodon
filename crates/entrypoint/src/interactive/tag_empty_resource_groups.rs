@@ -1,9 +1,9 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
-use cloud_terrastodon_azure::prelude::ResourceGroupId;
-use cloud_terrastodon_azure::prelude::ResourceTagsId;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::replace_tags_for_resources;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::ResourceGraphHelper;
+use cloud_terrastodon_azure::ResourceGroupId;
+use cloud_terrastodon_azure::ResourceTagsId;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::replace_tags_for_resources;
 use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
 use serde::Deserialize;

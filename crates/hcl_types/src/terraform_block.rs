@@ -252,7 +252,7 @@ impl TryFrom<Block> for TerraformAzureRMBackendBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::ProviderKind;
+    use crate::ProviderKind;
     use crate::version::ProviderHostname;
     use crate::version::ProviderNamespace;
     use crate::version::ProviderSource;

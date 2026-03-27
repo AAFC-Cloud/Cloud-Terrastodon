@@ -1,5 +1,5 @@
-use crate::prelude::KeyVaultName;
-use crate::prelude::KeyVaultSecretName;
+use crate::KeyVaultName;
+use crate::KeyVaultSecretName;
 use crate::scopes::strip_prefix_case_insensitive;
 use arbitrary::Arbitrary;
 use eyre::Context;

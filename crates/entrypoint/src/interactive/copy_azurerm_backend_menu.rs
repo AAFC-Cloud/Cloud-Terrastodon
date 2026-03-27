@@ -1,8 +1,8 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::SubscriptionName;
-use cloud_terrastodon_azure::prelude::fetch_all_storage_accounts;
-use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::SubscriptionName;
+use cloud_terrastodon_azure::fetch_all_storage_accounts;
+use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_user_input::Choice;
@@ -107,7 +107,7 @@ pub async fn copy_azurerm_backend_menu(tenant_id: AzureTenantId) -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use cloud_terrastodon_azure::prelude::SubscriptionName;
+    use cloud_terrastodon_azure::SubscriptionName;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

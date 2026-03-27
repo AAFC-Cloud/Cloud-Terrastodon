@@ -1,8 +1,8 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::prelude::Resource;
-use cloud_terrastodon_azure::prelude::fetch_all_resources;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::Resource;
+use cloud_terrastodon_azure::fetch_all_resources;
 use eyre::Result;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;

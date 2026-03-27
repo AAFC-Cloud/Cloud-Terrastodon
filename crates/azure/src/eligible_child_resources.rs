@@ -1,10 +1,10 @@
 use crate::management_groups::fetch_root_management_group;
 use crate::resource_groups::fetch_all_resource_groups;
-use cloud_terrastodon_azure_types::prelude::AsScope;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::EligibleChildResource;
-use cloud_terrastodon_azure_types::prelude::EligibleChildResourceKind;
-use cloud_terrastodon_azure_types::prelude::Scope;
+use cloud_terrastodon_azure_types::AsScope;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::EligibleChildResource;
+use cloud_terrastodon_azure_types::EligibleChildResourceKind;
+use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -102,12 +102,12 @@ cloud_terrastodon_command::impl_cacheable_into_future!(EligibleChildResourceList
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::get_test_tenant_id;
     use crate::management_groups::fetch_root_management_group;
-    use crate::prelude::get_test_tenant_id;
-    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
     use crate::subscriptions::fetch_all_subscriptions;
-    use cloud_terrastodon_azure_types::prelude::AsScope;
-    use cloud_terrastodon_azure_types::prelude::Scope;
+    use crate::test_helpers::expect_aad_premium_p2_license;
+    use cloud_terrastodon_azure_types::AsScope;
+    use cloud_terrastodon_azure_types::Scope;
     use cloud_terrastodon_user_input::Choice;
     use cloud_terrastodon_user_input::PickerTui;
 

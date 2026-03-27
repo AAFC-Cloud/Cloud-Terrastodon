@@ -1,5 +1,5 @@
-use crate::prelude::AzureRmDataBlockKind;
-use crate::prelude::ProviderKind;
+use crate::AzureRmDataBlockKind;
+use crate::ProviderKind;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum DataBlockReference {

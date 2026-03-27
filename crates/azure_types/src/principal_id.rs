@@ -1,6 +1,6 @@
-use crate::prelude::EntraGroupId;
-use crate::prelude::EntraServicePrincipalId;
-use crate::prelude::EntraUserId;
+use crate::EntraGroupId;
+use crate::EntraServicePrincipalId;
+use crate::EntraUserId;
 use std::hash::Hash;
 use uuid::Uuid;
 

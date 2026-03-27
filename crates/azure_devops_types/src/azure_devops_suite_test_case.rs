@@ -1,5 +1,5 @@
 use super::azure_devops_test_plan::AzureDevOpsTestPlanIdentityRef;
-use crate::prelude::AzureDevOpsTestPlanShallowReference;
+use crate::AzureDevOpsTestPlanShallowReference;
 use serde::Deserialize;
 use serde::Serialize;
 

@@ -1,4 +1,4 @@
-use crate::noninteractive::prelude::clean;
+use crate::noninteractive::clean;
 use clap::Args;
 use eyre::Result;
 

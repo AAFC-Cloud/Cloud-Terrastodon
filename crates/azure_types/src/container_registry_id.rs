@@ -1,5 +1,5 @@
-use crate::prelude::ContainerRegistryName;
-use crate::prelude::ResourceGroupId;
+use crate::ContainerRegistryName;
+use crate::ResourceGroupId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -153,9 +153,9 @@ impl<'de> Deserialize<'de> for ContainerRegistryId {
 #[cfg(test)]
 mod test {
     use super::ContainerRegistryId;
-    use crate::prelude::ContainerRegistryName;
-    use crate::prelude::ResourceGroupId;
-    use crate::prelude::SubscriptionId;
+    use crate::ContainerRegistryName;
+    use crate::ResourceGroupId;
+    use crate::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
 

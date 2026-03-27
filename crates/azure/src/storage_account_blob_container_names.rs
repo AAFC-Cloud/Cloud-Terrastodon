@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure_types::prelude::Scope;
-use cloud_terrastodon_azure_types::prelude::StorageAccountBlobContainerName;
-use cloud_terrastodon_azure_types::prelude::StorageAccountId;
+use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_azure_types::StorageAccountBlobContainerName;
+use cloud_terrastodon_azure_types::StorageAccountId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -67,9 +67,9 @@ cloud_terrastodon_command::impl_cacheable_into_future!(StorageAccountBlobContain
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_storage_accounts;
-    use crate::prelude::fetch_storage_account_blob_container_names;
-    use crate::prelude::get_test_tenant_id;
+    use crate::fetch_all_storage_accounts;
+    use crate::fetch_storage_account_blob_container_names;
+    use crate::get_test_tenant_id;
     use eyre::bail;
 
     #[tokio::test]

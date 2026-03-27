@@ -1,5 +1,5 @@
-use crate::prelude::AzureDevOpsDescriptor;
-use crate::prelude::AzureDevOpsLicenseRule;
+use crate::AzureDevOpsDescriptor;
+use crate::AzureDevOpsLicenseRule;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;

@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::Location;
-use cloud_terrastodon_azure_types::prelude::SubscriptionId;
+use cloud_terrastodon_azure_types::Location;
+use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -51,9 +51,9 @@ cloud_terrastodon_command::impl_cacheable_into_future!(LocationListRequest);
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_locations;
-    use crate::prelude::fetch_all_subscriptions;
-    use crate::prelude::get_test_tenant_id;
+    use crate::fetch_all_locations;
+    use crate::fetch_all_subscriptions;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

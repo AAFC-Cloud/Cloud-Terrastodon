@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::prelude::EntraUser;
+use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;

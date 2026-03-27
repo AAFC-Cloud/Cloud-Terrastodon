@@ -1,7 +1,7 @@
-use crate::prelude::fetch_all_compute_skus;
-use cloud_terrastodon_azure_types::prelude::ComputeSku;
-use cloud_terrastodon_azure_types::prelude::ComputeSkuResourceType;
-use cloud_terrastodon_azure_types::prelude::SubscriptionId;
+use crate::fetch_all_compute_skus;
+use cloud_terrastodon_azure_types::ComputeSku;
+use cloud_terrastodon_azure_types::ComputeSkuResourceType;
+use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;

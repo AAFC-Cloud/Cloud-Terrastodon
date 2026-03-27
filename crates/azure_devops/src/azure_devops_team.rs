@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeam;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsTeam;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -71,8 +71,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsTeamsForProjec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::fetch_all_azure_devops_projects;
-    use crate::prelude::get_default_organization_url;
+    use crate::fetch_all_azure_devops_projects;
+    use crate::get_default_organization_url;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {

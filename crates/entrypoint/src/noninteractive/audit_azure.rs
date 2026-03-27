@@ -1,8 +1,8 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::fetch_all_principals;
-use cloud_terrastodon_azure::prelude::fetch_all_resources;
-use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::fetch_all_principals;
+use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use std::collections::HashMap;
 use tokio::try_join;
 use tracing::info;

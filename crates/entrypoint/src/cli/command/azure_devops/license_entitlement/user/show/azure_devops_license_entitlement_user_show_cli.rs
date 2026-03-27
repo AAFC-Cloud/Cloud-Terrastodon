@@ -1,7 +1,7 @@
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
+use cloud_terrastodon_azure_devops::get_default_organization_url;
 use eyre::Result;
 use eyre::bail;
 use serde_json::to_writer_pretty;

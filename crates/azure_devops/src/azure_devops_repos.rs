@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectId;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsRepo;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectId;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsRepo;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -70,8 +70,8 @@ pub async fn fetch_azure_devops_repos_batch(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::fetch_all_azure_devops_projects;
-    use crate::prelude::get_default_organization_url;
+    use crate::fetch_all_azure_devops_projects;
+    use crate::get_default_organization_url;
 
     #[tokio::test]
     async fn test_fetch_all_azure_devops_repos() -> Result<()> {

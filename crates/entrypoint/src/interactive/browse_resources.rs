@@ -1,7 +1,7 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::Resource;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::fetch_all_resources;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::Resource;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;

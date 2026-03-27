@@ -80,8 +80,8 @@ impl<'de> Deserialize<'de> for EligibleChildResourceKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::TestResourceId;
     use crate::management_groups::ManagementGroupId;
-    use crate::prelude::TestResourceId;
     use crate::scopes::Scope;
 
     #[test]

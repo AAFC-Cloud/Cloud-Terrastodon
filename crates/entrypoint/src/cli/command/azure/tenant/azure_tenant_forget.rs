@@ -1,7 +1,7 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::prelude::forget_tracked_tenant;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::forget_tracked_tenant;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;

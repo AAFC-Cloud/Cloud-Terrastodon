@@ -1,7 +1,7 @@
-use crate::prelude::ResourceGroupId;
-use crate::prelude::VirtualNetworkId;
-use crate::prelude::VirtualNetworkName;
-use crate::prelude::VirtualNetworkProperties;
+use crate::ResourceGroupId;
+use crate::VirtualNetworkId;
+use crate::VirtualNetworkName;
+use crate::VirtualNetworkProperties;
 use crate::serde_helpers::deserialize_default_if_null;
 use serde::Deserialize;
 use serde::Serialize;

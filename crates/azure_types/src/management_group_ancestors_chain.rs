@@ -1,4 +1,4 @@
-use crate::prelude::ManagementGroupId;
+use crate::ManagementGroupId;
 use serde::Deserialize;
 use serde::Serialize;
 use std::ops::Deref;

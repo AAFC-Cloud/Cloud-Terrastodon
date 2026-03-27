@@ -1,7 +1,7 @@
-use crate::prelude::EntraGroup;
-use crate::prelude::EntraServicePrincipal;
-use crate::prelude::EntraUser;
-use crate::prelude::PrincipalId;
+use crate::EntraGroup;
+use crate::EntraServicePrincipal;
+use crate::EntraUser;
+use crate::PrincipalId;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;

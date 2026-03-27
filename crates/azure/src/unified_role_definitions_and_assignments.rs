@@ -1,7 +1,7 @@
-use crate::prelude::fetch_all_unified_role_assignments;
-use crate::prelude::fetch_all_unified_role_definitions;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionsAndAssignments;
+use crate::fetch_all_unified_role_assignments;
+use crate::fetch_all_unified_role_definitions;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::UnifiedRoleDefinitionsAndAssignments;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -50,11 +50,11 @@ impl IntoFuture for UnifiedRoleDefinitionsAndAssignmentsListRequest {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_principals;
-    use crate::prelude::fetch_all_unified_role_definitions_and_assignments;
-    use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::RolePermissionAction;
-    use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionsAndAssignmentsIterTools;
+    use crate::fetch_all_principals;
+    use crate::fetch_all_unified_role_definitions_and_assignments;
+    use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::RolePermissionAction;
+    use cloud_terrastodon_azure_types::UnifiedRoleDefinitionsAndAssignmentsIterTools;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

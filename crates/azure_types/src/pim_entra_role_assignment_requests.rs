@@ -1,7 +1,7 @@
-use crate::prelude::AzureTenantId;
-use crate::prelude::GovernanceRoleAssignment;
-use crate::prelude::PrincipalId;
-use crate::prelude::to_iso8601;
+use crate::AzureTenantId;
+use crate::GovernanceRoleAssignment;
+use crate::PrincipalId;
+use crate::to_iso8601;
 use serde::Deserialize;
 use serde::Serialize;
 use std::time::Duration;

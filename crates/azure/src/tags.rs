@@ -1,9 +1,9 @@
-use crate::prelude::BatchRequest;
-use crate::prelude::BatchRequestEntry;
-use crate::prelude::BatchResponse;
-use crate::prelude::invoke_batch_request;
-use cloud_terrastodon_azure_types::prelude::ResourceTagsId;
-use cloud_terrastodon_azure_types::prelude::Scope;
+use crate::BatchRequest;
+use crate::BatchRequestEntry;
+use crate::BatchResponse;
+use crate::invoke_batch_request;
+use cloud_terrastodon_azure_types::ResourceTagsId;
+use cloud_terrastodon_azure_types::Scope;
 use eyre::Result;
 use http::Method;
 use itertools::Itertools;
@@ -142,8 +142,8 @@ fn extract_tags_from_response(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::fetch_all_resource_groups;
-    use crate::prelude::get_test_tenant_id;
+    use crate::fetch_all_resource_groups;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     async fn get_tags_test() -> Result<()> {

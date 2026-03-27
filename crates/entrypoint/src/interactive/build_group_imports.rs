@@ -1,7 +1,7 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::fetch_all_groups;
-use cloud_terrastodon_hcl::prelude::HclImportBlock;
-use cloud_terrastodon_hcl::prelude::HclWriter;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::fetch_all_groups;
+use cloud_terrastodon_hcl::HclImportBlock;
+use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;

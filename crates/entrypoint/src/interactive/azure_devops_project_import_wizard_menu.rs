@@ -1,10 +1,10 @@
-use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
+use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
-use cloud_terrastodon_hcl::prelude::HclImportBlock;
-use cloud_terrastodon_hcl::prelude::HclWriter;
+use cloud_terrastodon_hcl::HclImportBlock;
+use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -33,13 +33,12 @@ pub async fn azure_devops_project_import_wizard_menu() -> Result<()> {
 
     let org_url = get_default_organization_url().await?;
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
-    let projects: Vec<cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject> =
-        PickerTui::new()
-            .set_header("Choose the projects to import")
-            .pick_many(projects.into_iter().map(|project| Choice {
-                key: project.name.to_string(),
-                value: project,
-            }))?;
+    let projects: Vec<cloud_terrastodon_azure_devops::AzureDevOpsProject> = PickerTui::new()
+        .set_header("Choose the projects to import")
+        .pick_many(projects.into_iter().map(|project| Choice {
+            key: project.name.to_string(),
+            value: project,
+        }))?;
 
     let mut project_import_blocks = Vec::new();
     for project in projects {

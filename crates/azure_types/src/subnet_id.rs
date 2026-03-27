@@ -1,5 +1,5 @@
-use crate::prelude::SubnetName;
-use crate::prelude::VirtualNetworkId;
+use crate::SubnetName;
+use crate::VirtualNetworkId;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::TryFromVirtualNetworkScoped;
@@ -164,10 +164,10 @@ impl<'de> serde::Deserialize<'de> for SubnetId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::ResourceGroupId;
-    use crate::prelude::ResourceGroupName;
-    use crate::prelude::SubscriptionId;
-    use crate::prelude::VirtualNetworkName;
+    use crate::ResourceGroupId;
+    use crate::ResourceGroupName;
+    use crate::SubscriptionId;
+    use crate::VirtualNetworkName;
     use uuid::Uuid;
 
     #[test]

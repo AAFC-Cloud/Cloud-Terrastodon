@@ -1,12 +1,12 @@
-use crate::prelude::BatchRequest;
-use crate::prelude::BatchRequestEntry;
+use crate::BatchRequest;
+use crate::BatchRequestEntry;
 use chrono::Datelike;
 use chrono::Local;
 use chrono::SecondsFormat;
 use chrono::TimeZone;
-use cloud_terrastodon_azure_types::prelude::AsScope;
-use cloud_terrastodon_azure_types::prelude::Metrics;
-use cloud_terrastodon_azure_types::prelude::Scope;
+use cloud_terrastodon_azure_types::AsScope;
+use cloud_terrastodon_azure_types::Metrics;
+use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::OptionExt;
 use tempfile::Builder;
@@ -56,8 +56,8 @@ pub async fn fetch_metrics(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::fetch_all_storage_accounts;
-    use crate::prelude::get_test_tenant_id;
+    use crate::fetch_all_storage_accounts;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {

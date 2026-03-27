@@ -1,6 +1,6 @@
-use crate::prelude::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::PolicySetDefinition;
+use crate::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::PolicySetDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -59,7 +59,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(PolicySetDefinitionListRe
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::get_test_tenant_id;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

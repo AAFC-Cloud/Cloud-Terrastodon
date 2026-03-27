@@ -72,7 +72,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::SubscriptionId;
+    use crate::SubscriptionId;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use serde::Deserialize;

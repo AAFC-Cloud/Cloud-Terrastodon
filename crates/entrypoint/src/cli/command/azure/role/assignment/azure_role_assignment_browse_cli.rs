@@ -1,9 +1,9 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::fetch_all_principals;
-use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::fetch_all_principals;
+use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;

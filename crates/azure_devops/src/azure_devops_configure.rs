@@ -35,7 +35,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsCliConfigReque
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::get_azure_devops_cli_config;
+    use crate::get_azure_devops_cli_config;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

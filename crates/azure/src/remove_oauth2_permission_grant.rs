@@ -1,6 +1,6 @@
-use crate::prelude::FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
+use crate::FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;

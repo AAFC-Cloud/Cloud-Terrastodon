@@ -1,5 +1,5 @@
-use crate::prelude::EntraServicePrincipalId;
-use crate::prelude::EntraUserId;
+use crate::EntraServicePrincipalId;
+use crate::EntraUserId;
 use itertools::Itertools;
 use serde::Deserialize;
 use serde::Serialize;

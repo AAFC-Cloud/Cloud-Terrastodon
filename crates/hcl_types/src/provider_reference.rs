@@ -1,4 +1,4 @@
-use crate::prelude::ProviderKind;
+use crate::ProviderKind;
 use eyre::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::TraversalOperator;

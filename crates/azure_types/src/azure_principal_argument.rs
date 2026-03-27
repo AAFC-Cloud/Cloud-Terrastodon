@@ -1,5 +1,5 @@
-use crate::prelude::Principal;
-use crate::prelude::PrincipalId;
+use crate::Principal;
+use crate::PrincipalId;
 use std::str::FromStr;
 
 /// Principal can be specified as an id (UUID) or a display/user principal name.

@@ -1,8 +1,8 @@
+use crate::ComputePublisherName;
+use crate::LocationName;
+use crate::SubscriptionId;
 use crate::compute_publisher_vm_image_offer_name::ComputePublisherVmImageOfferName;
 use crate::compute_publisher_vm_image_offer_sku_name::ComputePublisherVmImageOfferSkuName;
-use crate::prelude::ComputePublisherName;
-use crate::prelude::LocationName;
-use crate::prelude::SubscriptionId;
 use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use eyre::Context;

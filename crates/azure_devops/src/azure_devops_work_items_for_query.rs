@@ -1,7 +1,7 @@
 #![allow(deprecated)]
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQueryId;
-use cloud_terrastodon_azure_devops_types::prelude::WorkItemQueryResult;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQueryId;
+use cloud_terrastodon_azure_devops_types::WorkItemQueryResult;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -71,11 +71,11 @@ cloud_terrastodon_command::impl_cacheable_into_future!(WorkItemsForQueryRequest<
 #[cfg(test)]
 #[allow(deprecated)]
 mod test {
-    use crate::prelude::fetch_all_azure_devops_projects;
-    use crate::prelude::fetch_queries_for_project;
-    use crate::prelude::fetch_work_items_for_query;
-    use crate::prelude::get_default_organization_url;
-    use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsWorkItemQuery;
+    use crate::fetch_all_azure_devops_projects;
+    use crate::fetch_queries_for_project;
+    use crate::fetch_work_items_for_query;
+    use crate::get_default_organization_url;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
     use eyre::Context;
     use eyre::bail;
 

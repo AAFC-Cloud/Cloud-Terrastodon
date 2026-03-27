@@ -1,9 +1,9 @@
-use crate::prelude::AsScope;
-use crate::prelude::ResourceGroupId;
-use crate::prelude::ResourceType;
-use crate::prelude::Scope;
-use crate::prelude::ScopeImpl;
-use crate::prelude::ScopeImplKind;
+use crate::AsScope;
+use crate::ResourceGroupId;
+use crate::ResourceType;
+use crate::Scope;
+use crate::ScopeImpl;
+use crate::ScopeImplKind;
 use crate::scopes::HasPrefix;
 use crate::scopes::TryFromResourceScoped;
 use crate::serde_helpers::deserialize_default_if_null;
@@ -145,10 +145,10 @@ impl std::fmt::Display for Resource {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::ResourceGroupId;
-    use crate::prelude::ResourceGroupName;
-    use crate::prelude::ResourceId;
-    use crate::prelude::SubscriptionId;
+    use crate::ResourceGroupId;
+    use crate::ResourceGroupName;
+    use crate::ResourceId;
+    use crate::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
     use cloud_terrastodon_azure_resource_types::ResourceType;

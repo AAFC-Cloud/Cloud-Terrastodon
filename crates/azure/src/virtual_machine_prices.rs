@@ -1,7 +1,7 @@
-use crate::prelude::ComputeSkuPricesRequest;
-use crate::prelude::fetch_compute_sku_prices;
-use cloud_terrastodon_azure_types::prelude::ComputeSkuName;
-use cloud_terrastodon_azure_types::prelude::LocationName;
+use crate::ComputeSkuPricesRequest;
+use crate::fetch_compute_sku_prices;
+use cloud_terrastodon_azure_types::ComputeSkuName;
+use cloud_terrastodon_azure_types::LocationName;
 
 /// Alias for [`fetch_compute_sku_prices`]
 pub fn fetch_virtual_machine_prices(
@@ -13,9 +13,9 @@ pub fn fetch_virtual_machine_prices(
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_virtual_machine_prices;
-    use cloud_terrastodon_azure_types::prelude::ComputeSkuName;
-    use cloud_terrastodon_azure_types::prelude::LocationName;
+    use crate::fetch_virtual_machine_prices;
+    use cloud_terrastodon_azure_types::ComputeSkuName;
+    use cloud_terrastodon_azure_types::LocationName;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

@@ -1,7 +1,7 @@
 use crate::azure_devops_agent_pool_entitlements_for_project::fetch_azure_devops_agent_pool_entitlements_for_project;
-use crate::prelude::fetch_all_azure_devops_projects;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsAgentPoolArgument;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use crate::fetch_all_azure_devops_projects;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsAgentPoolArgument;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use std::pin::Pin;
 
@@ -31,7 +31,7 @@ impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsAgentPoolEntitlementListFor
 }
 
 impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
-    type Output = eyre::Result<Vec<crate::prelude::AzureDevOpsAgentPoolEntitlement>>;
+    type Output = eyre::Result<Vec<crate::AzureDevOpsAgentPoolEntitlement>>;
 
     type IntoFuture = Pin<Box<dyn std::future::Future<Output = Self::Output> + 'a>>;
 
@@ -60,8 +60,8 @@ impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::prelude::fetch_azure_devops_agent_pools;
-    use crate::prelude::get_default_organization_url;
+    use crate::fetch_azure_devops_agent_pools;
+    use crate::get_default_organization_url;
     use itertools::Itertools;
 
     #[tokio::test]

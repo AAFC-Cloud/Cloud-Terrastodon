@@ -1,9 +1,9 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
+use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
-use cloud_terrastodon_hcl::prelude::HclWriter;
 use cloud_terrastodon_hcl::reflow::reflow_hcl;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;

@@ -1,7 +1,7 @@
-use crate::prelude::AsHclString;
-use crate::prelude::HclProviderReference;
-use crate::prelude::ProviderKind;
-use crate::prelude::ResourceBlockReference;
+use crate::AsHclString;
+use crate::HclProviderReference;
+use crate::ProviderKind;
+use crate::ResourceBlockReference;
 use eyre::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::TraversalOperator;
@@ -150,9 +150,9 @@ impl TryFrom<Block> for HclImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::AzureRmResourceBlockKind;
-    use crate::prelude::HclProviderReference;
-    use crate::prelude::TryAsHclBlocks;
+    use crate::AzureRmResourceBlockKind;
+    use crate::HclProviderReference;
+    use crate::TryAsHclBlocks;
 
     #[test]
     fn conversaion_parity1() -> eyre::Result<()> {

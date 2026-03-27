@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::KeyVaultId;
-use cloud_terrastodon_azure_types::prelude::KeyVaultSecret;
+use cloud_terrastodon_azure_types::KeyVaultId;
+use cloud_terrastodon_azure_types::KeyVaultSecret;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;

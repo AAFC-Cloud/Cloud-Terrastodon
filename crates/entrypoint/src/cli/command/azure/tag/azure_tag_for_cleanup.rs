@@ -1,11 +1,11 @@
 use chrono::Local;
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::prelude::ResourceTagsId;
-use cloud_terrastodon_azure::prelude::fetch_all_resources;
-use cloud_terrastodon_azure::prelude::fetch_current_user;
-use cloud_terrastodon_azure::prelude::merge_tags_for_resources;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::ResourceTagsId;
+use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_azure::fetch_current_user;
+use cloud_terrastodon_azure::merge_tags_for_resources;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;

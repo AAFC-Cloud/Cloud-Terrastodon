@@ -1,14 +1,14 @@
-use crate::prelude::ManagementGroupId;
-use crate::prelude::ManagementGroupScoped;
-use crate::prelude::ResourceGroupId;
-use crate::prelude::ResourceGroupScoped;
-use crate::prelude::ResourceId;
-use crate::prelude::RoleAssignmentId;
-use crate::prelude::RoleAssignmentName;
-use crate::prelude::ServiceGroupId;
-use crate::prelude::SubscriptionId;
-use crate::prelude::SubscriptionScoped;
-use crate::prelude::Unscoped;
+use crate::ManagementGroupId;
+use crate::ManagementGroupScoped;
+use crate::ResourceGroupId;
+use crate::ResourceGroupScoped;
+use crate::ResourceId;
+use crate::RoleAssignmentId;
+use crate::RoleAssignmentName;
+use crate::ServiceGroupId;
+use crate::SubscriptionId;
+use crate::SubscriptionScoped;
+use crate::Unscoped;
 use crate::role_assignment_id::ROLE_ASSIGNMENT_ID_PREFIX;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
@@ -200,7 +200,7 @@ impl TryFromSubscriptionScoped for SubscriptionScopedRoleAssignmentId {
 impl TryFromResourceGroupScoped for ResourceGroupScopedRoleAssignmentId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: crate::prelude::ResourceGroupId,
+        resource_group_id: crate::ResourceGroupId,
         name: Self::Name,
     ) -> Self {
         ResourceGroupScopedRoleAssignmentId {

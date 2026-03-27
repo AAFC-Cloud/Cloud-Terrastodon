@@ -1,8 +1,8 @@
-use crate::prelude::AzureAdResourceBlockKind;
-use crate::prelude::AzureDevOpsResourceBlockKind;
-use crate::prelude::AzureRmResourceBlockKind;
-use crate::prelude::ProviderKind;
-use crate::prelude::ResourceBlockResourceKind;
+use crate::AzureAdResourceBlockKind;
+use crate::AzureDevOpsResourceBlockKind;
+use crate::AzureRmResourceBlockKind;
+use crate::ProviderKind;
+use crate::ResourceBlockResourceKind;
 use eyre::Context;
 use eyre::bail;
 use hcl::edit::expr::Expression;

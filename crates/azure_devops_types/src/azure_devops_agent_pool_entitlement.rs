@@ -1,7 +1,7 @@
-use crate::prelude::AzureDevOpsAgentPoolEntitlementId;
-use crate::prelude::AzureDevOpsAgentPoolId;
-use crate::prelude::AzureDevOpsAgentPoolName;
-use crate::prelude::AzureDevOpsProjectId;
+use crate::AzureDevOpsAgentPoolEntitlementId;
+use crate::AzureDevOpsAgentPoolId;
+use crate::AzureDevOpsAgentPoolName;
+use crate::AzureDevOpsProjectId;
 
 /// In Azure DevOps documentation, the grant for a given [`AzureDevOpsProject`] to use an [`AzureDevOpsAgentPool`] is called a "queue" but that's silly so we will call it an entitlement instead.
 /// <https://learn.microsoft.com/en-us/rest/api/azure/devops/distributedtask/queues/get?view=azure-devops-rest-7.1>

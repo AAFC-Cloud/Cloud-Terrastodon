@@ -122,7 +122,7 @@ impl From<ContainerRegistryName> for CompactString {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::ContainerRegistryName;
+    use crate::ContainerRegistryName;
     use crate::slug::Slug;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;

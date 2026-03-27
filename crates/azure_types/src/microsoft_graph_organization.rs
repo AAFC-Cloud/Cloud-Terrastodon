@@ -1,6 +1,6 @@
-use crate::prelude::AzureTenantId;
-use crate::prelude::MicrosoftGraphDirectoryObject;
-use crate::prelude::MicrosoftGraphEntity;
+use crate::AzureTenantId;
+use crate::MicrosoftGraphDirectoryObject;
+use crate::MicrosoftGraphEntity;
 use serde::Deserialize;
 use serde::Serialize;
 

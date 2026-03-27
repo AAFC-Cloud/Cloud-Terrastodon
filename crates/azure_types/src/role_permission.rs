@@ -1,4 +1,4 @@
-use crate::prelude::RolePermissionAction;
+use crate::RolePermissionAction;
 use ordermap::OrderSet;
 use serde::Deserialize;
 use serde::Serialize;
@@ -132,7 +132,7 @@ impl PartialOrd for RolePermissions {
 #[cfg(test)]
 mod test {
     use super::RolePermissions;
-    use crate::prelude::RolePermissionAction;
+    use crate::RolePermissionAction;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure_types::prelude::ComputeSkuName;
-use cloud_terrastodon_azure_types::prelude::LocationName;
-use cloud_terrastodon_azure_types::prelude::Price;
+use cloud_terrastodon_azure_types::ComputeSkuName;
+use cloud_terrastodon_azure_types::LocationName;
+use cloud_terrastodon_azure_types::Price;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -71,9 +71,9 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ComputeSkuPricesRequest);
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_compute_sku_prices;
-    use cloud_terrastodon_azure_types::prelude::ComputeSkuName;
-    use cloud_terrastodon_azure_types::prelude::LocationName;
+    use crate::fetch_compute_sku_prices;
+    use cloud_terrastodon_azure_types::ComputeSkuName;
+    use cloud_terrastodon_azure_types::LocationName;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

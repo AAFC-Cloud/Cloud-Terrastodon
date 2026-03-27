@@ -1,9 +1,9 @@
-use cloud_terrastodon_azure_types::prelude::PrincipalId;
-use cloud_terrastodon_azure_types::prelude::RoleAssignmentScheduleRequest;
-use cloud_terrastodon_azure_types::prelude::RoleDefinitionId;
-use cloud_terrastodon_azure_types::prelude::RoleEligibilityScheduleId;
-use cloud_terrastodon_azure_types::prelude::Scope;
-use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
+use cloud_terrastodon_azure_types::PrincipalId;
+use cloud_terrastodon_azure_types::RoleAssignmentScheduleRequest;
+use cloud_terrastodon_azure_types::RoleDefinitionId;
+use cloud_terrastodon_azure_types::RoleEligibilityScheduleId;
+use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;

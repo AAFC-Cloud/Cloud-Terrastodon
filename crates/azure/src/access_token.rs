@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::prelude::AccessToken;
+use cloud_terrastodon_azure_types::AccessToken;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
@@ -12,14 +12,14 @@ pub async fn fetch_access_token<T: FromCommandOutput>() -> eyre::Result<AccessTo
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_access_token;
+    use crate::fetch_access_token;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let token = fetch_access_token::<String>().await?;
         assert_eq!(
             token.token_type,
-            cloud_terrastodon_azure_types::prelude::TokenType::Bearer
+            cloud_terrastodon_azure_types::TokenType::Bearer
         );
         Ok(())
     }

@@ -1,4 +1,4 @@
-use crate::noninteractive::prelude::dump_azure_devops;
+use crate::noninteractive::dump_azure_devops;
 use clap::Args;
 use eyre::Result;
 

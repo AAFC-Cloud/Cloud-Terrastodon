@@ -1,5 +1,5 @@
+use crate::ComputeSkuName;
 use crate::location::LocationName;
-use crate::prelude::ComputeSkuName;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]

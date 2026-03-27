@@ -1,9 +1,9 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::SubscriptionId;
-use cloud_terrastodon_azure::prelude::SubscriptionIdExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::SubscriptionId;
+use cloud_terrastodon_azure::SubscriptionIdExt;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
@@ -246,7 +246,7 @@ async fn print_response(response: Response) -> Result<()> {
 mod test {
     use super::RestService;
     use super::extract_arm_subscription_id;
-    use cloud_terrastodon_azure::prelude::SubscriptionId;
+    use cloud_terrastodon_azure::SubscriptionId;
     use reqwest::Url;
 
     #[test]

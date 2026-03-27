@@ -1,4 +1,4 @@
-use crate::prelude::AddressPrefix;
+use crate::AddressPrefix;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;

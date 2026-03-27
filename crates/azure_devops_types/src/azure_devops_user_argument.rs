@@ -1,5 +1,5 @@
-use crate::prelude::AzureDevOpsLicenseEntitlementUserReference;
-use crate::prelude::AzureDevOpsUserId;
+use crate::AzureDevOpsLicenseEntitlementUserReference;
+use crate::AzureDevOpsUserId;
 use compact_str::CompactString;
 use eyre::bail;
 use std::str::FromStr;

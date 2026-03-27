@@ -1,14 +1,14 @@
-use crate::prelude::PrincipalId;
-use crate::prelude::RoleAssignmentId;
-use crate::prelude::RoleDefinitionId;
+use crate::PrincipalId;
+use crate::RoleAssignmentId;
+use crate::RoleDefinitionId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
-use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::HclImportBlock;
+use cloud_terrastodon_hcl_types::HclProviderReference;
+use cloud_terrastodon_hcl_types::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 

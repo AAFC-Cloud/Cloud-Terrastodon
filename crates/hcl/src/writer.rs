@@ -1,11 +1,11 @@
-use crate::prelude::HclBlock;
+use crate::HclBlock;
 use crate::sorting::HclBlockSortable;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_hcl_types::prelude::AsHclString;
-use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
-use cloud_terrastodon_hcl_types::prelude::TerraformBlock;
+use cloud_terrastodon_hcl_types::AsHclString;
+use cloud_terrastodon_hcl_types::HclImportBlock;
+use cloud_terrastodon_hcl_types::HclProviderBlock;
+use cloud_terrastodon_hcl_types::TerraformBlock;
 use cloud_terrastodon_pathing::Existy;
 use eyre::Context;
 use eyre::Result;

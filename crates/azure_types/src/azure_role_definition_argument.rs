@@ -1,6 +1,6 @@
-use crate::prelude::RoleDefinition;
-use crate::prelude::RoleDefinitionId;
-use crate::prelude::RoleDefinitionName;
+use crate::RoleDefinition;
+use crate::RoleDefinitionId;
+use crate::RoleDefinitionName;
 use crate::scopes::Scope;
 use crate::slug::Slug;
 use std::str::FromStr;

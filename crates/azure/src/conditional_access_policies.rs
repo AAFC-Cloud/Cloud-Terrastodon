@@ -1,6 +1,6 @@
-use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::ConditionalAccessPolicy;
+use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::ConditionalAccessPolicy;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -48,13 +48,13 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ConditionalAccessPolicyLi
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_conditional_access_named_locations;
-    use crate::prelude::fetch_all_conditional_access_policies;
-    use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::AllOr;
-    use cloud_terrastodon_azure_types::prelude::ConditionalAccessPolicyGrantControlBuiltInControl;
-    use cloud_terrastodon_azure_types::prelude::ConditionalAccessPolicyState;
-    use cloud_terrastodon_azure_types::prelude::ipnetwork::Ipv4Network;
+    use crate::fetch_all_conditional_access_named_locations;
+    use crate::fetch_all_conditional_access_policies;
+    use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::AllOr;
+    use cloud_terrastodon_azure_types::ConditionalAccessPolicyGrantControlBuiltInControl;
+    use cloud_terrastodon_azure_types::ConditionalAccessPolicyState;
+    use cloud_terrastodon_azure_types::ipnetwork::Ipv4Network;
     use std::net::Ipv4Addr;
     use tokio::try_join;
     use tracing::warn;

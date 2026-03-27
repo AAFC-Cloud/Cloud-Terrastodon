@@ -1,11 +1,11 @@
-use crate::prelude::HasPrefix;
-use crate::prelude::NameValidatable;
-use crate::prelude::ServiceGroupName;
-use crate::prelude::strip_prefix_case_insensitive;
+use crate::HasPrefix;
+use crate::NameValidatable;
+use crate::ServiceGroupName;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::slug::Slug;
+use crate::strip_prefix_case_insensitive;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Deserializer;

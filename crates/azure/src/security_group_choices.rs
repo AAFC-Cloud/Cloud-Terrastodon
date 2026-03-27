@@ -1,6 +1,6 @@
-use crate::prelude::fetch_all_security_groups;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::EntraGroup;
+use crate::fetch_all_security_groups;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_user_input::Choice;
 use itertools::Itertools;
 

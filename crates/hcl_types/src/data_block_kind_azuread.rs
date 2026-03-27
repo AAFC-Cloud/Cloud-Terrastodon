@@ -1,4 +1,4 @@
-use crate::prelude::ProviderKind;
+use crate::ProviderKind;
 use eyre::Result;
 use eyre::eyre;
 use std::str::FromStr;

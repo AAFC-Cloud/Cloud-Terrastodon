@@ -1,6 +1,6 @@
-use crate::prelude::PrincipalId;
-use crate::prelude::UnifiedRoleAssignmentId;
-use crate::prelude::UnifiedRoleDefinitionId;
+use crate::PrincipalId;
+use crate::UnifiedRoleAssignmentId;
+use crate::UnifiedRoleDefinitionId;
 use crate::tenant_id::AzureTenantId;
 use serde::Deserialize;
 use serde::Serialize;

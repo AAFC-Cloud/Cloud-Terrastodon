@@ -1,6 +1,6 @@
 use crate::reflow::HclReflower;
-use cloud_terrastodon_azure::prelude::PrincipalCollection;
-use cloud_terrastodon_azure::prelude::PrincipalId;
+use cloud_terrastodon_azure::PrincipalCollection;
+use cloud_terrastodon_azure::PrincipalId;
 use hcl::edit::Decorate;
 use hcl::edit::RawString;
 use hcl::edit::expr::Expression;
@@ -69,9 +69,9 @@ mod test {
     use crate::reflow::HclReflower;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
-    use cloud_terrastodon_azure::prelude::EntraUser;
-    use cloud_terrastodon_azure::prelude::Principal;
-    use cloud_terrastodon_azure::prelude::PrincipalCollection;
+    use cloud_terrastodon_azure::EntraUser;
+    use cloud_terrastodon_azure::Principal;
+    use cloud_terrastodon_azure::PrincipalCollection;
     use hcl::edit::structure::Body;
     use indoc::formatdoc;
     use rand::Rng;

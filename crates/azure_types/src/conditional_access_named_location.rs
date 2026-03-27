@@ -1,4 +1,4 @@
-use crate::prelude::ConditionalAccessNamedLocationId;
+use crate::ConditionalAccessNamedLocationId;
 use chrono::DateTime;
 use chrono::Utc;
 use compact_str::CompactString;

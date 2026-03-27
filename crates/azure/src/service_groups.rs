@@ -1,6 +1,6 @@
-use crate::prelude::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::ServiceGroup;
+use crate::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::ServiceGroup;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -57,7 +57,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ServiceGroupListRequest);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::get_test_tenant_id;
+    use crate::get_test_tenant_id;
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {

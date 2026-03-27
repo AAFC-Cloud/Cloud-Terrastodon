@@ -1,6 +1,6 @@
-use crate::prelude::ResourceGroupId;
-use crate::prelude::RouteTableId;
-use crate::prelude::RouteTableProperties;
+use crate::ResourceGroupId;
+use crate::RouteTableId;
+use crate::RouteTableProperties;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;

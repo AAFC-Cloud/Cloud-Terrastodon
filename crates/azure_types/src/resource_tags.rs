@@ -1,8 +1,8 @@
-use crate::prelude::AsScope;
-use crate::prelude::Scope;
-use crate::prelude::ScopeImpl;
-use crate::prelude::ScopeImplKind;
-use crate::prelude::strip_suffix_case_insensitive;
+use crate::AsScope;
+use crate::Scope;
+use crate::ScopeImpl;
+use crate::ScopeImplKind;
+use crate::strip_suffix_case_insensitive;
 use eyre::Context;
 use eyre::Result;
 use serde::Deserialize;

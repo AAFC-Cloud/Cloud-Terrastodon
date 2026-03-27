@@ -1,5 +1,5 @@
-use crate::prelude::ResourceGroupId;
-use crate::prelude::StorageAccountName;
+use crate::ResourceGroupId;
+use crate::StorageAccountName;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -153,9 +153,9 @@ impl<'de> Deserialize<'de> for StorageAccountId {
 #[cfg(test)]
 mod test {
     use super::StorageAccountId;
-    use crate::prelude::ResourceGroupId;
-    use crate::prelude::StorageAccountName;
-    use crate::prelude::SubscriptionId;
+    use crate::ResourceGroupId;
+    use crate::StorageAccountName;
+    use crate::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
     use arbitrary::Arbitrary;

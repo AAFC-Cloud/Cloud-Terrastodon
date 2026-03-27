@@ -1,10 +1,10 @@
-use crate::prelude::AzureAdDataBlockKind;
-use crate::prelude::AzureDevOpsDataBlockKind;
-use crate::prelude::AzureRmDataBlockKind;
-use crate::prelude::DataBlockReference;
-use crate::prelude::DataBlockResourceKind;
-use crate::prelude::OtherDataBlockKind;
-use crate::prelude::ProviderKind;
+use crate::AzureAdDataBlockKind;
+use crate::AzureDevOpsDataBlockKind;
+use crate::AzureRmDataBlockKind;
+use crate::DataBlockReference;
+use crate::DataBlockResourceKind;
+use crate::OtherDataBlockKind;
+use crate::ProviderKind;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::Structure;

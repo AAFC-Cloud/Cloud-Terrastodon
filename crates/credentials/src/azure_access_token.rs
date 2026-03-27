@@ -1,5 +1,5 @@
 use crate::AzureDevOpsPersonalAccessToken;
-use cloud_terrastodon_azure_types::prelude::AccessToken;
+use cloud_terrastodon_azure_types::AccessToken;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 

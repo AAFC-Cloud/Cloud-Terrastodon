@@ -1,7 +1,7 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeamId;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsTeamMember;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsTeamId;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsTeamMember;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -79,10 +79,10 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsTeamMembersReq
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_azure_devops_projects;
-    use crate::prelude::fetch_azure_devops_team_members;
-    use crate::prelude::fetch_azure_devops_teams_for_project;
-    use crate::prelude::get_default_organization_url;
+    use crate::fetch_all_azure_devops_projects;
+    use crate::fetch_azure_devops_team_members;
+    use crate::fetch_azure_devops_teams_for_project;
+    use crate::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

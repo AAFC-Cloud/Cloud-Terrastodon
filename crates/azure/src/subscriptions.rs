@@ -1,8 +1,8 @@
-use crate::prelude::ResourceGraphHelper;
-use crate::prelude::list_tracked_tenants;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::Subscription;
-use cloud_terrastodon_azure_types::prelude::SubscriptionId;
+use crate::ResourceGraphHelper;
+use crate::list_tracked_tenants;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::Subscription;
+use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -103,7 +103,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(SubscriptionListRequest);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::get_test_tenant_id;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

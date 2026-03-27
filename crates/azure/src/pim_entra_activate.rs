@@ -1,7 +1,7 @@
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
-use cloud_terrastodon_azure_types::prelude::PrincipalId;
-use cloud_terrastodon_azure_types::prelude::RoleAssignmentRequest;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
+use cloud_terrastodon_azure_types::PrincipalId;
+use cloud_terrastodon_azure_types::RoleAssignmentRequest;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;

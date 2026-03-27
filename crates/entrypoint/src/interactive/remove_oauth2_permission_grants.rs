@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::pick_oauth2_permission_grants;
-use cloud_terrastodon_azure::prelude::remove_oauth2_permission_grant;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::pick_oauth2_permission_grants;
+use cloud_terrastodon_azure::remove_oauth2_permission_grant;
 use cloud_terrastodon_user_input::are_you_sure;
 use eyre::Result;
 use itertools::Itertools;

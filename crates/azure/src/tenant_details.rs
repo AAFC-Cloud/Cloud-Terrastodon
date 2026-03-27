@@ -1,6 +1,6 @@
-use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::MicrosoftGraphOrganization;
+use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::MicrosoftGraphOrganization;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -47,8 +47,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureTenantDetailsRequest
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_azure_tenant_details;
-    use crate::prelude::list_tracked_tenants;
+    use crate::fetch_azure_tenant_details;
+    use crate::list_tracked_tenants;
     use eyre::ensure;
     use std::collections::HashSet;
 

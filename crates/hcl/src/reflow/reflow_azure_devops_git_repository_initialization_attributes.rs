@@ -1,6 +1,6 @@
 use crate::reflow::HclReflower;
-use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockResourceKind;
+use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
+use cloud_terrastodon_hcl_types::ResourceBlockResourceKind;
 use hcl::edit::Ident;
 use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;

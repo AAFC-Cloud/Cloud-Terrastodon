@@ -1,4 +1,4 @@
-use crate::prelude::ProviderKind;
+use crate::ProviderKind;
 use eyre::OptionExt;
 use eyre::bail;
 use hcl::edit::Decorated;
@@ -552,8 +552,8 @@ mod test {
     use super::ProviderSource;
     use super::ProviderVersionObject;
     use super::SemVer;
-    use crate::prelude::ProviderKind;
-    use crate::prelude::TerraformRequiredProvidersBlock;
+    use crate::ProviderKind;
+    use crate::TerraformRequiredProvidersBlock;
     use crate::version::ProviderVersionConstraint;
     use crate::version::ProviderVersionConstraintClause;
     use hcl::edit::structure::Body;

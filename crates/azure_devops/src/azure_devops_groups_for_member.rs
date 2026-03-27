@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsDescriptor;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -75,9 +75,9 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsForMembe
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_azure_devops_groups_for_member;
-    use crate::prelude::fetch_azure_devops_user_license_entitlements;
-    use crate::prelude::get_default_organization_url;
+    use crate::fetch_azure_devops_groups_for_member;
+    use crate::fetch_azure_devops_user_license_entitlements;
+    use crate::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

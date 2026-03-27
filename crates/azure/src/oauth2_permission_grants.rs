@@ -1,10 +1,10 @@
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::ConsentType;
-use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
-use cloud_terrastodon_azure_types::prelude::EntraUserId;
-use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrant;
-use cloud_terrastodon_azure_types::prelude::OAuth2PermissionGrantId;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::ConsentType;
+use cloud_terrastodon_azure_types::EntraServicePrincipalId;
+use cloud_terrastodon_azure_types::EntraUserId;
+use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
+use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -81,7 +81,7 @@ pub async fn create_oauth2_permission_grant(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::get_test_tenant_id;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {

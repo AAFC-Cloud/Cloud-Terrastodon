@@ -1,8 +1,8 @@
+use crate::ConditionalAccessNamedLocationId;
+use crate::ConditionalAccessPolicyId;
+use crate::EntraGroupId;
+use crate::EntraUserId;
 use crate::all_or::AllOr;
-use crate::prelude::ConditionalAccessNamedLocationId;
-use crate::prelude::ConditionalAccessPolicyId;
-use crate::prelude::EntraGroupId;
-use crate::prelude::EntraUserId;
 use chrono::DateTime;
 use chrono::Utc;
 use compact_str::CompactString;

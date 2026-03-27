@@ -1,5 +1,5 @@
 use clap::Args;
-use cloud_terrastodon_ui_ratatui::prelude::ui_main;
+use cloud_terrastodon_ui_ratatui::ui_main;
 use eyre::Result;
 
 /// Launch the Ratatui-based interface.

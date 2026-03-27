@@ -1,6 +1,6 @@
 use crate::AzureClaims;
 use crate::azure_access_token::AZURE_DEVOPS_RESOURCE_ID;
-use cloud_terrastodon_azure_types::prelude::AccessToken;
+use cloud_terrastodon_azure_types::AccessToken;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use jsonwebtoken::DecodingKey;

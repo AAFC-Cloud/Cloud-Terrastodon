@@ -1,5 +1,5 @@
-use crate::prelude::AzureDevOpsAgentPoolId;
-use crate::prelude::AzureDevOpsAgentPoolName;
+use crate::AzureDevOpsAgentPoolId;
+use crate::AzureDevOpsAgentPoolName;
 use chrono::DateTime;
 use chrono::Utc;
 

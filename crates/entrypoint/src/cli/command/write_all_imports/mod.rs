@@ -1,9 +1,9 @@
-use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
-use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
-use crate::noninteractive::prelude::write_imports_for_all_security_groups;
+use crate::noninteractive::write_imports_for_all_resource_groups;
+use crate::noninteractive::write_imports_for_all_role_assignments;
+use crate::noninteractive::write_imports_for_all_security_groups;
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use eyre::Result;
 
 /// Write Terraform import definitions for all supported resources.

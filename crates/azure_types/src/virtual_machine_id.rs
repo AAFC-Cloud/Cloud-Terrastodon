@@ -1,5 +1,5 @@
-use crate::prelude::ResourceGroupId;
-use crate::prelude::VirtualMachineName;
+use crate::ResourceGroupId;
+use crate::VirtualMachineName;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -158,8 +158,8 @@ impl<'de> Deserialize<'de> for VirtualMachineId {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::prelude::ResourceGroupName;
-    use crate::prelude::SubscriptionId;
+    use crate::ResourceGroupName;
+    use crate::SubscriptionId;
     use std::str::FromStr;
 
     #[test]

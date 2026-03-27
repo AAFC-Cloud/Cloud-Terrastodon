@@ -1,5 +1,5 @@
 use clap::Args;
-use cloud_terrastodon_hcl::prelude::discover_terraform_source_dirs;
+use cloud_terrastodon_hcl::discover_terraform_source_dirs;
 use eyre::Result;
 use std::path::PathBuf;
 
@@ -21,10 +21,10 @@ impl TerraformAuditArgs {
         if self.recursive {
             let source_dirs = discover_terraform_source_dirs(self.source_dir).await?;
             for dir in source_dirs {
-                cloud_terrastodon_hcl::prelude::audit(&dir).await?;
+                cloud_terrastodon_hcl::audit(&dir).await?;
             }
         } else {
-            cloud_terrastodon_hcl::prelude::audit(&self.source_dir).await?;
+            cloud_terrastodon_hcl::audit(&self.source_dir).await?;
         }
 
         Ok(())

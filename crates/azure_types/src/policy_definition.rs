@@ -1,12 +1,12 @@
-use crate::prelude::PolicyDefinitionId;
-use crate::prelude::PolicyDefinitionName;
+use crate::PolicyDefinitionId;
+use crate::PolicyDefinitionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::HclImportBlock;
+use cloud_terrastodon_hcl_types::HclProviderReference;
+use cloud_terrastodon_hcl_types::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
@@ -63,10 +63,10 @@ impl From<PolicyDefinition> for HclImportBlock {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::PolicyDefinition;
-    use crate::prelude::PolicyDefinitionId;
-    use crate::prelude::PolicyDefinitionName;
-    use crate::prelude::UnscopedPolicyDefinitionId;
+    use crate::PolicyDefinition;
+    use crate::PolicyDefinitionId;
+    use crate::PolicyDefinitionName;
+    use crate::UnscopedPolicyDefinitionId;
     use crate::slug::HasSlug;
     use itertools::Itertools;
     use std::time::Duration;

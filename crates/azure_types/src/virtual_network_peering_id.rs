@@ -1,9 +1,9 @@
-use crate::prelude::RESOURCE_GROUP_ID_PREFIX;
-use crate::prelude::ResourceGroupId;
-use crate::prelude::SUBSCRIPTION_ID_PREFIX;
-use crate::prelude::VirtualNetworkId;
-use crate::prelude::VirtualNetworkName;
-use crate::prelude::VirtualNetworkPeeringName;
+use crate::RESOURCE_GROUP_ID_PREFIX;
+use crate::ResourceGroupId;
+use crate::SUBSCRIPTION_ID_PREFIX;
+use crate::VirtualNetworkId;
+use crate::VirtualNetworkName;
+use crate::VirtualNetworkPeeringName;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;

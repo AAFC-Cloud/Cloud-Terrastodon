@@ -1,6 +1,6 @@
-use crate::prelude::SubnetId;
-use crate::prelude::SubnetName;
-use crate::prelude::SubnetProperties;
+use crate::SubnetId;
+use crate::SubnetName;
+use crate::SubnetProperties;
 use serde::Deserialize;
 use serde::Serialize;
 

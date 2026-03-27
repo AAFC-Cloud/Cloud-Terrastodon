@@ -151,8 +151,8 @@ impl<'a> Arbitrary<'a> for GovernanceRoleDefinitionName {
 }
 #[cfg(test)]
 mod test {
-    use crate::prelude::GOVERNANCE_ROLE_DEFINITION_NAME_MAX_LENGTH;
-    use crate::prelude::GovernanceRoleDefinitionName;
+    use crate::GOVERNANCE_ROLE_DEFINITION_NAME_MAX_LENGTH;
+    use crate::GovernanceRoleDefinitionName;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::Rng;

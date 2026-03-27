@@ -1,8 +1,8 @@
 // Prints each Azure Resource Group name using the re-exported Azure module.
 
-use cloud_terrastodon::azure::prelude::fetch_all_resource_groups;
-use cloud_terrastodon::azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon::azure::prelude::get_default_tenant_id;
+use cloud_terrastodon::azure::fetch_all_resource_groups;
+use cloud_terrastodon::azure::fetch_all_subscriptions;
+use cloud_terrastodon::azure::get_default_tenant_id;
 use color_eyre::eyre::Result;
 use std::collections::HashMap;
 use tokio::try_join;

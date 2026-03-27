@@ -1,6 +1,6 @@
 use crate::app::MyApp;
 use crate::icons::RESOURCE_GROUP_ICON;
-use cloud_terrastodon_azure::prelude::ResourceGroup;
+use cloud_terrastodon_azure::ResourceGroup;
 use eframe::egui::Ui;
 use tracing::debug;
 

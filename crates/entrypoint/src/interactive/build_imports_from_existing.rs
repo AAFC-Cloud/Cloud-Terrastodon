@@ -1,5 +1,5 @@
-use cloud_terrastodon_hcl::prelude::HclWriter;
-use cloud_terrastodon_hcl::prelude::get_imports_from_existing;
+use cloud_terrastodon_hcl::HclWriter;
+use cloud_terrastodon_hcl::get_imports_from_existing;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;

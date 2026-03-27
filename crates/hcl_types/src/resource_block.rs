@@ -1,9 +1,9 @@
-use crate::prelude::AzureAdResourceBlockKind;
-use crate::prelude::AzureDevOpsResourceBlockKind;
-use crate::prelude::AzureRmResourceBlockKind;
-use crate::prelude::ProviderKind;
-use crate::prelude::ResourceBlockReference;
-use crate::prelude::ResourceBlockResourceKind;
+use crate::AzureAdResourceBlockKind;
+use crate::AzureDevOpsResourceBlockKind;
+use crate::AzureRmResourceBlockKind;
+use crate::ProviderKind;
+use crate::ResourceBlockReference;
+use crate::ResourceBlockResourceKind;
 use crate::resource_block_kind_other::OtherResourceBlockKind;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;

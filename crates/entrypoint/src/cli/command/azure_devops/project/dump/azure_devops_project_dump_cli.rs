@@ -1,10 +1,10 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_group_members_v2;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_project;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_teams_for_project;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
+use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
+use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members_v2;
+use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
+use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
+use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use eyre::Result;
 use eyre::bail;

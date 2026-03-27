@@ -1,9 +1,9 @@
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::bstr::ByteSlice;
-use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::HclImportBlock;
+use cloud_terrastodon_hcl_types::HclProviderReference;
+use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use eyre::Result;
 use hcl::edit::Decorate;
 use hcl::edit::structure::Body;

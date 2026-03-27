@@ -1,4 +1,4 @@
-use crate::prelude::AzureDevOpsDescriptor;
+use crate::AzureDevOpsDescriptor;
 use serde_json::Value;
 use uuid::Uuid;
 

@@ -1,8 +1,8 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
-use cloud_terrastodon_azure_devops::prelude::update_azure_devops_user_license_entitlement;
+use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
+use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;

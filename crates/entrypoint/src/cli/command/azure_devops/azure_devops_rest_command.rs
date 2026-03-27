@@ -51,7 +51,7 @@ impl AzureDevOpsRestArgs {
 
 #[cfg(test)]
 mod test {
-    use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+    use cloud_terrastodon_azure_devops::get_default_organization_url;
     use cloud_terrastodon_command::CommandBuilder;
     use cloud_terrastodon_command::CommandKind;
 

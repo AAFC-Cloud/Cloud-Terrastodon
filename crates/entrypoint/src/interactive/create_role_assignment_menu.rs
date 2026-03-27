@@ -1,8 +1,8 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::create_role_assignment;
-use cloud_terrastodon_azure::prelude::fetch_all_resources;
-use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
-use cloud_terrastodon_azure::prelude::fetch_all_users;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::create_role_assignment;
+use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_azure::fetch_all_role_definitions;
+use cloud_terrastodon_azure::fetch_all_users;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;

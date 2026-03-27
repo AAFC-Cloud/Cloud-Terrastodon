@@ -1,7 +1,7 @@
-use crate::prelude::AzureAdDataBlockKind;
-use crate::prelude::AzureDevOpsDataBlockKind;
-use crate::prelude::AzureRmDataBlockKind;
-use crate::prelude::OtherDataBlockKind;
+use crate::AzureAdDataBlockKind;
+use crate::AzureDevOpsDataBlockKind;
+use crate::AzureRmDataBlockKind;
+use crate::OtherDataBlockKind;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

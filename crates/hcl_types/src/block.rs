@@ -1,8 +1,8 @@
+use crate::HclImportBlock;
+use crate::HclProviderBlock;
+use crate::HclResourceBlock;
+use crate::TerraformBlock;
 use crate::data_block::HclDataBlock;
-use crate::prelude::HclImportBlock;
-use crate::prelude::HclProviderBlock;
-use crate::prelude::HclResourceBlock;
-use crate::prelude::TerraformBlock;
 use eyre::Result;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
@@ -158,9 +158,9 @@ impl IntoHclBlocks for Body {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::HclProviderReference;
-    use crate::prelude::ProviderKind;
-    use crate::prelude::ResourceBlockReference;
+    use crate::HclProviderReference;
+    use crate::ProviderKind;
+    use crate::ResourceBlockReference;
 
     #[test]
     fn it_works() -> Result<()> {

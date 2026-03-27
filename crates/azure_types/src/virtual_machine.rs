@@ -1,6 +1,6 @@
-use crate::prelude::VirtualMachineId;
-use crate::prelude::VirtualMachineName;
-use crate::prelude::VirtualMachineProperties;
+use crate::VirtualMachineId;
+use crate::VirtualMachineName;
+use crate::VirtualMachineProperties;
 use crate::serde_helpers::deserialize_default_if_null;
 use serde::Deserialize;
 use serde::Serialize;
@@ -18,7 +18,7 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-    pub fn resource_group_id(&self) -> &crate::prelude::ResourceGroupId {
+    pub fn resource_group_id(&self) -> &crate::ResourceGroupId {
         &self.id.resource_group_id
     }
 }

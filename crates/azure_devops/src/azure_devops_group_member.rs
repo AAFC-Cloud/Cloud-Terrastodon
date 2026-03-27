@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsDescriptor;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsGroupMember;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -113,13 +113,13 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersV2
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_azure_devops_projects;
-    use crate::prelude::fetch_azure_devops_group_members;
-    use crate::prelude::fetch_azure_devops_group_members_v2;
-    use crate::prelude::fetch_azure_devops_groups_for_project;
-    use crate::prelude::get_default_organization_url;
-    use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsDescriptor;
-    use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+    use crate::fetch_all_azure_devops_projects;
+    use crate::fetch_azure_devops_group_members;
+    use crate::fetch_azure_devops_group_members_v2;
+    use crate::fetch_azure_devops_groups_for_project;
+    use crate::get_default_organization_url;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
     use eyre::bail;
     use std::str::FromStr;
 

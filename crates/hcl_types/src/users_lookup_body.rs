@@ -1,5 +1,5 @@
+use crate::AzureAdDataBlockKind;
 use crate::data_block::HclDataBlock;
-use crate::prelude::AzureAdDataBlockKind;
 use crate::strings::TryAsHclBlocks;
 use eyre::Context;
 use hcl::edit::structure::Attribute;

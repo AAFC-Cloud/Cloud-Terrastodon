@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
-use cloud_terrastodon_azure_types::prelude::OAuth2PermissionScope;
+use cloud_terrastodon_azure_types::EntraServicePrincipalId;
+use cloud_terrastodon_azure_types::OAuth2PermissionScope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -64,8 +64,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionScopesLis
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::fetch_all_service_principals;
-    use crate::prelude::get_test_tenant_id;
+    use crate::fetch_all_service_principals;
+    use crate::get_test_tenant_id;
     use eyre::OptionExt;
 
     #[tokio::test]

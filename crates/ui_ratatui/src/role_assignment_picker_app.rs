@@ -1,13 +1,13 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::Principal;
-use cloud_terrastodon_azure::prelude::PrincipalCollection;
-use cloud_terrastodon_azure::prelude::RoleAssignment;
-use cloud_terrastodon_azure::prelude::RoleAssignmentId;
-use cloud_terrastodon_azure::prelude::RoleDefinition;
-use cloud_terrastodon_azure::prelude::RoleDefinitionsAndAssignments;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::fetch_all_principals;
-use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::Principal;
+use cloud_terrastodon_azure::PrincipalCollection;
+use cloud_terrastodon_azure::RoleAssignment;
+use cloud_terrastodon_azure::RoleAssignmentId;
+use cloud_terrastodon_azure::RoleDefinition;
+use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::fetch_all_principals;
+use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_command::app_work::AppWorkState;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
@@ -573,7 +573,7 @@ impl std::fmt::Debug for PrincipalCollectionHolder {
 mod test {
     use super::RoleAssignmentPickerApp;
     use super::RoleAssignmentPickerAppResult;
-    use cloud_terrastodon_azure::prelude::get_test_tenant_id;
+    use cloud_terrastodon_azure::get_test_tenant_id;
 
     #[tokio::test]
     #[ignore = "manual entrypoint"]

@@ -87,7 +87,7 @@ pub enum KeyVaultAccessPolicyPrivilegedCertificateOperation {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::KeyVaultAccessPolicyCertificatePrivilege;
+    use crate::KeyVaultAccessPolicyCertificatePrivilege;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

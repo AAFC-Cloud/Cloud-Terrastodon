@@ -1,8 +1,8 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::prelude::list_tracked_tenant_aliases;
-use cloud_terrastodon_azure::prelude::list_tracked_tenant_aliases_for;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::list_tracked_tenant_aliases;
+use cloud_terrastodon_azure::list_tracked_tenant_aliases_for;
 use eyre::Result;
 use std::io::Write;
 

@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::prelude::Account;
+use cloud_terrastodon_azure_types::Account;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -18,7 +18,7 @@ pub async fn az_account_list() -> eyre::Result<Vec<Account>> {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::az_account_list;
+    use crate::az_account_list;
     use cloud_terrastodon_command::CacheKey;
     use cloud_terrastodon_command::CommandBuilder;
     use cloud_terrastodon_command::CommandKind;

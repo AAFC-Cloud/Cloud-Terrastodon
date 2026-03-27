@@ -1,7 +1,7 @@
 #![cfg(feature = "entrypoint")]
-use cloud_terrastodon_entrypoint::prelude::GitRevision;
-use cloud_terrastodon_entrypoint::prelude::Version;
-use cloud_terrastodon_entrypoint::prelude::entrypoint;
+use cloud_terrastodon_entrypoint::GitRevision;
+use cloud_terrastodon_entrypoint::Version;
+use cloud_terrastodon_entrypoint::entrypoint;
 
 fn main() -> eyre::Result<()> {
     let version = Version::new(env!("CARGO_PKG_VERSION").to_string());

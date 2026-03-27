@@ -1,18 +1,18 @@
 use crate::writer::HclWriter;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::get_active_subscription_id;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::get_active_subscription_id;
+use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
-use cloud_terrastodon_hcl_types::prelude::AsHclString;
-use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
-use cloud_terrastodon_hcl_types::prelude::ProviderAvailability;
-use cloud_terrastodon_hcl_types::prelude::ProviderHostname;
-use cloud_terrastodon_hcl_types::prelude::ProviderKind;
-use cloud_terrastodon_hcl_types::prelude::ProviderNamespace;
-use cloud_terrastodon_hcl_types::prelude::TerraformBlock;
-use cloud_terrastodon_hcl_types::prelude::TerraformRequiredProvidersBlock;
+use cloud_terrastodon_hcl_types::AsHclString;
+use cloud_terrastodon_hcl_types::HclProviderBlock;
+use cloud_terrastodon_hcl_types::ProviderAvailability;
+use cloud_terrastodon_hcl_types::ProviderHostname;
+use cloud_terrastodon_hcl_types::ProviderKind;
+use cloud_terrastodon_hcl_types::ProviderNamespace;
+use cloud_terrastodon_hcl_types::TerraformBlock;
+use cloud_terrastodon_hcl_types::TerraformRequiredProvidersBlock;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use directories_next::BaseDirs;
@@ -287,8 +287,8 @@ impl ProviderManager {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::ProviderManager;
-    use cloud_terrastodon_hcl_types::prelude::TerraformRequiredProvidersBlock;
+    use crate::ProviderManager;
+    use cloud_terrastodon_hcl_types::TerraformRequiredProvidersBlock;
     use eyre::bail;
     use hcl::edit::structure::Body;
 

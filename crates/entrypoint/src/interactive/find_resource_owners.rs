@@ -1,28 +1,28 @@
 use crate::menu::press_enter_to_continue;
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::EntraGroup;
-use cloud_terrastodon_azure::prelude::EntraServicePrincipal;
-use cloud_terrastodon_azure::prelude::Principal;
-use cloud_terrastodon_azure::prelude::PrincipalId;
-use cloud_terrastodon_azure::prelude::Resource;
-use cloud_terrastodon_azure::prelude::RoleAssignment;
-use cloud_terrastodon_azure::prelude::RoleDefinition;
-use cloud_terrastodon_azure::prelude::RoleDefinitionId;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::ScopeImpl;
-use cloud_terrastodon_azure::prelude::fetch_all_principals;
-use cloud_terrastodon_azure::prelude::fetch_all_resources;
-use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
-use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
-use cloud_terrastodon_azure::prelude::fetch_group_members;
-use cloud_terrastodon_azure::prelude::fetch_group_owners;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProject;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectId;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectName;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsServiceEndpoint;
-use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_projects;
-use cloud_terrastodon_azure_devops::prelude::fetch_all_azure_devops_service_endpoints;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::EntraGroup;
+use cloud_terrastodon_azure::EntraServicePrincipal;
+use cloud_terrastodon_azure::Principal;
+use cloud_terrastodon_azure::PrincipalId;
+use cloud_terrastodon_azure::Resource;
+use cloud_terrastodon_azure::RoleAssignment;
+use cloud_terrastodon_azure::RoleDefinition;
+use cloud_terrastodon_azure::RoleDefinitionId;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::ScopeImpl;
+use cloud_terrastodon_azure::fetch_all_principals;
+use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_azure::fetch_all_role_assignments;
+use cloud_terrastodon_azure::fetch_all_role_definitions;
+use cloud_terrastodon_azure::fetch_group_members;
+use cloud_terrastodon_azure::fetch_group_owners;
+use cloud_terrastodon_azure_devops::AzureDevOpsProject;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectName;
+use cloud_terrastodon_azure_devops::AzureDevOpsServiceEndpoint;
+use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
+use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
+use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -188,7 +188,7 @@ impl<'a> AsRef<Clue<'a>> for ClueChain<'a> {
 
 #[allow(dead_code)]
 struct TraversalContext<'a> {
-    pub tenant_id: cloud_terrastodon_azure::prelude::AzureTenantId,
+    pub tenant_id: cloud_terrastodon_azure::AzureTenantId,
     pub clues: Vec<ClueChain<'a>>,
     pub resource_map: HashMap<&'a ScopeImpl, &'a Resource>,
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,

@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsServiceEndpoint;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsServiceEndpoint;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -62,11 +62,11 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsServiceEndpoin
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_azure_devops_projects;
-    use crate::prelude::fetch_all_azure_devops_service_endpoints;
-    use crate::prelude::get_default_organization_url;
-    use crate::prelude::get_default_project_name;
-    use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsServiceEndpoint;
+    use crate::fetch_all_azure_devops_projects;
+    use crate::fetch_all_azure_devops_service_endpoints;
+    use crate::get_default_organization_url;
+    use crate::get_default_project_name;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsServiceEndpoint;
     use cloud_terrastodon_command::ParallelFallibleWorkQueue;
     use itertools::Itertools;
 

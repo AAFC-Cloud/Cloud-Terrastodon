@@ -1,6 +1,6 @@
-use crate::prelude::AzureDevOpsProject;
-use crate::prelude::AzureDevOpsProjectId;
-use crate::prelude::AzureDevOpsProjectName;
+use crate::AzureDevOpsProject;
+use crate::AzureDevOpsProjectId;
+use crate::AzureDevOpsProjectName;
 use eyre::bail;
 use std::str::FromStr;
 

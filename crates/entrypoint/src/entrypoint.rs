@@ -1,8 +1,8 @@
+use crate::Version;
 use crate::cli::Cli;
 use crate::cli::CloudTerrastodonCommand;
 use crate::git_revision::GitRevision;
 use crate::git_revision::set_git_revision;
-use crate::prelude::Version;
 use crate::version::full_version;
 use crate::version::set_version;
 use clap::CommandFactory;

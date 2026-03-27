@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::prelude::StorageAccountName;
+use cloud_terrastodon_azure_types::StorageAccountName;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;

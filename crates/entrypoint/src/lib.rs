@@ -9,9 +9,7 @@ mod version;
 
 pub(crate) mod windows_support;
 
-pub mod prelude {
-    pub use crate::cli::prelude::*;
-    pub use crate::entrypoint::*;
-    pub use crate::git_revision::GitRevision;
-    pub use crate::version::*;
-}
+pub use crate::cli::*;
+pub use crate::entrypoint::*;
+pub use crate::git_revision::GitRevision;
+pub use crate::version::*;

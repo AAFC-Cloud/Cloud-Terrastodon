@@ -1,6 +1,6 @@
-use crate::prelude::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::RoleDefinition;
+use crate::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::RoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -61,9 +61,9 @@ cloud_terrastodon_command::impl_cacheable_into_future!(RoleDefinitionListRequest
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::RolePermissionAction;
-    use cloud_terrastodon_azure_types::prelude::Scope;
+    use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::RolePermissionAction;
+    use cloud_terrastodon_azure_types::Scope;
     use eyre::eyre;
 
     #[tokio::test]

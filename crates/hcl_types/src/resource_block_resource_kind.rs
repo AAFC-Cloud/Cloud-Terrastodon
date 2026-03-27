@@ -43,7 +43,7 @@ impl FromStr for ResourceBlockResourceKind {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::ResourceBlockReference;
+    use crate::ResourceBlockReference;
 
     #[test]
     fn parse_azurerm_role_assignment() -> eyre::Result<()> {

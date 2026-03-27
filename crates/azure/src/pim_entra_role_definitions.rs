@@ -1,6 +1,6 @@
 use crate::management_groups::fetch_root_management_group;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::PimEntraRoleDefinition;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::PimEntraRoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -62,8 +62,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(PimEntraRoleDefinitionLis
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::get_test_tenant_id;
-    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
+    use crate::get_test_tenant_id;
+    use crate::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

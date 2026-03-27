@@ -1,4 +1,4 @@
-use cloud_terrastodon_hcl_types::prelude::CodeReference;
+use cloud_terrastodon_hcl_types::CodeReference;
 use eyre::Context;
 use eyre::Result;
 use hcl::edit::structure::Body;

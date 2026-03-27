@@ -1,7 +1,7 @@
-use crate::noninteractive::prelude::dump_everything;
+use crate::noninteractive::dump_everything;
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use eyre::Result;
 
 /// Dump all collected metadata to disk.

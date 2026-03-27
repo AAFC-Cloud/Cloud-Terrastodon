@@ -1,6 +1,6 @@
-use crate::prelude::get_default_organization_url;
-use crate::prelude::set_default_organization_url;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use crate::get_default_organization_url;
+use crate::set_default_organization_url;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use ratatui::crossterm::event::Event;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::event::KeyEventKind;

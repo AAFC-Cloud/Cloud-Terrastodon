@@ -1,5 +1,5 @@
-use crate::prelude::KeyVaultName;
-use crate::prelude::ResourceGroupId;
+use crate::KeyVaultName;
+use crate::ResourceGroupId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -166,9 +166,9 @@ impl<'de> Deserialize<'de> for KeyVaultId {
 #[cfg(test)]
 mod test {
     use super::KeyVaultId;
-    use crate::prelude::KeyVaultName;
-    use crate::prelude::ResourceGroupId;
-    use crate::prelude::SubscriptionId;
+    use crate::KeyVaultName;
+    use crate::ResourceGroupId;
+    use crate::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
     use arbitrary::Arbitrary;

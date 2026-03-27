@@ -1,7 +1,7 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
+use cloud_terrastodon_azure_devops::get_default_organization_url;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use std::collections::HashMap;
@@ -223,7 +223,7 @@ fn paint_total_cost(cost: f64, value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::summarize_licenses;
-    use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
+    use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 
     #[test]
     fn it_groups_and_sorts_license_rows_by_monthly_cost() {

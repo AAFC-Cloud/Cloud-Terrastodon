@@ -1,8 +1,8 @@
-use crate::prelude::fetch_all_resource_groups;
-use crate::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::ResourceGroup;
-use cloud_terrastodon_azure_types::prelude::Subscription;
+use crate::fetch_all_resource_groups;
+use crate::fetch_all_subscriptions;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::ResourceGroup;
+use cloud_terrastodon_azure_types::Subscription;
 use cloud_terrastodon_user_input::Choice;
 use eyre::bail;
 use std::collections::HashMap;

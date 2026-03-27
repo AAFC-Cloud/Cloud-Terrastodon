@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure_types::prelude::LocationName;
-use cloud_terrastodon_azure_types::prelude::SubscriptionId;
-use cloud_terrastodon_azure_types::prelude::VirtualMachineSize;
+use cloud_terrastodon_azure_types::LocationName;
+use cloud_terrastodon_azure_types::SubscriptionId;
+use cloud_terrastodon_azure_types::VirtualMachineSize;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -33,9 +33,9 @@ pub async fn fetch_virtual_machine_sizes(
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_subscriptions;
-    use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::LocationName;
+    use crate::fetch_all_subscriptions;
+    use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::LocationName;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -43,8 +43,7 @@ mod test {
         let subs = fetch_all_subscriptions(tenant_id).await?;
         let sub = subs.first().unwrap();
         let sizes =
-            crate::prelude::fetch_virtual_machine_sizes(&sub.id, &LocationName::CanadaCentral)
-                .await?;
+            crate::fetch_virtual_machine_sizes(&sub.id, &LocationName::CanadaCentral).await?;
         assert!(!sizes.is_empty());
         Ok(())
     }

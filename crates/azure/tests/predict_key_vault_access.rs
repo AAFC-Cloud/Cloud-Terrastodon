@@ -1,7 +1,7 @@
-use cloud_terrastodon_azure::prelude::fetch_all_key_vaults;
-use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments;
-use cloud_terrastodon_azure::prelude::fetch_current_user;
-use cloud_terrastodon_azure::prelude::get_test_tenant_id;
+use cloud_terrastodon_azure::fetch_all_key_vaults;
+use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_azure::fetch_current_user;
+use cloud_terrastodon_azure::get_test_tenant_id;
 use itertools::Itertools;
 use tokio::try_join;
 

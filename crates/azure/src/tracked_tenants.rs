@@ -1,9 +1,9 @@
-use crate::prelude::az_account_list;
-use crate::prelude::get_default_tenant_id;
-use cloud_terrastodon_azure_types::prelude::Account;
-use cloud_terrastodon_azure_types::prelude::AzureTenantAlias;
-use cloud_terrastodon_azure_types::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
+use crate::az_account_list;
+use crate::get_default_tenant_id;
+use cloud_terrastodon_azure_types::Account;
+use cloud_terrastodon_azure_types::AzureTenantAlias;
+use cloud_terrastodon_azure_types::AzureTenantArgument;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::bail;
@@ -495,8 +495,8 @@ mod tests {
     use super::remove_tracked_tenant_aliases_in;
     use super::resolve_tracked_tenant_alias_in;
     use crate::tracked_tenants::discover_tracked_tenants_in;
-    use cloud_terrastodon_azure_types::prelude::AzureTenantAlias;
-    use cloud_terrastodon_azure_types::prelude::AzureTenantId;
+    use cloud_terrastodon_azure_types::AzureTenantAlias;
+    use cloud_terrastodon_azure_types::AzureTenantId;
     use std::str::FromStr;
     use tempfile::tempdir;
 

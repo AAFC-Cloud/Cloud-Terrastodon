@@ -1,7 +1,7 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsWorkItemQueryId;
-use cloud_terrastodon_azure_devops::prelude::fetch_work_items_for_query;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryId;
+use cloud_terrastodon_azure_devops::fetch_work_items_for_query;
+use cloud_terrastodon_azure_devops::get_default_organization_url;
 use eyre::Result;
 use serde_json::to_writer_pretty;
 use std::io::stdout;

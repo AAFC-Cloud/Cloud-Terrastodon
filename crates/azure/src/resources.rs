@@ -1,9 +1,9 @@
 // $x = az rest --method GET --url 'https://management.azure.com/subscriptions/{subscription_id}/providers?api-version=2021-04-01&' | ConvertFrom-Json
 // $x.value | % { $n = $_.namespace; $_.resourceTypes | % { "$n/$($_.resourceType)" } } | fzf
 
-use crate::prelude::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::Resource;
+use crate::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::Resource;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -61,10 +61,10 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ResourceListRequest);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::ResourceType;
-    use cloud_terrastodon_azure_types::prelude::Scope;
-    use cloud_terrastodon_azure_types::prelude::ScopeImplKind;
+    use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::ResourceType;
+    use cloud_terrastodon_azure_types::Scope;
+    use cloud_terrastodon_azure_types::ScopeImplKind;
     use itertools::Itertools;
     use std::collections::HashMap;
 

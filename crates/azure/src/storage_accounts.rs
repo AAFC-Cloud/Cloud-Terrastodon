@@ -1,6 +1,6 @@
-use crate::prelude::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::StorageAccount;
+use crate::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::StorageAccount;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -50,9 +50,9 @@ cloud_terrastodon_command::impl_cacheable_into_future!(StorageAccountListRequest
 #[cfg(test)]
 mod test {
     use super::fetch_all_storage_accounts;
-    use crate::prelude::get_test_tenant_id;
-    use crate::prelude::is_storage_account_name_available;
-    use cloud_terrastodon_azure_types::prelude::Slug;
+    use crate::get_test_tenant_id;
+    use crate::is_storage_account_name_available;
+    use cloud_terrastodon_azure_types::Slug;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

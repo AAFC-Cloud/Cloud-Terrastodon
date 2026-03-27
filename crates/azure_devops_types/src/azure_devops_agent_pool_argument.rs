@@ -1,7 +1,7 @@
-use crate::prelude::AzureDevOpsAgentPool;
-use crate::prelude::AzureDevOpsAgentPoolEntitlement;
-use crate::prelude::AzureDevOpsAgentPoolId;
-use crate::prelude::AzureDevOpsAgentPoolName;
+use crate::AzureDevOpsAgentPool;
+use crate::AzureDevOpsAgentPoolEntitlement;
+use crate::AzureDevOpsAgentPoolId;
+use crate::AzureDevOpsAgentPoolName;
 use eyre::bail;
 use std::str::FromStr;
 

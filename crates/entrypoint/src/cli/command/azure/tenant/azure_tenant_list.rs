@@ -1,5 +1,5 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::list_tracked_tenants;
+use cloud_terrastodon_azure::list_tracked_tenants;
 use eyre::Result;
 use std::io::Write;
 

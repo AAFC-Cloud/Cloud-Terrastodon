@@ -1,4 +1,4 @@
-use crate::prelude::SubscriptionId;
+use crate::SubscriptionId;
 use crate::tenant_id::AzureTenantId;
 use serde::Deserialize;
 use serde::Serialize;

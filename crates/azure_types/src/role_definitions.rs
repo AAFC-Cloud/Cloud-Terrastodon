@@ -1,13 +1,13 @@
-use crate::prelude::RoleDefinitionId;
-use crate::prelude::RolePermissionAction;
-use crate::prelude::RolePermissions;
+use crate::RoleDefinitionId;
+use crate::RolePermissionAction;
+use crate::RolePermissions;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::HclImportBlock;
+use cloud_terrastodon_hcl_types::HclProviderReference;
+use cloud_terrastodon_hcl_types::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -96,7 +96,7 @@ impl From<RoleDefinition> for HclImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::ROLE_DEFINITION_ID_PREFIX;
+    use crate::ROLE_DEFINITION_ID_PREFIX;
     use eyre::Result;
     use uuid::Uuid;
 

@@ -1,10 +1,10 @@
 use crate::user_id::EntraUserId;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_hcl_types::prelude::AzureAdResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::AzureAdResourceBlockKind;
+use cloud_terrastodon_hcl_types::HclImportBlock;
+use cloud_terrastodon_hcl_types::HclProviderReference;
+use cloud_terrastodon_hcl_types::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 

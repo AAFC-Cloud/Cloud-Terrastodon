@@ -1,7 +1,7 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::EntraGroupId;
-use cloud_terrastodon_azure::prelude::PrincipalId;
-use cloud_terrastodon_azure::prelude::add_group_member;
+use cloud_terrastodon_azure::EntraGroupId;
+use cloud_terrastodon_azure::PrincipalId;
+use cloud_terrastodon_azure::add_group_member;
 use eyre::Result;
 use tracing::info;
 

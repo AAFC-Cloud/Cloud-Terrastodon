@@ -1,5 +1,5 @@
-use crate::prelude::ResourceGroupId;
-use crate::prelude::RouteTableName;
+use crate::ResourceGroupId;
+use crate::RouteTableName;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -153,8 +153,8 @@ impl<'de> Deserialize<'de> for RouteTableId {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::prelude::ResourceGroupName;
-    use crate::prelude::SubscriptionId;
+    use crate::ResourceGroupName;
+    use crate::SubscriptionId;
     use std::str::FromStr;
 
     #[test]

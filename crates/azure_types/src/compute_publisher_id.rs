@@ -1,6 +1,6 @@
-use crate::prelude::ComputePublisherName;
-use crate::prelude::LocationName;
-use crate::prelude::SubscriptionId;
+use crate::ComputePublisherName;
+use crate::LocationName;
+use crate::SubscriptionId;
 use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use eyre::Context;
@@ -160,7 +160,7 @@ impl<'de> Deserialize<'de> for ComputePublisherId {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::ComputePublisherId;
+    use crate::ComputePublisherId;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

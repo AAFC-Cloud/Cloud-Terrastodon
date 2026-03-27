@@ -3,7 +3,7 @@ use crate::app::MyApp;
 use crate::icons::SUBSCRIPTION_ICON;
 use crate::loadable::Loadable;
 use crate::workers::load_resource_groups::load_resource_groups;
-use cloud_terrastodon_azure::prelude::Subscription;
+use cloud_terrastodon_azure::Subscription;
 use eframe::egui::Id;
 use eframe::egui::Ui;
 use eframe::egui::collapsing_header::CollapsingState;

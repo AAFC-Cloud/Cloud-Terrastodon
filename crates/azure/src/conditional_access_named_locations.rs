@@ -1,6 +1,6 @@
-use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::ConditionalAccessNamedLocation;
+use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::ConditionalAccessNamedLocation;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -48,8 +48,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ConditionalAccessNamedLoc
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_conditional_access_named_locations;
-    use crate::prelude::get_test_tenant_id;
+    use crate::fetch_all_conditional_access_named_locations;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

@@ -1,6 +1,6 @@
 use crate::app::MyApp;
 use crate::work_tracker::WorkTracker;
-use cloud_terrastodon_azure::prelude::AzureTenantId;
+use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_pathing::AppDir;
 use eframe::NativeOptions;
 use eyre::bail;

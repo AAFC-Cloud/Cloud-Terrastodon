@@ -1,7 +1,7 @@
-use crate::prelude::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::KeyVault;
-use cloud_terrastodon_azure_types::prelude::KeyVaultName;
+use crate::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::KeyVault;
+use cloud_terrastodon_azure_types::KeyVaultName;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -68,8 +68,8 @@ pub async fn is_key_vault_name_available(name: &KeyVaultName) -> eyre::Result<bo
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_key_vaults;
-    use crate::prelude::get_test_tenant_id;
+    use crate::fetch_all_key_vaults;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

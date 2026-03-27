@@ -1,7 +1,7 @@
-use cloud_terrastodon_azure_types::prelude::ComputePublisherName;
-use cloud_terrastodon_azure_types::prelude::ComputePublisherVmImageOfferId;
-use cloud_terrastodon_azure_types::prelude::LocationName;
-use cloud_terrastodon_azure_types::prelude::SubscriptionId;
+use cloud_terrastodon_azure_types::ComputePublisherName;
+use cloud_terrastodon_azure_types::ComputePublisherVmImageOfferId;
+use cloud_terrastodon_azure_types::LocationName;
+use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -71,11 +71,11 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ComputePublisherImageOffe
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_subscriptions;
-    use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::ComputePublisherName;
-    use cloud_terrastodon_azure_types::prelude::LocationName;
-    use cloud_terrastodon_azure_types::prelude::Slug;
+    use crate::fetch_all_subscriptions;
+    use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::ComputePublisherName;
+    use cloud_terrastodon_azure_types::LocationName;
+    use cloud_terrastodon_azure_types::Slug;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

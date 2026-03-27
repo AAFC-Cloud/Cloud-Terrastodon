@@ -1,7 +1,7 @@
-use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinition;
-use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionId;
+use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::UnifiedRoleDefinition;
+use cloud_terrastodon_azure_types::UnifiedRoleDefinitionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
@@ -82,10 +82,10 @@ pub async fn fetch_unified_role_definition_deep(
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_unified_role_definition;
-    use crate::prelude::fetch_unified_role_definition_deep;
-    use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionId;
+    use crate::fetch_unified_role_definition;
+    use crate::fetch_unified_role_definition_deep;
+    use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::UnifiedRoleDefinitionId;
 
     #[tokio::test]
     pub async fn it_works_single() -> eyre::Result<()> {

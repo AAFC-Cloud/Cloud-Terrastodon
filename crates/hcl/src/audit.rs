@@ -1,7 +1,7 @@
+use crate::TerraformBlockExtracterPatcher;
 use crate::discovery::DiscoveryDepth;
 use crate::discovery::discover_hcl;
-use crate::prelude::TerraformBlockExtracterPatcher;
-use cloud_terrastodon_hcl_types::prelude::TerraformProviderInfo;
+use cloud_terrastodon_hcl_types::TerraformProviderInfo;
 use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::VisitMut;
 use std::collections::HashSet;

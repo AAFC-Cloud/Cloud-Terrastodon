@@ -132,7 +132,7 @@ impl<'a> Arbitrary<'a> for StorageAccountName {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::StorageAccountName;
+    use crate::StorageAccountName;
     use crate::slug::Slug;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;

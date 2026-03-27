@@ -1,14 +1,14 @@
-use crate::prelude::ManagementGroupId;
-use crate::prelude::ManagementGroupScopedPolicySetDefinitionId;
-use crate::prelude::PolicySetDefinitionName;
-use crate::prelude::ResourceGroupId;
-use crate::prelude::ResourceGroupScopedPolicySetDefinitionId;
-use crate::prelude::ResourceId;
-use crate::prelude::ResourceScopedPolicySetDefinitionId;
-use crate::prelude::SubscriptionId;
-use crate::prelude::SubscriptionScoped;
-use crate::prelude::SubscriptionScopedPolicySetDefinitionId;
-use crate::prelude::UnscopedPolicySetDefinitionId;
+use crate::ManagementGroupId;
+use crate::ManagementGroupScopedPolicySetDefinitionId;
+use crate::PolicySetDefinitionName;
+use crate::ResourceGroupId;
+use crate::ResourceGroupScopedPolicySetDefinitionId;
+use crate::ResourceId;
+use crate::ResourceScopedPolicySetDefinitionId;
+use crate::SubscriptionId;
+use crate::SubscriptionScoped;
+use crate::SubscriptionScopedPolicySetDefinitionId;
+use crate::UnscopedPolicySetDefinitionId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -214,7 +214,7 @@ impl<'de> Deserialize<'de> for PolicySetDefinitionId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::ResourceGroupName;
+    use crate::ResourceGroupName;
     use crate::slug::Slug;
     use cloud_terrastodon_azure_resource_types::ResourceType;
     use eyre::Result;

@@ -1,14 +1,14 @@
-use crate::prelude::ManagementGroupId;
-use crate::prelude::ManagementGroupScopedRoleEligibilityScheduleId;
-use crate::prelude::ResourceGroupId;
-use crate::prelude::ResourceGroupScopedRoleEligibilityScheduleId;
-use crate::prelude::ResourceId;
-use crate::prelude::ResourceScopedRoleEligibilityScheduleId;
-use crate::prelude::RoleEligibilityScheduleName;
-use crate::prelude::SubscriptionId;
-use crate::prelude::SubscriptionScoped;
-use crate::prelude::SubscriptionScopedRoleEligibilityScheduleId;
-use crate::prelude::UnscopedRoleEligibilityScheduleId;
+use crate::ManagementGroupId;
+use crate::ManagementGroupScopedRoleEligibilityScheduleId;
+use crate::ResourceGroupId;
+use crate::ResourceGroupScopedRoleEligibilityScheduleId;
+use crate::ResourceId;
+use crate::ResourceScopedRoleEligibilityScheduleId;
+use crate::RoleEligibilityScheduleName;
+use crate::SubscriptionId;
+use crate::SubscriptionScoped;
+use crate::SubscriptionScopedRoleEligibilityScheduleId;
+use crate::UnscopedRoleEligibilityScheduleId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -218,7 +218,7 @@ impl<'de> Deserialize<'de> for RoleEligibilityScheduleId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::ResourceGroupName;
+    use crate::ResourceGroupName;
     use crate::slug::Slug;
     use cloud_terrastodon_azure_resource_types::ResourceType;
     use eyre::Result;

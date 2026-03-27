@@ -88,7 +88,7 @@ impl From<ContainerRegistryRepositoryName> for CompactString {
 }
 #[cfg(test)]
 mod test {
-    use crate::prelude::ContainerRegistryRepositoryName;
+    use crate::ContainerRegistryRepositoryName;
     use crate::slug::Slug;
 
     #[test]

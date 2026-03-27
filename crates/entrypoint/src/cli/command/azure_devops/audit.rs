@@ -1,7 +1,7 @@
-use crate::noninteractive::prelude::audit_azure_devops;
+use crate::noninteractive::audit_azure_devops;
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use eyre::Result;
 use std::time::Duration;
 

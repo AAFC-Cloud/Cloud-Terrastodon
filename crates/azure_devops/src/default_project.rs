@@ -1,5 +1,5 @@
-use crate::prelude::get_azure_devops_cli_config;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsProjectName;
+use crate::get_azure_devops_cli_config;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectName;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::async_trait;
 use eyre::OptionExt;
@@ -44,7 +44,7 @@ impl IntoFuture for DefaultAzureDevOpsProjectNameRequest {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::get_default_project_name;
+    use crate::get_default_project_name;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

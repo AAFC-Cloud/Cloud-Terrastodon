@@ -1,12 +1,12 @@
-use crate::prelude::AzureDevOpsProjectId;
-use crate::prelude::AzureDevOpsProjectName;
+use crate::AzureDevOpsProjectId;
+use crate::AzureDevOpsProjectName;
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
+use cloud_terrastodon_hcl_types::HclImportBlock;
+use cloud_terrastodon_hcl_types::HclProviderReference;
+use cloud_terrastodon_hcl_types::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 

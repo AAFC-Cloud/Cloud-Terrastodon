@@ -1,5 +1,5 @@
-use cloud_terrastodon_hcl::prelude::GenerateConfigOutHelper;
-use cloud_terrastodon_hcl::prelude::ProviderManager;
+use cloud_terrastodon_hcl::GenerateConfigOutHelper;
+use cloud_terrastodon_hcl::ProviderManager;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use std::path::PathBuf;

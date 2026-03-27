@@ -1,4 +1,4 @@
-use crate::prelude::AzureDevOpsEntraUserDescriptor;
+use crate::AzureDevOpsEntraUserDescriptor;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -70,7 +70,7 @@ impl<'de> Deserialize<'de> for AzureDevOpsDescriptor {
 #[cfg(test)]
 mod test {
     use super::AzureDevOpsDescriptor;
-    use crate::prelude::AzureDevOpsEntraUserDescriptor;
+    use crate::AzureDevOpsEntraUserDescriptor;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

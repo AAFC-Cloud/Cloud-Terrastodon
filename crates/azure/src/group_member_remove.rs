@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::EntraGroupId;
-use cloud_terrastodon_azure_types::prelude::PrincipalId;
+use cloud_terrastodon_azure_types::EntraGroupId;
+use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;

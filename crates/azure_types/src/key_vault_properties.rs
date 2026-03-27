@@ -1,4 +1,4 @@
-use crate::prelude::KeyVaultAccessPolicy;
+use crate::KeyVaultAccessPolicy;
 use crate::tenant_id::AzureTenantId;
 use serde::Deserialize;
 use serde::Serialize;

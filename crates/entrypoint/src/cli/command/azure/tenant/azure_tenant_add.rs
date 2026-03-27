@@ -1,6 +1,6 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::add_tracked_tenant;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::add_tracked_tenant;
 use eyre::Result;
 use std::io::Write;
 

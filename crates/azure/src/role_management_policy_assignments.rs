@@ -1,11 +1,11 @@
-use cloud_terrastodon_azure_types::prelude::RoleDefinitionId;
-use cloud_terrastodon_azure_types::prelude::RoleManagementPolicyAssignment;
-use cloud_terrastodon_azure_types::prelude::Scope;
+use cloud_terrastodon_azure_types::RoleDefinitionId;
+use cloud_terrastodon_azure_types::RoleManagementPolicyAssignment;
+use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::Sanitizable;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -73,8 +73,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(RoleManagementPolicyAssig
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::test_helpers::expect_aad_premium_p2_license;
     use crate::role_eligibility_schedules::fetch_my_role_eligibility_schedules;
+    use crate::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {

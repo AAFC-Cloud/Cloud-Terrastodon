@@ -1,6 +1,6 @@
-use crate::prelude::RoleDefinitionId;
-use crate::prelude::RoleDefinitionKind;
-use crate::prelude::RoleEligibilityScheduleId;
+use crate::RoleDefinitionId;
+use crate::RoleDefinitionKind;
+use crate::RoleEligibilityScheduleId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;

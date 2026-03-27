@@ -1,7 +1,7 @@
 use clap::Args;
-use cloud_terrastodon_azure_devops::prelude::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::prelude::fetch_azure_devops_groups_for_project;
-use cloud_terrastodon_azure_devops::prelude::get_default_organization_url;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
+use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
+use cloud_terrastodon_azure_devops::get_default_organization_url;
 use eyre::Result;
 use serde_json::to_writer_pretty;
 use std::io::stdout;

@@ -1,4 +1,4 @@
-use crate::prelude::HclBlock;
+use crate::HclBlock;
 use eyre::Result;
 use hcl::edit::prelude::Span;
 use hcl::edit::structure::Block;

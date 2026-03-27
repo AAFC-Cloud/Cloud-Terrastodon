@@ -1,6 +1,6 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
+use cloud_terrastodon_azure::get_default_tenant_id;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;

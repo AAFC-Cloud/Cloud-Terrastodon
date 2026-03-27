@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsAgentPool;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsAgentPool;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -69,7 +69,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsAgentPoolListR
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::prelude::get_default_organization_url;
+    use crate::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

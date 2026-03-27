@@ -1,8 +1,8 @@
-use crate::prelude::strip_prefix_case_insensitive;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
+use crate::strip_prefix_case_insensitive;
 use eyre::Result;
 use serde::Deserialize;
 use serde::Deserializer;

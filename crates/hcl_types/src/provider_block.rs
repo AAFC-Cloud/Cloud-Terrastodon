@@ -1,5 +1,5 @@
-use crate::prelude::HclProviderReference;
-use crate::prelude::ProviderKind;
+use crate::HclProviderReference;
+use crate::ProviderKind;
 use eyre::OptionExt;
 use eyre::bail;
 use hcl::edit::structure::Attribute;
@@ -159,7 +159,7 @@ impl TryFrom<Block> for HclProviderBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::AsHclString;
+    use crate::AsHclString;
     use std::collections::HashSet;
 
     #[test]

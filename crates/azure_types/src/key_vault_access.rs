@@ -1,9 +1,9 @@
-use crate::prelude::KeyVault;
-use crate::prelude::KeyVaultAccessPolicySecretManagementOperation;
-use crate::prelude::KeyVaultAccessPolicySecretPrivilege;
-use crate::prelude::RoleDefinitionsAndAssignments;
-use crate::prelude::RoleDefinitionsAndAssignmentsIterTools;
-use crate::prelude::RolePermissionAction;
+use crate::KeyVault;
+use crate::KeyVaultAccessPolicySecretManagementOperation;
+use crate::KeyVaultAccessPolicySecretPrivilege;
+use crate::RoleDefinitionsAndAssignments;
+use crate::RoleDefinitionsAndAssignmentsIterTools;
+use crate::RolePermissionAction;
 use uuid::Uuid;
 
 impl KeyVault {

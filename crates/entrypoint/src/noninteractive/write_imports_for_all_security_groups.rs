@@ -1,8 +1,8 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::fetch_all_security_groups;
-use cloud_terrastodon_hcl::prelude::HclImportBlock;
-use cloud_terrastodon_hcl::prelude::HclProviderBlock;
-use cloud_terrastodon_hcl::prelude::HclWriter;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::fetch_all_security_groups;
+use cloud_terrastodon_hcl::HclImportBlock;
+use cloud_terrastodon_hcl::HclProviderBlock;
+use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use tracing::info;

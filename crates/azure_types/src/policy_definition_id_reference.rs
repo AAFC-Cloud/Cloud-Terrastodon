@@ -1,5 +1,5 @@
-use crate::prelude::PolicyDefinitionId;
-use crate::prelude::PolicySetDefinitionId;
+use crate::PolicyDefinitionId;
+use crate::PolicySetDefinitionId;
 use crate::scopes::Scope;
 use eyre::bail;
 use serde::Deserialize;
@@ -31,7 +31,7 @@ impl Scope for PolicyDefinitionIdReference {
         Self::from_str(expanded)
     }
 
-    fn as_scope_impl(&self) -> crate::prelude::ScopeImpl {
+    fn as_scope_impl(&self) -> crate::ScopeImpl {
         match self {
             PolicyDefinitionIdReference::PolicyDefinitionId(policy_definition_id) => {
                 policy_definition_id.as_scope_impl()
@@ -42,7 +42,7 @@ impl Scope for PolicyDefinitionIdReference {
         }
     }
 
-    fn kind(&self) -> crate::prelude::ScopeImplKind {
+    fn kind(&self) -> crate::ScopeImplKind {
         match self {
             PolicyDefinitionIdReference::PolicyDefinitionId(policy_definition_id) => {
                 policy_definition_id.kind()

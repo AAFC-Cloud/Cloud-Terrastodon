@@ -1,5 +1,5 @@
-use crate::prelude::AddressPrefixes;
-use crate::prelude::RouteTableId;
+use crate::AddressPrefixes;
+use crate::RouteTableId;
 use serde::Deserialize;
 use serde::Serialize;
 

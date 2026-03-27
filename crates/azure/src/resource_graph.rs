@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::ResourceGraphQueryResponse;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -197,7 +197,7 @@ resourcecontainers
             name: String,
         }
         let data = ResourceGraphHelper::new(
-            crate::prelude::get_test_tenant_id().await?,
+            crate::get_test_tenant_id().await?,
             query,
             Some(CacheKey::new(PathBuf::from_iter([
                 "az",

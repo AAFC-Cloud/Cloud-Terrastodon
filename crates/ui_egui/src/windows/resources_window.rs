@@ -1,9 +1,9 @@
 use crate::app::MyApp;
 use crate::loadable::Loadable;
 use crate::loadable_work::LoadableWorkBuilder;
-use cloud_terrastodon_azure::prelude::Resource;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::fetch_all_resources;
+use cloud_terrastodon_azure::Resource;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::fetch_all_resources;
 use eframe::egui::Ui;
 use egui_extras::Column;
 use egui_extras::TableBuilder;

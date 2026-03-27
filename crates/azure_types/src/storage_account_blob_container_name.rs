@@ -175,7 +175,7 @@ impl<'a> Arbitrary<'a> for StorageAccountBlobContainerName {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::StorageAccountBlobContainerName;
+    use crate::StorageAccountBlobContainerName;
     use crate::slug::Slug;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;

@@ -1,10 +1,10 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::prelude::RoleDefinition;
-use cloud_terrastodon_azure::prelude::RolePermissionAction;
-use cloud_terrastodon_azure::prelude::Scope;
-use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::RoleDefinition;
+use cloud_terrastodon_azure::RolePermissionAction;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use eyre::Result;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -128,7 +128,7 @@ enum MatchSource {
 
 #[derive(Debug, Serialize, Clone)]
 struct RoleDefinitionMatch {
-    role_definition_id: cloud_terrastodon_azure::prelude::RoleDefinitionId,
+    role_definition_id: cloud_terrastodon_azure::RoleDefinitionId,
     role_definition_name: String,
     specificity_cost: u64,
     match_source: MatchSource,
@@ -138,10 +138,10 @@ struct RoleDefinitionMatch {
 
 #[derive(Debug, Serialize)]
 struct RoleAssignmentMatch {
-    role_assignment_id: cloud_terrastodon_azure::prelude::RoleAssignmentId,
-    role_definition_id: cloud_terrastodon_azure::prelude::RoleDefinitionId,
+    role_assignment_id: cloud_terrastodon_azure::RoleAssignmentId,
+    role_definition_id: cloud_terrastodon_azure::RoleDefinitionId,
     role_definition_name: String,
-    principal_id: cloud_terrastodon_azure::prelude::PrincipalId,
+    principal_id: cloud_terrastodon_azure::PrincipalId,
     scope: String,
     scope_specificity: usize,
     specificity_cost: u64,
@@ -312,7 +312,7 @@ fn build_fallback_chain(action: &RolePermissionAction) -> Vec<RolePermissionActi
 mod tests {
     use super::action_specificity_cost;
     use super::build_fallback_chain;
-    use cloud_terrastodon_azure::prelude::RolePermissionAction;
+    use cloud_terrastodon_azure::RolePermissionAction;
 
     #[test]
     fn fallback_chain_progressively_generalizes() {

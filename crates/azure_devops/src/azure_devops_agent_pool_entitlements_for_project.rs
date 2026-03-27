@@ -1,5 +1,5 @@
-use crate::prelude::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use crate::AzureDevOpsProjectArgument;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -28,7 +28,7 @@ pub fn fetch_azure_devops_agent_pool_entitlements_for_project<'a>(
 impl<'a> cloud_terrastodon_command::CacheableCommand
     for AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a>
 {
-    type Output = Vec<crate::prelude::AzureDevOpsAgentPoolEntitlement>;
+    type Output = Vec<crate::AzureDevOpsAgentPoolEntitlement>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
@@ -63,7 +63,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
         struct Response {
             continuation_token: Option<Value>,
             count: u32,
-            value: Vec<crate::prelude::AzureDevOpsAgentPoolEntitlement>,
+            value: Vec<crate::AzureDevOpsAgentPoolEntitlement>,
         }
 
         let resp = cmd.run::<Response>().await?;
@@ -87,8 +87,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsAgentPoolEntit
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::prelude::fetch_all_azure_devops_projects;
-    use crate::prelude::get_default_organization_url;
+    use crate::fetch_all_azure_devops_projects;
+    use crate::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

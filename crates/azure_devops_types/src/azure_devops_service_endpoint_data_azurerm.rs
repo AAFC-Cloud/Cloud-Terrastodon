@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::SubscriptionId;
-use cloud_terrastodon_azure_types::prelude::SubscriptionName;
+use cloud_terrastodon_azure_types::SubscriptionId;
+use cloud_terrastodon_azure_types::SubscriptionName;
 use cloud_terrastodon_azure_types::serde_helpers::deserialize_none_if_empty_string;
 use compact_str::CompactString;
 use uuid::Uuid;

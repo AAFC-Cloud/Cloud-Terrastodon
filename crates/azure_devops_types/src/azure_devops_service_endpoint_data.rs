@@ -1,4 +1,4 @@
-use crate::prelude::ServiceEndpointAzureRMData;
+use crate::ServiceEndpointAzureRMData;
 use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;

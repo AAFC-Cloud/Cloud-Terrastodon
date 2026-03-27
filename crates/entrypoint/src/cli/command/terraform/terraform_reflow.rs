@@ -1,9 +1,9 @@
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
-use cloud_terrastodon_hcl::prelude::HclWriter;
 use cloud_terrastodon_hcl::reflow::reflow_hcl;
 use cloud_terrastodon_pathing::Existy;
 use eyre::Result;

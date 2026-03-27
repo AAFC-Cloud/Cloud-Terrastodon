@@ -1,4 +1,4 @@
-use crate::prelude::ComputeSkuName;
+use crate::ComputeSkuName;
 use serde::Deserialize;
 use serde::Serialize;
 

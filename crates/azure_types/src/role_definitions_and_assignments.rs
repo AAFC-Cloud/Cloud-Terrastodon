@@ -1,9 +1,9 @@
-use crate::prelude::RoleAssignment;
-use crate::prelude::RoleAssignmentId;
-use crate::prelude::RoleDefinition;
-use crate::prelude::RoleDefinitionId;
-use crate::prelude::RolePermissionAction;
-use crate::prelude::Scope;
+use crate::RoleAssignment;
+use crate::RoleAssignmentId;
+use crate::RoleDefinition;
+use crate::RoleDefinitionId;
+use crate::RolePermissionAction;
+use crate::Scope;
 use eyre::bail;
 use std::collections::HashMap;
 use uuid::Uuid;

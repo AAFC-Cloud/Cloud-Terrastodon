@@ -55,7 +55,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::TestResource;
+    use crate::TestResource;
 
     #[test]
     fn test_distinct_by_scope() {

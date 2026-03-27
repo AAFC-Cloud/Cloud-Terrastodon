@@ -284,10 +284,10 @@ impl<'de> serde::Deserialize<'de> for AzureDevOpsProjectName {
 #[cfg(test)]
 mod tests {
     use super::validate_azure_devops_project_name as validate;
+    use crate::AzureDevOpsProjectName;
     use crate::azure_devops_project_name::FORBIDDEN_CHARS;
     use crate::azure_devops_project_name::IIS_HIDDEN_SEGMENTS;
     use crate::azure_devops_project_name::RESERVED_NAMES;
-    use crate::prelude::AzureDevOpsProjectName;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use compact_str::CompactString;

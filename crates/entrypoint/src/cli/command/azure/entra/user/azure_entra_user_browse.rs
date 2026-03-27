@@ -1,7 +1,7 @@
-use crate::interactive::prelude::browse_users;
+use crate::interactive::browse_users;
 use clap::Args;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use eyre::Result;
 
 /// Interactively browse Entra (Azure AD) users.

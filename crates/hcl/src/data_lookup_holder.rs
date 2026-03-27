@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure::prelude::ScopeImpl;
-use cloud_terrastodon_hcl_types::prelude::DataBlockReference;
+use cloud_terrastodon_azure::ScopeImpl;
+use cloud_terrastodon_hcl_types::DataBlockReference;
 use std::collections::HashMap;
 
 #[derive(Default)]

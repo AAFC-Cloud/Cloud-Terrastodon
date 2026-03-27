@@ -1,7 +1,7 @@
-use crate::prelude::Subnet;
-use crate::prelude::VirtualNetworkId;
-use crate::prelude::VirtualNetworkPeeringId;
-use crate::prelude::VirtualNetworkPeeringName;
+use crate::Subnet;
+use crate::VirtualNetworkId;
+use crate::VirtualNetworkPeeringId;
+use crate::VirtualNetworkPeeringName;
 use ipnetwork::Ipv4Network;
 use serde::Deserialize;
 use serde::Serialize;

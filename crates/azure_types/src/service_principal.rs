@@ -1,4 +1,4 @@
-use crate::prelude::EntraServicePrincipalId;
+use crate::EntraServicePrincipalId;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;

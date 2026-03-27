@@ -1,4 +1,4 @@
-use crate::prelude::AzureDevOpsLicenseType;
+use crate::AzureDevOpsLicenseType;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -59,7 +59,7 @@ pub enum AzureDevOpsLicenseRuleAssignmentSource {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::AzureDevOpsLicenseRule;
+    use crate::AzureDevOpsLicenseRule;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

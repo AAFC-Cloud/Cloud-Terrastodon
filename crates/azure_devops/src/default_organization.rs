@@ -1,5 +1,5 @@
-use crate::prelude::get_azure_devops_cli_config;
-use cloud_terrastodon_azure_devops_types::prelude::AzureDevOpsOrganizationUrl;
+use crate::get_azure_devops_cli_config;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind::AzureCLI;
@@ -71,7 +71,7 @@ pub async fn set_default_organization_url(org: AzureDevOpsOrganizationUrl) -> ey
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::get_default_organization_url;
+    use crate::get_default_organization_url;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

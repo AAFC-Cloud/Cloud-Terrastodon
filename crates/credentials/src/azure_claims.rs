@@ -1,10 +1,10 @@
 use chrono::DateTime;
 use chrono::Local;
-use cloud_terrastodon_azure_types::prelude::AppId;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::EntraGroupId;
-use cloud_terrastodon_azure_types::prelude::PrincipalId;
-use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
+use cloud_terrastodon_azure_types::AppId;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::EntraGroupId;
+use cloud_terrastodon_azure_types::PrincipalId;
+use cloud_terrastodon_azure_types::uuid::Uuid;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
 pub struct AzureClaims {

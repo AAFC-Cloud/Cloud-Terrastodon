@@ -1,8 +1,8 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::create_oauth2_permission_grant;
-use cloud_terrastodon_azure::prelude::fetch_all_service_principals;
-use cloud_terrastodon_azure::prelude::fetch_all_users;
-use cloud_terrastodon_azure::prelude::fetch_oauth2_permission_scopes;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::create_oauth2_permission_grant;
+use cloud_terrastodon_azure::fetch_all_service_principals;
+use cloud_terrastodon_azure::fetch_all_users;
+use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;

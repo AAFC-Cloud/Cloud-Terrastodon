@@ -1,12 +1,6 @@
 pub mod command;
 pub mod global_args;
 
-pub mod prelude {
-    pub use super::Cli;
-    pub use super::GlobalArgs;
-    pub use super::command::*;
-}
-
 use crate::menu::menu_loop;
 use clap::Parser;
 pub use command::*;

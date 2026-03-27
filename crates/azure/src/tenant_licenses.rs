@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure_types::prelude::TenantLicense;
-use cloud_terrastodon_azure_types::prelude::TenantLicenseCollection;
+use cloud_terrastodon_azure_types::TenantLicense;
+use cloud_terrastodon_azure_types::TenantLicenseCollection;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -47,7 +47,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(TenantLicenseListRequest)
 
 #[cfg(test)]
 pub mod test_helpers {
-    use crate::prelude::fetch_all_tenant_licenses;
+    use crate::fetch_all_tenant_licenses;
     use cloud_terrastodon_command::CommandOutput;
     use cloud_terrastodon_command::bstr::ByteSlice;
 
@@ -90,7 +90,7 @@ pub mod test_helpers {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_tenant_licenses;
+    use crate::fetch_all_tenant_licenses;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

@@ -1,15 +1,15 @@
-use crate::prelude::ResourceGroupId;
-use crate::prelude::ResourceGroupName;
-use crate::prelude::SubscriptionId;
-use crate::prelude::SubscriptionScoped;
+use crate::ResourceGroupId;
+use crate::ResourceGroupName;
+use crate::SubscriptionId;
+use crate::SubscriptionScoped;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::serde_helpers::deserialize_default_if_null;
-use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
-use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockReference;
-use cloud_terrastodon_hcl_types::prelude::Sanitizable;
+use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::HclImportBlock;
+use cloud_terrastodon_hcl_types::HclProviderReference;
+use cloud_terrastodon_hcl_types::ResourceBlockReference;
+use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -63,7 +63,7 @@ impl From<ResourceGroup> for HclImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::ResourceGroupName;
+    use crate::ResourceGroupName;
     use crate::slug::Slug;
     use eyre::Result;
     use uuid::Uuid;

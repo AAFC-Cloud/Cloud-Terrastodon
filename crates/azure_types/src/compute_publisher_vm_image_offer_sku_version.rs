@@ -1,7 +1,7 @@
-use crate::prelude::ComputePublisherVmImageOfferSkuVersionId;
-use crate::prelude::ComputePublisherVmImageOfferSkuVersionName;
-use crate::prelude::ComputePublisherVmImageOfferSkuVersionProperties;
-use crate::prelude::LocationName;
+use crate::ComputePublisherVmImageOfferSkuVersionId;
+use crate::ComputePublisherVmImageOfferSkuVersionName;
+use crate::ComputePublisherVmImageOfferSkuVersionProperties;
+use crate::LocationName;
 use serde::Deserialize;
 use serde::Serialize;
 

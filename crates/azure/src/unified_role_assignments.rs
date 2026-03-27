@@ -1,6 +1,6 @@
-use crate::prelude::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::UnifiedRoleAssignment;
+use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::UnifiedRoleAssignment;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -48,7 +48,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleAssignmentList
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::get_test_tenant_id;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

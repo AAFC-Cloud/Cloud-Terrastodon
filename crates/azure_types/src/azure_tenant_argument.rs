@@ -1,5 +1,5 @@
-use crate::prelude::AzureTenantAlias;
-use crate::prelude::AzureTenantId;
+use crate::AzureTenantAlias;
+use crate::AzureTenantId;
 use eyre::bail;
 use std::str::FromStr;
 

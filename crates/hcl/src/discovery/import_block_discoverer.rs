@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure::prelude::ScopeImpl;
+use cloud_terrastodon_azure::ScopeImpl;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::Block;
 use hcl::edit::visit::Visit;

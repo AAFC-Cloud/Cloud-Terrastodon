@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure::prelude::AzureTenantId;
-use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_pathing::AppDir;

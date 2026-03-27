@@ -1,5 +1,5 @@
-use crate::prelude::Principal;
-use crate::prelude::PrincipalId;
+use crate::Principal;
+use crate::PrincipalId;
 use std::collections::HashMap;
 use std::ops::Deref;
 

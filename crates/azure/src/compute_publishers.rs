@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure_types::prelude::ComputePublisherId;
-use cloud_terrastodon_azure_types::prelude::LocationName;
-use cloud_terrastodon_azure_types::prelude::SubscriptionId;
+use cloud_terrastodon_azure_types::ComputePublisherId;
+use cloud_terrastodon_azure_types::LocationName;
+use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -65,9 +65,9 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ComputePublishersListRequ
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_subscriptions;
-    use crate::prelude::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::prelude::LocationName;
+    use crate::fetch_all_subscriptions;
+    use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::LocationName;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -75,7 +75,7 @@ mod test {
         let subs = fetch_all_subscriptions(tenant_id).await?;
         let sub = subs.first().unwrap();
         let publishers =
-            crate::prelude::fetch_compute_publishers(sub.id, LocationName::CanadaCentral).await?;
+            crate::fetch_compute_publishers(sub.id, LocationName::CanadaCentral).await?;
         assert!(!publishers.is_empty());
         Ok(())
     }

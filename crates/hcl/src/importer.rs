@@ -1,4 +1,4 @@
-use crate::prelude::ProviderManager;
+use crate::ProviderManager;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::CommandOutput;
@@ -184,9 +184,9 @@ impl GenerateConfigOutHelper {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::GenerateConfigOutHelper;
-    use crate::prelude::ProviderManager;
-    use cloud_terrastodon_hcl_types::prelude::TerraformRequiredProvidersBlock;
+    use crate::GenerateConfigOutHelper;
+    use crate::ProviderManager;
+    use cloud_terrastodon_hcl_types::TerraformRequiredProvidersBlock;
     use cloud_terrastodon_pathing::AppDir;
     use cloud_terrastodon_pathing::Existy;
     use std::sync::Arc;

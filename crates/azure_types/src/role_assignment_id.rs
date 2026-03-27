@@ -1,17 +1,17 @@
-use crate::prelude::ManagementGroupId;
-use crate::prelude::ManagementGroupScopedRoleAssignmentId;
-use crate::prelude::PortalScopedRoleAssignmentId;
-use crate::prelude::ResourceGroupId;
-use crate::prelude::ResourceGroupScopedRoleAssignmentId;
-use crate::prelude::ResourceId;
-use crate::prelude::ResourceScopedRoleAssignmentId;
-use crate::prelude::RoleAssignmentName;
-use crate::prelude::ServiceGroupId;
-use crate::prelude::ServiceGroupScopedRoleAssignmentId;
-use crate::prelude::SubscriptionId;
-use crate::prelude::SubscriptionScoped;
-use crate::prelude::SubscriptionScopedRoleAssignmentId;
-use crate::prelude::UnscopedRoleAssignmentId;
+use crate::ManagementGroupId;
+use crate::ManagementGroupScopedRoleAssignmentId;
+use crate::PortalScopedRoleAssignmentId;
+use crate::ResourceGroupId;
+use crate::ResourceGroupScopedRoleAssignmentId;
+use crate::ResourceId;
+use crate::ResourceScopedRoleAssignmentId;
+use crate::RoleAssignmentName;
+use crate::ServiceGroupId;
+use crate::ServiceGroupScopedRoleAssignmentId;
+use crate::SubscriptionId;
+use crate::SubscriptionScoped;
+use crate::SubscriptionScopedRoleAssignmentId;
+use crate::UnscopedRoleAssignmentId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -251,8 +251,8 @@ impl<'de> Deserialize<'de> for RoleAssignmentId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::ResourceGroupName;
-    use crate::prelude::ServiceGroupName;
+    use crate::ResourceGroupName;
+    use crate::ServiceGroupName;
     use crate::slug::Slug;
     use cloud_terrastodon_azure_resource_types::ResourceType;
     use eyre::Result;

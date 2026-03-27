@@ -1,7 +1,7 @@
-use crate::prelude::fetch_all_role_assignments;
-use crate::prelude::fetch_all_role_definitions;
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
-use cloud_terrastodon_azure_types::prelude::RoleDefinitionsAndAssignments;
+use crate::fetch_all_role_assignments;
+use crate::fetch_all_role_definitions;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::RoleDefinitionsAndAssignments;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -50,8 +50,8 @@ impl IntoFuture for RoleDefinitionsAndAssignmentsListRequest {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::fetch_all_role_definitions_and_assignments;
-    use crate::prelude::get_test_tenant_id;
+    use crate::fetch_all_role_definitions_and_assignments;
+    use crate::get_test_tenant_id;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

@@ -1,10 +1,10 @@
-use crate::interactive::prelude::pim_activate;
-use crate::interactive::prelude::pim_activate_azurerm;
-use crate::interactive::prelude::pim_activate_entra;
+use crate::interactive::pim_activate;
+use crate::interactive::pim_activate_azurerm;
+use crate::interactive::pim_activate_entra;
 use clap::Args;
 use clap::Subcommand;
-use cloud_terrastodon_azure::prelude::AzureTenantArgument;
-use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use eyre::Result;
 
 /// Arguments for activating Privileged Identity Management roles.

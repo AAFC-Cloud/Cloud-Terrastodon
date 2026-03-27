@@ -1,4 +1,4 @@
-use cloud_terrastodon_hcl_types::prelude::TerraformBlock;
+use cloud_terrastodon_hcl_types::TerraformBlock;
 use hcl::edit::visit_mut::VisitMut;
 use tracing::error;
 use tracing::warn;

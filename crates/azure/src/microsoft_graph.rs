@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::prelude::AzureTenantId;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;

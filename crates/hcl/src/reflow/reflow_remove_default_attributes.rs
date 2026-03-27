@@ -1,9 +1,9 @@
 use crate::reflow::HclReflower;
-use cloud_terrastodon_azure::prelude::uuid::Uuid;
-use cloud_terrastodon_hcl_types::prelude::AzureAdResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::AzureDevOpsResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::AzureRmResourceBlockKind;
-use cloud_terrastodon_hcl_types::prelude::ResourceBlockResourceKind;
+use cloud_terrastodon_azure::uuid::Uuid;
+use cloud_terrastodon_hcl_types::AzureAdResourceBlockKind;
+use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
+use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
+use cloud_terrastodon_hcl_types::ResourceBlockResourceKind;
 use hcl::edit::Decorate;
 use hcl::edit::Decorated;
 use hcl::edit::expr::Array;
