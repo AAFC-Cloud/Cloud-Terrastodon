@@ -1,9 +1,8 @@
 # TODO
 
-## Tenant ID
+## Subscription Name
 
-- Tenant ID still needs to be standardized for MS Graph/entra usage
-
+- Add subscription name to resources with subscription id like resource groups
 
 ## Formatting
 
