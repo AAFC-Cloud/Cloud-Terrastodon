@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_azure::prelude::ResourceGroupId;
 use cloud_terrastodon_azure::prelude::ResourceTagsId;
@@ -11,7 +12,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
-pub async fn tag_empty_resource_group_menu() -> Result<()> {
+pub async fn tag_empty_resource_group_menu(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching empty resource groups");
     let query = r#"
 ResourceContainers  
@@ -31,6 +32,7 @@ ResourceContainers
         tags: HashMap<String, String>,
     }
     let empty_resource_groups = ResourceGraphHelper::new(
+        tenant_id,
         query,
         Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "empty-resource-groups"]),

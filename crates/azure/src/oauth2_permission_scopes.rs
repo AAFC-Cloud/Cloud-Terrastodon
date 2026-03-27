@@ -65,11 +65,12 @@ cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionScopesLis
 mod tests {
     use super::*;
     use crate::prelude::fetch_all_service_principals;
+    use crate::prelude::get_test_tenant_id;
     use eyre::OptionExt;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let service_principals = fetch_all_service_principals().await?;
+        let service_principals = fetch_all_service_principals(get_test_tenant_id().await?).await?;
         let graph = service_principals
             .iter()
             .find(|sp| sp.display_name == "Microsoft Graph")

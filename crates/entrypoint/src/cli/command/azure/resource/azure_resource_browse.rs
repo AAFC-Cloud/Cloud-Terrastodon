@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::Resource;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
@@ -10,12 +12,17 @@ use tracing::info;
 
 /// Arguments for browsing Azure resources interactively.
 #[derive(Args, Debug, Clone)]
-pub struct AzureResourceBrowseArgs {}
+pub struct AzureResourceBrowseArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+}
 
 impl AzureResourceBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         info!("Fetching Azure resources...");
-        let resources = fetch_all_resources().await?;
+        let resources = fetch_all_resources(tenant_id).await?;
         info!(count = resources.len(), "Fetched Azure resources");
 
         let choices = resources.into_iter().map(|resource| Choice {

@@ -3,11 +3,17 @@ use crate::interactive::prelude::pim_activate_azurerm;
 use crate::interactive::prelude::pim_activate_entra;
 use clap::Args;
 use clap::Subcommand;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use eyre::Result;
 
 /// Arguments for activating Privileged Identity Management roles.
 #[derive(Args, Debug, Clone)]
 pub struct AzurePimActivateArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     #[command(subcommand)]
     pub target: Option<AzurePimActivateTarget>,
 }
@@ -25,10 +31,11 @@ pub enum AzurePimActivateTarget {
 
 impl AzurePimActivateArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         match self.target {
-            Some(AzurePimActivateTarget::AzureRm) => pim_activate_azurerm().await,
-            Some(AzurePimActivateTarget::AzureAd) => pim_activate_entra().await,
-            None => pim_activate().await,
+            Some(AzurePimActivateTarget::AzureRm) => pim_activate_azurerm(tenant_id).await,
+            Some(AzurePimActivateTarget::AzureAd) => pim_activate_entra(tenant_id).await,
+            None => pim_activate(tenant_id).await,
         }
     }
 }

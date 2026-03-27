@@ -21,21 +21,16 @@ pub struct MicrosoftGraphBatchRequest<REQ: Serialize> {
     #[serde(skip)]
     pub cache_key: Option<CacheKey>,
     #[serde(skip)]
-    pub tenant_id: Option<AzureTenantId>,
+    pub tenant_id: AzureTenantId,
 }
-impl<T: Serialize> Default for MicrosoftGraphBatchRequest<T> {
-    fn default() -> Self {
+impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
+    pub fn new(tenant_id: AzureTenantId) -> Self {
         MicrosoftGraphBatchRequest {
             requests: Vec::new(),
             ids: Vec::new(),
             cache_key: None,
-            tenant_id: None,
+            tenant_id,
         }
-    }
-}
-impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
-    pub fn new() -> Self {
-        MicrosoftGraphBatchRequest::default()
     }
     pub fn add(&mut self, entry: impl Into<MicrosoftGraphBatchRequestEntry<REQ>>) {
         let entry = entry.into();
@@ -58,10 +53,6 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
         self.cache_key = cache_key;
         self
     }
-    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
-        self.tenant_id = Some(tenant_id);
-        self
-    }
     pub async fn send<RESP: FromCommandOutput>(
         self,
     ) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>> {
@@ -73,10 +64,8 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
             "--url",
             "https://graph.microsoft.com/v1.0/$batch",
         ]);
-        if let Some(tenant_id) = self.tenant_id.as_ref() {
-            let tenant_id = tenant_id.to_string();
-            cmd.args(["--tenant", tenant_id.as_str()]);
-        }
+        let tenant_id = self.tenant_id.to_string();
+        cmd.args(["--tenant", tenant_id.as_str()]);
         cmd.arg("--body");
         cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&self)?);
         cmd.use_cache(self.cache_key);
@@ -215,7 +204,9 @@ pub struct MicrosoftGraphBatchResponseEntryError {
 mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        // let mut batch = MicrosoftGraphBatchRequest::new();
+        // let mut batch = MicrosoftGraphBatchRequest::new(
+        //     cloud_terrastodon_azure_types::prelude::AzureTenantId::nil(),
+        // );
 
         Ok(())
     }

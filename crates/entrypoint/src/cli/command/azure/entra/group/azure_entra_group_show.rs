@@ -125,14 +125,14 @@ impl AzureEntraGroupShowArgs {
         for group in &chosen_groups {
             let group_id = group.id;
             work.enqueue(async move {
-                let members = fetch_group_members(group_id).tenant_id(tenant_id).await?;
+                let members = fetch_group_members(tenant_id, group_id).await?;
                 eyre::Ok(Resp::Members {
                     group_id,
                     principals: members,
                 })
             });
             work.enqueue(async move {
-                let owners = fetch_group_owners(group_id).tenant_id(tenant_id).await?;
+                let owners = fetch_group_owners(tenant_id, group_id).await?;
                 eyre::Ok(Resp::Owners {
                     group_id,
                     principals: owners,
@@ -140,7 +140,7 @@ impl AzureEntraGroupShowArgs {
             });
         }
         work.enqueue(async move {
-            let rbac = fetch_all_role_definitions_and_assignments().await?;
+            let rbac = fetch_all_role_definitions_and_assignments(tenant_id).await?;
             eyre::Ok(Resp::Rbac(rbac))
         });
         let work_results = work.join().await?;

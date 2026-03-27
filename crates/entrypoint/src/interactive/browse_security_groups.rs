@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
@@ -27,10 +28,10 @@ enum SecurityGroupAction {
     JustPrint,
 }
 
-pub async fn browse_security_groups() -> Result<()> {
+pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
     let security_groups = PickerTui::new()
         .set_header("security groups")
-        .pick_many(get_security_group_choices().await?)?;
+        .pick_many(get_security_group_choices(tenant_id).await?)?;
 
     let actions = PickerTui::new()
         .set_header("Would you like any other details?")
@@ -75,8 +76,10 @@ pub async fn browse_security_groups() -> Result<()> {
                     security_groups.len()
                 );
                 for (group, row) in security_groups.iter().zip(rows.iter_mut()) {
-                    let (owners, members) =
-                        try_join!(fetch_group_owners(group.id), fetch_group_members(group.id))?;
+                    let (owners, members) = try_join!(
+                        fetch_group_owners(tenant_id, group.id),
+                        fetch_group_members(tenant_id, group.id)
+                    )?;
                     row["owners"] = serde_json::to_value(&owners)?;
                     row["members"] = serde_json::to_value(&members)?;
                 }
@@ -86,8 +89,10 @@ pub async fn browse_security_groups() -> Result<()> {
                     "Fetching role assignments and definitions to filter for {} groups",
                     security_groups.len()
                 );
-                let (role_assignments, role_definitions) =
-                    try_join!(fetch_all_role_assignments(), fetch_all_role_definitions(),)?;
+                let (role_assignments, role_definitions) = try_join!(
+                    fetch_all_role_assignments(tenant_id),
+                    fetch_all_role_definitions(tenant_id),
+                )?;
                 let role_assignments_by_principal: HashMap<&PrincipalId, Vec<&RoleAssignment>> =
                     role_assignments
                         .iter()

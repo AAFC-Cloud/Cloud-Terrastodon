@@ -1,4 +1,5 @@
 use crate::prelude::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::ContainerRegistry;
 use cloud_terrastodon_azure_types::prelude::ContainerRegistryId;
 use cloud_terrastodon_azure_types::prelude::ContainerRegistryRepositoryName;
@@ -14,10 +15,12 @@ use eyre::Result;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct ContainerRegistryListRequest;
+pub struct ContainerRegistryListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_container_registries() -> ContainerRegistryListRequest {
-    ContainerRegistryListRequest
+pub fn fetch_all_container_registries(tenant_id: AzureTenantId) -> ContainerRegistryListRequest {
+    ContainerRegistryListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -29,11 +32,13 @@ impl CacheableCommand for ContainerRegistryListRequest {
             "az",
             "resource_graph",
             "container_registries",
+            self.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         let mut query = ResourceGraphHelper::new(
+            self.tenant_id,
             r#"
 Resources
 | where type =~ "Microsoft.ContainerRegistry/registries"
@@ -102,11 +107,12 @@ mod test {
     use crate::prelude::fetch_all_container_registries;
     use crate::prelude::fetch_container_registry_repository_names;
     use crate::prelude::fetch_container_registry_repository_tags;
+    use crate::prelude::get_test_tenant_id;
     use cloud_terrastodon_azure_types::prelude::Slug;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let found = fetch_all_container_registries().await?;
+        let found = fetch_all_container_registries(get_test_tenant_id().await?).await?;
         assert!(!found.is_empty());
         for registry in found.into_iter() {
             registry.name.validate_slug()?;
@@ -117,8 +123,9 @@ mod test {
     #[tokio::test]
     #[ignore]
     pub async fn it_works2() -> eyre::Result<()> {
+        let tenant_id = get_test_tenant_id().await?;
         let mut pass = false;
-        let found = fetch_all_container_registries().await?;
+        let found = fetch_all_container_registries(tenant_id).await?;
         let found_count = found.len();
         for (i, container_registry) in found.into_iter().enumerate() {
             let repository_names =

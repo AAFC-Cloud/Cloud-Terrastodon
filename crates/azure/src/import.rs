@@ -1,6 +1,7 @@
 use crate::prelude::get_resource_group_choices;
 use crate::prelude::get_role_assignment_choices;
 use crate::prelude::get_security_group_choices;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_hcl_types::prelude::HclImportBlock;
 use cloud_terrastodon_hcl_types::prelude::HclProviderBlock;
 use cloud_terrastodon_hcl_types::prelude::HclProviderReference;
@@ -27,9 +28,10 @@ impl std::fmt::Display for HclImportable {
 impl HclImportable {
     pub async fn try_into_import_blocks(
         &self,
+        tenant_id: AzureTenantId,
     ) -> eyre::Result<Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>>> {
         let rtn: Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>> = match self {
-            HclImportable::ResourceGroup => get_resource_group_choices()
+            HclImportable::ResourceGroup => get_resource_group_choices(tenant_id)
                 .await?
                 .into_iter()
                 .map(
@@ -52,7 +54,7 @@ impl HclImportable {
                     },
                 )
                 .collect(),
-            HclImportable::SecurityGroup => get_security_group_choices()
+            HclImportable::SecurityGroup => get_security_group_choices(tenant_id)
                 .await?
                 .into_iter()
                 .map(|choice| Choice {
@@ -60,7 +62,7 @@ impl HclImportable {
                     value: (choice.value.into(), None),
                 })
                 .collect(),
-            HclImportable::RoleAssignment => get_role_assignment_choices()
+            HclImportable::RoleAssignment => get_role_assignment_choices(tenant_id)
                 .await?
                 .into_iter()
                 .map(|choice| Choice {
@@ -79,8 +81,8 @@ impl HclImportable {
                 value: x,
             }))?)
     }
-    pub async fn pick_into_body(self) -> eyre::Result<Body> {
-        let import_blocks = self.try_into_import_blocks().await?;
+    pub async fn pick_into_body(self, tenant_id: AzureTenantId) -> eyre::Result<Body> {
+        let import_blocks = self.try_into_import_blocks(tenant_id).await?;
         let import_blocks = PickerTui::new()
             .set_header("Pick the resources to import")
             .pick_many(import_blocks)?;

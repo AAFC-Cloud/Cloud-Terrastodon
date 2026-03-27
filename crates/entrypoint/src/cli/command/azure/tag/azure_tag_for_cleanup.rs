@@ -1,5 +1,7 @@
 use chrono::Local;
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::ResourceTagsId;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::fetch_current_user;
@@ -12,10 +14,15 @@ use tracing::info;
 
 /// Arguments for tagging resources that are slated for cleanup.
 #[derive(Args, Debug, Clone)]
-pub struct AzureTagForCleanupArgs {}
+pub struct AzureTagForCleanupArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+}
 
 impl AzureTagForCleanupArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         let cleanup_tagged_date = Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
         let cleanup_tagged_by = fetch_current_user().await?.user_principal_name;
 
@@ -30,7 +37,7 @@ impl AzureTagForCleanupArgs {
             }
         };
 
-        let resources = fetch_all_resources().await?;
+        let resources = fetch_all_resources(tenant_id).await?;
 
         let chosen_resources = PickerTui::new().pick_many(resources)?;
 

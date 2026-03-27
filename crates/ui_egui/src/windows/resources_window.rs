@@ -12,11 +12,12 @@ use std::sync::Arc;
 pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
     match &app.resources {
         Loadable::NotLoaded => {
+            let tenant_id = app.tenant_id;
             // Automatically enqueue a background fetch when the Resources pane is shown.
             let work = LoadableWorkBuilder::new()
                 .description("Fetch resources")
                 .setter(|app, l| app.resources = l)
-                .work(async { Ok(Arc::new(fetch_all_resources().await?)) })
+                .work(async move { Ok(Arc::new(fetch_all_resources(tenant_id).await?)) })
                 .build()
                 .expect("building work");
             work.enqueue(app);

@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::RoleDefinition;
 use cloud_terrastodon_azure::prelude::RolePermissionAction;
 use cloud_terrastodon_azure::prelude::Scope;
@@ -12,6 +14,10 @@ use tracing::info;
 /// Find role definitions and role assignments that satisfy an action or data action.
 #[derive(Args, Debug, Clone)]
 pub struct AzureRoleDefinitionFindArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     /// Required action or data action to search for.
     pub action: RolePermissionAction,
 }
@@ -19,7 +25,7 @@ pub struct AzureRoleDefinitionFindArgs {
 impl AzureRoleDefinitionFindArgs {
     pub async fn invoke(self) -> Result<()> {
         info!(action = %self.action, "Fetching Azure role definitions and role assignments");
-        let rbac = fetch_all_role_definitions_and_assignments().await?;
+        let rbac = fetch_all_role_definitions_and_assignments(self.tenant.resolve().await?).await?;
 
         let fallback_chain = build_fallback_chain(&self.action);
         let literal_match_counts = fallback_chain

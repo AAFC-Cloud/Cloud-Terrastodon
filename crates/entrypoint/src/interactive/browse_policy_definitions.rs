@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::PolicyDefinition;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
@@ -6,8 +7,8 @@ use cloud_terrastodon_user_input::PickerTui;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn browse_policy_definitions() -> eyre::Result<()> {
-    let policy_definitions = fetch_all_policy_definitions()
+pub async fn browse_policy_definitions(tenant_id: AzureTenantId) -> eyre::Result<()> {
+    let policy_definitions = fetch_all_policy_definitions(tenant_id)
         .await?
         .into_iter()
         .map(|def| Choice {

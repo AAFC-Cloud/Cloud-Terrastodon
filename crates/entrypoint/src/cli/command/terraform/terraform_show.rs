@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::PrincipalCollection;
 use cloud_terrastodon_azure::prelude::PrincipalId;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
@@ -21,12 +23,17 @@ use tracing::info;
 /// Show a Terraform plan or plan JSON as a parsed `TerraformPlan`.
 #[derive(Args, Debug, Clone)]
 pub struct TerraformShowArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     /// Path to a Terraform plan (.tfplan) or a JSON plan file (.json)
     pub plan_file: PathBuf,
 }
 
 impl TerraformShowArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         // Determine whether the given file is JSON
         let is_json = self.plan_file.extension().and_then(|s| s.to_str()) == Some("json");
 
@@ -58,7 +65,7 @@ impl TerraformShowArgs {
                     }
 
                     // Slow path: fetch, store in cache, and return
-                    let fetched = fetch_all_principals().await?;
+                    let fetched = fetch_all_principals(tenant_id).await?;
                     let arc = Arc::new(fetched);
                     *cache.borrow_mut() = Some(arc.clone());
                     eyre::Ok(arc)

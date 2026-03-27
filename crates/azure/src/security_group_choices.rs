@@ -1,10 +1,13 @@
 use crate::prelude::fetch_all_security_groups;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::EntraGroup;
 use cloud_terrastodon_user_input::Choice;
 use itertools::Itertools;
 
-pub async fn get_security_group_choices() -> eyre::Result<Vec<Choice<EntraGroup>>> {
-    let security_groups = fetch_all_security_groups().await?;
+pub async fn get_security_group_choices(
+    tenant_id: AzureTenantId,
+) -> eyre::Result<Vec<Choice<EntraGroup>>> {
+    let security_groups = fetch_all_security_groups(tenant_id).await?;
     let choices = security_groups
         .into_iter()
         .sorted_by(|x, y| x.display_name.cmp(&y.display_name))

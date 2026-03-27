@@ -1,4 +1,5 @@
 use crate::management_groups::fetch_root_management_group;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::PimEntraRoleSettings;
 use cloud_terrastodon_azure_types::prelude::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
@@ -11,11 +12,18 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 pub struct EntraPimRoleSettingsRequest {
+    pub tenant_id: AzureTenantId,
     pub role_definition_id: Uuid,
 }
 
-pub fn fetch_entra_pim_role_settings(role_definition_id: Uuid) -> EntraPimRoleSettingsRequest {
-    EntraPimRoleSettingsRequest { role_definition_id }
+pub fn fetch_entra_pim_role_settings(
+    tenant_id: AzureTenantId,
+    role_definition_id: Uuid,
+) -> EntraPimRoleSettingsRequest {
+    EntraPimRoleSettingsRequest {
+        tenant_id,
+        role_definition_id,
+    }
 }
 
 #[async_trait]
@@ -33,7 +41,7 @@ impl cloud_terrastodon_command::CacheableCommand for EntraPimRoleSettingsRequest
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let tenant_id = fetch_root_management_group().await?.tenant_id;
+        let tenant_id = fetch_root_management_group(self.tenant_id).await?.tenant_id;
         let url = format!(
             "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleSettings?{}",
             format_args!(
@@ -72,10 +80,12 @@ cloud_terrastodon_command::impl_cacheable_into_future!(EntraPimRoleSettingsReque
 mod tests {
     use super::*;
     use crate::pim_entra_role_assignments::fetch_my_entra_pim_role_assignments;
+    use crate::prelude::get_test_tenant_id;
     use crate::prelude::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
+        let tenant_id = get_test_tenant_id().await?;
         let Some(role_assignments) =
             expect_aad_premium_p2_license(fetch_my_entra_pim_role_assignments().await).await?
         else {
@@ -84,7 +94,8 @@ mod tests {
         assert!(!role_assignments.is_empty());
         for role_assignment in role_assignments {
             let role_setting =
-                fetch_entra_pim_role_settings(role_assignment.role_definition_id).await?;
+                fetch_entra_pim_role_settings(tenant_id, role_assignment.role_definition_id)
+                    .await?;
             assert!(role_setting.get_maximum_grant_period()?.as_secs() % (60 * 30) == 0);
         }
         Ok(())

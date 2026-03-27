@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_hcl::prelude::AsHclString;
@@ -18,14 +20,19 @@ use tracing::warn;
 /// Add Terraform import blocks for existing resource blocks.
 #[derive(Args, Debug, Clone)]
 pub struct TerraformSourceAddImportsArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     #[arg(long, default_value = ".")]
     pub work_dir: PathBuf,
 }
 
 impl TerraformSourceAddImportsArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         info!("Fetching resources from Azure...");
-        let resources = fetch_all_resources()
+        let resources = fetch_all_resources(tenant_id)
             .await?
             .into_iter()
             .into_group_map_by(|res| res.name.clone());

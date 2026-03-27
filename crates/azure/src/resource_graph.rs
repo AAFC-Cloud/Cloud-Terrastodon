@@ -17,7 +17,7 @@ use tracing::debug;
 pub struct ResourceGraphHelper {
     query: String,
     cache_behaviour: Option<CacheKey>,
-    tenant_id: Option<AzureTenantId>,
+    tenant_id: AzureTenantId,
     skip: Option<(u64, String)>,
     index: usize,
     #[cfg(debug_assertions)]
@@ -55,21 +55,20 @@ pub struct ResourceGraphQueryRestBody {
 }
 
 impl ResourceGraphHelper {
-    pub fn new(query: impl Into<String>, cache_behaviour: Option<CacheKey>) -> Self {
+    pub fn new(
+        tenant_id: AzureTenantId,
+        query: impl Into<String>,
+        cache_behaviour: Option<CacheKey>,
+    ) -> Self {
         Self {
             query: query.into(),
             cache_behaviour,
-            tenant_id: None,
+            tenant_id,
             skip: None,
             index: 0,
             #[cfg(debug_assertions)]
             seen_skip_tokens: Default::default(),
         }
-    }
-
-    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
-        self.tenant_id = Some(tenant_id);
-        self
     }
 
     fn get_command(&self, body: String) -> CommandBuilder {
@@ -80,10 +79,8 @@ impl ResourceGraphHelper {
         }));
         cmd.arg("--body");
         cmd.azure_file_arg("body.json", body);
-        if let Some(tenant_id) = &self.tenant_id {
-            let tenant_id = tenant_id.to_string();
-            cmd.args(["--tenant", tenant_id.as_str()]);
-        }
+        let tenant_id = self.tenant_id.to_string();
+        cmd.args(["--tenant", tenant_id.as_str()]);
         cmd.use_cache(self.cache_behaviour.clone());
         cmd
     }
@@ -200,6 +197,7 @@ resourcecontainers
             name: String,
         }
         let data = ResourceGraphHelper::new(
+            crate::prelude::get_test_tenant_id().await?,
             query,
             Some(CacheKey::new(PathBuf::from_iter([
                 "az",

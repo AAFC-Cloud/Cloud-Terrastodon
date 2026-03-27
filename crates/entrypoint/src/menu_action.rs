@@ -47,8 +47,9 @@ use crate::noninteractive::prelude::process_generated;
 use crate::noninteractive::prelude::write_imports_for_all_resource_groups;
 use crate::noninteractive::prelude::write_imports_for_all_role_assignments;
 use crate::noninteractive::prelude::write_imports_for_all_security_groups;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::evaluate_policy_assignment_compliance;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_azure::prelude::remediate_policy_assignment;
 use cloud_terrastodon_command::USE_TOFU_FLAG_KEY;
 use cloud_terrastodon_pathing::AppDir;
@@ -187,41 +188,46 @@ impl MenuAction {
             }
         }
     }
-    pub async fn invoke(&self) -> Result<MenuActionResult> {
+    pub async fn invoke(&self, tenant_id: AzureTenantId) -> Result<MenuActionResult> {
         match self {
-            MenuAction::ResourceGroupImportWizard => resource_group_import_wizard_menu().await?,
-            MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu().await?,
+            MenuAction::ResourceGroupImportWizard => {
+                resource_group_import_wizard_menu(tenant_id).await?
+            }
+            MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu(tenant_id).await?,
             MenuAction::BrowseResourceGroups => {
                 AzureResourceGroupBrowseArgs {
-                    tenant: Default::default(),
+                    tenant: AzureTenantArgument::Id(tenant_id),
                 }
                 .invoke()
                 .await?
             }
-            MenuAction::BrowseRoleAssignments => browse_role_assignments().await?,
+            MenuAction::BrowseRoleAssignments => browse_role_assignments(tenant_id).await?,
             MenuAction::BuildAllImports => {
-                let tenant_id = get_default_tenant_id().await?;
                 write_imports_for_all_resource_groups(tenant_id).await?;
-                write_imports_for_all_security_groups().await?;
+                write_imports_for_all_security_groups(tenant_id).await?;
                 write_imports_for_all_role_assignments(tenant_id).await?;
             }
-            MenuAction::BrowseUsers => browse_users().await?,
-            MenuAction::BrowseSecurityGroups => browse_security_groups().await?,
-            MenuAction::BuildPolicyImports => build_policy_imports().await?,
-            MenuAction::BuildGroupImports => build_group_imports().await?,
-            MenuAction::BuildResourceGroupImports => build_resource_group_imports().await?,
-            MenuAction::BuildRoleAssignmentImports => build_role_assignment_imports().await?,
+            MenuAction::BrowseUsers => browse_users(tenant_id).await?,
+            MenuAction::BrowseSecurityGroups => browse_security_groups(tenant_id).await?,
+            MenuAction::BuildPolicyImports => build_policy_imports(tenant_id).await?,
+            MenuAction::BuildGroupImports => build_group_imports(tenant_id).await?,
+            MenuAction::BuildResourceGroupImports => {
+                build_resource_group_imports(tenant_id).await?
+            }
+            MenuAction::BuildRoleAssignmentImports => {
+                build_role_assignment_imports(tenant_id).await?
+            }
             MenuAction::BuildImportsFromExisting => build_imports_from_existing().await?,
             MenuAction::PerformImport => perform_import().await?,
-            MenuAction::ProcessGenerated => process_generated().await?,
+            MenuAction::ProcessGenerated => process_generated(tenant_id).await?,
             MenuAction::Clean => clean_all_menu().await?,
-            MenuAction::CreateRoleAssignment => create_role_assignment_menu().await?,
+            MenuAction::CreateRoleAssignment => create_role_assignment_menu(tenant_id).await?,
             MenuAction::CleanImports => clean_imports().await?,
             MenuAction::CleanProcessed => clean_processed().await?,
             MenuAction::InitProcessed => init_processed().await?,
             MenuAction::ApplyProcessed => apply_processed().await?,
             MenuAction::PlanProcessed => plan_processed().await?,
-            MenuAction::PimActivate => pim_activate().await?,
+            MenuAction::PimActivate => pim_activate(tenant_id).await?,
             MenuAction::JumpToBlock => {
                 jump_to_block(AppDir::Processed.into()).await?;
                 return Ok(MenuActionResult::Continue);
@@ -230,30 +236,36 @@ impl MenuAction {
                 list_imports().await?;
                 return Ok(MenuActionResult::Continue);
             }
-            MenuAction::RemediatePolicyAssignment => remediate_policy_assignment().await?,
+            MenuAction::RemediatePolicyAssignment => remediate_policy_assignment(tenant_id).await?,
             MenuAction::EvaluatePolicyAssignmentCompliance => {
-                evaluate_policy_assignment_compliance().await?
+                evaluate_policy_assignment_compliance(tenant_id).await?
             }
             MenuAction::UseTofu => unsafe { env::set_var(USE_TOFU_FLAG_KEY, "1") },
             MenuAction::UseTerraform => unsafe { env::remove_var(USE_TOFU_FLAG_KEY) },
-            MenuAction::PopulateCache => populate_cache().await?,
+            MenuAction::PopulateCache => populate_cache(tenant_id).await?,
             MenuAction::OpenDir => open_dir().await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
-            MenuAction::TagEmptyResourceGroups => tag_empty_resource_group_menu().await?,
-            MenuAction::TagResources => tag_resources_menu().await?,
-            MenuAction::BrowseResources => browse_resources_menu().await?,
-            MenuAction::DumpTags => dump_tags().await?,
-            MenuAction::ResourceGraphQuery => run_query_menu().await?,
-            MenuAction::FindResourceOwners => find_resource_owners_menu().await?,
+            MenuAction::TagEmptyResourceGroups => tag_empty_resource_group_menu(tenant_id).await?,
+            MenuAction::TagResources => tag_resources_menu(tenant_id).await?,
+            MenuAction::BrowseResources => browse_resources_menu(tenant_id).await?,
+            MenuAction::DumpTags => dump_tags(tenant_id).await?,
+            MenuAction::ResourceGraphQuery => run_query_menu(tenant_id).await?,
+            MenuAction::FindResourceOwners => find_resource_owners_menu(tenant_id).await?,
             MenuAction::CreateNewActionVariant => create_new_action_variant().await?,
-            MenuAction::BrowsePolicyAssignments => browse_policy_assignments().await?,
-            MenuAction::DumpSecurityGroups => dump_security_groups_as_json().await?,
-            MenuAction::BrowsePolicyDefinitions => browse_policy_definitions().await?,
-            MenuAction::BulkUserIdLookup => bulk_user_id_lookup().await?,
+            MenuAction::BrowsePolicyAssignments => browse_policy_assignments(tenant_id).await?,
+            MenuAction::DumpSecurityGroups => dump_security_groups_as_json(tenant_id).await?,
+            MenuAction::BrowsePolicyDefinitions => browse_policy_definitions(tenant_id).await?,
+            MenuAction::BulkUserIdLookup => bulk_user_id_lookup(tenant_id).await?,
             MenuAction::DumpWorkItems => dump_work_items().await?,
-            MenuAction::BrowseOAuth2PermissionGrants => browse_oauth2_permission_grants().await?,
-            MenuAction::RemoveOAuth2PermissionGrants => remove_oauth2_permission_grants().await?,
-            MenuAction::CreateOAuth2PermissionGrants => create_oauth2_permission_grants().await?,
+            MenuAction::BrowseOAuth2PermissionGrants => {
+                browse_oauth2_permission_grants(tenant_id).await?
+            }
+            MenuAction::RemoveOAuth2PermissionGrants => {
+                remove_oauth2_permission_grants(tenant_id).await?
+            }
+            MenuAction::CreateOAuth2PermissionGrants => {
+                create_oauth2_permission_grants(tenant_id).await?
+            }
             MenuAction::AzureDevOpsProjectImportWizard => {
                 azure_devops_project_import_wizard_menu().await?
             }
@@ -261,10 +273,10 @@ impl MenuAction {
             MenuAction::BrowseAzureDevOpsProjectTeams => {
                 browse_azure_devops_project_teams().await?
             }
-            MenuAction::BrowseServicePrincipals => browse_service_principals().await?,
-            MenuAction::BrowseStorageAccounts => browse_storage_accounts().await?,
+            MenuAction::BrowseServicePrincipals => browse_service_principals(tenant_id).await?,
+            MenuAction::BrowseStorageAccounts => browse_storage_accounts(tenant_id).await?,
             MenuAction::CreateImportBlockForRoleAssignment => {
-                create_import_block_for_role_assignment().await?
+                create_import_block_for_role_assignment(tenant_id).await?
             }
         }
         Ok(MenuActionResult::PauseAndContinue)

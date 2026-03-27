@@ -1,4 +1,5 @@
 use crate::prelude::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
@@ -6,6 +7,7 @@ use std::path::PathBuf;
 
 /// See also: https://github.com/Azure/azure-cli/issues/28854
 pub async fn fetch_governance_role_assignments_for_principal(
+    tenant_id: AzureTenantId,
     principal_id: impl Into<PrincipalId>,
 ) -> eyre::Result<Vec<GovernanceRoleAssignment>> {
     let principal_id: PrincipalId = principal_id.into();
@@ -14,12 +16,14 @@ pub async fn fetch_governance_role_assignments_for_principal(
         principal_id
     );
     MicrosoftGraphHelper::new(
+        tenant_id,
         url,
         Some(CacheKey::new(PathBuf::from_iter([
             "ms".to_string(),
             "graph".to_string(),
             "GET".to_string(),
             "governance_role_assignments".to_string(),
+            tenant_id.to_string(),
             principal_id.to_string(),
         ]))),
     )
@@ -31,13 +35,15 @@ pub async fn fetch_governance_role_assignments_for_principal(
 mod test {
     use crate::auth::fetch_current_user;
     use crate::prelude::fetch_governance_role_assignments_for_principal;
+    use crate::prelude::get_test_tenant_id;
     use crate::prelude::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
+        let tenant_id = get_test_tenant_id().await?;
         let me = fetch_current_user().await?.id;
         let Some(governance_role_assignments) = expect_aad_premium_p2_license(
-            fetch_governance_role_assignments_for_principal(&me).await,
+            fetch_governance_role_assignments_for_principal(tenant_id, &me).await,
         )
         .await?
         else {

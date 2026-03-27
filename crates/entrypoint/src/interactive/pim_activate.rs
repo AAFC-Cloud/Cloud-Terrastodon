@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::GovernanceRoleAssignmentState;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::activate_pim_entra_role;
@@ -33,17 +34,17 @@ impl std::fmt::Display for PimKind {
     }
 }
 
-pub async fn pim_activate() -> Result<()> {
+pub async fn pim_activate(tenant_id: AzureTenantId) -> Result<()> {
     match PickerTui::new()
         .set_header("Choose the kind of role to activate")
         .pick_one(vec![PimKind::Entra, PimKind::AzureRM])?
     {
-        PimKind::Entra => pim_activate_entra().await,
-        PimKind::AzureRM => pim_activate_azurerm().await,
+        PimKind::Entra => pim_activate_entra(tenant_id).await,
+        PimKind::AzureRM => pim_activate_azurerm(tenant_id).await,
     }
 }
 
-pub async fn pim_activate_entra() -> Result<()> {
+pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
     // https://learn.microsoft.com/en-us/graph/api/resources/unifiedroleassignmentschedulerequest?view=graph-rest-beta
     // https://learn.microsoft.com/en-us/graph/api/governancerolesetting-list?view=graph-rest-beta
     // https://learn.microsoft.com/en-us/graph/api/resources/privilegedidentitymanagementv3-overview?view=graph-rest-1.0
@@ -56,7 +57,7 @@ pub async fn pim_activate_entra() -> Result<()> {
         .set_header("Choose roles to activate")
         .pick_many_reloadable(async |invalidate| {
             info!("Fetching role definitions");
-            let role_definitions = fetch_all_entra_pim_role_definitions()
+            let role_definitions = fetch_all_entra_pim_role_definitions(tenant_id)
                 .with_invalidation(invalidate)
                 .await?
                 .into_iter()
@@ -94,7 +95,7 @@ pub async fn pim_activate_entra() -> Result<()> {
             info!("Fetching maximum activation durations");
             let mut max_duration = Duration::MAX;
             for role in &chosen_roles {
-                let duration = fetch_entra_pim_role_settings(role.role_definition_id)
+                let duration = fetch_entra_pim_role_settings(tenant_id, role.role_definition_id)
                     .with_invalidation(invalidate)
                     .await?
                     .get_maximum_grant_period()?;
@@ -124,12 +125,19 @@ pub async fn pim_activate_entra() -> Result<()> {
             role,
             format_duration(chosen_duration)
         );
-        activate_pim_entra_role(principal_id, role, justification.clone(), chosen_duration).await?;
+        activate_pim_entra_role(
+            tenant_id,
+            principal_id,
+            role,
+            justification.clone(),
+            chosen_duration,
+        )
+        .await?;
     }
 
     Ok(())
 }
-pub async fn pim_activate_azurerm() -> Result<()> {
+pub async fn pim_activate_azurerm(tenant_id: AzureTenantId) -> Result<()> {
     let chosen_roles = PickerTui::new()
         .set_header("Choose roles to activate")
         .pick_many_reloadable(async |invalidate| {
@@ -158,9 +166,9 @@ pub async fn pim_activate_azurerm() -> Result<()> {
 
     let chosen_scopes = PickerTui::new()
         .set_header(format!("Activating {chosen_roles_display}"))
-        .pick_many_reloadable(async |invalidate| {
+        .pick_many_reloadable(async move |invalidate| {
             info!("Fetching eligible scopes");
-            let possible_scopes = fetch_all_resources()
+            let possible_scopes = fetch_all_resources(tenant_id)
                 .with_invalidation(invalidate)
                 .await?
                 .into_iter()

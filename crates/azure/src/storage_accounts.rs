@@ -1,4 +1,5 @@
 use crate::prelude::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::StorageAccount;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -8,10 +9,12 @@ use indoc::indoc;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct StorageAccountListRequest;
+pub struct StorageAccountListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_storage_accounts() -> StorageAccountListRequest {
-    StorageAccountListRequest
+pub fn fetch_all_storage_accounts(tenant_id: AzureTenantId) -> StorageAccountListRequest {
+    StorageAccountListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -23,11 +26,13 @@ impl CacheableCommand for StorageAccountListRequest {
             "az",
             "resource_graph",
             "storage_accounts",
+            self.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         ResourceGraphHelper::new(
+            self.tenant_id,
             indoc! {r#"
                 Resources
                 | where type == "microsoft.storage/storageaccounts"
@@ -45,12 +50,13 @@ cloud_terrastodon_command::impl_cacheable_into_future!(StorageAccountListRequest
 #[cfg(test)]
 mod test {
     use super::fetch_all_storage_accounts;
+    use crate::prelude::get_test_tenant_id;
     use crate::prelude::is_storage_account_name_available;
     use cloud_terrastodon_azure_types::prelude::Slug;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let storage_accounts = fetch_all_storage_accounts().await?;
+        let storage_accounts = fetch_all_storage_accounts(get_test_tenant_id().await?).await?;
         assert!(!storage_accounts.is_empty());
         let check_name = rand::random::<u64>() % storage_accounts.len() as u64;
         for (i, sa) in storage_accounts.into_iter().enumerate() {

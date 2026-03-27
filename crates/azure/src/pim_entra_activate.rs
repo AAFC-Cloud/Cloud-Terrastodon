@@ -1,4 +1,4 @@
-use crate::management_groups::fetch_root_management_group;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::prelude::PrincipalId;
 use cloud_terrastodon_azure_types::prelude::RoleAssignmentRequest;
@@ -11,15 +11,16 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 pub async fn activate_pim_entra_role(
+    tenant_id: AzureTenantId,
     principal_id: impl Into<PrincipalId>,
     role_assignment: &GovernanceRoleAssignment,
     justification: String,
     duration: Duration,
 ) -> Result<()> {
-    let tenant_id = fetch_root_management_group().await?.tenant_id;
     let url = "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests";
     let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
     cmd.args(["rest", "--method", Method::POST.as_str(), "--url", url]);
+    cmd.args(["--tenant", tenant_id.to_string().as_str()]);
     cmd.arg("--body");
     cmd.azure_file_arg(
         "body.json",

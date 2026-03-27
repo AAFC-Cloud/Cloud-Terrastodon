@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::PolicyAssignmentId;
 use cloud_terrastodon_azure::prelude::PolicyDefinitionIdReference;
 use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
@@ -29,7 +30,9 @@ struct PolicyComplianceRow {
     noncompliant_count: u32,
 }
 
-async fn fetch_all_policy_compliance() -> eyre::Result<Vec<PolicyComplianceRow>> {
+async fn fetch_all_policy_compliance(
+    tenant_id: AzureTenantId,
+) -> eyre::Result<Vec<PolicyComplianceRow>> {
     info!("Fetching all policy compliance information");
     let query = indoc! {r#"
 policyResources
@@ -48,6 +51,7 @@ policyResources
     "#};
 
     let rtn = ResourceGraphHelper::new(
+        tenant_id,
         query,
         Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "policy-compliance"]),
@@ -61,14 +65,14 @@ policyResources
 }
 
 /// This is a new function that merges “search assigned policies” with a compliance query.
-pub async fn browse_policy_assignments() -> eyre::Result<()> {
+pub async fn browse_policy_assignments(tenant_id: AzureTenantId) -> eyre::Result<()> {
     info!("Fetching a bunch of data...");
     let (policy_assignments, policy_definitions, mut policy_set_definitions, mut policy_compliance) =
         match try_join!(
-            fetch_all_policy_assignments(),
-            fetch_all_policy_definitions(),
-            fetch_all_policy_set_definitions(),
-            fetch_all_policy_compliance(),
+            fetch_all_policy_assignments(tenant_id),
+            fetch_all_policy_definitions(tenant_id),
+            fetch_all_policy_set_definitions(tenant_id),
+            fetch_all_policy_compliance(tenant_id),
         ) {
             Ok(x) => x,
             Err(e) => return Err(e).context("failed to fetch policy data"),

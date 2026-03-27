@@ -1,5 +1,7 @@
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::EntraGroupId;
 use cloud_terrastodon_azure::prelude::Principal;
 use cloud_terrastodon_azure::prelude::fetch_group_members;
@@ -19,10 +21,15 @@ use tracing::info;
 pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
     #[clap(flatten)]
     pub user_matcher: AzureDevOpsLicenseEntitlementUserMatcher,
+
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
 }
 
 impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         let user_predicate = self.user_matcher.as_predicate()?;
 
         let org_url = get_default_organization_url().await?;
@@ -76,7 +83,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                     .group
                     .origin_id
                     .parse::<EntraGroupId>()?;
-                let group_entra_members = fetch_group_members(group_entra_id).await?;
+                let group_entra_members = fetch_group_members(tenant_id, group_entra_id).await?;
                 let user_in_group = group_entra_members
                     .iter()
                     .filter_map(|p: &Principal| match p.as_user() {

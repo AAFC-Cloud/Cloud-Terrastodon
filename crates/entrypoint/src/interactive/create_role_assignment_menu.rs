@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::create_role_assignment;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
@@ -8,9 +9,9 @@ use eyre::Result;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn create_role_assignment_menu() -> Result<()> {
+pub async fn create_role_assignment_menu(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching role definition list");
-    let role_definitions = fetch_all_role_definitions().await?;
+    let role_definitions = fetch_all_role_definitions(tenant_id).await?;
     let role_definitions = PickerTui::new().set_header("Roles to assign").pick_many(
         role_definitions.into_iter().map(|r| Choice {
             key: r.display_name.to_owned(),
@@ -19,7 +20,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
     )?;
 
     info!("Fetching principals");
-    let users = fetch_all_users().await?;
+    let users = fetch_all_users(tenant_id).await?;
     let principals = PickerTui::new()
         .set_header(format!(
             "Assigning {}",
@@ -31,7 +32,7 @@ pub async fn create_role_assignment_menu() -> Result<()> {
         }))?;
 
     info!("Fetching resources");
-    let resources = fetch_all_resources().await?;
+    let resources = fetch_all_resources(tenant_id).await?;
     let resources = PickerTui::new()
         .set_header(format!(
             "Assigning: {} TO {}",

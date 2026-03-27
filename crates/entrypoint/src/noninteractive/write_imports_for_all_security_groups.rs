@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::fetch_all_security_groups;
 use cloud_terrastodon_hcl::prelude::HclImportBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderBlock;
@@ -6,9 +7,9 @@ use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use tracing::info;
 
-pub async fn write_imports_for_all_security_groups() -> Result<()> {
+pub async fn write_imports_for_all_security_groups(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching security groups");
-    let security_groups = fetch_all_security_groups().await?;
+    let security_groups = fetch_all_security_groups(tenant_id).await?;
 
     info!("Building import blocks");
     let mut imports: Vec<HclImportBlock> = Vec::with_capacity(security_groups.len());

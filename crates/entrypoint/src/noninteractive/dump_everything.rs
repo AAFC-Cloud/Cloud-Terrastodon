@@ -242,7 +242,7 @@ pub async fn dump_everything_inner(tenant_id: AzureTenantId) -> eyre::Result<()>
     };
 
     let (tf_work_dirs, duration) =
-        measure(async move { process_generated_many(tf_work_dirs).await }).await?;
+        measure(async move { process_generated_many(tenant_id, tf_work_dirs).await }).await?;
     info!(
         "Processed generated terraform code in {} dirs in {duration}",
         tf_work_dirs.len()
@@ -255,6 +255,7 @@ pub async fn dump_everything_inner(tenant_id: AzureTenantId) -> eyre::Result<()>
 }
 
 async fn process_generated_many(
+    tenant_id: AzureTenantId,
     tf_work_dirs: Vec<GeneratedConfigOutTFWorkDir>,
 ) -> eyre::Result<Vec<ProcessedTFWorkDir>> {
     let mut rtn: Vec<ProcessedTFWorkDir> = Default::default();
@@ -282,7 +283,7 @@ async fn process_generated_many(
             );
 
             let hcl = discover_hcl(work_dir, DiscoveryDepth::Shallow).await?;
-            let hcl = reflow_hcl(hcl).await?;
+            let hcl = reflow_hcl(tenant_id, hcl).await?;
             drop(permit);
             Ok(WorkOutcome {
                 out_dir: out_dir.clone(),

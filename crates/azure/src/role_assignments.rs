@@ -1,4 +1,5 @@
 use crate::prelude::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::RoleAssignment;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -11,10 +12,12 @@ use tracing::debug;
 ///
 /// Not to be confused with Entra role assignments.
 #[must_use = "This is a future request, you must .await it"]
-pub struct RoleAssignmentListRequest;
+pub struct RoleAssignmentListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_role_assignments() -> RoleAssignmentListRequest {
-    RoleAssignmentListRequest
+pub fn fetch_all_role_assignments(tenant_id: AzureTenantId) -> RoleAssignmentListRequest {
+    RoleAssignmentListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -26,12 +29,14 @@ impl CacheableCommand for RoleAssignmentListRequest {
             "az",
             "resource_graph",
             "role_assignments",
+            self.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching role assignments");
         let mut query = ResourceGraphHelper::new(
+            self.tenant_id,
             r#"
 authorizationresources
 | where type =~ "microsoft.authorization/roleassignments"
@@ -54,11 +59,12 @@ cloud_terrastodon_command::impl_cacheable_into_future!(RoleAssignmentListRequest
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::get_test_tenant_id;
     use cloud_terrastodon_azure_types::prelude::RoleAssignmentId;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_role_assignments().await?;
+        let result = fetch_all_role_assignments(get_test_tenant_id().await?).await?;
         assert!(result.len() > 2);
         let _interesting_assignments = result
             .into_iter()

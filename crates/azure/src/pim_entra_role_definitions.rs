@@ -1,4 +1,5 @@
 use crate::management_groups::fetch_root_management_group;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::PimEntraRoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -10,10 +11,14 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct PimEntraRoleDefinitionListRequest;
+pub struct PimEntraRoleDefinitionListRequest {
+    tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_entra_pim_role_definitions() -> PimEntraRoleDefinitionListRequest {
-    PimEntraRoleDefinitionListRequest
+pub fn fetch_all_entra_pim_role_definitions(
+    tenant_id: AzureTenantId,
+) -> PimEntraRoleDefinitionListRequest {
+    PimEntraRoleDefinitionListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -30,7 +35,7 @@ impl CacheableCommand for PimEntraRoleDefinitionListRequest {
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let tenant_id = fetch_root_management_group().await?.tenant_id;
+        let tenant_id = fetch_root_management_group(self.tenant_id).await?.tenant_id;
         let url = format!(
             "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleDefinitions?$select=id,displayName,type,isbuiltIn&$orderby=displayName"
         );
@@ -57,12 +62,15 @@ cloud_terrastodon_command::impl_cacheable_into_future!(PimEntraRoleDefinitionLis
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::get_test_tenant_id;
     use crate::prelude::test_helpers::expect_aad_premium_p2_license;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let Some(result) =
-            expect_aad_premium_p2_license(fetch_all_entra_pim_role_definitions().await).await?
+        let Some(result) = expect_aad_premium_p2_license(
+            fetch_all_entra_pim_role_definitions(get_test_tenant_id().await?).await,
+        )
+        .await?
         else {
             return Ok(());
         };

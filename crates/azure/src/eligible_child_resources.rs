@@ -1,7 +1,7 @@
 use crate::management_groups::fetch_root_management_group;
-use crate::prelude::get_default_tenant_id;
 use crate::resource_groups::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::prelude::AsScope;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResource;
 use cloud_terrastodon_azure_types::prelude::EligibleChildResourceKind;
 use cloud_terrastodon_azure_types::prelude::Scope;
@@ -53,10 +53,14 @@ pub async fn fetch_eligible_child_resources(
 }
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct EligibleChildResourceListRequest;
+pub struct EligibleChildResourceListRequest {
+    tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_eligible_resource_containers() -> EligibleChildResourceListRequest {
-    EligibleChildResourceListRequest
+pub fn fetch_all_eligible_resource_containers(
+    tenant_id: AzureTenantId,
+) -> EligibleChildResourceListRequest {
+    EligibleChildResourceListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -72,14 +76,13 @@ impl CacheableCommand for EligibleChildResourceListRequest {
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let tenant_id = get_default_tenant_id().await?;
-        let root_mg = fetch_root_management_group().await?;
+        let root_mg = fetch_root_management_group(self.tenant_id).await?;
         let scope = root_mg.as_scope();
         let mut resource_containers =
             fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
         // this contains management groups and subscriptions
 
-        let rgs = fetch_all_resource_groups(tenant_id)
+        let rgs = fetch_all_resource_groups(self.tenant_id)
             .await?
             .into_iter()
             .map(|x| EligibleChildResource {
@@ -110,7 +113,7 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
-        let mg = fetch_root_management_group().await?;
+        let mg = fetch_root_management_group(get_test_tenant_id().await?).await?;
         let scope = mg.as_scope();
         let Some(found) = expect_aad_premium_p2_license(
             fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await,
@@ -125,8 +128,10 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works2() -> Result<()> {
-        let Some(found) =
-            expect_aad_premium_p2_license(fetch_all_eligible_resource_containers().await).await?
+        let Some(found) = expect_aad_premium_p2_license(
+            fetch_all_eligible_resource_containers(get_test_tenant_id().await?).await,
+        )
+        .await?
         else {
             return Ok(());
         };
@@ -176,7 +181,7 @@ mod tests {
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works_interactive() -> Result<()> {
-        let mg = fetch_root_management_group().await?;
+        let mg = fetch_root_management_group(get_test_tenant_id().await?).await?;
         let mut scope = mg.as_scope().as_scope_impl().to_owned();
         loop {
             let Some(resources) = expect_aad_premium_p2_license(
@@ -199,8 +204,10 @@ mod tests {
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works_interactive2() -> Result<()> {
-        let Some(resources) =
-            expect_aad_premium_p2_license(fetch_all_eligible_resource_containers().await).await?
+        let Some(resources) = expect_aad_premium_p2_license(
+            fetch_all_eligible_resource_containers(get_test_tenant_id().await?).await,
+        )
+        .await?
         else {
             return Ok(());
         };

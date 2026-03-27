@@ -69,11 +69,12 @@ cloud_terrastodon_command::impl_cacheable_into_future!(StorageAccountBlobContain
 mod test {
     use crate::prelude::fetch_all_storage_accounts;
     use crate::prelude::fetch_storage_account_blob_container_names;
+    use crate::prelude::get_test_tenant_id;
     use eyre::bail;
 
     #[tokio::test]
     pub async fn blob_works() -> eyre::Result<()> {
-        let storage_accounts = fetch_all_storage_accounts().await?;
+        let storage_accounts = fetch_all_storage_accounts(get_test_tenant_id().await?).await?;
         for sa in storage_accounts.into_iter() {
             if let Ok(blob_containers) = fetch_storage_account_blob_container_names(&sa.id).await {
                 assert!(!sa.name.is_empty());

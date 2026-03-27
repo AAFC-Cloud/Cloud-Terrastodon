@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::create_oauth2_permission_grant;
 use cloud_terrastodon_azure::prelude::fetch_all_service_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
@@ -8,9 +9,9 @@ use eyre::Result;
 use std::collections::HashSet;
 use tracing::info;
 
-pub async fn create_oauth2_permission_grants() -> Result<()> {
+pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching all service principals");
-    let service_principals = fetch_all_service_principals().await?;
+    let service_principals = fetch_all_service_principals(tenant_id).await?;
     let resource = PickerTui::new()
         .set_header("Pick the underlying resource being granted access to")
         .set_query("'Microsoft\\ Graph")
@@ -41,7 +42,7 @@ pub async fn create_oauth2_permission_grants() -> Result<()> {
             value: scope,
         }))?;
 
-    let users = fetch_all_users().await?;
+    let users = fetch_all_users(tenant_id).await?;
     let users_to_add = PickerTui::new()
         .set_header(format!(
             "Select the users to add {} grants to",
@@ -56,6 +57,7 @@ pub async fn create_oauth2_permission_grants() -> Result<()> {
         for scope in &scopes_to_add {
             println!("Granting {} to {}", scope.value, user);
             _ = create_oauth2_permission_grant(
+                tenant_id,
                 resource.id,
                 client.id,
                 user.id,

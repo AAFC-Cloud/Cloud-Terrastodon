@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -8,7 +9,7 @@ use serde_json::Value;
 use tracing::debug;
 use tracing::info;
 
-pub async fn run_query_menu() -> eyre::Result<()> {
+pub async fn run_query_menu(tenant_id: AzureTenantId) -> eyre::Result<()> {
     let mut query = r#"
 resources 
 | union resourcecontainers
@@ -45,7 +46,7 @@ resources
         debug!("Received query:\n{}", query);
 
         info!("Running query");
-        let rows: Vec<Value> = ResourceGraphHelper::new(query.clone(), None)
+        let rows: Vec<Value> = ResourceGraphHelper::new(tenant_id, query.clone(), None)
             .collect_all()
             .await?;
         let rows_json = serde_json::to_string_pretty(&rows)?;

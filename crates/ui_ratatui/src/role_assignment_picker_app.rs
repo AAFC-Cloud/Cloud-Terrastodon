@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::Principal;
 use cloud_terrastodon_azure::prelude::PrincipalCollection;
 use cloud_terrastodon_azure::prelude::RoleAssignment;
@@ -59,22 +60,18 @@ impl fmt::Debug for RoleAssignmentPickerAppResult {
 
 /// Entrypoint for the interactive role assignment picker.
 pub struct RoleAssignmentPickerApp {
+    tenant_id: AzureTenantId,
     data: AppData,
     work: AppWorkState<AppData>,
     ui: UiState,
     selected_role_assignments: FxHashSet<RoleAssignmentId>,
 }
 
-impl Default for RoleAssignmentPickerApp {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl RoleAssignmentPickerApp {
     /// Creates a new app instance.
-    pub fn new() -> Self {
+    pub fn new(tenant_id: AzureTenantId) -> Self {
         Self {
+            tenant_id,
             data: AppData::default(),
             work: AppWorkState::new(),
             ui: UiState::default(),
@@ -84,7 +81,7 @@ impl RoleAssignmentPickerApp {
 
     /// Runs the interactive picker. Returns the user's selection or cancellation.
     pub async fn run(mut self) -> Result<RoleAssignmentPickerAppResult> {
-        self.enqueue_initial_work()?;
+        self.enqueue_initial_work(self.tenant_id)?;
 
         let mut terminal = ratatui::init();
         terminal.clear()?;
@@ -119,7 +116,7 @@ impl RoleAssignmentPickerApp {
         Ok(result)
     }
 
-    fn enqueue_initial_work(&mut self) -> Result<()> {
+    fn enqueue_initial_work(&mut self, tenant_id: AzureTenantId) -> Result<()> {
         let role_work = LoadableWorkBuilder::<AppData, RoleDefinitionsHolder>::new()
             .description("fetch_all_role_definitions_and_assignments")
             .setter(|state, value| {
@@ -127,7 +124,7 @@ impl RoleAssignmentPickerApp {
                 state.changed = true;
             })
             .work(async move {
-                let data = fetch_all_role_definitions_and_assignments().await?;
+                let data = fetch_all_role_definitions_and_assignments(tenant_id).await?;
                 Ok(RoleDefinitionsHolder(data))
             })
             .build()?;
@@ -140,7 +137,7 @@ impl RoleAssignmentPickerApp {
                 state.changed = true;
             })
             .work(async move {
-                let data = fetch_all_principals().await?;
+                let data = fetch_all_principals(tenant_id).await?;
                 Ok(PrincipalCollectionHolder(data))
             })
             .build()?;
@@ -576,12 +573,13 @@ impl std::fmt::Debug for PrincipalCollectionHolder {
 mod test {
     use super::RoleAssignmentPickerApp;
     use super::RoleAssignmentPickerAppResult;
+    use cloud_terrastodon_azure::prelude::get_test_tenant_id;
 
     #[tokio::test]
     #[ignore = "manual entrypoint"]
     async fn manual_pick() -> eyre::Result<()> {
         color_eyre::install()?;
-        let app = RoleAssignmentPickerApp::new();
+        let app = RoleAssignmentPickerApp::new(get_test_tenant_id().await?);
         let _result: RoleAssignmentPickerAppResult = app.run().await?;
         Ok(())
     }

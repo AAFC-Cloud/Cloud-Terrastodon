@@ -1,8 +1,8 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::SubscriptionName;
 use cloud_terrastodon_azure::prelude::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_user_input::Choice;
@@ -13,12 +13,11 @@ use std::collections::HashMap;
 use tokio::join;
 use tracing::info;
 
-pub async fn copy_azurerm_backend_menu() -> Result<()> {
+pub async fn copy_azurerm_backend_menu(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching storage accounts");
     info!("Fetching subscriptions");
-    let tenant_id = get_default_tenant_id().await?;
     let (storage_accounts, subscriptions) = join!(
-        fetch_all_storage_accounts(),
+        fetch_all_storage_accounts(tenant_id),
         fetch_all_subscriptions(tenant_id)
     );
     let storage_accounts = storage_accounts?;

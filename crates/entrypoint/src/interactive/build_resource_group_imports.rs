@@ -1,9 +1,9 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::ResourceGroup;
 use cloud_terrastodon_azure::prelude::Subscription;
 use cloud_terrastodon_azure::prelude::SubscriptionId;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_subscriptions;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_hcl::prelude::HclImportBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderBlock;
 use cloud_terrastodon_hcl::prelude::HclProviderReference;
@@ -29,9 +29,8 @@ impl std::fmt::Display for SubRGPair<'_> {
     }
 }
 
-pub async fn build_resource_group_imports() -> Result<()> {
+pub async fn build_resource_group_imports(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching resource groups");
-    let tenant_id = get_default_tenant_id().await?;
     let subscriptions = fetch_all_subscriptions(tenant_id)
         .await?
         .into_iter()

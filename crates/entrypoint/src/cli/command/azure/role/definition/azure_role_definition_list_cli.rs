@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::RolePermissionAction;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use eyre::Result;
@@ -8,6 +10,10 @@ use tracing::info;
 /// Arguments for listing Azure role definitions.
 #[derive(Args, Debug, Clone)]
 pub struct AzureRoleDefinitionListArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     /// Management plane actions that must be satisfied by a role definition.
     #[arg(long)]
     pub actions: Vec<RolePermissionAction>,
@@ -19,11 +25,13 @@ pub struct AzureRoleDefinitionListArgs {
 impl AzureRoleDefinitionListArgs {
     pub async fn invoke(self) -> Result<()> {
         info!("Fetching Azure role definitions");
-        let mut role_definitions = fetch_all_role_definitions().await?;
+        let tenant_id = self.tenant.resolve().await?;
+        let mut role_definitions = fetch_all_role_definitions(tenant_id).await?;
         role_definitions.sort_by_key(|definition| definition.polp_score());
         let total_count = role_definitions.len();
 
         let Self {
+            tenant: _,
             actions,
             data_actions,
         } = self;

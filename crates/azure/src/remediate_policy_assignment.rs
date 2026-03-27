@@ -1,5 +1,6 @@
 use crate::prelude::fetch_all_policy_assignments;
 use crate::prelude::fetch_all_policy_set_definitions;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::DistinctByScope;
 use cloud_terrastodon_azure_types::prelude::PolicyAssignment;
 use cloud_terrastodon_azure_types::prelude::PolicyDefinitionIdReference;
@@ -16,9 +17,9 @@ use itertools::Itertools;
 use rand::RngCore;
 use tracing::info;
 
-pub async fn remediate_policy_assignment() -> Result<()> {
+pub async fn remediate_policy_assignment(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments().await?;
+    let policy_assignments = fetch_all_policy_assignments(tenant_id).await?;
 
     info!("Building choices of policies to remediate");
     let choices = policy_assignments
@@ -38,7 +39,7 @@ pub async fn remediate_policy_assignment() -> Result<()> {
     match policy_assignment.properties.policy_definition_id {
         PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
             info!("Remediating a policy set - must prompt for inner choice");
-            let Some(policy_set_definition) = fetch_all_policy_set_definitions()
+            let Some(policy_set_definition) = fetch_all_policy_set_definitions(tenant_id)
                 .await?
                 .into_iter()
                 .find(|def| def.id == policy_set_definition_id)

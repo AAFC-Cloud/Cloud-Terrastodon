@@ -1,32 +1,31 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::prelude::fetch_all_resource_groups;
 use cloud_terrastodon_azure::prelude::fetch_all_role_assignments;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
-use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use eyre::Result;
 use indicatif::ProgressBar;
 use tokio::task::JoinSet;
-pub async fn populate_cache() -> Result<()> {
-    let tenant_id = get_default_tenant_id().await?;
+pub async fn populate_cache(tenant_id: AzureTenantId) -> Result<()> {
     let mut work: JoinSet<(&str, bool)> = JoinSet::new();
-    work.spawn(async {
+    work.spawn(async move {
         (
             "fetch_all_policy_assignments",
-            fetch_all_policy_assignments().await.is_ok(),
+            fetch_all_policy_assignments(tenant_id).await.is_ok(),
         )
     });
-    work.spawn(async {
+    work.spawn(async move {
         (
             "fetch_all_policy_definitions",
-            fetch_all_policy_definitions().await.is_ok(),
+            fetch_all_policy_definitions(tenant_id).await.is_ok(),
         )
     });
-    work.spawn(async {
+    work.spawn(async move {
         (
             "fetch_all_policy_set_definitions",
-            fetch_all_policy_set_definitions().await.is_ok(),
+            fetch_all_policy_set_definitions(tenant_id).await.is_ok(),
         )
     });
     work.spawn(async move {
@@ -35,13 +34,13 @@ pub async fn populate_cache() -> Result<()> {
             fetch_all_resource_groups(tenant_id).await.is_ok(),
         )
     });
-    work.spawn(async {
+    work.spawn(async move {
         (
             "fetch_all_role_assignments",
-            fetch_all_role_assignments().await.is_ok(),
+            fetch_all_role_assignments(tenant_id).await.is_ok(),
         )
     });
-    work.spawn(async { ("fetch_all_users", fetch_all_users().await.is_ok()) });
+    work.spawn(async move { ("fetch_all_users", fetch_all_users(tenant_id).await.is_ok()) });
     let pb = ProgressBar::new(work.len() as u64);
     // pb.set_style(
     //     ProgressStyle::default_bar()
@@ -66,11 +65,12 @@ pub async fn populate_cache() -> Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use cloud_terrastodon_azure::prelude::get_test_tenant_id;
 
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works() -> Result<()> {
-        populate_cache().await?;
+        populate_cache(get_test_tenant_id().await?).await?;
         Ok(())
     }
 }

@@ -14,29 +14,22 @@ enum NextLink {
 pub struct MicrosoftGraphHelper {
     url: String,
     cache_key: Option<CacheKey>,
-    tenant_id: Option<AzureTenantId>,
+    tenant_id: AzureTenantId,
 }
 impl MicrosoftGraphHelper {
-    pub fn new(url: impl ToString, cache_key: Option<CacheKey>) -> Self {
+    pub fn new(tenant_id: AzureTenantId, url: impl ToString, cache_key: Option<CacheKey>) -> Self {
         MicrosoftGraphHelper {
             url: url.to_string(),
             cache_key,
-            tenant_id: None,
+            tenant_id,
         }
-    }
-
-    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
-        self.tenant_id = Some(tenant_id);
-        self
     }
 
     fn get_command(&self, url: &str) -> CommandBuilder {
         let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
         cmd.args(["rest", "--method", "GET", "--url", url]);
-        if let Some(tenant_id) = self.tenant_id.as_ref() {
-            let tenant_id = tenant_id.to_string();
-            cmd.args(["--tenant", tenant_id.as_str()]);
-        }
+        let tenant_id = self.tenant_id.to_string();
+        cmd.args(["--tenant", tenant_id.as_str()]);
         cmd.use_cache(self.cache_key.clone());
         cmd
     }

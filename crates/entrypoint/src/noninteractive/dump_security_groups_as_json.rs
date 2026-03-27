@@ -1,13 +1,14 @@
 use chrono::Local;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::fetch_all_security_groups;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
 
-pub async fn dump_security_groups_as_json() -> eyre::Result<()> {
+pub async fn dump_security_groups_as_json(tenant_id: AzureTenantId) -> eyre::Result<()> {
     info!("Fetching security_groups");
-    let mut security_groups = fetch_all_security_groups().await?;
+    let mut security_groups = fetch_all_security_groups(tenant_id).await?;
     security_groups.sort_by(|x, y| x.display_name.cmp(&y.display_name));
     let content = serde_json::to_string_pretty(&security_groups)?;
     let date = Local::now().format("%Y%m%d_%H%M%S").to_string();

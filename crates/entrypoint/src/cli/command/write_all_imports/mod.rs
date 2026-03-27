@@ -18,7 +18,7 @@ impl WriteAllImportsArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         write_imports_for_all_resource_groups(tenant_id).await?;
-        write_imports_for_all_security_groups().await?;
+        write_imports_for_all_security_groups(tenant_id).await?;
         write_imports_for_all_role_assignments(tenant_id).await?;
         Ok(())
     }

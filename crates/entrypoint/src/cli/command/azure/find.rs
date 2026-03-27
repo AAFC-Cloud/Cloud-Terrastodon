@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::Resource;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
 use eyre::Result;
@@ -13,14 +15,19 @@ use tracing::info;
 /// Find Azure resources where the serialized JSON contains the provided text.
 #[derive(Args, Debug, Clone)]
 pub struct AzureFindArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     /// Text to search for in each resource JSON payload.
     pub text: String,
 }
 
 impl AzureFindArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.text, "Fetching all Azure resources");
-        let resources = fetch_all_resources().await?;
+        let resources = fetch_all_resources(tenant_id).await?;
         info!(count = resources.len(), "Fetched Azure resources");
 
         let serialized_resources = resources

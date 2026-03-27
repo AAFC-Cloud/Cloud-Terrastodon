@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
 use cloud_terrastodon_hcl::prelude::HclWriter;
@@ -13,6 +15,10 @@ use tracing::info;
 /// Reflow generated Terraform source files.
 #[derive(Args, Debug, Clone)]
 pub struct TerraformReflowArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     #[arg(default_value = ".")]
     pub source_dir: PathBuf,
     #[arg(
@@ -25,11 +31,12 @@ pub struct TerraformReflowArgs {
 
 impl TerraformReflowArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         let hcl = discover_hcl(&self.source_dir, DiscoveryDepth::Shallow).await?;
         let old_paths = hcl.keys().cloned().collect::<HashSet<_>>();
 
         info!(count = hcl.len(), "Discovered HCL files for reflowing");
-        let hcl = reflow_hcl(hcl).await?;
+        let hcl = reflow_hcl(tenant_id, hcl).await?;
         let new_paths = hcl.keys().cloned().collect::<HashSet<_>>();
 
         info!(count = hcl.len(), "Reflowed HCL files");

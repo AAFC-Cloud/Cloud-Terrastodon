@@ -1,6 +1,6 @@
 use crate::prelude::fetch_all_resource_groups;
 use crate::prelude::fetch_all_subscriptions;
-use crate::prelude::get_default_tenant_id;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::ResourceGroup;
 use cloud_terrastodon_azure_types::prelude::Subscription;
 use cloud_terrastodon_user_input::Choice;
@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use tracing::info;
 
 /// Returns (Resource group, Subscription name)
-pub async fn get_resource_group_choices() -> eyre::Result<Vec<Choice<(ResourceGroup, Subscription)>>>
-{
-    let tenant_id = get_default_tenant_id().await?;
+pub async fn get_resource_group_choices(
+    tenant_id: AzureTenantId,
+) -> eyre::Result<Vec<Choice<(ResourceGroup, Subscription)>>> {
     let subscriptions = fetch_all_subscriptions(tenant_id)
         .await?
         .into_iter()

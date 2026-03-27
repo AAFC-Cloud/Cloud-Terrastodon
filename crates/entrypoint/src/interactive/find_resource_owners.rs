@@ -1,4 +1,5 @@
 use crate::menu::press_enter_to_continue;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::EntraGroup;
 use cloud_terrastodon_azure::prelude::EntraServicePrincipal;
 use cloud_terrastodon_azure::prelude::Principal;
@@ -187,6 +188,7 @@ impl<'a> AsRef<Clue<'a>> for ClueChain<'a> {
 
 #[allow(dead_code)]
 struct TraversalContext<'a> {
+    pub tenant_id: cloud_terrastodon_azure::prelude::AzureTenantId,
     pub clues: Vec<ClueChain<'a>>,
     pub resource_map: HashMap<&'a ScopeImpl, &'a Resource>,
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
@@ -268,7 +270,7 @@ impl Traversal {
                     principal: Principal::Group(group),
                 } = clue.as_ref()
                 {
-                    let members = fetch_group_members(group.id).await?;
+                    let members = fetch_group_members(context.tenant_id, group.id).await?;
                     for member in members {
                         let Some(principal) = context.principal_map.get(&member.id()) else {
                             bail!(
@@ -286,7 +288,7 @@ impl Traversal {
                     principal: Principal::Group(group),
                 } = clue.as_ref()
                 {
-                    let owners = fetch_group_owners(group.id).await?;
+                    let owners = fetch_group_owners(context.tenant_id, group.id).await?;
                     for member in owners {
                         let Some(principal) = context.principal_map.get(&member.id()) else {
                             bail!(
@@ -367,15 +369,15 @@ impl Traversal {
     }
 }
 
-pub async fn find_resource_owners_menu() -> eyre::Result<()> {
+pub async fn find_resource_owners_menu(tenant_id: AzureTenantId) -> eyre::Result<()> {
     info!(
         "Fetching a bunch of stuff (resources, role assignments, role definitions, and principals)"
     );
     let (resources, role_assignments, role_definitions, principals, org_url) = try_join!(
-        fetch_all_resources(),
-        fetch_all_role_assignments(),
-        fetch_all_role_definitions(),
-        fetch_all_principals(),
+        fetch_all_resources(tenant_id),
+        fetch_all_role_assignments(tenant_id),
+        fetch_all_role_definitions(tenant_id),
+        fetch_all_principals(tenant_id),
         get_default_organization_url(),
     )?;
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
@@ -423,6 +425,7 @@ pub async fn find_resource_owners_menu() -> eyre::Result<()> {
         .collect::<HashMap<_, _>>();
 
     let mut traversal_context = TraversalContext {
+        tenant_id,
         clues: Vec::new(),
         resource_map,
         role_definition_map,

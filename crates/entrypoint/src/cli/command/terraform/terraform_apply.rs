@@ -1,6 +1,8 @@
 use crate::interactive::prelude::pim_activate_entra;
 use crate::menu::press_enter_to_continue;
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::RolePermissionAction;
 use cloud_terrastodon_azure::prelude::UnifiedRoleDefinitionsAndAssignmentsIterTools;
 use cloud_terrastodon_azure::prelude::fetch_all_unified_role_definitions_and_assignments;
@@ -22,12 +24,17 @@ use tracing::debug;
 /// Reflow generated Terraform source files.
 #[derive(Args, Debug, Clone)]
 pub struct TerraformApplyArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     #[arg(default_value = ".")]
     pub source_dir: PathBuf,
 }
 
 impl TerraformApplyArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         // Generate the plan file
         let plan_file = "apply.tfplan";
         let mut cmd = CommandBuilder::new(CommandKind::Terraform);
@@ -86,7 +93,7 @@ impl TerraformApplyArgs {
         println!("This plan requires: {:#?}", required_roles);
 
         // Identify RBAC roles for the current principal
-        let entra_rbac = fetch_all_unified_role_definitions_and_assignments().await?;
+        let entra_rbac = fetch_all_unified_role_definitions_and_assignments(tenant_id).await?;
         let current_user = fetch_current_user().await?;
         let current_user_rbac = entra_rbac
             .iter_role_assignments()
@@ -130,7 +137,7 @@ impl TerraformApplyArgs {
                 unsatisfied_requirements
             );
             press_enter_to_continue().await?;
-            pim_activate_entra().await?;
+            pim_activate_entra(tenant_id).await?;
         }
 
         // Apply the plan

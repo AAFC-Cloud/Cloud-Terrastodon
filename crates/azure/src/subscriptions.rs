@@ -76,8 +76,7 @@ impl CacheableCommand for SubscriptionListRequest {
             tags=tags
     "#};
 
-        let subscriptions = ResourceGraphHelper::new(query, Some(self.cache_key()))
-            .tenant_id(self.tenant_id)
+        let subscriptions = ResourceGraphHelper::new(self.tenant_id, query, Some(self.cache_key()))
             .collect_all::<Subscription>()
             .await?;
         debug!("Found {} subscriptions", subscriptions.len());

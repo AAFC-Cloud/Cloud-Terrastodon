@@ -2,6 +2,7 @@ use crate::app_message::AppMessage;
 use crate::autosave_info::AutoSaveBehaviour;
 use crate::loadable::Loadable;
 use crate::work_tracker::WorkTracker;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::Resource;
 use cloud_terrastodon_azure::prelude::ResourceGroupMap;
 use cloud_terrastodon_azure::prelude::Subscription;
@@ -25,6 +26,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
 pub struct MyApp {
+    pub tenant_id: AzureTenantId,
     pub toggle_intents: HashSet<Id>,
     pub checkboxes: HashMap<Id, bool>,
     pub subscriptions: Loadable<Rc<Vec<Subscription>>, eyre::ErrReport>,
@@ -57,11 +59,13 @@ pub struct MyApp {
 impl MyApp {
     pub async fn new(
         _cc: &eframe::CreationContext<'_>,
+        tenant_id: AzureTenantId,
         work_tracker: Rc<WorkTracker>,
         app_info: String,
     ) -> eyre::Result<Self> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
         Ok(Self {
+            tenant_id,
             toggle_intents: Default::default(),
             checkboxes: Default::default(),
             subscriptions: Default::default(),

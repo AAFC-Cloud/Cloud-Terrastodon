@@ -11,7 +11,7 @@ use tracing::debug;
 
 pub struct GroupMembersListRequest {
     pub group_id: EntraGroupId,
-    pub tenant_id: Option<AzureTenantId>,
+    pub tenant_id: AzureTenantId,
 }
 impl GroupMembersListRequest {
     pub fn url(&self) -> String {
@@ -19,11 +19,6 @@ impl GroupMembersListRequest {
             "https://graph.microsoft.com/v1.0/groups/{}/members",
             self.group_id
         )
-    }
-
-    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
-        self.tenant_id = Some(tenant_id);
-        self
     }
 }
 impl From<GroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<Principal>> {
@@ -35,10 +30,13 @@ impl From<GroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<Princ
     }
 }
 
-pub fn fetch_group_members(group_id: EntraGroupId) -> GroupMembersListRequest {
+pub fn fetch_group_members(
+    tenant_id: AzureTenantId,
+    group_id: EntraGroupId,
+) -> GroupMembersListRequest {
     GroupMembersListRequest {
         group_id,
-        tenant_id: None,
+        tenant_id,
     }
 }
 
@@ -52,22 +50,21 @@ impl CacheableCommand for GroupMembersListRequest {
             "graph".to_string(),
             "GET".to_string(),
             "group_members".to_string(),
+            self.tenant_id.to_string(),
             self.group_id.as_hyphenated().to_string(),
         ]))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        debug!("Fetching members for group {}", self.group_id);
-        let mut query = MicrosoftGraphHelper::new(
+        debug!(tenant_id = %self.tenant_id, group_id = %self.group_id, "Fetching group members");
+        let query = MicrosoftGraphHelper::new(
+            self.tenant_id,
             format!(
                 "https://graph.microsoft.com/v1.0/groups/{}/members",
                 self.group_id
             ),
             Some(self.cache_key()),
         );
-        if let Some(tenant_id) = self.tenant_id {
-            query = query.tenant_id(tenant_id);
-        }
         let members = query.fetch_all::<Principal>().await?;
         debug!(
             "Found {} members for group {}",
@@ -96,7 +93,7 @@ mod tests {
         // lets hope that we aren't unlucky many times in a row
         let tries = 10.min(groups.len());
         for group in groups.iter().take(tries) {
-            let members = fetch_group_members(group.id).tenant_id(tenant_id).await?;
+            let members = fetch_group_members(tenant_id, group.id).await?;
             if !members.is_empty() {
                 return Ok(());
             }

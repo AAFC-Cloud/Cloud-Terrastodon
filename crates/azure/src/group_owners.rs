@@ -10,20 +10,16 @@ use tracing::debug;
 
 pub struct GroupOwnersListRequest {
     pub group_id: EntraGroupId,
-    pub tenant_id: Option<AzureTenantId>,
+    pub tenant_id: AzureTenantId,
 }
 
-pub fn fetch_group_owners(group_id: EntraGroupId) -> GroupOwnersListRequest {
+pub fn fetch_group_owners(
+    tenant_id: AzureTenantId,
+    group_id: EntraGroupId,
+) -> GroupOwnersListRequest {
     GroupOwnersListRequest {
         group_id,
-        tenant_id: None,
-    }
-}
-
-impl GroupOwnersListRequest {
-    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
-        self.tenant_id = Some(tenant_id);
-        self
+        tenant_id,
     }
 }
 
@@ -37,22 +33,21 @@ impl CacheableCommand for GroupOwnersListRequest {
             "graph".to_string(),
             "GET".to_string(),
             "group_owners".to_string(),
+            self.tenant_id.to_string(),
             self.group_id.as_hyphenated().to_string(),
         ]))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        debug!("Fetching owners for group {}", self.group_id);
-        let mut query = MicrosoftGraphHelper::new(
+        debug!(tenant_id = %self.tenant_id, group_id = %self.group_id, "Fetching group owners");
+        let query = MicrosoftGraphHelper::new(
+            self.tenant_id,
             format!(
                 "https://graph.microsoft.com/v1.0/groups/{}/owners",
                 self.group_id
             ),
             Some(self.cache_key()),
         );
-        if let Some(tenant_id) = self.tenant_id {
-            query = query.tenant_id(tenant_id);
-        }
         let owners = query.fetch_all::<Principal>().await?;
         debug!("Found {} owners for group {}", owners.len(), self.group_id);
         Ok(owners)
@@ -77,7 +72,7 @@ mod tests {
         // lets hope that we aren't unlucky many times in a row
         let tries = 10.min(groups.len());
         for group in groups.iter().take(tries) {
-            let owners = fetch_group_owners(group.id).tenant_id(tenant_id).await?;
+            let owners = fetch_group_owners(tenant_id, group.id).await?;
             if !owners.is_empty() {
                 return Ok(());
             }

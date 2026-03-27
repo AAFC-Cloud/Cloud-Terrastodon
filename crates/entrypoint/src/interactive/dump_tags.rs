@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::ResourceGraphHelper;
 use cloud_terrastodon_user_input::PickerTui;
 use serde_json::Value;
@@ -8,7 +9,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::info;
 use tracing::warn;
 
-pub async fn dump_tags() -> eyre::Result<()> {
+pub async fn dump_tags(tenant_id: AzureTenantId) -> eyre::Result<()> {
     let path = PathBuf::from("resource_tags.json");
     if try_exists(&path).await.unwrap_or(false) {
         let yes = "yes";
@@ -27,6 +28,7 @@ pub async fn dump_tags() -> eyre::Result<()> {
     }
 
     let data = ResourceGraphHelper::new(
+        tenant_id,
         r#"
 resources 
 | union resourcecontainers

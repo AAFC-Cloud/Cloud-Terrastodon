@@ -1,4 +1,5 @@
 use crate::prelude::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::EntraGroup;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -9,10 +10,12 @@ use std::time::Duration;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct SecurityGroupListRequest;
+pub struct SecurityGroupListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_security_groups() -> SecurityGroupListRequest {
-    SecurityGroupListRequest
+pub fn fetch_all_security_groups(tenant_id: AzureTenantId) -> SecurityGroupListRequest {
+    SecurityGroupListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -29,6 +32,7 @@ impl CacheableCommand for SecurityGroupListRequest {
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching security groups");
         let query = MicrosoftGraphHelper::new(
+            self.tenant_id,
             "https://graph.microsoft.com/v1.0/groups?$filter=securityEnabled eq true",
             Some(self.cache_key()),
         );
@@ -44,11 +48,13 @@ cloud_terrastodon_command::impl_cacheable_into_future!(SecurityGroupListRequest)
 mod tests {
     use super::*;
     use crate::prelude::fetch_all_security_groups;
+    use crate::prelude::get_test_tenant_id;
     use cloud_terrastodon_azure_types::prelude::EntraGroup;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let groups: Vec<EntraGroup> = fetch_all_security_groups().await?;
+        let groups: Vec<EntraGroup> =
+            fetch_all_security_groups(get_test_tenant_id().await?).await?;
         assert!(groups.len() > 1);
         Ok(())
     }

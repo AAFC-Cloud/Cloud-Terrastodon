@@ -5,15 +5,19 @@ use crate::reflow::ReflowExpressionsUseImportedResourceBlocks;
 use crate::reflow::ReflowJsonAttributes;
 use crate::reflow::ReflowPrincipalIdComments;
 use crate::reflow::ReflowRemoveDefaultAttributes;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use hcl::edit::structure::Body;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tracing::info;
 
-pub async fn reflow_hcl(mut hcl: HashMap<PathBuf, Body>) -> eyre::Result<HashMap<PathBuf, Body>> {
+pub async fn reflow_hcl(
+    tenant_id: AzureTenantId,
+    mut hcl: HashMap<PathBuf, Body>,
+) -> eyre::Result<HashMap<PathBuf, Body>> {
     info!("Fetching principals");
-    let principals = fetch_all_principals().await?;
+    let principals = fetch_all_principals(tenant_id).await?;
     let reflowers: Vec<Box<dyn HclReflower>> = vec![
         Box::new(ReflowJsonAttributes),
         Box::new(ReflowAzureDevOpsGitRepositoryInitializationAttributes),

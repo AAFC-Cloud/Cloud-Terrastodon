@@ -21,13 +21,14 @@ pub struct AzureVmBrowseArgs {
 
 impl AzureVmBrowseArgs {
     pub async fn invoke(self) -> eyre::Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         let chosen = PickerTui::new().pick_one(AzureVmBrowseOption::VARIANTS)?;
         match chosen {
             AzureVmBrowseOption::Resources => {
                 let chosen_resources = PickerTui::new()
                     .pick_many_reloadable(async |invalidate| {
                         info!("Fetching virtual machines");
-                        Ok(fetch_all_virtual_machines()
+                        Ok(fetch_all_virtual_machines(tenant_id)
                             .with_invalidation(invalidate)
                             .await?
                             .into_iter()
@@ -44,7 +45,6 @@ impl AzureVmBrowseArgs {
                 println!("{}", serde_json::to_string_pretty(&chosen_resources)?);
             }
             AzureVmBrowseOption::Skus => {
-                let tenant_id = self.tenant.resolve().await?;
                 let chosen_subscription = PickerTui::new()
                     .pick_one_reloadable(async |invalidate| {
                         info!("Fetching subscriptions");

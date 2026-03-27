@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
@@ -9,7 +10,7 @@ use tracing::warn;
 
 #[allow(unused_mut)]
 #[allow(unused)]
-pub async fn audit_azure() -> eyre::Result<()> {
+pub async fn audit_azure(tenant_id: AzureTenantId) -> eyre::Result<()> {
     // TODO: audit admin accounts without corresponding user accounts should be disabled
     // TODO: audit admin accounts without corresponding user accounts should be deleted
     info!("Fetching a buncha information...");
@@ -17,10 +18,9 @@ pub async fn audit_azure() -> eyre::Result<()> {
     let mut total_problems = 0;
     let mut total_cost_waste_cad = 0.00;
     let mut message_counts: HashMap<&'static str, usize> = HashMap::new();
-
     let (rbac, principals) = try_join!(
-        fetch_all_role_definitions_and_assignments(),
-        fetch_all_principals()
+        fetch_all_role_definitions_and_assignments(tenant_id),
+        fetch_all_principals(tenant_id)
     )?;
 
     // Identify role assignments for which the principal is unknwon
@@ -106,7 +106,7 @@ pub async fn audit_azure() -> eyre::Result<()> {
 
     // Audit resources which have tag keys that the parent have but where the values do not match the parent
     info!("Fetching all resources for tag analysis");
-    let resources = fetch_all_resources().await?;
+    let resources = fetch_all_resources(tenant_id).await?;
     let resource_tags = resources
         .iter()
         .map(|resource| (resource.id.expanded_form(), &resource.tags))

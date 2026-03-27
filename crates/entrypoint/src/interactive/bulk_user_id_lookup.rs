@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::EntraUserId;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
 use cloud_terrastodon_user_input::prompt_line;
@@ -6,7 +7,7 @@ use indexmap::IndexSet;
 use std::collections::HashMap;
 use tracing::info;
 
-pub async fn bulk_user_id_lookup() -> Result<()> {
+pub async fn bulk_user_id_lookup(tenant_id: AzureTenantId) -> Result<()> {
     info!("Enter the user IDs, one per line. Enter a blank line to proceed.");
     let mut user_ids = IndexSet::new();
     loop {
@@ -18,7 +19,7 @@ pub async fn bulk_user_id_lookup() -> Result<()> {
         }
     }
 
-    let users = fetch_all_users()
+    let users = fetch_all_users(tenant_id)
         .await?
         .into_iter()
         .filter(|x| user_ids.contains(&x.id))

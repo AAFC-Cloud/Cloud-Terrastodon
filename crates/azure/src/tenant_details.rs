@@ -31,8 +31,7 @@ impl CacheableCommand for AzureTenantDetailsRequest {
 
     async fn run(self) -> Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/organization";
-        let resp = MicrosoftGraphHelper::new(url, Some(self.cache_key()))
-            .tenant_id(self.0)
+        let resp = MicrosoftGraphHelper::new(self.0, url, Some(self.cache_key()))
             .fetch_all::<MicrosoftGraphOrganization>()
             .await?;
         ensure!(

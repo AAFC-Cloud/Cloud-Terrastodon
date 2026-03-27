@@ -57,10 +57,11 @@ pub async fn fetch_metrics(
 mod tests {
     use super::*;
     use crate::prelude::fetch_all_storage_accounts;
+    use crate::prelude::get_test_tenant_id;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let resources = fetch_all_storage_accounts().await?;
+        let resources = fetch_all_storage_accounts(get_test_tenant_id().await?).await?;
         let resources = resources.iter().take(3);
         let _metrics = fetch_metrics(resources).await?;
         Ok(())

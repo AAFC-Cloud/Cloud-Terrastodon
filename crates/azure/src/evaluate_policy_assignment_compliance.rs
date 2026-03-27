@@ -1,5 +1,6 @@
 use crate::prelude::ResourceGraphHelper;
 use crate::prelude::fetch_all_policy_assignments;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::DistinctByScope;
 use cloud_terrastodon_azure_types::prelude::PolicyAssignment;
 use cloud_terrastodon_azure_types::prelude::Scope;
@@ -14,9 +15,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
-pub async fn evaluate_policy_assignment_compliance() -> Result<()> {
+pub async fn evaluate_policy_assignment_compliance(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments().await?;
+    let policy_assignments = fetch_all_policy_assignments(tenant_id).await?;
 
     let policy_assignment: PolicyAssignment = PickerTui::new()
         .set_header("Choose policy to evaluate")
@@ -55,6 +56,7 @@ policyResources
         found: u32,
     }
     let reference_ids = ResourceGraphHelper::new(
+        tenant_id,
         query,
         Some(CacheKey {
             path: PathBuf::from_iter([
@@ -125,6 +127,7 @@ policyResources
             .sanitize()
     );
     let resource_ids = ResourceGraphHelper::new(
+        tenant_id,
         query,
         Some(CacheKey {
             path: PathBuf::from_iter([

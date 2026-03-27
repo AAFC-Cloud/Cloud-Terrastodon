@@ -1,5 +1,6 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
+use cloud_terrastodon_azure::prelude::get_default_tenant_id;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
@@ -50,10 +51,12 @@ pub async fn menu() -> Result<MenuActionResult> {
     // restore execution order
     chosen.reverse();
 
+    let default_tenant_id = get_default_tenant_id().await?;
+
     for action in &chosen {
         info!("Invoking action \"{action}\"");
         let result = action
-            .invoke()
+            .invoke(default_tenant_id)
             .await
             .context(format!("invoking action \"{action}\""));
         match result {

@@ -26,7 +26,7 @@ pub async fn write_imports_for_all_role_assignments(tenant_id: AzureTenantId) ->
         .into_iter()
         .map(|sub| (sub.id, sub))
         .collect::<HashMap<SubscriptionId, Subscription>>();
-    let role_assignments = fetch_all_role_assignments().await?;
+    let role_assignments = fetch_all_role_assignments(tenant_id).await?;
 
     info!("Building import blocks");
     let mut providers: HashSet<HclProviderBlock> = HashSet::new();

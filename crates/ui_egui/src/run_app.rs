@@ -1,5 +1,6 @@
 use crate::app::MyApp;
 use crate::work_tracker::WorkTracker;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_pathing::AppDir;
 use eframe::NativeOptions;
 use eyre::bail;
@@ -9,7 +10,7 @@ use tokio::runtime;
 use tokio::task::block_in_place;
 use tracing::info;
 
-pub async fn run_app(app_info: String) -> eyre::Result<()> {
+pub async fn run_app(app_info: String, tenant_id: AzureTenantId) -> eyre::Result<()> {
     let native_options = NativeOptions {
         persist_window: true,
         persistence_path: Some(AppDir::Config.join("egui_window_state.ron")),
@@ -28,8 +29,9 @@ pub async fn run_app(app_info: String) -> eyre::Result<()> {
                 Box::new(|cc: &eframe::CreationContext<'_>| {
                     // This gives us image support:
                     egui_extras::install_image_loaders(&cc.egui_ctx);
-                    let app = runtime::Handle::current()
-                        .block_on(async move { MyApp::new(cc, work_tracker2, app_info).await })?;
+                    let app = runtime::Handle::current().block_on(async move {
+                        MyApp::new(cc, tenant_id, work_tracker2, app_info).await
+                    })?;
                     Ok(Box::new(app))
                 }),
             )

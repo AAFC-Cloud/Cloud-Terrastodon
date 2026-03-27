@@ -1,11 +1,12 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::RoleAssignment;
 use cloud_terrastodon_azure::prelude::get_role_assignment_choices;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use tracing::info;
 
-pub async fn browse_role_assignments() -> Result<()> {
-    let choices = get_role_assignment_choices().await?;
+pub async fn browse_role_assignments(tenant_id: AzureTenantId) -> Result<()> {
+    let choices = get_role_assignment_choices(tenant_id).await?;
 
     info!("Picking");
     let chosen: Vec<RoleAssignment> = PickerTui::new()

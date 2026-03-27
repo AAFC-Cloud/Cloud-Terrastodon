@@ -34,10 +34,10 @@ impl CacheableCommand for GroupListRequest {
     async fn run(self) -> Result<Self::Output> {
         debug!(tenant_id = %self.tenant_id, "Fetching Entra groups");
         let rtn: Vec<EntraGroup> = MicrosoftGraphHelper::new(
+            self.tenant_id,
             "https://graph.microsoft.com/v1.0/groups",
             Some(self.cache_key()),
         )
-        .tenant_id(self.tenant_id)
         .fetch_all()
         .await?;
         debug!(tenant_id = %self.tenant_id, count = rtn.len(), "Found Entra groups");

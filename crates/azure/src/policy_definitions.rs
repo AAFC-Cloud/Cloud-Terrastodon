@@ -1,4 +1,5 @@
 use crate::prelude::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::PolicyDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -8,10 +9,12 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct PolicyDefinitionListRequest;
+pub struct PolicyDefinitionListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_policy_definitions() -> PolicyDefinitionListRequest {
-    PolicyDefinitionListRequest
+pub fn fetch_all_policy_definitions(tenant_id: AzureTenantId) -> PolicyDefinitionListRequest {
+    PolicyDefinitionListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -23,6 +26,7 @@ impl CacheableCommand for PolicyDefinitionListRequest {
             "az",
             "resource_graph",
             "policy_definitions",
+            self.tenant_id.to_string().as_str(),
         ]))
     }
 
@@ -34,6 +38,7 @@ impl CacheableCommand for PolicyDefinitionListRequest {
             "Fetching all policy definitions from resource graph"
         );
         let mut qb = ResourceGraphHelper::new(
+            self.tenant_id,
             r#"
 policyresources
 | where type =~ "microsoft.authorization/policydefinitions"
@@ -67,10 +72,11 @@ cloud_terrastodon_command::impl_cacheable_into_future!(PolicyDefinitionListReque
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::get_test_tenant_id;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_policy_definitions().await?;
+        let result = fetch_all_policy_definitions(get_test_tenant_id().await?).await?;
         assert!(!result.is_empty());
         Ok(())
     }

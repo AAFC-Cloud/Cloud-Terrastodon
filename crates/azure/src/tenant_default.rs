@@ -14,7 +14,6 @@ pub async fn get_default_tenant_id() -> eyre::Result<AzureTenantId> {
     Ok(default_account.tenant_id)
 }
 
-#[cfg(test)]
 pub async fn get_test_tenant_id() -> eyre::Result<AzureTenantId> {
     use crate::prelude::AzureTenantAliasExt;
     use cloud_terrastodon_azure_types::prelude::AzureTenantAlias;

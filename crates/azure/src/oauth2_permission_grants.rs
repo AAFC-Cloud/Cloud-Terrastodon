@@ -1,4 +1,5 @@
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::ConsentType;
 use cloud_terrastodon_azure_types::prelude::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::prelude::EntraUserId;
@@ -16,10 +17,14 @@ use tracing::info;
 pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
     LazyLock::new(|| PathBuf::from_iter(["ms", "graph", "GET", "oauth2PermissionGrants"]));
 
-pub struct OAuth2PermissionGrantListRequest;
+pub struct OAuth2PermissionGrantListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_oauth2_permission_grants() -> OAuth2PermissionGrantListRequest {
-    OAuth2PermissionGrantListRequest
+pub fn fetch_oauth2_permission_grants(
+    tenant_id: AzureTenantId,
+) -> OAuth2PermissionGrantListRequest {
+    OAuth2PermissionGrantListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -27,13 +32,14 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
     type Output = Vec<OAuth2PermissionGrant>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.to_path_buf())
+        CacheKey::new(FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.join(self.tenant_id.to_string()))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
         let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
         cmd.args(["rest", "--method", "GET", "--url", url]);
+        cmd.args(["--tenant", self.tenant_id.to_string().as_str()]);
         cmd.cache(self.cache_key());
         let resp = cmd
             .run::<crate::microsoft_graph::MicrosoftGraphResponse<OAuth2PermissionGrant>>()
@@ -45,6 +51,7 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
 cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantListRequest);
 
 pub async fn create_oauth2_permission_grant(
+    tenant_id: AzureTenantId,
     resource_id: EntraServicePrincipalId,
     client_id: EntraServicePrincipalId,
     user_id: EntraUserId,
@@ -65,6 +72,7 @@ pub async fn create_oauth2_permission_grant(
     };
     let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
     cmd.args(["rest", "--method", Method::POST.as_str(), "--url", url]);
+    cmd.args(["--tenant", tenant_id.to_string().as_str()]);
     cmd.arg("--body");
     cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&body)?);
     cmd.run().await
@@ -73,10 +81,11 @@ pub async fn create_oauth2_permission_grant(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::get_test_tenant_id;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let found = fetch_oauth2_permission_grants().await?;
+        let found = fetch_oauth2_permission_grants(get_test_tenant_id().await?).await?;
         assert!(!found.is_empty());
         Ok(())
     }

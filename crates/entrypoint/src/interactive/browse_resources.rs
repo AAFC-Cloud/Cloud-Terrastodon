@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::Resource;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_resources;
@@ -6,12 +7,15 @@ use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use tracing::info;
 
-pub async fn browse_resources_menu() -> Result<()> {
+pub async fn browse_resources_menu(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching resources");
-    let choices = fetch_all_resources().await?.into_iter().map(|x| Choice {
-        key: x.id.expanded_form().to_owned(),
-        value: x,
-    });
+    let choices = fetch_all_resources(tenant_id)
+        .await?
+        .into_iter()
+        .map(|x| Choice {
+            key: x.id.expanded_form().to_owned(),
+            value: x,
+        });
     let chosen: Vec<Resource> = PickerTui::new()
         .set_header("Resources")
         .pick_many(choices)?;

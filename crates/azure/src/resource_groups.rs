@@ -31,6 +31,7 @@ impl CacheableCommand for ResourceGroupListRequest {
     }
     async fn run(self) -> Result<Self::Output> {
         ResourceGraphHelper::new(
+            self.tenant_id,
             indoc! {r#"
                     resourcecontainers
                     | where type =~ "microsoft.resources/subscriptions/resourcegroups"
@@ -45,7 +46,6 @@ impl CacheableCommand for ResourceGroupListRequest {
                 "#},
             Some(self.cache_key()),
         )
-        .tenant_id(self.tenant_id)
         .collect_all::<ResourceGroup>()
         .await
     }

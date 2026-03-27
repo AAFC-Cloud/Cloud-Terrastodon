@@ -1,5 +1,7 @@
 use chrono::Local;
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::HclImportable;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
@@ -15,16 +17,21 @@ use tracing::info;
 /// Create Terraform import definitions for selected resources.
 #[derive(Args, Debug, Clone)]
 pub struct TerraformSourceGenerateArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+
     #[arg(long, default_value = ".")]
     pub work_dir: PathBuf,
 }
 
 impl TerraformSourceGenerateArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         let work_dir = self.work_dir;
 
         let kind_to_import = HclImportable::pick()?;
-        let imports = kind_to_import.pick_into_body().await?;
+        let imports = kind_to_import.pick_into_body(tenant_id).await?;
 
         work_dir.ensure_dir_exists().await?;
         let temp_dir = Builder::new()
@@ -48,7 +55,7 @@ impl TerraformSourceGenerateArgs {
 
         info!("Reflowing content");
         let hcl = discover_hcl(import_dir, DiscoveryDepth::Shallow).await?;
-        let hcl = reflow_hcl(hcl).await?;
+        let hcl = reflow_hcl(tenant_id, hcl).await?;
         for (path, contents) in hcl {
             HclWriter::new(path)
                 .format_on_write()

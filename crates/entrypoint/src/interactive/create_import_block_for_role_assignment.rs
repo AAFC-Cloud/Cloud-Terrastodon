@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_hcl::prelude::AsHclString;
 use cloud_terrastodon_hcl::prelude::AzureRmResourceBlockKind;
@@ -11,8 +12,8 @@ use eyre::Result;
 use eyre::bail;
 use tracing::info;
 
-pub async fn create_import_block_for_role_assignment() -> Result<()> {
-    match RoleAssignmentPickerApp::new().run().await? {
+pub async fn create_import_block_for_role_assignment(tenant_id: AzureTenantId) -> Result<()> {
+    match RoleAssignmentPickerApp::new(tenant_id).run().await? {
         RoleAssignmentPickerAppResult::Cancelled => {
             info!("Operation cancelled by user.");
             Ok(())

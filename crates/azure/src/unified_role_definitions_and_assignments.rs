@@ -1,5 +1,6 @@
 use crate::prelude::fetch_all_unified_role_assignments;
 use crate::prelude::fetch_all_unified_role_definitions;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionsAndAssignments;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheableCommand;
@@ -11,18 +12,21 @@ use tokio::try_join;
 ///
 /// Not to be confused with Azure RBAC role assignments and role definitions.
 #[must_use = "This is a future request, you must .await it"]
-pub struct UnifiedRoleDefinitionsAndAssignmentsListRequest;
+pub struct UnifiedRoleDefinitionsAndAssignmentsListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_unified_role_definitions_and_assignments()
--> UnifiedRoleDefinitionsAndAssignmentsListRequest {
-    UnifiedRoleDefinitionsAndAssignmentsListRequest
+pub fn fetch_all_unified_role_definitions_and_assignments(
+    tenant_id: AzureTenantId,
+) -> UnifiedRoleDefinitionsAndAssignmentsListRequest {
+    UnifiedRoleDefinitionsAndAssignmentsListRequest { tenant_id }
 }
 
 #[async_trait]
 impl CacheInvalidatable for UnifiedRoleDefinitionsAndAssignmentsListRequest {
     async fn invalidate(&self) -> eyre::Result<()> {
-        let definitions = fetch_all_unified_role_definitions().cache_key();
-        let assignments = fetch_all_unified_role_assignments().cache_key();
+        let definitions = fetch_all_unified_role_definitions(self.tenant_id).cache_key();
+        let assignments = fetch_all_unified_role_assignments(self.tenant_id).cache_key();
         try_join!(definitions.invalidate(), assignments.invalidate())?;
         Ok(())
     }
@@ -35,8 +39,8 @@ impl IntoFuture for UnifiedRoleDefinitionsAndAssignmentsListRequest {
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
             let (role_definitions, role_assignments) = try_join!(
-                fetch_all_unified_role_definitions(),
-                fetch_all_unified_role_assignments()
+                fetch_all_unified_role_definitions(self.tenant_id),
+                fetch_all_unified_role_assignments(self.tenant_id)
             )?;
 
             UnifiedRoleDefinitionsAndAssignments::try_new(role_definitions, role_assignments)
@@ -48,13 +52,15 @@ impl IntoFuture for UnifiedRoleDefinitionsAndAssignmentsListRequest {
 mod test {
     use crate::prelude::fetch_all_principals;
     use crate::prelude::fetch_all_unified_role_definitions_and_assignments;
+    use crate::prelude::get_test_tenant_id;
     use cloud_terrastodon_azure_types::prelude::RolePermissionAction;
     use cloud_terrastodon_azure_types::prelude::UnifiedRoleDefinitionsAndAssignmentsIterTools;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let rbac = fetch_all_unified_role_definitions_and_assignments().await?;
-        let principals = fetch_all_principals().await?;
+        let tenant_id = get_test_tenant_id().await?;
+        let rbac = fetch_all_unified_role_definitions_and_assignments(tenant_id).await?;
+        let principals = fetch_all_principals(tenant_id).await?;
         let permissions = &[RolePermissionAction::new(
             "microsoft.directory/users/standard/read",
         )];

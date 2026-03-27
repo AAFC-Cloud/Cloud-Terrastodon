@@ -15,10 +15,11 @@ pub mod work;
 pub mod work_tracker;
 pub mod workers;
 
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use tracing::info;
 
-pub async fn egui_main(app_info: String) -> eyre::Result<()> {
+pub async fn egui_main(app_info: String, tenant_id: AzureTenantId) -> eyre::Result<()> {
     info!("Hello from egui!");
-    run_app::run_app(app_info).await?;
+    run_app::run_app(app_info, tenant_id).await?;
     Ok(())
 }

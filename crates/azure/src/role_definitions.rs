@@ -1,4 +1,5 @@
 use crate::prelude::ResourceGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::RoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -11,10 +12,12 @@ use tracing::debug;
 ///
 /// Not to be confused with Entra role definitions.
 #[must_use = "This is a future request, you must .await it"]
-pub struct RoleDefinitionListRequest;
+pub struct RoleDefinitionListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_role_definitions() -> RoleDefinitionListRequest {
-    RoleDefinitionListRequest
+pub fn fetch_all_role_definitions(tenant_id: AzureTenantId) -> RoleDefinitionListRequest {
+    RoleDefinitionListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -26,12 +29,14 @@ impl CacheableCommand for RoleDefinitionListRequest {
             "az",
             "resource_graph",
             "role-definitions",
+            self.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching role definitions");
         let role_definitions = ResourceGraphHelper::new(
+            self.tenant_id,
             r#"authorizationresources
 | where type =~ "microsoft.authorization/roledefinitions"
 | project id, properties
@@ -56,20 +61,21 @@ cloud_terrastodon_command::impl_cacheable_into_future!(RoleDefinitionListRequest
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::get_test_tenant_id;
     use cloud_terrastodon_azure_types::prelude::RolePermissionAction;
     use cloud_terrastodon_azure_types::prelude::Scope;
     use eyre::eyre;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let results = fetch_all_role_definitions().await?;
+        let results = fetch_all_role_definitions(get_test_tenant_id().await?).await?;
         assert!(!results.is_empty());
         Ok(())
     }
 
     #[tokio::test]
     async fn key_vaults() -> Result<()> {
-        let role_definitions = fetch_all_role_definitions().await?;
+        let role_definitions = fetch_all_role_definitions(get_test_tenant_id().await?).await?;
         let key_vault_secrets_officer_id = "b86a8fe4-44ce-4948-aee5-eccb2c155cd7";
         let key_vault_secrets_officer = role_definitions
             .iter()

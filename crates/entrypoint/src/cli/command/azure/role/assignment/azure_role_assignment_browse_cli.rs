@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::Scope;
 use cloud_terrastodon_azure::prelude::fetch_all_principals;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions_and_assignments;
@@ -14,14 +16,19 @@ use tracing::info;
 
 /// Arguments for browsing Azure role assignments.
 #[derive(Args, Debug, Clone)]
-pub struct AzureRoleAssignmentBrowseArgs {}
+pub struct AzureRoleAssignmentBrowseArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+}
 
 impl AzureRoleAssignmentBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         info!("Fetching Azure role assignments and principals");
+        let tenant_id = self.tenant.resolve().await?;
         let (rbac, principals) = try_join!(
-            fetch_all_role_definitions_and_assignments(),
-            fetch_all_principals()
+            fetch_all_role_definitions_and_assignments(tenant_id),
+            fetch_all_principals(tenant_id)
         )?;
 
         info!(

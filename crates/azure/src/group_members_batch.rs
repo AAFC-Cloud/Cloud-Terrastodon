@@ -13,24 +13,18 @@ use std::path::PathBuf;
 
 pub struct GroupMembersListBatchRequest {
     pub group_ids: Vec<EntraGroupId>,
-    pub tenant_id: Option<AzureTenantId>,
+    pub tenant_id: AzureTenantId,
 }
 
 /// TODO! This does n't auto fetch nextLink stuff :(
 #[deprecated = "This function does not handle pagination yet."]
 pub fn fetch_group_members_batch(
+    tenant_id: AzureTenantId,
     group_ids: impl IntoIterator<Item = EntraGroupId>,
 ) -> GroupMembersListBatchRequest {
     GroupMembersListBatchRequest {
         group_ids: group_ids.into_iter().collect(),
-        tenant_id: None,
-    }
-}
-
-impl GroupMembersListBatchRequest {
-    pub fn tenant_id(mut self, tenant_id: AzureTenantId) -> Self {
-        self.tenant_id = Some(tenant_id);
-        self
+        tenant_id,
     }
 }
 
@@ -44,6 +38,7 @@ impl CacheableCommand for GroupMembersListBatchRequest {
             "graph".to_string(),
             "GET".to_string(),
             "group_members_batch".to_string(),
+            self.tenant_id.to_string(),
             {
                 let mut hasher = blake3::Hasher::new();
                 for group_id in &self.group_ids {
@@ -63,10 +58,7 @@ impl CacheableCommand for GroupMembersListBatchRequest {
         } = self;
         // Construct the request
         let mut batch_request: MicrosoftGraphBatchRequest<Vec<Principal>> =
-            MicrosoftGraphBatchRequest::new();
-        if let Some(tenant_id) = tenant_id {
-            batch_request = batch_request.tenant_id(tenant_id);
-        }
+            MicrosoftGraphBatchRequest::new(tenant_id);
 
         // Enable caching since it's a GET request
         batch_request.cache(cache_key);
@@ -75,7 +67,7 @@ impl CacheableCommand for GroupMembersListBatchRequest {
         for group_id in &group_ids {
             batch_request.add(GroupMembersListRequest {
                 group_id: *group_id,
-                tenant_id: None,
+                tenant_id,
             });
         }
 

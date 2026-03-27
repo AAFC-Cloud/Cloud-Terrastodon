@@ -1,4 +1,5 @@
 use crate::prelude::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::prelude::AzureTenantId;
 use cloud_terrastodon_azure_types::prelude::ConditionalAccessPolicy;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -7,10 +8,14 @@ use eyre::Result;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct ConditionalAccessPolicyListRequest;
+pub struct ConditionalAccessPolicyListRequest {
+    pub tenant_id: AzureTenantId,
+}
 
-pub fn fetch_all_conditional_access_policies() -> ConditionalAccessPolicyListRequest {
-    ConditionalAccessPolicyListRequest
+pub fn fetch_all_conditional_access_policies(
+    tenant_id: AzureTenantId,
+) -> ConditionalAccessPolicyListRequest {
+    ConditionalAccessPolicyListRequest { tenant_id }
 }
 
 #[async_trait]
@@ -23,11 +28,13 @@ impl CacheableCommand for ConditionalAccessPolicyListRequest {
             "graph",
             "GET",
             "conditional_access_policies",
+            self.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         let query = MicrosoftGraphHelper::new(
+            self.tenant_id,
             "https://graph.microsoft.com/beta/identity/conditionalAccess/policies",
             Some(self.cache_key()),
         );
@@ -43,6 +50,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ConditionalAccessPolicyLi
 mod test {
     use crate::prelude::fetch_all_conditional_access_named_locations;
     use crate::prelude::fetch_all_conditional_access_policies;
+    use crate::prelude::get_test_tenant_id;
     use cloud_terrastodon_azure_types::prelude::AllOr;
     use cloud_terrastodon_azure_types::prelude::ConditionalAccessPolicyGrantControlBuiltInControl;
     use cloud_terrastodon_azure_types::prelude::ConditionalAccessPolicyState;
@@ -53,16 +61,17 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let found = fetch_all_conditional_access_policies().await?;
+        let found = fetch_all_conditional_access_policies(get_test_tenant_id().await?).await?;
         assert!(!found.is_empty());
         Ok(())
     }
 
     #[tokio::test]
     pub async fn disallowed_ips() -> eyre::Result<()> {
+        let tenant_id = get_test_tenant_id().await?;
         let (locations, policies) = try_join!(
-            fetch_all_conditional_access_named_locations(),
-            fetch_all_conditional_access_policies(),
+            fetch_all_conditional_access_named_locations(tenant_id),
+            fetch_all_conditional_access_policies(tenant_id),
         )?;
         assert!(!locations.is_empty());
         assert!(!policies.is_empty());

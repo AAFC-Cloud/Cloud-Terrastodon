@@ -1,4 +1,6 @@
 use clap::Args;
+use cloud_terrastodon_azure::prelude::AzureTenantArgument;
+use cloud_terrastodon_azure::prelude::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::prelude::fetch_all_role_definitions;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::PickerTui;
@@ -8,14 +10,19 @@ use tracing::info;
 
 /// Arguments for browsing Azure role definitions.
 #[derive(Args, Debug, Clone)]
-pub struct AzureRoleDefinitionBrowseArgs {}
+pub struct AzureRoleDefinitionBrowseArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[arg(long, default_value_t)]
+    pub tenant: AzureTenantArgument<'static>,
+}
 
 impl AzureRoleDefinitionBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
         let chosen = PickerTui::new()
             .pick_many_reloadable(async |invalidate| {
                 info!("Fetching Azure role definitions");
-                let role_definitions = fetch_all_role_definitions()
+                let role_definitions = fetch_all_role_definitions(tenant_id)
                     .with_invalidation(invalidate)
                     .await?;
                 info!(

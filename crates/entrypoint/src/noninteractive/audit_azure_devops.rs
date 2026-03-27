@@ -1,6 +1,7 @@
 use chrono::Local;
 use chrono::TimeDelta;
 use chrono::Utc;
+use cloud_terrastodon_azure::prelude::AzureTenantId;
 use cloud_terrastodon_azure::prelude::fetch_all_users;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops::prelude::AzureDevOpsLicenseType;
@@ -20,6 +21,7 @@ use tracing::info;
 use tracing::warn;
 
 pub async fn audit_azure_devops(
+    tenant_id: AzureTenantId,
     test_license_inactivity_threshold: Duration,
     paid_license_inactivity_threshold: Duration,
 ) -> eyre::Result<()> {
@@ -37,7 +39,7 @@ pub async fn audit_azure_devops(
 
     let org_url = get_default_organization_url().await?;
     let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
-    let users_by_principal_name = fetch_all_users()
+    let users_by_principal_name = fetch_all_users(tenant_id)
         .await?
         .into_iter()
         .map(|user| (user.user_principal_name.to_lowercase(), user))
