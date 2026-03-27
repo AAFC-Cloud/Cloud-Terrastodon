@@ -3,6 +3,7 @@
 ## Subscription Name
 
 - Add subscription name to resources with subscription id like resource groups
+Maybe a `.name().await` helper that is memoized?
 
 ## Formatting
 
