@@ -1,3 +1,3 @@
-mod rest_command;
+mod rest_cli;
 
-pub use rest_command::*;
+pub use rest_cli::*;

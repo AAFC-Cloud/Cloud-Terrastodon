@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -19,6 +21,7 @@ use reqwest::Url;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::tls::Version;
 use serde::Deserialize;
+use tracing::debug;
 
 /// Arguments for issuing raw REST calls with Cloud Terrastodon's auth helpers.
 #[derive(Args, Debug, Clone)]
@@ -52,6 +55,7 @@ impl RestArgs {
         };
         let body = read_optional_body(self.body).await?;
 
+        let start = Instant::now();
         let response = match service {
             RestService::AzureDevOps => {
                 if tenant.is_some() {
@@ -80,6 +84,8 @@ impl RestArgs {
                 .await?
             }
         };
+        let elapsed = start.elapsed();
+        debug!(elapsed_ms = elapsed.as_millis(), "REST call completed in {}", humantime::format_duration(elapsed));
 
         print_response(response).await
     }
@@ -229,9 +235,20 @@ async fn fetch_azure_access_token(
 }
 
 async fn print_response(response: Response) -> Result<()> {
+    let start = Instant::now();
     let status = response.status();
     let content = response.text().await?;
-    println!("{}", content);
+    let value = serde_json::from_str::<serde_json::Value>(&content);
+    let pretty = value.and_then(|v| serde_json::to_string_pretty(&v));
+    let elapsed = start.elapsed();
+    debug!(elapsed_ms = elapsed.as_millis(), "Response prettifying completed in {}", humantime::format_duration(elapsed));
+    match pretty {
+        Ok(pretty) => println!("{}", pretty),
+        Err(_) => {
+            debug!("Response is not valid JSON, printing raw content");
+            println!("{}", content);
+        }
+    }
     if !status.is_success() {
         bail!(
             "REST call failed with status {}: {}",
