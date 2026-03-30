@@ -303,7 +303,12 @@ impl CommandBuilder {
             .lines()
             .next()
             .ok_or_else(|| eyre::eyre!("timestamp.txt contained no lines"))?;
-        let timestamp = DateTime::parse_from_rfc2822(timestamp_first_line.to_str()?)?;
+        let timestamp_first_line = timestamp_first_line
+            .to_str()
+            .wrap_err("failed to convert timestamp first line to string")?;
+        let timestamp = DateTime::parse_from_rfc2822(timestamp_first_line).wrap_err_with(|| {
+            format!("failed to parse timestamp from '{}'", timestamp_first_line)
+        })?;
         let now = Local::now();
         let time_remaining = if *valid_for == Duration::MAX {
             TimeDelta::MAX
@@ -389,17 +394,16 @@ impl CommandBuilder {
                         path.to_string_lossy().into_owned()
                     ))?;
 
-                // Ensure newline separation. Write contents then a newline.
-                file.write_all(file_contents.as_bytes())
+                // Write timestamp + newline as a single call so concurrent writers can't
+                // interleave the two writes and produce a corrupted line.
+                let mut line = file_contents.as_bytes().to_vec();
+                line.push(b'\n');
+                file.write_all(&line)
                     .await
                     .context(format!(
                         "writing file {}",
                         path.to_string_lossy().into_owned()
                     ))?;
-                file.write_all(b"\n").await.context(format!(
-                    "writing file {}",
-                    path.to_string_lossy().into_owned()
-                ))?;
             } else {
                 // Default behavior: overwrite other files
                 let mut file = OpenOptions::new()
@@ -673,8 +677,8 @@ impl CommandBuilder {
                 Ok(Some(output)) => {
                     return Ok(output);
                 }
-                Err(e) => {
-                    debug!("Cache load failed: {:?}", e);
+                Err(error) => {
+                    debug!(?self.cache_key, %error, "Cache load failed");
                 }
             }
 

@@ -17,6 +17,7 @@
     - `fetch_all_users` -> `fetch_all_entra_users`
 - Disable logging colours when not in terminal (when being piped)
 - Add other_mails property to `EntraUser`
+- Fix concurrent write to timestamp text file for command caching
 
 # v0.34.0
 
