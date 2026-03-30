@@ -11,6 +11,7 @@
 - Add tenant id everywhere
 - Remove `ResourceGroup::subscription_id` field
 - Add `ResourceGroup::subscription_name` field
+- Add `ResourceGroup::tenant_id` field
 
 # v0.34.0
 
