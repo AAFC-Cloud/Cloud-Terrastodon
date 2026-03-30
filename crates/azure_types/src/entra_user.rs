@@ -21,6 +21,7 @@ pub struct EntraUser {
     pub job_title: Option<String>,
     pub mail: Option<String>,
     #[serde(rename = "otherMails")]
+    #[serde(default)]
     pub other_mails: Vec<String>,
     #[serde(rename = "mobilePhone")]
     pub mobile_phone: Option<String>,
