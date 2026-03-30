@@ -35,7 +35,7 @@ impl CacheableCommand for EntraUserListRequest {
         debug!(tenant_id = %self.tenant_id, "Fetching users");
         let users: Vec<EntraUser> = MicrosoftGraphHelper::new(
             self.tenant_id,
-            "https://graph.microsoft.com/v1.0/users",
+            "https://graph.microsoft.com/v1.0/users?$select=businessPhones,displayName,givenName,id,jobTitle,mail,otherMails,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName",
             Some(self.cache_key()),
         )
         .fetch_all()

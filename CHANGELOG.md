@@ -16,6 +16,7 @@
     - `UserListRequest` -> `EntraUserListRequest`
     - `fetch_all_users` -> `fetch_all_entra_users`
 - Disable logging colours when not in terminal (when being piped)
+- Add other_mails property to `EntraUser`
 
 # v0.34.0
 
