@@ -2,10 +2,12 @@ use crate::get_resource_group_choices;
 use crate::get_role_assignment_choices;
 use crate::get_security_group_choices;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ProviderKind;
+use cloud_terrastodon_hcl_types::Sanitizable;
 use cloud_terrastodon_hcl_types::edit::structure::Block;
 use cloud_terrastodon_hcl_types::edit::structure::Body;
 use cloud_terrastodon_user_input::Choice;
@@ -13,6 +15,7 @@ use cloud_terrastodon_user_input::PickerTui;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use strum::VariantArray;
+use tracing::info;
 
 #[derive(strum::VariantArray, Debug, Clone, Copy)]
 pub enum HclImportable {
@@ -31,29 +34,32 @@ impl HclImportable {
         tenant_id: AzureTenantId,
     ) -> eyre::Result<Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>>> {
         let rtn: Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>> = match self {
-            HclImportable::ResourceGroup => get_resource_group_choices(tenant_id)
-                .await?
-                .into_iter()
-                .map(
-                    |Choice {
-                         key,
-                         value: (rg, sub),
-                     }| Choice {
-                        key,
-                        value: (
-                            {
-                                let mut import_block: HclImportBlock = rg.into();
-                                import_block.provider = HclProviderReference::Alias {
-                                    kind: ProviderKind::AzureRM,
-                                    name: sub.name.to_string(),
-                                };
-                                import_block
-                            },
-                            Some(sub.into_provider_block()),
-                        ),
-                    },
-                )
-                .collect(),
+            HclImportable::ResourceGroup => {
+                info!("Fetching resource groups");
+                get_resource_group_choices(tenant_id)
+                    .await?
+                    .into_iter()
+                    .map(|Choice { key, value: rg }| {
+                        let provider_block = Some(HclProviderBlock::AzureRM {
+                            alias: Some(rg.subscription_name.sanitize()),
+                            subscription_id: Some(rg.id.subscription_id.short_form().to_owned()),
+                        });
+                        let import_block = {
+                            let name = rg.subscription_name.to_string();
+                            let mut import_block: HclImportBlock = rg.into();
+                            import_block.provider = HclProviderReference::Alias {
+                                kind: ProviderKind::AzureRM,
+                                name,
+                            };
+                            import_block
+                        };
+                        Choice {
+                            key,
+                            value: (import_block, provider_block),
+                        }
+                    })
+                    .collect()
+            }
             HclImportable::SecurityGroup => get_security_group_choices(tenant_id)
                 .await?
                 .into_iter()

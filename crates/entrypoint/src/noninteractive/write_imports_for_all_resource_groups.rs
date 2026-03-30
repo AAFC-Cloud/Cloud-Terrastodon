@@ -32,7 +32,7 @@ pub async fn write_imports_for_all_resource_groups(tenant_id: AzureTenantId) -> 
     let mut imports = Vec::with_capacity(resource_groups.len());
     for rg in resource_groups {
         let sub = subscriptions
-            .get(&rg.subscription_id)
+            .get(&rg.id.subscription_id)
             .ok_or_else(|| eyre!("could not find subscription for resource group {rg:?}"))?;
         let mut block: HclImportBlock = rg.into();
         block.provider = HclProviderReference::Alias {

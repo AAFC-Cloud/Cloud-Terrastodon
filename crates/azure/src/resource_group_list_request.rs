@@ -33,17 +33,23 @@ impl CacheableCommand for ResourceGroupListRequest {
         ResourceGraphHelper::new(
             self.tenant_id,
             indoc! {r#"
+                resourcecontainers
+                | where type =~ "microsoft.resources/subscriptions/resourcegroups"
+                | join kind=leftouter (
                     resourcecontainers
-                    | where type =~ "microsoft.resources/subscriptions/resourcegroups"
-                    | project
-                        id,
-                        location,
-                        managed_by=managedBy,
-                        name,
-                        properties,
-                        tags,
-                        subscription_id=subscriptionId
-                "#},
+                    | where type =~ "Microsoft.Resources/subscriptions"
+                    | project subscriptionId,subscription_name=name
+                ) on $left.subscriptionId == $right.subscriptionId
+                | project
+                    id,
+                    tenant_id=tenantId,
+                    location,
+                    managed_by=managedBy,
+                    name,
+                    properties,
+                    tags,
+                    subscription_name
+            "#},
             Some(self.cache_key()),
         )
         .collect_all::<ResourceGroup>()

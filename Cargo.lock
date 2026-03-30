@@ -860,6 +860,8 @@ dependencies = [
  "embed-resource",
  "eyre",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

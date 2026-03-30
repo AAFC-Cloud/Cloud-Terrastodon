@@ -43,7 +43,7 @@ pub async fn build_resource_group_imports(tenant_id: AzureTenantId) -> Result<()
     let mut choices: Vec<Choice<SubRGPair>> = Vec::with_capacity(resource_groups.len());
     for rg in resource_groups {
         let sub = subscriptions
-            .get(&rg.subscription_id)
+            .get(&rg.id.subscription_id)
             .ok_or_else(|| eyre!("could not find subscription for resource group {rg:?}"))?;
         let choice = SubRGPair {
             subscription: sub,

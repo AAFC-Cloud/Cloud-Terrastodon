@@ -1,5 +1,5 @@
 use crate::management_groups::fetch_root_management_group;
-use crate::resource_groups::fetch_all_resource_groups;
+use crate::resource_group_list_request::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::AsScope;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EligibleChildResource;

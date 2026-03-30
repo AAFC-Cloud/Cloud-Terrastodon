@@ -182,6 +182,8 @@ cloud_terrastodon_entrypoint = { workspace = true, optional = true }
 tokio = { workspace = true }
 eyre = { workspace = true }
 color-eyre = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing = { workspace = true }
 
 # Optional re-exported crates (enable via features below)
 cloud_terrastodon_pathing = { workspace = true, optional = true }

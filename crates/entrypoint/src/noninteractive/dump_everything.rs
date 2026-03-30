@@ -613,10 +613,10 @@ async fn write_all_import_blocks(
         .collect::<HashMap<_, _>>();
     let mut provider_blocks: HashSet<_> = Default::default();
     for rg in resource_groups {
-        let Some(sub) = subscriptions_by_id.get(&rg.subscription_id) else {
+        let Some(sub) = subscriptions_by_id.get(&rg.id.subscription_id) else {
             bail!(
                 "Failed to find subscription {} for resource group {}",
-                rg.subscription_id,
+                rg.id.subscription_id,
                 rg.name
             );
         };

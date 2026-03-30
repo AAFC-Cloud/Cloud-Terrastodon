@@ -9,6 +9,8 @@
 - Add `--tenant {alias or id or 'default'}` optional flag to many commands, e.g., `ct az resource-group list --tenant 123`, `ct az subsription list --tenant 321`
 - Flatten and remove all prelude modules
 - Add tenant id everywhere
+- Remove `ResourceGroup::subscription_id` field
+- Add `ResourceGroup::subscription_name` field
 
 # v0.34.0
 

@@ -1,6 +1,7 @@
+use crate::AzureTenantId;
 use crate::ResourceGroupId;
 use crate::ResourceGroupName;
-use crate::SubscriptionId;
+use crate::SubscriptionName;
 use crate::SubscriptionScoped;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
@@ -16,7 +17,8 @@ use std::collections::HashMap;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ResourceGroup {
     pub id: ResourceGroupId,
-    pub subscription_id: SubscriptionId,
+    pub subscription_name: SubscriptionName,
+    pub tenant_id: AzureTenantId,
     pub location: String,
     pub managed_by: Option<String>,
     pub name: ResourceGroupName,
@@ -63,7 +65,7 @@ impl From<ResourceGroup> for HclImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResourceGroupName;
+    use crate::{ResourceGroupName, SubscriptionId};
     use crate::slug::Slug;
     use eyre::Result;
     use uuid::Uuid;
