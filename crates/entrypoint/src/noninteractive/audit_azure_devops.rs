@@ -2,7 +2,7 @@ use chrono::Local;
 use chrono::TimeDelta;
 use chrono::Utc;
 use cloud_terrastodon_azure::AzureTenantId;
-use cloud_terrastodon_azure::fetch_all_users;
+use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_azure_devops::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::LastAccessedDate;
@@ -39,7 +39,7 @@ pub async fn audit_azure_devops(
 
     let org_url = get_default_organization_url().await?;
     let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
-    let users_by_principal_name = fetch_all_users(tenant_id)
+    let users_by_principal_name = fetch_all_entra_users(tenant_id)
         .await?
         .into_iter()
         .map(|user| (user.user_principal_name.to_lowercase(), user))

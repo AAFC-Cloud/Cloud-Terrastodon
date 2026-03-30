@@ -2,7 +2,7 @@ use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::create_role_assignment;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::fetch_all_role_definitions;
-use cloud_terrastodon_azure::fetch_all_users;
+use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -20,7 +20,7 @@ pub async fn create_role_assignment_menu(tenant_id: AzureTenantId) -> Result<()>
     )?;
 
     info!("Fetching principals");
-    let users = fetch_all_users(tenant_id).await?;
+    let users = fetch_all_entra_users(tenant_id).await?;
     let principals = PickerTui::new()
         .set_header(format!(
             "Assigning {}",

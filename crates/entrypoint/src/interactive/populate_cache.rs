@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_role_assignments;
-use cloud_terrastodon_azure::fetch_all_users;
+use cloud_terrastodon_azure::fetch_all_entra_users;
 use eyre::Result;
 use indicatif::ProgressBar;
 use tokio::task::JoinSet;
@@ -40,7 +40,7 @@ pub async fn populate_cache(tenant_id: AzureTenantId) -> Result<()> {
             fetch_all_role_assignments(tenant_id).await.is_ok(),
         )
     });
-    work.spawn(async move { ("fetch_all_users", fetch_all_users(tenant_id).await.is_ok()) });
+    work.spawn(async move { ("fetch_all_users", fetch_all_entra_users(tenant_id).await.is_ok()) });
     let pb = ProgressBar::new(work.len() as u64);
     // pb.set_style(
     //     ProgressStyle::default_bar()

@@ -1,7 +1,7 @@
 use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::fetch_all_users;
+use cloud_terrastodon_azure::fetch_all_entra_users;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -17,7 +17,7 @@ pub struct AzureEntraUserListArgs {
 impl AzureEntraUserListArgs {
     pub async fn invoke(self) -> Result<()> {
         info!("Fetching users");
-        let users = fetch_all_users(self.tenant.resolve().await?).await?;
+        let users = fetch_all_entra_users(self.tenant.resolve().await?).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

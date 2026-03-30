@@ -12,6 +12,10 @@
 - Remove `ResourceGroup::subscription_id` field
 - Add `ResourceGroup::subscription_name` field
 - Add `ResourceGroup::tenant_id` field
+- Rename Entra user files and types
+    - `UserListRequest` -> `EntraUserListRequest`
+    - `fetch_all_users` -> `fetch_all_entra_users`
+- Disable logging colours when not in terminal (when being piped)
 
 # v0.34.0
 

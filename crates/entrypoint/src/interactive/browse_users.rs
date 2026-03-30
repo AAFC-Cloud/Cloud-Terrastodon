@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure::AzureTenantId;
-use cloud_terrastodon_azure::fetch_all_users;
+use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -7,7 +7,7 @@ use tracing::info;
 
 pub async fn browse_users(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching users");
-    let users = fetch_all_users(tenant_id).await?;
+    let users = fetch_all_entra_users(tenant_id).await?;
     let users = PickerTui::new()
         .set_header("Users")
         .pick_many(users.into_iter().map(|u| Choice {

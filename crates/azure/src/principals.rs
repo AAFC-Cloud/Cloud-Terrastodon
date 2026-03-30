@@ -1,6 +1,6 @@
 use crate::fetch_all_security_groups;
 use crate::fetch_all_service_principals;
-use crate::fetch_all_users;
+use crate::fetch_all_entra_users;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_azure_types::PrincipalCollection;
@@ -38,7 +38,7 @@ impl CacheableCommand for PrincipalListRequest {
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching principals (users, security groups, and service principals)");
         let (users, security_groups, service_principals) = try_join!(
-            fetch_all_users(self.tenant_id).into_future(),
+            fetch_all_entra_users(self.tenant_id).into_future(),
             fetch_all_security_groups(self.tenant_id),
             fetch_all_service_principals(self.tenant_id)
         )?;

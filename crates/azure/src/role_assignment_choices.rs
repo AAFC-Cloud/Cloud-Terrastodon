@@ -4,7 +4,7 @@ use crate::RoleDefinition;
 use crate::RoleDefinitionId;
 use crate::fetch_all_role_assignments;
 use crate::fetch_all_role_definitions;
-use crate::fetch_all_users;
+use crate::fetch_all_entra_users;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_user_input::Choice;
 use std::collections::HashMap;
@@ -18,7 +18,7 @@ pub async fn get_role_assignment_choices(
     let (role_assignments, role_definitions, users) = try_join!(
         fetch_all_role_assignments(tenant_id),
         fetch_all_role_definitions(tenant_id),
-        fetch_all_users(tenant_id).into_future()
+        fetch_all_entra_users(tenant_id).into_future()
     )?;
 
     let role_definition_lookup: HashMap<&RoleDefinitionId, &RoleDefinition> =

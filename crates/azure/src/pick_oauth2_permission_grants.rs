@@ -1,5 +1,5 @@
 use crate::fetch_all_service_principals;
-use crate::fetch_all_users;
+use crate::fetch_all_entra_users;
 use crate::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ConsentType;
@@ -77,7 +77,7 @@ impl fmt::Display for Grant {
 pub async fn pick_oauth2_permission_grants(tenant_id: AzureTenantId) -> eyre::Result<Vec<Grant>> {
     let grants = fetch_oauth2_permission_grants(tenant_id);
     let service_principals = fetch_all_service_principals(tenant_id);
-    let users = fetch_all_users(tenant_id).into_future();
+    let users = fetch_all_entra_users(tenant_id).into_future();
     let (grants, service_principals, users) = try_join!(grants, service_principals, users)?;
     let service_principals_map = service_principals
         .iter()

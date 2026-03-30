@@ -9,16 +9,16 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-pub struct UserListRequest {
+pub struct EntraUserListRequest {
     pub tenant_id: AzureTenantId,
 }
 
-pub fn fetch_all_users(tenant_id: AzureTenantId) -> UserListRequest {
-    UserListRequest { tenant_id }
+pub fn fetch_all_entra_users(tenant_id: AzureTenantId) -> EntraUserListRequest {
+    EntraUserListRequest { tenant_id }
 }
 
 #[async_trait]
-impl CacheableCommand for UserListRequest {
+impl CacheableCommand for EntraUserListRequest {
     type Output = Vec<EntraUser>;
 
     fn cache_key(&self) -> CacheKey {
@@ -45,7 +45,7 @@ impl CacheableCommand for UserListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(UserListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserListRequest);
 
 #[cfg(test)]
 mod tests {
@@ -54,7 +54,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_users(get_test_tenant_id().await?).await?;
+        let result = fetch_all_entra_users(get_test_tenant_id().await?).await?;
         assert!(!result.is_empty());
         Ok(())
     }

@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::EntraUserId;
-use cloud_terrastodon_azure::fetch_all_users;
+use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 use indexmap::IndexSet;
@@ -19,7 +19,7 @@ pub async fn bulk_user_id_lookup(tenant_id: AzureTenantId) -> Result<()> {
         }
     }
 
-    let users = fetch_all_users(tenant_id)
+    let users = fetch_all_entra_users(tenant_id)
         .await?
         .into_iter()
         .filter(|x| user_ids.contains(&x.id))
