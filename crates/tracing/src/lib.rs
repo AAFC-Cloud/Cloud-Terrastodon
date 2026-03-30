@@ -3,6 +3,7 @@ use chrono::Local;
 // use egui_tracing::tracing::collector::EventCollector;
 use eyre::Result;
 use std::fs::OpenOptions;
+use std::io::IsTerminal;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -45,7 +46,8 @@ pub fn init_tracing(
                 .with_line_number(cfg!(debug_assertions))
                 .with_writer(std::io::stderr)
                 .pretty()
-                .without_time(),
+                .without_time()
+                .with_ansi(std::io::stderr().is_terminal()),
         )
         // TODO(EGUI-TRACING)
         // .with({
