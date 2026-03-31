@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
+use itertools::Itertools;
 use std::collections::HashMap;
 use tokio::try_join;
 use tracing::info;
@@ -13,17 +14,24 @@ use tracing::warn;
 pub async fn audit_azure(tenant_id: AzureTenantId) -> eyre::Result<()> {
     // TODO: audit admin accounts without corresponding user accounts should be disabled
     // TODO: audit admin accounts without corresponding user accounts should be deleted
-    info!("Fetching a buncha information...");
-
+    info!("Fetching information...");
+    let start = std::time::Instant::now();
     let mut total_problems = 0;
     let mut total_cost_waste_cad = 0.00;
     let mut message_counts: HashMap<&'static str, usize> = HashMap::new();
-    let (rbac, principals) = try_join!(
+    let (rbac, principals, resources) = try_join!(
         fetch_all_role_definitions_and_assignments(tenant_id),
-        fetch_all_principals(tenant_id)
+        fetch_all_principals(tenant_id),
+        fetch_all_resources(tenant_id)
     )?;
+    let elapsed = start.elapsed();
+    info!(
+        elapsed_ms = elapsed.as_millis(),
+        "Finished fetching information in {}, starting audit...",
+        humantime::format_duration(elapsed)
+    );
 
-    // Identify role assignments for which the principal is unknwon
+    // Identify role assignments for which the principal is unknown
     for (role_assignment, role_definition) in rbac.iter_role_assignments() {
         let principal_id = &role_assignment.principal_id;
         if !principals.contains_key(principal_id) {
@@ -105,8 +113,6 @@ pub async fn audit_azure(tenant_id: AzureTenantId) -> eyre::Result<()> {
     }
 
     // Audit resources which have tag keys that the parent have but where the values do not match the parent
-    info!("Fetching all resources for tag analysis");
-    let resources = fetch_all_resources(tenant_id).await?;
     let resource_tags = resources
         .iter()
         .map(|resource| (resource.id.expanded_form(), &resource.tags))
@@ -140,6 +146,36 @@ pub async fn audit_azure(tenant_id: AzureTenantId) -> eyre::Result<()> {
         }
     }
 
+    // Audit admin user accounts that do not have a corresponding user account according to the other_mails property
+    {
+        let users_by_email = principals.values().filter_map(|p| p.as_user()).map(|user| {
+            (
+                user.user_principal_name.to_lowercase(),
+                user,
+            )
+        }).collect::<HashMap<_, _>>();
+        for principal in principals.values().filter_map(|p| p.as_user()).filter(|user| user.user_principal_name.to_lowercase().starts_with("admin.")) {
+            let mut non_admin_account = None;
+            for other_mail in &principal.other_mails {
+                if let Some(user) = users_by_email.get(&other_mail.to_lowercase()) {
+                    non_admin_account = Some(user);
+                    break;
+                }
+            }
+            if non_admin_account.is_none() {
+                total_problems += 1;
+                let msg = "Admin user account does not have a corresponding non-admin account according to other_mails property";
+                warn!(
+                    principal_id = %principal.id,
+                    principal_name = principal.display_name,
+                    principal_other_mails = principal.other_mails.iter().join("; "),
+                    "{}", msg,
+                );
+                *message_counts.entry(msg).or_insert(0) += 1;
+            }
+        }
+    }
+
     // Emit summary
     if total_problems > 0 {
         warn!(
@@ -159,5 +195,7 @@ pub async fn audit_azure(tenant_id: AzureTenantId) -> eyre::Result<()> {
     } else {
         info!("No potential problems found in Azure");
     }
+    let elapsed = start.elapsed();
+    info!(elapsed_ms = elapsed.as_millis(), "Finished audit in {}", humantime::format_duration(elapsed));
     Ok(())
 }
