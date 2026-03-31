@@ -18,6 +18,7 @@
 - Disable logging colours when not in terminal (when being piped)
 - Add other_mails property to `EntraUser`
 - Fix concurrent write to timestamp text file for command caching
+- Add `ct az tenant login|list|discover|alias|add|sho|forget|help` commands
 
 # v0.34.0
 

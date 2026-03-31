@@ -3,6 +3,7 @@ pub mod azure_tenant_add;
 pub mod azure_tenant_discover;
 pub mod azure_tenant_forget;
 pub mod azure_tenant_list;
+pub mod azure_tenant_login;
 pub mod azure_tenant_show;
 
 pub use alias::AzureTenantAliasArgs;
@@ -10,6 +11,7 @@ pub use azure_tenant_add::AzureTenantAddArgs;
 pub use azure_tenant_discover::AzureTenantDiscoverArgs;
 pub use azure_tenant_forget::AzureTenantForgetArgs;
 pub use azure_tenant_list::AzureTenantListArgs;
+pub use azure_tenant_login::AzureTenantLoginArgs;
 pub use azure_tenant_show::AzureTenantShowArgs;
 use clap::Args;
 use clap::Subcommand;
@@ -36,6 +38,8 @@ pub enum AzureTenantCommand {
     Show(AzureTenantShowArgs),
     /// Forget a tracked tenant.
     Forget(AzureTenantForgetArgs),
+    /// Log in to an Azure tenant via the Azure CLI.
+    Login(AzureTenantLoginArgs),
 }
 
 impl AzureTenantArgs {
@@ -47,6 +51,7 @@ impl AzureTenantArgs {
             AzureTenantCommand::Add(args) => args.invoke().await?,
             AzureTenantCommand::Show(args) => args.invoke().await?,
             AzureTenantCommand::Forget(args) => args.invoke().await?,
+            AzureTenantCommand::Login(args) => args.invoke().await?,
         }
 
         Ok(())
