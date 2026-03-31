@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthResponse;
 use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceId;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Scope;
@@ -9,8 +10,8 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::SerializableRestResponse;
 use eyre::OptionExt;
 use eyre::Result;
+use eyre::WrapErr;
 use eyre::bail;
-use serde_json::Value;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
@@ -21,6 +22,7 @@ const APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS: &str =
     r#"{"content-type":"application/x-www-form-urlencoded; charset=UTF-8"}"#;
 const MAX_POLL_ATTEMPTS: usize = 10;
 
+/// <https://learn.microsoft.com/en-us/rest/api/application-gateway/application-gateways/backend-health?view=rest-application-gateway-2025-05-01&tabs=HTTP>
 #[must_use = "This is a future request, you must .await it"]
 pub struct AzureApplicationGatewayResourceBackendHealthRequest {
     pub tenant_id: AzureTenantId,
@@ -39,7 +41,7 @@ pub fn fetch_application_gateway_backend_health(
 
 #[async_trait]
 impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
-    type Output = Value;
+    type Output = AzureApplicationGatewayResourceBackendHealthResponse;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey {
@@ -105,7 +107,7 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
         }
 
         match initial_response.status {
-            200 => initial_response.into_json_body(),
+            200 => parse_backend_health_response(initial_response),
             202 => {
                 let mut next_url = initial_response
                     .header("location")
@@ -140,7 +142,7 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
                     }
 
                     match response.status {
-                        200 => return response.into_json_body(),
+                        200 => return parse_backend_health_response(response),
                         202 => {
                             next_url = response
                                 .header("location")
@@ -190,9 +192,20 @@ fn build_backend_health_url(application_gateway_id: &AzureApplicationGatewayReso
     )
 }
 
+fn parse_backend_health_response(
+    response: SerializableRestResponse,
+) -> Result<AzureApplicationGatewayResourceBackendHealthResponse> {
+    serde_json::from_value(response.into_json_body()?)
+        .wrap_err("Deserializing Azure application gateway backend health response")
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_backend_health_url;
+    use super::parse_backend_health_response;
+    use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthProbeErrorName;
+    use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthResponse;
+    use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthServerHealth;
     use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceId;
     use cloud_terrastodon_azure_types::Scope;
     use cloud_terrastodon_credentials::RestResponseBody;
@@ -230,5 +243,56 @@ mod tests {
             response.header("location"),
             Some("https://example.test/poll")
         );
+    }
+
+    #[test]
+    fn parses_backend_health_response_into_strong_type() -> eyre::Result<()> {
+        let response = SerializableRestResponse {
+            status: 200,
+            ok: true,
+            reason_phrase: Some("OK".to_string()),
+            headers: BTreeMap::new(),
+            body: RestResponseBody::Json(serde_json::json!({
+                "backendAddressPools": [
+                    {
+                        "backendAddressPool": {
+                            "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw/backendAddressPools/pool-a"
+                        },
+                        "backendHttpSettingsCollection": [
+                            {
+                                "backendHttpSettings": {
+                                    "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw/backendHttpSettingsCollection/settings-a"
+                                },
+                                "servers": [
+                                    {
+                                        "address": "10.0.0.5",
+                                        "health": "Healthy",
+                                        "healthProbeLog": "Success",
+                                        "healthProbeErrorName": "SuccessWithStatusCode",
+                                        "backendCertificateChainMetadata": {
+                                            "certificateChainMetadata": []
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            })),
+        };
+
+        let parsed: AzureApplicationGatewayResourceBackendHealthResponse =
+            parse_backend_health_response(response)?;
+        assert_eq!(parsed.backend_address_pools.len(), 1);
+        assert_eq!(
+            parsed.backend_address_pools[0].backend_http_settings_collection[0].servers[0].health,
+            AzureApplicationGatewayResourceBackendHealthServerHealth::Healthy
+        );
+        assert_eq!(
+            parsed.backend_address_pools[0].backend_http_settings_collection[0].servers[0]
+                .health_probe_error_name,
+            Some(AzureApplicationGatewayResourceBackendHealthProbeErrorName::SuccessWithStatusCode)
+        );
+        Ok(())
     }
 }

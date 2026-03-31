@@ -1,8 +1,11 @@
 use clap::Args;
+use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthResponse;
+use cloud_terrastodon_azure::AzureApplicationGatewayResourceId;
 use cloud_terrastodon_azure::AzurePublicIpResource;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_public_ips;
+use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -14,6 +17,7 @@ use hickory_resolver::proto::rr::RecordType;
 use hickory_resolver::system_conf::read_system_conf;
 use reqwest::Url;
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
 use std::io::Write;
@@ -57,6 +61,8 @@ impl OutageInvestigateArgs {
                 match_public_ip(public_ip, &normalized_hosts, &resolved_addresses)
             })
             .collect::<Vec<_>>();
+        let matches =
+            enrich_matches_with_application_gateway_backend_health(tenant_id, matches).await?;
 
         let report = OutageInvestigationReport {
             input: self.target,
@@ -95,6 +101,15 @@ struct OutagePublicIpMatch {
     public_ip: AzurePublicIpResource,
     application_gateway_id: Option<String>,
     application_gateway_frontend_ip_configuration_id: Option<String>,
+    application_gateway_backend_health:
+        Option<AzureApplicationGatewayResourceBackendHealthResponse>,
+    application_gateway_backend_health_error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ApplicationGatewayBackendHealthLookup {
+    backend_health: Option<AzureApplicationGatewayResourceBackendHealthResponse>,
+    error: Option<String>,
 }
 
 fn extract_target_host(target: &str) -> Result<String> {
@@ -230,7 +245,83 @@ fn match_public_ip(
         public_ip,
         application_gateway_id,
         application_gateway_frontend_ip_configuration_id: frontend_ip_configuration_id,
+        application_gateway_backend_health: None,
+        application_gateway_backend_health_error: None,
     })
+}
+
+async fn enrich_matches_with_application_gateway_backend_health(
+    tenant_id: cloud_terrastodon_azure::AzureTenantId,
+    mut matches: Vec<OutagePublicIpMatch>,
+) -> Result<Vec<OutagePublicIpMatch>> {
+    let backend_health_by_gateway_id =
+        fetch_application_gateway_backend_health_for_matches(tenant_id, &matches).await;
+
+    for matched_public_ip in &mut matches {
+        let Some(application_gateway_id) = matched_public_ip.application_gateway_id.as_deref()
+        else {
+            continue;
+        };
+
+        let Some(lookup) = backend_health_by_gateway_id.get(application_gateway_id) else {
+            continue;
+        };
+
+        matched_public_ip.application_gateway_backend_health = lookup.backend_health.clone();
+        matched_public_ip.application_gateway_backend_health_error = lookup.error.clone();
+    }
+
+    Ok(matches)
+}
+
+async fn fetch_application_gateway_backend_health_for_matches(
+    tenant_id: cloud_terrastodon_azure::AzureTenantId,
+    matches: &[OutagePublicIpMatch],
+) -> BTreeMap<String, ApplicationGatewayBackendHealthLookup> {
+    let application_gateway_ids = matches
+        .iter()
+        .filter_map(|matched_public_ip| matched_public_ip.application_gateway_id.as_deref())
+        .collect::<BTreeSet<_>>();
+
+    if application_gateway_ids.is_empty() {
+        return BTreeMap::new();
+    }
+
+    info!(
+        count = application_gateway_ids.len(),
+        "Fetching Application Gateway backend health for outage investigation"
+    );
+
+    let mut backend_health_by_gateway_id = BTreeMap::new();
+    for application_gateway_id in application_gateway_ids {
+        let lookup = match application_gateway_id.parse::<AzureApplicationGatewayResourceId>() {
+            Ok(application_gateway_id) => {
+                match fetch_application_gateway_backend_health(tenant_id, application_gateway_id)
+                    .await
+                {
+                    Ok(backend_health) => ApplicationGatewayBackendHealthLookup {
+                        backend_health: Some(backend_health),
+                        error: None,
+                    },
+                    Err(error) => ApplicationGatewayBackendHealthLookup {
+                        backend_health: None,
+                        error: Some(error.to_string()),
+                    },
+                }
+            }
+            Err(error) => ApplicationGatewayBackendHealthLookup {
+                backend_health: None,
+                error: Some(format!(
+                    "Failed to parse application gateway id '{}': {}",
+                    application_gateway_id, error
+                )),
+            },
+        };
+
+        backend_health_by_gateway_id.insert(application_gateway_id.to_string(), lookup);
+    }
+
+    backend_health_by_gateway_id
 }
 
 fn application_gateway_id_from_frontend_ip_configuration_id(id: &str) -> Option<String> {
@@ -275,6 +366,15 @@ mod tests {
             Some(
                 "/subscriptions/123/resourceGroups/rg/providers/Microsoft.Network/applicationGateways/agw"
             )
+        );
+    }
+
+    #[test]
+    fn non_gateway_ids_do_not_derive_application_gateway_id() {
+        let id = "/subscriptions/123/resourceGroups/rg/providers/Microsoft.Network/publicIPAddresses/pip";
+        assert_eq!(
+            application_gateway_id_from_frontend_ip_configuration_id(id),
+            None
         );
     }
 }
