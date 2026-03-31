@@ -1,27 +1,29 @@
-use std::time::Instant;
-
 use clap::Args;
+use clap::ValueEnum;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantId;
-use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure::SubscriptionIdExt;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_credentials::create_azure_devops_rest_client;
-use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
+use cloud_terrastodon_credentials::RestResponseBody;
+use cloud_terrastodon_credentials::RestService;
+use cloud_terrastodon_credentials::SerializableRestResponse;
+use cloud_terrastodon_credentials::execute_rest_request;
+use cloud_terrastodon_credentials::infer_tenant_id_for_request;
+use cloud_terrastodon_credentials::read_optional_body;
+use cloud_terrastodon_credentials::read_optional_headers;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use http::Method;
-use reqwest::Client;
-use reqwest::ClientBuilder;
 use reqwest::Response;
 use reqwest::Url;
-use reqwest::header::CONTENT_TYPE;
-use reqwest::tls::Version;
-use serde::Deserialize;
+use std::time::Instant;
 use tracing::debug;
+
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestOutputFormat {
+    Text,
+    Json,
+}
 
 /// Arguments for issuing raw REST calls with Cloud Terrastodon's auth helpers.
 #[derive(Args, Debug, Clone)]
@@ -38,222 +40,94 @@ pub struct RestArgs {
     #[arg(long)]
     pub body: Option<String>,
 
+    /// Optional request headers as a JSON object. If begins with '@', reads from file.
+    #[arg(long)]
+    pub headers: Option<String>,
+
     /// Optional tracked tenant id or alias to use when acquiring Azure access tokens.
     #[arg(long)]
     pub tenant: Option<AzureTenantArgument<'static>>,
+
+    /// Output format. `text` prints the response body only; `json` includes status and headers.
+    #[arg(long, default_value = "text")]
+    pub output_format: RestOutputFormat,
 }
 
 impl RestArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self) -> Result<Response> {
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
         let service = RestService::infer(&url).ok_or_else(|| {
             eyre::eyre!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
+        let tenant_inference_url = url.clone();
         let tenant = match self.tenant {
             Some(tenant) => Some(tenant.resolve().await?),
-            None => infer_tenant_id_for_request(service, &url).await?,
+            None => {
+                infer_tenant_id_for_request(service, &url, |subscription_id| async move {
+                    subscription_id.resolve_tenant_id().await.with_context(|| {
+                        format!(
+                            "Failed to infer tracked tenant for subscription '{}' from '{}'. If the Azure CLI default tenant is intended, specify '--tenant default'.",
+                            subscription_id, tenant_inference_url
+                        )
+                    })
+                })
+                .await?
+            }
         };
         let body = read_optional_body(self.body).await?;
+        let headers = read_optional_headers(self.headers).await?;
 
         let start = Instant::now();
-        let response = match service {
-            RestService::AzureDevOps => {
-                if tenant.is_some() {
-                    bail!("--tenant is not supported for Azure DevOps REST URLs")
-                }
-                execute_azure_devops_request(self.method, url, body).await?
-            }
-            RestService::MicrosoftGraph => {
-                execute_azure_bearer_request(
-                    self.method,
-                    url,
-                    body,
-                    tenant,
-                    AzureResource::MicrosoftGraph,
-                )
-                .await?
-            }
-            RestService::AzureResourceManager => {
-                execute_azure_bearer_request(
-                    self.method,
-                    url,
-                    body,
-                    tenant,
-                    AzureResource::AzureResourceManager,
-                )
-                .await?
-            }
-        };
+        let response =
+            execute_rest_request(service, self.method, url, body, headers, tenant).await?;
         let elapsed = start.elapsed();
-        debug!(elapsed_ms = elapsed.as_millis(), "REST call completed in {}", humantime::format_duration(elapsed));
+        debug!(
+            elapsed_ms = elapsed.as_millis(),
+            "REST call completed in {}",
+            humantime::format_duration(elapsed)
+        );
 
-        print_response(response).await
+        Ok(response)
+    }
+
+    pub async fn invoke_and_print(self) -> Result<()> {
+        let output_format = self.output_format;
+        let response = self.invoke().await?;
+        print_response(response, output_format).await
     }
 }
 
-async fn infer_tenant_id_for_request(
-    service: RestService,
-    url: &Url,
-) -> Result<Option<AzureTenantId>> {
-    if service != RestService::AzureResourceManager {
-        return Ok(None);
-    }
-
-    let Some(subscription_id) = extract_arm_subscription_id(url) else {
-        return Ok(None);
-    };
-
-    let tenant_id = subscription_id.resolve_tenant_id().await.with_context(|| {
-        format!(
-            "Failed to infer tracked tenant for subscription '{}' from '{}'. If the Azure CLI default tenant is intended, specify '--tenant default'.",
-            subscription_id, url
-        )
-    })?;
-    Ok(Some(tenant_id))
-}
-
-fn extract_arm_subscription_id(url: &Url) -> Option<SubscriptionId> {
-    let mut segments = url.path_segments()?;
-    let first = segments.next()?;
-    if !first.eq_ignore_ascii_case("subscriptions") {
-        return None;
-    }
-    let subscription = segments.next()?;
-    subscription.parse().ok()
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RestService {
-    AzureDevOps,
-    MicrosoftGraph,
-    AzureResourceManager,
-}
-
-impl RestService {
-    fn infer(url: &Url) -> Option<Self> {
-        let host = url.host_str()?.to_ascii_lowercase();
-        match host.as_str() {
-            "graph.microsoft.com" => Some(Self::MicrosoftGraph),
-            "management.azure.com" => Some(Self::AzureResourceManager),
-            "dev.azure.com"
-            | "vssps.dev.azure.com"
-            | "vsrm.dev.azure.com"
-            | "vsaex.dev.azure.com"
-            | "app.vssps.visualstudio.com" => Some(Self::AzureDevOps),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-enum AzureResource {
-    MicrosoftGraph,
-    AzureResourceManager,
-}
-
-#[derive(Debug, Deserialize)]
-struct AzureCliAccessToken {
-    #[serde(rename = "accessToken")]
-    access_token: String,
-}
-
-impl AzureResource {
-    fn resource_type(self) -> Option<&'static str> {
-        match self {
-            AzureResource::MicrosoftGraph => Some("ms-graph"),
-            AzureResource::AzureResourceManager => None,
-        }
-    }
-}
-
-async fn read_optional_body(body: Option<String>) -> Result<Option<String>> {
-    let Some(body) = body else {
-        return Ok(None);
-    };
-
-    if let Some(file_path) = body.strip_prefix('@') {
-        Ok(Some(tokio::fs::read_to_string(file_path).await?))
-    } else {
-        Ok(Some(body))
-    }
-}
-
-async fn execute_azure_devops_request(
-    method: Method,
-    url: Url,
-    body: Option<String>,
-) -> Result<Response> {
-    let pat = get_azure_devops_personal_access_token_from_credential_manager().await?;
-    let client = create_azure_devops_rest_client(&pat).await?;
-    let mut request_builder = client.request(method, url);
-    if let Some(body) = body {
-        request_builder = request_builder
-            .header(CONTENT_TYPE, "application/json")
-            .body(body);
-    }
-    Ok(request_builder.send().await?)
-}
-
-async fn execute_azure_bearer_request(
-    method: Method,
-    url: Url,
-    body: Option<String>,
-    tenant: Option<AzureTenantId>,
-    resource: AzureResource,
-) -> Result<Response> {
-    let token = fetch_azure_access_token(tenant, resource).await?;
-    let client = create_tls12_client()?;
-    let mut request_builder = client.request(method, url).bearer_auth(&token.access_token);
-    if let Some(body) = body {
-        request_builder = request_builder
-            .header(CONTENT_TYPE, "application/json")
-            .body(body);
-    }
-    Ok(request_builder.send().await?)
-}
-
-fn create_tls12_client() -> Result<Client> {
-    Ok(ClientBuilder::new()
-        .min_tls_version(Version::TLS_1_2)
-        .build()?)
-}
-
-async fn fetch_azure_access_token(
-    tenant: Option<AzureTenantId>,
-    resource: AzureResource,
-) -> Result<AzureCliAccessToken> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["account", "get-access-token", "--output", "json"]);
-    if let Some(tenant) = tenant {
-        let tenant = tenant.to_string();
-        cmd.args(["--tenant", tenant.as_str()]);
-    }
-    if let Some(resource_type) = resource.resource_type() {
-        cmd.args(["--resource-type", resource_type]);
-    }
-    cmd.run::<AzureCliAccessToken>().await
-}
-
-async fn print_response(response: Response) -> Result<()> {
+async fn print_response(response: Response, output_format: RestOutputFormat) -> Result<()> {
     let start = Instant::now();
-    let status = response.status();
-    let content = response.text().await?;
-    let value = serde_json::from_str::<serde_json::Value>(&content);
-    let pretty = value.and_then(|v| serde_json::to_string_pretty(&v));
+    let serialized_response = SerializableRestResponse::from_response(response).await?;
     let elapsed = start.elapsed();
-    debug!(elapsed_ms = elapsed.as_millis(), "Response prettifying completed in {}", humantime::format_duration(elapsed));
-    match pretty {
-        Ok(pretty) => println!("{}", pretty),
-        Err(_) => {
-            debug!("Response is not valid JSON, printing raw content");
-            println!("{}", content);
+    debug!(
+        elapsed_ms = elapsed.as_millis(),
+        "Response prettifying completed in {}",
+        humantime::format_duration(elapsed)
+    );
+
+    match output_format {
+        RestOutputFormat::Text => match &serialized_response.body {
+            RestResponseBody::Json(value) => println!("{}", serde_json::to_string_pretty(value)?),
+            RestResponseBody::Text(content) => {
+                debug!("Response is not valid JSON, printing raw content");
+                println!("{}", content);
+            }
+        },
+        RestOutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&serialized_response)?);
         }
     }
-    if !status.is_success() {
+
+    if !serialized_response.ok {
         bail!(
             "REST call failed with status {}: {}",
-            status.as_u16(),
-            status.canonical_reason().unwrap_or("Unknown error")
+            serialized_response.status,
+            serialized_response
+                .reason_phrase
+                .as_deref()
+                .unwrap_or("Unknown error")
         );
     }
     Ok(())
@@ -261,10 +135,13 @@ async fn print_response(response: Response) -> Result<()> {
 
 #[cfg(test)]
 mod test {
+    use super::RestResponseBody;
     use super::RestService;
-    use super::extract_arm_subscription_id;
-    use cloud_terrastodon_azure::SubscriptionId;
+    use cloud_terrastodon_credentials::parse_response_body;
+    use cloud_terrastodon_credentials::serialize_headers;
     use reqwest::Url;
+    use reqwest::header::HeaderMap;
+    use reqwest::header::HeaderValue;
 
     #[test]
     fn infers_microsoft_graph() {
@@ -301,32 +178,35 @@ mod test {
     }
 
     #[test]
-    fn extracts_subscription_id_from_arm_subscription_url() {
-        let url = Url::parse(
-            "https://management.azure.com/subscriptions/11111111-1111-1111-1111-111111111111/locations?api-version=2022-12-01",
-        )
-        .unwrap();
-        let expected = "11111111-1111-1111-1111-111111111111"
-            .parse::<SubscriptionId>()
-            .unwrap();
-        assert_eq!(extract_arm_subscription_id(&url), Some(expected));
+    fn parses_json_response_body() {
+        let body = parse_response_body("{\"hello\":\"world\"}".to_string());
+        assert_eq!(
+            body,
+            RestResponseBody::Json(serde_json::json!({"hello": "world"}))
+        );
     }
 
     #[test]
-    fn ignores_non_subscription_arm_urls() {
-        let url = Url::parse(
-            "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
-        )
-        .unwrap();
-        assert_eq!(extract_arm_subscription_id(&url), None);
+    fn preserves_text_response_body() {
+        let body = parse_response_body("not json".to_string());
+        assert_eq!(body, RestResponseBody::Text("not json".to_string()));
     }
 
     #[test]
-    fn ignores_invalid_subscription_ids_in_arm_urls() {
-        let url = Url::parse(
-            "https://management.azure.com/subscriptions/not-a-guid/locations?api-version=2022-12-01",
-        )
-        .unwrap();
-        assert_eq!(extract_arm_subscription_id(&url), None);
+    fn serializes_repeated_headers() {
+        let mut headers = HeaderMap::new();
+        headers.append("x-test", HeaderValue::from_static("a"));
+        headers.append("x-test", HeaderValue::from_static("b"));
+        headers.append("content-type", HeaderValue::from_static("application/json"));
+
+        let serialized = serialize_headers(&headers);
+        assert_eq!(
+            serialized.get("x-test").unwrap(),
+            &vec!["a".to_string(), "b".to_string()]
+        );
+        assert_eq!(
+            serialized.get("content-type").unwrap(),
+            &vec!["application/json".to_string()]
+        );
     }
 }

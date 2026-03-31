@@ -1,7 +1,9 @@
+use super::application_gateway::AzureApplicationGatewayArgs;
 use super::audit::AzureAuditArgs;
 use super::find::AzureFindArgs;
 use super::pim::AzurePimArgs;
 use super::policy::AzurePolicyArgs;
+use super::public_ip::AzurePublicIpArgs;
 use super::resource::AzureResourceArgs;
 use super::resource_group::AzureResourceGroupArgs;
 use super::role::AzureRoleArgs;
@@ -19,6 +21,9 @@ use eyre::Result;
 pub enum AzureCommand {
     /// Audit Azure resources for configuration issues.
     Audit(AzureAuditArgs),
+    /// Manage Azure application gateways.
+    #[command(alias = "agw")]
+    ApplicationGateway(AzureApplicationGatewayArgs),
     /// Find resources where resource JSON contains the given text.
     Find(AzureFindArgs),
     /// Manage Azure resource groups.
@@ -26,6 +31,8 @@ pub enum AzureCommand {
     ResourceGroup(AzureResourceGroupArgs),
     /// Manage Azure policy resources.
     Policy(AzurePolicyArgs),
+    /// Manage Azure public IP addresses.
+    PublicIp(AzurePublicIpArgs),
     /// Manage Azure resource tags.
     Tag(AzureTagArgs),
     /// Manage Azure resources.
@@ -56,6 +63,9 @@ impl AzureCommand {
             AzureCommand::Audit(args) => {
                 args.invoke().await?;
             }
+            AzureCommand::ApplicationGateway(args) => {
+                args.invoke().await?;
+            }
             AzureCommand::Find(args) => {
                 args.invoke().await?;
             }
@@ -63,6 +73,9 @@ impl AzureCommand {
                 args.invoke().await?;
             }
             AzureCommand::Policy(args) => {
+                args.invoke().await?;
+            }
+            AzureCommand::PublicIp(args) => {
                 args.invoke().await?;
             }
             AzureCommand::Tag(args) => {

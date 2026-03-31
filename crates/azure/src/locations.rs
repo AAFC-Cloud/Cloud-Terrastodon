@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::Location;
+use cloud_terrastodon_azure_types::AzureLocation;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -17,7 +17,7 @@ pub fn fetch_all_locations(subscription_id: SubscriptionId) -> LocationListReque
 
 #[async_trait]
 impl CacheableCommand for LocationListRequest {
-    type Output = Vec<Location>;
+    type Output = Vec<AzureLocation>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
@@ -40,7 +40,7 @@ impl CacheableCommand for LocationListRequest {
 
         #[derive(serde::Deserialize)]
         struct Response {
-            value: Vec<Location>,
+            value: Vec<AzureLocation>,
         }
         let rtn = cmd.run::<Response>().await?;
         Ok(rtn.value)

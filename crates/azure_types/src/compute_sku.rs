@@ -1,5 +1,5 @@
 use crate::ComputeSkuName;
-use crate::location::LocationName;
+use crate::location::AzureLocationName;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -8,7 +8,7 @@ pub struct ComputeSku {
     #[serde(default)]
     pub capabilities: Vec<ComputeSkuCapability>,
     pub location_info: Vec<ComputeSkuLocationInfo>,
-    pub locations: Vec<LocationName>,
+    pub locations: Vec<AzureLocationName>,
     pub name: ComputeSkuName,
     pub resource_type: ComputeSkuResourceType,
     pub restrictions: Vec<ComputeSkuRestriction>,
@@ -136,7 +136,7 @@ pub struct ComputeSkuCapability {
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ComputeSkuLocationInfo {
-    pub location: LocationName,
+    pub location: AzureLocationName,
     pub zones: Vec<String>,
 }
 

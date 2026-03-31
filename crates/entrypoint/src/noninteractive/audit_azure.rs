@@ -148,13 +148,20 @@ pub async fn audit_azure(tenant_id: AzureTenantId) -> eyre::Result<()> {
 
     // Audit admin user accounts that do not have a corresponding user account according to the other_mails property
     {
-        let users_by_email = principals.values().filter_map(|p| p.as_user()).map(|user| {
-            (
-                user.user_principal_name.to_lowercase(),
-                user,
-            )
-        }).collect::<HashMap<_, _>>();
-        for principal in principals.values().filter_map(|p| p.as_user()).filter(|user| user.user_principal_name.to_lowercase().starts_with("admin.")) {
+        let users_by_email = principals
+            .values()
+            .filter_map(|p| p.as_user())
+            .map(|user| (user.user_principal_name.to_lowercase(), user))
+            .collect::<HashMap<_, _>>();
+        for principal in principals
+            .values()
+            .filter_map(|p| p.as_user())
+            .filter(|user| {
+                user.user_principal_name
+                    .to_lowercase()
+                    .starts_with("admin.")
+            })
+        {
             let mut non_admin_account = None;
             for other_mail in &principal.other_mails {
                 if let Some(user) = users_by_email.get(&other_mail.to_lowercase()) {
@@ -196,6 +203,10 @@ pub async fn audit_azure(tenant_id: AzureTenantId) -> eyre::Result<()> {
         info!("No potential problems found in Azure");
     }
     let elapsed = start.elapsed();
-    info!(elapsed_ms = elapsed.as_millis(), "Finished audit in {}", humantime::format_duration(elapsed));
+    info!(
+        elapsed_ms = elapsed.as_millis(),
+        "Finished audit in {}",
+        humantime::format_duration(elapsed)
+    );
     Ok(())
 }

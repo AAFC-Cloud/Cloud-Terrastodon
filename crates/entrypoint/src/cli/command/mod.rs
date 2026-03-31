@@ -10,6 +10,7 @@ pub mod egui;
 pub mod extract_uuid;
 pub mod get_path;
 pub mod nslookup;
+pub mod outage;
 pub mod perform_code_generation_from_imports;
 pub mod pick;
 pub mod ratatui;
@@ -29,6 +30,7 @@ use crate::cli::egui::EguiArgs;
 use crate::cli::extract_uuid::ExtractUuidArgs;
 use crate::cli::get_path::GetPathArgs;
 use crate::cli::nslookup::NslookupArgs;
+use crate::cli::outage::OutageArgs;
 use crate::cli::perform_code_generation_from_imports::PerformCodeGenerationFromImportsArgs;
 use crate::cli::pick::PickArgs;
 use crate::cli::ratatui::RatatuiArgs;
@@ -59,6 +61,8 @@ pub enum CloudTerrastodonCommand {
     GetPath(GetPathArgs),
     /// Resolve DNS names to IP addresses.
     Nslookup(NslookupArgs),
+    /// Investigate a suspected outage by correlating DNS with Azure resources.
+    Outage(OutageArgs),
     /// Issue raw REST requests with service-specific authentication.
     Rest(RestArgs),
     /// Copy the latest run results to another location.
@@ -94,7 +98,8 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::DumpAzureDevOps(args) => args.invoke().await,
             CloudTerrastodonCommand::GetPath(args) => args.invoke().await,
             CloudTerrastodonCommand::Nslookup(args) => args.invoke().await,
-            CloudTerrastodonCommand::Rest(args) => args.invoke().await,
+            CloudTerrastodonCommand::Outage(args) => args.invoke().await,
+            CloudTerrastodonCommand::Rest(args) => args.invoke_and_print().await,
             CloudTerrastodonCommand::CopyResults(args) => args.invoke().await,
             CloudTerrastodonCommand::AddWorkDir(args) => args.invoke().await,
             CloudTerrastodonCommand::Terraform(args) => args.invoke().await,

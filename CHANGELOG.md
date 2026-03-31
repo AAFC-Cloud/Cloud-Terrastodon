@@ -19,6 +19,16 @@
 - Add other_mails property to `EntraUser`
 - Fix concurrent write to timestamp text file for command caching
 - Add `ct az tenant login|list|discover|alias|add|sho|forget|help` commands
+- Add `ct az public-ip list` command
+- Add `ct az public-ip show {}` command
+- Add `ct az application-gateway list` command
+- Add `ct az application-gateway show {}` command
+- Add `ct az application-gateway show-backend-health {}` command
+- Add `--headers` flag to `ct rest` command
+- Consolidate rest stuff in `cloud_terrastodon_credentials` crate
+- Rename `LocationName` to `AzureLocationName`
+- Rename `AccessToken` to `AzureAccessToken`
+- Add `ct outage investigate` command
 
 # v0.34.0
 

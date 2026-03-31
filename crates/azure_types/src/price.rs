@@ -1,4 +1,4 @@
-use crate::location::LocationName;
+use crate::location::AzureLocationName;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -8,7 +8,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Price {
-    pub arm_region_name: LocationName,
+    pub arm_region_name: AzureLocationName,
     pub arm_sku_name: String,
     pub currency_code: String,
     pub effective_start_date: DateTime<Utc>,

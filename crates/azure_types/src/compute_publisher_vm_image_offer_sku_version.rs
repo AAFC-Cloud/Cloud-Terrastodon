@@ -1,7 +1,7 @@
+use crate::AzureLocationName;
 use crate::ComputePublisherVmImageOfferSkuVersionId;
 use crate::ComputePublisherVmImageOfferSkuVersionName;
 use crate::ComputePublisherVmImageOfferSkuVersionProperties;
-use crate::LocationName;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -10,6 +10,6 @@ use serde::Serialize;
 pub struct ComputePublisherVmImageOfferSkuVersion {
     pub id: ComputePublisherVmImageOfferSkuVersionId,
     pub name: ComputePublisherVmImageOfferSkuVersionName,
-    pub location: LocationName,
+    pub location: AzureLocationName,
     pub properties: ComputePublisherVmImageOfferSkuVersionProperties,
 }

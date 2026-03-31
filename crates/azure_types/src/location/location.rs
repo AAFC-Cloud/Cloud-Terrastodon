@@ -1,34 +1,34 @@
-use crate::location::LocationName;
+use crate::location::AzureLocationName;
 use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
-pub struct Location {
+pub struct AzureLocation {
     #[serde(default)]
-    pub availability_zone_mappings: Vec<LocationAvailabilityZoneMapping>,
-    pub metadata: LocationMetadata,
-    pub name: LocationName,
+    pub availability_zone_mappings: Vec<AzureLocationAvailabilityZoneMapping>,
+    pub metadata: AzureLocationMetadata,
+    pub name: AzureLocationName,
     pub display_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
-pub struct LocationAvailabilityZoneMapping {
+pub struct AzureLocationAvailabilityZoneMapping {
     pub logical_zone: String,
     pub physical_zone: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(tag = "regionType")]
-pub enum LocationMetadata {
+pub enum AzureLocationMetadata {
     #[serde(rename_all = "camelCase")]
     Physical {
         geography: String,
         geography_group: String,
         latitude: String,
         longitude: String,
-        paired_region: Vec<LocationPairedRegion>,
+        paired_region: Vec<AzureLocationPairedRegion>,
         physical_location: String,
         region_category: String,
     },
@@ -41,7 +41,7 @@ pub enum LocationMetadata {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-pub struct LocationPairedRegion {
+pub struct AzureLocationPairedRegion {
     pub id: String,
-    pub name: LocationName,
+    pub name: AzureLocationName,
 }

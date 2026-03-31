@@ -1,5 +1,5 @@
+use cloud_terrastodon_azure_types::AzureLocationName;
 use cloud_terrastodon_azure_types::ComputePublisherId;
-use cloud_terrastodon_azure_types::LocationName;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -10,12 +10,12 @@ use std::path::PathBuf;
 
 pub struct ComputePublishersListRequest {
     pub subscription_id: SubscriptionId,
-    pub location: LocationName,
+    pub location: AzureLocationName,
 }
 
 pub fn fetch_compute_publishers(
     subscription_id: SubscriptionId,
-    location: LocationName,
+    location: AzureLocationName,
 ) -> ComputePublishersListRequest {
     ComputePublishersListRequest {
         subscription_id,
@@ -67,7 +67,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ComputePublishersListRequ
 mod test {
     use crate::fetch_all_subscriptions;
     use crate::get_test_tenant_id;
-    use cloud_terrastodon_azure_types::LocationName;
+    use cloud_terrastodon_azure_types::AzureLocationName;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -75,7 +75,7 @@ mod test {
         let subs = fetch_all_subscriptions(tenant_id).await?;
         let sub = subs.first().unwrap();
         let publishers =
-            crate::fetch_compute_publishers(sub.id, LocationName::CanadaCentral).await?;
+            crate::fetch_compute_publishers(sub.id, AzureLocationName::CanadaCentral).await?;
         assert!(!publishers.is_empty());
         Ok(())
     }

@@ -1,5 +1,5 @@
+use crate::AzureLocationName;
 use crate::ComputePublisherName;
-use crate::LocationName;
 use crate::SubscriptionId;
 use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
@@ -15,7 +15,7 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct ComputePublisherId {
     pub subscription_id: SubscriptionId,
-    pub location_name: LocationName,
+    pub location_name: AzureLocationName,
     pub publisher_name: ComputePublisherName,
 }
 impl core::fmt::Display for ComputePublisherId {
@@ -30,7 +30,7 @@ impl core::fmt::Display for ComputePublisherId {
 impl ComputePublisherId {
     pub fn new(
         subscription_id: impl Into<SubscriptionId>,
-        location_name: impl Into<LocationName>,
+        location_name: impl Into<AzureLocationName>,
         publisher_name: impl Into<ComputePublisherName>,
     ) -> ComputePublisherId {
         ComputePublisherId {
@@ -48,7 +48,7 @@ impl ComputePublisherId {
     where
         S: TryInto<SubscriptionId>,
         S::Error: Into<eyre::Error>,
-        L: TryInto<LocationName>,
+        L: TryInto<AzureLocationName>,
         L::Error: Into<eyre::Error>,
         P: TryInto<ComputePublisherName>,
         P::Error: Into<eyre::Error>,
@@ -110,7 +110,7 @@ impl FromStr for ComputePublisherId {
         }
         let location_name = match parts.next() {
             Some(s) => s
-                .parse::<LocationName>()
+                .parse::<AzureLocationName>()
                 .wrap_err_with(|| format!("Failed to parse location_name part '{s}' of {us}",))?,
             None => {
                 bail!("Expected {us} to have a location_name part after /Locations/")

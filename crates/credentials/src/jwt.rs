@@ -1,15 +1,13 @@
+use crate::AZURE_DEVOPS_RESOURCE_ID;
 use crate::AzureClaims;
-use crate::azure_access_token::AZURE_DEVOPS_RESOURCE_ID;
-use cloud_terrastodon_azure_types::AccessToken;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
+use crate::AzureRestResource;
+use crate::fetch_azure_access_token;
 use jsonwebtoken::DecodingKey;
 use jsonwebtoken::Validation;
 
 pub async fn get_azure_access_token_jwt() -> eyre::Result<()> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["account", "get-access-token"]);
-    let access_token: AccessToken<String> = cmd.run().await?;
+    let access_token =
+        fetch_azure_access_token::<String>(None, AzureRestResource::AzureResourceManager).await?;
     let mut validation = Validation::default();
     #[expect(deprecated)]
     validation.insecure_disable_signature_validation();

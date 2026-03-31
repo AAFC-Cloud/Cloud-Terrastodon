@@ -37,6 +37,7 @@ mod azure_devops_pat;
 mod azure_devops_rest_client;
 mod azure_token_cache;
 mod jwt;
+mod rest;
 mod windows_credential_manager;
 
 pub use auth_bearer_ext::*;
@@ -47,5 +48,6 @@ pub use azure_devops_rest_client::*;
 #[expect(unused_imports)]
 pub use azure_token_cache::*;
 pub use jwt::*;
+pub use rest::*;
 #[cfg(windows)]
 pub use windows_credential_manager::*;

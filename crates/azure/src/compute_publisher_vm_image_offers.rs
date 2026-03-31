@@ -1,6 +1,6 @@
+use cloud_terrastodon_azure_types::AzureLocationName;
 use cloud_terrastodon_azure_types::ComputePublisherName;
 use cloud_terrastodon_azure_types::ComputePublisherVmImageOfferId;
-use cloud_terrastodon_azure_types::LocationName;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -11,13 +11,13 @@ use std::path::PathBuf;
 
 pub struct ComputePublisherImageOfferListRequest {
     pub subscription_id: SubscriptionId,
-    pub location: LocationName,
+    pub location: AzureLocationName,
     pub publisher_name: ComputePublisherName,
 }
 
 pub fn fetch_compute_publisher_image_offers(
     subscription_id: SubscriptionId,
-    location: LocationName,
+    location: AzureLocationName,
     publisher_name: ComputePublisherName,
 ) -> ComputePublisherImageOfferListRequest {
     ComputePublisherImageOfferListRequest {
@@ -73,8 +73,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ComputePublisherImageOffe
 mod test {
     use crate::fetch_all_subscriptions;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::AzureLocationName;
     use cloud_terrastodon_azure_types::ComputePublisherName;
-    use cloud_terrastodon_azure_types::LocationName;
     use cloud_terrastodon_azure_types::Slug;
 
     #[tokio::test]
@@ -85,7 +85,7 @@ mod test {
         let publisher = ComputePublisherName::try_new("center-for-internet-security-inc")?;
         let offers = super::fetch_compute_publisher_image_offers(
             sub.id,
-            LocationName::CanadaCentral,
+            AzureLocationName::CanadaCentral,
             publisher,
         )
         .await?;

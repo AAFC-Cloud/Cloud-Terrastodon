@@ -1,9 +1,9 @@
-pub mod azure_entra_user_cli;
 pub mod azure_entra_user_browse_cli;
+pub mod azure_entra_user_cli;
 pub mod azure_entra_user_list_cli;
 
-pub use azure_entra_user_cli::AzureEntraUserCommand;
 pub use azure_entra_user_browse_cli::AzureEntraUserBrowseArgs;
+pub use azure_entra_user_cli::AzureEntraUserCommand;
 pub use azure_entra_user_list_cli::AzureEntraUserListArgs;
 use clap::Args;
 use eyre::Result;

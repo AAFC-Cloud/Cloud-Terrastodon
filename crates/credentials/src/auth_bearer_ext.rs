@@ -1,7 +1,7 @@
 use crate::AzureDevOpsPersonalAccessToken;
 use base64::prelude::BASE64_STANDARD;
 use base64::write::EncoderWriter;
-use cloud_terrastodon_azure_types::AccessToken;
+use cloud_terrastodon_azure_types::AzureAccessToken;
 use reqwest::header::HeaderValue;
 use std::io::Write;
 
@@ -29,7 +29,7 @@ impl AuthBearerExt for String {
         self.as_str().as_authorization_header_value()
     }
 }
-impl<T: AsRef<str>> AuthBearerExt for AccessToken<T> {
+impl<T: AsRef<str>> AuthBearerExt for AzureAccessToken<T> {
     fn as_authorization_header_value(&self) -> HeaderValue {
         self.access_token.as_ref().as_authorization_header_value()
     }

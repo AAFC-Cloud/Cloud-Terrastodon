@@ -398,12 +398,10 @@ impl CommandBuilder {
                 // interleave the two writes and produce a corrupted line.
                 let mut line = file_contents.as_bytes().to_vec();
                 line.push(b'\n');
-                file.write_all(&line)
-                    .await
-                    .context(format!(
-                        "writing file {}",
-                        path.to_string_lossy().into_owned()
-                    ))?;
+                file.write_all(&line).await.context(format!(
+                    "writing file {}",
+                    path.to_string_lossy().into_owned()
+                ))?;
             } else {
                 // Default behavior: overwrite other files
                 let mut file = OpenOptions::new()

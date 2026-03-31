@@ -1,6 +1,6 @@
+use crate::fetch_all_entra_users;
 use crate::fetch_all_security_groups;
 use crate::fetch_all_service_principals;
-use crate::fetch_all_entra_users;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_azure_types::PrincipalCollection;

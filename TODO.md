@@ -5,6 +5,18 @@
 - Add subscription name to resources with subscription id like resource groups
 Maybe a `.name().await` helper that is memoized?
 
+## Tags
+
+Add a AzureTagKey and AzureTagValue type
+
+## Parsing rewrite
+
+chunks
+/subscriptions/dbc82d5f-1d23-4772-99e2-4d47cfb9a949/resourceGroups/my-resource-group-123/providers/Microsoft.Network/publicIPAddresses/my-public-ip
+/     0       /                1                   /      2       /           3         /    4    /        5        /       6         /     7
+chunks[0..=1].with_trailing_slash() -> &str "/subscriptions/dbc82d5f-1d23-4772-99e2-4d47cfb9a949/"
+chunks[0..=1].without_trailing_slash() -> &str "/subscriptions/dbc82d5f-1d23-4772-99e2-4d47cfb9a949"
+
 ## Formatting
 
 > https://mina86.com/2024/fmt-display-impl/

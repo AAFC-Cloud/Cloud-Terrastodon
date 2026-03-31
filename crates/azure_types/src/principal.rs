@@ -120,6 +120,7 @@ mod tests {
             id: EntraUserId::new(Uuid::nil()),
             job_title: None,
             mail: None,
+            other_mails: vec![],
             mobile_phone: None,
             office_location: None,
             preferred_language: None,

@@ -1,5 +1,5 @@
-use crate::fetch_all_service_principals;
 use crate::fetch_all_entra_users;
+use crate::fetch_all_service_principals;
 use crate::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ConsentType;

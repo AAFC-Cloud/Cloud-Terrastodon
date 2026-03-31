@@ -7,18 +7,18 @@ use serde::Serialize;
 use std::fmt::Debug;
 
 #[derive(Deserialize)]
-pub struct AccessToken<T> {
+pub struct AzureAccessToken<T> {
     #[serde(rename = "accessToken")]
     pub access_token: T,
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_local_date_time_from_epoch")]
     pub expires_on: DateTime<Local>,
-    pub subscription: SubscriptionId,
+    pub subscription: Option<SubscriptionId>,
     pub tenant: AzureTenantId,
     #[serde(rename = "tokenType")]
     pub token_type: TokenType,
 }
 
-impl<T> Debug for AccessToken<T> {
+impl<T> Debug for AzureAccessToken<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AccessToken")
             .field("access_token", &"***redacted***")

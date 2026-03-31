@@ -1,10 +1,10 @@
 use clap::Args;
+use cloud_terrastodon_azure::AzureLocationName;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::ComputePublisherName;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferName;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferSkuName;
-use cloud_terrastodon_azure::LocationName;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::fetch_compute_publisher_image_offer_sku_versions;
 use cloud_terrastodon_azure::get_active_subscription_id;
@@ -27,7 +27,7 @@ pub struct AzureVmPublisherOfferSkuVersionListArgs {
 
     /// Location to query. Defaults to `canadacentral`.
     #[arg(long)]
-    pub location: Option<LocationName>,
+    pub location: Option<AzureLocationName>,
 
     /// Publisher name to query (e.g. center-for-internet-security-inc).
     #[arg(long)]
@@ -68,7 +68,7 @@ impl AzureVmPublisherOfferSkuVersionListArgs {
             None => get_active_subscription_id().await?,
         };
 
-        let location = self.location.unwrap_or(LocationName::CanadaCentral);
+        let location = self.location.unwrap_or(AzureLocationName::CanadaCentral);
 
         let publisher = self.publisher.parse::<ComputePublisherName>()?;
         let offer = self.offer.parse::<ComputePublisherVmImageOfferName>()?;

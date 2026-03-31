@@ -50,7 +50,7 @@ pub async fn resource_group_import_wizard_menu(tenant_id: AzureTenantId) -> Resu
         // role_definitions,
         security_groups,
         // users,
-        resource_group_choices
+        resource_group_choices,
     ) = join!(
         fetch_all_subscriptions(tenant_id),
         // fetch_all_resource_groups(tenant_id),
@@ -87,7 +87,6 @@ pub async fn resource_group_import_wizard_menu(tenant_id: AzureTenantId) -> Resu
         // Track the subscription for writing the provider blocks later
         used_subscriptions.insert((rg.id.subscription_id, rg.subscription_name.to_owned()));
 
-
         // Create the import block
         let provider_name = rg.subscription_name.sanitize();
         let mut import_block: HclImportBlock = rg.into();
@@ -97,7 +96,6 @@ pub async fn resource_group_import_wizard_menu(tenant_id: AzureTenantId) -> Resu
             kind: ProviderKind::AzureRM,
             name: provider_name,
         };
-
 
         // Add to results
         rg_imports.push(import_block);

@@ -1,3 +1,5 @@
+use crate::AzureApplicationGatewayResourceId;
+use crate::AzurePublicIpResourceId;
 use crate::ContainerRegistryId;
 use crate::KeyVaultId;
 use crate::PolicyAssignmentId;
@@ -670,6 +672,8 @@ pub enum ScopeImplKind {
     RoleDefinition,
     RoleEligibilitySchedule,
     StorageAccount,
+    ApplicationGatewayResource,
+    PublicIpResource,
     VirtualNetwork,
     Subnet,
     ContainerRegistry,
@@ -700,6 +704,7 @@ pub enum ScopeImpl {
     RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId),
     RoleManagementPolicy(RoleManagementPolicyId),
     StorageAccount(StorageAccountId),
+    AzureApplicationGatewayResource(AzureApplicationGatewayResourceId),
     VirtualNetwork(VirtualNetworkId),
     Subnet(SubnetId),
     ResourceTags(ResourceTagsId),
@@ -708,6 +713,7 @@ pub enum ScopeImpl {
     RouteTable(RouteTableId),
     VirtualNetworkPeering(VirtualNetworkPeeringId),
     KeyVault(KeyVaultId),
+    AzurePublicIpResource(AzurePublicIpResourceId),
     Unknown(CompactString),
 }
 impl Scope for ScopeImpl {
@@ -728,6 +734,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),
+            ScopeImpl::AzureApplicationGatewayResource(id) => id.expanded_form(),
             ScopeImpl::VirtualNetwork(id) => id.expanded_form(),
             ScopeImpl::Subnet(id) => id.expanded_form(),
             ScopeImpl::ResourceTags(id) => id.expanded_form(),
@@ -736,6 +743,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RouteTable(id) => id.expanded_form(),
             ScopeImpl::VirtualNetworkPeering(id) => id.expanded_form(),
             ScopeImpl::ContainerRegistry(id) => id.expanded_form(),
+            ScopeImpl::AzurePublicIpResource(id) => id.expanded_form(),
             ScopeImpl::KeyVault(id) => id.expanded_form(),
         }
     }
@@ -756,6 +764,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.short_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
             ScopeImpl::StorageAccount(id) => id.short_form(),
+            ScopeImpl::AzureApplicationGatewayResource(id) => id.short_form(),
             ScopeImpl::VirtualNetwork(id) => id.short_form(),
             ScopeImpl::Subnet(id) => id.short_form(),
             ScopeImpl::ResourceTags(id) => id.short_form(),
@@ -763,6 +772,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::ContainerRegistry(id) => id.short_form(),
             ScopeImpl::RouteTable(id) => id.short_form(),
             ScopeImpl::VirtualNetworkPeering(id) => id.short_form(),
+            ScopeImpl::AzurePublicIpResource(id) => id.short_form(),
             ScopeImpl::Unknown(id) => id.to_string(),
             ScopeImpl::KeyVault(id) => id.short_form(),
         }
@@ -780,6 +790,9 @@ impl Scope for ScopeImpl {
         }
         if let Ok(id) = StorageAccountId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::StorageAccount(id));
+        }
+        if let Ok(id) = AzureApplicationGatewayResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::AzureApplicationGatewayResource(id));
         }
         if let Ok(id) = VirtualNetworkId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::VirtualNetwork(id));
@@ -817,6 +830,9 @@ impl Scope for ScopeImpl {
         if let Ok(id) = RoleManagementPolicyId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::RoleManagementPolicy(id));
         }
+        if let Ok(id) = AzurePublicIpResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::AzurePublicIpResource(id));
+        }
         if let Ok(id) = TestResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::TestResource(id));
         }
@@ -845,6 +861,9 @@ impl Scope for ScopeImpl {
             ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
             ScopeImpl::StorageAccount(_) => ScopeImplKind::StorageAccount,
+            ScopeImpl::AzureApplicationGatewayResource(_) => {
+                ScopeImplKind::ApplicationGatewayResource
+            }
             ScopeImpl::VirtualNetwork(_) => ScopeImplKind::VirtualNetwork,
             ScopeImpl::Subnet(_) => ScopeImplKind::Subnet,
             ScopeImpl::RoleEligibilitySchedule(_) => ScopeImplKind::RoleEligibilitySchedule,
@@ -858,6 +877,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RouteTable(_) => ScopeImplKind::RouteTable,
             ScopeImpl::VirtualNetworkPeering(_) => ScopeImplKind::VirtualNetworkPeering,
             ScopeImpl::Resource(_) => ScopeImplKind::Resource,
+            ScopeImpl::AzurePublicIpResource(_) => ScopeImplKind::PublicIpResource,
             ScopeImpl::KeyVault(_) => ScopeImplKind::KeyVault,
         }
     }
@@ -914,6 +934,10 @@ impl std::fmt::Display for ScopeImpl {
             ScopeImpl::StorageAccount(x) => {
                 f.write_fmt(format_args!("StorageAccount({})", x.short_form()))
             }
+            ScopeImpl::AzureApplicationGatewayResource(x) => f.write_fmt(format_args!(
+                "AzureApplicationGatewayResource({})",
+                x.short_form()
+            )),
             ScopeImpl::VirtualNetworkPeering(x) => {
                 f.write_fmt(format_args!("VirtualNetworkPeering({})", x.short_form()))
             }
@@ -921,6 +945,9 @@ impl std::fmt::Display for ScopeImpl {
                 f.write_fmt(format_args!("VirtualNetwork({})", x.short_form()))
             }
             ScopeImpl::Subnet(x) => f.write_fmt(format_args!("Subnet({})", x.short_form())),
+            ScopeImpl::AzurePublicIpResource(x) => {
+                f.write_fmt(format_args!("AzurePublicIpResource({})", x.short_form()))
+            }
             ScopeImpl::ContainerRegistry(x) => {
                 f.write_fmt(format_args!("ContainerRegistry({})", x.short_form()))
             }

@@ -1,9 +1,24 @@
 use crate::AzureDevOpsPersonalAccessToken;
-use cloud_terrastodon_azure_types::AccessToken;
+use crate::AzureRestResource;
+use cloud_terrastodon_azure_types::AzureAccessToken;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::FromCommandOutput;
 
-pub const AZURE_DEVOPS_RESOURCE_ID: &str = "499b84ac-1321-427f-aa17-267ca6975798";
+pub async fn fetch_azure_access_token<T: FromCommandOutput>(
+    tenant: Option<AzureTenantId>,
+    resource: AzureRestResource,
+) -> eyre::Result<AzureAccessToken<T>> {
+    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+    cmd.args(["account", "get-access-token", "--output", "json"]);
+    if let Some(tenant) = tenant {
+        let tenant = tenant.to_string();
+        cmd.args(["--tenant", tenant.as_str()]);
+    }
+    resource.apply_access_token_args(&mut cmd);
+    cmd.run::<AzureAccessToken<T>>().await
+}
 
 /// This method is kinda brittle, may fail with an error like:
 /// ```txt
@@ -12,19 +27,11 @@ pub const AZURE_DEVOPS_RESOURCE_ID: &str = "499b84ac-1321-427f-aa17-267ca6975798
 /// az login --scope 499b84ac-1321-427f-aa17-267ca6975798/.default
 /// ```
 pub async fn fetch_azure_devops_personal_access_token()
--> eyre::Result<AccessToken<AzureDevOpsPersonalAccessToken>> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+-> eyre::Result<AzureAccessToken<AzureDevOpsPersonalAccessToken>> {
     // https://www.dylanberry.com/2021/02/21/how-to-get-a-pat-personal-access-token-for-azure-devops-from-the-az-cli/
     // https://learn.microsoft.com/en-us/rest/api/azure/devops/tokens/?view=azure-devops-rest-7.1&tabs=powershell
     // https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
-    cmd.args([
-        "account",
-        "get-access-token",
-        "--resource",
-        AZURE_DEVOPS_RESOURCE_ID,
-    ]);
-    let rtn = cmd.run().await?;
-    Ok(rtn)
+    fetch_azure_access_token(None, AzureRestResource::AzureDevOps).await
 }
 
 #[cfg(test)]

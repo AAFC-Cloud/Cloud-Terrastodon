@@ -1,11 +1,11 @@
 use clap::Args;
+use cloud_terrastodon_azure::AzureLocationName;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::ComputePublisherId;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferId;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferSkuId;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferSkuVersionId;
-use cloud_terrastodon_azure::LocationName;
 use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure::fetch_all_locations;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
@@ -43,7 +43,7 @@ impl AzureVmPublisherBrowseArgs {
             .pick_many(subs)?;
 
         // 2) For each chosen subscription fetch locations and present them as choices
-        let mut location_choices: Vec<Choice<(SubscriptionId, LocationName)>> = Vec::new();
+        let mut location_choices: Vec<Choice<(SubscriptionId, AzureLocationName)>> = Vec::new();
         for sub in &chosen_subs {
             info!(subscription_id = %sub.id, subscription_name = %sub.name, "Fetching locations for subscription");
             let locations = fetch_all_locations(sub.id).await?;

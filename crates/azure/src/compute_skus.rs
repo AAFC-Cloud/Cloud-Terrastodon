@@ -64,8 +64,8 @@ mod test {
     use crate::fetch_all_compute_skus;
     use crate::fetch_all_subscriptions;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_azure_types::AzureLocationName;
     use cloud_terrastodon_azure_types::ComputeSkuResourceType;
-    use cloud_terrastodon_azure_types::LocationName;
 
     #[tokio::test]
     #[ignore] // this endpoint takes forever
@@ -76,7 +76,7 @@ mod test {
         let vm_skus = fetch_all_compute_skus(sub.id).await?;
         let canada_vm_skus = vm_skus
             .iter()
-            .filter(|s| s.locations.iter().any(LocationName::is_canada))
+            .filter(|s| s.locations.iter().any(AzureLocationName::is_canada))
             .collect::<Vec<_>>();
         let vm_skus_in_canada = canada_vm_skus
             .into_iter()

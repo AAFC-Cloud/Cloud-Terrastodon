@@ -1,9 +1,11 @@
+pub mod application_gateway;
 pub mod audit;
 pub mod azure_command;
 pub mod entra;
 pub mod find;
 pub mod pim;
 pub mod policy;
+pub mod public_ip;
 pub mod resource;
 pub mod resource_group;
 pub mod role;

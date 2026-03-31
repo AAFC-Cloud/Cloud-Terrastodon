@@ -1,5 +1,5 @@
+use cloud_terrastodon_azure_types::AzureLocationName;
 use cloud_terrastodon_azure_types::ComputeSkuName;
-use cloud_terrastodon_azure_types::LocationName;
 use cloud_terrastodon_azure_types::Price;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -10,12 +10,12 @@ use compact_str::CompactString;
 use std::path::PathBuf;
 
 pub struct ComputeSkuPricesRequest {
-    pub location: LocationName,
+    pub location: AzureLocationName,
     pub sku: ComputeSkuName,
 }
 
 pub fn fetch_compute_sku_prices(
-    location: LocationName,
+    location: AzureLocationName,
     sku: ComputeSkuName,
 ) -> ComputeSkuPricesRequest {
     ComputeSkuPricesRequest { location, sku }
@@ -72,13 +72,13 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ComputeSkuPricesRequest);
 #[cfg(test)]
 mod test {
     use crate::fetch_compute_sku_prices;
+    use cloud_terrastodon_azure_types::AzureLocationName;
     use cloud_terrastodon_azure_types::ComputeSkuName;
-    use cloud_terrastodon_azure_types::LocationName;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let sku = ComputeSkuName::try_new("Standard_D2s_v5")?;
-        let location = LocationName::CanadaCentral;
+        let location = AzureLocationName::CanadaCentral;
         let prices = fetch_compute_sku_prices(location, sku).await?;
         assert!(!prices.is_empty()); // idk why failing, add CLI for sku browse
         assert!(prices.iter().any(|price| price.unit_price > 0.0));

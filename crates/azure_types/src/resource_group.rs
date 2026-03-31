@@ -65,7 +65,8 @@ impl From<ResourceGroup> for HclImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ResourceGroupName, SubscriptionId};
+    use crate::ResourceGroupName;
+    use crate::SubscriptionId;
     use crate::slug::Slug;
     use eyre::Result;
     use uuid::Uuid;

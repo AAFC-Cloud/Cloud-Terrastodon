@@ -1,8 +1,8 @@
 use clap::Args;
+use cloud_terrastodon_azure::AzureLocationName;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::ComputePublisherName;
-use cloud_terrastodon_azure::LocationName;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::fetch_compute_publisher_image_offers;
 use cloud_terrastodon_azure::get_active_subscription_id;
@@ -25,7 +25,7 @@ pub struct AzureVmPublisherOfferListArgs {
 
     /// Location to query. Defaults to `canadacentral`.
     #[arg(long)]
-    pub location: Option<LocationName>,
+    pub location: Option<AzureLocationName>,
 
     /// Publisher name to query (e.g. center-for-internet-security-inc).
     #[arg(long)]
@@ -60,7 +60,7 @@ impl AzureVmPublisherOfferListArgs {
             None => get_active_subscription_id().await?,
         };
 
-        let location = self.location.unwrap_or(LocationName::CanadaCentral);
+        let location = self.location.unwrap_or(AzureLocationName::CanadaCentral);
 
         let publisher = self.publisher.parse::<ComputePublisherName>()?;
 
