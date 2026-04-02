@@ -1,3 +1,4 @@
+use super::application_registration::AzureEntraApplicationRegistrationArgs;
 use super::group::AzureEntraGroupArgs;
 use super::service_principal::AzureEntraServicePrincipalArgs;
 use super::user::AzureEntraUserArgs;
@@ -12,6 +13,9 @@ pub enum AzureEntraCommand {
     /// Service principal operations (list, browse).
     #[command(alias = "sp")]
     ServicePrincipal(AzureEntraServicePrincipalArgs),
+    /// Application registration operations (list, show, browse).
+    #[command(aliases = ["app", "app-reg", "ar"])]
+    ApplicationRegistration(AzureEntraApplicationRegistrationArgs),
     /// Group-related operations (members, etc.).
     Group(AzureEntraGroupArgs),
 }
@@ -23,6 +27,9 @@ impl AzureEntraCommand {
                 args.invoke().await?;
             }
             AzureEntraCommand::ServicePrincipal(args) => {
+                args.invoke().await?;
+            }
+            AzureEntraCommand::ApplicationRegistration(args) => {
                 args.invoke().await?;
             }
             AzureEntraCommand::Group(args) => {

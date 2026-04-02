@@ -1,5 +1,6 @@
 mod apply_processed;
 mod azure_devops_project_import_wizard_menu;
+mod browse_application_registrations;
 mod browse_azure_devops_project_teams;
 mod browse_azure_devops_projects;
 mod browse_oauth2_permission_grants;
@@ -43,6 +44,7 @@ mod tag_resources_menu;
 pub const THIS_FILE: &str = file!();
 pub use crate::interactive::apply_processed::*;
 pub use crate::interactive::azure_devops_project_import_wizard_menu::*;
+pub use crate::interactive::browse_application_registrations::*;
 pub use crate::interactive::browse_azure_devops_project_teams::*;
 pub use crate::interactive::browse_azure_devops_projects::*;
 pub use crate::interactive::browse_oauth2_permission_grants::*;

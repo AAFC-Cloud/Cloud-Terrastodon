@@ -1,8 +1,10 @@
+pub mod application_registration;
 pub mod azure_entra;
 pub mod group;
 pub mod service_principal;
 pub mod user;
 
+pub use application_registration::AzureEntraApplicationRegistrationArgs;
 pub use azure_entra::AzureEntraCommand;
 use clap::Args;
 use eyre::Result;

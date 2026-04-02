@@ -1,5 +1,6 @@
 mod accounts;
 mod app_service_list_request;
+mod application_registrations;
 mod application_gateway_backend_health_request;
 mod application_gateway_list_request;
 mod auth;
@@ -85,6 +86,7 @@ mod virtual_machines;
 mod virtual_network;
 pub use crate::accounts::*;
 pub use crate::app_service_list_request::*;
+pub use crate::application_registrations::*;
 pub use crate::application_gateway_backend_health_request::*;
 pub use crate::application_gateway_list_request::*;
 pub use crate::auth::*;

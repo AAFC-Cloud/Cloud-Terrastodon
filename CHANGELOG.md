@@ -29,6 +29,7 @@
 - Add `ct az network-interface list|show` command
 - Add `ct az private-endpoint list|show` command
 - Add `ct az app-service list|show` command
+- Add `ct az sp show` command
 
 # v0.34.0
 
