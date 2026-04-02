@@ -1,3 +1,4 @@
+pub mod app_service;
 pub mod application_gateway;
 pub mod audit;
 pub mod azure_command;

@@ -1,3 +1,4 @@
+use super::app_service::AzureAppServiceArgs;
 use super::application_gateway::AzureApplicationGatewayArgs;
 use super::audit::AzureAuditArgs;
 use super::find::AzureFindArgs;
@@ -21,6 +22,9 @@ use eyre::Result;
 /// Azure-specific commands.
 #[derive(Subcommand, Debug, Clone)]
 pub enum AzureCommand {
+    /// Manage Azure App Services.
+    #[command(alias = "app")]
+    AppService(AzureAppServiceArgs),
     /// Audit Azure resources for configuration issues.
     Audit(AzureAuditArgs),
     /// Manage Azure application gateways.
@@ -68,6 +72,9 @@ pub enum AzureCommand {
 impl AzureCommand {
     pub async fn invoke(self) -> Result<()> {
         match self {
+            AzureCommand::AppService(args) => {
+                args.invoke().await?;
+            }
             AzureCommand::Audit(args) => {
                 args.invoke().await?;
             }

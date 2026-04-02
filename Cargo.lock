@@ -1052,6 +1052,7 @@ dependencies = [
 name = "cloud_terrastodon_entrypoint"
 version = "0.34.0"
 dependencies = [
+ "arbitrary",
  "async-recursion",
  "chrono",
  "clap",

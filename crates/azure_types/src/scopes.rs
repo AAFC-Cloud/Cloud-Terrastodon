@@ -1,3 +1,4 @@
+use crate::AzureAppServiceResourceId;
 use crate::AzureApplicationGatewayResourceId;
 use crate::AzureNetworkInterfaceResourceId;
 use crate::AzurePrivateEndpointResourceId;
@@ -674,6 +675,7 @@ pub enum ScopeImplKind {
     RoleDefinition,
     RoleEligibilitySchedule,
     StorageAccount,
+    AppServiceResource,
     ApplicationGatewayResource,
     NetworkInterfaceResource,
     PrivateEndpointResource,
@@ -708,6 +710,7 @@ pub enum ScopeImpl {
     RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId),
     RoleManagementPolicy(RoleManagementPolicyId),
     StorageAccount(StorageAccountId),
+    AzureAppServiceResource(AzureAppServiceResourceId),
     AzureApplicationGatewayResource(AzureApplicationGatewayResourceId),
     AzureNetworkInterfaceResource(AzureNetworkInterfaceResourceId),
     AzurePrivateEndpointResource(AzurePrivateEndpointResourceId),
@@ -740,6 +743,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.expanded_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),
+            ScopeImpl::AzureAppServiceResource(id) => id.expanded_form(),
             ScopeImpl::AzureApplicationGatewayResource(id) => id.expanded_form(),
             ScopeImpl::AzureNetworkInterfaceResource(id) => id.expanded_form(),
             ScopeImpl::AzurePrivateEndpointResource(id) => id.expanded_form(),
@@ -772,6 +776,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicyAssignment(id) => id.short_form(),
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
             ScopeImpl::StorageAccount(id) => id.short_form(),
+            ScopeImpl::AzureAppServiceResource(id) => id.short_form(),
             ScopeImpl::AzureApplicationGatewayResource(id) => id.short_form(),
             ScopeImpl::AzureNetworkInterfaceResource(id) => id.short_form(),
             ScopeImpl::AzurePrivateEndpointResource(id) => id.short_form(),
@@ -800,6 +805,9 @@ impl Scope for ScopeImpl {
         }
         if let Ok(id) = StorageAccountId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::StorageAccount(id));
+        }
+        if let Ok(id) = AzureAppServiceResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::AzureAppServiceResource(id));
         }
         if let Ok(id) = AzureApplicationGatewayResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::AzureApplicationGatewayResource(id));
@@ -877,6 +885,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::Subscription(_) => ScopeImplKind::Subscription,
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
             ScopeImpl::StorageAccount(_) => ScopeImplKind::StorageAccount,
+            ScopeImpl::AzureAppServiceResource(_) => ScopeImplKind::AppServiceResource,
             ScopeImpl::AzureApplicationGatewayResource(_) => {
                 ScopeImplKind::ApplicationGatewayResource
             }
@@ -951,6 +960,9 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::StorageAccount(x) => {
                 f.write_fmt(format_args!("StorageAccount({})", x.short_form()))
+            }
+            ScopeImpl::AzureAppServiceResource(x) => {
+                f.write_fmt(format_args!("AzureAppServiceResource({})", x.short_form()))
             }
             ScopeImpl::AzureApplicationGatewayResource(x) => f.write_fmt(format_args!(
                 "AzureApplicationGatewayResource({})",
