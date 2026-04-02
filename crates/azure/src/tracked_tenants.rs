@@ -256,7 +256,7 @@ async fn ensure_tracked_tenant_exists(tenant_id: AzureTenantId) -> eyre::Result<
     if get_tracked_tenant(tenant_id).await?.is_some() {
         Ok(())
     } else {
-        bail!("Tracked tenant '{}' was not found.", tenant_id)
+        bail!("Tracked tenant '{tenant_id}' was not found. Use `cloud_terrastodon az tenant add {tenant_id}` to allow Cloud Terrastodon to interact with this tenant.")
     }
 }
 

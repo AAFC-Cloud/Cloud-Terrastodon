@@ -34,7 +34,7 @@ pub struct PickCommonArgs {
     /// Query engine to use
     #[clap(global=true, long, short = 'e', default_value_t = Default::default())]
     pub query_engine: QueryEngine,
-    /// Allow multiple selections
+    /// Restrict to a single selected item (no multi-select)
     #[clap(global = true, long, short = 'm')]
     pub single: bool,
     /// Automatically accept if there is only one choice
