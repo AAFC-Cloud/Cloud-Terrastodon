@@ -1,4 +1,6 @@
 use crate::AzureApplicationGatewayResourceId;
+use crate::AzureNetworkInterfaceResourceId;
+use crate::AzurePrivateEndpointResourceId;
 use crate::AzurePublicIpResourceId;
 use crate::ContainerRegistryId;
 use crate::KeyVaultId;
@@ -673,6 +675,8 @@ pub enum ScopeImplKind {
     RoleEligibilitySchedule,
     StorageAccount,
     ApplicationGatewayResource,
+    NetworkInterfaceResource,
+    PrivateEndpointResource,
     PublicIpResource,
     VirtualNetwork,
     Subnet,
@@ -705,6 +709,8 @@ pub enum ScopeImpl {
     RoleManagementPolicy(RoleManagementPolicyId),
     StorageAccount(StorageAccountId),
     AzureApplicationGatewayResource(AzureApplicationGatewayResourceId),
+    AzureNetworkInterfaceResource(AzureNetworkInterfaceResourceId),
+    AzurePrivateEndpointResource(AzurePrivateEndpointResourceId),
     VirtualNetwork(VirtualNetworkId),
     Subnet(SubnetId),
     ResourceTags(ResourceTagsId),
@@ -735,6 +741,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),
             ScopeImpl::AzureApplicationGatewayResource(id) => id.expanded_form(),
+            ScopeImpl::AzureNetworkInterfaceResource(id) => id.expanded_form(),
+            ScopeImpl::AzurePrivateEndpointResource(id) => id.expanded_form(),
             ScopeImpl::VirtualNetwork(id) => id.expanded_form(),
             ScopeImpl::Subnet(id) => id.expanded_form(),
             ScopeImpl::ResourceTags(id) => id.expanded_form(),
@@ -765,6 +773,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
             ScopeImpl::StorageAccount(id) => id.short_form(),
             ScopeImpl::AzureApplicationGatewayResource(id) => id.short_form(),
+            ScopeImpl::AzureNetworkInterfaceResource(id) => id.short_form(),
+            ScopeImpl::AzurePrivateEndpointResource(id) => id.short_form(),
             ScopeImpl::VirtualNetwork(id) => id.short_form(),
             ScopeImpl::Subnet(id) => id.short_form(),
             ScopeImpl::ResourceTags(id) => id.short_form(),
@@ -793,6 +803,12 @@ impl Scope for ScopeImpl {
         }
         if let Ok(id) = AzureApplicationGatewayResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::AzureApplicationGatewayResource(id));
+        }
+        if let Ok(id) = AzureNetworkInterfaceResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::AzureNetworkInterfaceResource(id));
+        }
+        if let Ok(id) = AzurePrivateEndpointResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::AzurePrivateEndpointResource(id));
         }
         if let Ok(id) = VirtualNetworkId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::VirtualNetwork(id));
@@ -864,6 +880,8 @@ impl Scope for ScopeImpl {
             ScopeImpl::AzureApplicationGatewayResource(_) => {
                 ScopeImplKind::ApplicationGatewayResource
             }
+            ScopeImpl::AzureNetworkInterfaceResource(_) => ScopeImplKind::NetworkInterfaceResource,
+            ScopeImpl::AzurePrivateEndpointResource(_) => ScopeImplKind::PrivateEndpointResource,
             ScopeImpl::VirtualNetwork(_) => ScopeImplKind::VirtualNetwork,
             ScopeImpl::Subnet(_) => ScopeImplKind::Subnet,
             ScopeImpl::RoleEligibilitySchedule(_) => ScopeImplKind::RoleEligibilitySchedule,
@@ -936,6 +954,14 @@ impl std::fmt::Display for ScopeImpl {
             }
             ScopeImpl::AzureApplicationGatewayResource(x) => f.write_fmt(format_args!(
                 "AzureApplicationGatewayResource({})",
+                x.short_form()
+            )),
+            ScopeImpl::AzureNetworkInterfaceResource(x) => f.write_fmt(format_args!(
+                "AzureNetworkInterfaceResource({})",
+                x.short_form()
+            )),
+            ScopeImpl::AzurePrivateEndpointResource(x) => f.write_fmt(format_args!(
+                "AzurePrivateEndpointResource({})",
                 x.short_form()
             )),
             ScopeImpl::VirtualNetworkPeering(x) => {

@@ -1,8 +1,10 @@
 use super::application_gateway::AzureApplicationGatewayArgs;
 use super::audit::AzureAuditArgs;
 use super::find::AzureFindArgs;
+use super::network_interface::AzureNetworkInterfaceArgs;
 use super::pim::AzurePimArgs;
 use super::policy::AzurePolicyArgs;
+use super::private_endpoint::AzurePrivateEndpointArgs;
 use super::public_ip::AzurePublicIpArgs;
 use super::resource::AzureResourceArgs;
 use super::resource_group::AzureResourceGroupArgs;
@@ -26,11 +28,17 @@ pub enum AzureCommand {
     ApplicationGateway(AzureApplicationGatewayArgs),
     /// Find resources where resource JSON contains the given text.
     Find(AzureFindArgs),
+    /// Manage Azure network interfaces.
+    #[command(alias = "nic")]
+    NetworkInterface(AzureNetworkInterfaceArgs),
     /// Manage Azure resource groups.
     #[command(aliases = ["rg", "group"])]
     ResourceGroup(AzureResourceGroupArgs),
     /// Manage Azure policy resources.
     Policy(AzurePolicyArgs),
+    /// Manage Azure private endpoints.
+    #[command(aliases = ["pe"])]
+    PrivateEndpoint(AzurePrivateEndpointArgs),
     /// Manage Azure public IP addresses.
     PublicIp(AzurePublicIpArgs),
     /// Manage Azure resource tags.
@@ -69,10 +77,16 @@ impl AzureCommand {
             AzureCommand::Find(args) => {
                 args.invoke().await?;
             }
+            AzureCommand::NetworkInterface(args) => {
+                args.invoke().await?;
+            }
             AzureCommand::ResourceGroup(args) => {
                 args.invoke().await?;
             }
             AzureCommand::Policy(args) => {
+                args.invoke().await?;
+            }
+            AzureCommand::PrivateEndpoint(args) => {
                 args.invoke().await?;
             }
             AzureCommand::PublicIp(args) => {

@@ -1,11 +1,20 @@
 use clap::Args;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthResponse;
+use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServer;
+use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServerHealth;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceId;
+use cloud_terrastodon_azure::AzureNetworkInterfaceResource;
+use cloud_terrastodon_azure::AzurePrivateEndpointResource;
+use cloud_terrastodon_azure::AzurePrivateEndpointResourceId;
 use cloud_terrastodon_azure::AzurePublicIpResource;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::fetch_all_network_interfaces;
+use cloud_terrastodon_azure::fetch_all_private_endpoints;
 use cloud_terrastodon_azure::fetch_all_public_ips;
 use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
+use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -20,8 +29,9 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
-use std::io::Write;
 use std::net::IpAddr;
+use std::path::Path;
+use std::path::PathBuf;
 use tracing::info;
 
 /// Investigate a URL or host by resolving DNS and correlating it with Azure public IPs.
@@ -30,6 +40,10 @@ pub struct OutageInvestigateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[arg(long, default_value_t)]
     pub tenant: AzureTenantArgument<'static>,
+
+    /// Directory to write JSON blobs for relevant investigation artifacts.
+    #[arg(long)]
+    pub output_dir: Option<PathBuf>,
 
     /// URL, host name, or IP address to investigate.
     pub target: String,
@@ -63,6 +77,8 @@ impl OutageInvestigateArgs {
             .collect::<Vec<_>>();
         let matches =
             enrich_matches_with_application_gateway_backend_health(tenant_id, matches).await?;
+        let matches =
+            enrich_matches_with_failing_backend_resource_discovery(tenant_id, matches).await?;
 
         let report = OutageInvestigationReport {
             input: self.target,
@@ -72,10 +88,11 @@ impl OutageInvestigateArgs {
             matches,
         };
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &report)?;
-        handle.write_all(b"\n")?;
+        if let Some(output_dir) = self.output_dir.as_deref() {
+            write_investigation_artifacts(output_dir, &report)?;
+        }
+
+        print_pretty_report(&report, self.output_dir.as_deref());
         Ok(())
     }
 }
@@ -104,10 +121,35 @@ struct OutagePublicIpMatch {
     application_gateway_backend_health:
         Option<AzureApplicationGatewayResourceBackendHealthResponse>,
     application_gateway_backend_health_error: Option<String>,
+    failing_backend_probe_investigations: Vec<FailingBackendProbeInvestigation>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct FailingBackendProbeInvestigation {
+    backend_address_pool_id: String,
+    backend_http_settings_id: String,
+    server: AzureApplicationGatewayResourceBackendHealthServer,
+    matching_network_interfaces: Vec<AzureNetworkInterfaceResource>,
+    matching_private_endpoints: Vec<AzurePrivateEndpointResource>,
+    private_link_service_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
 struct ApplicationGatewayBackendHealthLookup {
+    backend_health: Option<AzureApplicationGatewayResourceBackendHealthResponse>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct FailingBackendServerCandidate {
+    backend_address_pool_id: String,
+    backend_http_settings_id: String,
+    server: AzureApplicationGatewayResourceBackendHealthServer,
+}
+
+#[derive(Debug, Serialize)]
+struct ApplicationGatewayBackendHealthArtifact {
+    application_gateway_id: String,
     backend_health: Option<AzureApplicationGatewayResourceBackendHealthResponse>,
     error: Option<String>,
 }
@@ -247,6 +289,7 @@ fn match_public_ip(
         application_gateway_frontend_ip_configuration_id: frontend_ip_configuration_id,
         application_gateway_backend_health: None,
         application_gateway_backend_health_error: None,
+        failing_backend_probe_investigations: Vec::new(),
     })
 }
 
@@ -269,6 +312,110 @@ async fn enrich_matches_with_application_gateway_backend_health(
 
         matched_public_ip.application_gateway_backend_health = lookup.backend_health.clone();
         matched_public_ip.application_gateway_backend_health_error = lookup.error.clone();
+    }
+
+    Ok(matches)
+}
+
+async fn enrich_matches_with_failing_backend_resource_discovery(
+    tenant_id: cloud_terrastodon_azure::AzureTenantId,
+    mut matches: Vec<OutagePublicIpMatch>,
+) -> Result<Vec<OutagePublicIpMatch>> {
+    let failing_backend_candidates = matches
+        .iter()
+        .flat_map(|matched_public_ip| {
+            matched_public_ip
+                .application_gateway_backend_health
+                .as_ref()
+                .map(collect_failing_backend_servers)
+                .unwrap_or_default()
+        })
+        .collect::<Vec<_>>();
+
+    if failing_backend_candidates.is_empty() {
+        return Ok(matches);
+    }
+
+    info!(
+        count = failing_backend_candidates.len(),
+        "Fetching network interfaces for failing backend probe investigation"
+    );
+    let network_interfaces = fetch_all_network_interfaces(tenant_id).await?;
+
+    let relevant_private_endpoint_ids = failing_backend_candidates
+        .iter()
+        .flat_map(|candidate| {
+            network_interfaces_for_backend_address(&network_interfaces, &candidate.server.address)
+                .into_iter()
+                .filter_map(|network_interface| managed_by_private_endpoint_id(&network_interface))
+        })
+        .collect::<BTreeSet<_>>();
+
+    let private_endpoints_by_id = if relevant_private_endpoint_ids.is_empty() {
+        BTreeMap::new()
+    } else {
+        info!(
+            count = relevant_private_endpoint_ids.len(),
+            "Fetching private endpoints for failing backend probe investigation"
+        );
+        fetch_all_private_endpoints(tenant_id)
+            .await?
+            .into_iter()
+            .filter(|private_endpoint| {
+                relevant_private_endpoint_ids.contains(&private_endpoint.id.expanded_form())
+            })
+            .map(|private_endpoint| (private_endpoint.id.expanded_form(), private_endpoint))
+            .collect::<BTreeMap<_, _>>()
+    };
+
+    for matched_public_ip in &mut matches {
+        let Some(backend_health) = matched_public_ip
+            .application_gateway_backend_health
+            .as_ref()
+        else {
+            continue;
+        };
+
+        matched_public_ip.failing_backend_probe_investigations =
+            collect_failing_backend_servers(backend_health)
+                .into_iter()
+                .map(|candidate| {
+                    let matching_network_interfaces = network_interfaces_for_backend_address(
+                        &network_interfaces,
+                        &candidate.server.address,
+                    );
+                    let matching_private_endpoints = matching_network_interfaces
+                        .iter()
+                        .filter_map(|network_interface| {
+                            managed_by_private_endpoint_id(network_interface).and_then(
+                                |private_endpoint_id| {
+                                    private_endpoints_by_id.get(&private_endpoint_id).cloned()
+                                },
+                            )
+                        })
+                        .map(|private_endpoint| {
+                            (private_endpoint.id.expanded_form(), private_endpoint)
+                        })
+                        .collect::<BTreeMap<_, _>>()
+                        .into_values()
+                        .collect::<Vec<_>>();
+                    let private_link_service_ids = matching_private_endpoints
+                        .iter()
+                        .flat_map(private_link_service_ids)
+                        .collect::<BTreeSet<_>>()
+                        .into_iter()
+                        .collect::<Vec<_>>();
+
+                    FailingBackendProbeInvestigation {
+                        backend_address_pool_id: candidate.backend_address_pool_id,
+                        backend_http_settings_id: candidate.backend_http_settings_id,
+                        server: candidate.server,
+                        matching_network_interfaces,
+                        matching_private_endpoints,
+                        private_link_service_ids,
+                    }
+                })
+                .collect();
     }
 
     Ok(matches)
@@ -331,6 +478,411 @@ fn application_gateway_id_from_frontend_ip_configuration_id(id: &str) -> Option<
     Some(id[..marker_index].to_string())
 }
 
+fn collect_failing_backend_servers(
+    backend_health: &AzureApplicationGatewayResourceBackendHealthResponse,
+) -> Vec<FailingBackendServerCandidate> {
+    backend_health
+        .backend_address_pools
+        .iter()
+        .flat_map(|pool| {
+            pool.backend_http_settings_collection
+                .iter()
+                .flat_map(|http_settings| {
+                    http_settings
+                        .servers
+                        .iter()
+                        .filter(|server| is_failing_backend_server(server))
+                        .map(|server| FailingBackendServerCandidate {
+                            backend_address_pool_id: pool.backend_address_pool.id.clone(),
+                            backend_http_settings_id: http_settings
+                                .backend_http_settings
+                                .id
+                                .clone(),
+                            server: server.clone(),
+                        })
+                })
+        })
+        .collect()
+}
+
+fn is_failing_backend_server(server: &AzureApplicationGatewayResourceBackendHealthServer) -> bool {
+    server.health_probe_log.is_some()
+        || server.health_probe_error_name.is_some()
+        || !matches!(
+            server.health,
+            AzureApplicationGatewayResourceBackendHealthServerHealth::Healthy
+                | AzureApplicationGatewayResourceBackendHealthServerHealth::Up
+        )
+}
+
+fn network_interfaces_for_backend_address(
+    network_interfaces: &[AzureNetworkInterfaceResource],
+    backend_address: &str,
+) -> Vec<AzureNetworkInterfaceResource> {
+    network_interfaces
+        .iter()
+        .filter(|network_interface| {
+            network_interface_matches_backend_address(network_interface, backend_address)
+        })
+        .cloned()
+        .collect()
+}
+
+fn network_interface_matches_backend_address(
+    network_interface: &AzureNetworkInterfaceResource,
+    backend_address: &str,
+) -> bool {
+    let normalized_address = normalize_host(backend_address);
+    network_interface
+        .properties
+        .ip_configurations
+        .iter()
+        .any(|ip_configuration| {
+            ip_configuration
+                .properties
+                .private_ip_address
+                .map(|ip| ip.to_string() == backend_address)
+                .unwrap_or(false)
+        })
+        || network_interface
+            .properties
+            .dns_settings
+            .as_ref()
+            .and_then(|dns_settings| dns_settings.internal_fqdn.as_deref())
+            .map(normalize_host)
+            .map(|fqdn| fqdn == normalized_address)
+            .unwrap_or(false)
+}
+
+fn managed_by_private_endpoint_id(
+    network_interface: &AzureNetworkInterfaceResource,
+) -> Option<String> {
+    let managed_by = network_interface.managed_by.as_deref()?;
+    managed_by
+        .parse::<AzurePrivateEndpointResourceId>()
+        .ok()
+        .map(|private_endpoint_id| private_endpoint_id.expanded_form())
+}
+
+fn private_link_service_ids(private_endpoint: &AzurePrivateEndpointResource) -> Vec<String> {
+    private_endpoint
+        .properties
+        .private_link_service_connections
+        .iter()
+        .chain(
+            private_endpoint
+                .properties
+                .manual_private_link_service_connections
+                .iter(),
+        )
+        .filter_map(|connection| connection.properties.private_link_service_id.clone())
+        .collect()
+}
+
+fn print_pretty_report(report: &OutageInvestigationReport, output_dir: Option<&Path>) {
+    println!(
+        "{} {}",
+        "Outage investigation".bold().bright_blue(),
+        report.input.bold()
+    );
+    println!("{} {}", "Tenant:".bold(), report.tenant.cyan());
+    println!("{} {}", "Target host:".bold(), report.target_host.cyan());
+    println!();
+
+    println!("{}", "DNS".bold().bright_blue());
+    println!(
+        "  {} {}",
+        "Canonical:".bold(),
+        report.dns.canonical_name.as_str().green()
+    );
+    if report.dns.aliases.is_empty() {
+        println!("  {} {}", "Aliases:".bold(), "none".dimmed());
+    } else {
+        println!(
+            "  {} {}",
+            "Aliases:".bold(),
+            report.dns.aliases.join(", ").yellow()
+        );
+    }
+    println!(
+        "  {} {}",
+        "Addresses:".bold(),
+        report
+            .dns
+            .addresses
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ")
+            .magenta()
+    );
+    println!();
+
+    if report.matches.is_empty() {
+        println!(
+            "{}",
+            "No matching Azure public IP resources found."
+                .yellow()
+                .bold()
+        );
+    } else {
+        println!(
+            "{} {}",
+            "Public IP matches:".bold().bright_blue(),
+            report.matches.len()
+        );
+        for matched_public_ip in &report.matches {
+            let public_ip_name = matched_public_ip.public_ip.name.to_string();
+            let public_ip_value = matched_public_ip
+                .public_ip
+                .properties
+                .ip_address
+                .map(|ip| ip.to_string())
+                .unwrap_or_else(|| "<no ip>".to_string());
+            println!(
+                "  {} {} {}",
+                "Public IP".bold(),
+                public_ip_name.green(),
+                format!("({})", public_ip_value).dimmed()
+            );
+            println!(
+                "    {} {}",
+                "Resource ID:".bold(),
+                matched_public_ip.public_ip.id.expanded_form().dimmed()
+            );
+
+            match matched_public_ip.application_gateway_id.as_deref() {
+                Some(application_gateway_id) => println!(
+                    "    {} {}",
+                    "Application Gateway:".bold(),
+                    application_gateway_id.cyan()
+                ),
+                None => println!("    {} {}", "Application Gateway:".bold(), "none".dimmed()),
+            }
+
+            if let Some(error) = matched_public_ip
+                .application_gateway_backend_health_error
+                .as_deref()
+            {
+                println!("    {} {}", "Backend health error:".bold(), error.red());
+            }
+
+            if matched_public_ip
+                .failing_backend_probe_investigations
+                .is_empty()
+            {
+                println!("    {}", "No failing backend probes discovered.".green());
+                continue;
+            }
+
+            println!(
+                "    {} {}",
+                "Failing backend probes:".bold().red(),
+                matched_public_ip.failing_backend_probe_investigations.len()
+            );
+            for investigation in &matched_public_ip.failing_backend_probe_investigations {
+                let health: String = investigation.server.health.clone().into();
+                println!(
+                    "      {} {} {}",
+                    "Backend".bold(),
+                    investigation.server.address.yellow(),
+                    format!("[{}]", health).red()
+                );
+                println!(
+                    "        {} {}",
+                    "Pool:".bold(),
+                    investigation.backend_address_pool_id.dimmed()
+                );
+                println!(
+                    "        {} {}",
+                    "HTTP settings:".bold(),
+                    investigation.backend_http_settings_id.dimmed()
+                );
+                if let Some(probe_log) = investigation.server.health_probe_log.as_deref() {
+                    println!("        {} {}", "Probe log:".bold(), probe_log.red());
+                }
+                if let Some(probe_error_name) = investigation.server.health_probe_error_name.clone()
+                {
+                    let probe_error: String = String::from(probe_error_name);
+                    println!("        {} {}", "Probe error:".bold(), probe_error.red());
+                }
+
+                if investigation.matching_network_interfaces.is_empty() {
+                    println!(
+                        "        {}",
+                        "No matching network interfaces found.".yellow()
+                    );
+                } else {
+                    for network_interface in &investigation.matching_network_interfaces {
+                        println!(
+                            "        {} {}",
+                            "NIC:".bold(),
+                            network_interface.name.to_string().green()
+                        );
+                        println!(
+                            "          {} {}",
+                            "Resource ID:".bold(),
+                            network_interface.id.expanded_form().dimmed()
+                        );
+                        match network_interface.managed_by.as_deref() {
+                            Some(managed_by) => {
+                                println!("          {} {}", "managedBy:".bold(), managed_by.cyan())
+                            }
+                            None => {
+                                println!("          {} {}", "managedBy:".bold(), "none".dimmed())
+                            }
+                        }
+                    }
+                }
+
+                if investigation.matching_private_endpoints.is_empty() {
+                    println!(
+                        "        {}",
+                        "No matching private endpoints found from NIC managedBy.".yellow()
+                    );
+                } else {
+                    for private_endpoint in &investigation.matching_private_endpoints {
+                        println!(
+                            "        {} {}",
+                            "Private endpoint:".bold(),
+                            private_endpoint.name.to_string().green()
+                        );
+                        println!(
+                            "          {} {}",
+                            "Resource ID:".bold(),
+                            private_endpoint.id.expanded_form().dimmed()
+                        );
+                    }
+                }
+
+                if investigation.private_link_service_ids.is_empty() {
+                    println!(
+                        "        {} {}",
+                        "PrivateLinkServiceId:".bold(),
+                        "none".dimmed()
+                    );
+                } else {
+                    for private_link_service_id in &investigation.private_link_service_ids {
+                        println!(
+                            "        {} {}",
+                            "PrivateLinkServiceId:".bold(),
+                            private_link_service_id.magenta()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(output_dir) = output_dir {
+        println!();
+        println!(
+            "{} {}",
+            "JSON artifacts written to".bold().bright_blue(),
+            output_dir.display().to_string().cyan()
+        );
+    }
+}
+
+fn write_investigation_artifacts(
+    output_dir: &Path,
+    report: &OutageInvestigationReport,
+) -> Result<()> {
+    std::fs::create_dir_all(output_dir)
+        .with_context(|| format!("creating output dir '{}'", output_dir.display()))?;
+
+    write_json_file(output_dir.join("report.json"), report)?;
+
+    let public_ips = report
+        .matches
+        .iter()
+        .map(|matched_public_ip| matched_public_ip.public_ip.clone())
+        .collect::<Vec<_>>();
+    write_json_file(output_dir.join("matched-public-ips.json"), &public_ips)?;
+
+    let backend_health = report
+        .matches
+        .iter()
+        .map(
+            |matched_public_ip| ApplicationGatewayBackendHealthArtifact {
+                application_gateway_id: matched_public_ip
+                    .application_gateway_id
+                    .clone()
+                    .unwrap_or_default(),
+                backend_health: matched_public_ip.application_gateway_backend_health.clone(),
+                error: matched_public_ip
+                    .application_gateway_backend_health_error
+                    .clone(),
+            },
+        )
+        .collect::<Vec<_>>();
+    write_json_file(
+        output_dir.join("application-gateway-backend-health.json"),
+        &backend_health,
+    )?;
+
+    let backend_probe_investigations = report
+        .matches
+        .iter()
+        .flat_map(|matched_public_ip| {
+            matched_public_ip
+                .failing_backend_probe_investigations
+                .iter()
+                .cloned()
+        })
+        .collect::<Vec<_>>();
+    write_json_file(
+        output_dir.join("failing-backend-probe-investigations.json"),
+        &backend_probe_investigations,
+    )?;
+
+    let network_interfaces = report
+        .matches
+        .iter()
+        .flat_map(|matched_public_ip| {
+            matched_public_ip
+                .failing_backend_probe_investigations
+                .iter()
+                .flat_map(|investigation| investigation.matching_network_interfaces.iter().cloned())
+        })
+        .map(|network_interface| (network_interface.id.expanded_form(), network_interface))
+        .collect::<BTreeMap<_, _>>()
+        .into_values()
+        .collect::<Vec<_>>();
+    write_json_file(
+        output_dir.join("matching-network-interfaces.json"),
+        &network_interfaces,
+    )?;
+
+    let private_endpoints = report
+        .matches
+        .iter()
+        .flat_map(|matched_public_ip| {
+            matched_public_ip
+                .failing_backend_probe_investigations
+                .iter()
+                .flat_map(|investigation| investigation.matching_private_endpoints.iter().cloned())
+        })
+        .map(|private_endpoint| (private_endpoint.id.expanded_form(), private_endpoint))
+        .collect::<BTreeMap<_, _>>()
+        .into_values()
+        .collect::<Vec<_>>();
+    write_json_file(
+        output_dir.join("matching-private-endpoints.json"),
+        &private_endpoints,
+    )?;
+
+    Ok(())
+}
+
+fn write_json_file(path: PathBuf, value: &impl Serialize) -> Result<()> {
+    let file =
+        std::fs::File::create(&path).with_context(|| format!("creating '{}'", path.display()))?;
+    serde_json::to_writer_pretty(file, value)
+        .with_context(|| format!("writing '{}'", path.display()))?;
+    Ok(())
+}
+
 fn normalize_host(host: impl AsRef<str>) -> String {
     trim_fqdn_dot(host.as_ref()).to_ascii_lowercase()
 }
@@ -376,5 +928,52 @@ mod tests {
             application_gateway_id_from_frontend_ip_configuration_id(id),
             None
         );
+    }
+
+    #[test]
+    fn network_interface_backend_address_match_supports_private_ip_and_internal_fqdn() -> Result<()>
+    {
+        let network_interface = serde_json::from_str::<AzureNetworkInterfaceResource>(
+            r#"
+                        {
+                            "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/networkInterfaces/my-nic",
+                            "tenantId": "22222222-2222-2222-2222-222222222222",
+                            "name": "my-nic",
+                            "location": "canadacentral",
+                            "managedBy": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/privateEndpoints/my-pe",
+                            "tags": {},
+                            "properties": {
+                                "dnsSettings": {
+                                    "internalFqdn": "my-nic.internal.example"
+                                },
+                                "ipConfigurations": [
+                                    {
+                                        "name": "ipconfig1",
+                                        "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/networkInterfaces/my-nic/ipConfigurations/ipconfig1",
+                                        "properties": {
+                                            "privateIPAddress": "10.0.0.5"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                        "#,
+        )?;
+
+        assert!(network_interface_matches_backend_address(
+            &network_interface,
+            "10.0.0.5"
+        ));
+        assert!(network_interface_matches_backend_address(
+            &network_interface,
+            "my-nic.internal.example"
+        ));
+        assert_eq!(
+            managed_by_private_endpoint_id(&network_interface).as_deref(),
+            Some(
+                "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/privateEndpoints/my-pe"
+            )
+        );
+        Ok(())
     }
 }
