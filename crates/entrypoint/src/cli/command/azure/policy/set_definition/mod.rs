@@ -1,10 +1,12 @@
 pub mod azure_policy_set_definition;
 pub mod azure_policy_set_definition_browse;
 pub mod azure_policy_set_definition_list;
+pub mod azure_policy_set_definition_show;
 
 pub use azure_policy_set_definition::AzurePolicySetDefinitionCommand;
 pub use azure_policy_set_definition_browse::AzurePolicySetDefinitionBrowseArgs;
 pub use azure_policy_set_definition_list::AzurePolicySetDefinitionListArgs;
+pub use azure_policy_set_definition_show::AzurePolicySetDefinitionShowArgs;
 use clap::Args;
 use eyre::Result;
 

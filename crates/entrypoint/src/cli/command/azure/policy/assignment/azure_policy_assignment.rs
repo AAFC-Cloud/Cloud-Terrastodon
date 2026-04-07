@@ -1,5 +1,6 @@
 use super::AzurePolicyAssignmentBrowseArgs;
 use super::AzurePolicyAssignmentListArgs;
+use super::AzurePolicyAssignmentShowArgs;
 use clap::Subcommand;
 use eyre::Result;
 
@@ -10,6 +11,8 @@ pub enum AzurePolicyAssignmentCommand {
     List(AzurePolicyAssignmentListArgs),
     /// Browse Azure policy assignments in an interactive manner.
     Browse(AzurePolicyAssignmentBrowseArgs),
+    /// Show a single Azure policy assignment by id, name, or display name.
+    Show(AzurePolicyAssignmentShowArgs),
 }
 
 impl AzurePolicyAssignmentCommand {
@@ -17,6 +20,7 @@ impl AzurePolicyAssignmentCommand {
         match self {
             AzurePolicyAssignmentCommand::List(args) => args.invoke().await,
             AzurePolicyAssignmentCommand::Browse(args) => args.invoke().await,
+            AzurePolicyAssignmentCommand::Show(args) => args.invoke().await,
         }
     }
 }

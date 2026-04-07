@@ -30,9 +30,12 @@
 - Add `ct az private-endpoint list|show` command
 - Add `ct az app-service list|show` command
 - Add `ct az sp show` command
-- Add `ct az policy set-definition list|browse` command
-- Add `ct az policy assignment list|browse` command
+- Add `ct az policy set-definition list|browse|show` command
+- Add `ct az policy assignment list|browse|show` command
+- Add `ct az policy definition show` command
 - Add `ct az policy definition list --name {} --param-name {}` args
+- Add `ct az policy assignment list --name {}` arg
+- Add `ct az policy set-definition list --name {}` arg
 
 # v0.34.0
 

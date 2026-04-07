@@ -1,5 +1,6 @@
 use super::AzurePolicyDefinitionBrowseArgs;
 use super::AzurePolicyDefinitionListArgs;
+use super::AzurePolicyDefinitionShowArgs;
 use clap::Subcommand;
 use eyre::Result;
 
@@ -10,6 +11,8 @@ pub enum AzurePolicyDefinitionCommand {
     List(AzurePolicyDefinitionListArgs),
     /// Browse Azure policy definitions in an interactive manner.
     Browse(AzurePolicyDefinitionBrowseArgs),
+    /// Show a single Azure policy definition by id, name, or display name.
+    Show(AzurePolicyDefinitionShowArgs),
 }
 
 impl AzurePolicyDefinitionCommand {
@@ -17,6 +20,7 @@ impl AzurePolicyDefinitionCommand {
         match self {
             AzurePolicyDefinitionCommand::List(args) => args.invoke().await,
             AzurePolicyDefinitionCommand::Browse(args) => args.invoke().await,
+            AzurePolicyDefinitionCommand::Show(args) => args.invoke().await,
         }
     }
 }
