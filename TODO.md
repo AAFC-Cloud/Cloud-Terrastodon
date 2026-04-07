@@ -17,6 +17,10 @@ chunks
 chunks[0..=1].with_trailing_slash() -> &str "/subscriptions/dbc82d5f-1d23-4772-99e2-4d47cfb9a949/"
 chunks[0..=1].without_trailing_slash() -> &str "/subscriptions/dbc82d5f-1d23-4772-99e2-4d47cfb9a949"
 
+## Location
+
+Unify `location: String` and `location: CompactString` to use `location: AzureLocationName`
+
 ## Formatting
 
 > https://mina86.com/2024/fmt-display-impl/

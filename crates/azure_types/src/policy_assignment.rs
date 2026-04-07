@@ -1,3 +1,4 @@
+use crate::AzureLocationName;
 use crate::PolicyAssignmentId;
 use crate::PolicyAssignmentName;
 use crate::PolicyDefinitionIdReference;
@@ -22,7 +23,7 @@ use serde_json::Value;
 pub struct PolicyAssignment {
     pub id: PolicyAssignmentId,
     pub name: PolicyAssignmentName,
-    pub location: CompactString,
+    pub location: AzureLocationName,
     pub identity: Option<Value>,
     pub properties: PolicyAssignmentProperties,
 }
@@ -103,5 +104,16 @@ impl From<PolicyAssignment> for HclImportBlock {
                 name: policy_assignment.id.expanded_form().sanitize(),
             },
         }
+    }
+}
+
+impl PolicyAssignment {
+    pub async fn evaluate_compliance(&self, resource: &impl Serialize) -> eyre::Result<()> {
+        // Ensure all parameters are present
+        // Convert the resource to JSON value
+        let json = serde_json::to_value(resource)?;
+        
+        todo!();
+
     }
 }

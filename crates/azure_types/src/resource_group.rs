@@ -1,3 +1,4 @@
+use crate::AzureLocationName;
 use crate::AzureTenantId;
 use crate::ResourceGroupId;
 use crate::ResourceGroupName;
@@ -6,6 +7,7 @@ use crate::SubscriptionScoped;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::serde_helpers::deserialize_default_if_null;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -14,12 +16,12 @@ use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
 pub struct ResourceGroup {
     pub id: ResourceGroupId,
     pub subscription_name: SubscriptionName,
     pub tenant_id: AzureTenantId,
-    pub location: String,
+    pub location: AzureLocationName,
     pub managed_by: Option<String>,
     pub name: ResourceGroupName,
     pub properties: HashMap<String, String>,
