@@ -61,7 +61,6 @@ impl AsScope for &PolicySetDefinition {
 impl std::fmt::Display for PolicySetDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;
-        f.write_str(&self.name)?;
         if let Some(display_name) = self.display_name.as_deref() {
             f.write_str(" (")?;
             f.write_str(display_name)?;
