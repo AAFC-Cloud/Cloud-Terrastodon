@@ -169,7 +169,7 @@ impl ResourceGraphHelper {
             // // Transform results
             // let results: QueryResponse<T> = results.try_into()?;
 
-            Ok(Some(results))
+            eyre::Ok(Some(results))
         }
         .await
         .wrap_err(format!(
