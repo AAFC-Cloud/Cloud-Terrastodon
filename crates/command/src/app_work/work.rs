@@ -1,6 +1,7 @@
 use super::AppboundWorkFinishedMessage;
 use super::StateMutator;
 use crate::app_work::AppWorkTracker;
+use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::eyre;
 use std::panic::Location;
 use tokio::task::JoinHandle;
@@ -111,7 +112,10 @@ where
                 }
                 Err(error) => {
                     let error = error
-                        .wrap_err(format!("Work location: {}", work.location))
+                        .wrap_err(format!(
+                            "Work location: {}",
+                            RelativeLocation::from(work.location)
+                        ))
                         .wrap_err("Error encountered in worker thread");
                     error!("{:?}", error);
 

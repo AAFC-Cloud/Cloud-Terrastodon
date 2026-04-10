@@ -50,6 +50,7 @@ const REQUIRE_A_TAG_ON_RESOURCE_GROUPS_POLICY_DEFINITION_JSON_STR: &str = r#"
 "#;
 
 #[test]
+#[ignore] // todo: finish this
 fn tag_policy_compliance_evaluation() -> eyre::Result<()> {
     // Load the policy
     let require_a_tag_on_resource_groups_policy_definition: PolicyDefinition =

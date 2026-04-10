@@ -557,6 +557,9 @@ impl CommandBuilder {
                     .into_iter()
                     .any(|x| output.stderr.contains_str(x)) =>
                 {
+                    if std::env::var("CLOUD_TERRASTODON_REAUTH").unwrap_or_default().to_uppercase() == "DENY" {
+                        bail!("Command failed due to bad auth, and automatic reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again.")
+                    }
                     let mutex = LOGIN_LOCK
                         .get_or_init(async || Arc::new(Mutex::new(())))
                         .await;
@@ -757,7 +760,7 @@ impl CommandBuilder {
                     .await?;
                 Err(eyre::Error::new(e)
                     .wrap_err(format!(
-                        "Deserialization failed!\n - Command: `{summary}`\n - Called by: `{}`\n - Dumped to: {dir:?}\n - Type: {}",
+                        "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}",
                         RelativeLocation::from(caller),
                         std::any::type_name::<T>()
                     )))
@@ -765,9 +768,25 @@ impl CommandBuilder {
         }
     }
 
-    pub async fn run_with_validator<T, F>(&self, validator: F) -> Result<T>
+    #[track_caller]
+    pub fn run_with_validator<T, F>(
+        &self,
+        validator: F,
+    ) -> impl Future<Output = Result<T>> + Send + '_
     where
-        T: DeserializeOwned,
+        T: FromCommandOutput,
+        F: FnOnce(T) -> Result<T> + Send + 'static,
+    {
+        self.run_with_validator_from(validator, Location::caller())
+    }
+
+    pub async fn run_with_validator_from<T, F>(
+        &self,
+        validator: F,
+        caller: &'static Location<'static>,
+    ) -> Result<T>
+    where
+        T: FromCommandOutput,
         F: FnOnce(T) -> Result<T>,
     {
         // Get stdout
@@ -779,19 +798,19 @@ impl CommandBuilder {
                 Ok(results) => Ok(results),
                 Err(e) => {
                     let dir = self.write_failure(&output).await?;
-                    Err(e).context(format!("Encountered validation error after successful invocation of {}, called by `{}`, dumped to {:?}",
-                            self.summarize().await,
-                            RelativeLocation::from(Location::caller()),
-                            dir
-                        ))
+                    Err(e).context(format!("Encountered validation error after successful invocation of `{}`\ncalled by \"{}\"\ndumped to {:?}",
+                                self.summarize().await,
+                                RelativeLocation::from(caller),
+                                dir
+                            ))
                 }
             },
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
                 Err(eyre::Error::new(e).wrap_err(format!(
-                    "deserializing {} failed, called by `{}`, dumped to {:?}",
+                    "deserializing `{}` failed\ncalled by \"{}\"\ndumped to {:?}",
                     self.summarize().await,
-                    RelativeLocation::from(Location::caller()),
+                    RelativeLocation::from(caller),
                     dir
                 )))
             }

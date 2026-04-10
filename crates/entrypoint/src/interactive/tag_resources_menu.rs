@@ -36,6 +36,7 @@ pub async fn tag_resources_menu(tenant_id: AzureTenantId) -> eyre::Result<()> {
             value: r,
         }))?;
     let resource_tags = get_tags_for_resources(
+        tenant_id,
         resources
             .into_iter()
             .map(|r: Resource| ResourceTagsId::from_scope(&r))
@@ -45,6 +46,7 @@ pub async fn tag_resources_menu(tenant_id: AzureTenantId) -> eyre::Result<()> {
     let tag_key = prompt_line("Enter tag key: ").await?;
     let tag_value = prompt_line("Enter tag value: ").await?;
     let result = replace_tags_for_resources(
+        tenant_id,
         resource_tags
             .into_iter()
             .map(|(id, mut tags)| {

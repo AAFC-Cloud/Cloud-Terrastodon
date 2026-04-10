@@ -36,6 +36,9 @@
 - Add `ct az policy definition list --name {} --param-name {}` args
 - Add `ct az policy assignment list --name {}` arg
 - Add `ct az policy set-definition list --name {}` arg
+- Add tenant id field to azure batch request objects
+- Add better caller tracking for batch request async invoke fns
+- Add better caller tracking for command with validation async run fns
 
 # v0.34.0
 

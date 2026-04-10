@@ -1,5 +1,28 @@
 # TODO
 
+## Policy definition and set definition properties type
+
+Currently we are flattening the properties in the type when the properties struct should be a separate type.
+
+[text](crates/azure_types/src/policy_definition.rs)
+[text](crates/azure/src/policy_definitions.rs)
+
+[can finish this test once changed](crates/azure_types/tests/policy_compliance_evaluation_test_tags.rs)
+
+## Access token reauth
+
+`az account get-access-token` will do a reauth flow which we don't want, so need to read the tokens beforehand to determine if they are valid and if not bail. we can maybe track the latest login time from `ct tenant login` or read the tokens directly.
+
+verification command:
+
+cloud_terrastodon.exe rest --method GET --url https://graph.microsoft.com/v1.0/organization --tenant ssc
+
+will do login flow if the `az login` has expired but it won't actually refresh the cred properly.
+
+## Relative Location
+
+Audit for cloud_terrastodon_relative_location usage, and identify spots where Location is used without RelativeLocation that we should fix.
+
 ## Subscription Name
 
 - Add subscription name to resources with subscription id like resource groups

@@ -3,6 +3,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
+use eyre::bail;
 use std::path::PathBuf;
 use tracing::warn;
 
@@ -30,6 +31,15 @@ pub async fn is_logged_in() -> bool {
 }
 
 pub async fn login() -> Result<()> {
+    if std::env::var("CLOUD_TERRASTODON_REAUTH")
+        .unwrap_or_default()
+        .to_uppercase()
+        == "DENY"
+    {
+        bail!(
+            "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
+        )
+    }
     warn!("Refreshing credential, user action required in a moment...");
     CommandBuilder::new(CommandKind::AzureCLI)
         .args(["login"])

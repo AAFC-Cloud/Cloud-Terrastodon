@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::ops::Deref;
 
@@ -19,11 +20,11 @@ impl Deref for AzurePolicyDefinitionParametersSupplied {
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AzurePolicyDefinitionParametersSuppliedValue {
-    pub value: String,
+    pub value: Value,
 }
 impl<V> From<V> for AzurePolicyDefinitionParametersSuppliedValue
 where
-    V: Into<String>,
+    V: Into<Value>,
 {
     fn from(value: V) -> Self {
         AzurePolicyDefinitionParametersSuppliedValue {

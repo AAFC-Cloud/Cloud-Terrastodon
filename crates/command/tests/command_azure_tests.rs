@@ -6,6 +6,7 @@ use cloud_terrastodon_command::CommandOutput;
 use cloud_terrastodon_command::RetryBehaviour;
 use eyre::Context;
 use eyre::Result;
+use eyre::bail;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
@@ -151,6 +152,15 @@ async fn user() -> Result<()> {
 #[tokio::test]
 #[ignore]
 async fn login() -> Result<()> {
+    if std::env::var("CLOUD_TERRASTODON_REAUTH")
+        .unwrap_or_default()
+        .to_uppercase()
+        == "DENY"
+    {
+        bail!(
+            "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
+        )
+    }
     let result = CommandBuilder::new(CommandKind::AzureCLI)
         .args(["login"])
         .run_raw()

@@ -67,7 +67,7 @@ impl AzureTagForCleanupArgs {
         }
 
         info!(?tags_to_merge, "Executing tag modifications");
-        merge_tags_for_resources(updates).await?;
+        merge_tags_for_resources(tenant_id, updates).await?;
 
         Ok(())
     }

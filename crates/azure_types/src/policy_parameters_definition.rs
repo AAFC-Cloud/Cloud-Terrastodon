@@ -24,5 +24,6 @@ pub struct AzurePolicyDefinitionParametersDefinitionValue {
     pub default_value: Option<serde_json::Value>,  // todo: harden this
     pub metadata: Option<serde_json::Value>,       // todo: harden this
     pub schema: Option<serde_json::Value>,         // todo: harden this
+    #[serde(rename = "type")]
     pub r#type: String,
 }

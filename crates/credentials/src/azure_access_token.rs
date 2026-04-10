@@ -62,6 +62,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[ignore] // todo: remove, deprecate in favour of get_azure_devops_personal_access_token_from_credential_manager
     pub async fn it_works_projects() -> eyre::Result<()> {
         // this endpoint only works with the `az account get-access-token`, not with a raw PAT
         let url = "https://dev.azure.com/aafc/_apis/projects?api-version=7.1";
@@ -76,7 +77,13 @@ mod test {
 
         let content = resp.text().await?;
 
-        assert_eq!(200, status.as_u16(), "{:?}", status.canonical_reason());
+        assert_eq!(
+            200,
+            status.as_u16(),
+            "{} - {:?}",
+            status.as_u16(),
+            status.canonical_reason()
+        );
         let parsed = serde_json::from_str::<Value>(&content)?;
         assert!(parsed.is_object());
         Ok(())

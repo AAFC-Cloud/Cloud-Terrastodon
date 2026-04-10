@@ -1,3 +1,4 @@
+use crate::AzureTenantId;
 use crate::BatchRequest;
 use crate::BatchRequestEntry;
 use chrono::Datelike;
@@ -14,6 +15,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 pub async fn fetch_metrics(
+    tenant_id: AzureTenantId,
     resource_ids: impl IntoIterator<Item = impl AsScope>,
 ) -> eyre::Result<Metrics> {
     let mut batch_request = BatchRequest::new();
@@ -31,7 +33,9 @@ pub async fn fetch_metrics(
             begin.to_rfc3339_opts(SecondsFormat::Secs, true),
             end.to_rfc3339_opts(SecondsFormat::Secs, true)
         );
-        batch_request.requests.push(BatchRequestEntry::new_get(url));
+        batch_request
+            .requests
+            .push(BatchRequestEntry::new_get(tenant_id, url));
     }
     info!(
         "Fetching metrics for {} resources",
@@ -62,8 +66,9 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
         let resources = fetch_all_storage_accounts(get_test_tenant_id().await?).await?;
+        let tenant_id = get_test_tenant_id().await?;
         let resources = resources.iter().take(3);
-        let _metrics = fetch_metrics(resources).await?;
+        let _metrics = fetch_metrics(tenant_id, resources).await?;
         Ok(())
     }
 }

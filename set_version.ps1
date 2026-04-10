@@ -41,7 +41,7 @@ $cargoTomlContent = Get-Content $cargoTomlPath -Raw
 $patternRoot = '"\d+\.\d+\.\d+"(\s*#\s*CT_VERSION)'
 $replacementRoot = '"' + $newVersion + '"$1'
 $updatedCargoTomlContent = $cargoTomlContent -replace $patternRoot, $replacementRoot
-Set-Content -Path $cargoTomlPath -Value $updatedCargoTomlContent
+Set-Content -Path $cargoTomlPath -Value ($updatedCargoTomlContent.Trim() + "`n") -NoNewLine
 Write-Host "Updated root Cargo.toml to version $newVersion"
 
 # Update all crates' Cargo.toml files
@@ -54,7 +54,7 @@ Get-ChildItem -Path $cratesDir -Directory | ForEach-Object {
         $patternCrate = '(?m)^(version\s*=\s*)"\d+\.\d+\.\d+"(\s*#\s*CT_VERSION)'
         $replacementCrate = '$1"' + $newVersion + '"$2'
         $updatedCrateContent = $crateContent -replace $patternCrate, $replacementCrate
-        Set-Content -Path $crateTomlPath -Value $updatedCrateContent
+        Set-Content -Path $crateTomlPath -Value ($updatedCrateContent.Trim() + "`n") -NoNewLine
         Write-Host "Updated $crateTomlPath to version $newVersion"
     }
 }

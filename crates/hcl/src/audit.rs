@@ -112,13 +112,13 @@ pub async fn audit(source_dir: &Path) -> eyre::Result<()> {
             let satisfies = provider.version.is_satisfied_by(latest_version);
             if !satisfies {
                 warn!(
-                    "Provider `{key}` version `{}` does not satisfy the latest version `{}`. Please update your configuration.",
+                    "Provider `{key}` version \"{}\" does not satisfy the latest version \"{}\". Please update your configuration.",
                     provider.version, latest_version
                 );
                 warned = true;
             } else {
                 info!(
-                    "Provider `{key}` version `{}` satisfies the latest version `{}`.",
+                    "Provider `{key}` version \"{}\" satisfies the latest version \"{}\".",
                     provider.version, latest_version
                 );
             }

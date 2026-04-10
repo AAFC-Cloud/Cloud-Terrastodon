@@ -53,6 +53,7 @@ ResourceContainers
     let tag_value = "ThisResourceContainerIsEmpty";
     info!("Adding tag {}={} to each", tag_key, tag_value);
     let result = replace_tags_for_resources(
+        tenant_id,
         empty_resource_groups
             .into_iter()
             .map(|mut rg| {

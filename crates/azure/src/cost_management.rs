@@ -15,7 +15,16 @@ pub async fn fetch_cost_query_results(
         root.tenant_id
     );
     let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-    cmd.args(["rest", "--method", "post", "--url", url.as_ref(), "--body"]);
+    cmd.args([
+        "rest",
+        "--method",
+        "post",
+        "--url",
+        url.as_ref(),
+        "--tenant",
+        tenant_id.to_string().as_ref(),
+        "--body",
+    ]);
     cmd.azure_file_arg("body.json", serde_json::to_string_pretty(query)?);
     let resp = cmd.run::<CostManagementQueryResult>().await?;
     Ok(resp)

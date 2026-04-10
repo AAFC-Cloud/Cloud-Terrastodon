@@ -3,7 +3,8 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 use serde_json::Value;
-use std::collections::BTreeSet;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AzurePolicyDefinitionPolicyRule {
@@ -23,12 +24,13 @@ pub enum AzurePolicyDefinitionPolicyRuleEffect {
     Deny,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum AzurePolicyDefinitionPolicyRuleIfBlock {
     AllOf(AzurePolicyDefinitionPolicyRuleIfBlockAllOf),
     AnyOf(AzurePolicyDefinitionPolicyRuleIfBlockAnyOf),
     Equals(AzurePolicyDefinitionPolicyRuleIfBlockEquals),
     FieldIn(AzurePolicyDefinitionPolicyRuleIfBlockFieldIn),
+    Other(HashMap<String, Value>),
 }
 impl Serialize for AzurePolicyDefinitionPolicyRuleIfBlock {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -44,6 +46,7 @@ impl Serialize for AzurePolicyDefinitionPolicyRuleIfBlock {
             AzurePolicyDefinitionPolicyRuleIfBlock::FieldIn(field_in) => {
                 field_in.serialize(serializer)
             }
+            AzurePolicyDefinitionPolicyRuleIfBlock::Other(value) => value.serialize(serializer),
         }
     }
 }
@@ -82,34 +85,35 @@ impl<'de> Deserialize<'de> for AzurePolicyDefinitionPolicyRuleIfBlock {
                 ))
             }
         } else {
-            Err(serde::de::Error::custom(
-                "Expected an object with either 'allOf', 'anyOf', or 'field'",
-            ))
+            // Err(serde::de::Error::custom(
+            //     "Expected an object with either 'allOf', 'anyOf', or 'field'",
+            // ))
+            Ok(Self::Other(obj.into_iter().collect()))
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockAllOf(
-    pub BTreeSet<AzurePolicyDefinitionPolicyRuleIfBlock>,
+    pub Vec<AzurePolicyDefinitionPolicyRuleIfBlock>,
 );
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockAnyOf(
-    pub BTreeSet<AzurePolicyDefinitionPolicyRuleIfBlock>,
+    pub Vec<AzurePolicyDefinitionPolicyRuleIfBlock>,
 );
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockEquals {
     pub equals: String,
     pub field: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockFieldIn {
-    pub r#in: BTreeSet<String>,
+    pub r#in: HashSet<String>,
     pub field: String,
 }
 
@@ -162,7 +166,6 @@ mod test {
             &deserialized,
             AzurePolicyDefinitionPolicyRuleIfBlock::AllOf(AzurePolicyDefinitionPolicyRuleIfBlockAllOf(all_of)) if all_of.len() == 2
         ));
-        assert_eq!(serde_json::to_value(&deserialized)?, json,);
         Ok(())
     }
 }

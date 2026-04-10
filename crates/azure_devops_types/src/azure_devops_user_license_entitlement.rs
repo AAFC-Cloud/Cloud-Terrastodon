@@ -12,6 +12,7 @@ use serde::Serialize;
 pub enum AzureDevOpsLicenseEntitlementStatus {
     Active,
     Pending,
+    Disabled,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

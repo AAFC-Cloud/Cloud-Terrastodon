@@ -1,9 +1,11 @@
+use crate::AzurePolicyDefinitionParametersDefinition;
 use crate::AzurePolicyDefinitionParametersSupplied;
 use crate::PolicyDefinitionId;
 use crate::PolicySetDefinitionId;
 use crate::PolicySetDefinitionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use crate::serde_helpers::deserialize_default_if_null;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -11,8 +13,6 @@ use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::Value;
-use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicySetDefinitionPolicyDefinitionGroup {
@@ -28,6 +28,8 @@ pub struct PolicySetDefinitionPolicyDefinitionGroup {
 pub struct PolicySetDefinitionPolicyDefinition {
     #[serde(rename = "groupNames")]
     pub group_names: Option<Vec<String>>,
+    /// The policy definitions in a policy set can have their parameters supplied with fixed values.
+    #[serde(deserialize_with = "deserialize_default_if_null")]
     pub parameters: AzurePolicyDefinitionParametersSupplied,
     #[serde(rename = "policyDefinitionId")]
     pub policy_definition_id: PolicyDefinitionId,
@@ -41,7 +43,10 @@ pub struct PolicySetDefinition {
     pub name: PolicySetDefinitionName,
     pub display_name: Option<String>,
     pub description: Option<String>,
-    pub parameters: Option<HashMap<String, Value>>,
+    /// Policy set definitions can declare their own parameters, which can be supplied when assigning the policy set definition.
+    /// These parameters are separate from the parameters of the individual policy definitions referenced by the policy set definition.
+    #[serde(deserialize_with = "deserialize_default_if_null")]
+    pub parameters: AzurePolicyDefinitionParametersDefinition,
     pub policy_definitions: Option<Vec<PolicySetDefinitionPolicyDefinition>>,
     pub policy_definition_groups: Option<Vec<PolicySetDefinitionPolicyDefinitionGroup>>,
     pub policy_type: String, // TODO: create enum

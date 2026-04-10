@@ -1,3 +1,4 @@
+use crate::AzureTenantId;
 use crate::BatchRequest;
 use crate::BatchRequestEntry;
 use crate::BatchResponse;
@@ -33,13 +34,16 @@ impl TagContent {
 }
 
 pub async fn get_tags_for_resources(
+    tenant_id: AzureTenantId,
     resource_ids: Vec<ResourceTagsId>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
     let batch = BatchRequest {
         requests: resource_ids
             .into_iter()
-            .map(|id| BatchRequestEntry::new_get(format!("{}{}", id.expanded_form(), url_tail)))
+            .map(|id| {
+                BatchRequestEntry::new_get(tenant_id, format!("{}{}", id.expanded_form(), url_tail))
+            })
             .collect_vec(),
     };
     let resp = invoke_batch_request::<_, TagContent>(&batch).await?;
@@ -49,6 +53,7 @@ pub async fn get_tags_for_resources(
 
 /// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn replace_tags_for_resources(
+    tenant_id: AzureTenantId,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
@@ -57,6 +62,7 @@ pub async fn replace_tags_for_resources(
             .into_iter()
             .map(|(resource_id, tags)| {
                 BatchRequestEntry::new(
+                    tenant_id,
                     Method::PATCH,
                     format!("{}{}", resource_id.expanded_form(), url_tail),
                     Some(json!({
@@ -76,6 +82,7 @@ pub async fn replace_tags_for_resources(
 
 /// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn merge_tags_for_resources(
+    tenant_id: AzureTenantId,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
@@ -84,6 +91,7 @@ pub async fn merge_tags_for_resources(
             .into_iter()
             .map(|(resource_id, tags)| {
                 BatchRequestEntry::new(
+                    tenant_id,
                     Method::PATCH,
                     format!("{}{}", resource_id.expanded_form(), url_tail),
                     Some(json!({
@@ -103,6 +111,7 @@ pub async fn merge_tags_for_resources(
 
 /// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn delete_tags_for_resources(
+    tenant_id: AzureTenantId,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
@@ -111,6 +120,7 @@ pub async fn delete_tags_for_resources(
             .into_iter()
             .map(|(resource_id, tags)| {
                 BatchRequestEntry::new(
+                    tenant_id,
                     Method::PATCH,
                     format!("{}{}", resource_id.expanded_form(), url_tail),
                     Some(json!({
@@ -150,6 +160,7 @@ mod tests {
         let tenant_id = get_test_tenant_id().await?;
         let resource_groups = fetch_all_resource_groups(tenant_id).await?;
         let tags = get_tags_for_resources(
+            tenant_id,
             resource_groups
                 .iter()
                 .take(5)

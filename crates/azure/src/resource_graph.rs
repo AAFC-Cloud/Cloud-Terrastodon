@@ -4,6 +4,8 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_relative_location::RelativeLocation;
+use eyre::Context;
 use eyre::Result;
 #[cfg(debug_assertions)]
 use eyre::bail;
@@ -11,6 +13,8 @@ use serde::Deserialize;
 use serde::Serialize;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
+use std::future::Future;
+use std::panic::Location;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -85,98 +89,131 @@ impl ResourceGraphHelper {
         cmd
     }
 
-    pub async fn fetch<T: FromCommandOutput>(
+    #[track_caller]
+    pub fn fetch<T: FromCommandOutput>(
         &mut self,
-    ) -> Result<Option<ResourceGraphQueryResponse<T>>> {
-        #[cfg(debug_assertions)]
-        if let Some((_, token)) = &self.skip
-            && !self.seen_skip_tokens.insert(token.to_owned())
-        {
-            bail!("Saw the same skip token twice, infinite loop detected");
-        }
-
-        // Previously tried using `az graph query` but hit issues with scopes.
-        // We use the REST endpoint so we can pass authorizationScopeFilter.
-        let batch_size = 1000;
-        let (skip, skip_token) = match &self.skip {
-            Some((skip, token)) => (*skip, Some(token.to_owned())),
-            None => (0u64, None),
-        };
-        let body = serde_json::to_string_pretty(&ResourceGraphQueryRestBody {
-            query: self.query.to_string(),
-            options: ResourceGraphQueryRestOptions {
-                skip,
-                top: batch_size,
-                skip_token,
-                authorization_scope_filter:
-                    ResourceGraphQueryRestScopeFilterOption::AtScopeAboveAndBelow,
-                result_format: QueryRestResultFormat::Table,
-            },
-        })?;
-        let mut cmd = self.get_command(body);
-
-        // Set up caching
-        if let Some(CacheKey {
-            ref path,
-            ref valid_for,
-        }) = self.cache_behaviour
-        {
-            cmd.cache(CacheKey {
-                path: path.join(self.index.to_string()),
-                valid_for: *valid_for,
-            });
-        }
-
-        debug!(
-            batch_index=self.index,
-            batch_size,
-            skip,
-            ?self.tenant_id,
-            ?self.cache_behaviour,
-            "Fetching resource graph batch",
-        );
-
-        // Run command
-        // TODO: handle throttling
-        // https://learn.microsoft.com/en-us/azure/governance/resource-graph/overview#throttling
-        // https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/guidance-for-throttled-requests
-        let results = cmd.run::<ResourceGraphQueryResponse<T>>().await?;
-
-        // Increment index for the next potential query
-        self.index += 1;
-
-        // Update skip token
-        if let Some(skip_token) = &results.skip_token {
-            self.skip
-                .replace((skip + results.count, skip_token.to_owned()));
-        } else {
-            self.skip.clone_from(&None);
-        }
-
-        // // Transform results
-        // let results: QueryResponse<T> = results.try_into()?;
-
-        Ok(Some(results))
+    ) -> impl Future<Output = Result<Option<ResourceGraphQueryResponse<T>>>> + '_ {
+        self.fetch_from(Location::caller())
     }
 
-    pub async fn collect_all<T: FromCommandOutput>(&mut self) -> Result<Vec<T>> {
-        let mut all_data = Vec::new();
-        while let Some(response) = self.fetch().await? {
-            all_data.extend(response.data);
-
-            if self.skip.is_none() {
-                break;
+    async fn fetch_from<T: FromCommandOutput>(
+        &mut self,
+        caller: &'static Location<'static>,
+    ) -> Result<Option<ResourceGraphQueryResponse<T>>> {
+        async {
+            #[cfg(debug_assertions)]
+            if let Some((_, token)) = &self.skip
+                && !self.seen_skip_tokens.insert(token.to_owned())
+            {
+                bail!("Saw the same skip token twice, infinite loop detected");
             }
+
+            // Previously tried using `az graph query` but hit issues with scopes.
+            // We use the REST endpoint so we can pass authorizationScopeFilter.
+            let batch_size = 1000;
+            let (skip, skip_token) = match &self.skip {
+                Some((skip, token)) => (*skip, Some(token.to_owned())),
+                None => (0u64, None),
+            };
+            let body = serde_json::to_string_pretty(&ResourceGraphQueryRestBody {
+                query: self.query.to_string(),
+                options: ResourceGraphQueryRestOptions {
+                    skip,
+                    top: batch_size,
+                    skip_token,
+                    authorization_scope_filter:
+                        ResourceGraphQueryRestScopeFilterOption::AtScopeAboveAndBelow,
+                    result_format: QueryRestResultFormat::Table,
+                },
+            })?;
+            let mut cmd = self.get_command(body);
+
+            // Set up caching
+            if let Some(CacheKey {
+                ref path,
+                ref valid_for,
+            }) = self.cache_behaviour
+            {
+                cmd.cache(CacheKey {
+                    path: path.join(self.index.to_string()),
+                    valid_for: *valid_for,
+                });
+            }
+
+            debug!(
+                batch_index=self.index,
+                batch_size,
+                skip,
+                ?self.tenant_id,
+                ?self.cache_behaviour,
+                "Fetching resource graph batch",
+            );
+
+            // Run command
+            // TODO: handle throttling
+            // https://learn.microsoft.com/en-us/azure/governance/resource-graph/overview#throttling
+            // https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/guidance-for-throttled-requests
+            let results = cmd.run::<ResourceGraphQueryResponse<T>>().await?;
+
+            // Increment index for the next potential query
+            self.index += 1;
+
+            // Update skip token
+            if let Some(skip_token) = &results.skip_token {
+                self.skip
+                    .replace((skip + results.count, skip_token.to_owned()));
+            } else {
+                self.skip.clone_from(&None);
+            }
+
+            // // Transform results
+            // let results: QueryResponse<T> = results.try_into()?;
+
+            Ok(Some(results))
         }
+        .await
+        .wrap_err(format!(
+            "ResourceGraphHelper::fetch failed, called from {}",
+            RelativeLocation::from(caller)
+        ))
+    }
 
-        debug!(
-            total_items=all_data.len(),
-            ?self.tenant_id,
-            ?self.cache_behaviour,
-            "Completed fetching all resource graph data",
-        );
+    #[track_caller]
+    pub fn collect_all<T: FromCommandOutput>(
+        &mut self,
+    ) -> impl Future<Output = Result<Vec<T>>> + '_ {
+        self.collect_all_from(Location::caller())
+    }
 
-        Ok(all_data)
+    async fn collect_all_from<T: FromCommandOutput>(
+        &mut self,
+        caller: &'static Location<'static>,
+    ) -> Result<Vec<T>> {
+        let result: Result<Vec<T>> = async {
+            let mut all_data = Vec::new();
+            while let Some(response) = self.fetch_from(caller).await? {
+                all_data.extend(response.data);
+
+                if self.skip.is_none() {
+                    break;
+                }
+            }
+
+            debug!(
+                total_items=all_data.len(),
+                ?self.tenant_id,
+                ?self.cache_behaviour,
+                "Completed fetching all resource graph data",
+            );
+
+            Ok(all_data)
+        }
+        .await;
+
+        result.wrap_err(format!(
+            "ResourceGraphHelper::collect_all failed, called from {}",
+            RelativeLocation::from(caller)
+        ))
     }
 }
 
