@@ -71,12 +71,12 @@ impl From<PolicyDefinition> for HclImportBlock {
 impl PolicyDefinition {
     pub fn evaluate_compliance(
         &self,
-        parameters: &AzurePolicyDefinitionParametersSupplied,
+        _parameters: &AzurePolicyDefinitionParametersSupplied,
         resource: &impl Serialize,
     ) -> eyre::Result<()> {
         // Ensure all parameters are present
         // Convert the resource to JSON value
-        let json = serde_json::to_value(resource)?;
+        let _json = serde_json::to_value(resource)?;
 
         todo!();
     }
