@@ -1,7 +1,10 @@
+use crate::AzurePolicyDefinitionParametersDefinition;
+use crate::AzurePolicyDefinitionParametersSupplied;
 use crate::PolicyDefinitionId;
 use crate::PolicyDefinitionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use crate::serde_helpers::deserialize_default_if_null;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -9,8 +12,6 @@ use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::Value;
-use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PolicyDefinition {
@@ -19,8 +20,14 @@ pub struct PolicyDefinition {
     pub display_name: Option<String>,
     pub description: Option<String>,
     pub mode: String,
-    pub parameters: Option<HashMap<String, Value>>,
-    pub policy_rule: serde_json::Value,
+    #[serde(deserialize_with = "deserialize_default_if_null")]
+    pub parameters: AzurePolicyDefinitionParametersDefinition,
+    pub policy_rule: serde_json::Value, // todo: strong type this!
+                                        // todo: strong type this!
+                                        // todo: strong type this!
+                                        // todo: strong type this!
+                                        // todo: strong type this!
+                                        // todo: strong type this!
     pub policy_type: String,
     pub version: String,
 }
@@ -61,6 +68,20 @@ impl From<PolicyDefinition> for HclImportBlock {
     }
 }
 
+impl PolicyDefinition {
+    pub fn evaluate_compliance(
+        &self,
+        parameters: &AzurePolicyDefinitionParametersSupplied,
+        resource: &impl Serialize,
+    ) -> eyre::Result<()> {
+        // Ensure all parameters are present
+        // Convert the resource to JSON value
+        let json = serde_json::to_value(resource)?;
+
+        todo!();
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::PolicyDefinition;
@@ -86,8 +107,8 @@ mod test {
                     display_name: Some(format!("Policy Definition {}", i)),
                     description: Some(format!("This is policy definition number {}", i)),
                     mode: "All".to_string(),
-                    parameters: None,
-                    policy_rule: serde_json::json!({}),
+                    parameters: Default::default(),
+                    policy_rule: Default::default(),
                     policy_type: "Custom".to_string(),
                     version: "1.0".to_string(),
                 }

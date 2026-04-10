@@ -1,4 +1,5 @@
 use crate::AzureLocationName;
+use crate::AzurePolicyDefinitionParametersSupplied;
 use crate::PolicyAssignmentId;
 use crate::PolicyAssignmentName;
 use crate::PolicyDefinitionIdReference;
@@ -42,7 +43,8 @@ pub struct PolicyAssignmentProperties {
     pub display_name: CompactString,
     #[serde(deserialize_with = "deserialize_default_if_null")]
     pub description: CompactString,
-    pub parameters: Option<Value>,
+    #[serde(deserialize_with = "deserialize_default_if_null")]
+    pub parameters: AzurePolicyDefinitionParametersSupplied,
     #[serde(deserialize_with = "deserialize_default_if_null")]
     pub not_scopes: Vec<String>,
     pub metadata: PolicyAssignmentMetadata,
@@ -104,16 +106,5 @@ impl From<PolicyAssignment> for HclImportBlock {
                 name: policy_assignment.id.expanded_form().sanitize(),
             },
         }
-    }
-}
-
-impl PolicyAssignment {
-    pub async fn evaluate_compliance(&self, resource: &impl Serialize) -> eyre::Result<()> {
-        // Ensure all parameters are present
-        // Convert the resource to JSON value
-        let json = serde_json::to_value(resource)?;
-        
-        todo!();
-
     }
 }

@@ -1,3 +1,4 @@
+use crate::AzurePolicyDefinitionParametersSupplied;
 use crate::PolicyDefinitionId;
 use crate::PolicySetDefinitionId;
 use crate::PolicySetDefinitionName;
@@ -27,7 +28,7 @@ pub struct PolicySetDefinitionPolicyDefinitionGroup {
 pub struct PolicySetDefinitionPolicyDefinition {
     #[serde(rename = "groupNames")]
     pub group_names: Option<Vec<String>>,
-    pub parameters: Value,
+    pub parameters: AzurePolicyDefinitionParametersSupplied,
     #[serde(rename = "policyDefinitionId")]
     pub policy_definition_id: PolicyDefinitionId,
     #[serde(rename = "policyDefinitionReferenceId")]

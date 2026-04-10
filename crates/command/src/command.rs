@@ -572,6 +572,9 @@ impl CommandBuilder {
 
                             // Perform login command
                             // (avoid using azure crate to avoid a dependency)
+                            // This could maybe be moved to cloud_terrastodon_credentials
+                            // We could also try and extract `--tenant {}` from args
+                            // or just make the tenant id be explicitly set for CommandBuilder
                             let tenant_id = CommandBuilder::new(CommandKind::AzureCLI)
                                 .args([
                                     "account",
