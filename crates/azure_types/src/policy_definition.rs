@@ -23,11 +23,11 @@ pub struct PolicyDefinition {
     #[serde(deserialize_with = "deserialize_default_if_null")]
     pub parameters: AzurePolicyDefinitionParametersDefinition,
     pub policy_rule: serde_json::Value, // todo: strong type this!
-                                        // todo: strong type this!
-                                        // todo: strong type this!
-                                        // todo: strong type this!
-                                        // todo: strong type this!
-                                        // todo: strong type this!
+    // todo: strong type this!
+    // todo: strong type this!
+    // todo: strong type this!
+    // todo: strong type this!
+    // todo: strong type this!
     pub policy_type: String,
     pub version: String,
 }

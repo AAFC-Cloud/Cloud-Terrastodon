@@ -1,12 +1,21 @@
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashMap;
-
-use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Default)]
 #[serde(transparent)]
 pub struct AzurePolicyDefinitionParametersSupplied(
     pub HashMap<String, AzurePolicyDefinitionParametersSuppliedValue>,
 );
+
+impl Deref for AzurePolicyDefinitionParametersSupplied {
+    type Target = HashMap<String, AzurePolicyDefinitionParametersSuppliedValue>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AzurePolicyDefinitionParametersSuppliedValue {
@@ -32,13 +41,14 @@ where
     ///
     /// If the iterator produces any pairs with equal keys,
     /// all but one of the corresponding values will be dropped.
-    fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> AzurePolicyDefinitionParametersSupplied{
+    fn from_iter<T: IntoIterator<Item = (K, V)>>(
+        iter: T,
+    ) -> AzurePolicyDefinitionParametersSupplied {
         let mut map = HashMap::with_hasher(Default::default());
         map.extend(iter.into_iter().map(|(k, v)| (k.into(), v.into())));
         AzurePolicyDefinitionParametersSupplied(map)
     }
 }
-
 
 impl<K, V, const N: usize> From<[(K, V); N]> for AzurePolicyDefinitionParametersSupplied
 where

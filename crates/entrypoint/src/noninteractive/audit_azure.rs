@@ -184,7 +184,6 @@ pub async fn audit_azure(tenant_id: AzureTenantId) -> eyre::Result<()> {
     }
 
     // Audit resource groups that are missing mandatory tags (TODO)
-    
 
     // Emit summary
     if total_problems > 0 {

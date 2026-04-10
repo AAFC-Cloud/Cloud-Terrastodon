@@ -17,7 +17,10 @@ pub async fn browse_application_registrations(tenant_id: AzureTenantId) -> Resul
             ),
             value: application,
         }))?;
-    info!(count = applications.len(), "You chose application registrations");
+    info!(
+        count = applications.len(),
+        "You chose application registrations"
+    );
     for application in applications {
         println!(
             "- {} {:64} {}",

@@ -24,7 +24,10 @@ impl AzureEntraApplicationRegistrationShowArgs {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.application_registration, %tenant_id, "Fetching application registrations");
         let applications = fetch_all_application_registrations(tenant_id).await?;
-        info!(count = applications.len(), "Fetched application registrations");
+        info!(
+            count = applications.len(),
+            "Fetched application registrations"
+        );
 
         let needle = self.application_registration.trim();
         let mut matches = applications
@@ -106,6 +109,9 @@ mod tests {
         let mut application = sample_application_registration();
         application.unique_name = Some("contoso-my-app".to_string());
 
-        assert!(matches_application_registration(&application, "contoso-my-app"));
+        assert!(matches_application_registration(
+            &application,
+            "contoso-my-app"
+        ));
     }
 }

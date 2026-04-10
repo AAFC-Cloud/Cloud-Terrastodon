@@ -24,7 +24,10 @@ impl AzureEntraSpShowArgs {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.service_principal, %tenant_id, "Fetching service principals");
         let service_principals = fetch_all_service_principals(tenant_id).await?;
-        info!(count = service_principals.len(), "Fetched service principals");
+        info!(
+            count = service_principals.len(),
+            "Fetched service principals"
+        );
 
         let needle = self.service_principal.trim();
         let mut matches = service_principals
@@ -92,7 +95,10 @@ mod tests {
         let mut service_principal = sample_service_principal();
         service_principal.service_principal_names = vec!["api://graph-client".to_string()];
 
-        assert!(matches_service_principal(&service_principal, "api://graph-client"));
+        assert!(matches_service_principal(
+            &service_principal,
+            "api://graph-client"
+        ));
     }
 
     #[test]
