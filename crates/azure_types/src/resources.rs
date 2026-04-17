@@ -14,6 +14,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -121,20 +122,28 @@ pub struct Resource {
     pub id: ScopeImpl,
     pub kind: ResourceType,
     pub name: String,
-    pub display_name: Option<String>,
     #[serde(deserialize_with = "deserialize_default_if_null")]
     #[serde(default)]
     pub tags: HashMap<String, String>,
+    #[serde(deserialize_with = "deserialize_default_if_null")]
+    #[serde(default)]
+    pub properties: HashMap<String, Value>,
 }
 impl AsScope for Resource {
     fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
+impl Resource {
+    #[must_use]
+    pub fn display_name(&self) -> Option<&str> {
+        self.properties.get("displayName")?.as_str()
+    }
+}
 impl std::fmt::Display for Resource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.display_name {
-            Some(ref display_name) => f.write_fmt(format_args!(
+        match self.display_name() {
+            Some(display_name) => f.write_fmt(format_args!(
                 "{:64} {:63} {}",
                 display_name, self.name, self.id
             )),
@@ -152,6 +161,7 @@ mod test {
     use crate::scopes::Scope;
     use crate::slug::Slug;
     use cloud_terrastodon_azure_resource_types::ResourceType;
+    use serde_json::json;
     use uuid::Uuid;
 
     #[test]
@@ -172,6 +182,58 @@ mod test {
                 nil = Uuid::nil()
             )
         );
+        Ok(())
+    }
+
+    #[test]
+    fn deserializes_resource_properties() -> eyre::Result<()> {
+        let resource: crate::Resource = serde_json::from_value(json!({
+            "id": format!(
+                "/subscriptions/{nil}/resourceGroups/my-rg/providers/Microsoft.Network/publicIPAddresses/my-ip",
+                nil = Uuid::nil()
+            ),
+            "kind": "Microsoft.Network/publicIPAddresses",
+            "name": "my-ip",
+            "properties": {
+                "displayName": "My IP",
+                "provisioningState": "Succeeded",
+                "ipAddress": "203.0.113.10"
+            },
+            "tags": {
+                "env": "test"
+            }
+        }))?;
+
+        assert_eq!(resource.display_name(), Some("My IP"));
+        assert_eq!(
+            resource.properties.get("provisioningState"),
+            Some(&json!("Succeeded"))
+        );
+        assert_eq!(
+            resource.properties.get("ipAddress"),
+            Some(&json!("203.0.113.10"))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn deserializes_null_properties_to_empty_map() -> eyre::Result<()> {
+        let resource: crate::Resource = serde_json::from_value(json!({
+            "id": format!(
+                "/subscriptions/{nil}/resourceGroups/my-rg/providers/Contoso.Widgets/widgets/my-widget",
+                nil = Uuid::nil()
+            ),
+            "kind": "Contoso.Widgets/widgets",
+            "name": "my-widget",
+            "properties": null,
+            "tags": null
+        }))?;
+
+        assert_eq!(resource.display_name(), None);
+        assert!(resource.properties.is_empty());
+        assert!(resource.tags.is_empty());
+
         Ok(())
     }
 }

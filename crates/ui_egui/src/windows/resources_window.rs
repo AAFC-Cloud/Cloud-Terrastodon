@@ -73,7 +73,7 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
                             ui.label(r.kind.as_ref());
                         });
                         row.col(|ui| {
-                            if let Some(ref d) = r.display_name {
+                            if let Some(d) = r.display_name() {
                                 ui.label(d);
                             } else {
                                 ui.label("");

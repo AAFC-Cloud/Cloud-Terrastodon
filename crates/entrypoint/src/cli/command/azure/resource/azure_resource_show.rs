@@ -41,11 +41,7 @@ impl AzureResourceShowArgs {
             .into_iter()
             .filter(|resource| {
                 resource.name == self.resource
-                    || resource
-                        .display_name
-                        .as_ref()
-                        .map(|x| x == &self.resource)
-                        .unwrap_or(false)
+                    || resource.display_name().is_some_and(|x| x == self.resource)
             })
             .collect::<Vec<_>>();
 

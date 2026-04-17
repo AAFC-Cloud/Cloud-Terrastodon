@@ -1,4 +1,13 @@
-# v0.35.0 (PRE)
+# v0.36.0
+
+- Update `ct az resource list` to include `properties` field
+
+
+# v0.35.1
+
+- Fix ambiguous type causing compile issues
+
+# v0.35.0
 
 - Change `ct az devops agent pool list` to hide `is_hosted` pools unless `--all` specified
 - Revamp `ct pick` command to have `ct pick stdin` and `ct pick fs` subcommands

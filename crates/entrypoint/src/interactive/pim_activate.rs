@@ -175,8 +175,7 @@ pub async fn pim_activate_azurerm(tenant_id: AzureTenantId) -> Result<()> {
                 .map(|r| {
                     let key = format!(
                         "{} \"{}\"",
-                        r.display_name
-                            .as_ref()
+                        r.display_name()
                             .map(|display_name| format!("{} ({})", display_name, r.name))
                             .unwrap_or_else(|| r.name.clone()),
                         r.id.expanded_form()

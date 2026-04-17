@@ -44,8 +44,8 @@ resources
     id,
     ['kind'] = type,
     name,
-    display_name=properties.displayName,
-    tags
+    tags,
+    properties
 "#,
             Some(self.cache_key()),
         )

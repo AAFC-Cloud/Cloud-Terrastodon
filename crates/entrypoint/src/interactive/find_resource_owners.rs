@@ -102,7 +102,7 @@ impl<'a> std::fmt::Display for Clue<'a> {
                 "Tag [{}] = [{}] on [{} ({})]",
                 tag_key,
                 tag_value,
-                resource.display_name.as_ref().unwrap_or(&resource.name),
+                resource.display_name().unwrap_or(&resource.name),
                 resource.kind
             )),
             Clue::RoleAssignment {
@@ -117,7 +117,7 @@ impl<'a> std::fmt::Display for Clue<'a> {
                 principal
                     .map(|p| p.to_string())
                     .unwrap_or_else(|| role_assignment.principal_id.as_hyphenated().to_string()),
-                resource.display_name.as_ref().unwrap_or(&resource.name),
+                resource.display_name().unwrap_or(&resource.name),
                 resource.kind
             )),
             Clue::Resource { resource, .. } => {
