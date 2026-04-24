@@ -1,5 +1,6 @@
 use crate::AzureAppServiceResourceId;
 use crate::AzureApplicationGatewayResourceId;
+use crate::AzureCognitiveServicesAccountResourceId;
 use crate::AzureNetworkInterfaceResourceId;
 use crate::AzurePrivateEndpointResourceId;
 use crate::AzurePublicIpResourceId;
@@ -676,6 +677,7 @@ pub enum ScopeImplKind {
     RoleEligibilitySchedule,
     StorageAccount,
     AppServiceResource,
+    CognitiveServicesAccountResource,
     ApplicationGatewayResource,
     NetworkInterfaceResource,
     PrivateEndpointResource,
@@ -711,6 +713,7 @@ pub enum ScopeImpl {
     RoleManagementPolicy(RoleManagementPolicyId),
     StorageAccount(StorageAccountId),
     AzureAppServiceResource(AzureAppServiceResourceId),
+    AzureCognitiveServicesAccountResource(AzureCognitiveServicesAccountResourceId),
     AzureApplicationGatewayResource(AzureApplicationGatewayResourceId),
     AzureNetworkInterfaceResource(AzureNetworkInterfaceResourceId),
     AzurePrivateEndpointResource(AzurePrivateEndpointResourceId),
@@ -744,6 +747,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(id) => id.expanded_form(),
             ScopeImpl::StorageAccount(id) => id.expanded_form(),
             ScopeImpl::AzureAppServiceResource(id) => id.expanded_form(),
+            ScopeImpl::AzureCognitiveServicesAccountResource(id) => id.expanded_form(),
             ScopeImpl::AzureApplicationGatewayResource(id) => id.expanded_form(),
             ScopeImpl::AzureNetworkInterfaceResource(id) => id.expanded_form(),
             ScopeImpl::AzurePrivateEndpointResource(id) => id.expanded_form(),
@@ -777,6 +781,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::RoleManagementPolicy(id) => id.short_form(),
             ScopeImpl::StorageAccount(id) => id.short_form(),
             ScopeImpl::AzureAppServiceResource(id) => id.short_form(),
+            ScopeImpl::AzureCognitiveServicesAccountResource(id) => id.short_form(),
             ScopeImpl::AzureApplicationGatewayResource(id) => id.short_form(),
             ScopeImpl::AzureNetworkInterfaceResource(id) => id.short_form(),
             ScopeImpl::AzurePrivateEndpointResource(id) => id.short_form(),
@@ -808,6 +813,9 @@ impl Scope for ScopeImpl {
         }
         if let Ok(id) = AzureAppServiceResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::AzureAppServiceResource(id));
+        }
+        if let Ok(id) = AzureCognitiveServicesAccountResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::AzureCognitiveServicesAccountResource(id));
         }
         if let Ok(id) = AzureApplicationGatewayResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::AzureApplicationGatewayResource(id));
@@ -886,6 +894,9 @@ impl Scope for ScopeImpl {
             ScopeImpl::TestResource(_) => ScopeImplKind::Test,
             ScopeImpl::StorageAccount(_) => ScopeImplKind::StorageAccount,
             ScopeImpl::AzureAppServiceResource(_) => ScopeImplKind::AppServiceResource,
+            ScopeImpl::AzureCognitiveServicesAccountResource(_) => {
+                ScopeImplKind::CognitiveServicesAccountResource
+            }
             ScopeImpl::AzureApplicationGatewayResource(_) => {
                 ScopeImplKind::ApplicationGatewayResource
             }
@@ -964,6 +975,10 @@ impl std::fmt::Display for ScopeImpl {
             ScopeImpl::AzureAppServiceResource(x) => {
                 f.write_fmt(format_args!("AzureAppServiceResource({})", x.short_form()))
             }
+            ScopeImpl::AzureCognitiveServicesAccountResource(x) => f.write_fmt(format_args!(
+                "AzureCognitiveServicesAccountResource({})",
+                x.short_form()
+            )),
             ScopeImpl::AzureApplicationGatewayResource(x) => f.write_fmt(format_args!(
                 "AzureApplicationGatewayResource({})",
                 x.short_form()

@@ -31,7 +31,7 @@ pub async fn process_generated(tenant_id: AzureTenantId) -> Result<()> {
 
     // Determine output files
     let hcl = discover_hcl(&workspace_path, DiscoveryDepth::Shallow).await?;
-    let hcl = reflow_hcl(tenant_id, hcl).await?;
+    let hcl = reflow_hcl(tenant_id, hcl, true).await?;
 
     // Write files
     let mut error_count = 0;

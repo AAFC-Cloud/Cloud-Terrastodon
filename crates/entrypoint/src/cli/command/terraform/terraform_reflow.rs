@@ -19,6 +19,20 @@ pub struct TerraformReflowArgs {
     #[arg(long, default_value_t)]
     pub tenant: AzureTenantArgument<'static>,
 
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Run full reflow, including principal lookup and principal id comment insertion"
+    )]
+    pub full: bool,
+
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Keep obsolete files in the .trash directory instead of deleting them"
+    )]
+    pub keep_trash: bool,
+
     #[arg(default_value = ".")]
     pub source_dir: PathBuf,
     #[arg(
@@ -36,7 +50,7 @@ impl TerraformReflowArgs {
         let old_paths = hcl.keys().cloned().collect::<HashSet<_>>();
 
         info!(count = hcl.len(), "Discovered HCL files for reflowing");
-        let hcl = reflow_hcl(tenant_id, hcl).await?;
+        let hcl = reflow_hcl(tenant_id, hcl, self.full).await?;
         let new_paths = hcl.keys().cloned().collect::<HashSet<_>>();
 
         info!(count = hcl.len(), "Reflowed HCL files");
@@ -49,43 +63,48 @@ impl TerraformReflowArgs {
         }
 
         let removed_paths = old_paths.difference(&new_paths);
-        let trash_dir = self.source_dir.join(".trash");
         for path in removed_paths {
-            info!(path=%path.display(), "Removing obsolete HCL file");
-            let path_relative_to_source_dir = path.strip_prefix(&self.source_dir)?;
-            let base_new_path = trash_dir.join(path_relative_to_source_dir);
-            base_new_path.ensure_parent_dir_exists().await?;
+            if self.keep_trash {
+                let trash_dir = self.source_dir.join(".trash");
+                info!(path=%path.display(), trash_dir=%trash_dir.display(), "Moving obsolete HCL file to trash");
+                let path_relative_to_source_dir = path.strip_prefix(&self.source_dir)?;
+                let base_new_path = trash_dir.join(path_relative_to_source_dir);
+                base_new_path.ensure_parent_dir_exists().await?;
 
-            // while new path exists, suffix with a number
-            let mut candidate = base_new_path.clone();
-            if candidate.exists_async().await? {
-                let parent = candidate.parent().ok_or(eyre::eyre!(
-                    "Could not determine parent for {}",
-                    candidate.display()
-                ))?;
-                let stem = candidate
-                    .file_stem()
-                    .map(|s| s.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                let extension = candidate
-                    .extension()
-                    .map(|s| s.to_string_lossy().to_string());
-                let mut suffix = 1u32;
-                loop {
-                    let new_name = match &extension {
-                        Some(ext) => format!("{}_{}.{}", stem, suffix, ext),
-                        None => format!("{}_{}", stem, suffix),
-                    };
-                    let next_candidate = parent.join(new_name);
-                    if !next_candidate.exists_async().await? {
-                        candidate = next_candidate;
-                        break;
+                // while new path exists, suffix with a number
+                let mut candidate = base_new_path.clone();
+                if candidate.exists_async().await? {
+                    let parent = candidate.parent().ok_or(eyre::eyre!(
+                        "Could not determine parent for {}",
+                        candidate.display()
+                    ))?;
+                    let stem = candidate
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    let extension = candidate
+                        .extension()
+                        .map(|s| s.to_string_lossy().to_string());
+                    let mut suffix = 1u32;
+                    loop {
+                        let new_name = match &extension {
+                            Some(ext) => format!("{}_{}.{}", stem, suffix, ext),
+                            None => format!("{}_{}", stem, suffix),
+                        };
+                        let next_candidate = parent.join(new_name);
+                        if !next_candidate.exists_async().await? {
+                            candidate = next_candidate;
+                            break;
+                        }
+                        suffix = suffix.saturating_add(1);
                     }
-                    suffix = suffix.saturating_add(1);
                 }
-            }
 
-            tokio::fs::rename(path, candidate).await?;
+                tokio::fs::rename(path, candidate).await?;
+            } else {
+                info!(path=%path.display(), "Deleting obsolete HCL file");
+                tokio::fs::remove_file(path).await?;
+            }
         }
 
         Ok(())

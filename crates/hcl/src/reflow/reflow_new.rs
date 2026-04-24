@@ -15,17 +15,20 @@ use tracing::info;
 pub async fn reflow_hcl(
     tenant_id: AzureTenantId,
     mut hcl: HashMap<PathBuf, Body>,
+    include_principal_id_comments: bool,
 ) -> eyre::Result<HashMap<PathBuf, Body>> {
-    info!("Fetching principals");
-    let principals = fetch_all_principals(tenant_id).await?;
-    let reflowers: Vec<Box<dyn HclReflower>> = vec![
+    let mut reflowers: Vec<Box<dyn HclReflower>> = vec![
         Box::new(ReflowJsonAttributes),
         Box::new(ReflowAzureDevOpsGitRepositoryInitializationAttributes),
         Box::new(ReflowRemoveDefaultAttributes),
-        Box::new(ReflowPrincipalIdComments::new(principals)),
         Box::new(ReflowByBlockIdentifier),
         Box::new(ReflowExpressionsUseImportedResourceBlocks::default()),
     ];
+    if include_principal_id_comments {
+        info!("Fetching principals");
+        let principals = fetch_all_principals(tenant_id).await?;
+        reflowers.insert(3, Box::new(ReflowPrincipalIdComments::new(principals)));
+    }
     for mut reflower in reflowers {
         hcl = reflower.reflow(hcl).await?;
     }

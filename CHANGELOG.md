@@ -1,7 +1,9 @@
 # v0.36.0
 
 - Update `ct az resource list` to include `properties` field
-
+- Update `ct tf reflow` to have `--full` (guards principal stuff) and `--keep-trash` (deletes obsolte files otherwise) flags
+- Add `ct az cognitive-services account list` command
+- Add `ct az cognitive-services account deployment list` command
 
 # v0.35.1
 
