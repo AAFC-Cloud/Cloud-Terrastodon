@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::SubscriptionName;
 use cloud_terrastodon_azure::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_user_input::Choice;
@@ -14,68 +15,69 @@ use tokio::join;
 use tracing::info;
 
 pub async fn copy_azurerm_backend_menu(tenant_id: AzureTenantId) -> Result<()> {
-    info!("Fetching storage accounts");
-    info!("Fetching subscriptions");
-    let (storage_accounts, subscriptions) = join!(
-        fetch_all_storage_accounts(tenant_id),
-        fetch_all_subscriptions(tenant_id)
-    );
-    let storage_accounts = storage_accounts?;
-    let subscriptions = subscriptions?
-        .into_iter()
-        .map(|sub| (sub.id.to_owned(), sub))
-        .collect::<HashMap<_, _>>();
-
     info!("Picking storage account");
     let chosen_storage_account = PickerTui::new()
         .set_header("Picking the storage account for the state file")
-        .pick_one(storage_accounts.into_iter().map(|sa| {
-            let sub_name = subscriptions
-                .get(&sa.id.resource_group_id.subscription_id)
-                .map(|sub| sub.name.to_owned())
-                .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
-            Choice {
-                key: format!(
-                    "{:<32} {:<64} {}",
-                    sub_name.to_string(),
-                    sa.id.resource_group_id.resource_group_name.to_string(),
-                    sa.name
-                ),
-                value: (sa, sub_name),
-            }
-        }))?;
+        .pick_one_reloadable(async |invalidate| {
+            info!("Fetching storage accounts");
+            info!("Fetching subscriptions");
+            let (storage_accounts, subscriptions) = join!(
+                fetch_all_storage_accounts(tenant_id).with_invalidation(invalidate),
+                fetch_all_subscriptions(tenant_id).with_invalidation(invalidate)
+            );
+            let storage_accounts = storage_accounts?;
+            let subscriptions = subscriptions?
+                .into_iter()
+                .map(|sub| (sub.id.to_owned(), sub))
+                .collect::<HashMap<_, _>>();
+
+            Ok(storage_accounts.into_iter().map(move |sa| {
+                let sub_name = subscriptions
+                    .get(&sa.id.resource_group_id.subscription_id)
+                    .map(|sub| sub.name.to_owned())
+                    .unwrap_or_else(|| SubscriptionName::try_new("Unknown Subscription").unwrap());
+                Choice {
+                    key: format!(
+                        "{:<32} {:<64} {}",
+                        sub_name.to_string(),
+                        sa.id.resource_group_id.resource_group_name.to_string(),
+                        sa.name
+                    ),
+                    value: (sa, sub_name),
+                }
+            }))
+        })
+        .await?;
 
     info!("Fetching blob containers for {}", chosen_storage_account.1);
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.args(["storage", "container", "list", "--account-name"]);
-    cmd.arg(&*chosen_storage_account.0.name);
-    cmd.arg("--subscription");
-    cmd.arg(
-        chosen_storage_account
-            .0
-            .id
-            .resource_group_id
-            .subscription_id
-            .short_form(),
-    );
-    cmd.args(["--query", "[].name", "--output", "json"]);
-    let blob_container_names = cmd.run::<Vec<String>>().await?;
+    let chosen_blob_container = PickerTui::new()
+        .set_header("Blob Container Name")
+        .pick_one_reloadable(async |_invalidate| {
+            let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+            cmd.args(["storage", "container", "list", "--account-name"]);
+            cmd.arg(&*chosen_storage_account.0.name);
+            cmd.arg("--subscription");
+            cmd.arg(
+                chosen_storage_account
+                    .0
+                    .id
+                    .resource_group_id
+                    .subscription_id
+                    .short_form(),
+            );
+            cmd.args(["--query", "[].name", "--output", "json"]);
+            let blob_container_names = cmd.run::<Vec<String>>().await?;
 
-    let chosen_blob_container = match blob_container_names.len() {
-        0 => {
-            bail!("No blob containers found in {}", chosen_storage_account.1);
-        }
-        1 => blob_container_names.into_iter().next().unwrap(),
-        _ => {
-            info!("Picking blob container");
-            PickerTui::new()
-                .set_header("Blob Container Name")
-                .pick_one(blob_container_names.into_iter().map(|name| Choice {
-                    key: name.clone(),
-                    value: name,
-                }))?
-        }
-    };
+            if blob_container_names.is_empty() {
+                bail!("No blob containers found in {}", chosen_storage_account.1);
+            }
+
+            Ok(blob_container_names.into_iter().map(|name| Choice {
+                key: name.clone(),
+                value: name,
+            }))
+        })
+        .await?;
 
     let output = format!(
         r#"

@@ -4,6 +4,7 @@
 - Update `ct tf reflow` to have `--full` (guards principal stuff) and `--keep-trash` (deletes obsolte files otherwise) flags
 - Add `ct az cognitive-services account list` command
 - Add `ct az cognitive-services account deployment list` command
+- Update `copy_azurerm_backend_menu` to support ctrl+r reloading
 
 # v0.35.1
 
