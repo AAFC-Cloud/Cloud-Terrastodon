@@ -5,6 +5,8 @@
 - Add `ct az cognitive-services account list` command
 - Add `ct az cognitive-services account deployment list` command
 - Update `copy_azurerm_backend_menu` to support ctrl+r reloading
+- Update `ct tf reflow` to avoid deleting files that are comment-only
+- Update `ct tf reflow` to better co-locate `import` and `moved` blocks with their `to` origin
 
 # v0.35.1
 
