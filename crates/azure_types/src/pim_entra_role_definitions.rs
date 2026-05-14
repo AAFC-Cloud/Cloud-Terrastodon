@@ -2,13 +2,13 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PimEntraRoleDefinitionKind {
     BuiltInRole,
     CustomRole,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PimEntraRoleDefinition {
     #[serde(rename = "displayName")]
     pub display_name: String,

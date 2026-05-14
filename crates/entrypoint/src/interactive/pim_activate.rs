@@ -69,18 +69,18 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
                 .with_invalidation(invalidate)
                 .await?
                 .into_iter()
-                .filter_map(|ra| {
-                    let role_definition = role_definitions.get(&ra.role_definition_id)?;
+                .filter_map(move |role_assignment| {
+                    let role_definition = role_definitions.get(&role_assignment.role_definition_id)?.to_owned();
                     Some(Choice {
                         key: format!(
                             "{definition} ({state})",
                             definition = role_definition.display_name,
-                            state = match ra.assignment_state {
+                            state = match role_assignment.assignment_state {
                                 GovernanceRoleAssignmentState::Active => "already activated",
                                 GovernanceRoleAssignmentState::Eligible => "eligible",
                             }
                         ),
-                        value: ra,
+                        value: (role_assignment, role_definition),
                     })
                 })
                 .unique_by(|c| c.key.to_owned())
@@ -94,8 +94,8 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
         .pick_one_reloadable(async |invalidate| {
             info!("Fetching maximum activation durations");
             let mut max_duration = Duration::MAX;
-            for role in &chosen_roles {
-                let duration = fetch_entra_pim_role_settings(tenant_id, role.role_definition_id)
+            for (role_assignment, _role_definition) in &chosen_roles {
+                let duration = fetch_entra_pim_role_settings(tenant_id, role_assignment.role_definition_id)
                     .with_invalidation(invalidate)
                     .await?
                     .get_maximum_grant_period()?;
@@ -119,16 +119,17 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
     let justification = prompt_line("Justification: ").await?;
 
     let principal_id = fetch_current_user().await?.id;
-    for role in &chosen_roles {
+    for (role_assignment, role_definition) in &chosen_roles {
         info!(
-            "Activating {:?} for {}",
-            role,
-            format_duration(chosen_duration)
+            ?role_assignment,
+            ?role_definition,
+            duration=%format_duration(chosen_duration),
+            "Activating entra role",
         );
         activate_pim_entra_role(
             tenant_id,
             principal_id,
-            role,
+            role_assignment,
             justification.clone(),
             chosen_duration,
         )
