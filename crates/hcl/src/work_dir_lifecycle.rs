@@ -368,6 +368,7 @@ mod test {
 
     #[tokio::test]
     pub async fn infer_providers() -> eyre::Result<()> {
+        AppDir::Temp.ensure_dir_exists().await?;
         let temp_dir = tempfile::Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
         println!("Check out the dirs at {}", temp_dir.path().display());
         let content = indoc! {r#"
@@ -405,6 +406,7 @@ mod test {
 
     #[tokio::test]
     pub async fn infer_providers_bulk() -> eyre::Result<()> {
+        AppDir::Temp.ensure_dir_exists().await?;
         let temp_dir = tempfile::Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
         println!("Created temp dir at {}", temp_dir.path().display());
 
