@@ -68,7 +68,11 @@ impl CacheableCommand for ManagementGroupListRequest {
             ResourceGraphHelper::new(self.tenant_id, query, Some(self.cache_key()))
                 .collect_all::<ManagementGroup>()
                 .await?;
-        info!("Found {} management groups", management_groups.len());
+        let count = management_groups.len();
+        if count == 0 {
+            bail!("No management groups found for tenant '{}'", self.tenant_id);
+        }
+        info!("Found {count} management groups");
         Ok(management_groups)
     }
 }
