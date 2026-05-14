@@ -14,6 +14,7 @@ use reqwest::Response;
 use reqwest::Url;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::tls::Version;
+use tracing::debug;
 
 pub async fn read_optional_body(body: Option<String>) -> Result<Option<String>> {
     let Some(body) = body else {
@@ -75,6 +76,11 @@ pub async fn execute_azure_devops_request(
 ) -> Result<Response> {
     let pat = get_azure_devops_personal_access_token_from_credential_manager().await?;
     let client = create_azure_devops_rest_client(&pat).await?;
+    debug!(
+        ?method,
+        %url,
+        "Executing Azure DevOps REST request",
+    );
     let mut request_builder = client.request(method, url);
     if let Some(body) = body {
         request_builder = request_builder
@@ -97,6 +103,13 @@ pub async fn execute_azure_bearer_request(
 ) -> Result<Response> {
     let token = fetch_azure_access_token::<String>(tenant, resource).await?;
     let client = create_tls12_client()?;
+    debug!(
+        ?method,
+        %url,
+        ?resource,
+        ?tenant,
+        "Executing Azure REST request",
+    );
     let mut request_builder = client.request(method, url).bearer_auth(&token.access_token);
     if let Some(body) = body {
         request_builder = request_builder
