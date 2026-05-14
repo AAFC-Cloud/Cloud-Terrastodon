@@ -1,4 +1,3 @@
-use crate::management_groups::fetch_root_management_group;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::PimEntraRoleSettings;
 use cloud_terrastodon_azure_types::uuid::Uuid;
@@ -41,10 +40,10 @@ impl cloud_terrastodon_command::CacheableCommand for EntraPimRoleSettingsRequest
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let tenant_id = fetch_root_management_group(self.tenant_id).await?.tenant_id;
         let url = format!(
-            "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleSettings?{}",
-            format_args!(
+            "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleSettings?{query}",
+            tenant_id = self.tenant_id,
+            query = format_args!(
                 "$select={}&$filter={}",
                 "id,roleDefinitionId,userMemberSettings",
                 format_args!("(roleDefinition/id eq '{}')", self.role_definition_id,),

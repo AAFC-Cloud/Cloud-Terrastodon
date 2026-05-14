@@ -1,4 +1,3 @@
-use crate::management_groups::fetch_root_management_group;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::PimEntraRoleDefinition;
 use cloud_terrastodon_command::CacheKey;
@@ -35,9 +34,9 @@ impl CacheableCommand for PimEntraRoleDefinitionListRequest {
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let tenant_id = fetch_root_management_group(self.tenant_id).await?.tenant_id;
         let url = format!(
-            "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleDefinitions?$select=id,displayName,type,isbuiltIn&$orderby=displayName"
+            "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleDefinitions?$select=id,displayName,type,isbuiltIn&$orderby=displayName",
+            tenant_id = self.tenant_id,
         );
         let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
         cmd.args(["rest", "--method", "GET", "--url", &url]);
