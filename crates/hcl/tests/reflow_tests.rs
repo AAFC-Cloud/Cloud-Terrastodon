@@ -139,7 +139,7 @@ async fn reflow_by_block_identifier_co_locates_import_for_for_each_resource() ->
 #[tokio::test]
 async fn reflow_by_block_identifier_single_file_orders_block_categories() -> eyre::Result<()> {
     let reflowed = apply_reflower(
-        ReflowByBlockIdentifier::new(Some(PathBuf::from("main.tf"))),
+        ReflowByBlockIdentifier::new(Some(PathBuf::from("main.tf")), false),
         [
             (
                 "z-output.tf",
@@ -219,13 +219,192 @@ async fn reflow_by_block_identifier_single_file_orders_block_categories() -> eyr
     let output_pos = output.find("output \"app_id\" {").unwrap();
 
     assert!(terraform_pos < provider_pos);
-    assert!(provider_pos < variable_pos);
-    assert!(variable_pos < data_pos);
+        assert!(provider_pos < data_pos);
+        assert!(data_pos < variable_pos);
     assert!(data_pos < import_pos);
     assert!(import_pos < moved_pos);
     assert!(moved_pos < resource_pos);
     assert!(resource_pos < output_pos);
     Ok(())
+}
+
+#[tokio::test]
+async fn reflow_by_block_identifier_hybrid_merge_keeps_shared_data_separate() -> eyre::Result<()> {
+        let reflowed = apply_reflower(
+                ReflowByBlockIdentifier::default(),
+                [
+                        (
+                                "main.tf",
+                                indoc! {r#"
+                                        data "azuredevops_project" "main" {
+                                            name = "CKAN_DC"
+                                        }
+
+                                        data "azuredevops_users" "ckan" {
+                                            for_each = toset(["dominic.phillips@agr.gc.ca"])
+                                            principal_name = each.value
+                                        }
+
+                                        resource "azuredevops_check_approval" "ckan" {
+                                            project_id           = data.azuredevops_project.main.id
+                                            target_resource_id   = azuredevops_environment.ckan.id
+                                            target_resource_type = "environment"
+                                            approvers = [for approver in data.azuredevops_users.ckan : one(approver.users).id]
+                                        }
+
+                                        resource "azuredevops_environment" "ckan" {
+                                            name       = "CKAN"
+                                            project_id = data.azuredevops_project.main.id
+                                        }
+
+                                        data "azuredevops_users" "pipelines" {
+                                            for_each = toset(["dominic.phillips@agr.gc.ca"])
+                                            principal_name = each.value
+                                        }
+
+                                        resource "azuredevops_check_approval" "pipelines" {
+                                            project_id           = data.azuredevops_project.main.id
+                                            target_resource_id   = azuredevops_environment.pipelines.id
+                                            target_resource_type = "environment"
+                                            approvers = [for approver in data.azuredevops_users.pipelines : one(approver.users).id]
+                                        }
+
+                                        resource "azuredevops_environment" "pipelines" {
+                                            name       = "pipelines"
+                                            project_id = data.azuredevops_project.main.id
+                                        }
+                                "#},
+                        ),
+                ],
+        )
+        .await?;
+
+        assert!(reflowed.contains_key(&PathBuf::from("data.azuredevops_project.main.tf")));
+        assert!(reflowed.contains_key(&PathBuf::from("resource.azuredevops_environment.ckan.tf")));
+        assert!(reflowed.contains_key(&PathBuf::from("resource.azuredevops_environment.pipelines.tf")));
+        assert!(!reflowed.contains_key(&PathBuf::from("data.azuredevops_users.ckan.tf")));
+        assert!(!reflowed.contains_key(&PathBuf::from("data.azuredevops_users.pipelines.tf")));
+
+        let pipelines = reflowed
+                .get(&PathBuf::from("resource.azuredevops_environment.pipelines.tf"))
+                .unwrap()
+                .to_string();
+        let env_pos = pipelines
+                .find("resource \"azuredevops_environment\" \"pipelines\" {")
+                .unwrap();
+        let users_pos = pipelines
+                .find("data \"azuredevops_users\" \"pipelines\" {")
+                .unwrap();
+        let approval_pos = pipelines
+                .find("resource \"azuredevops_check_approval\" \"pipelines\" {")
+                .unwrap();
+
+        assert!(env_pos < users_pos);
+        assert!(users_pos < approval_pos);
+        Ok(())
+}
+
+#[tokio::test]
+async fn reflow_by_block_identifier_merges_single_use_variable_into_resource_file() -> eyre::Result<()> {
+        let reflowed = apply_reflower(
+                ReflowByBlockIdentifier::default(),
+                [(
+                        "main.tf",
+                        indoc! {r#"
+                                variable "location" {
+                                    type = string
+                                }
+
+                                resource "azurerm_resource_group" "main" {
+                                    location = var.location
+                                    name     = "demo"
+                                }
+                        "#},
+                )],
+        )
+        .await?;
+
+        assert_eq!(reflowed.len(), 1);
+        let output = reflowed
+                .get(&PathBuf::from("resource.azurerm_resource_group.main.tf"))
+                .unwrap()
+                .to_string();
+        assert!(output.find("variable \"location\" {").unwrap() < output.find("resource \"azurerm_resource_group\" \"main\" {").unwrap());
+        Ok(())
+}
+
+#[tokio::test]
+async fn reflow_by_block_identifier_splits_and_preserves_locals_comments() -> eyre::Result<()> {
+        let reflowed = apply_reflower(
+                ReflowByBlockIdentifier::default(),
+                [(
+                        "main.tf",
+                        indoc! {r#"
+                                # keep this comment
+                                locals {
+                                    alpha = "demo"
+                                    beta  = local.alpha
+                                }
+
+                                resource "azurerm_resource_group" "main" {
+                                    location = "canadacentral"
+                                    name     = local.beta
+                                }
+                        "#},
+                )],
+        )
+        .await?;
+
+        assert_eq!(reflowed.len(), 1);
+        let output = reflowed
+                .get(&PathBuf::from("resource.azurerm_resource_group.main.tf"))
+                .unwrap()
+                .to_string();
+
+        assert!(output.contains("# keep this comment"));
+        assert!(output.contains("alpha = \"demo\""));
+        assert!(output.contains("beta  = local.alpha") || output.contains("beta = local.alpha"));
+        assert!(output.find("locals {").unwrap() < output.find("resource \"azurerm_resource_group\" \"main\" {").unwrap());
+        Ok(())
+}
+
+#[tokio::test]
+async fn reflow_by_block_identifier_flat_keeps_support_blocks_separate() -> eyre::Result<()> {
+        let reflowed = apply_reflower(
+                ReflowByBlockIdentifier::new(None, true),
+                [(
+                        "main.tf",
+                        indoc! {r#"
+                                data "azuredevops_project" "main" {
+                                    name = "CKAN_DC"
+                                }
+
+                                data "azuredevops_users" "pipelines" {
+                                    for_each = toset(["dominic.phillips@agr.gc.ca"])
+                                    principal_name = each.value
+                                }
+
+                                resource "azuredevops_check_approval" "pipelines" {
+                                    project_id           = data.azuredevops_project.main.id
+                                    target_resource_id   = azuredevops_environment.pipelines.id
+                                    target_resource_type = "environment"
+                                    approvers = [for approver in data.azuredevops_users.pipelines : one(approver.users).id]
+                                }
+
+                                resource "azuredevops_environment" "pipelines" {
+                                    name       = "pipelines"
+                                    project_id = data.azuredevops_project.main.id
+                                }
+                        "#},
+                )],
+        )
+        .await?;
+
+        assert!(reflowed.contains_key(&PathBuf::from("data.azuredevops_project.main.tf")));
+        assert!(reflowed.contains_key(&PathBuf::from("data.azuredevops_users.pipelines.tf")));
+        assert!(reflowed.contains_key(&PathBuf::from("resource.azuredevops_check_approval.pipelines.tf")));
+        assert!(reflowed.contains_key(&PathBuf::from("resource.azuredevops_environment.pipelines.tf")));
+        Ok(())
 }
 
 #[tokio::test]

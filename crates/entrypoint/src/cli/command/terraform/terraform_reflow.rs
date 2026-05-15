@@ -39,9 +39,17 @@ pub struct TerraformReflowArgs {
         num_args = 0..=1,
         default_missing_value = "main.tf",
         value_name = "FILENAME",
+        conflicts_with = "flat",
         help = "Write all reflowed HCL into a single Terraform file, defaulting to main.tf"
     )]
     pub single_file: Option<PathBuf>,
+
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Keep the original flat layout where each block stays in its own file"
+    )]
+    pub flat: bool,
 
     #[arg(default_value = ".")]
     pub source_dir: PathBuf,
@@ -64,7 +72,7 @@ impl TerraformReflowArgs {
             .map(|single_file| self.resolve_single_file_path(single_file));
 
         info!(count = hcl.len(), "Discovered HCL files for reflowing");
-        let hcl = reflow_hcl(tenant_id, hcl, self.full, single_file_path).await?;
+    let hcl = reflow_hcl(tenant_id, hcl, self.full, single_file_path, self.flat).await?;
         let new_paths = hcl.keys().cloned().collect::<HashSet<_>>();
 
         info!(count = hcl.len(), "Reflowed HCL files");
@@ -164,5 +172,17 @@ mod tests {
         let args = ParseArgs::parse_from(["reflow", "--single-file", "merged.tf"]).args;
 
         assert_eq!(args.single_file, Some(PathBuf::from("merged.tf")));
+    }
+
+    #[test]
+    fn parses_flat_flag() {
+        let args = ParseArgs::parse_from(["reflow", "--flat"]).args;
+
+        assert!(args.flat);
+    }
+
+    #[test]
+    fn rejects_flat_with_single_file() {
+        assert!(ParseArgs::try_parse_from(["reflow", "--flat", "--single-file"]).is_err());
     }
 }
