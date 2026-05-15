@@ -7,6 +7,7 @@
 - Update `copy_azurerm_backend_menu` to support ctrl+r reloading
 - Update `ct tf reflow` to avoid deleting files that are comment-only
 - Update `ct tf reflow` to better co-locate `import` and `moved` blocks with their `to` origin
+- Update `ct tf reflow` to add `--single file [filename]` behaviour
 - Better diagnostic logging for `ct rest` and `ct az pim activate entra`
 
 # v0.35.1
