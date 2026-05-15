@@ -1,5 +1,6 @@
 use cloud_terrastodon_hcl::reflow::HclReflower;
 use cloud_terrastodon_hcl::reflow::ReflowAzureDevOpsGitRepositoryInitializationAttributes;
+use cloud_terrastodon_hcl::reflow::ReflowBlockDecorations;
 use cloud_terrastodon_hcl::reflow::ReflowByBlockIdentifier;
 use cloud_terrastodon_hcl::reflow::ReflowExpressionsUseImportedResourceBlocks;
 use cloud_terrastodon_hcl::reflow::ReflowRemoveDefaultAttributes;
@@ -34,7 +35,7 @@ async fn reflow_by_block_identifier_preserves_comment_only_body() -> eyre::Resul
     "#})?;
     let expected = original.to_string();
 
-    let reflowed = ReflowByBlockIdentifier
+    let reflowed = ReflowByBlockIdentifier::default()
         .reflow(HashMap::from([(path.clone(), original)]))
         .await?;
 
@@ -45,7 +46,7 @@ async fn reflow_by_block_identifier_preserves_comment_only_body() -> eyre::Resul
 #[tokio::test]
 async fn reflow_by_block_identifier_co_locates_import_and_moved_above_resource() -> eyre::Result<()> {
     let reflowed = apply_reflower(
-        ReflowByBlockIdentifier,
+        ReflowByBlockIdentifier::default(),
         [
             (
                 "resource.azuread_service_principal.dev.tf",
@@ -96,7 +97,7 @@ async fn reflow_by_block_identifier_co_locates_import_and_moved_above_resource()
 #[tokio::test]
 async fn reflow_by_block_identifier_co_locates_import_for_for_each_resource() -> eyre::Result<()> {
     let reflowed = apply_reflower(
-        ReflowByBlockIdentifier,
+        ReflowByBlockIdentifier::default(),
         [
             (
                 "imports.tf",
@@ -132,6 +133,111 @@ async fn reflow_by_block_identifier_co_locates_import_for_for_each_resource() ->
 
     assert!(import_pos < resource_pos);
     assert!(output.contains("to = azuread_application_owner.prod[\"141e1371-9290-4d81-9e3e-1b1658b265f4\"]"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn reflow_by_block_identifier_single_file_orders_block_categories() -> eyre::Result<()> {
+    let reflowed = apply_reflower(
+        ReflowByBlockIdentifier::new(Some(PathBuf::from("main.tf"))),
+        [
+            (
+                "z-output.tf",
+                indoc! {r#"
+                    output "app_id" {
+                      value = azurerm_resource_group.main.id
+                    }
+                "#},
+            ),
+            (
+                "terraform.tf",
+                indoc! {r#"
+                    terraform {
+                      required_version = ">= 1.9.0"
+                    }
+                "#},
+            ),
+            (
+                "provider.tf",
+                indoc! {r#"
+                    provider "azurerm" {
+                      features {}
+                    }
+                "#},
+            ),
+            (
+                "variables.tf",
+                indoc! {r#"
+                    variable "location" {
+                      type = string
+                    }
+                "#},
+            ),
+            (
+                "imports.tf",
+                indoc! {r#"
+                    import {
+                      id = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/demo"
+                      to = azurerm_resource_group.main
+                    }
+
+                    moved {
+                      from = azurerm_resource_group.legacy
+                      to = azurerm_resource_group.main
+                    }
+                "#},
+            ),
+            (
+                "data.tf",
+                indoc! {r#"
+                    data "azurerm_client_config" "current" {}
+                "#},
+            ),
+            (
+                "resource.tf",
+                indoc! {r#"
+                    resource "azurerm_resource_group" "main" {
+                      location = var.location
+                      name     = "demo"
+                    }
+                "#},
+            ),
+        ],
+    )
+    .await?;
+
+    assert_eq!(reflowed.len(), 1);
+    let output = reflowed.get(&PathBuf::from("main.tf")).unwrap().to_string();
+
+    let terraform_pos = output.find("terraform {").unwrap();
+    let provider_pos = output.find("provider \"azurerm\" {").unwrap();
+    let variable_pos = output.find("variable \"location\" {").unwrap();
+    let data_pos = output.find("data \"azurerm_client_config\" \"current\" {").unwrap();
+    let import_pos = output.find("import {").unwrap();
+    let moved_pos = output.find("moved {").unwrap();
+    let resource_pos = output.find("resource \"azurerm_resource_group\" \"main\" {").unwrap();
+    let output_pos = output.find("output \"app_id\" {").unwrap();
+
+    assert!(terraform_pos < provider_pos);
+    assert!(provider_pos < variable_pos);
+    assert!(variable_pos < data_pos);
+    assert!(data_pos < import_pos);
+    assert!(import_pos < moved_pos);
+    assert!(moved_pos < resource_pos);
+    assert!(resource_pos < output_pos);
+    Ok(())
+}
+
+#[tokio::test]
+async fn reflow_block_decorations_adds_blank_line_between_blocks() -> eyre::Result<()> {
+    let reflowed = apply_reflower(
+        ReflowBlockDecorations,
+        [("main.tf", "resource \"a\" \"one\" {}\nresource \"a\" \"two\" {}\n")],
+    )
+    .await?;
+
+    let output = reflowed.get(&PathBuf::from("main.tf")).unwrap().to_string();
+    assert!(output.contains("resource \"a\" \"one\" {}\n\nresource \"a\" \"two\" {}"));
     Ok(())
 }
 

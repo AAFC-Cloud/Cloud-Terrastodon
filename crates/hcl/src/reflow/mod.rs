@@ -23,6 +23,7 @@
 //! Any attribute whose value is a string literal that can successfully be parsed as JSON must be replaced with a call to `jsonencode(...)`.
 
 mod reflow_azure_devops_git_repository_initialization_attributes;
+mod reflow_block_decorations;
 mod reflow_by_block_identifier;
 mod reflow_expressions_use_imported_resource_blocks;
 mod reflow_json_attributes;
@@ -32,6 +33,7 @@ mod reflow_remove_default_attributes;
 mod reflow_trait;
 
 pub use reflow_azure_devops_git_repository_initialization_attributes::*;
+pub use reflow_block_decorations::*;
 pub use reflow_by_block_identifier::*;
 pub use reflow_expressions_use_imported_resource_blocks::*;
 pub use reflow_json_attributes::*;
