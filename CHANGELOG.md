@@ -9,6 +9,7 @@
 - Update `ct tf reflow` to better co-locate `import` and `moved` blocks with their `to` origin
 - Update `ct tf reflow` to add `--single file [filename]` behaviour
 - Better diagnostic logging for `ct rest` and `ct az pim activate entra`
+- Add `ct az ad role definition|assignment browse|list` commands
 
 # v0.35.1
 

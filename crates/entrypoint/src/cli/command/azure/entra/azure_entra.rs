@@ -1,6 +1,7 @@
 use super::application_registration::AzureEntraApplicationRegistrationArgs;
 use super::group::AzureEntraGroupArgs;
 use super::principal::AzureEntraPrincipalArgs;
+use super::role::AzureEntraRoleArgs;
 use super::service_principal::AzureEntraServicePrincipalArgs;
 use super::user::AzureEntraUserArgs;
 use clap::Subcommand;
@@ -13,6 +14,8 @@ pub enum AzureEntraCommand {
     User(AzureEntraUserArgs),
     /// Principal operations (list).
     Principal(AzureEntraPrincipalArgs),
+    /// Role definition and assignment operations.
+    Role(AzureEntraRoleArgs),
     /// Service principal operations (list, browse).
     #[command(alias = "sp")]
     ServicePrincipal(AzureEntraServicePrincipalArgs),
@@ -30,6 +33,9 @@ impl AzureEntraCommand {
                 args.invoke().await?;
             }
             AzureEntraCommand::Principal(args) => {
+                args.invoke().await?;
+            }
+            AzureEntraCommand::Role(args) => {
                 args.invoke().await?;
             }
             AzureEntraCommand::ServicePrincipal(args) => {
