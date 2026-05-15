@@ -1,5 +1,6 @@
 use super::application_registration::AzureEntraApplicationRegistrationArgs;
 use super::group::AzureEntraGroupArgs;
+use super::principal::AzureEntraPrincipalArgs;
 use super::service_principal::AzureEntraServicePrincipalArgs;
 use super::user::AzureEntraUserArgs;
 use clap::Subcommand;
@@ -10,6 +11,8 @@ use eyre::Result;
 pub enum AzureEntraCommand {
     /// User-related operations (list, browse).
     User(AzureEntraUserArgs),
+    /// Principal operations (list).
+    Principal(AzureEntraPrincipalArgs),
     /// Service principal operations (list, browse).
     #[command(alias = "sp")]
     ServicePrincipal(AzureEntraServicePrincipalArgs),
@@ -24,6 +27,9 @@ impl AzureEntraCommand {
     pub async fn invoke(self) -> Result<()> {
         match self {
             AzureEntraCommand::User(args) => {
+                args.invoke().await?;
+            }
+            AzureEntraCommand::Principal(args) => {
                 args.invoke().await?;
             }
             AzureEntraCommand::ServicePrincipal(args) => {
