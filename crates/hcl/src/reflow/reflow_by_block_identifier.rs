@@ -23,14 +23,14 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Default)]
 pub struct ReflowByBlockIdentifier {
     single_file_path: Option<PathBuf>,
-    flat: bool,
+    mixed: bool,
 }
 
 impl ReflowByBlockIdentifier {
-    pub fn new(single_file_path: Option<PathBuf>, flat: bool) -> Self {
+    pub fn new(single_file_path: Option<PathBuf>, mixed: bool) -> Self {
         Self {
             single_file_path,
-            flat,
+            mixed,
         }
     }
 }
@@ -385,10 +385,10 @@ impl HclReflower for ReflowByBlockIdentifier {
 
         let body_decor_fragments = collected.body_decor_fragments.clone();
         let nodes = collected.finalize();
-        let buckets = if self.flat {
-            flat_buckets(&nodes)
-        } else {
+        let buckets = if self.mixed {
             collapse_buckets(&nodes)
+        } else {
+            flat_buckets(&nodes)
         };
 
         if let Some(single_file_path) = self.single_file_path.as_ref() {

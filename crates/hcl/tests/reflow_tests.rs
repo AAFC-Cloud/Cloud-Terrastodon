@@ -139,7 +139,7 @@ async fn reflow_by_block_identifier_co_locates_import_for_for_each_resource() ->
 #[tokio::test]
 async fn reflow_by_block_identifier_single_file_orders_block_categories() -> eyre::Result<()> {
     let reflowed = apply_reflower(
-        ReflowByBlockIdentifier::new(Some(PathBuf::from("main.tf")), false),
+        ReflowByBlockIdentifier::new(Some(PathBuf::from("main.tf")), true),
         [
             (
                 "z-output.tf",
@@ -231,7 +231,7 @@ async fn reflow_by_block_identifier_single_file_orders_block_categories() -> eyr
 #[tokio::test]
 async fn reflow_by_block_identifier_hybrid_merge_keeps_shared_data_separate() -> eyre::Result<()> {
         let reflowed = apply_reflower(
-                ReflowByBlockIdentifier::default(),
+            ReflowByBlockIdentifier::new(None, true),
                 [
                         (
                                 "main.tf",
@@ -307,7 +307,7 @@ async fn reflow_by_block_identifier_hybrid_merge_keeps_shared_data_separate() ->
 #[tokio::test]
 async fn reflow_by_block_identifier_merges_single_use_variable_into_resource_file() -> eyre::Result<()> {
         let reflowed = apply_reflower(
-                ReflowByBlockIdentifier::default(),
+            ReflowByBlockIdentifier::new(None, true),
                 [(
                         "main.tf",
                         indoc! {r#"
@@ -336,7 +336,7 @@ async fn reflow_by_block_identifier_merges_single_use_variable_into_resource_fil
 #[tokio::test]
 async fn reflow_by_block_identifier_splits_and_preserves_locals_comments() -> eyre::Result<()> {
         let reflowed = apply_reflower(
-                ReflowByBlockIdentifier::default(),
+            ReflowByBlockIdentifier::new(None, true),
                 [(
                         "main.tf",
                         indoc! {r#"
@@ -369,9 +369,9 @@ async fn reflow_by_block_identifier_splits_and_preserves_locals_comments() -> ey
 }
 
 #[tokio::test]
-async fn reflow_by_block_identifier_flat_keeps_support_blocks_separate() -> eyre::Result<()> {
+async fn reflow_by_block_identifier_default_flat_keeps_support_blocks_separate() -> eyre::Result<()> {
         let reflowed = apply_reflower(
-                ReflowByBlockIdentifier::new(None, true),
+        ReflowByBlockIdentifier::default(),
                 [(
                         "main.tf",
                         indoc! {r#"

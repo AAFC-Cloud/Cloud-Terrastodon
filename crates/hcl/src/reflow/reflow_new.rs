@@ -18,13 +18,13 @@ pub async fn reflow_hcl(
     mut hcl: HashMap<PathBuf, Body>,
     include_principal_id_comments: bool,
     single_file_path: Option<PathBuf>,
-    flat: bool,
+    mixed: bool,
 ) -> eyre::Result<HashMap<PathBuf, Body>> {
     let mut reflowers: Vec<Box<dyn HclReflower>> = vec![
         Box::new(ReflowJsonAttributes),
         Box::new(ReflowAzureDevOpsGitRepositoryInitializationAttributes),
         Box::new(ReflowRemoveDefaultAttributes),
-        Box::new(ReflowByBlockIdentifier::new(single_file_path, flat)),
+        Box::new(ReflowByBlockIdentifier::new(single_file_path, mixed)),
         Box::new(ReflowExpressionsUseImportedResourceBlocks::default()),
         Box::new(ReflowBlockDecorations),
     ];
