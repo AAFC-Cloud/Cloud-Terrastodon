@@ -212,7 +212,7 @@ async fn build_system_resolver() -> Result<TokioResolver> {
     Ok(
         TokioResolver::builder_with_config(config, Default::default())
             .with_options(opts)
-            .build(),
+            .build()?,
     )
 }
 
@@ -230,7 +230,7 @@ async fn resolve_cname_chain(
             break;
         };
 
-        let next = lookup.iter().find_map(|record| match record {
+        let next = lookup.answers().iter().find_map(|record| match &record.data {
             RData::CNAME(name) => Some(trim_fqdn_dot(name.to_utf8())),
             _ => None,
         });

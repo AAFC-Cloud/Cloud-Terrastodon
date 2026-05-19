@@ -35,7 +35,10 @@ impl NslookupArgs {
 
         if let Ok(ip) = target.parse::<IpAddr>() {
             if let Ok(reverse) = resolver.reverse_lookup(ip).await
-                && let Some(name) = reverse.iter().next()
+                && let Some(name) = reverse.answers().iter().find_map(|record| match &record.data {
+                    RData::PTR(name) => Some(name),
+                    _ => None,
+                })
             {
                 println!("Name:\t{}", trim_fqdn_dot(name.to_utf8()));
             }
@@ -77,18 +80,21 @@ async fn build_system_resolver() -> Result<(TokioResolver, Option<String>)> {
     let (config, opts): (ResolverConfig, ResolverOpts) =
         read_system_conf().context("reading system DNS configuration")?;
 
-    let server_ip = config.name_servers().first().map(|ns| ns.socket_addr.ip());
+    let server_ip = config.name_servers().first().map(|ns| ns.ip);
 
     let resolver = TokioResolver::builder_with_config(config, Default::default())
         .with_options(opts)
-        .build();
+        .build()?;
 
     let server_display = if let Some(ip) = server_ip {
         let hostname = resolver.reverse_lookup(ip).await.ok().and_then(|lookup| {
             lookup
+                .answers()
                 .iter()
-                .next()
-                .map(|name| trim_fqdn_dot(name.to_utf8()))
+                .find_map(|record| match &record.data {
+                    RData::PTR(name) => Some(trim_fqdn_dot(name.to_utf8())),
+                    _ => None,
+                })
         });
         Some(match hostname {
             Some(hostname) => format!("{hostname}\nAddress:\t{ip}"),
@@ -115,7 +121,7 @@ async fn resolve_cname_chain(
             break;
         };
 
-        let next = lookup.iter().find_map(|record| match record {
+        let next = lookup.answers().iter().find_map(|record| match &record.data {
             RData::CNAME(name) => Some(trim_fqdn_dot(name.to_utf8())),
             _ => None,
         });
