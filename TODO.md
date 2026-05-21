@@ -1,5 +1,11 @@
 # TODO
 
+## Terraform validation
+
+ensure we have a rule that asserts that all azurerm and azapi provider blocks have a `subscription_id` attribute set
+ensure we have a rule that asserts that all azurerm provider blocks have a `resource_providers_to_register="none"` attribute set (double check the key I used here, might be wrong)
+
+
 ## Policy definition and set definition properties type
 
 Currently we are flattening the properties in the type when the properties struct should be a separate type.
