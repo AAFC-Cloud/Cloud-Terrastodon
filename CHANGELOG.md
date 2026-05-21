@@ -8,6 +8,8 @@
 - Update `ct tf reflow` to avoid deleting files that are comment-only
 - Update `ct tf reflow` to better co-locate `import` and `moved` blocks with their `to` origin
 - Update `ct tf reflow` to add `--single file [filename]` behaviour
+- Update `ct tf reflow` to fix whitespace idempotency issue
+- Update `ct tf reflow` to bail if duplicate block labels are detected
 - Better diagnostic logging for `ct rest` and `ct az pim activate entra`
 - Add `ct az ad role definition|assignment browse|list` commands
 - Update `hicory-resolver` dependency

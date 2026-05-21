@@ -27,6 +27,16 @@ where
     reflower.reflow(hcl).await
 }
 
+async fn apply_reflowers(
+    mut hcl: HashMap<PathBuf, Body>,
+    reflowers: &mut [Box<dyn HclReflower>],
+) -> eyre::Result<HashMap<PathBuf, Body>> {
+    for reflower in reflowers {
+        hcl = reflower.reflow(hcl).await?;
+    }
+    Ok(hcl)
+}
+
 #[tokio::test]
 async fn reflow_by_block_identifier_preserves_comment_only_body() -> eyre::Result<()> {
     let path = PathBuf::from("comments.tf");
@@ -95,6 +105,62 @@ async fn reflow_by_block_identifier_co_locates_import_and_moved_above_resource()
 }
 
 #[tokio::test]
+async fn reflow_import_merge_is_idempotent() -> eyre::Result<()> {
+    let input = HashMap::from([
+        (
+            PathBuf::from("imports.tf"),
+            parse_body(indoc! {r#"
+                import {
+                  id = "/applications/00000000-0000-0000-0000-000000000000/servicePrincipals/11111111-1111-1111-1111-111111111111"
+                  to = azuread_service_principal.main
+                }
+            "#})?,
+        ),
+        (
+            PathBuf::from("legacy.tf"),
+            parse_body(indoc! {r#"
+                resource "azuread_service_principal" "main" {
+                  client_id = azuread_application_registration.main.client_id
+                }
+            "#})?,
+        ),
+    ]);
+
+    let first_pass = apply_reflowers(
+        input,
+        &mut [
+            Box::new(ReflowByBlockIdentifier::default()),
+            Box::new(ReflowBlockDecorations),
+        ],
+    )
+    .await?;
+    let first_output = first_pass
+        .get(&PathBuf::from("resource.azuread_service_principal.main.tf"))
+        .unwrap()
+        .to_string();
+
+    let second_input = HashMap::from([(
+        PathBuf::from("resource.azuread_service_principal.main.tf"),
+        parse_body(&first_output)?,
+    )]);
+    let second_pass = apply_reflowers(
+        second_input,
+        &mut [
+            Box::new(ReflowByBlockIdentifier::default()),
+            Box::new(ReflowBlockDecorations),
+        ],
+    )
+    .await?;
+    let second_output = second_pass
+        .get(&PathBuf::from("resource.azuread_service_principal.main.tf"))
+        .unwrap()
+        .to_string();
+
+    assert_eq!(second_output, first_output);
+    Ok(())
+}
+
+#[tokio::test]
 async fn reflow_by_block_identifier_co_locates_import_for_for_each_resource() -> eyre::Result<()> {
     let reflowed = apply_reflower(
         ReflowByBlockIdentifier::default(),
@@ -133,6 +199,34 @@ async fn reflow_by_block_identifier_co_locates_import_for_for_each_resource() ->
 
     assert!(import_pos < resource_pos);
     assert!(output.contains("to = azuread_application_owner.prod[\"141e1371-9290-4d81-9e3e-1b1658b265f4\"]"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn reflow_by_block_identifier_bails_on_duplicate_block_identity() -> eyre::Result<()> {
+    let error = apply_reflower(
+        ReflowByBlockIdentifier::default(),
+        [(
+            "main.tf",
+            indoc! {r#"
+                data "azuread_service_principal" "sharepoint" {
+                  client_id = data.azuread_application_published_app_ids.well_known.result["Office365SharePointOnline"]
+                }
+
+                data "azuread_service_principal" "sharepoint" {
+                  client_id = data.azuread_application_published_app_ids.well_known.result["MicrosoftGraph"]
+                }
+            "#},
+        )],
+    )
+    .await
+    .unwrap_err();
+
+    let message = error.to_string();
+    assert!(message.contains("Duplicate Terraform block identity"));
+    assert!(message.contains("sharepoint"));
+    assert!(message.contains("main.tf:1:1"));
+    assert!(message.contains("main.tf:5:1"));
     Ok(())
 }
 
