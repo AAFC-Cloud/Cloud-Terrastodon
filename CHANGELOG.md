@@ -15,6 +15,7 @@
 - Update `hicory-resolver` dependency
 - Update `rustls-webpki` dependency
 - Update `ct tf source add-imports` to have better subnet support
+- Add `ct az role operation browse|list` command
 
 # v0.35.1
 

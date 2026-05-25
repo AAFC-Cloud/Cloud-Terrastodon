@@ -1,5 +1,9 @@
 # TODO
 
+## resource type
+
+update crates\azure_types\src\role_operations.rs to use our harder ResourceType types
+
 ## Terraform validation
 
 ensure we have a rule that asserts that all azurerm and azapi provider blocks have a `subscription_id` attribute set

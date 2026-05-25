@@ -1,11 +1,13 @@
 pub mod assignment;
 pub mod azure_role;
 pub mod definition;
+pub mod operation;
 
 pub use assignment::AzureRoleAssignmentArgs;
 pub use azure_role::AzureRoleCommand;
 use clap::Args;
 pub use definition::AzureRoleDefinitionArgs;
+pub use operation::AzureRoleOperationArgs;
 use eyre::Result;
 
 /// Manage Azure role-based access control.

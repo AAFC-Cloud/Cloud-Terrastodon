@@ -62,6 +62,30 @@ where
     T::from_str(&str).map_err(serde::de::Error::custom)
 }
 
+pub fn deserialize_optional_bool_from_bool_or_string<'de, D>(
+    deserializer: D,
+) -> Result<Option<bool>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum BoolLike {
+        Bool(bool),
+        String(String),
+    }
+
+    let value = Option::<BoolLike>::deserialize(deserializer)?;
+    match value {
+        None => Ok(None),
+        Some(BoolLike::Bool(value)) => Ok(Some(value)),
+        Some(BoolLike::String(value)) => value
+            .parse::<bool>()
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+    }
+}
+
 pub fn serialize_using_asref_str<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
 where
     T: AsRef<str>,
@@ -118,6 +142,29 @@ mod tests {
         let thing: MyThing = serde_json::from_value(json)?;
         assert!(thing.my_option.is_some());
         assert_eq!(thing.my_option, Some(id));
+        Ok(())
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct BoolThing {
+        #[serde(default)]
+        #[serde(deserialize_with = "super::deserialize_optional_bool_from_bool_or_string")]
+        pub my_option: Option<bool>,
+    }
+
+    #[test]
+    fn bool_or_string_bool_deserializer_accepts_boolean() -> eyre::Result<()> {
+        let json = json!({ "my_option": true });
+        let thing: BoolThing = serde_json::from_value(json)?;
+        assert_eq!(thing.my_option, Some(true));
+        Ok(())
+    }
+
+    #[test]
+    fn bool_or_string_bool_deserializer_accepts_string() -> eyre::Result<()> {
+        let json = json!({ "my_option": "false" });
+        let thing: BoolThing = serde_json::from_value(json)?;
+        assert_eq!(thing.my_option, Some(false));
         Ok(())
     }
 }

@@ -1,5 +1,6 @@
 use super::assignment::AzureRoleAssignmentArgs;
 use super::definition::AzureRoleDefinitionArgs;
+use super::operation::AzureRoleOperationArgs;
 use clap::Subcommand;
 use eyre::Result;
 
@@ -11,6 +12,8 @@ pub enum AzureRoleCommand {
     Definition(AzureRoleDefinitionArgs),
     /// Manage Azure role assignments.
     Assignment(AzureRoleAssignmentArgs),
+    /// Manage Azure provider operations.
+    Operation(AzureRoleOperationArgs),
 }
 
 impl AzureRoleCommand {
@@ -18,6 +21,7 @@ impl AzureRoleCommand {
         match self {
             AzureRoleCommand::Definition(args) => args.invoke().await,
             AzureRoleCommand::Assignment(args) => args.invoke().await,
+            AzureRoleCommand::Operation(args) => args.invoke().await,
         }
     }
 }
