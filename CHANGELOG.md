@@ -14,6 +14,7 @@
 - Add `ct az ad role definition|assignment browse|list` commands
 - Update `hicory-resolver` dependency
 - Update `rustls-webpki` dependency
+- Update `ct tf source add-imports` to have better subnet support
 
 # v0.35.1
 
