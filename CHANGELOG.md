@@ -17,6 +17,7 @@
 - Update `ct tf source add-imports` to have better subnet support
 - Add `ct az role operation browse|list` command
 - Add `ct az ad user show {}` command
+- Add `ct az ad oauth2-permission-grant list|create|update|browse` command
 
 # v0.35.1
 
