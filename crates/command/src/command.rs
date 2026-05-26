@@ -672,7 +672,7 @@ impl CommandBuilder {
     async fn run_raw_from(&self, caller: &'static Location<'static>) -> Result<CommandOutput> {
         let summary = self.summarize().await;
         let span =
-            info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key).or_current();
+            info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
 
         async {
             // Check cache
@@ -715,7 +715,7 @@ impl CommandBuilder {
         caller: &'static Location<'static>,
     ) -> Result<T> {
         let summary = self.summarize().await;
-        let span = info_span!("command_run", summary, ?self.run_dir, ?self.cache_key).or_current();
+        let span = info_span!("command_run", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
 
         let output = self
             .run_raw_from(caller)
