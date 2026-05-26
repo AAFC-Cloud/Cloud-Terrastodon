@@ -1,5 +1,7 @@
 use crate::Principal;
+use crate::PrincipalCollection;
 use crate::PrincipalId;
+use crate::PrincipalRef;
 use std::str::FromStr;
 
 /// Principal can be specified as an id (UUID) or a display/user principal name.
@@ -46,11 +48,6 @@ impl<'a> From<&'a Principal> for AzurePrincipalArgument<'a> {
         AzurePrincipalArgument::PrincipalRef(value)
     }
 }
-impl From<String> for AzurePrincipalArgument<'_> {
-    fn from(value: String) -> Self {
-        AzurePrincipalArgument::Name(value)
-    }
-}
 impl<'a> From<&'a str> for AzurePrincipalArgument<'a> {
     fn from(value: &'a str) -> Self {
         AzurePrincipalArgument::NameRef(value)
@@ -58,6 +55,17 @@ impl<'a> From<&'a str> for AzurePrincipalArgument<'a> {
 }
 
 impl AzurePrincipalArgument<'_> {
+    pub fn as_id(&self) -> Option<&PrincipalId> {
+        match self {
+            AzurePrincipalArgument::Id(id) => Some(id),
+            AzurePrincipalArgument::IdRef(id) => Some(id),
+            AzurePrincipalArgument::Name(..)
+            | AzurePrincipalArgument::NameRef(..)
+            | AzurePrincipalArgument::Principal(..)
+            | AzurePrincipalArgument::PrincipalRef(..) => None,
+        }
+    }
+
     pub fn into_owned(self) -> AzurePrincipalArgument<'static> {
         match self {
             AzurePrincipalArgument::Id(id) => AzurePrincipalArgument::Id(id),
@@ -69,7 +77,16 @@ impl AzurePrincipalArgument<'_> {
         }
     }
 
-    pub fn matches(&self, principal: &Principal) -> bool {
+    pub fn resolve<'a>(&self, principals: &'a PrincipalCollection) -> Option<&'a Principal> {
+        // if let Some(id) = self.as_id() {
+        //     return principals.get(id);
+        // }
+
+        principals.values().find(|principal| self.matches(*principal))
+    }
+
+    pub fn matches<'a>(&self, principal: impl Into<PrincipalRef<'a>>) -> bool {
+        let principal = principal.into();
         match self {
             AzurePrincipalArgument::Id(id) => principal.id() == id,
             AzurePrincipalArgument::IdRef(id) => principal.id() == *id,
