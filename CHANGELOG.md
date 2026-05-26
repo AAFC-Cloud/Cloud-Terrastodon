@@ -16,6 +16,7 @@
 - Update `rustls-webpki` dependency
 - Update `ct tf source add-imports` to have better subnet support
 - Add `ct az role operation browse|list` command
+- Add `ct az ad user show {}` command
 
 # v0.35.1
 

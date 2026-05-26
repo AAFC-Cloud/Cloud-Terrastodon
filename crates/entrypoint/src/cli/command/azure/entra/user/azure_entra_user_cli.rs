@@ -1,5 +1,6 @@
 use super::AzureEntraUserBrowseArgs;
 use super::AzureEntraUserListArgs;
+use super::AzureEntraUserShowArgs;
 use clap::Subcommand;
 use eyre::Result;
 
@@ -8,6 +9,8 @@ use eyre::Result;
 pub enum AzureEntraUserCommand {
     /// List Entra users.
     List(AzureEntraUserListArgs),
+    /// Show a single Entra user.
+    Show(AzureEntraUserShowArgs),
     /// Browse Entra users interactively.
     Browse(AzureEntraUserBrowseArgs),
 }
@@ -16,6 +19,7 @@ impl AzureEntraUserCommand {
     pub async fn invoke(self) -> Result<()> {
         match self {
             AzureEntraUserCommand::List(args) => args.invoke().await,
+            AzureEntraUserCommand::Show(args) => args.invoke().await,
             AzureEntraUserCommand::Browse(args) => args.invoke().await,
         }
     }
