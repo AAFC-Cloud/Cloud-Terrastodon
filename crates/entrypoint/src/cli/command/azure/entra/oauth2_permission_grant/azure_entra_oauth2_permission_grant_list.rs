@@ -28,7 +28,7 @@ pub struct AzureEntraOAuth2PermissionGrantListArgs {
     pub principal: Option<AzurePrincipalArgument<'static>>,
 
     /// Filter by delegated scopes. Matches grants that contain all requested scopes.
-    #[arg(long = "scope", value_delimiter = ',')]
+    #[arg(long = "scope", alias = "scopes", value_delimiter = ',')]
     pub scope: Vec<String>,
 
     /// Filter by resource service principal object id.

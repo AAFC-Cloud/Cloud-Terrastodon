@@ -68,9 +68,9 @@ impl CacheableCommand for OAuth2PermissionGrantUpdateRequest {
         cmd.arg("--body");
         cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&body)?);
         cmd.cache(cache_key);
-        let response = cmd.run().await?;
+        cmd.run_raw().await?;
         bust_oauth2_permission_grants_cache(self.tenant_id).await?;
-        Ok(response)
+        Ok(())
     }
 }
 

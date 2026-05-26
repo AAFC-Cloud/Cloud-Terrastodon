@@ -34,11 +34,11 @@ pub struct AzureEntraOAuth2PermissionGrantUpdateArgs {
     pub principal: Option<AzurePrincipalArgument<'static>>,
 
     /// Scopes to add to the grant.
-    #[arg(long = "add-scope", value_delimiter = ',')]
+    #[arg(long = "add-scope", alias = "add-scopes", value_delimiter = ',')]
     pub add_scope: Vec<String>,
 
     /// Scopes to remove from the grant.
-    #[arg(long = "remove-scope", value_delimiter = ',')]
+    #[arg(long = "remove-scope", alias = "remove-scopes", value_delimiter = ',')]
     pub remove_scope: Vec<String>,
 }
 

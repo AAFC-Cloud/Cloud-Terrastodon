@@ -28,7 +28,7 @@ pub struct AzureEntraOAuth2PermissionGrantCreateArgs {
     pub principal: AzurePrincipalArgument<'static>,
 
     /// Delegated scopes to grant.
-    #[arg(long = "scope", value_delimiter = ',')]
+    #[arg(long = "scope", alias = "scopes", value_delimiter = ',')]
     pub scope: Vec<String>,
 
     /// Resource service principal object id.
