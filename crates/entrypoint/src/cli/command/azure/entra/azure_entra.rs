@@ -1,5 +1,6 @@
 use super::application_registration::AzureEntraApplicationRegistrationArgs;
 use super::group::AzureEntraGroupArgs;
+use super::oauth2_permission_grant::AzureEntraOAuth2PermissionGrantArgs;
 use super::principal::AzureEntraPrincipalArgs;
 use super::role::AzureEntraRoleArgs;
 use super::service_principal::AzureEntraServicePrincipalArgs;
@@ -24,6 +25,9 @@ pub enum AzureEntraCommand {
     ApplicationRegistration(AzureEntraApplicationRegistrationArgs),
     /// Group-related operations (members, etc.).
     Group(AzureEntraGroupArgs),
+    /// OAuth2 delegated permission grant operations.
+    #[command(name = "oauth2-permission-grant", aliases = ["oauth2-permission-grants", "oauth2-grant"])]
+    OAuth2PermissionGrant(AzureEntraOAuth2PermissionGrantArgs),
 }
 
 impl AzureEntraCommand {
@@ -45,6 +49,9 @@ impl AzureEntraCommand {
                 args.invoke().await?;
             }
             AzureEntraCommand::Group(args) => {
+                args.invoke().await?;
+            }
+            AzureEntraCommand::OAuth2PermissionGrant(args) => {
                 args.invoke().await?;
             }
         }

@@ -2,7 +2,12 @@ use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::create_oauth2_permission_grant;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_azure::fetch_all_service_principals;
+use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
+use cloud_terrastodon_azure::find_matching_oauth2_permission_grant;
+use cloud_terrastodon_azure::join_oauth2_permission_grant_scopes;
+use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
+use cloud_terrastodon_azure::update_oauth2_permission_grant;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -53,17 +58,42 @@ pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result
             value: user,
         }))?;
 
+    let mut existing_grants = fetch_oauth2_permission_grants(tenant_id).await?;
+    let requested_scope =
+        join_oauth2_permission_grant_scopes(scopes_to_add.iter().map(|scope| scope.value.as_str()));
+
     for user in users_to_add {
-        for scope in &scopes_to_add {
-            println!("Granting {} to {}", scope.value, user);
-            _ = create_oauth2_permission_grant(
+        if let Some(existing) = find_matching_oauth2_permission_grant(
+            &mut existing_grants,
+            resource.id,
+            client.id,
+            user.id,
+        ) {
+            let new_scope = merge_oauth2_permission_grant_scopes(
+                &existing.scope,
+                requested_scope.split_ascii_whitespace(),
+                std::iter::empty(),
+            );
+            if new_scope == existing.scope {
+                println!("Grant already contains requested scopes for {}", user);
+                continue;
+            }
+
+            println!("Updating scopes for {}", user);
+            let () =
+                update_oauth2_permission_grant(tenant_id, existing.id.clone(), new_scope.clone()).await?;
+            existing.scope = new_scope;
+        } else {
+            println!("Creating grant for {}", user);
+            let created = create_oauth2_permission_grant(
                 tenant_id,
                 resource.id,
                 client.id,
                 user.id,
-                scope.value.clone(),
+                requested_scope.clone(),
             )
             .await?;
+            existing_grants.push(created);
         }
     }
 

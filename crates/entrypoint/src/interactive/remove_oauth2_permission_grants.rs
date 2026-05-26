@@ -27,7 +27,7 @@ pub async fn remove_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result
 
     for grant in to_remove {
         info!("Removing {grant:#?}");
-        remove_oauth2_permission_grant(tenant_id, &grant.grant.id).await?;
+        remove_oauth2_permission_grant(tenant_id, grant.grant.id).await?;
     }
 
     Ok(())

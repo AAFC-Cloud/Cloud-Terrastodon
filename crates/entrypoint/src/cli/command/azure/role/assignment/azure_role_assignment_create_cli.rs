@@ -65,10 +65,9 @@ impl AzureRoleAssignmentCreateArgs {
         // Resolve principals
         let principals = if let Some(principal_arg) = self.principal {
             let fetched = fetch_all_principals(tenant_id).await?;
-            let matched: Vec<_> = fetched
-                .values()
+            let matched: Vec<_> = fetched.0
+                .into_values()
                 .filter(|p| principal_arg.matches(p))
-                .cloned()
                 .collect();
             if matched.is_empty() {
                 eyre::bail!("No principals matched '{principal_arg}'");

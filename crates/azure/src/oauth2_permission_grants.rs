@@ -1,86 +1,101 @@
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
 use cloud_terrastodon_azure_types::AzureTenantId;
-use cloud_terrastodon_azure_types::ConsentType;
 use cloud_terrastodon_azure_types::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
-use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_command::async_trait;
-use http::Method;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::LazyLock;
-use tracing::info;
 
 pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
     LazyLock::new(|| PathBuf::from_iter(["ms", "graph", "GET", "oauth2PermissionGrants"]));
 
-pub struct OAuth2PermissionGrantListRequest {
-    pub tenant_id: AzureTenantId,
-}
-
-pub fn fetch_oauth2_permission_grants(
+pub(crate) async fn bust_oauth2_permission_grants_cache(
     tenant_id: AzureTenantId,
-) -> OAuth2PermissionGrantListRequest {
-    OAuth2PermissionGrantListRequest { tenant_id }
+) -> eyre::Result<()> {
+    let mut cache = CommandBuilder::default();
+    cache.cache(CacheKey::new(
+        FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.join(tenant_id.to_string()),
+    ));
+    cache.bust_cache().await?;
+    Ok(())
 }
 
-#[async_trait]
-impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRequest {
-    type Output = Vec<OAuth2PermissionGrant>;
+pub fn split_oauth2_permission_grant_scope(scope: &str) -> Vec<String> {
+    scope
+        .split_ascii_whitespace()
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.join(self.tenant_id.to_string()))
+pub fn join_oauth2_permission_grant_scopes<'a>(
+    scopes: impl IntoIterator<Item = &'a str>,
+) -> String {
+    let mut seen = HashSet::new();
+    let mut ordered = Vec::new();
+    for scope in scopes {
+        let scope = scope.trim();
+        if scope.is_empty() || !seen.insert(scope.to_string()) {
+            continue;
+        }
+        ordered.push(scope.to_string());
+    }
+    ordered.join(" ")
+}
+
+pub fn merge_oauth2_permission_grant_scopes<'a>(
+    existing: &str,
+    add_scopes: impl IntoIterator<Item = &'a str>,
+    remove_scopes: impl IntoIterator<Item = &'a str>,
+) -> String {
+    let remove = remove_scopes
+        .into_iter()
+        .map(str::trim)
+        .filter(|scope| !scope.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<HashSet<_>>();
+
+    let mut seen = HashSet::new();
+    let mut merged = Vec::new();
+
+    for scope in split_oauth2_permission_grant_scope(existing) {
+        if remove.contains(&scope) || !seen.insert(scope.clone()) {
+            continue;
+        }
+        merged.push(scope);
     }
 
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "GET", "--url", url]);
-        cmd.args(["--tenant", self.tenant_id.to_string().as_str()]);
-        cmd.cache(self.cache_key());
-        let resp = cmd
-            .run::<crate::microsoft_graph::MicrosoftGraphResponse<OAuth2PermissionGrant>>()
-            .await?;
-        Ok(resp.value)
+    for scope in add_scopes {
+        let scope = scope.trim();
+        if scope.is_empty() || remove.contains(scope) || !seen.insert(scope.to_string()) {
+            continue;
+        }
+        merged.push(scope.to_string());
     }
+
+    merged.join(" ")
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantListRequest);
-
-pub async fn create_oauth2_permission_grant(
-    tenant_id: AzureTenantId,
+pub fn find_matching_oauth2_permission_grant(
+    grants: &mut [OAuth2PermissionGrant],
     resource_id: EntraServicePrincipalId,
     client_id: EntraServicePrincipalId,
-    user_id: EntraUserId,
-    scope: String,
-) -> eyre::Result<OAuth2PermissionGrant> {
-    info!(
-        "Creating OAuth2 permission grant for {} for {}",
-        scope, user_id
-    );
-    let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
-    let body = OAuth2PermissionGrant {
-        resource_id,
-        client_id,
-        consent_type: ConsentType::Principal,
-        id: OAuth2PermissionGrantId("".to_string()),
-        principal_id: Some(user_id),
-        scope,
-    };
-    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-    cmd.args(["rest", "--method", Method::POST.as_str(), "--url", url]);
-    cmd.args(["--tenant", tenant_id.to_string().as_str()]);
-    cmd.arg("--body");
-    cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&body)?);
-    cmd.run().await
+    principal_id: EntraUserId,
+) -> Option<&mut OAuth2PermissionGrant> {
+    grants.iter_mut().find(|grant| {
+        grant.resource_id == resource_id
+            && grant.client_id == client_id
+            && grant.principal_id == Some(principal_id)
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fetch_oauth2_permission_grants;
     use crate::get_test_tenant_id;
 
     #[tokio::test]
@@ -88,5 +103,28 @@ mod tests {
         let found = fetch_oauth2_permission_grants(get_test_tenant_id().await?).await?;
         assert!(!found.is_empty());
         Ok(())
+    }
+
+    #[test]
+    fn merge_scopes_preserves_existing_order_and_appends_new_values() {
+        let merged = merge_oauth2_permission_grant_scopes(
+            "Calendars.Read openid profile",
+            ["RoleManagement.ReadWrite.Directory", "profile"],
+            std::iter::empty(),
+        );
+        assert_eq!(
+            merged,
+            "Calendars.Read openid profile RoleManagement.ReadWrite.Directory"
+        );
+    }
+
+    #[test]
+    fn merge_scopes_removes_values_before_appending() {
+        let merged = merge_oauth2_permission_grant_scopes(
+            "Calendars.Read openid profile",
+            ["RoleManagement.ReadWrite.Directory"],
+            ["openid"],
+        );
+        assert_eq!(merged, "Calendars.Read profile RoleManagement.ReadWrite.Directory");
     }
 }

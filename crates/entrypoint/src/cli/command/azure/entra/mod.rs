@@ -1,6 +1,7 @@
 pub mod application_registration;
 pub mod azure_entra;
 pub mod group;
+pub mod oauth2_permission_grant;
 pub mod principal;
 pub mod role;
 pub mod service_principal;
@@ -11,6 +12,7 @@ pub use azure_entra::AzureEntraCommand;
 use clap::Args;
 use eyre::Result;
 pub use group::AzureEntraGroupArgs;
+pub use oauth2_permission_grant::AzureEntraOAuth2PermissionGrantArgs;
 pub use principal::AzureEntraPrincipalArgs;
 pub use role::AzureEntraRoleArgs;
 pub use service_principal::AzureEntraServicePrincipalArgs;

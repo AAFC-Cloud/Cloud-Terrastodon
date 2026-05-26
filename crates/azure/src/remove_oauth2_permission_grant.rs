@@ -1,25 +1,56 @@
-use crate::FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR;
+use crate::bust_oauth2_permission_grants_cache;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::async_trait;
 use http::Method;
+use std::path::PathBuf;
+use std::time::Duration;
 
-pub async fn remove_oauth2_permission_grant(
-    tenant_id: AzureTenantId,
-    id: &OAuth2PermissionGrantId,
-) -> eyre::Result<()> {
-    let url = format!("https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{id}");
-    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-    cmd.args(["rest", "--method", Method::DELETE.as_str(), "--url", &url]);
-    cmd.args(["--tenant", tenant_id.to_string().as_str()]);
-    cmd.run_raw().await?;
-
-    let mut cache = CommandBuilder::default();
-    cache.cache(CacheKey::new(
-        FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.join(tenant_id.to_string()),
-    ));
-    cache.bust_cache().await?;
-    Ok(())
+pub struct OAuth2PermissionGrantRemoveRequest {
+    pub tenant_id: AzureTenantId,
+    pub id: OAuth2PermissionGrantId,
 }
+
+pub fn remove_oauth2_permission_grant(
+    tenant_id: AzureTenantId,
+    id: OAuth2PermissionGrantId,
+) -> OAuth2PermissionGrantRemoveRequest {
+    OAuth2PermissionGrantRemoveRequest { tenant_id, id }
+}
+
+#[async_trait]
+impl CacheableCommand for OAuth2PermissionGrantRemoveRequest {
+    type Output = ();
+
+    fn cache_key(&self) -> CacheKey {
+        CacheKey {
+            path: PathBuf::from_iter([
+                "ms",
+                "graph",
+                "DELETE",
+                "oauth2PermissionGrants",
+                self.tenant_id.to_string().as_str(),
+                self.id.to_string().as_str(),
+            ]),
+            valid_for: Duration::ZERO,
+        }
+    }
+
+    async fn run(self) -> eyre::Result<Self::Output> {
+        let cache_key = self.cache_key();
+        let url = format!("https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{}", self.id);
+        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
+        cmd.args(["rest", "--method", Method::DELETE.as_str(), "--url", &url]);
+        cmd.args(["--tenant", self.tenant_id.to_string().as_str()]);
+        cmd.cache(cache_key);
+        cmd.run_raw().await?;
+        bust_oauth2_permission_grants_cache(self.tenant_id).await?;
+        Ok(())
+    }
+}
+
+cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantRemoveRequest);
