@@ -14,6 +14,7 @@ use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
+use eyre::ContextCompat;
 use eyre::Result;
 use eyre::bail;
 use serde::de::DeserializeOwned;
@@ -302,7 +303,7 @@ impl CommandBuilder {
         let timestamp_first_line = timestamp
             .lines()
             .next()
-            .ok_or_else(|| eyre::eyre!("timestamp.txt contained no lines"))?;
+            .wrap_err("timestamp.txt contained no lines")?;
         let timestamp_first_line = timestamp_first_line
             .to_str()
             .wrap_err("failed to convert timestamp first line to string")?;

@@ -1,6 +1,7 @@
 use crate::get_default_organization_url;
 use crate::set_default_organization_url;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use eyre::ContextCompat;
 use ratatui::crossterm::event::Event;
 use ratatui::crossterm::event::KeyCode;
 use ratatui::crossterm::event::KeyEventKind;
@@ -160,11 +161,9 @@ impl AzureDevOpsDefaultOrganizationUrlTui {
                             }
                             let text = self.text_input.lines().join("");
                             let (base_url, organization_name) =
-                                text.trim_end_matches('/').rsplit_once('/').ok_or_else(|| {
-                                    eyre::eyre!(
-                                        "Expected input in format 'https://dev.azure.com/myorg/'"
-                                    )
-                                })?;
+                                text.trim_end_matches('/').rsplit_once('/').wrap_err(
+                                    "Expected input in format 'https://dev.azure.com/myorg/'",
+                                )?;
                             let url =
                                 AzureDevOpsOrganizationUrl::try_new(base_url, organization_name)?;
                             rtn = DefaultOrganizationTuiResponse::SetDefaultOrganizationUrl(url);

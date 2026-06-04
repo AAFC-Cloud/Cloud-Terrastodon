@@ -9,6 +9,7 @@ use cloud_terrastodon_azure::EntraServicePrincipalId;
 use cloud_terrastodon_azure::create_oauth2_permission_grant;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::join_oauth2_permission_grant_scopes;
+use eyre::ContextCompat;
 use eyre::Result;
 use std::io::Write;
 
@@ -46,12 +47,10 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
         let (client_id, resource_id) = match self.preset {
             Some(preset) => resolve_preset_service_principals(tenant_id, preset).await?,
             None => (
-                self.client_id.ok_or_else(|| {
-                    eyre::eyre!("--client-id is required unless --preset is used")
-                })?,
-                self.resource_id.ok_or_else(|| {
-                    eyre::eyre!("--resource-id is required unless --preset is used")
-                })?,
+                self.client_id
+                    .wrap_err("--client-id is required unless --preset is used")?,
+                self.resource_id
+                    .wrap_err("--resource-id is required unless --preset is used")?,
             ),
         };
 
@@ -61,14 +60,14 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
         }
 
         let principals = fetch_all_principals(tenant_id).await?;
-        let principal = self.principal.resolve(&principals).ok_or_else(|| {
-            eyre::eyre!(
+        let principal = self.principal.resolve(&principals).wrap_err_with(|| {
+            format!(
                 "Could not resolve principal '{}' in tenant {tenant_id}",
                 self.principal
             )
         })?;
-        let principal_id = principal.as_user().map(|user| user.id).ok_or_else(|| {
-            eyre::eyre!(
+        let principal_id = principal.as_user().map(|user| user.id).wrap_err_with(|| {
+            format!(
                 "Delegated oauth2 permission grants require a user principal, got '{principal}'"
             )
         })?;

@@ -14,6 +14,7 @@ use clap::ValueEnum;
 use cloud_terrastodon_azure::EntraServicePrincipal;
 use cloud_terrastodon_azure::EntraServicePrincipalId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
+use eyre::ContextCompat;
 use eyre::Result;
 use uuid::Uuid;
 
@@ -71,5 +72,5 @@ fn resolve_service_principal_by_app_id<'a>(
     service_principals
         .iter()
         .find(|sp| sp.app_id == app_id)
-        .ok_or_else(|| eyre::eyre!("Could not find service principal for app id {app_id}"))
+        .wrap_err_with(|| format!("Could not find service principal for app id {app_id}"))
 }

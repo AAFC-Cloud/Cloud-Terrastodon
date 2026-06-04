@@ -8,6 +8,7 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
+use eyre::ContextCompat;
 use eyre::OptionExt;
 use eyre::Result;
 use serde_json;
@@ -44,7 +45,7 @@ impl TerraformShowArgs {
             let path_str = self
                 .plan_file
                 .to_str()
-                .ok_or_else(|| eyre::eyre!("Plan file path is not valid UTF-8"))?;
+                .wrap_err("Plan file path is not valid UTF-8")?;
             let mut cmd = CommandBuilder::new(CommandKind::Terraform);
             cmd.should_announce(true);
             cmd.args(["show", "--json", path_str]);

@@ -16,6 +16,7 @@ use cloud_terrastodon_azure::fetch_all_public_ips;
 use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
+use eyre::ContextCompat;
 use eyre::Result;
 use eyre::bail;
 use hickory_resolver::TokioResolver;
@@ -163,7 +164,7 @@ fn extract_target_host(target: &str) -> Result<String> {
     if let Ok(url) = Url::parse(trimmed) {
         let host = url
             .host_str()
-            .ok_or_else(|| eyre::eyre!("URL '{}' does not contain a host", trimmed))?;
+            .wrap_err_with(|| format!("URL '{}' does not contain a host", trimmed))?;
         return Ok(trim_fqdn_dot(host));
     }
 

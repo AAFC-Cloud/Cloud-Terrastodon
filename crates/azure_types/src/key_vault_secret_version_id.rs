@@ -4,6 +4,7 @@ use crate::scopes::strip_prefix_case_insensitive;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::Context;
+use eyre::ContextCompat;
 use eyre::eyre;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -81,7 +82,7 @@ impl FromStr for KeyVaultSecretVersionId {
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         // https://keyvaultname.vault.azure.net/secrets/SECRETNAME/SECRETVERSION
         let remaining = strip_prefix_case_insensitive(input, "https://")?;
-        let (key_vault_name, remaining) = remaining.split_once('.').ok_or_else(|| {
+        let (key_vault_name, remaining) = remaining.split_once('.').wrap_err_with(|| {
             eyre!("Failed to parse KeyVaultSecretVersionId: missing '.' after key vault name in {input:?}")
         })?;
         let key_vault_name = KeyVaultName::from_str(key_vault_name).wrap_err_with(|| {
@@ -89,7 +90,7 @@ impl FromStr for KeyVaultSecretVersionId {
         })?;
         let remaining = strip_prefix_case_insensitive(remaining, "vault.azure.net/secrets/")
             .wrap_err_with(|| eyre!("Expected 'vault.azure.net/secrets/' in {input:?}"))?;
-        let (secret_name, secret_version) = remaining.split_once('/').ok_or_else(|| {
+        let (secret_name, secret_version) = remaining.split_once('/').wrap_err_with(|| {
             eyre!("Failed to parse KeyVaultSecretVersionId: missing '/' after secret name in {input:?}")
         })?;
         let secret_name = KeyVaultSecretName::from_str(secret_name).wrap_err_with(|| {

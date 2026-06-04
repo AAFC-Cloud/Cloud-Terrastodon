@@ -3,6 +3,7 @@ use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use arbitrary::Arbitrary;
 use eyre::Context;
+use eyre::ContextCompat;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -80,11 +81,10 @@ impl Scope for SubscriptionId {
     fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         let expanded = expanded
             .strip_prefix(SUBSCRIPTION_ID_PREFIX)
-            .ok_or_else(|| {
-                eyre::eyre!(
+            .wrap_err_with(|| {
+                format!(
                     "Expected subscription id to start with {} but got {}",
-                    SUBSCRIPTION_ID_PREFIX,
-                    expanded
+                    SUBSCRIPTION_ID_PREFIX, expanded
                 )
             })?;
         Ok(Self(expanded.parse()?))

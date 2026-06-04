@@ -9,6 +9,7 @@ use cloud_terrastodon_azure::EntraServicePrincipalId;
 use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
+use eyre::ContextCompat;
 use eyre::Result;
 use std::io::Write;
 
@@ -55,8 +56,8 @@ impl AzureEntraOAuth2PermissionGrantListArgs {
         let principal_id = match self.principal.as_ref() {
             Some(principal_argument) => {
                 let principals = fetch_all_principals(tenant_id).await?;
-                let principal = principal_argument.resolve(&principals).ok_or_else(|| {
-                    eyre::eyre!(
+                let principal = principal_argument.resolve(&principals).wrap_err_with(|| {
+                    format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",
                         principal_argument
                     )
@@ -65,9 +66,11 @@ impl AzureEntraOAuth2PermissionGrantListArgs {
                     principal
                         .as_user()
                         .map(|user| user.id)
-                        .ok_or_else(|| eyre::eyre!(
-                            "Delegated oauth2 permission grants require a user principal, got '{principal}'"
-                        ))?,
+                        .wrap_err_with(|| {
+                            format!(
+                                "Delegated oauth2 permission grants require a user principal, got '{principal}'"
+                            )
+                        })?,
                 )
             }
             None => None,

@@ -64,7 +64,7 @@ mod tests {
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::RolePermissionAction;
     use cloud_terrastodon_azure_types::Scope;
-    use eyre::eyre;
+    use eyre::ContextCompat;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
@@ -80,7 +80,7 @@ mod tests {
         let key_vault_secrets_officer = role_definitions
             .iter()
             .find(|rd| rd.id.short_form() == key_vault_secrets_officer_id)
-            .ok_or_else(|| eyre!("Couldn't find Key Vault Secrets Officer role definition"))?;
+            .wrap_err("Couldn't find Key Vault Secrets Officer role definition")?;
         let permission = "Microsoft.KeyVault/vaults/secrets/readMetadata/action";
         assert!(key_vault_secrets_officer.satisfies(&[], &[RolePermissionAction::new(permission)]));
         Ok(())

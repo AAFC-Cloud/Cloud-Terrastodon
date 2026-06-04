@@ -12,6 +12,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlement
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
+use eyre::ContextCompat;
 use eyre::Result;
 use tracing::debug;
 use tracing::info;
@@ -39,7 +40,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
         let user_entitlement = entitlements
             .into_iter()
             .find(|e| user_predicate(e))
-            .ok_or_else(|| eyre::eyre!("No license entitlement found matching {self:?}",))?;
+            .wrap_err_with(|| format!("No license entitlement found matching {self:?}"))?;
 
         debug!(?user_entitlement, "Found entitlement");
         let user_principal_name = user_entitlement.user.unique_name;

@@ -1,6 +1,7 @@
 use crate::menu_action;
 use cloud_terrastodon_user_input::prompt_line;
-use eyre::Context;
+use eyre::ContextCompat;
+use eyre::WrapErr;
 use eyre::bail;
 use quote::quote;
 use std::path::PathBuf;
@@ -206,7 +207,7 @@ async fn update_interactive_entrypoint_mod_rs_file(function_name: &str) -> eyre:
                 let (_, body) = item_mod
                     .content
                     .as_mut()
-                    .ok_or_else(|| eyre::eyre!("prelude module has no inline content"))?;
+                    .wrap_err("prelude module has no inline content")?;
                 let new_use_code = format!("pub use crate::interactive::{function_name}::*;");
                 let new_use: ItemUse =
                     parse_str(&new_use_code).wrap_err("Failed to parse new use statement")?;

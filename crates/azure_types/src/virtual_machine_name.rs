@@ -1,6 +1,7 @@
 use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use eyre::ContextCompat;
 use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -38,7 +39,7 @@ fn validate_vm_name(value: &str) -> eyre::Result<()> {
     // Must start with alphanumeric
     let first_char = chars
         .first()
-        .ok_or_else(|| eyre::eyre!("Virtual machine name cannot be empty"))?;
+        .wrap_err("Virtual machine name cannot be empty")?;
     if !first_char.is_alphanumeric() {
         bail!("Virtual machine name must start with alphanumeric character");
     }

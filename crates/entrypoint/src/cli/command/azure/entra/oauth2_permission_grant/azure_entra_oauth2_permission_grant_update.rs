@@ -10,6 +10,7 @@ use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::remove_oauth2_permission_grant;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
+use eyre::ContextCompat;
 use eyre::Result;
 use serde_json::json;
 use std::io::Write;
@@ -56,17 +57,17 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             Some(id) => grants
                 .into_iter()
                 .find(|grant| grant.id.as_ref() == id)
-                .ok_or_else(|| eyre::eyre!("Could not find oauth2 permission grant {id}"))?,
+                .wrap_err_with(|| format!("Could not find oauth2 permission grant {id}"))?,
             None => {
                 let preset = self
                     .preset
-                    .ok_or_else(|| eyre::eyre!("Use --id or (--preset and --principal)"))?;
+                    .wrap_err("Use --id or (--preset and --principal)")?;
                 let principal = self
                     .principal
-                    .ok_or_else(|| eyre::eyre!("--principal is required when using --preset"))?;
+                    .wrap_err("--principal is required when using --preset")?;
                 let principals = fetch_all_principals(tenant_id).await?;
-                let principal = principal.resolve(&principals).ok_or_else(|| {
-                    eyre::eyre!(
+                let principal = principal.resolve(&principals).wrap_err_with(|| {
+                    format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",
                         principal
                     )
@@ -74,9 +75,11 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 let principal_id = principal
                     .as_user()
                     .map(|user| user.id)
-                    .ok_or_else(|| eyre::eyre!(
-                        "Delegated oauth2 permission grants require a user principal, got '{principal}'"
-                    ))?;
+                    .wrap_err_with(|| {
+                        format!(
+                            "Delegated oauth2 permission grants require a user principal, got '{principal}'"
+                        )
+                    })?;
                 let (client_id, resource_id) =
                     resolve_preset_service_principals(tenant_id, preset).await?;
                 grants
@@ -86,9 +89,9 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                             && grant.client_id == client_id
                             && grant.principal_id == Some(principal_id)
                     })
-                    .ok_or_else(|| eyre::eyre!(
-                        "Could not find oauth2 permission grant for the requested preset and principal"
-                    ))?
+                    .wrap_err(
+                        "Could not find oauth2 permission grant for the requested preset and principal",
+                    )?
             }
         };
 

@@ -11,6 +11,7 @@ use cloud_terrastodon_credentials::infer_tenant_id_for_request;
 use cloud_terrastodon_credentials::read_optional_body;
 use cloud_terrastodon_credentials::read_optional_headers;
 use eyre::Context;
+use eyre::ContextCompat;
 use eyre::Result;
 use eyre::bail;
 use http::Method;
@@ -56,8 +57,8 @@ pub struct RestArgs {
 impl RestArgs {
     pub async fn invoke(self) -> Result<Response> {
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
-        let service = RestService::infer(&url).ok_or_else(|| {
-            eyre::eyre!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
+        let service = RestService::infer(&url).wrap_err_with(|| {
+            format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
         let tenant_inference_url = url.clone();
         let tenant = match self.tenant {

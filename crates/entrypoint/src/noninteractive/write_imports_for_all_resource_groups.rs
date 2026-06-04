@@ -9,6 +9,7 @@ use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::ProviderKind;
 use cloud_terrastodon_hcl::Sanitizable;
 use cloud_terrastodon_pathing::AppDir;
+use eyre::ContextCompat;
 use eyre::Result;
 use eyre::eyre;
 use std::collections::HashMap;
@@ -33,7 +34,7 @@ pub async fn write_imports_for_all_resource_groups(tenant_id: AzureTenantId) -> 
     for rg in resource_groups {
         let sub = subscriptions
             .get(&rg.id.subscription_id)
-            .ok_or_else(|| eyre!("could not find subscription for resource group {rg:?}"))?;
+            .wrap_err_with(|| format!("could not find subscription for resource group {rg:?}"))?;
         let mut block: HclImportBlock = rg.into();
         block.provider = HclProviderReference::Alias {
             kind: ProviderKind::AzureRM,

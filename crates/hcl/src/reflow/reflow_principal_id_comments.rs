@@ -72,6 +72,7 @@ mod test {
     use cloud_terrastodon_azure::EntraUser;
     use cloud_terrastodon_azure::Principal;
     use cloud_terrastodon_azure::PrincipalCollection;
+    use eyre::ContextCompat;
     use hcl::edit::structure::Body;
     use indoc::formatdoc;
     use rand::RngExt;
@@ -109,7 +110,7 @@ mod test {
         assert!(hcl.len() == 1);
         let body = hcl
             .remove(&PathBuf::from("a.tf"))
-            .ok_or_else(|| eyre::eyre!("Missing body"))?;
+            .wrap_err("Missing body")?;
 
         let expected = formatdoc! {
         r#"
@@ -164,7 +165,7 @@ mod test {
         assert!(hcl.len() == 1);
         let body = hcl
             .remove(&PathBuf::from("a.tf"))
-            .ok_or_else(|| eyre::eyre!("Missing body"))?;
+            .wrap_err("Missing body")?;
 
         let expected = formatdoc! {
         r#"
@@ -222,7 +223,7 @@ mod test {
         assert!(hcl.len() == 1);
         let body = hcl
             .remove(&PathBuf::from("a.tf"))
-            .ok_or_else(|| eyre::eyre!("Missing body"))?;
+            .wrap_err("Missing body")?;
 
         let expected = formatdoc! {
         r#"
@@ -273,7 +274,7 @@ mod test {
         assert!(hcl.len() == 1);
         let body = hcl
             .remove(&PathBuf::from("a.tf"))
-            .ok_or_else(|| eyre::eyre!("Missing body"))?;
+            .wrap_err("Missing body")?;
 
         let expected = formatdoc! {
         r#"
@@ -333,7 +334,7 @@ mod test {
         assert!(hcl.len() == 1);
         let body = hcl
             .remove(&PathBuf::from("a.tf"))
-            .ok_or_else(|| eyre::eyre!("Missing body"))?;
+            .wrap_err("Missing body")?;
 
         let expected = formatdoc! {
         r#"

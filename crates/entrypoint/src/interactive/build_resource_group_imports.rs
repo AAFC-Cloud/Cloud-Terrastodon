@@ -13,6 +13,7 @@ use cloud_terrastodon_hcl::Sanitizable;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
+use eyre::ContextCompat;
 use eyre::Result;
 use eyre::eyre;
 use std::collections::HashMap;
@@ -44,7 +45,7 @@ pub async fn build_resource_group_imports(tenant_id: AzureTenantId) -> Result<()
     for rg in resource_groups {
         let sub = subscriptions
             .get(&rg.id.subscription_id)
-            .ok_or_else(|| eyre!("could not find subscription for resource group {rg:?}"))?;
+            .wrap_err_with(|| format!("could not find subscription for resource group {rg:?}"))?;
         let choice = SubRGPair {
             subscription: sub,
             resource_group: rg,

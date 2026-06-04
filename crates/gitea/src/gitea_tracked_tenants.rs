@@ -5,6 +5,7 @@ use crate::default_tenant::get_default_gitea_instance_url;
 use crate::list_gitea_logins;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
+use eyre::ContextCompat;
 use eyre::bail;
 use std::collections::HashMap;
 use std::path::Path;
@@ -101,7 +102,7 @@ pub async fn list_tracked_tenant_aliases_for(
     ensure_tracked_tenant_exists(url).await?;
     let tenant = get_tracked_tenant(url)
         .await?
-        .ok_or_else(|| eyre::eyre!("Tracked Gitea tenant not found after validation"))?;
+        .wrap_err("Tracked Gitea tenant not found after validation")?;
     Ok(tenant.aliases)
 }
 

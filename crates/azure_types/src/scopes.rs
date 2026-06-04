@@ -38,8 +38,8 @@ use cloud_terrastodon_azure_resource_types::ResourceType;
 use compact_str::CompactString;
 use compact_str::ToCompactString;
 use eyre::Context;
+use eyre::ContextCompat;
 use eyre::bail;
-use eyre::eyre;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -164,20 +164,18 @@ pub fn get_provider_and_resource_type_and_resource_and_remaining(
     let remaining = expanded;
     let remaining = strip_prefix_case_insensitive(remaining, "/providers/")?;
     // Microsoft.KeyVault/vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
-    let (provider, remaining) = remaining
-        .split_once('/')
-        .ok_or_else(|| eyre!("Missing provider"))?;
+    let (provider, remaining) = remaining.split_once('/').wrap_err("Missing provider")?;
     // vaults/my-vault/providers/Microsoft.Authorization/roleAssignments/0000
     let (resource_type, remaining) = remaining
         .split_once('/')
-        .ok_or_else(|| eyre!("Missing resource type"))?;
+        .wrap_err("Missing resource type")?;
     let provider_and_resource_type = &expanded
         ["/providers/".len()..provider.len() + resource_type.len() + "/providers/".len() + 1];
     let resource_type = ResourceType::from_str(provider_and_resource_type)?;
     // my-vault/providers/Microsoft.Authorization/roleAssignments/0000
     let (resource, remaining) = remaining
         .split_once('/')
-        .ok_or_else(|| eyre!("Missing resource name"))?;
+        .wrap_err("Missing resource name")?;
     // providers/Microsoft.Authorization/roleAssignments/0000
     let remaining = &expanded[expanded.len() - remaining.len() - 1..];
     // /providers/Microsoft.Authorization/roleAssignments/0000
@@ -333,8 +331,8 @@ where
         let prefix_pos = remaining
             .to_lowercase()
             .rfind(&prefix.to_lowercase())
-            .ok_or_else(|| {
-                eyre!("String {remaining:?} must contain {prefix} (case insensitive)")
+            .wrap_err_with(|| {
+                format!("String {remaining:?} must contain {prefix} (case insensitive)")
             })?;
         let name = &remaining[prefix_pos + prefix.len()..];
         let name = <<Self as HasSlug>::Name>::try_new(name)?;
