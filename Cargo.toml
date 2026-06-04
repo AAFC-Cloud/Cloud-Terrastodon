@@ -116,6 +116,10 @@ path = "./crates/azure_devops"
 version = "0.35.1"                   # CT_VERSION
 path = "./crates/azure_devops_types"
 
+[workspace.dependencies.cloud_terrastodon_gitea]
+version = "0.35.1"             # CT_VERSION
+path = "./crates/gitea"
+
 [workspace.dependencies.cloud_terrastodon_hcl]
 version = "0.35.1"    # CT_VERSION
 path = "./crates/hcl"
@@ -193,6 +197,7 @@ cloud_terrastodon_azure_types = { workspace = true, optional = true }
 cloud_terrastodon_azure_resource_types = { workspace = true, optional = true }
 cloud_terrastodon_azure_devops = { workspace = true, optional = true }
 cloud_terrastodon_azure_devops_types = { workspace = true, optional = true }
+cloud_terrastodon_gitea = { workspace = true, optional = true }
 cloud_terrastodon_hcl = { workspace = true, optional = true }
 cloud_terrastodon_hcl_types = { workspace = true, optional = true }
 cloud_terrastodon_user_input = { workspace = true, optional = true }
@@ -215,6 +220,7 @@ azure-types = ["dep:cloud_terrastodon_azure_types"]
 azure-resource-types = ["dep:cloud_terrastodon_azure_resource_types"]
 azure-devops = ["dep:cloud_terrastodon_azure_devops"]
 azure-devops-types = ["dep:cloud_terrastodon_azure_devops_types"]
+gitea = ["dep:cloud_terrastodon_gitea"]
 hcl = ["dep:cloud_terrastodon_hcl"]
 hcl-types = ["dep:cloud_terrastodon_hcl_types"]
 user-input = ["dep:cloud_terrastodon_user_input"]
@@ -234,6 +240,7 @@ full = [
     "azure-resource-types",
     "azure-devops",
     "azure-devops-types",
+    "gitea",
     "entrypoint",
     "hcl",
     "hcl-types",

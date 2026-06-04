@@ -1,0 +1,27 @@
+[package]
+name = "cloud_terrastodon_gitea"
+description = "Read-only Gitea helpers for the Cloud Terrastodon project"
+version = "0.35.1" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+cloud_terrastodon_command.workspace = true
+cloud_terrastodon_pathing.workspace = true
+eyre.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+compact_str = { workspace = true, features = ["serde"] }
+chrono.workspace = true
+blake3.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+test-log.workspace = true
+tempfile.workspace = true

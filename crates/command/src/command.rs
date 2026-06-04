@@ -668,6 +668,34 @@ impl CommandBuilder {
         self.run_raw_from(Location::caller())
     }
 
+    #[track_caller]
+    pub fn run_raw_polite(
+        &self,
+        uncached_delay: Duration,
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + '_ {
+        self.run_raw_polite_from(uncached_delay, Location::caller())
+    }
+
+    async fn run_raw_polite_from(
+        &self,
+        uncached_delay: Duration,
+        caller: &'static Location<'static>,
+    ) -> Result<CommandOutput> {
+        if let Ok(Some(output)) = self.get_cached_output().await {
+            return Ok(output);
+        }
+
+        if !uncached_delay.is_zero() {
+            debug!(
+                delay_ms = uncached_delay.as_millis(),
+                "Sleeping before uncached command execution"
+            );
+            tokio::time::sleep(uncached_delay).await;
+        }
+        // todo: avoid calling get_cached_output twice
+        self.run_raw_from(caller).await
+    }
+
     #[async_recursion]
     async fn run_raw_from(&self, caller: &'static Location<'static>) -> Result<CommandOutput> {
         let summary = self.summarize().await;
@@ -708,6 +736,72 @@ impl CommandBuilder {
     #[track_caller]
     pub fn run<T: FromCommandOutput>(&self) -> impl Future<Output = Result<T>> + Send + '_ {
         self.run_from(Location::caller())
+    }
+
+    #[track_caller]
+    pub fn run_polite<T: FromCommandOutput>(
+        &self,
+        uncached_delay: Duration,
+    ) -> impl Future<Output = Result<T>> + Send + '_ {
+        self.run_polite_from(uncached_delay, Location::caller())
+    }
+
+    async fn run_polite_from<T: FromCommandOutput>(
+        &self,
+        uncached_delay: Duration,
+        caller: &'static Location<'static>,
+    ) -> Result<T> {
+        let summary = self.summarize().await;
+        let span = info_span!("command_run_polite", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
+
+        let output = self
+            .run_raw_polite_from(uncached_delay, caller)
+            .instrument(span.clone())
+            .await
+            .wrap_err(format!(
+                "Command::run_polite failed, called from {}",
+                RelativeLocation::from(caller)
+            ))?;
+        let output = Arc::new(output);
+
+        let parse_result = {
+            let output = Arc::clone(&output);
+            let span = span.clone();
+            spawn_blocking(move || {
+                let _guard = span.enter();
+                let span2 = info_span!("command_parse_output").or_current();
+                let _guard2 = span2.enter();
+                let start = Instant::now();
+
+                let stdout = output.stdout.to_str_lossy();
+                let slice = stdout.as_bytes();
+                let parse_result = serde_json::from_slice(slice);
+
+                let elapsed = Instant::now().duration_since(start);
+                debug!(
+                    parse_ms = elapsed.as_millis(),
+                    "Parsed command output in {}",
+                    humantime::format_duration(elapsed),
+                );
+                parse_result
+            })
+            .await?
+        };
+
+        match parse_result {
+            Ok(results) => Ok(results),
+            Err(e) => {
+                let dir = self
+                    .write_failure(&output)
+                    .instrument(span.or_current())
+                    .await?;
+                Err(eyre::Error::new(e).wrap_err(format!(
+                    "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}",
+                    RelativeLocation::from(caller),
+                    std::any::type_name::<T>()
+                )))
+            }
+        }
     }
 
     async fn run_from<T: FromCommandOutput>(

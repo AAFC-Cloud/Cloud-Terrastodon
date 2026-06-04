@@ -31,6 +31,7 @@ pub enum CommandKind {
     Echo,
     Pwsh,
     Git,
+    Gitea,
     CloudTerrastodon,
     Other(String),
 }
@@ -61,6 +62,7 @@ impl CommandKind {
             CommandKind::Echo => "pwsh".to_string(),
             CommandKind::Pwsh => "pwsh".to_string(),
             CommandKind::Git => "git".to_string(),
+            CommandKind::Gitea => "tea".to_string(),
             CommandKind::CloudTerrastodon => {
                 let current_exe = env::current_exe().unwrap_or_else(|_| "cloud_terrastodon".into());
                 let is_test = current_exe

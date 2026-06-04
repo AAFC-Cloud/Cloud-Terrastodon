@@ -1,0 +1,27 @@
+use crate::GiteaRepoEnumerationMethod;
+use crate::GiteaRepoId;
+use serde::Deserialize;
+use serde::Serialize;
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct GiteaRepoEnumerationMethodReport {
+    pub method: GiteaRepoEnumerationMethod,
+    pub request_count: usize,
+    pub repo_count: usize,
+    pub repo_ids: Vec<GiteaRepoId>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct GiteaRepoEnumerationComparisonReport {
+    pub organizations: GiteaRepoEnumerationMethodReport,
+    pub users: GiteaRepoEnumerationMethodReport,
+    pub current_user: GiteaRepoEnumerationMethodReport,
+    pub search: GiteaRepoEnumerationMethodReport,
+    pub id_range: GiteaRepoEnumerationMethodReport,
+    pub combined: GiteaRepoEnumerationMethodReport,
+    pub search_missing_from_combined: Vec<GiteaRepoId>,
+    pub organizations_missing_from_search: Vec<GiteaRepoId>,
+    pub users_missing_from_search: Vec<GiteaRepoId>,
+    pub current_user_missing_from_search: Vec<GiteaRepoId>,
+    pub id_range_missing_from_search: Vec<GiteaRepoId>,
+}
