@@ -35,10 +35,13 @@ impl NslookupArgs {
 
         if let Ok(ip) = target.parse::<IpAddr>() {
             if let Ok(reverse) = resolver.reverse_lookup(ip).await
-                && let Some(name) = reverse.answers().iter().find_map(|record| match &record.data {
-                    RData::PTR(name) => Some(name),
-                    _ => None,
-                })
+                && let Some(name) = reverse
+                    .answers()
+                    .iter()
+                    .find_map(|record| match &record.data {
+                        RData::PTR(name) => Some(name),
+                        _ => None,
+                    })
             {
                 println!("Name:\t{}", trim_fqdn_dot(name.to_utf8()));
             }
@@ -121,10 +124,13 @@ async fn resolve_cname_chain(
             break;
         };
 
-        let next = lookup.answers().iter().find_map(|record| match &record.data {
-            RData::CNAME(name) => Some(trim_fqdn_dot(name.to_utf8())),
-            _ => None,
-        });
+        let next = lookup
+            .answers()
+            .iter()
+            .find_map(|record| match &record.data {
+                RData::CNAME(name) => Some(trim_fqdn_dot(name.to_utf8())),
+                _ => None,
+            });
         let Some(next) = next else {
             break;
         };

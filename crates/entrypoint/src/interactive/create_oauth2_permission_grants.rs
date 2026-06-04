@@ -81,7 +81,8 @@ pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result
 
             println!("Updating scopes for {}", user);
             let () =
-                update_oauth2_permission_grant(tenant_id, existing.id.clone(), new_scope.clone()).await?;
+                update_oauth2_permission_grant(tenant_id, existing.id.clone(), new_scope.clone())
+                    .await?;
             existing.scope = new_scope;
         } else {
             println!("Creating grant for {}", user);

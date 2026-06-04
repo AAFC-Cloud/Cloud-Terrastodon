@@ -230,10 +230,13 @@ async fn resolve_cname_chain(
             break;
         };
 
-        let next = lookup.answers().iter().find_map(|record| match &record.data {
-            RData::CNAME(name) => Some(trim_fqdn_dot(name.to_utf8())),
-            _ => None,
-        });
+        let next = lookup
+            .answers()
+            .iter()
+            .find_map(|record| match &record.data {
+                RData::CNAME(name) => Some(trim_fqdn_dot(name.to_utf8())),
+                _ => None,
+            });
         let Some(next) = next else {
             break;
         };

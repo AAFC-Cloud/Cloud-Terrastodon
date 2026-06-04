@@ -70,7 +70,9 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
                 .await?
                 .into_iter()
                 .filter_map(move |role_assignment| {
-                    let role_definition = role_definitions.get(&role_assignment.role_definition_id)?.to_owned();
+                    let role_definition = role_definitions
+                        .get(&role_assignment.role_definition_id)?
+                        .to_owned();
                     Some(Choice {
                         key: format!(
                             "{definition} ({state})",
@@ -95,10 +97,11 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
             info!("Fetching maximum activation durations");
             let mut max_duration = Duration::MAX;
             for (role_assignment, _role_definition) in &chosen_roles {
-                let duration = fetch_entra_pim_role_settings(tenant_id, role_assignment.role_definition_id)
-                    .with_invalidation(invalidate)
-                    .await?
-                    .get_maximum_grant_period()?;
+                let duration =
+                    fetch_entra_pim_role_settings(tenant_id, role_assignment.role_definition_id)
+                        .with_invalidation(invalidate)
+                        .await?
+                        .get_maximum_grant_period()?;
                 if duration < max_duration {
                     max_duration = duration;
                 }

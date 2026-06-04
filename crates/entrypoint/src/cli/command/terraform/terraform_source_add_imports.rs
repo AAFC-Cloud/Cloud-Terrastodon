@@ -1,11 +1,11 @@
 use clap::Args;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Resource;
+use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::SubnetId;
 use cloud_terrastodon_azure::VirtualNetworkId;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_hcl::AsHclString;
 use cloud_terrastodon_hcl::DataBlockReference;
@@ -13,8 +13,8 @@ use cloud_terrastodon_hcl::HclBlock;
 use cloud_terrastodon_hcl::HclDataBlock;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
-use cloud_terrastodon_hcl::ProviderKind;
 use cloud_terrastodon_hcl::HclResourceBlock;
+use cloud_terrastodon_hcl::ProviderKind;
 use cloud_terrastodon_hcl::ResourceBlockReference;
 use cloud_terrastodon_hcl::edit::expr::Expression;
 use cloud_terrastodon_hcl::edit::expr::TraversalOperator;
@@ -168,7 +168,8 @@ fn find_candidate_import_ids(
         return Some(matching);
     }
 
-    let vnet_resource = find_matching_virtual_network_resource(resources_by_name, &expected_parent)?;
+    let vnet_resource =
+        find_matching_virtual_network_resource(resources_by_name, &expected_parent)?;
     let ScopeImpl::VirtualNetwork(vnet_id) = &vnet_resource.id else {
         return None;
     };
@@ -243,7 +244,8 @@ fn resolve_resource_group_name(
         return Some(name.to_owned());
     }
 
-    let resource_group_ref = data_block_reference_from_expression(&resource_group_name.value, &["name", "id"])?;
+    let resource_group_ref =
+        data_block_reference_from_expression(&resource_group_name.value, &["name", "id"])?;
     let resource_group_block = data_blocks.get(&resource_group_ref)?;
     if resource_group_block.provider_kind() != ProviderKind::AzureRM
         || resource_group_ref.kind() != "resource_group"
@@ -262,7 +264,10 @@ fn subnet_matches_context(
         return false;
     };
 
-    subnet_id.subnet_name.to_string().eq_ignore_ascii_case(subnet_name)
+    subnet_id
+        .subnet_name
+        .to_string()
+        .eq_ignore_ascii_case(subnet_name)
         && subnet_id
             .virtual_network_id
             .virtual_network_name
@@ -293,7 +298,10 @@ fn find_matching_virtual_network_resource<'a>(
         })
 }
 
-fn string_attribute<'a>(body: &'a cloud_terrastodon_hcl::edit::structure::Body, key: &str) -> Option<&'a str> {
+fn string_attribute<'a>(
+    body: &'a cloud_terrastodon_hcl::edit::structure::Body,
+    key: &str,
+) -> Option<&'a str> {
     body.get_attribute(key)?.value.as_str()
 }
 
@@ -352,7 +360,11 @@ mod tests {
 
     fn parse_hcl_block(input: &str) -> HclBlock {
         let body: cloud_terrastodon_hcl::edit::structure::Body = input.parse().unwrap();
-        body.try_into_hcl_blocks().unwrap().into_iter().next().unwrap()
+        body.try_into_hcl_blocks()
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap()
     }
 
     #[test]
@@ -410,10 +422,7 @@ mod tests {
                 "other-vnet/my-subnet".to_owned(),
                 vec![wrong_parent_resource],
             ),
-            (
-                "my-vnet/my-subnet".to_owned(),
-                vec![subnet_resource],
-            ),
+            ("my-vnet/my-subnet".to_owned(), vec![subnet_resource]),
         ]);
 
         let import_ids = find_candidate_import_ids(
@@ -426,7 +435,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(import_ids.len(), 1);
-        assert_eq!(import_ids[0], "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-resource-group/providers/Microsoft.Network/virtualNetworks/my-vnet/subnets/my-subnet");
+        assert_eq!(
+            import_ids[0],
+            "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-resource-group/providers/Microsoft.Network/virtualNetworks/my-vnet/subnets/my-subnet"
+        );
     }
 
     #[test]
