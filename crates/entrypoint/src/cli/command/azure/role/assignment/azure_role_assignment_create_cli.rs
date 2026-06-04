@@ -65,7 +65,8 @@ impl AzureRoleAssignmentCreateArgs {
         // Resolve principals
         let principals = if let Some(principal_arg) = self.principal {
             let fetched = fetch_all_principals(tenant_id).await?;
-            let matched: Vec<_> = fetched.0
+            let matched: Vec<_> = fetched
+                .0
                 .into_values()
                 .filter(|p| principal_arg.matches(p))
                 .collect();

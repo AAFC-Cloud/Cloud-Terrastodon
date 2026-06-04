@@ -54,7 +54,8 @@ pub async fn resolve_preset_service_principals(
     match preset {
         OAuth2PermissionGrantPreset::GraphExplorer => {
             let service_principals = fetch_all_service_principals(tenant_id).await?;
-            let client = resolve_service_principal_by_app_id(&service_principals, GRAPH_EXPLORER_APP_ID)?;
+            let client =
+                resolve_service_principal_by_app_id(&service_principals, GRAPH_EXPLORER_APP_ID)?;
             let resource =
                 resolve_service_principal_by_app_id(&service_principals, MICROSOFT_GRAPH_APP_ID)?;
             Ok((client.id, resource.id))

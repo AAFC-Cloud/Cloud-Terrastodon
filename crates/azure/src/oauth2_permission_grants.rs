@@ -125,6 +125,9 @@ mod tests {
             ["RoleManagement.ReadWrite.Directory"],
             ["openid"],
         );
-        assert_eq!(merged, "Calendars.Read profile RoleManagement.ReadWrite.Directory");
+        assert_eq!(
+            merged,
+            "Calendars.Read profile RoleManagement.ReadWrite.Directory"
+        );
     }
 }

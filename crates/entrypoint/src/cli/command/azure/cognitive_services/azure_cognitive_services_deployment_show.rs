@@ -38,7 +38,10 @@ impl AzureCognitiveServicesDeploymentShowArgs {
             .collect::<Vec<_>>();
 
         let account = match account_matches.len() {
-            0 => bail!("No Cognitive Services account found matching '{}'.", account),
+            0 => bail!(
+                "No Cognitive Services account found matching '{}'.",
+                account
+            ),
             1 => account_matches.remove(0),
             _ => {
                 account_matches.sort_by_key(|item| item.id.expanded_form());

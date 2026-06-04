@@ -94,9 +94,6 @@ impl AzureEntraOAuth2PermissionGrantListArgs {
     }
 }
 
-fn principal_id_matches(
-    actual: Option<EntraUserId>,
-    expected: Option<EntraUserId>,
-) -> bool {
+fn principal_id_matches(actual: Option<EntraUserId>, expected: Option<EntraUserId>) -> bool {
     expected.is_none_or(|expected| actual == Some(expected))
 }

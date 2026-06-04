@@ -7,8 +7,8 @@ pub use assignment::AzureRoleAssignmentArgs;
 pub use azure_role::AzureRoleCommand;
 use clap::Args;
 pub use definition::AzureRoleDefinitionArgs;
-pub use operation::AzureRoleOperationArgs;
 use eyre::Result;
+pub use operation::AzureRoleOperationArgs;
 
 /// Manage Azure role-based access control.
 #[derive(Args, Debug, Clone)]

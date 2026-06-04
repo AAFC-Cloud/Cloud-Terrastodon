@@ -89,7 +89,11 @@ mod tests {
     #[tokio::test]
     async fn includes_microsoft_authorization_provider() -> Result<()> {
         let results = fetch_all_role_operation_metadata(get_test_tenant_id().await?).await?;
-        assert!(results.iter().any(|provider| provider.name == "Microsoft.Authorization"));
+        assert!(
+            results
+                .iter()
+                .any(|provider| provider.name == "Microsoft.Authorization")
+        );
         Ok(())
     }
 }

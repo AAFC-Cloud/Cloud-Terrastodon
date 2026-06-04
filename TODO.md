@@ -1,5 +1,10 @@
 # TODO
 
+## Eyre
+
+`.ok_or_else(|| eyre::eyre!(`
+[clean up ok_or_else into eyre to instead just .wrap_err](crates/entrypoint/src/cli/command/azure/entra/oauth2_permission_grant/azure_entra_oauth2_permission_grant_update.rs)
+
 ## resource type
 
 update crates\azure_types\src\role_operations.rs to use our harder ResourceType types

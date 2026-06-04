@@ -42,7 +42,10 @@ impl AzureCognitiveServicesDeploymentListArgs {
                 .collect::<Vec<_>>();
 
             match matches.len() {
-                0 => bail!("No Cognitive Services account found matching '{}'.", account_argument),
+                0 => bail!(
+                    "No Cognitive Services account found matching '{}'.",
+                    account_argument
+                ),
                 1 => {
                     let account = matches.remove(0);
                     let deployments =

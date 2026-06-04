@@ -28,9 +28,7 @@ impl AzureEntraUserShowArgs {
 
         let mut matches = users
             .into_iter()
-            .filter(|user| {
-                self.user.matches(user)
-            })
+            .filter(|user| self.user.matches(user))
             .collect::<Vec<_>>();
 
         match matches.len() {

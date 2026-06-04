@@ -16,7 +16,10 @@ pub struct AzureEntraOAuth2PermissionGrantBrowseArgs {
 impl AzureEntraOAuth2PermissionGrantBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         let chosen = pick_oauth2_permission_grants(self.tenant.resolve().await?).await?;
-        let chosen = chosen.into_iter().map(|grant| grant.grant).collect::<Vec<_>>();
+        let chosen = chosen
+            .into_iter()
+            .map(|grant| grant.grant)
+            .collect::<Vec<_>>();
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
         serde_json::to_writer_pretty(&mut handle, &chosen)?;

@@ -30,7 +30,10 @@ impl AzureCognitiveServicesShowArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No Cognitive Services account found matching '{}'.", account),
+            0 => bail!(
+                "No Cognitive Services account found matching '{}'.",
+                account
+            ),
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();

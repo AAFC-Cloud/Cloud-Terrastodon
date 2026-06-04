@@ -54,7 +54,8 @@ async fn reflow_by_block_identifier_preserves_comment_only_body() -> eyre::Resul
 }
 
 #[tokio::test]
-async fn reflow_by_block_identifier_co_locates_import_and_moved_above_resource() -> eyre::Result<()> {
+async fn reflow_by_block_identifier_co_locates_import_and_moved_above_resource() -> eyre::Result<()>
+{
     let reflowed = apply_reflower(
         ReflowByBlockIdentifier::default(),
         [
@@ -198,7 +199,11 @@ async fn reflow_by_block_identifier_co_locates_import_for_for_each_resource() ->
         .unwrap();
 
     assert!(import_pos < resource_pos);
-    assert!(output.contains("to = azuread_application_owner.prod[\"141e1371-9290-4d81-9e3e-1b1658b265f4\"]"));
+    assert!(
+        output.contains(
+            "to = azuread_application_owner.prod[\"141e1371-9290-4d81-9e3e-1b1658b265f4\"]"
+        )
+    );
     Ok(())
 }
 
@@ -306,15 +311,19 @@ async fn reflow_by_block_identifier_single_file_orders_block_categories() -> eyr
     let terraform_pos = output.find("terraform {").unwrap();
     let provider_pos = output.find("provider \"azurerm\" {").unwrap();
     let variable_pos = output.find("variable \"location\" {").unwrap();
-    let data_pos = output.find("data \"azurerm_client_config\" \"current\" {").unwrap();
+    let data_pos = output
+        .find("data \"azurerm_client_config\" \"current\" {")
+        .unwrap();
     let import_pos = output.find("import {").unwrap();
     let moved_pos = output.find("moved {").unwrap();
-    let resource_pos = output.find("resource \"azurerm_resource_group\" \"main\" {").unwrap();
+    let resource_pos = output
+        .find("resource \"azurerm_resource_group\" \"main\" {")
+        .unwrap();
     let output_pos = output.find("output \"app_id\" {").unwrap();
 
     assert!(terraform_pos < provider_pos);
-        assert!(provider_pos < data_pos);
-        assert!(data_pos < variable_pos);
+    assert!(provider_pos < data_pos);
+    assert!(data_pos < variable_pos);
     assert!(data_pos < import_pos);
     assert!(import_pos < moved_pos);
     assert!(moved_pos < resource_pos);
@@ -324,7 +333,7 @@ async fn reflow_by_block_identifier_single_file_orders_block_categories() -> eyr
 
 #[tokio::test]
 async fn reflow_by_block_identifier_hybrid_merge_keeps_shared_data_separate() -> eyre::Result<()> {
-        let reflowed = apply_reflower(
+    let reflowed = apply_reflower(
             ReflowByBlockIdentifier::new(None, true),
                 [
                         (
@@ -373,38 +382,43 @@ async fn reflow_by_block_identifier_hybrid_merge_keeps_shared_data_separate() ->
         )
         .await?;
 
-        assert!(reflowed.contains_key(&PathBuf::from("data.azuredevops_project.main.tf")));
-        assert!(reflowed.contains_key(&PathBuf::from("resource.azuredevops_environment.ckan.tf")));
-        assert!(reflowed.contains_key(&PathBuf::from("resource.azuredevops_environment.pipelines.tf")));
-        assert!(!reflowed.contains_key(&PathBuf::from("data.azuredevops_users.ckan.tf")));
-        assert!(!reflowed.contains_key(&PathBuf::from("data.azuredevops_users.pipelines.tf")));
+    assert!(reflowed.contains_key(&PathBuf::from("data.azuredevops_project.main.tf")));
+    assert!(reflowed.contains_key(&PathBuf::from("resource.azuredevops_environment.ckan.tf")));
+    assert!(reflowed.contains_key(&PathBuf::from(
+        "resource.azuredevops_environment.pipelines.tf"
+    )));
+    assert!(!reflowed.contains_key(&PathBuf::from("data.azuredevops_users.ckan.tf")));
+    assert!(!reflowed.contains_key(&PathBuf::from("data.azuredevops_users.pipelines.tf")));
 
-        let pipelines = reflowed
-                .get(&PathBuf::from("resource.azuredevops_environment.pipelines.tf"))
-                .unwrap()
-                .to_string();
-        let env_pos = pipelines
-                .find("resource \"azuredevops_environment\" \"pipelines\" {")
-                .unwrap();
-        let users_pos = pipelines
-                .find("data \"azuredevops_users\" \"pipelines\" {")
-                .unwrap();
-        let approval_pos = pipelines
-                .find("resource \"azuredevops_check_approval\" \"pipelines\" {")
-                .unwrap();
+    let pipelines = reflowed
+        .get(&PathBuf::from(
+            "resource.azuredevops_environment.pipelines.tf",
+        ))
+        .unwrap()
+        .to_string();
+    let env_pos = pipelines
+        .find("resource \"azuredevops_environment\" \"pipelines\" {")
+        .unwrap();
+    let users_pos = pipelines
+        .find("data \"azuredevops_users\" \"pipelines\" {")
+        .unwrap();
+    let approval_pos = pipelines
+        .find("resource \"azuredevops_check_approval\" \"pipelines\" {")
+        .unwrap();
 
-        assert!(env_pos < users_pos);
-        assert!(users_pos < approval_pos);
-        Ok(())
+    assert!(env_pos < users_pos);
+    assert!(users_pos < approval_pos);
+    Ok(())
 }
 
 #[tokio::test]
-async fn reflow_by_block_identifier_merges_single_use_variable_into_resource_file() -> eyre::Result<()> {
-        let reflowed = apply_reflower(
-            ReflowByBlockIdentifier::new(None, true),
-                [(
-                        "main.tf",
-                        indoc! {r#"
+async fn reflow_by_block_identifier_merges_single_use_variable_into_resource_file()
+-> eyre::Result<()> {
+    let reflowed = apply_reflower(
+        ReflowByBlockIdentifier::new(None, true),
+        [(
+            "main.tf",
+            indoc! {r#"
                                 variable "location" {
                                     type = string
                                 }
@@ -414,26 +428,31 @@ async fn reflow_by_block_identifier_merges_single_use_variable_into_resource_fil
                                     name     = "demo"
                                 }
                         "#},
-                )],
-        )
-        .await?;
+        )],
+    )
+    .await?;
 
-        assert_eq!(reflowed.len(), 1);
-        let output = reflowed
-                .get(&PathBuf::from("resource.azurerm_resource_group.main.tf"))
+    assert_eq!(reflowed.len(), 1);
+    let output = reflowed
+        .get(&PathBuf::from("resource.azurerm_resource_group.main.tf"))
+        .unwrap()
+        .to_string();
+    assert!(
+        output.find("variable \"location\" {").unwrap()
+            < output
+                .find("resource \"azurerm_resource_group\" \"main\" {")
                 .unwrap()
-                .to_string();
-        assert!(output.find("variable \"location\" {").unwrap() < output.find("resource \"azurerm_resource_group\" \"main\" {").unwrap());
-        Ok(())
+    );
+    Ok(())
 }
 
 #[tokio::test]
 async fn reflow_by_block_identifier_splits_and_preserves_locals_comments() -> eyre::Result<()> {
-        let reflowed = apply_reflower(
-            ReflowByBlockIdentifier::new(None, true),
-                [(
-                        "main.tf",
-                        indoc! {r#"
+    let reflowed = apply_reflower(
+        ReflowByBlockIdentifier::new(None, true),
+        [(
+            "main.tf",
+            indoc! {r#"
                                 # keep this comment
                                 locals {
                                     alpha = "demo"
@@ -445,26 +464,32 @@ async fn reflow_by_block_identifier_splits_and_preserves_locals_comments() -> ey
                                     name     = local.beta
                                 }
                         "#},
-                )],
-        )
-        .await?;
+        )],
+    )
+    .await?;
 
-        assert_eq!(reflowed.len(), 1);
-        let output = reflowed
-                .get(&PathBuf::from("resource.azurerm_resource_group.main.tf"))
+    assert_eq!(reflowed.len(), 1);
+    let output = reflowed
+        .get(&PathBuf::from("resource.azurerm_resource_group.main.tf"))
+        .unwrap()
+        .to_string();
+
+    assert!(output.contains("# keep this comment"));
+    assert!(output.contains("alpha = \"demo\""));
+    assert!(output.contains("beta  = local.alpha") || output.contains("beta = local.alpha"));
+    assert!(
+        output.find("locals {").unwrap()
+            < output
+                .find("resource \"azurerm_resource_group\" \"main\" {")
                 .unwrap()
-                .to_string();
-
-        assert!(output.contains("# keep this comment"));
-        assert!(output.contains("alpha = \"demo\""));
-        assert!(output.contains("beta  = local.alpha") || output.contains("beta = local.alpha"));
-        assert!(output.find("locals {").unwrap() < output.find("resource \"azurerm_resource_group\" \"main\" {").unwrap());
-        Ok(())
+    );
+    Ok(())
 }
 
 #[tokio::test]
-async fn reflow_by_block_identifier_default_flat_keeps_support_blocks_separate() -> eyre::Result<()> {
-        let reflowed = apply_reflower(
+async fn reflow_by_block_identifier_default_flat_keeps_support_blocks_separate() -> eyre::Result<()>
+{
+    let reflowed = apply_reflower(
         ReflowByBlockIdentifier::default(),
                 [(
                         "main.tf",
@@ -494,18 +519,25 @@ async fn reflow_by_block_identifier_default_flat_keeps_support_blocks_separate()
         )
         .await?;
 
-        assert!(reflowed.contains_key(&PathBuf::from("data.azuredevops_project.main.tf")));
-        assert!(reflowed.contains_key(&PathBuf::from("data.azuredevops_users.pipelines.tf")));
-        assert!(reflowed.contains_key(&PathBuf::from("resource.azuredevops_check_approval.pipelines.tf")));
-        assert!(reflowed.contains_key(&PathBuf::from("resource.azuredevops_environment.pipelines.tf")));
-        Ok(())
+    assert!(reflowed.contains_key(&PathBuf::from("data.azuredevops_project.main.tf")));
+    assert!(reflowed.contains_key(&PathBuf::from("data.azuredevops_users.pipelines.tf")));
+    assert!(reflowed.contains_key(&PathBuf::from(
+        "resource.azuredevops_check_approval.pipelines.tf"
+    )));
+    assert!(reflowed.contains_key(&PathBuf::from(
+        "resource.azuredevops_environment.pipelines.tf"
+    )));
+    Ok(())
 }
 
 #[tokio::test]
 async fn reflow_block_decorations_adds_blank_line_between_blocks() -> eyre::Result<()> {
     let reflowed = apply_reflower(
         ReflowBlockDecorations,
-        [("main.tf", "resource \"a\" \"one\" {}\nresource \"a\" \"two\" {}\n")],
+        [(
+            "main.tf",
+            "resource \"a\" \"one\" {}\nresource \"a\" \"two\" {}\n",
+        )],
     )
     .await?;
 
@@ -515,14 +547,18 @@ async fn reflow_block_decorations_adds_blank_line_between_blocks() -> eyre::Resu
 }
 
 #[tokio::test]
-async fn reflow_azure_devops_git_repository_adds_initialization_and_lifecycle() -> eyre::Result<()> {
+async fn reflow_azure_devops_git_repository_adds_initialization_and_lifecycle() -> eyre::Result<()>
+{
     let reflowed = apply_reflower(
         ReflowAzureDevOpsGitRepositoryInitializationAttributes,
-        [("repo.tf", indoc! {r#"
+        [(
+            "repo.tf",
+            indoc! {r#"
             resource "azuredevops_git_repository" "repo" {
               name = "demo"
             }
-        "#})],
+        "#},
+        )],
     )
     .await?;
 
@@ -535,7 +571,8 @@ async fn reflow_azure_devops_git_repository_adds_initialization_and_lifecycle() 
 }
 
 #[tokio::test]
-async fn reflow_remove_default_attributes_prunes_default_role_assignment_fields() -> eyre::Result<()> {
+async fn reflow_remove_default_attributes_prunes_default_role_assignment_fields() -> eyre::Result<()>
+{
     let reflowed = apply_reflower(
         ReflowRemoveDefaultAttributes,
         [("role.tf", indoc! {r#"
@@ -560,7 +597,8 @@ async fn reflow_remove_default_attributes_prunes_default_role_assignment_fields(
 }
 
 #[tokio::test]
-async fn reflow_expressions_use_imported_resource_blocks_rewrites_matching_ids() -> eyre::Result<()> {
+async fn reflow_expressions_use_imported_resource_blocks_rewrites_matching_ids() -> eyre::Result<()>
+{
     let resource_id = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg";
     let input = format!(
         "import {{\n  id = \"{}\"\n  to = azurerm_resource_group.main\n}}\n\nresource \"azurerm_role_assignment\" \"main\" {{\n  scope = \"{}\"\n}}\n",
@@ -572,7 +610,10 @@ async fn reflow_expressions_use_imported_resource_blocks_rewrites_matching_ids()
     )
     .await?;
 
-    let output = reflowed.get(&PathBuf::from("imports.tf")).unwrap().to_string();
+    let output = reflowed
+        .get(&PathBuf::from("imports.tf"))
+        .unwrap()
+        .to_string();
     assert!(output.contains("scope = azurerm_resource_group.main.id"));
     Ok(())
 }

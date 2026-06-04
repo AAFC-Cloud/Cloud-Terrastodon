@@ -19,7 +19,8 @@ impl AzureEntraRoleAssignmentListArgs {
         let tenant_id = self.tenant.resolve().await?;
         info!(%tenant_id, "Fetching Entra role assignments");
         let mut role_assignments = fetch_all_unified_role_assignments(tenant_id).await?;
-        role_assignments.sort_unstable_by(|left, right| left.id.to_string().cmp(&right.id.to_string()));
+        role_assignments
+            .sort_unstable_by(|left, right| left.id.to_string().cmp(&right.id.to_string()));
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

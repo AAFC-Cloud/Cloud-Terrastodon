@@ -46,9 +46,12 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
         let (client_id, resource_id) = match self.preset {
             Some(preset) => resolve_preset_service_principals(tenant_id, preset).await?,
             None => (
-                self.client_id.ok_or_else(|| eyre::eyre!("--client-id is required unless --preset is used"))?,
-                self.resource_id
-                    .ok_or_else(|| eyre::eyre!("--resource-id is required unless --preset is used"))?,
+                self.client_id.ok_or_else(|| {
+                    eyre::eyre!("--client-id is required unless --preset is used")
+                })?,
+                self.resource_id.ok_or_else(|| {
+                    eyre::eyre!("--resource-id is required unless --preset is used")
+                })?,
             ),
         };
 
@@ -59,14 +62,16 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
 
         let principals = fetch_all_principals(tenant_id).await?;
         let principal = self.principal.resolve(&principals).ok_or_else(|| {
-            eyre::eyre!("Could not resolve principal '{}' in tenant {tenant_id}", self.principal)
+            eyre::eyre!(
+                "Could not resolve principal '{}' in tenant {tenant_id}",
+                self.principal
+            )
         })?;
-        let principal_id = principal
-            .as_user()
-            .map(|user| user.id)
-            .ok_or_else(|| eyre::eyre!(
+        let principal_id = principal.as_user().map(|user| user.id).ok_or_else(|| {
+            eyre::eyre!(
                 "Delegated oauth2 permission grants require a user principal, got '{principal}'"
-            ))?;
+            )
+        })?;
 
         let grant = create_oauth2_permission_grant(
             tenant_id,

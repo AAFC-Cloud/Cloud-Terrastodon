@@ -66,7 +66,10 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                     .ok_or_else(|| eyre::eyre!("--principal is required when using --preset"))?;
                 let principals = fetch_all_principals(tenant_id).await?;
                 let principal = principal.resolve(&principals).ok_or_else(|| {
-                    eyre::eyre!("Could not resolve principal '{}' in tenant {tenant_id}", principal)
+                    eyre::eyre!(
+                        "Could not resolve principal '{}' in tenant {tenant_id}",
+                        principal
+                    )
                 })?;
                 let principal_id = principal
                     .as_user()
@@ -110,7 +113,8 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             return Ok(());
         }
 
-        let () = update_oauth2_permission_grant(tenant_id, grant.id.clone(), merged_scope.clone()).await?;
+        let () = update_oauth2_permission_grant(tenant_id, grant.id.clone(), merged_scope.clone())
+            .await?;
         serde_json::to_writer_pretty(
             &mut handle,
             &json!({

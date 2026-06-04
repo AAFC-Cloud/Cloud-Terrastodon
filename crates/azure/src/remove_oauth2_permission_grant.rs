@@ -42,7 +42,10 @@ impl CacheableCommand for OAuth2PermissionGrantRemoveRequest {
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let cache_key = self.cache_key();
-        let url = format!("https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{}", self.id);
+        let url = format!(
+            "https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{}",
+            self.id
+        );
         let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
         cmd.args(["rest", "--method", Method::DELETE.as_str(), "--url", &url]);
         cmd.args(["--tenant", self.tenant_id.to_string().as_str()]);

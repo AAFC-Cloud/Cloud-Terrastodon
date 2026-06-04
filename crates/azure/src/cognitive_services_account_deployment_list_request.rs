@@ -9,9 +9,9 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::SerializableRestResponse;
-use eyre::bail;
 use eyre::Result;
 use eyre::WrapErr;
+use eyre::bail;
 use std::path::PathBuf;
 use tracing::info;
 

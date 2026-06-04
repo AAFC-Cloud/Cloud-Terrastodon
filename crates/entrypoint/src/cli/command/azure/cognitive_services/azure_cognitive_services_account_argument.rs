@@ -2,8 +2,8 @@ use cloud_terrastodon_azure::AzureCognitiveServicesAccountResource;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountResourceId;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountResourceName;
 use cloud_terrastodon_azure::Scope;
-use eyre::bail;
 use eyre::Result;
+use eyre::bail;
 use std::str::FromStr;
 
 /// Cognitive Services account can be specified as an id, a validated name, or a wildcard pattern.
@@ -36,7 +36,9 @@ impl From<AzureCognitiveServicesAccountResourceId> for CognitiveServicesAccountA
     }
 }
 
-impl<'a> From<&'a AzureCognitiveServicesAccountResourceId> for CognitiveServicesAccountArgument<'a> {
+impl<'a> From<&'a AzureCognitiveServicesAccountResourceId>
+    for CognitiveServicesAccountArgument<'a>
+{
     fn from(value: &'a AzureCognitiveServicesAccountResourceId) -> Self {
         Self::IdRef(value)
     }
@@ -48,7 +50,9 @@ impl From<AzureCognitiveServicesAccountResourceName> for CognitiveServicesAccoun
     }
 }
 
-impl<'a> From<&'a AzureCognitiveServicesAccountResourceName> for CognitiveServicesAccountArgument<'a> {
+impl<'a> From<&'a AzureCognitiveServicesAccountResourceName>
+    for CognitiveServicesAccountArgument<'a>
+{
     fn from(value: &'a AzureCognitiveServicesAccountResourceName) -> Self {
         Self::NameRef(value)
     }
@@ -123,7 +127,9 @@ impl FromStr for CognitiveServicesAccountArgument<'static> {
         } else if let Ok(name) = value.parse::<AzureCognitiveServicesAccountResourceName>() {
             Ok(CognitiveServicesAccountArgument::Name(name))
         } else {
-            bail!("'{value}' is not a valid Cognitive Services account id, name, or wildcard pattern")
+            bail!(
+                "'{value}' is not a valid Cognitive Services account id, name, or wildcard pattern"
+            )
         }
     }
 }
@@ -206,10 +212,26 @@ mod tests {
     #[test]
     fn argument_matches_account_name_and_id_patterns() -> eyre::Result<()> {
         let account = sample_account();
-        assert!("my-openai".parse::<CognitiveServicesAccountArgument<'static>>()?.matches(&account));
-        assert!("*open*".parse::<CognitiveServicesAccountArgument<'static>>()?.matches(&account));
-        assert!("*/accounts/my-openai".parse::<CognitiveServicesAccountArgument<'static>>()?.matches(&account));
-        assert!(!"other*".parse::<CognitiveServicesAccountArgument<'static>>()?.matches(&account));
+        assert!(
+            "my-openai"
+                .parse::<CognitiveServicesAccountArgument<'static>>()?
+                .matches(&account)
+        );
+        assert!(
+            "*open*"
+                .parse::<CognitiveServicesAccountArgument<'static>>()?
+                .matches(&account)
+        );
+        assert!(
+            "*/accounts/my-openai"
+                .parse::<CognitiveServicesAccountArgument<'static>>()?
+                .matches(&account)
+        );
+        assert!(
+            !"other*"
+                .parse::<CognitiveServicesAccountArgument<'static>>()?
+                .matches(&account)
+        );
         Ok(())
     }
 }

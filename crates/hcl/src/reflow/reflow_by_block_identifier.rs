@@ -5,9 +5,9 @@ use hcl::edit::Decor;
 use hcl::edit::Decorate;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::ForExpr;
-use hcl::edit::prelude::Span;
 use hcl::edit::expr::Traversal;
 use hcl::edit::expr::TraversalOperator;
+use hcl::edit::prelude::Span;
 use hcl::edit::structure::Block;
 use hcl::edit::structure::Body;
 use hcl::edit::structure::Structure;
@@ -38,10 +38,20 @@ impl ReflowByBlockIdentifier {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum NodeKey {
-    Terraform { path: PathBuf },
-    Provider { path: PathBuf },
-    Variable { path: PathBuf, name: String },
-    Local { path: PathBuf, name: String },
+    Terraform {
+        path: PathBuf,
+    },
+    Provider {
+        path: PathBuf,
+    },
+    Variable {
+        path: PathBuf,
+        name: String,
+    },
+    Local {
+        path: PathBuf,
+        name: String,
+    },
     Data {
         path: PathBuf,
         data_type: String,
@@ -52,8 +62,14 @@ enum NodeKey {
         resource_type: String,
         name: String,
     },
-    Output { path: PathBuf, name: String },
-    Misc { path: PathBuf, ordinal: usize },
+    Output {
+        path: PathBuf,
+        name: String,
+    },
+    Misc {
+        path: PathBuf,
+        ordinal: usize,
+    },
 }
 
 impl NodeKey {
@@ -89,7 +105,10 @@ impl NodeKind {
     }
 
     fn is_fixed(self) -> bool {
-        matches!(self, NodeKind::Terraform | NodeKind::Provider | NodeKind::Output | NodeKind::Misc)
+        matches!(
+            self,
+            NodeKind::Terraform | NodeKind::Provider | NodeKind::Output | NodeKind::Misc
+        )
     }
 
     fn is_anchor(self) -> bool {
@@ -314,7 +333,8 @@ impl DependencyCollector {
 impl VisitMut for DependencyCollector {
     fn visit_expr_mut(&mut self, node: &mut Expression) {
         if let Some(traversal) = node.as_traversal()
-            && let Some(dep) = dependency_from_traversal(&self.dir, traversal, &self.scoped_variables)
+            && let Some(dep) =
+                dependency_from_traversal(&self.dir, traversal, &self.scoped_variables)
         {
             self.deps.insert(dep);
         }
@@ -359,7 +379,10 @@ impl VisitMut for DependencyCollector {
 
 impl DependencyCollector {
     fn push_scoped_variable(&mut self, variable: &str) {
-        *self.scoped_variables.entry(variable.to_owned()).or_default() += 1;
+        *self
+            .scoped_variables
+            .entry(variable.to_owned())
+            .or_default() += 1;
     }
 
     fn pop_scoped_variable(&mut self, variable: &str) {
@@ -395,7 +418,10 @@ impl HclReflower for ReflowByBlockIdentifier {
 
         for (path, mut body) in hcl {
             let Some(dir) = path.parent() else {
-                bail!("Expected path to have a parent directory: {}", path.display());
+                bail!(
+                    "Expected path to have a parent directory: {}",
+                    path.display()
+                );
             };
             let source_content = body.to_string();
 
@@ -405,7 +431,14 @@ impl HclReflower for ReflowByBlockIdentifier {
             }
 
             for (ordinal, structure) in body.into_iter().enumerate() {
-                collect_structure(&mut collected, &path, &source_content, dir, ordinal, structure)?;
+                collect_structure(
+                    &mut collected,
+                    &path,
+                    &source_content,
+                    dir,
+                    ordinal,
+                    structure,
+                )?;
             }
         }
 
@@ -503,12 +536,54 @@ fn collect_block(
     let source_path = source_path.to_path_buf();
     let sort_key = SortKey::new(source_path.clone(), ordinal);
     match block.ident.as_str() {
-        "terraform" => push_standard_block_node(collected, NodeKind::Terraform, source_path, source_content, sort_key, block),
-        "provider" => push_standard_block_node(collected, NodeKind::Provider, source_path, source_content, sort_key, block),
-        "variable" => push_standard_block_node(collected, NodeKind::Variable, source_path, source_content, sort_key, block),
-        "data" => push_standard_block_node(collected, NodeKind::Data, source_path, source_content, sort_key, block),
-        "resource" => push_standard_block_node(collected, NodeKind::Resource, source_path, source_content, sort_key, block),
-        "output" => push_standard_block_node(collected, NodeKind::Output, source_path, source_content, sort_key, block),
+        "terraform" => push_standard_block_node(
+            collected,
+            NodeKind::Terraform,
+            source_path,
+            source_content,
+            sort_key,
+            block,
+        ),
+        "provider" => push_standard_block_node(
+            collected,
+            NodeKind::Provider,
+            source_path,
+            source_content,
+            sort_key,
+            block,
+        ),
+        "variable" => push_standard_block_node(
+            collected,
+            NodeKind::Variable,
+            source_path,
+            source_content,
+            sort_key,
+            block,
+        ),
+        "data" => push_standard_block_node(
+            collected,
+            NodeKind::Data,
+            source_path,
+            source_content,
+            sort_key,
+            block,
+        ),
+        "resource" => push_standard_block_node(
+            collected,
+            NodeKind::Resource,
+            source_path,
+            source_content,
+            sort_key,
+            block,
+        ),
+        "output" => push_standard_block_node(
+            collected,
+            NodeKind::Output,
+            source_path,
+            source_content,
+            sort_key,
+            block,
+        ),
         "locals" => {
             for local_node in split_locals_block(source_path, source_content, sort_key, block) {
                 collected.push_node(local_node)?;
@@ -579,7 +654,10 @@ fn push_standard_block_node(
     };
     let key = node_key_from_block(dir, &block, kind, sort_key.ordinal);
     let source_location = block_location(&source_path, source_content, &block);
-    let mut deps = if matches!(kind, NodeKind::Terraform | NodeKind::Provider | NodeKind::Misc) {
+    let mut deps = if matches!(
+        kind,
+        NodeKind::Terraform | NodeKind::Provider | NodeKind::Misc
+    ) {
         HashSet::new()
     } else {
         DependencyCollector::collect_from_block(&mut block, dir)
@@ -602,7 +680,12 @@ fn push_standard_block_node(
     })
 }
 
-fn split_locals_block(source_path: PathBuf, source_content: &str, sort_key: SortKey, block: Block) -> Vec<Node> {
+fn split_locals_block(
+    source_path: PathBuf,
+    source_content: &str,
+    sort_key: SortKey,
+    block: Block,
+) -> Vec<Node> {
     let Some(dir) = source_path.parent() else {
         return Vec::new();
     };
@@ -840,7 +923,8 @@ fn collapse_buckets(nodes: &HashMap<NodeKey, Node>) -> Vec<Bucket> {
         if let Some((source, target)) = buckets
             .iter()
             .filter_map(|bucket| {
-                support_merge_target(bucket, nodes, &bucket_of).map(|target| (bucket.id.clone(), target))
+                support_merge_target(bucket, nodes, &bucket_of)
+                    .map(|target| (bucket.id.clone(), target))
             })
             .min_by_key(|(source, _)| source.path().clone())
         {
@@ -1038,7 +1122,8 @@ fn render_layout(layout: BucketLayout<'_>, decor: &Option<Decor>) -> Body {
         .map(|node| (node.key.clone(), *node))
         .collect::<HashMap<_, _>>();
     let consumer_map = build_consumer_map(layout.nodes.iter().copied());
-    let attachment_map = build_support_attachment_map(layout.nodes.iter().copied(), &consumer_map, &nodes_by_key);
+    let attachment_map =
+        build_support_attachment_map(layout.nodes.iter().copied(), &consumer_map, &nodes_by_key);
     let resource_children = build_resource_children(layout.nodes.iter().copied(), &nodes_by_key);
     let output_keys = layout
         .nodes
@@ -1063,7 +1148,12 @@ fn render_layout(layout: BucketLayout<'_>, decor: &Option<Decor>) -> Body {
     let mut fixed_nodes = layout
         .nodes
         .iter()
-        .filter(|node| matches!(node.kind, NodeKind::Terraform | NodeKind::Provider | NodeKind::Misc))
+        .filter(|node| {
+            matches!(
+                node.kind,
+                NodeKind::Terraform | NodeKind::Provider | NodeKind::Misc
+            )
+        })
         .collect::<Vec<_>>();
     fixed_nodes.sort_by(|left, right| {
         left.kind
@@ -1117,7 +1207,9 @@ fn render_layout(layout: BucketLayout<'_>, decor: &Option<Decor>) -> Body {
     body
 }
 
-fn build_consumer_map<'a>(nodes: impl IntoIterator<Item = &'a Node>) -> HashMap<NodeKey, Vec<NodeKey>> {
+fn build_consumer_map<'a>(
+    nodes: impl IntoIterator<Item = &'a Node>,
+) -> HashMap<NodeKey, Vec<NodeKey>> {
     let all_nodes = nodes
         .into_iter()
         .map(|node| (node.key.clone(), node))
@@ -1126,7 +1218,10 @@ fn build_consumer_map<'a>(nodes: impl IntoIterator<Item = &'a Node>) -> HashMap<
     for node in all_nodes.values() {
         for dep in &node.deps {
             if all_nodes.contains_key(dep) {
-                consumers.entry(dep.clone()).or_default().push(node.key.clone());
+                consumers
+                    .entry(dep.clone())
+                    .or_default()
+                    .push(node.key.clone());
             }
         }
     }
@@ -1146,7 +1241,10 @@ fn build_resource_children<'a>(
             continue;
         };
         if nodes_by_key.contains_key(parent) {
-            children.entry(parent.clone()).or_default().push(node.key.clone());
+            children
+                .entry(parent.clone())
+                .or_default()
+                .push(node.key.clone());
         }
     }
     for child_nodes in children.values_mut() {
@@ -1175,7 +1273,10 @@ fn build_support_attachment_map<'a>(
             &mut HashSet::new(),
         );
         let attachment = classify_attachment(&anchors, nodes_by_key);
-        attachments.entry(attachment).or_default().push(node.key.clone());
+        attachments
+            .entry(attachment)
+            .or_default()
+            .push(node.key.clone());
     }
 
     for keys in attachments.values_mut() {
@@ -1267,13 +1368,16 @@ fn lowest_common_resource_ancestor(
     let first = resources.first()?.clone();
     let first_chain = resource_ancestor_chain(&first, nodes_by_key);
     first_chain.into_iter().find(|candidate| {
-        resources.iter().all(|resource| {
-            resource_ancestor_chain(resource, nodes_by_key).contains(candidate)
-        })
+        resources
+            .iter()
+            .all(|resource| resource_ancestor_chain(resource, nodes_by_key).contains(candidate))
     })
 }
 
-fn resource_ancestor_chain(resource: &NodeKey, nodes_by_key: &HashMap<NodeKey, &Node>) -> Vec<NodeKey> {
+fn resource_ancestor_chain(
+    resource: &NodeKey,
+    nodes_by_key: &HashMap<NodeKey, &Node>,
+) -> Vec<NodeKey> {
     let mut chain = Vec::new();
     let mut current = Some(resource.clone());
     while let Some(node_key) = current {
@@ -1323,7 +1427,14 @@ fn emit_resource_subtree(
     push_block_for_emission(body, payload.block.clone());
 
     for child in children.get(resource).into_iter().flatten() {
-        emit_resource_subtree(body, child, children, attachment_map, nodes_by_key, emitted_support);
+        emit_resource_subtree(
+            body,
+            child,
+            children,
+            attachment_map,
+            nodes_by_key,
+            emitted_support,
+        );
     }
 }
 
@@ -1381,7 +1492,9 @@ fn emit_support_node(
 fn push_non_resource_node(body: &mut Body, node: &Node) {
     match &node.payload {
         NodePayload::Block(payload) => push_block_for_emission(body, payload.block.clone()),
-        NodePayload::Structure(Structure::Block(block)) => push_block_for_emission(body, block.clone()),
+        NodePayload::Structure(Structure::Block(block)) => {
+            push_block_for_emission(body, block.clone())
+        }
         NodePayload::Structure(structure) => body.push(structure.clone()),
     }
 }
@@ -1398,9 +1511,7 @@ fn push_block_for_emission(body: &mut Body, mut block: Block) {
 }
 
 fn block_location(path: &Path, source_content: &str, block: &Block) -> LocationWithinFile {
-    let resolved_path = path
-        .canonicalize()
-        .unwrap_or_else(|_| path.to_path_buf());
+    let resolved_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
 
     block
         .span()
@@ -1419,9 +1530,7 @@ fn block_location(path: &Path, source_content: &str, block: &Block) -> LocationW
 
 fn fallback_location(path: &Path) -> LocationWithinFile {
     LocationWithinFile {
-        path: path
-            .canonicalize()
-            .unwrap_or_else(|_| path.to_path_buf()),
+        path: path.canonicalize().unwrap_or_else(|_| path.to_path_buf()),
         line: 1,
         column: 1,
     }

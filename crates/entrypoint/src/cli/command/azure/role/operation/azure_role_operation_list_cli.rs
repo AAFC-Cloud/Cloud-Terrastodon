@@ -28,7 +28,10 @@ impl AzureRoleOperationListArgs {
                 .then(left.provider_name.cmp(&right.provider_name))
                 .then(left.resource_type_name.cmp(&right.resource_type_name))
         });
-        info!(count = operations.len(), "Fetched Azure provider operations");
+        info!(
+            count = operations.len(),
+            "Fetched Azure provider operations"
+        );
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

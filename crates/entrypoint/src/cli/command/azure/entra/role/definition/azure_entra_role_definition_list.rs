@@ -23,9 +23,11 @@ impl AzureEntraRoleDefinitionListArgs {
             .into_iter()
             .collect::<Vec<_>>();
         role_definitions.sort_unstable_by(|left, right| {
-            left.display_name
-                .cmp(&right.display_name)
-                .then_with(|| left.template_id.to_string().cmp(&right.template_id.to_string()))
+            left.display_name.cmp(&right.display_name).then_with(|| {
+                left.template_id
+                    .to_string()
+                    .cmp(&right.template_id.to_string())
+            })
         });
 
         let stdout = std::io::stdout();

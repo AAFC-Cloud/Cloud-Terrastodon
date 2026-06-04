@@ -82,7 +82,9 @@ impl AzurePrincipalArgument<'_> {
         //     return principals.get(id);
         // }
 
-        principals.values().find(|principal| self.matches(*principal))
+        principals
+            .values()
+            .find(|principal| self.matches(*principal))
     }
 
     pub fn matches<'a>(&self, principal: impl Into<PrincipalRef<'a>>) -> bool {
