@@ -681,9 +681,10 @@ impl CommandBuilder {
         uncached_delay: Duration,
         caller: &'static Location<'static>,
     ) -> Result<CommandOutput> {
-        if let Ok(Some(output)) = self.get_cached_output().await {
-            return Ok(output);
-        }
+        let cached_output = match self.get_cached_output().await {
+            Ok(Some(output)) => return Ok(output),
+            cached_output => cached_output,
+        };
 
         if !uncached_delay.is_zero() {
             debug!(
@@ -692,19 +693,31 @@ impl CommandBuilder {
             );
             tokio::time::sleep(uncached_delay).await;
         }
-        // todo: avoid calling get_cached_output twice
-        self.run_raw_from(caller).await
+        self.run_raw_from_with_cached_output(caller, Some(cached_output))
+            .await
     }
 
     #[async_recursion]
     async fn run_raw_from(&self, caller: &'static Location<'static>) -> Result<CommandOutput> {
+        self.run_raw_from_with_cached_output(caller, None).await
+    }
+
+    async fn run_raw_from_with_cached_output(
+        &self,
+        caller: &'static Location<'static>,
+        cached_output: Option<Result<Option<CommandOutput>>>,
+    ) -> Result<CommandOutput> {
         let summary = self.summarize().await;
         let span =
             info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
 
         async {
             // Check cache
-            match self.get_cached_output().instrument(span.clone()).await {
+            let cached_output = match cached_output {
+                Some(cached_output) => cached_output,
+                None => self.get_cached_output().instrument(span.clone()).await,
+            };
+            match cached_output {
                 Ok(None) => {}
                 Ok(Some(output)) => {
                     return Ok(output);
