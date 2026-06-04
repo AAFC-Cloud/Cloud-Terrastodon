@@ -14,7 +14,7 @@ use eyre::Result;
 use eyre::bail;
 use eyre::eyre;
 use itertools::Itertools;
-use rand::RngCore;
+use rand::Rng;
 use tracing::info;
 
 pub async fn remediate_policy_assignment(tenant_id: AzureTenantId) -> Result<()> {
