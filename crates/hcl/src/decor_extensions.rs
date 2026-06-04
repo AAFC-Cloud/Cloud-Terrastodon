@@ -5,16 +5,16 @@ pub trait DecorExtensions {
 }
 impl DecorExtensions for Decor {
     fn is_empty(&self) -> bool {
-        if let Some(prefix) = self.prefix() {
-            if !prefix.trim().is_empty() {
-                return false;
-            }
+        if let Some(prefix) = self.prefix()
+            && !prefix.trim().is_empty()
+        {
+            return false;
         }
-        if let Some(suffix) = self.suffix() {
-            if !suffix.trim().is_empty() {
-                return false;
-            }
+        if let Some(suffix) = self.suffix()
+            && !suffix.trim().is_empty()
+        {
+            return false;
         }
-        return true;
+        true
     }
 }

@@ -138,7 +138,7 @@ impl<'a> Arbitrary<'a> for KeyVaultSecretName {
 #[cfg(test)]
 mod test {
     use super::*;
-    use rand::Rng;
+    use rand::RngExt;
 
     #[test]
     fn validation() -> eyre::Result<()> {

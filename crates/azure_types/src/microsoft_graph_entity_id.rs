@@ -133,7 +133,7 @@ mod test {
     use super::*;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
-    use rand::Rng;
+    use rand::RngExt;
 
     #[test]
     pub fn validation() -> eyre::Result<()> {

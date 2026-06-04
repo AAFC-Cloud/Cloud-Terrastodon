@@ -74,7 +74,7 @@ mod test {
     use cloud_terrastodon_azure::PrincipalCollection;
     use hcl::edit::structure::Body;
     use indoc::formatdoc;
-    use rand::Rng;
+    use rand::RngExt;
     use std::path::PathBuf;
 
     #[tokio::test]

@@ -155,7 +155,7 @@ mod test {
     use crate::GovernanceRoleDefinitionName;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
-    use rand::Rng;
+    use rand::RngExt;
 
     #[test]
     pub fn fuzz() -> eyre::Result<()> {

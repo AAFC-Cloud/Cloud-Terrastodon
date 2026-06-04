@@ -1,8 +1,7 @@
 use eyre::bail;
-use hcl::edit::{
-    expr::{Expression, TraversalOperator},
-    structure::Body,
-};
+use hcl::edit::expr::Expression;
+use hcl::edit::expr::TraversalOperator;
+use hcl::edit::structure::Body;
 use indoc::indoc;
 
 #[test]

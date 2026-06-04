@@ -179,7 +179,7 @@ mod test {
     use super::VirtualNetworkPeeringId;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
-    use rand::Rng;
+    use rand::RngExt;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

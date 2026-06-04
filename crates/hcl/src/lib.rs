@@ -25,5 +25,4 @@ pub use crate::provider_manager::*;
 pub use crate::terraform_block_extracter_patcher::*;
 pub use crate::work_dir_lifecycle::*;
 pub use crate::writer::*;
-
 pub use cloud_terrastodon_hcl_types::*;

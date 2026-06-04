@@ -126,7 +126,7 @@ mod test {
     use crate::slug::Slug;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
-    use rand::Rng;
+    use rand::RngExt;
 
     #[test]
     pub fn validation() -> eyre::Result<()> {

@@ -206,7 +206,7 @@ mod test {
     use crate::slug::Slug;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
-    use rand::Rng;
+    use rand::RngExt;
 
     #[test]
     fn valid_names() -> eyre::Result<()> {
