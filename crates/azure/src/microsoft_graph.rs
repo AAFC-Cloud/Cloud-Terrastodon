@@ -1,8 +1,7 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use serde::Deserialize;
 
@@ -25,19 +24,15 @@ impl MicrosoftGraphHelper {
         }
     }
 
-    fn get_command(&self, url: &str) -> CommandBuilder {
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "GET", "--url", url]);
-        let tenant_id = self.tenant_id.to_string();
-        cmd.args(["--tenant", tenant_id.as_str()]);
-        cmd.use_cache(self.cache_key.clone());
-        cmd
+    fn get_request(&self, url: &str) -> Result<RestRequest> {
+        let mut request = RestRequest::new(http::Method::GET, url)?;
+        request.tenant = Some(self.tenant_id);
+        request.cache_key = self.cache_key.clone();
+        Ok(request)
     }
 
     pub async fn fetch_one<T: FromCommandOutput>(self) -> Result<T> {
-        // Perform request
-        let response = self.get_command(&self.url).run::<T>().await?;
-        Ok(response)
+        self.get_request(&self.url)?.send_json::<T>().await
     }
 
     /// This doesn't handle 'singleton' responses like https://graph.microsoft.com/v1.0/me
@@ -53,16 +48,15 @@ impl MicrosoftGraphHelper {
                 NextLink::StopIteration => break,
             };
 
-            let mut cmd = self.get_command(url);
+            let mut request = self.get_request(url)?;
             if let Some(ref cache_key) = self.cache_key {
-                cmd.cache(CacheKey {
+                request.cache_key = Some(CacheKey {
                     path: cache_key.path.join(request_index.to_string()),
                     valid_for: cache_key.valid_for,
                 });
             }
 
-            // Perform request
-            let mut response = cmd.run::<MicrosoftGraphResponse<T>>().await?;
+            let mut response = request.send_json::<MicrosoftGraphResponse<T>>().await?;
             request_index += 1;
 
             // Update next link for pagination

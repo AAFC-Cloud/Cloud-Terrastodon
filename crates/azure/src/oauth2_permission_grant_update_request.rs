@@ -3,9 +3,8 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use http::Method;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -62,13 +61,12 @@ impl CacheableCommand for OAuth2PermissionGrantUpdateRequest {
         }
 
         let body = UpdateBody { scope: self.scope };
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", Method::PATCH.as_str(), "--url", &url]);
-        cmd.args(["--tenant", self.tenant_id.to_string().as_str()]);
-        cmd.arg("--body");
-        cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&body)?);
-        cmd.cache(cache_key);
-        cmd.run_raw().await?;
+        RestRequest::new(Method::PATCH, &url)?
+            .tenant(self.tenant_id)
+            .cache(cache_key)
+            .body(serde_json::to_string_pretty(&body)?)
+            .send()
+            .await?;
         bust_oauth2_permission_grants_cache(self.tenant_id).await?;
         Ok(())
     }

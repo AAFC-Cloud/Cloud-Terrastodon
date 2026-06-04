@@ -2,10 +2,9 @@ use cloud_terrastodon_azure_types::RoleDefinitionId;
 use cloud_terrastodon_azure_types::RoleManagementPolicyAssignment;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_hcl_types::Sanitizable;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -50,19 +49,16 @@ impl<T: Scope + Send> cloud_terrastodon_command::CacheableCommand
             self.role_definition_id.expanded_form()
         );
 
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(self.cache_key());
-
         #[derive(Deserialize)]
         struct Response {
             value: Vec<RoleManagementPolicyAssignment>,
         }
 
-        let mut result: Result<Response, _> = cmd.run().await;
+        let request = RestRequest::new(http::Method::GET, &url)?.cache(self.cache_key());
+        let mut result: Result<Response, _> = request.clone().send_json().await;
         if result.is_err() {
             // single retry - sometimes this returns a gateway error
-            result = cmd.run().await;
+            result = request.send_json().await;
         }
         Ok(result?.value)
     }

@@ -2,9 +2,9 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::SuiteTestCase;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
+use reqwest::Method;
 use serde::Deserialize;
 use serde_json::Value;
 use std::path::PathBuf;
@@ -66,19 +66,11 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestSuiteCas
             planId = self.plan,
             suiteId = self.suite,
         );
-
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.cache(self.cache_key());
-        cmd.args([
-            "az",
-            "devops",
-            "rest",
-            "--method",
-            "GET",
-            "--url",
-            url.as_ref(),
-        ]);
-        Ok(cmd.run::<InvokeResponse>().await?.value)
+        Ok(RestRequest::new(Method::GET, url.as_str())?
+            .cache(self.cache_key())
+            .send_json::<InvokeResponse>()
+            .await?
+            .value)
     }
 }
 

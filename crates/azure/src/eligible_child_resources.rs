@@ -7,9 +7,8 @@ use cloud_terrastodon_azure_types::EligibleChildResourceKind;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -39,16 +38,16 @@ pub async fn fetch_eligible_child_resources(
         .split("/")
         .filter(|x| !x.is_empty())
         .for_each(|x| cache_chunks.push(x));
-    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-    cmd.args(["rest", "--method", "GET", "--url", &url]);
-    cmd.cache(CacheKey::new(cache_chunks));
 
     #[derive(Deserialize)]
     struct Response {
         value: Vec<EligibleChildResource>,
     }
 
-    let resp: Response = cmd.run().await?;
+    let resp = RestRequest::new(http::Method::GET, &url)?
+        .cache(CacheKey::new(cache_chunks))
+        .send_json::<Response>()
+        .await?;
     Ok(resp.value)
 }
 

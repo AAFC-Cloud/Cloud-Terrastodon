@@ -10,9 +10,11 @@
 //! - Writing command failures and successes to files for debugging and caching.
 
 pub mod app_work;
+mod artifact_cache;
 mod cachable_command;
 mod cache_invalidatable;
 mod cache_key;
+mod cacheable_work;
 mod command;
 mod command_argument;
 mod command_cache_discovery;
@@ -23,8 +25,10 @@ mod path_mapper;
 mod work;
 
 pub use crate::cachable_command::*;
+pub use crate::artifact_cache::*;
 pub use crate::cache_invalidatable::*;
 pub use crate::cache_key::*;
+pub use crate::cacheable_work::*;
 pub use crate::command::*;
 pub use crate::command_argument::*;
 pub use crate::command_cache_discovery::*;

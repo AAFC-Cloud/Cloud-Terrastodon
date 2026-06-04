@@ -2,9 +2,8 @@ use cloud_terrastodon_azure_types::AzureProviderOperationsMetadata;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -52,16 +51,15 @@ impl CacheableCommand for RoleOperationListRequest {
         let mut operations = Vec::new();
 
         while let Some(url) = next_url.take() {
-            let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-            cmd.args(["rest", "--method", "GET", "--url", &url]);
-            cmd.args(["--tenant", tenant_id.as_str()]);
-            cmd.cache(CacheKey {
-                path: self.cache_key().path.join(page_index.to_string()),
-                valid_for: self.cache_key().valid_for,
-            });
-
             debug!(page_index, %url, %tenant_id, "Fetching Azure provider operations metadata");
-            let mut response: Response = cmd.run().await?;
+            let mut response: Response = RestRequest::new(http::Method::GET, &url)?
+                .tenant(self.tenant_id)
+                .cache(CacheKey {
+                    path: self.cache_key().path.join(page_index.to_string()),
+                    valid_for: self.cache_key().valid_for,
+                })
+                .send_json()
+                .await?;
             operations.append(&mut response.value);
             next_url = response.next_link;
             page_index += 1;

@@ -1,6 +1,7 @@
 use clap::Args;
-use cloud_terrastodon_credentials::create_azure_devops_rest_client;
-use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
+use cloud_terrastodon_rest::RestOutputFormat;
+use cloud_terrastodon_rest::RestRequest;
+use cloud_terrastodon_rest::read_optional_body;
 use eyre::Result;
 use http::Method;
 
@@ -23,55 +24,25 @@ pub struct AzureDevOpsRestArgs {
 
 impl AzureDevOpsRestArgs {
     pub async fn invoke(self) -> Result<()> {
-        let pat = get_azure_devops_personal_access_token_from_credential_manager().await?;
-        let client = create_azure_devops_rest_client(&pat).await?;
-        let mut request_builder = client.request(self.method, &self.url);
-        if let Some(body) = self.body {
-            if let Some(file_path) = body.strip_prefix('@') {
-                let file_content = tokio::fs::read_to_string(file_path).await?;
-                request_builder = request_builder.body(file_content);
-            } else {
-                request_builder = request_builder.body(body);
-            }
-        }
-        let response = request_builder.send().await?;
-        let status = response.status();
-        let content = response.text().await?;
-        println!("{}", content);
-        if !status.is_success() {
-            eyre::bail!(
-                "Azure DevOps REST call failed with status {}: {}",
-                status.as_u16(),
-                status.canonical_reason().unwrap_or("Unknown error")
-            );
-        }
-        Ok(())
+        let mut request = RestRequest::new(self.method, &self.url)?;
+        request.body = read_optional_body(self.body).await?;
+        let response = request.send().await?;
+        response.print(RestOutputFormat::Text)
     }
 }
 
 #[cfg(test)]
 mod test {
     use cloud_terrastodon_azure_devops::get_default_organization_url;
-    use cloud_terrastodon_command::CommandBuilder;
-    use cloud_terrastodon_command::CommandKind;
+    use cloud_terrastodon_rest::RestRequest;
+    use http::Method;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        // Because this command uses the current EXE, we are testing if it works in tests.
-        // Cargo builds a different kind of EXE for tests, so we want to double check it works.
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
         let org_url = get_default_organization_url().await?;
         let url = format!("{}/_apis/projects?api-version=7.1", org_url);
-        cmd.args([
-            "az",
-            "devops",
-            "rest",
-            "--method",
-            "GET",
-            "--url",
-            url.as_ref(),
-        ]);
-        println!("{}", cmd.run_raw().await?);
+        let response = RestRequest::new(Method::GET, url.as_str())?.send().await?;
+        println!("{}", serde_json::to_string_pretty(&response)?);
         Ok(())
     }
 }

@@ -2,9 +2,8 @@ use cloud_terrastodon_azure_types::AzureLocation;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
 pub struct LocationListRequest {
@@ -34,15 +33,14 @@ impl CacheableCommand for LocationListRequest {
             "https://management.azure.com/subscriptions/{}/locations?api-version=2022-12-01",
             self.subscription_id
         );
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(self.cache_key());
-
         #[derive(serde::Deserialize)]
         struct Response {
             value: Vec<AzureLocation>,
         }
-        let rtn = cmd.run::<Response>().await?;
+        let rtn = RestRequest::new(http::Method::GET, &url)?
+            .cache(self.cache_key())
+            .send_json::<Response>()
+            .await?;
         Ok(rtn.value)
     }
 }

@@ -1,5 +1,8 @@
 # TODO
 
+- make it not use ct rest / make people not need ct to use the template cli
+- make it lazy search for users
+
 ## resource type
 
 update crates\azure_types\src\role_operations.rs to use our harder ResourceType types

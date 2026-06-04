@@ -1,8 +1,7 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::Result;
@@ -151,26 +150,7 @@ where
             "Batch request entries must all use the same tenant ID"
         );
 
-        // create the base command
         let url = "https://management.azure.com/batch?api-version=2020-06-01";
-        let mut cmd_base = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd_base.args(["rest", "--method", "POST", "--url", url]);
-        let tenant_id = tenant_id.to_string();
-        cmd_base.args(["--tenant", tenant_id.as_str()]);
-        cmd_base.arg("--body");
-
-        // create the status=200 validator
-        let validator = |response: BatchResponse<RESP>| {
-            let failures = response
-                .responses
-                .iter()
-                .filter(|resp| resp.http_status_code != 200)
-                .count();
-            if failures > 0 {
-                bail!("There were {} requests with non-200 status codes", failures)
-            }
-            Ok(response)
-        };
 
         // create the results holder
         let mut rtn = BatchResponse {
@@ -181,23 +161,33 @@ where
         let chunks = request.requests.chunks(20);
         let num_chunks = chunks.len();
         for (i, chunk) in chunks.enumerate() {
-            let mut cmd = cmd_base.clone();
-            cmd.azure_file_arg(
-                "body.json",
-                serde_json::to_string_pretty(&BatchRequestUpstream {
+            let request = RestRequest::new(Method::POST, url)?
+                .tenant(tenant_id)
+                .body(serde_json::to_string_pretty(&BatchRequestUpstream {
                     requests: chunk
                         .iter()
                         .map(BatchRequestEntryUpstream::from)
                         .collect_vec(),
-                })?,
-            );
+                })?);
 
             debug!(
                 batch_index = i,
                 total_batches = num_chunks,
                 "Performing batch request"
             );
-            let response = cmd.run_with_validator(validator).await?;
+            let response = request
+                .send_json_with_validator(|response: BatchResponse<RESP>| {
+                    let failures = response
+                        .responses
+                        .iter()
+                        .filter(|resp| resp.http_status_code != 200)
+                        .count();
+                    if failures > 0 {
+                        bail!("There were {} requests with non-200 status codes", failures);
+                    }
+                    Ok(response)
+                })
+                .await?;
             rtn.responses.extend(response.responses);
         }
         assert_eq!(request.requests.len(), rtn.responses.len());

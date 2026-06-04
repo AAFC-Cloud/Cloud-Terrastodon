@@ -11,7 +11,7 @@
 //! - `pathing`, `config`, `azure`, `azure-types`, `azure-resource-types`,
 //!   `azure-devops`, `azure-devops-types`, `hcl`, `hcl-types`, `user-input`,
 //!   `command`, `zombies`, `relative-location`, `ui-ratatui`, `ui-egui`,
-//!   `azure-locations`, `credentials`.
+//!   `azure-locations`, `credentials`, `rest`.
 
 // One pub use per optional subcrate, behind its feature flag.
 #[cfg(feature = "azure")]
@@ -30,6 +30,8 @@ pub use cloud_terrastodon_command as command;
 pub use cloud_terrastodon_config as config;
 #[cfg(feature = "credentials")]
 pub use cloud_terrastodon_credentials as credentials;
+#[cfg(feature = "rest")]
+pub use cloud_terrastodon_rest as rest;
 #[cfg(feature = "hcl")]
 pub use cloud_terrastodon_hcl as hcl;
 #[cfg(feature = "hcl-types")]

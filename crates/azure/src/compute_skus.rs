@@ -2,9 +2,8 @@ use cloud_terrastodon_azure_types::ComputeSku;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::debug;
@@ -39,15 +38,16 @@ impl CacheableCommand for ComputeSkuListRequest {
             "https://management.azure.com/subscriptions/{}/providers/Microsoft.Compute/skus?api-version=2019-04-01",
             self.subscription_id
         );
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"])));
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Response {
             value: Vec<ComputeSku>,
         }
-        let rtn = cmd.run::<Response>().await?.value;
+        let rtn = RestRequest::new(http::Method::GET, &url)?
+            .cache(CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"])))
+            .send_json::<Response>()
+            .await?
+            .value;
         debug!(
             "Found {} VM SKUs for subscription {}",
             rtn.len(),

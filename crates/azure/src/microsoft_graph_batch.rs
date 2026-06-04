@@ -1,8 +1,7 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::bail;
 use http::Method;
 use serde::Deserialize;
@@ -56,20 +55,11 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
     pub async fn send<RESP: FromCommandOutput>(
         self,
     ) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>> {
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args([
-            "rest",
-            "--method",
-            Method::POST.as_str(),
-            "--url",
-            "https://graph.microsoft.com/v1.0/$batch",
-        ]);
-        let tenant_id = self.tenant_id.to_string();
-        cmd.args(["--tenant", tenant_id.as_str()]);
-        cmd.arg("--body");
-        cmd.azure_file_arg("body.json", serde_json::to_string_pretty(&self)?);
-        cmd.use_cache(self.cache_key);
-        let mut response = cmd.run::<MicrosoftGraphBatchResponse<RESP>>().await?;
+        let mut request = RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
+            .tenant(self.tenant_id)
+            .body(serde_json::to_string_pretty(&self)?);
+        request.cache_key = self.cache_key;
+        let mut response = request.send_json::<MicrosoftGraphBatchResponse<RESP>>().await?;
         // reorder the responses to match the order of the requests
         response.responses.sort_by_key(|r| {
             self.ids

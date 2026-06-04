@@ -164,6 +164,10 @@ path = "./crates/tracing"
 version = "0.35.1"            # CT_VERSION
 path = "./crates/credentials"
 
+[workspace.dependencies.cloud_terrastodon_rest]
+version = "0.35.1"            # CT_VERSION
+path = "./crates/rest"
+
 
 [package]
 name = "cloud_terrastodon"
@@ -207,6 +211,7 @@ cloud_terrastodon_relative_location = { workspace = true, optional = true }
 cloud_terrastodon_ui_ratatui = { workspace = true, optional = true }
 cloud_terrastodon_ui_egui = { workspace = true, optional = true }
 cloud_terrastodon_credentials = { workspace = true, optional = true }
+cloud_terrastodon_rest = { workspace = true, optional = true }
 
 [features]
 default = ["full"]
@@ -230,6 +235,7 @@ relative-location = ["dep:cloud_terrastodon_relative_location"]
 ui-ratatui = ["dep:cloud_terrastodon_ui_ratatui"]
 ui-egui = ["dep:cloud_terrastodon_ui_egui"]
 credentials = ["dep:cloud_terrastodon_credentials"]
+rest = ["dep:cloud_terrastodon_rest"]
 
 # Convenience feature that enables all re-exports, similar to tokio's `full`.
 full = [
@@ -251,6 +257,7 @@ full = [
     "ui-ratatui",
     "ui-egui",
     "credentials",
+    "rest",
 ]
 
 [[bin]]

@@ -2,9 +2,8 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::PimEntraRoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -38,19 +37,16 @@ impl CacheableCommand for PimEntraRoleDefinitionListRequest {
             "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleDefinitions?$select=id,displayName,type,isbuiltIn&$orderby=displayName",
             tenant_id = self.tenant_id,
         );
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(self.cache_key());
-
         #[derive(Deserialize)]
         struct Response {
             value: Vec<PimEntraRoleDefinition>,
         }
 
-        let mut result: Result<Response, _> = cmd.run().await;
+        let request = RestRequest::new(http::Method::GET, &url)?.cache(self.cache_key());
+        let mut result: Result<Response, _> = request.clone().send_json().await;
         if result.is_err() {
             // single retry - sometimes this returns a gateway error
-            result = cmd.run().await;
+            result = request.send_json().await;
         }
         Ok(result?.value)
     }

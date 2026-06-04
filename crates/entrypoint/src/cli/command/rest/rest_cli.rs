@@ -3,22 +3,17 @@ use clap::ValueEnum;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
-use cloud_terrastodon_credentials::RestResponseBody;
-use cloud_terrastodon_credentials::RestService;
-use cloud_terrastodon_credentials::SerializableRestResponse;
-use cloud_terrastodon_credentials::execute_rest_request;
-use cloud_terrastodon_credentials::infer_tenant_id_for_request;
-use cloud_terrastodon_credentials::read_optional_body;
-use cloud_terrastodon_credentials::read_optional_headers;
+use cloud_terrastodon_rest::RestRequest;
+use cloud_terrastodon_rest::SerializableRestResponse;
+use cloud_terrastodon_rest::infer_tenant_id_for_request;
+use cloud_terrastodon_rest::read_optional_body;
+use cloud_terrastodon_rest::read_optional_headers;
+use cloud_terrastodon_rest::RestService;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
-use eyre::bail;
 use http::Method;
-use reqwest::Response;
 use reqwest::Url;
-use std::time::Instant;
-use tracing::debug;
 
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RestOutputFormat {
@@ -55,7 +50,7 @@ pub struct RestArgs {
 }
 
 impl RestArgs {
-    pub async fn invoke(self) -> Result<Response> {
+    pub async fn invoke(self) -> Result<SerializableRestResponse> {
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
@@ -77,69 +72,30 @@ impl RestArgs {
         };
         let body = read_optional_body(self.body).await?;
         let headers = read_optional_headers(self.headers).await?;
-
-        let start = Instant::now();
-        let response =
-            execute_rest_request(service, self.method, url, body, headers, tenant).await?;
-        let elapsed = start.elapsed();
-        debug!(
-            elapsed_ms = elapsed.as_millis(),
-            "REST call completed in {}",
-            humantime::format_duration(elapsed)
-        );
-
-        Ok(response)
+        let mut request = RestRequest::new(self.method, url.as_str())?;
+        request.service = service;
+        request.body = body;
+        request.headers = headers;
+        request.tenant = tenant;
+        request.send().await
     }
 
     pub async fn invoke_and_print(self) -> Result<()> {
-        let output_format = self.output_format;
+        let output_format = match self.output_format {
+            RestOutputFormat::Text => cloud_terrastodon_rest::RestOutputFormat::Text,
+            RestOutputFormat::Json => cloud_terrastodon_rest::RestOutputFormat::Json,
+        };
         let response = self.invoke().await?;
-        print_response(response, output_format).await
+        response.print(output_format)
     }
-}
-
-async fn print_response(response: Response, output_format: RestOutputFormat) -> Result<()> {
-    let start = Instant::now();
-    let serialized_response = SerializableRestResponse::from_response(response).await?;
-    let elapsed = start.elapsed();
-    debug!(
-        elapsed_ms = elapsed.as_millis(),
-        "Response prettifying completed in {}",
-        humantime::format_duration(elapsed)
-    );
-
-    match output_format {
-        RestOutputFormat::Text => match &serialized_response.body {
-            RestResponseBody::Json(value) => println!("{}", serde_json::to_string_pretty(value)?),
-            RestResponseBody::Text(content) => {
-                debug!("Response is not valid JSON, printing raw content");
-                println!("{}", content);
-            }
-        },
-        RestOutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(&serialized_response)?);
-        }
-    }
-
-    if !serialized_response.ok {
-        bail!(
-            "REST call failed with status {}: {}",
-            serialized_response.status,
-            serialized_response
-                .reason_phrase
-                .as_deref()
-                .unwrap_or("Unknown error")
-        );
-    }
-    Ok(())
 }
 
 #[cfg(test)]
 mod test {
-    use super::RestResponseBody;
     use super::RestService;
-    use cloud_terrastodon_credentials::parse_response_body;
-    use cloud_terrastodon_credentials::serialize_headers;
+    use cloud_terrastodon_rest::RestResponseBody;
+    use cloud_terrastodon_rest::parse_response_body;
+    use cloud_terrastodon_rest::serialize_headers;
     use reqwest::Url;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;

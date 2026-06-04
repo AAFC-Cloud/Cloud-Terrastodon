@@ -2,9 +2,8 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::PimEntraRoleSettings;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::bail;
 use serde::Deserialize;
@@ -50,19 +49,16 @@ impl cloud_terrastodon_command::CacheableCommand for EntraPimRoleSettingsRequest
             )
         );
 
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(self.cache_key());
-
         #[derive(Deserialize)]
         struct Response {
             value: Vec<PimEntraRoleSettings>,
         }
 
-        let mut result: Result<Response, _> = cmd.run().await;
+        let request = RestRequest::new(http::Method::GET, &url)?.cache(self.cache_key());
+        let mut result: Result<Response, _> = request.clone().send_json().await;
         if result.is_err() {
             // single retry - sometimes this returns a gateway error
-            result = cmd.run().await;
+            result = request.send_json().await;
         }
         let mut resp = result?;
 

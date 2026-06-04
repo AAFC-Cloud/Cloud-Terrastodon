@@ -5,10 +5,8 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::SerializableRestResponse;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
@@ -70,21 +68,11 @@ impl CacheableCommand for CognitiveServicesAccountDeploymentListRequest {
             self.account_id.expanded_form(),
             COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENTS_API_VERSION
         );
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args([
-            "rest",
-            "--method",
-            "GET",
-            "--url",
-            &url,
-            "--output-format",
-            "json",
-            "--tenant",
-            self.tenant_id.to_string().as_str(),
-        ]);
-        cmd.cache(self.cache_key());
-
-        let response = cmd.run::<SerializableRestResponse>().await?;
+        let response = RestRequest::new(http::Method::GET, &url)?
+            .tenant(self.tenant_id)
+            .cache(self.cache_key())
+            .send()
+            .await?;
         if !response.ok {
             bail!(
                 "Cognitive Services account deployment list request failed with status {} ({})",

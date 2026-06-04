@@ -1,0 +1,25 @@
+[package]
+name = "cloud_terrastodon_rest"
+description = "In-process REST helpers and request objects for Cloud Terrastodon"
+version = "0.35.1" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+cloud_terrastodon_azure_types.workspace = true
+cloud_terrastodon_command.workspace = true
+cloud_terrastodon_credentials.workspace = true
+eyre.workspace = true
+http.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+bstr.workspace = true
+humantime.workspace = true

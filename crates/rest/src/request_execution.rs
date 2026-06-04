@@ -1,10 +1,9 @@
-use crate::AzureRestResource;
 use crate::RequestHeaders;
 use crate::RestService;
-use crate::create_azure_devops_rest_client;
-use crate::fetch_azure_access_token;
-use crate::get_azure_devops_personal_access_token_from_credential_manager;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_credentials::create_azure_devops_rest_client;
+use cloud_terrastodon_credentials::fetch_azure_access_token;
+use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
 use eyre::Result;
 use eyre::bail;
 use http::Method;
@@ -15,6 +14,13 @@ use reqwest::Url;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::tls::Version;
 use tracing::debug;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AzureRestResource {
+    MicrosoftGraph,
+    AzureResourceManager,
+    AzureDevOps,
+}
 
 pub async fn read_optional_body(body: Option<String>) -> Result<Option<String>> {
     let Some(body) = body else {
@@ -76,11 +82,7 @@ pub async fn execute_azure_devops_request(
 ) -> Result<Response> {
     let pat = get_azure_devops_personal_access_token_from_credential_manager().await?;
     let client = create_azure_devops_rest_client(&pat).await?;
-    debug!(
-        ?method,
-        %url,
-        "Executing Azure DevOps REST request",
-    );
+    debug!(?method, %url, "Executing Azure DevOps REST request");
     let mut request_builder = client.request(method, url);
     if let Some(body) = body {
         request_builder = request_builder
@@ -101,15 +103,19 @@ pub async fn execute_azure_bearer_request(
     tenant: Option<AzureTenantId>,
     resource: AzureRestResource,
 ) -> Result<Response> {
-    let token = fetch_azure_access_token::<String>(tenant, resource).await?;
+    let token = match resource {
+        AzureRestResource::MicrosoftGraph => {
+            fetch_azure_access_token::<String>(tenant, cloud_terrastodon_credentials::AzureRestResource::MicrosoftGraph).await?
+        }
+        AzureRestResource::AzureResourceManager => {
+            fetch_azure_access_token::<String>(tenant, cloud_terrastodon_credentials::AzureRestResource::AzureResourceManager).await?
+        }
+        AzureRestResource::AzureDevOps => {
+            fetch_azure_access_token::<String>(tenant, cloud_terrastodon_credentials::AzureRestResource::AzureDevOps).await?
+        }
+    };
     let client = create_tls12_client()?;
-    debug!(
-        ?method,
-        %url,
-        ?resource,
-        ?tenant,
-        "Executing Azure REST request",
-    );
+    debug!(?method, %url, ?resource, ?tenant, "Executing Azure REST request");
     let mut request_builder = client.request(method, url).bearer_auth(&token.access_token);
     if let Some(body) = body {
         request_builder = request_builder

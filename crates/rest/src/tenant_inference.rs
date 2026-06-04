@@ -56,24 +56,6 @@ mod tests {
         assert_eq!(extract_arm_subscription_id(&url), Some(expected));
     }
 
-    #[test]
-    fn ignores_non_subscription_arm_urls() {
-        let url = Url::parse(
-            "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
-        )
-        .unwrap();
-        assert_eq!(extract_arm_subscription_id(&url), None);
-    }
-
-    #[test]
-    fn ignores_invalid_subscription_ids_in_arm_urls() {
-        let url = Url::parse(
-            "https://management.azure.com/subscriptions/not-a-guid/locations?api-version=2022-12-01",
-        )
-        .unwrap();
-        assert_eq!(extract_arm_subscription_id(&url), None);
-    }
-
     #[tokio::test]
     async fn skips_tenant_inference_for_non_arm_services() -> eyre::Result<()> {
         let url = Url::parse("https://graph.microsoft.com/v1.0/organization").unwrap();

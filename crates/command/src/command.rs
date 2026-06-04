@@ -1,3 +1,4 @@
+use crate::ArtifactMetadata;
 use crate::CacheKey;
 use crate::CommandArgument;
 use crate::CommandKind;
@@ -7,17 +8,13 @@ use async_recursion::async_recursion;
 pub use bstr;
 use bstr::BString;
 use bstr::ByteSlice;
-use chrono::DateTime;
-use chrono::Local;
-use chrono::TimeDelta;
-use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
-use eyre::ContextCompat;
 use eyre::Result;
 use eyre::bail;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::ffi::OsString;
@@ -29,9 +26,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
-use tempfile::Builder;
 use tokio::fs::OpenOptions;
-use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -40,7 +35,6 @@ use tokio::task::spawn_blocking;
 use tokio::time::timeout;
 use tracing::Instrument;
 use tracing::debug;
-use tracing::debug_span;
 use tracing::error;
 use tracing::info;
 use tracing::info_span;
@@ -78,6 +72,16 @@ pub struct CommandBuilder {
 }
 
 static LOGIN_LOCK: OnceCell<Arc<Mutex<()>>> = OnceCell::const_new();
+
+#[derive(Serialize)]
+struct ProcessFingerprint<'a> {
+    program: String,
+    args: Vec<String>,
+    env: BTreeMap<String, String>,
+    run_dir: Option<PathBuf>,
+    stdin_content: Option<String>,
+    debug_inputs: &'a BTreeMap<PathBuf, BString>,
+}
 
 impl CommandBuilder {
     pub fn new(kind: CommandKind) -> CommandBuilder {
@@ -217,216 +221,74 @@ impl CommandBuilder {
         )
     }
 
+    fn cache_debug_inputs(&self) -> BTreeMap<PathBuf, BString> {
+        self.adjacent_files
+            .iter()
+            .map(|(path, contents)| (path.clone(), contents.clone()))
+            .collect()
+    }
+
+    async fn cache_metadata(&self, fingerprint: &str) -> ArtifactMetadata {
+        ArtifactMetadata::new(
+            fingerprint,
+            "process",
+            std::any::type_name::<CommandOutput>(),
+        )
+    }
+
+    async fn cache_fingerprint(
+        &self,
+        debug_inputs: &BTreeMap<PathBuf, BString>,
+    ) -> Result<String> {
+        let mut args = self.args.clone();
+        if self.kind == CommandKind::AzureCLI {
+            let has_debug = args
+                .iter()
+                .any(|a| matches!(a, CommandArgument::Literal(lit) if lit == "--debug"));
+            if !has_debug {
+                args.push(CommandArgument::Literal("--debug".into()));
+            }
+        }
+        let fingerprint = ProcessFingerprint {
+            program: self.kind.program().await,
+            args: args
+                .into_iter()
+                .map(OsString::from)
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect(),
+            env: self
+                .env
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
+            run_dir: self.run_dir.clone(),
+            stdin_content: self.stdin_content.clone(),
+            debug_inputs,
+        };
+        let bytes = serde_json::to_vec(&fingerprint)?;
+        Ok(blake3::hash(&bytes).to_hex().to_string())
+    }
+
     pub async fn get_cached_output(&self) -> Result<Option<CommandOutput>> {
-        let start = Instant::now();
-        // Short circuit if not using cache or if cache entry not present
         let Some(cache_key) = &self.cache_key else {
             debug!("Cache behaviour is None, not using cache");
             return Ok(None);
         };
-        let valid_for = &cache_key.valid_for;
-        let cache_dir = cache_key.path_on_disk();
-
-        if valid_for.is_zero() {
-            debug!("Cache validity duration is zero, not using cache");
-            return Ok(None);
-        }
-        if !cache_dir.exists() {
-            debug!("Cache directory does not exist, not using cache");
-            return Ok(None);
-        }
-
-        let load_from_pathbuf = async |path: &PathBuf| -> Result<BString> {
-            let path = cache_dir.join(path);
-            let mut file = OpenOptions::new()
-                .read(true)
-                .open(&path)
-                .await
-                .context(format!("opening cache file {}", path.display()))?;
-
-            // Read the file
-            let mut file_contents = Vec::new();
-            file.read_to_end(&mut file_contents)
-                .await
-                .context(format!("reading cache file {}", path.display()))?;
-            let file_contents = BString::from(file_contents);
-            Ok(file_contents)
-        };
-        let load_from_path = async |path: &str| -> Result<BString> {
-            let span = debug_span!("Reading command cache from disk");
-            span.record("path", path);
-            load_from_pathbuf(&PathBuf::from(path))
-                .instrument(span.or_current())
-                .await
-        };
-
-        // Check if cache is busted
-        if !matches!(
-            tokio::fs::try_exists(cache_dir.join("busted")).await,
-            Ok(false)
-        ) {
-            debug!("Cache is busted");
-            return Ok(None);
-        }
-
-        // Validate cache matches expectations
-        let expect_files: [(&PathBuf, &BString); 1] = [
-            // Command summary must match
-            (
-                &PathBuf::from("context.txt"),
-                &self.summarize().await.into(),
-            ),
-        ];
-        let mut expect_files = Vec::from_iter(expect_files);
-        for (adj_path, adj_content) in self.adjacent_files.iter() {
-            // Azure argument files must match
-            expect_files.push((adj_path, adj_content));
-        }
-        for (path, expected_contents) in expect_files {
-            let file_contents = load_from_pathbuf(path).await?;
-
-            // If an expectation is present, validate it
-            if file_contents != *expected_contents {
-                debug!(
-                    path=%path.display(),
-                    found=%file_contents,
-                    expected=%expected_contents,
-                    "Not using cache due to expected content mismatch. Did Cloud Terrastodon change what command is being called?",
-                );
-                return Ok(None);
-            }
-        }
-
-        let timestamp = load_from_path("timestamp.txt").await?;
-        // The timestamp file is append-only. Use the first line as the original cached timestamp
-        // so that age is calculated from the cache creation time.
-        let timestamp_first_line = timestamp
-            .lines()
-            .next()
-            .wrap_err("timestamp.txt contained no lines")?;
-        let timestamp_first_line = timestamp_first_line
-            .to_str()
-            .wrap_err("failed to convert timestamp first line to string")?;
-        let timestamp = DateTime::parse_from_rfc2822(timestamp_first_line).wrap_err_with(|| {
-            format!("failed to parse timestamp from '{}'", timestamp_first_line)
-        })?;
-        let now = Local::now();
-        let time_remaining = if *valid_for == Duration::MAX {
-            TimeDelta::MAX
-        } else {
-            timestamp + *valid_for - now.fixed_offset()
-        };
-        if time_remaining < TimeDelta::zero() {
-            debug!(
-                %timestamp,
-                valid_for_seconds = valid_for.as_secs(),
-                expired_for_seconds = time_remaining.abs().num_seconds(),
-                "Cache entry has expired (was from {}, was valid for {}, expired {} ago)",
-                timestamp,
-                humantime::format_duration(*valid_for),
-                humantime::format_duration(time_remaining.abs().to_std().unwrap()),
-            );
-            return Ok(None);
-        }
-
-        let status: i32 = load_from_path("status.txt").await?.to_str()?.parse()?;
-        let stdout = load_from_path("stdout.json").await?;
-        let stderr = load_from_path("stderr.json").await?;
-
-        let elapsed = Instant::now().duration_since(start);
-        debug!(
-            %timestamp,
-            valid_for_seconds = valid_for.as_secs(),
-            remaining_seconds = time_remaining.num_seconds(),
-            cache_load_ms = elapsed.as_millis(),
-            "Loaded command output from cache in {}",
-            humantime::format_duration(elapsed),
-        );
-
-        // Return!
-        Ok(Some(CommandOutput {
-            status,
-            stdout,
-            stderr,
-        }))
+        let context = self.summarize().await;
+        let debug_inputs = self.cache_debug_inputs();
+        let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
+        crate::artifact_cache::get_cached_output(cache_key, &context, &debug_inputs, &fingerprint)
+            .await
     }
 
     pub async fn write_output(&self, output: &CommandOutput, parent_dir: &PathBuf) -> Result<()> {
         debug!(path = %parent_dir.display(), "Writing command results");
-
-        // Validate directory presence
-        parent_dir.ensure_dir_exists().await?;
-
-        // Prepare write contents
-        let summary = self.summarize().await;
-        let status = output.status.to_string();
-        let timestamp = &Local::now().to_rfc2822();
-        let files = [
-            ("context.txt", summary.as_bytes()),
-            ("stdout.json", &output.stdout),
-            ("stderr.json", &output.stderr),
-            ("status.txt", status.as_bytes()),
-            ("timestamp.txt", timestamp.as_bytes()),
-        ];
-
-        // Remove busted marker if present
-        let busted_path = parent_dir.join("busted");
-        if let Ok(true) = busted_path.try_exists() {
-            tokio::fs::remove_file(&busted_path)
-                .await
-                .context("Removing busted cache marker")?;
-        }
-
-        // Write to files
-        for (file_name, file_contents) in files {
-            // Open file path
-            let path = parent_dir.join(file_name);
-
-            if file_name == "timestamp.txt" {
-                // Append a timestamp line. Keep this file as an append-only log so we can
-                // track most-recently-used times without losing creation history.
-                let mut file = OpenOptions::new()
-                    .append(true)
-                    .create(true)
-                    .open(&path)
-                    .await
-                    .context(format!(
-                        "opening file {}",
-                        path.to_string_lossy().into_owned()
-                    ))?;
-
-                // Write timestamp + newline as a single call so concurrent writers can't
-                // interleave the two writes and produce a corrupted line.
-                let mut line = file_contents.as_bytes().to_vec();
-                line.push(b'\n');
-                file.write_all(&line).await.context(format!(
-                    "writing file {}",
-                    path.to_string_lossy().into_owned()
-                ))?;
-            } else {
-                // Default behavior: overwrite other files
-                let mut file = OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(&path)
-                    .await
-                    .context(format!(
-                        "opening file {}",
-                        path.to_string_lossy().into_owned()
-                    ))?;
-
-                // Write content
-                file.write_all(file_contents.as_bytes())
-                    .await
-                    .context(format!(
-                        "writing file {}",
-                        path.to_string_lossy().into_owned()
-                    ))?;
-            }
-        }
-
-        Ok(())
+        let context = self.summarize().await;
+        let debug_inputs = self.cache_debug_inputs();
+        let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
+        let metadata = self.cache_metadata(&fingerprint).await;
+        crate::artifact_cache::write_output(parent_dir, &context, &debug_inputs, output, &metadata)
+            .await
     }
 
     /// Sends content to stdin of the command.
@@ -657,7 +519,7 @@ impl CommandBuilder {
             && let Some(cache_key) = &self.cache_key
             && let Err(e) = self.write_output(&output, &cache_key.path_on_disk()).await
         {
-            error!("Encountered problem saving cache: {:?}", e);
+            crate::artifact_cache::note_cache_write_failure(&e);
         }
 
         // Return success
@@ -926,32 +788,18 @@ impl CommandBuilder {
     }
 
     pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
-        let dir = match &self.cache_key {
-            None => AppDir::Commands.join("failed"),
-            Some(cache_key) => {
-                let cache_dir = cache_key.path_on_disk();
-                cache_dir.join("failed")
-            }
-        };
-        dir.ensure_dir_exists().await?;
-        let dir = Builder::new()
-            .prefix(Local::now().format("%Y%m%d_%H%M%S_").to_string().as_str())
-            .tempdir_in(dir)?
-            .keep();
-        self.write_output(output, &dir).await?;
-        for (adj_path, adj_content) in self.adjacent_files.iter() {
-            let path = dir.join(adj_path);
-            let mut file = tokio::fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&path)
-                .await
-                .context(format!("Opening arg file {}", path.display()))?;
-            file.write_all(adj_content.as_bytes())
-                .await
-                .context(format!("Writing arg file {}", path.display()))?;
-        }
-        Ok(dir)
+        let context = self.summarize().await;
+        let debug_inputs = self.cache_debug_inputs();
+        let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
+        let metadata = self.cache_metadata(&fingerprint).await;
+        crate::artifact_cache::write_failure(
+            self.cache_key.as_ref(),
+            &context,
+            &debug_inputs,
+            output,
+            &metadata,
+            None,
+        )
+        .await
     }
 }

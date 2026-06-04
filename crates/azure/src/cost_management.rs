@@ -2,8 +2,7 @@ use crate::fetch_root_management_group;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::CostManagementQueryDefinition;
 use cloud_terrastodon_azure_types::CostManagementQueryResult;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_rest::RestRequest;
 
 pub async fn fetch_cost_query_results(
     tenant_id: AzureTenantId,
@@ -14,19 +13,11 @@ pub async fn fetch_cost_query_results(
         "https://management.azure.com/providers/Microsoft.Management/managementGroups/{}/providers/Microsoft.CostManagement/query?api-version=2021-10-01",
         root.tenant_id
     );
-    let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-    cmd.args([
-        "rest",
-        "--method",
-        "post",
-        "--url",
-        url.as_ref(),
-        "--tenant",
-        tenant_id.to_string().as_ref(),
-        "--body",
-    ]);
-    cmd.azure_file_arg("body.json", serde_json::to_string_pretty(query)?);
-    let resp = cmd.run::<CostManagementQueryResult>().await?;
+    let resp = RestRequest::new(http::Method::POST, url.as_str())?
+        .tenant(tenant_id)
+        .body(serde_json::to_string_pretty(query)?)
+        .send_json::<CostManagementQueryResult>()
+        .await?;
     Ok(resp)
 }
 #[cfg(test)]

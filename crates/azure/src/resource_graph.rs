@@ -1,9 +1,8 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::Result;
@@ -75,18 +74,17 @@ impl ResourceGraphHelper {
         }
     }
 
-    fn get_command(&self, body: String) -> CommandBuilder {
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "POST", "--url", "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01"]);
-        cmd.cache(self.cache_behaviour.clone().unwrap_or_else(|| {
-            CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "query"]))
-        }));
-        cmd.arg("--body");
-        cmd.azure_file_arg("body.json", body);
-        let tenant_id = self.tenant_id.to_string();
-        cmd.args(["--tenant", tenant_id.as_str()]);
-        cmd.use_cache(self.cache_behaviour.clone());
-        cmd
+    fn get_request(&self, body: String) -> Result<RestRequest> {
+        let mut request = RestRequest::new(
+            http::Method::POST,
+            "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
+        )?
+        .tenant(self.tenant_id)
+        .body(body);
+        request.cache_key = self.cache_behaviour.clone().or_else(|| {
+            Some(CacheKey::new(PathBuf::from_iter(["az", "resource_graph", "query"])))
+        });
+        Ok(request)
     }
 
     #[track_caller]
@@ -126,7 +124,7 @@ impl ResourceGraphHelper {
                     result_format: QueryRestResultFormat::Table,
                 },
             })?;
-            let mut cmd = self.get_command(body);
+            let mut request = self.get_request(body)?;
 
             // Set up caching
             if let Some(CacheKey {
@@ -134,7 +132,7 @@ impl ResourceGraphHelper {
                 ref valid_for,
             }) = self.cache_behaviour
             {
-                cmd.cache(CacheKey {
+                request.cache_key = Some(CacheKey {
                     path: path.join(self.index.to_string()),
                     valid_for: *valid_for,
                 });
@@ -153,7 +151,7 @@ impl ResourceGraphHelper {
             // TODO: handle throttling
             // https://learn.microsoft.com/en-us/azure/governance/resource-graph/overview#throttling
             // https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/guidance-for-throttled-requests
-            let results = cmd.run::<ResourceGraphQueryResponse<T>>().await?;
+            let results = request.send_json::<ResourceGraphQueryResponse<T>>().await?;
 
             // Increment index for the next potential query
             self.index += 1;

@@ -2,9 +2,8 @@ use cloud_terrastodon_azure_types::TenantLicense;
 use cloud_terrastodon_azure_types::TenantLicenseCollection;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -26,10 +25,6 @@ impl CacheableCommand for TenantLicenseListRequest {
 
     async fn run(self) -> Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/subscribedSkus";
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "GET", "--url", url]);
-        cmd.cache(self.cache_key());
-
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Response {
@@ -38,7 +33,10 @@ impl CacheableCommand for TenantLicenseListRequest {
             context: String,
             value: Vec<TenantLicense>,
         }
-        let resp = cmd.run::<Response>().await?;
+        let resp = RestRequest::new(http::Method::GET, url)?
+            .cache(self.cache_key())
+            .send_json::<Response>()
+            .await?;
         Ok(TenantLicenseCollection(resp.value))
     }
 }
@@ -73,10 +71,13 @@ pub mod test_helpers {
                         "A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, but it was found in tenant licenses, this means the inner command truly failed?"
                     ));
                 }
-                let Some(command_output) = e.downcast_ref::<CommandOutput>() else {
-                    return Err(e.wrap_err("A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, expected error to be a CommandOutput so we could validate the error message"));
-                };
-                if !command_output.stderr.contains_str("The tenant needs to have Microsoft Entra ID P2 or Microsoft Entra ID Governance license.") {
+                let expected = "The tenant needs to have Microsoft Entra ID P2 or Microsoft Entra ID Governance license.";
+                let has_expected_message = e
+                    .downcast_ref::<CommandOutput>()
+                    .map(|command_output| command_output.stderr.contains_str(expected))
+                    .unwrap_or(false)
+                    || format!("{e:?}").contains(expected);
+                if !has_expected_message {
                     return Err(e.wrap_err("A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, but the error did not contain expected AAD Premium P2 license error text"));
                 }
                 eprintln!(

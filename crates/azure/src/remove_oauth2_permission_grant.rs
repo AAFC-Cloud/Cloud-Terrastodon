@@ -3,9 +3,8 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use http::Method;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -46,11 +45,11 @@ impl CacheableCommand for OAuth2PermissionGrantRemoveRequest {
             "https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{}",
             self.id
         );
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", Method::DELETE.as_str(), "--url", &url]);
-        cmd.args(["--tenant", self.tenant_id.to_string().as_str()]);
-        cmd.cache(cache_key);
-        cmd.run_raw().await?;
+        RestRequest::new(Method::DELETE, &url)?
+            .tenant(self.tenant_id)
+            .cache(cache_key)
+            .send()
+            .await?;
         bust_oauth2_permission_grants_cache(self.tenant_id).await?;
         Ok(())
     }

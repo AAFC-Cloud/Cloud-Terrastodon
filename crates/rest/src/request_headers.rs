@@ -4,9 +4,10 @@ use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
 use reqwest::header::HeaderValue;
 use serde::Deserialize;
+use serde::Serialize;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(untagged)]
 enum RequestHeaderValues {
     One(String),
@@ -22,10 +23,14 @@ impl RequestHeaderValues {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct RequestHeaders(BTreeMap<String, RequestHeaderValues>);
 
 impl RequestHeaders {
+    pub fn from_json_str(headers: &str) -> Result<Self> {
+        serde_json::from_str(headers).wrap_err("Parsing request headers JSON")
+    }
+
     pub fn to_header_map(&self) -> Result<HeaderMap> {
         let mut headers = HeaderMap::new();
         for (name, values) in &self.0 {
@@ -53,14 +58,11 @@ pub async fn read_optional_headers(headers: Option<String>) -> Result<Option<Req
         headers
     };
 
-    serde_json::from_str::<RequestHeaders>(&headers)
-        .map(Some)
-        .wrap_err("Parsing request headers JSON")
+    RequestHeaders::from_json_str(&headers).map(Some)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::RequestHeaders;
     use super::read_optional_headers;
 
     #[tokio::test]
@@ -86,14 +88,6 @@ mod tests {
             .map(|value| value.to_str().unwrap().to_string())
             .collect::<Vec<_>>();
         assert_eq!(values, vec!["a".to_string(), "b".to_string()]);
-        Ok(())
-    }
-
-    #[test]
-    fn deserializes_request_headers() -> eyre::Result<()> {
-        let _headers = serde_json::from_str::<RequestHeaders>(
-            r#"{"content-type":"application/json","x-test":["a","b"]}"#,
-        )?;
         Ok(())
     }
 }

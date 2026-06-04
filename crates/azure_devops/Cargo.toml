@@ -18,6 +18,7 @@ cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_hcl_types.workspace = true
 cloud_terrastodon_pathing.workspace = true
 cloud_terrastodon_credentials.workspace = true
+cloud_terrastodon_rest.workspace = true
 eyre.workspace = true
 tokio.workspace = true
 serde.workspace = true

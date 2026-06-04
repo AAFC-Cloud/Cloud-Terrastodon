@@ -12,9 +12,9 @@ use eyre::Result;
 use eyre::bail;
 use eyre::eyre;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::env;
 use std::ffi::OsString;
-use std::path::PathBuf;
 use tempfile::TempPath;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -32,7 +32,6 @@ pub enum CommandKind {
     Pwsh,
     Git,
     Gitea,
-    CloudTerrastodon,
     Other(String),
 }
 
@@ -63,36 +62,6 @@ impl CommandKind {
             CommandKind::Pwsh => "pwsh".to_string(),
             CommandKind::Git => "git".to_string(),
             CommandKind::Gitea => "tea".to_string(),
-            CommandKind::CloudTerrastodon => {
-                let current_exe = env::current_exe().unwrap_or_else(|_| "cloud_terrastodon".into());
-                let is_test = current_exe
-                    .parent()
-                    .map(|parent| parent.ends_with(PathBuf::from_iter(["target", "debug", "deps"])))
-                    .unwrap_or(false);
-                if is_test {
-                    // return target/debug/cloud_terrastodon.exe instead of target/debug/deps/cloud_terrastodon_123.exe used by cargo test
-                    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-                    let mut path = PathBuf::from(manifest_dir);
-                    path.pop();
-                    path.pop();
-                    path.push("target");
-                    path.push("debug");
-                    path.push("cloud_terrastodon");
-                    #[cfg(windows)]
-                    {
-                        path.set_extension("exe");
-                    }
-                    path.to_string_lossy().to_string()
-                } else {
-                    if current_exe.file_name() == Some("cloud_terrastodon".as_ref()) {
-                        // use current binary if THIS is cloud terrastodon
-                        current_exe.to_string_lossy().to_string()
-                    } else {
-                        // this may be being used by a library, use cloud terrastodon from path
-                        "cloud_terrastodon".to_string()
-                    }
-                }
-            }
             CommandKind::Other(x) => x.to_owned(),
         }
     }
@@ -130,7 +99,7 @@ impl CommandKind {
                 new_args.push(guh);
                 args = new_args.into_iter().map(CommandArgument::Literal).collect();
             }
-            CommandKind::AzureCLI | CommandKind::CloudTerrastodon => {
+            CommandKind::AzureCLI => {
                 // Always add --debug if not present
                 let has_debug = args
                     .iter()

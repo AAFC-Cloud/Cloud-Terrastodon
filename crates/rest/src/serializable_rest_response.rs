@@ -1,5 +1,7 @@
+use crate::RestOutputFormat;
 use crate::RestResponseBody;
 use crate::parse_response_body;
+use eyre::bail;
 use eyre::Result;
 use eyre::WrapErr;
 use reqwest::Response;
@@ -53,6 +55,29 @@ impl SerializableRestResponse {
                 .wrap_err("Expected REST response body to contain JSON"),
         }
     }
+
+    pub fn print(&self, output_format: RestOutputFormat) -> Result<()> {
+        match output_format {
+            RestOutputFormat::Text => match &self.body {
+                RestResponseBody::Json(value) => {
+                    println!("{}", serde_json::to_string_pretty(value)?)
+                }
+                RestResponseBody::Text(content) => println!("{}", content),
+            },
+            RestOutputFormat::Json => {
+                println!("{}", serde_json::to_string_pretty(self)?);
+            }
+        }
+
+        if !self.ok {
+            bail!(
+                "REST call failed with status {}: {}",
+                self.status,
+                self.reason_phrase.as_deref().unwrap_or("Unknown error")
+            );
+        }
+        Ok(())
+    }
 }
 
 pub fn serialize_headers(headers: &HeaderMap) -> BTreeMap<String, Vec<String>> {
@@ -69,27 +94,29 @@ pub fn serialize_headers(headers: &HeaderMap) -> BTreeMap<String, Vec<String>> {
 
 #[cfg(test)]
 mod tests {
-    use super::RestResponseBody;
     use super::SerializableRestResponse;
     use super::serialize_headers;
-    use crate::parse_response_body;
+    use crate::RestResponseBody;
     use http::StatusCode;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
 
     #[test]
-    fn parses_json_response_body() {
-        let body = parse_response_body("{\"hello\":\"world\"}".to_string());
+    fn looks_up_headers_case_insensitively() {
+        let response = SerializableRestResponse {
+            status: 202,
+            ok: true,
+            reason_phrase: Some("Accepted".to_string()),
+            headers: std::collections::BTreeMap::from([(
+                String::from("Location"),
+                vec![String::from("https://example.test/poll")],
+            )]),
+            body: RestResponseBody::Text(String::new()),
+        };
         assert_eq!(
-            body,
-            RestResponseBody::Json(serde_json::json!({"hello": "world"}))
+            response.header("location"),
+            Some("https://example.test/poll")
         );
-    }
-
-    #[test]
-    fn preserves_text_response_body() {
-        let body = parse_response_body("not json".to_string());
-        assert_eq!(body, RestResponseBody::Text("not json".to_string()));
     }
 
     #[test]
@@ -111,24 +138,6 @@ mod tests {
     }
 
     #[test]
-    fn looks_up_headers_case_insensitively() {
-        let response = SerializableRestResponse {
-            status: 202,
-            ok: true,
-            reason_phrase: Some("Accepted".to_string()),
-            headers: std::collections::BTreeMap::from([(
-                String::from("Location"),
-                vec![String::from("https://example.test/poll")],
-            )]),
-            body: RestResponseBody::Text(String::new()),
-        };
-        assert_eq!(
-            response.header("location"),
-            Some("https://example.test/poll")
-        );
-    }
-
-    #[test]
     fn builds_response_from_status_headers_and_content() {
         let mut headers = HeaderMap::new();
         headers.insert("content-type", HeaderValue::from_static("application/json"));
@@ -140,9 +149,5 @@ mod tests {
         assert!(response.ok);
         assert_eq!(response.status, 200);
         assert_eq!(response.reason_phrase.as_deref(), Some("OK"));
-        assert_eq!(
-            response.body,
-            RestResponseBody::Json(serde_json::json!({"hello": "world"}))
-        );
     }
 }

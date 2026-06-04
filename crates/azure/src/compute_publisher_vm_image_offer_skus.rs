@@ -5,9 +5,8 @@ use cloud_terrastodon_azure_types::ComputePublisherVmImageOfferSkuId;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
 pub struct ComputePublisherImageOfferSkuListRequest {
@@ -55,15 +54,13 @@ impl CacheableCommand for ComputePublisherImageOfferSkuListRequest {
             publisher_name = self.publisher_name,
             offer_name = self.offer_name
         );
-        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-        cmd.args(["rest", "--method", "GET", "--url", &url]);
-        cmd.cache(self.cache_key());
         #[derive(serde::Deserialize)]
         struct Row {
             id: ComputePublisherVmImageOfferSkuId,
         }
-        let rtn = cmd
-            .run::<Vec<Row>>()
+        let rtn = RestRequest::new(http::Method::GET, &url)?
+            .cache(self.cache_key())
+            .send_json::<Vec<Row>>()
             .await?
             .into_iter()
             .map(|row| row.id)

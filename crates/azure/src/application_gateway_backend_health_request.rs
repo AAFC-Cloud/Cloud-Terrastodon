@@ -4,10 +4,10 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::SerializableRestResponse;
+use cloud_terrastodon_rest::RequestHeaders;
+use cloud_terrastodon_rest::RestRequest;
+use cloud_terrastodon_rest::SerializableRestResponse;
 use eyre::OptionExt;
 use eyre::Result;
 use eyre::WrapErr;
@@ -76,23 +76,12 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
 
         let backend_health_url = build_backend_health_url(&self.application_gateway_id);
         let initial_response = {
-            let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-            cmd.args([
-                "rest",
-                "--method",
-                "POST",
-                "--url",
-                &backend_health_url,
-                "--body",
-                "{}",
-                "--headers",
-                APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS,
-                "--output-format",
-                "json",
-                "--tenant",
-                self.tenant_id.to_string().as_str(),
-            ]);
-            cmd.run::<SerializableRestResponse>().await?
+            RestRequest::new(http::Method::POST, &backend_health_url)?
+                .tenant(self.tenant_id)
+                .headers(RequestHeaders::from_json_str(APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS)?)
+                .body("{}")
+                .send()
+                .await?
         };
 
         if !initial_response.ok {
@@ -118,19 +107,10 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
 
                 for attempt in 0..MAX_POLL_ATTEMPTS {
                     let response = {
-                        let mut cmd = CommandBuilder::new(CommandKind::CloudTerrastodon);
-                        cmd.args([
-                            "rest",
-                            "--method",
-                            "GET",
-                            "--url",
-                            &next_url,
-                            "--output-format",
-                            "json",
-                            "--tenant",
-                            self.tenant_id.to_string().as_str(),
-                        ]);
-                        cmd.run::<SerializableRestResponse>().await?
+                        RestRequest::new(http::Method::GET, &next_url)?
+                            .tenant(self.tenant_id)
+                            .send()
+                            .await?
                     };
 
                     if !response.ok {
@@ -208,8 +188,8 @@ mod tests {
     use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthServerHealth;
     use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceId;
     use cloud_terrastodon_azure_types::Scope;
-    use cloud_terrastodon_credentials::RestResponseBody;
-    use cloud_terrastodon_credentials::SerializableRestResponse;
+    use cloud_terrastodon_rest::RestResponseBody;
+    use cloud_terrastodon_rest::SerializableRestResponse;
     use std::collections::BTreeMap;
 
     #[test]
