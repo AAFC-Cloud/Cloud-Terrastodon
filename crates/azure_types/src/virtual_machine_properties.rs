@@ -152,6 +152,16 @@ pub struct ManagedDiskReference {
 #[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
 pub struct HardwareProfile {
     pub vm_size: String,
+    pub vm_size_properties: Option<HardwareProfileVmSizeProperties>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+pub struct HardwareProfileVmSizeProperties {
+    #[serde(rename = "vCPUsAvailable")]
+    pub v_cpus_available: usize,
+    #[serde(rename = "vCPUsPerCore")]
+    pub v_cpus_per_core: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]

@@ -65,6 +65,7 @@ mod test {
     use itertools::Itertools;
 
     #[tokio::test]
+    #[ignore = "This takes a long time because it iterates all projects"]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let agent_pools = fetch_azure_devops_agent_pools(&org_url).await?;
