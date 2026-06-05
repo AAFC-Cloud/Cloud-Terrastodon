@@ -151,7 +151,7 @@ impl ResourceGraphHelper {
             // TODO: handle throttling
             // https://learn.microsoft.com/en-us/azure/governance/resource-graph/overview#throttling
             // https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/guidance-for-throttled-requests
-            let results = request.send_json::<ResourceGraphQueryResponse<T>>().await?;
+            let results = request.receive::<ResourceGraphQueryResponse<T>>().await?;
 
             // Increment index for the next potential query
             self.index += 1;

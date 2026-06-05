@@ -45,7 +45,7 @@ impl CacheableCommand for ComputeSkuListRequest {
         }
         let rtn = RestRequest::new(http::Method::GET, &url)?
             .cache(CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"])))
-            .send_json::<Response>()
+            .receive::<Response>()
             .await?
             .value;
         debug!(

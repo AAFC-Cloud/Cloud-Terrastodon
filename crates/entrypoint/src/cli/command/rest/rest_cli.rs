@@ -77,7 +77,7 @@ impl RestArgs {
         request.body = body;
         request.headers = headers;
         request.tenant = tenant;
-        request.send().await
+        request.receive_raw().await
     }
 
     pub async fn invoke_and_print(self) -> Result<()> {

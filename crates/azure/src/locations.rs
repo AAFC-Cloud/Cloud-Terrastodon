@@ -39,7 +39,7 @@ impl CacheableCommand for LocationListRequest {
         }
         let rtn = RestRequest::new(http::Method::GET, &url)?
             .cache(self.cache_key())
-            .send_json::<Response>()
+            .receive::<Response>()
             .await?;
         Ok(rtn.value)
     }

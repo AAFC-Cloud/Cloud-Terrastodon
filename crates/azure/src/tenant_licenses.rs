@@ -35,7 +35,7 @@ impl CacheableCommand for TenantLicenseListRequest {
         }
         let resp = RestRequest::new(http::Method::GET, url)?
             .cache(self.cache_key())
-            .send_json::<Response>()
+            .receive::<Response>()
             .await?;
         Ok(TenantLicenseCollection(resp.value))
     }

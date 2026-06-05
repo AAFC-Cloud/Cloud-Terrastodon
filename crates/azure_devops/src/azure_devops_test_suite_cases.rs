@@ -68,7 +68,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestSuiteCas
         );
         Ok(RestRequest::new(Method::GET, url.as_str())?
             .cache(self.cache_key())
-            .send_json::<InvokeResponse>()
+            .receive::<InvokeResponse>()
             .await?
             .value)
     }

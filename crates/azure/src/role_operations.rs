@@ -58,7 +58,7 @@ impl CacheableCommand for RoleOperationListRequest {
                     path: self.cache_key().path.join(page_index.to_string()),
                     valid_for: self.cache_key().valid_for,
                 })
-                .send_json()
+                .receive()
                 .await?;
             operations.append(&mut response.value);
             next_url = response.next_link;

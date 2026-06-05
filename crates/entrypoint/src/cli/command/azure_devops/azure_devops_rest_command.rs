@@ -26,7 +26,7 @@ impl AzureDevOpsRestArgs {
     pub async fn invoke(self) -> Result<()> {
         let mut request = RestRequest::new(self.method, &self.url)?;
         request.body = read_optional_body(self.body).await?;
-        let response = request.send().await?;
+        let response = request.receive_raw().await?;
         response.print(RestOutputFormat::Text)
     }
 }
@@ -41,7 +41,7 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let url = format!("{}/_apis/projects?api-version=7.1", org_url);
-        let response = RestRequest::new(Method::GET, url.as_str())?.send().await?;
+        let response = RestRequest::new(Method::GET, url.as_str())?.receive_raw().await?;
         println!("{}", serde_json::to_string_pretty(&response)?);
         Ok(())
     }

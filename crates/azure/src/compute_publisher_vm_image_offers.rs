@@ -55,7 +55,7 @@ impl CacheableCommand for ComputePublisherImageOfferListRequest {
         }
         let rtn = RestRequest::new(http::Method::GET, &url)?
             .cache(self.cache_key())
-            .send_json::<Vec<Row>>()
+            .receive::<Vec<Row>>()
             .await?
             .into_iter()
             .map(|row| row.id)

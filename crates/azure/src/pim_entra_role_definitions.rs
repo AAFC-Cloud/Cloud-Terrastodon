@@ -43,10 +43,10 @@ impl CacheableCommand for PimEntraRoleDefinitionListRequest {
         }
 
         let request = RestRequest::new(http::Method::GET, &url)?.cache(self.cache_key());
-        let mut result: Result<Response, _> = request.clone().send_json().await;
+        let mut result: Result<Response, _> = request.clone().receive().await;
         if result.is_err() {
             // single retry - sometimes this returns a gateway error
-            result = request.send_json().await;
+            result = request.receive().await;
         }
         Ok(result?.value)
     }

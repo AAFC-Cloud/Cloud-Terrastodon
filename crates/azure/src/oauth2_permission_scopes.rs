@@ -49,7 +49,7 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionScopesListR
         }
         let entries = RestRequest::new(http::Method::GET, url.as_str())?
             .cache(self.cache_key())
-            .send_json::<Response>()
+            .receive::<Response>()
             .await?
             .oauth2_permission_scopes;
 

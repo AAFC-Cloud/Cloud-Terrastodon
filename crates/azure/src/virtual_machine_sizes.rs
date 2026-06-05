@@ -25,7 +25,7 @@ pub async fn fetch_virtual_machine_sizes(
             subscription_id.to_string().as_str(),
             location.to_string().as_str(),
         ])))
-        .send_json::<Response>()
+        .receive::<Response>()
         .await?
         .value;
     Ok(rtn)

@@ -16,7 +16,7 @@ pub async fn fetch_cost_query_results(
     let resp = RestRequest::new(http::Method::POST, url.as_str())?
         .tenant(tenant_id)
         .body(serde_json::to_string_pretty(query)?)
-        .send_json::<CostManagementQueryResult>()
+        .receive::<CostManagementQueryResult>()
         .await?;
     Ok(resp)
 }

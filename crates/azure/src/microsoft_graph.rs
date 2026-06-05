@@ -32,7 +32,7 @@ impl MicrosoftGraphHelper {
     }
 
     pub async fn fetch_one<T: FromCommandOutput>(self) -> Result<T> {
-        self.get_request(&self.url)?.send_json::<T>().await
+        self.get_request(&self.url)?.receive::<T>().await
     }
 
     /// This doesn't handle 'singleton' responses like https://graph.microsoft.com/v1.0/me
@@ -56,7 +56,7 @@ impl MicrosoftGraphHelper {
                 });
             }
 
-            let mut response = request.send_json::<MicrosoftGraphResponse<T>>().await?;
+            let mut response = request.receive::<MicrosoftGraphResponse<T>>().await?;
             request_index += 1;
 
             // Update next link for pagination

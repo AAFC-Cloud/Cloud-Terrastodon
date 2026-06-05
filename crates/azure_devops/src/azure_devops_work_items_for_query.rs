@@ -52,7 +52,7 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
         );
         RestRequest::new(Method::GET, url.as_str())?
             .cache(self.cache_key())
-            .send_json()
+            .receive()
             .await
     }
 }

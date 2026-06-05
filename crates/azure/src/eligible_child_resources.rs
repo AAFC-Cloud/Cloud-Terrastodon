@@ -46,7 +46,7 @@ pub async fn fetch_eligible_child_resources(
 
     let resp = RestRequest::new(http::Method::GET, &url)?
         .cache(CacheKey::new(cache_chunks))
-        .send_json::<Response>()
+        .receive::<Response>()
         .await?;
     Ok(resp.value)
 }

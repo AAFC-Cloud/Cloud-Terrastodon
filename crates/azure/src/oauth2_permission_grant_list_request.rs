@@ -28,7 +28,7 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
         let resp = RestRequest::new(http::Method::GET, url)?
             .tenant(self.tenant_id)
             .cache(self.cache_key())
-            .send_json::<crate::microsoft_graph::MicrosoftGraphResponse<OAuth2PermissionGrant>>()
+            .receive::<crate::microsoft_graph::MicrosoftGraphResponse<OAuth2PermissionGrant>>()
             .await?;
         Ok(resp.value)
     }

@@ -65,7 +65,7 @@ impl CacheableCommand for OAuth2PermissionGrantUpdateRequest {
             .tenant(self.tenant_id)
             .cache(cache_key)
             .body(serde_json::to_string_pretty(&body)?)
-            .send()
+            .receive_raw()
             .await?;
         bust_oauth2_permission_grants_cache(self.tenant_id).await?;
         Ok(())

@@ -48,7 +48,7 @@ impl CacheableCommand for OAuth2PermissionGrantRemoveRequest {
         RestRequest::new(Method::DELETE, &url)?
             .tenant(self.tenant_id)
             .cache(cache_key)
-            .send()
+            .receive_raw()
             .await?;
         bust_oauth2_permission_grants_cache(self.tenant_id).await?;
         Ok(())

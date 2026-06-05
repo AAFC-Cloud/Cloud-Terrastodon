@@ -30,7 +30,7 @@ pub async fn activate_pim_entra_role(
             justification,
             duration,
         ))?)
-        .send()
+        .receive_raw()
         .await?;
     Ok(())
 }

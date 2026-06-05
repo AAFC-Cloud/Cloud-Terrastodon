@@ -107,7 +107,7 @@ impl RestRequest {
         inputs
     }
 
-    async fn execute(self) -> Result<SerializableRestResponse> {
+    pub async fn execute_without_cache(self) -> Result<SerializableRestResponse> {
         let start = Instant::now();
         let response = execute_rest_request(
             self.service,
@@ -128,13 +128,13 @@ impl RestRequest {
         Ok(serialized)
     }
 
-    async fn run_with_decoder<T, Decode>(self, decode: Decode) -> Result<T>
+    pub async fn receive_raw_with_decoder<T, Decode>(self, decode: Decode) -> Result<T>
     where
         T: Send + 'static,
         Decode: FnOnce(SerializableRestResponse) -> Result<T> + Send + 'static,
     {
         let Some(cache_key) = self.cache_key.clone() else {
-            return decode(self.execute().await?);
+            return decode(self.execute_without_cache().await?);
         };
 
         let context = self.context();
@@ -145,29 +145,29 @@ impl RestRequest {
             debug_inputs,
             executor_kind: "rest".to_string(),
             output_type: std::any::type_name::<T>().to_string(),
-            execute_raw: move || Box::pin(self.execute()),
+            execute_raw: move || Box::pin(self.execute_without_cache()),
             decode,
         })
         .await
     }
 
-    pub async fn send(self) -> Result<SerializableRestResponse> {
-        self.run_with_decoder(|response| Ok(response)).await
+    pub async fn receive_raw(self) -> Result<SerializableRestResponse> {
+        self.receive_raw_with_decoder(Ok).await
     }
 
-    pub async fn send_json<T>(self) -> Result<T>
+    pub async fn receive<T>(self) -> Result<T>
     where
         T: DeserializeOwned + Send + 'static,
     {
-        self.send_json_with_validator(Ok).await
+        self.receive_with_validator(Ok).await
     }
 
-    pub async fn send_json_with_validator<T, F>(self, validator: F) -> Result<T>
+    pub async fn receive_with_validator<T, F>(self, validator: F) -> Result<T>
     where
         T: DeserializeOwned + Send + 'static,
         F: FnOnce(T) -> Result<T> + Send + 'static,
     {
-        self.run_with_decoder(|response| {
+        self.receive_raw_with_decoder(|response| {
             if !response.ok {
                 bail!(
                     "REST call failed with status {}: {}",
@@ -208,7 +208,7 @@ impl CacheableWorkRequest for RestRequest {
     }
 
     async fn execute_raw(self) -> Result<Self::Raw> {
-        self.execute().await
+        self.execute_without_cache().await
     }
 
     fn decode(raw: Self::Raw) -> Result<Self::Output> {

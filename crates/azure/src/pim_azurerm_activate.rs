@@ -38,7 +38,7 @@ pub async fn activate_pim_role(
                 duration,
             ),
         )?)
-        .send()
+        .receive_raw()
         .await?;
     Ok(())
 }

@@ -176,7 +176,7 @@ where
                 "Performing batch request"
             );
             let response = request
-                .send_json_with_validator(|response: BatchResponse<RESP>| {
+                .receive_with_validator(|response: BatchResponse<RESP>| {
                     let failures = response
                         .responses
                         .iter()

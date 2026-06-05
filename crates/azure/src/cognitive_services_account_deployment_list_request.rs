@@ -71,7 +71,7 @@ impl CacheableCommand for CognitiveServicesAccountDeploymentListRequest {
         let response = RestRequest::new(http::Method::GET, &url)?
             .tenant(self.tenant_id)
             .cache(self.cache_key())
-            .send()
+            .receive_raw()
             .await?;
         if !response.ok {
             bail!(

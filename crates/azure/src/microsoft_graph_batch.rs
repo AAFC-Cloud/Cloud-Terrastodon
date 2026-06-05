@@ -59,7 +59,7 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
             .tenant(self.tenant_id)
             .body(serde_json::to_string_pretty(&self)?);
         request.cache_key = self.cache_key;
-        let mut response = request.send_json::<MicrosoftGraphBatchResponse<RESP>>().await?;
+        let mut response = request.receive::<MicrosoftGraphBatchResponse<RESP>>().await?;
         // reorder the responses to match the order of the requests
         response.responses.sort_by_key(|r| {
             self.ids
