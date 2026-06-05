@@ -60,7 +60,11 @@ fn unique_cache_key() -> CacheKey {
         .expect("time went backwards")
         .as_nanos()
         .to_string();
-    CacheKey::new(PathBuf::from_iter(["tests", "cacheable_work", suffix.as_str()]))
+    CacheKey::new(PathBuf::from_iter([
+        "tests",
+        "cacheable_work",
+        suffix.as_str(),
+    ]))
 }
 
 #[tokio::test]

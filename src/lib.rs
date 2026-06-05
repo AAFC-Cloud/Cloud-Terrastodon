@@ -30,8 +30,6 @@ pub use cloud_terrastodon_command as command;
 pub use cloud_terrastodon_config as config;
 #[cfg(feature = "credentials")]
 pub use cloud_terrastodon_credentials as credentials;
-#[cfg(feature = "rest")]
-pub use cloud_terrastodon_rest as rest;
 #[cfg(feature = "hcl")]
 pub use cloud_terrastodon_hcl as hcl;
 #[cfg(feature = "hcl-types")]
@@ -40,6 +38,8 @@ pub use cloud_terrastodon_hcl_types as hcl_types;
 pub use cloud_terrastodon_pathing as pathing;
 #[cfg(feature = "relative-location")]
 pub use cloud_terrastodon_relative_location as relative_location;
+#[cfg(feature = "rest")]
+pub use cloud_terrastodon_rest as rest;
 #[cfg(feature = "ui-egui")]
 pub use cloud_terrastodon_ui_egui as ui_egui;
 #[cfg(feature = "ui-ratatui")]

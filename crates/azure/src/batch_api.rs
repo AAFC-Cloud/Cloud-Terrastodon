@@ -1,8 +1,8 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::FromCommandOutput;
-use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_relative_location::RelativeLocation;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -161,14 +161,14 @@ where
         let chunks = request.requests.chunks(20);
         let num_chunks = chunks.len();
         for (i, chunk) in chunks.enumerate() {
-            let request = RestRequest::new(Method::POST, url)?
-                .tenant(tenant_id)
-                .body(serde_json::to_string_pretty(&BatchRequestUpstream {
+            let request = RestRequest::new(Method::POST, url)?.tenant(tenant_id).body(
+                serde_json::to_string_pretty(&BatchRequestUpstream {
                     requests: chunk
                         .iter()
                         .map(BatchRequestEntryUpstream::from)
                         .collect_vec(),
-                })?);
+                })?,
+            );
 
             debug!(
                 batch_index = i,

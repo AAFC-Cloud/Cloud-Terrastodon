@@ -105,13 +105,25 @@ pub async fn execute_azure_bearer_request(
 ) -> Result<Response> {
     let token = match resource {
         AzureRestResource::MicrosoftGraph => {
-            fetch_azure_access_token::<String>(tenant, cloud_terrastodon_credentials::AzureRestResource::MicrosoftGraph).await?
+            fetch_azure_access_token::<String>(
+                tenant,
+                cloud_terrastodon_credentials::AzureRestResource::MicrosoftGraph,
+            )
+            .await?
         }
         AzureRestResource::AzureResourceManager => {
-            fetch_azure_access_token::<String>(tenant, cloud_terrastodon_credentials::AzureRestResource::AzureResourceManager).await?
+            fetch_azure_access_token::<String>(
+                tenant,
+                cloud_terrastodon_credentials::AzureRestResource::AzureResourceManager,
+            )
+            .await?
         }
         AzureRestResource::AzureDevOps => {
-            fetch_azure_access_token::<String>(tenant, cloud_terrastodon_credentials::AzureRestResource::AzureDevOps).await?
+            fetch_azure_access_token::<String>(
+                tenant,
+                cloud_terrastodon_credentials::AzureRestResource::AzureDevOps,
+            )
+            .await?
         }
     };
     let client = create_tls12_client()?;

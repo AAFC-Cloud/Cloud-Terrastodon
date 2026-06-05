@@ -6,8 +6,8 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableWorkRequest;
 use cloud_terrastodon_command::CachedWorkSpec;
-use cloud_terrastodon_command::run_cached_work;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_command::run_cached_work;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
@@ -17,8 +17,8 @@ use reqwest::Url;
 use serde::de::DeserializeOwned;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::time::Instant;
 use std::time::Duration;
+use std::time::Instant;
 use tracing::debug;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -43,8 +43,8 @@ pub struct RestRequest {
 impl RestRequest {
     pub fn new(method: Method, url: impl AsRef<str>) -> Result<Self> {
         let url_string = url.as_ref().to_string();
-        let url = Url::parse(&url_string)
-            .with_context(|| format!("parsing URL '{}'", url_string))?;
+        let url =
+            Url::parse(&url_string).with_context(|| format!("parsing URL '{}'", url_string))?;
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
@@ -175,12 +175,13 @@ impl RestRequest {
                     response.reason_phrase.as_deref().unwrap_or("Unknown error")
                 );
             }
-            let parsed = serde_json::from_value(response.into_json_body()?).wrap_err_with(|| {
-                format!(
-                    "Deserializing REST response into {}",
-                    std::any::type_name::<T>()
-                )
-            })?;
+            let parsed =
+                serde_json::from_value(response.into_json_body()?).wrap_err_with(|| {
+                    format!(
+                        "Deserializing REST response into {}",
+                        std::any::type_name::<T>()
+                    )
+                })?;
             validator(parsed)
         })
         .await

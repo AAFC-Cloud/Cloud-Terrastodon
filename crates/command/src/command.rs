@@ -236,10 +236,7 @@ impl CommandBuilder {
         )
     }
 
-    async fn cache_fingerprint(
-        &self,
-        debug_inputs: &BTreeMap<PathBuf, BString>,
-    ) -> Result<String> {
+    async fn cache_fingerprint(&self, debug_inputs: &BTreeMap<PathBuf, BString>) -> Result<String> {
         let mut args = self.args.clone();
         if self.kind == CommandKind::AzureCLI {
             let has_debug = args

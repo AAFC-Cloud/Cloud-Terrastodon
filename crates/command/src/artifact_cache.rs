@@ -16,9 +16,9 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use std::time::Duration;
 use std::sync::Mutex;
 use std::sync::OnceLock;
+use std::time::Duration;
 use tempfile::Builder;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncReadExt;
@@ -166,9 +166,12 @@ pub async fn get_cached_output(
     }
 
     let metadata = match load_file(&cache_dir, METADATA_FILE).await {
-        Ok(contents) => Some(serde_json::from_slice::<ArtifactMetadata>(&contents).context(
-            format!("deserializing cache metadata at {}", cache_dir.display()),
-        )?),
+        Ok(contents) => Some(
+            serde_json::from_slice::<ArtifactMetadata>(&contents).context(format!(
+                "deserializing cache metadata at {}",
+                cache_dir.display()
+            ))?,
+        ),
         Err(error) => {
             debug!(
                 path = %cache_dir.display(),
@@ -212,9 +215,8 @@ pub async fn get_cached_output(
     let timestamp_first_line = timestamp_first_line
         .to_str()
         .wrap_err("failed to convert timestamp first line to string")?;
-    let timestamp = DateTime::parse_from_rfc2822(timestamp_first_line).wrap_err_with(|| {
-        format!("failed to parse timestamp from '{}'", timestamp_first_line)
-    })?;
+    let timestamp = DateTime::parse_from_rfc2822(timestamp_first_line)
+        .wrap_err_with(|| format!("failed to parse timestamp from '{}'", timestamp_first_line))?;
     let now = Local::now();
     let time_remaining = if cache_key.valid_for == Duration::MAX {
         TimeDelta::MAX
@@ -231,7 +233,10 @@ pub async fn get_cached_output(
         return Ok(None);
     }
 
-    let status: i32 = load_file(&cache_dir, STATUS_FILE).await?.to_str()?.parse()?;
+    let status: i32 = load_file(&cache_dir, STATUS_FILE)
+        .await?
+        .to_str()?
+        .parse()?;
     let stdout = load_file(&cache_dir, STDOUT_FILE).await?;
     let stderr = load_file(&cache_dir, STDERR_FILE).await?;
     let output = CommandOutput {

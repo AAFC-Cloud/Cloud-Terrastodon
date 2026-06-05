@@ -78,7 +78,9 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
         let initial_response = {
             RestRequest::new(http::Method::POST, &backend_health_url)?
                 .tenant(self.tenant_id)
-                .headers(RequestHeaders::from_json_str(APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS)?)
+                .headers(RequestHeaders::from_json_str(
+                    APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS,
+                )?)
                 .body("{}")
                 .receive_raw()
                 .await?

@@ -24,8 +24,8 @@ mod no_spaces;
 mod path_mapper;
 mod work;
 
-pub use crate::cachable_command::*;
 pub use crate::artifact_cache::*;
+pub use crate::cachable_command::*;
 pub use crate::cache_invalidatable::*;
 pub use crate::cache_key::*;
 pub use crate::cacheable_work::*;

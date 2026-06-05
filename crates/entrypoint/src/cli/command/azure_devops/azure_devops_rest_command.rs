@@ -41,7 +41,9 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let url = format!("{}/_apis/projects?api-version=7.1", org_url);
-        let response = RestRequest::new(Method::GET, url.as_str())?.receive_raw().await?;
+        let response = RestRequest::new(Method::GET, url.as_str())?
+            .receive_raw()
+            .await?;
         println!("{}", serde_json::to_string_pretty(&response)?);
         Ok(())
     }

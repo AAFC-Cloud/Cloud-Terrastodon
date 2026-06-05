@@ -55,11 +55,14 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
     pub async fn send<RESP: FromCommandOutput>(
         self,
     ) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>> {
-        let mut request = RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
-            .tenant(self.tenant_id)
-            .body(serde_json::to_string_pretty(&self)?);
+        let mut request =
+            RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
+                .tenant(self.tenant_id)
+                .body(serde_json::to_string_pretty(&self)?);
         request.cache_key = self.cache_key;
-        let mut response = request.receive::<MicrosoftGraphBatchResponse<RESP>>().await?;
+        let mut response = request
+            .receive::<MicrosoftGraphBatchResponse<RESP>>()
+            .await?;
         // reorder the responses to match the order of the requests
         response.responses.sort_by_key(|r| {
             self.ids

@@ -23,13 +23,15 @@ pub async fn activate_pim_entra_role(
             path: PathBuf::from_iter(["az", "rest", "POST", "roleAssignmentScheduleRequests"]),
             valid_for: Duration::ZERO,
         })
-        .body(serde_json::to_string_pretty(&RoleAssignmentRequest::new_self_activation(
-            principal_id.into(),
-            tenant_id,
-            role_assignment,
-            justification,
-            duration,
-        ))?)
+        .body(serde_json::to_string_pretty(
+            &RoleAssignmentRequest::new_self_activation(
+                principal_id.into(),
+                tenant_id,
+                role_assignment,
+                justification,
+                duration,
+            ),
+        )?)
         .receive_raw()
         .await?;
     Ok(())

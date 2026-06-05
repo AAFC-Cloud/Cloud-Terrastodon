@@ -120,27 +120,36 @@ where
     let fingerprint = work_fingerprint(&cache_key, &context, &debug_inputs)?;
     let metadata = ArtifactMetadata::new(&fingerprint, executor_kind, output_type);
 
-    let output = match artifact_cache::get_cached_output(
-        &cache_key,
-        &context,
-        &debug_inputs,
-        &fingerprint,
-    )
-    .await
-    {
-        Ok(Some(output)) => output,
-        Ok(None) => {
-            execute_and_cache_output(&cache_key, &context, &debug_inputs, &metadata, execute_raw)
+    let output =
+        match artifact_cache::get_cached_output(&cache_key, &context, &debug_inputs, &fingerprint)
+            .await
+        {
+            Ok(Some(output)) => output,
+            Ok(None) => {
+                execute_and_cache_output(
+                    &cache_key,
+                    &context,
+                    &debug_inputs,
+                    &metadata,
+                    execute_raw,
+                )
                 .await?
-        }
-        Err(error) => {
-            tracing::debug!(?cache_key, %error, "Cache load failed");
-            execute_and_cache_output(&cache_key, &context, &debug_inputs, &metadata, execute_raw)
+            }
+            Err(error) => {
+                tracing::debug!(?cache_key, %error, "Cache load failed");
+                execute_and_cache_output(
+                    &cache_key,
+                    &context,
+                    &debug_inputs,
+                    &metadata,
+                    execute_raw,
+                )
                 .await?
-        }
-    };
+            }
+        };
 
-    let raw = serde_json::from_slice::<Raw>(&output.stdout).map_err(|error| eyre::Error::new(error))?;
+    let raw =
+        serde_json::from_slice::<Raw>(&output.stdout).map_err(|error| eyre::Error::new(error))?;
     match decode(raw) {
         Ok(result) => Ok(result),
         Err(error) => {
@@ -153,7 +162,10 @@ where
                 Some(&format!("{error:?}")),
             )
             .await?;
-            Err(error).wrap_err(format!("Decoded cached work failed, dumped to {:?}", dump_dir))
+            Err(error).wrap_err(format!(
+                "Decoded cached work failed, dumped to {:?}",
+                dump_dir
+            ))
         }
     }
 }
@@ -192,8 +204,12 @@ macro_rules! impl_cacheable_work_into_future {
         }
 
         impl $crate::CacheInvalidatableIntoFuture for $ty {
-            type WithInvalidation =
-                ::std::pin::Pin<Box<dyn ::std::future::Future<Output = <Self as ::std::future::IntoFuture>::Output> + Send>>;
+            type WithInvalidation = ::std::pin::Pin<
+                Box<
+                    dyn ::std::future::Future<Output = <Self as ::std::future::IntoFuture>::Output>
+                        + Send,
+                >,
+            >;
 
             fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
                 Box::pin(async move {
@@ -220,8 +236,13 @@ macro_rules! impl_cacheable_work_into_future {
         }
 
         impl<$lt> $crate::CacheInvalidatableIntoFuture for $ty {
-            type WithInvalidation =
-                ::std::pin::Pin<Box<dyn ::std::future::Future<Output = <Self as ::std::future::IntoFuture>::Output> + Send + $lt>>;
+            type WithInvalidation = ::std::pin::Pin<
+                Box<
+                    dyn ::std::future::Future<Output = <Self as ::std::future::IntoFuture>::Output>
+                        + Send
+                        + $lt,
+                >,
+            >;
 
             fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
                 Box::pin(async move {
