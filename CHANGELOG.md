@@ -19,6 +19,7 @@
 - Add `ct az ad user show {}` command
 - Add `ct az ad oauth2-permission-grant list|create|update|browse` command
 - Update `ct az devops repo list` command to make `--project {}` optional 
+- Revamp REST behaviour to no longer spawn another process
 
 # v0.35.1
 
