@@ -316,6 +316,11 @@ async fn note_resource_graph_rate_limit(response: &SerializableRestResponse) {
 async fn receive_resource_graph_response<T: FromCommandOutput>(
     request: RestRequest,
 ) -> Result<ResourceGraphQueryResponse<T>> {
+    enum ResourceGraphResponse<T: FromCommandOutput> {
+        Parsed(ResourceGraphQueryResponse<T>),
+        Raw(SerializableRestResponse),
+    }
+
     let mut retries = 0usize;
 
     loop {
@@ -323,19 +328,35 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
         wait_for_resource_graph_rate_limit_window().await;
 
         let cache_key = request.cache_key.clone();
-        let response = request.clone().receive_raw().await?;
-        note_resource_graph_rate_limit(&response).await;
+        let cache_path = cache_key.as_ref().map(|key| key.path_on_disk());
+        let outcome = request
+            .clone()
+            .receive_raw_with_decoder(move |response| {
+                if response.ok {
+                    let parsed = serde_json::from_value(response.into_json_body()?)
+                        .wrap_err_with(|| match &cache_path {
+                            Some(cache_path) => format!(
+                                "Deserializing REST response into {}. Cached response can be inspected at {:?}",
+                                std::any::type_name::<ResourceGraphQueryResponse<T>>(),
+                                cache_path
+                            ),
+                            None => format!(
+                                "Deserializing REST response into {}",
+                                std::any::type_name::<ResourceGraphQueryResponse<T>>()
+                            ),
+                        })?;
+                    Ok(ResourceGraphResponse::Parsed(parsed))
+                } else {
+                    Ok(ResourceGraphResponse::Raw(response))
+                }
+            })
+            .await?;
+        let response = match outcome {
+            ResourceGraphResponse::Parsed(parsed) => return Ok(parsed),
+            ResourceGraphResponse::Raw(response) => response,
+        };
 
-        if response.ok {
-            let parsed =
-                serde_json::from_value(response.into_json_body()?).wrap_err_with(|| {
-                    format!(
-                        "Deserializing REST response into {}",
-                        std::any::type_name::<ResourceGraphQueryResponse<T>>()
-                    )
-                })?;
-            return Ok(parsed);
-        }
+        note_resource_graph_rate_limit(&response).await;
 
         let is_throttled = response.status == http::StatusCode::TOO_MANY_REQUESTS.as_u16()
             || resource_graph_quota_remaining(&response) == Some(0);
