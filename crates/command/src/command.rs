@@ -278,7 +278,7 @@ impl CommandBuilder {
             .await
     }
 
-    pub async fn write_output(&self, output: &CommandOutput, parent_dir: &PathBuf) -> Result<()> {
+    pub async fn write_output(&self, output: &CommandOutput, parent_dir: &Path) -> Result<()> {
         debug!(path = %parent_dir.display(), "Writing command results");
         let context = self.summarize().await;
         let debug_inputs = self.cache_debug_inputs();
