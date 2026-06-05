@@ -86,7 +86,7 @@ impl RestArgs {
             RestOutputFormat::Json => cloud_terrastodon_rest::RestOutputFormat::Json,
         };
         let response = self.invoke().await?;
-        response.print(output_format)
+        response.write(output_format, std::io::stdout())
     }
 }
 

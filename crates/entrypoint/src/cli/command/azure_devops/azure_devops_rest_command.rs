@@ -27,7 +27,7 @@ impl AzureDevOpsRestArgs {
         let mut request = RestRequest::new(self.method, &self.url)?;
         request.body = read_optional_body(self.body).await?;
         let response = request.receive_raw().await?;
-        response.print(RestOutputFormat::Text)
+        response.write(RestOutputFormat::Text, std::io::stdout())
     }
 }
 

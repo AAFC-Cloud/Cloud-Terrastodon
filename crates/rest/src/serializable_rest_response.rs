@@ -1,15 +1,16 @@
 use crate::RestOutputFormat;
 use crate::RestResponseBody;
 use crate::parse_response_body;
-use eyre::bail;
 use eyre::Result;
 use eyre::WrapErr;
+use eyre::bail;
 use reqwest::Response;
 use reqwest::header::HeaderMap;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
+use std::io::Write;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct SerializableRestResponse {
@@ -56,16 +57,16 @@ impl SerializableRestResponse {
         }
     }
 
-    pub fn print(&self, output_format: RestOutputFormat) -> Result<()> {
+    pub fn write(&self, output_format: RestOutputFormat, mut writer: impl Write) -> Result<()> {
         match output_format {
             RestOutputFormat::Text => match &self.body {
                 RestResponseBody::Json(value) => {
-                    println!("{}", serde_json::to_string_pretty(value)?)
+                    writeln!(writer, "{}", serde_json::to_string_pretty(value)?)?
                 }
-                RestResponseBody::Text(content) => println!("{}", content),
+                RestResponseBody::Text(content) => writeln!(writer, "{}", content)?,
             },
             RestOutputFormat::Json => {
-                println!("{}", serde_json::to_string_pretty(self)?);
+                writeln!(writer, "{}", serde_json::to_string_pretty(self)?)?;
             }
         }
 
