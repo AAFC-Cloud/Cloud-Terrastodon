@@ -1,3 +1,8 @@
+# v0.37.0
+
+- Add `ct az ad role definition find {action}` command
+- Update `ct az role definition find` to include role definition in results
+
 # v0.36.0
 
 - Update `ct az resource list` to include `properties` field
@@ -12,6 +17,7 @@
 - Update `ct tf reflow` to bail if duplicate block labels are detected
 - Better diagnostic logging for `ct rest` and `ct az pim activate entra`
 - Add `ct az ad role definition|assignment browse|list` commands
+- Add `ct az ad role definition find <action>` command
 - Update `hicory-resolver` dependency
 - Update `rustls-webpki` dependency
 - Update `ct tf source add-imports` to have better subnet support

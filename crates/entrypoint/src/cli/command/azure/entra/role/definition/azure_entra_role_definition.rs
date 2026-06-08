@@ -1,4 +1,5 @@
 use super::AzureEntraRoleDefinitionBrowseArgs;
+use super::AzureEntraRoleDefinitionFindArgs;
 use super::AzureEntraRoleDefinitionListArgs;
 use clap::Subcommand;
 use eyre::Result;
@@ -10,6 +11,8 @@ pub enum AzureEntraRoleDefinitionCommand {
     List(AzureEntraRoleDefinitionListArgs),
     /// Browse Entra role definitions interactively.
     Browse(AzureEntraRoleDefinitionBrowseArgs),
+    /// Find role definitions and assignments that satisfy a directory action.
+    Find(AzureEntraRoleDefinitionFindArgs),
 }
 
 impl AzureEntraRoleDefinitionCommand {
@@ -17,6 +20,7 @@ impl AzureEntraRoleDefinitionCommand {
         match self {
             AzureEntraRoleDefinitionCommand::List(args) => args.invoke().await,
             AzureEntraRoleDefinitionCommand::Browse(args) => args.invoke().await,
+            AzureEntraRoleDefinitionCommand::Find(args) => args.invoke().await,
         }
     }
 }

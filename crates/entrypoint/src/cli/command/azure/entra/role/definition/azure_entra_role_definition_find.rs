@@ -1,31 +1,35 @@
 use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::RolePermissionAction;
-use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_azure::UnifiedRoleDefinition;
+use cloud_terrastodon_azure::fetch_all_unified_role_definitions_and_assignments;
 use eyre::Result;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::io::Write;
 use tracing::info;
 
-/// Find role definitions and role assignments that satisfy an action or data action.
+/// Find Entra role definitions and role assignments that satisfy a directory action.
 #[derive(Args, Debug, Clone)]
-pub struct AzureRoleDefinitionFindArgs {
+pub struct AzureEntraRoleDefinitionFindArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[arg(long, default_value_t)]
     pub tenant: AzureTenantArgument<'static>,
 
-    /// Required action or data action to search for.
+    /// Required Entra directory action to search for.
     pub action: RolePermissionAction,
 }
 
-impl AzureRoleDefinitionFindArgs {
+impl AzureEntraRoleDefinitionFindArgs {
     pub async fn invoke(self) -> Result<()> {
-        info!(action = %self.action, "Fetching Azure role definitions and role assignments");
-        let rbac = fetch_all_role_definitions_and_assignments(self.tenant.resolve().await?).await?;
+        let tenant_id = self.tenant.resolve().await?;
+        info!(
+            %tenant_id,
+            action = %self.action,
+            "Fetching Entra role definitions and role assignments"
+        );
+        let rbac = fetch_all_unified_role_definitions_and_assignments(tenant_id).await?;
 
         let fallback_chain = build_fallback_chain(&self.action);
         let literal_match_counts = fallback_chain
@@ -53,27 +57,28 @@ impl AzureRoleDefinitionFindArgs {
 
         let role_definition_match_lookup = role_definition_matches
             .iter()
-            .map(|m| (m.role_definition_id.clone(), m.clone()))
+            .map(|m| (m.role_definition_id, m.clone()))
             .collect::<std::collections::HashMap<_, _>>();
 
         let mut assignment_matches = rbac
-            .role_assignments
-            .values()
-            .filter_map(|assignment| {
+            .iter_role_assignments()
+            .filter_map(|(assignment, _)| {
                 let role_match =
                     role_definition_match_lookup.get(&assignment.role_definition_id)?;
                 Some(RoleAssignmentMatch {
                     role_assignment_id: assignment.id.clone(),
-                    role_definition_id: role_match.role_definition_id.clone(),
+                    role_definition_id: role_match.role_definition_id,
                     role_definition_name: role_match.role_definition_name.clone(),
                     role_definition: role_match.role_definition.clone(),
                     principal_id: assignment.principal_id,
-                    scope: assignment.scope.expanded_form(),
-                    scope_specificity: assignment.scope.expanded_form().len(),
+                    directory_scope_id: assignment.directory_scope_id.clone(),
+                    directory_scope_specificity: assignment.directory_scope_id.len(),
+                    resource_scope: assignment.resource_scope.clone(),
+                    resource_scope_specificity: assignment.resource_scope.len(),
                     specificity_cost: role_match.specificity_cost,
-                    match_source: role_match.match_source,
                     matched_permission: role_match.matched_permission.clone(),
                     literal_fallback_rank: role_match.literal_fallback_rank,
+                    condition: role_match.condition.clone(),
                 })
             })
             .collect::<Vec<_>>();
@@ -89,10 +94,11 @@ impl AzureRoleDefinitionFindArgs {
         };
 
         info!(
+            %tenant_id,
             action = %self.action,
             definition_matches = output.role_definition_matches.len(),
             assignment_matches = output.role_assignment_matches.len(),
-            "Completed role definition find"
+            "Completed Entra role definition find"
         );
 
         let stdout = std::io::stdout();
@@ -120,90 +126,65 @@ struct LiteralMatchCount {
     role_definition_count: usize,
 }
 
-#[derive(Debug, Serialize, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-#[serde(rename_all = "snake_case")]
-enum MatchSource {
-    Action,
-    DataAction,
-}
-
 #[derive(Debug, Serialize, Clone)]
 struct RoleDefinitionMatch {
-    role_definition_id: cloud_terrastodon_azure::RoleDefinitionId,
+    role_definition_id: cloud_terrastodon_azure::UnifiedRoleDefinitionId,
     role_definition_name: String,
-    role_definition: RoleDefinition,
+    role_definition: UnifiedRoleDefinition,
     specificity_cost: u64,
-    match_source: MatchSource,
     matched_permission: String,
     literal_fallback_rank: Option<usize>,
+    condition: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 struct RoleAssignmentMatch {
-    role_assignment_id: cloud_terrastodon_azure::RoleAssignmentId,
-    role_definition_id: cloud_terrastodon_azure::RoleDefinitionId,
+    role_assignment_id: cloud_terrastodon_azure::UnifiedRoleAssignmentId,
+    role_definition_id: cloud_terrastodon_azure::UnifiedRoleDefinitionId,
     role_definition_name: String,
-    role_definition: RoleDefinition,
+    role_definition: UnifiedRoleDefinition,
     principal_id: cloud_terrastodon_azure::PrincipalId,
-    scope: String,
-    scope_specificity: usize,
+    directory_scope_id: String,
+    directory_scope_specificity: usize,
+    resource_scope: String,
+    resource_scope_specificity: usize,
     specificity_cost: u64,
-    match_source: MatchSource,
     matched_permission: String,
     literal_fallback_rank: Option<usize>,
+    condition: Option<String>,
 }
 
 fn evaluate_role_definition(
-    role_definition: &RoleDefinition,
+    role_definition: &UnifiedRoleDefinition,
     query_action: &RolePermissionAction,
     fallback_chain: &[RolePermissionAction],
 ) -> Option<RoleDefinitionMatch> {
     let mut best: Option<RoleDefinitionMatch> = None;
 
-    for permission in &role_definition.permissions {
-        if permission.satisfies(std::slice::from_ref(query_action), &[]) {
-            for action in &permission.actions {
-                if !action.satisfies(query_action) {
-                    continue;
-                }
-                let candidate = RoleDefinitionMatch {
-                    role_definition_id: role_definition.id.clone(),
-                    role_definition_name: role_definition.display_name.clone(),
-                    role_definition: role_definition.clone(),
-                    specificity_cost: action_specificity_cost(action),
-                    match_source: MatchSource::Action,
-                    matched_permission: action.to_string(),
-                    literal_fallback_rank: fallback_rank(action, fallback_chain),
-                };
-                if best
-                    .as_ref()
-                    .is_none_or(|current| role_definition_match_cmp(&candidate, current).is_lt())
-                {
-                    best = Some(candidate);
-                }
-            }
+    for permission in &role_definition.role_permissions {
+        if !permission.satisfies(std::slice::from_ref(query_action)) {
+            continue;
         }
 
-        if permission.satisfies(&[], std::slice::from_ref(query_action)) {
-            for action in &permission.data_actions {
-                if !action.satisfies(query_action) {
-                    continue;
-                }
-                let candidate = RoleDefinitionMatch {
-                    role_definition_id: role_definition.id.clone(),
-                    role_definition_name: role_definition.display_name.clone(),
-                    role_definition: role_definition.clone(),
-                    specificity_cost: action_specificity_cost(action),
-                    match_source: MatchSource::DataAction,
-                    matched_permission: action.to_string(),
-                    literal_fallback_rank: fallback_rank(action, fallback_chain),
-                };
-                if best
-                    .as_ref()
-                    .is_none_or(|current| role_definition_match_cmp(&candidate, current).is_lt())
-                {
-                    best = Some(candidate);
-                }
+        for action in &permission.allowed_resource_actions {
+            if !action.satisfies(query_action) {
+                continue;
+            }
+
+            let candidate = RoleDefinitionMatch {
+                role_definition_id: role_definition.template_id,
+                role_definition_name: role_definition.display_name.clone(),
+                role_definition: role_definition.clone(),
+                specificity_cost: action_specificity_cost(action),
+                matched_permission: action.to_string(),
+                literal_fallback_rank: fallback_rank(action, fallback_chain),
+                condition: permission.condition.clone(),
+            };
+            if best
+                .as_ref()
+                .is_none_or(|current| role_definition_match_cmp(&candidate, current).is_lt())
+            {
+                best = Some(candidate);
             }
         }
     }
@@ -212,18 +193,14 @@ fn evaluate_role_definition(
 }
 
 fn role_definition_has_literal(
-    role_definition: &RoleDefinition,
+    role_definition: &UnifiedRoleDefinition,
     candidate: &RolePermissionAction,
 ) -> bool {
-    role_definition.permissions.iter().any(|permission| {
+    role_definition.role_permissions.iter().any(|permission| {
         permission
-            .actions
+            .allowed_resource_actions
             .iter()
-            .any(|a| eq_ignore_case(a, candidate))
-            || permission
-                .data_actions
-                .iter()
-                .any(|a| eq_ignore_case(a, candidate))
+            .any(|action| eq_ignore_case(action, candidate))
     })
 }
 
@@ -269,7 +246,6 @@ fn role_definition_match_cmp(
 ) -> std::cmp::Ordering {
     left.specificity_cost
         .cmp(&right.specificity_cost)
-        .then_with(|| left.match_source.cmp(&right.match_source))
         .then_with(|| left.role_definition_name.cmp(&right.role_definition_name))
         .then_with(|| left.matched_permission.cmp(&right.matched_permission))
 }
@@ -280,9 +256,19 @@ fn role_assignment_match_cmp(
 ) -> std::cmp::Ordering {
     left.specificity_cost
         .cmp(&right.specificity_cost)
-        .then_with(|| right.scope_specificity.cmp(&left.scope_specificity))
+        .then_with(|| {
+            right
+                .resource_scope_specificity
+                .cmp(&left.resource_scope_specificity)
+        })
+        .then_with(|| {
+            right
+                .directory_scope_specificity
+                .cmp(&left.directory_scope_specificity)
+        })
         .then_with(|| left.role_definition_name.cmp(&right.role_definition_name))
-        .then_with(|| left.scope.cmp(&right.scope))
+        .then_with(|| left.resource_scope.cmp(&right.resource_scope))
+        .then_with(|| left.directory_scope_id.cmp(&right.directory_scope_id))
 }
 
 fn build_fallback_chain(action: &RolePermissionAction) -> Vec<RolePermissionAction> {
@@ -322,30 +308,26 @@ mod tests {
     #[test]
     fn fallback_chain_progressively_generalizes() {
         let chain = build_fallback_chain(&RolePermissionAction::new(
-            "Microsoft.ContainerInstance/containerGroups/containers/exec/action",
+            "microsoft.directory/users/standard/read",
         ));
         let values = chain.iter().map(ToString::to_string).collect::<Vec<_>>();
 
         assert_eq!(
             values,
             vec![
-                "Microsoft.ContainerInstance/containerGroups/containers/exec/action",
-                "Microsoft.ContainerInstance/containerGroups/containers/exec/*",
-                "Microsoft.ContainerInstance/containerGroups/containers/*",
-                "Microsoft.ContainerInstance/containerGroups/*",
-                "Microsoft.ContainerInstance/*",
+                "microsoft.directory/users/standard/read",
+                "microsoft.directory/users/standard/*",
+                "microsoft.directory/users/*",
+                "microsoft.directory/*",
             ]
         );
     }
 
     #[test]
     fn exact_is_more_specific_than_wildcards() {
-        let exact = RolePermissionAction::new(
-            "Microsoft.ContainerInstance/containerGroups/containers/exec/action",
-        );
-        let narrower_wildcard =
-            RolePermissionAction::new("Microsoft.ContainerInstance/containerGroups/containers/*");
-        let broader_wildcard = RolePermissionAction::new("Microsoft.ContainerInstance/*");
+        let exact = RolePermissionAction::new("microsoft.directory/users/standard/read");
+        let narrower_wildcard = RolePermissionAction::new("microsoft.directory/users/*");
+        let broader_wildcard = RolePermissionAction::new("microsoft.directory/*");
 
         assert!(action_specificity_cost(&exact) < action_specificity_cost(&narrower_wildcard));
         assert!(
