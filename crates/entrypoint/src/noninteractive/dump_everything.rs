@@ -283,7 +283,7 @@ async fn process_generated_many(
             );
 
             let hcl = discover_hcl(work_dir, DiscoveryDepth::Shallow).await?;
-            let hcl = reflow_hcl(tenant_id, hcl, true, None, false).await?;
+            let hcl = reflow_hcl(tenant_id.into(), hcl, true, None, false).await?;
             drop(permit);
             Ok(WorkOutcome {
                 out_dir: out_dir.clone(),

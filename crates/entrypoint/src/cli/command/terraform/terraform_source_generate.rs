@@ -55,7 +55,7 @@ impl TerraformSourceGenerateArgs {
 
         info!("Reflowing content");
         let hcl = discover_hcl(import_dir, DiscoveryDepth::Shallow).await?;
-        let hcl = reflow_hcl(tenant_id, hcl, true, None, false).await?;
+        let hcl = reflow_hcl(tenant_id.into(), hcl, true, None, false).await?;
         for (path, contents) in hcl {
             HclWriter::new(path)
                 .format_on_write()

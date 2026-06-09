@@ -6,7 +6,8 @@ use crate::reflow::ReflowExpressionsUseImportedResourceBlocks;
 use crate::reflow::ReflowJsonAttributes;
 use crate::reflow::ReflowPrincipalIdComments;
 use crate::reflow::ReflowRemoveDefaultAttributes;
-use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_principals;
 use hcl::edit::structure::Body;
 use std::collections::HashMap;
@@ -14,7 +15,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 pub async fn reflow_hcl(
-    tenant_id: AzureTenantId,
+    tenant: AzureTenantArgument<'_>,
     mut hcl: HashMap<PathBuf, Body>,
     include_principal_id_comments: bool,
     single_file_path: Option<PathBuf>,
@@ -30,6 +31,7 @@ pub async fn reflow_hcl(
     ];
     if include_principal_id_comments {
         info!("Fetching principals");
+        let tenant_id = tenant.resolve().await?;
         let principals = fetch_all_principals(tenant_id).await?;
         reflowers.insert(3, Box::new(ReflowPrincipalIdComments::new(principals)));
     }
