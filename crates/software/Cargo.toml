@@ -1,0 +1,15 @@
+[package]
+name = "cloud_terrastodon_software"
+description = "Software discovery helpers for Cloud Terrastodon"
+version = "0.36.0" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+eyre.workspace = true
+teamy-mft = { path = "../../../teamy-mft" }

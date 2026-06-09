@@ -13,11 +13,10 @@ use ratatui::text::Text;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
-use ratatui::widgets::block::Title;
 
 pub struct MessageBoxTui {
     message: Text<'static>,
-    title: Option<Title<'static>>,
+    title: Option<Line<'static>>,
 }
 impl MessageBoxTui {
     pub fn new(message: impl Into<Text<'static>>) -> Self {
@@ -28,7 +27,7 @@ impl MessageBoxTui {
     }
 
     #[allow(dead_code)]
-    pub fn title(mut self, title: impl Into<Title<'static>>) -> Self {
+    pub fn title(mut self, title: impl Into<Line<'static>>) -> Self {
         self.title = Some(title.into());
         self
     }

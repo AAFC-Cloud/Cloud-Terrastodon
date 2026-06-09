@@ -10,7 +10,7 @@
 //! - `full`: Enables all features listed below.
 //! - `pathing`, `config`, `azure`, `azure-types`, `azure-resource-types`,
 //!   `azure-devops`, `azure-devops-types`, `hcl`, `hcl-types`, `user-input`,
-//!   `command`, `zombies`, `relative-location`, `ui-ratatui`, `ui-egui`,
+//!   `command`, `software`, `zombies`, `relative-location`, `ui-ratatui`, `ui-egui`,
 //!   `azure-locations`, `credentials`, `rest`.
 
 // One pub use per optional subcrate, behind its feature flag.
@@ -40,6 +40,8 @@ pub use cloud_terrastodon_pathing as pathing;
 pub use cloud_terrastodon_relative_location as relative_location;
 #[cfg(feature = "rest")]
 pub use cloud_terrastodon_rest as rest;
+#[cfg(feature = "software")]
+pub use cloud_terrastodon_software as software;
 #[cfg(feature = "ui-egui")]
 pub use cloud_terrastodon_ui_egui as ui_egui;
 #[cfg(feature = "ui-ratatui")]
