@@ -7456,7 +7456,9 @@ dependencies = [
 
 [[package]]
 name = "teamy-mft"
-version = "0.7.0"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4e6c4d0b867fd71ef2298fd87106d6a370b402534c35e7e18a09091b2c90495"
 dependencies = [
  "arbitrary",
  "async-stream",

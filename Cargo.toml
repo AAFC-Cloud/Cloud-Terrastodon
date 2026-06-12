@@ -41,6 +41,7 @@ hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["serde", "v4", "arbitrary"] }
 chrono = { version = "0.4.38", features = ["serde", "arbitrary"] }
 rand = "0.10.1"
+teamy-mft = "0.7.1"
 test-log = { version = "0.2.16", features = ["trace"] }
 clap = { version = "4.5.9", features = ["derive", "string"] }
 iso8601-duration = { version = "0.2.0", features = ["serde", "chrono"] }

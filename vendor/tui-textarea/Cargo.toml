@@ -61,8 +61,8 @@ rustdoc-args = [
 ]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[profile.bench]
-lto = "thin"
+# [profile.bench]
+# lto = "thin"
 
 [lib]
 name = "tui_textarea"

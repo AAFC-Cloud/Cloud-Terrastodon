@@ -24,18 +24,18 @@ impl SoftwareListArgs {
         })
         .await??;
         cancel_signal.abort();
-        let pattern_width = summaries
+        let query_width = summaries
             .iter()
-            .map(|summary| summary.pattern.len())
+            .map(|summary| summary.query.len())
             .max()
-            .unwrap_or("pattern".len())
-            .max("pattern".len());
+            .unwrap_or("query".len())
+            .max("query".len());
 
-        println!("{:<pattern_width$} count", "pattern");
+        println!("{:<query_width$} count", "query");
         for summary in summaries {
             println!(
-                "{:<pattern_width$} {}",
-                summary.pattern, summary.result_count
+                "{:<query_width$} {}",
+                summary.query, summary.result_count
             );
         }
 

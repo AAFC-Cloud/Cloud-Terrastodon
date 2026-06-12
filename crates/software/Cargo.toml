@@ -12,4 +12,4 @@ categories.workspace = true
 
 [dependencies]
 eyre.workspace = true
-teamy-mft = { path = "../../../teamy-mft" }
+teamy-mft.workspace = true
