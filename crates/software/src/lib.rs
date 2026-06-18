@@ -12,7 +12,13 @@ pub struct SoftwareQuerySummary {
     pub result_count: usize,
 }
 
-pub const SOFTWARE_QUERIES: [&'static str; 3] = [".git", "package.json", "Cargo.toml"];
+pub const SOFTWARE_QUERIES: [&'static str; 5] = [
+    ".git",
+    "package.json",
+    "package-lock.json",
+    "Cargo.toml",
+    "Cargo.lock",
+];
 
 /// # Errors
 ///
