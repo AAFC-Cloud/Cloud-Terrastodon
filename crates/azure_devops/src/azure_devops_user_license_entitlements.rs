@@ -38,6 +38,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
 
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!("Fetching Azure DevOps user entitlements");
+
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["devops", "invoke"]);
         let org = self.org_url.to_string();

@@ -4,6 +4,7 @@
 - Update `ct az role definition find` to include role definition in results
 - Add `ct az devops project member list --project {}` command
 - Add the `--has-license {}` filter to `ct az devops license entitlement user update` cli
+- Add specifying multiple `--user {}` to `ct az devops license entitlement user update` cli
 - Clean up CLI types to use `AzureDevOpsUserArgument` instead of previous matcher duplicate type
 
 # v0.36.0
