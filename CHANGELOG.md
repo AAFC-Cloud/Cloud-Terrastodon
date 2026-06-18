@@ -3,6 +3,7 @@
 - Add `ct az ad role definition find {action}` command
 - Update `ct az role definition find` to include role definition in results
 - Add `ct az devops project member list --project {}` command
+- Add the `--has-license {}` filter to az devops license entitlement user matcher cli type
 
 # v0.36.0
 
