@@ -1,4 +1,8 @@
 cargo build --release
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Build failed, not updating exe in path."
+    return
+}
 
 $old_exe = Get-Command cloud_terrastodon.exe | Select-Object -ExpandProperty Source
 if (-not (Test-Path $old_exe)) {
