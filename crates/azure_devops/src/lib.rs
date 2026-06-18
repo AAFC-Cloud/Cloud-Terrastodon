@@ -25,6 +25,7 @@ mod default_organization;
 mod default_organization_tui;
 mod default_project;
 mod get_pat;
+mod azure_devops_user_license_entitlement;
 
 pub use crate::azure_devops_agent_packages::*;
 pub use crate::azure_devops_agent_pool_entitlements_for_pool::*;
@@ -45,6 +46,7 @@ pub use crate::azure_devops_test_suite_cases::*;
 pub use crate::azure_devops_test_suites::*;
 pub use crate::azure_devops_user_license_entitlement_update::*;
 pub use crate::azure_devops_user_license_entitlements::*;
+pub use crate::azure_devops_user_license_entitlement::*;
 pub use crate::azure_devops_user_onboarding_statuses::*;
 pub use crate::azure_devops_work_item_queries::*;
 pub use crate::azure_devops_work_items_for_query::*;

@@ -1,5 +1,6 @@
 use crate::AzureDevOpsLicenseEntitlementUserReference;
 use crate::AzureDevOpsUserId;
+use crate::AzureDevOpsUserLicenseEntitlement;
 use compact_str::CompactString;
 use eyre::bail;
 use std::str::FromStr;
@@ -31,8 +32,27 @@ impl<'a> From<&'a AzureDevOpsUserId> for AzureDevOpsUserArgument<'a> {
         AzureDevOpsUserArgument::IdRef(value)
     }
 }
+impl<'a> From<&'a AzureDevOpsUserArgument<'a>> for AzureDevOpsUserArgument<'a> {
+    fn from(value: &'a AzureDevOpsUserArgument<'a>) -> Self {
+        match value {
+            AzureDevOpsUserArgument::Id(id) => AzureDevOpsUserArgument::Id(*id),
+            AzureDevOpsUserArgument::IdRef(id) => AzureDevOpsUserArgument::IdRef(*id),
+            AzureDevOpsUserArgument::Email(email) => {
+                AzureDevOpsUserArgument::EmailRef(email.as_str())
+            }
+            AzureDevOpsUserArgument::EmailRef(email) => {
+                AzureDevOpsUserArgument::EmailRef(*email)
+            }
+        }
+    }
+}
 
 impl AzureDevOpsUserArgument<'_> {
+    pub fn as_predicate<'a>(
+        &'a self,
+    ) -> eyre::Result<Box<dyn Fn(&AzureDevOpsUserLicenseEntitlement) -> bool + 'a>> {
+        Ok(Box::new(move |e| self.matches(&e.user)))
+    }
     pub fn into_owned(self) -> AzureDevOpsUserArgument<'static> {
         match self {
             AzureDevOpsUserArgument::Id(id) => AzureDevOpsUserArgument::Id(id),

@@ -2,6 +2,7 @@ use crate::CacheKey;
 use crate::HasCacheKey;
 use async_trait::async_trait;
 
+/// For that which is immediately invalidatable
 #[async_trait]
 pub trait CacheInvalidatable {
     async fn invalidate(&self) -> eyre::Result<()>;
@@ -14,6 +15,7 @@ impl CacheInvalidatable for &CacheKey {
     }
 }
 
+/// For that which is lazily invalidatable as part of execution
 #[async_trait]
 impl<T> CacheInvalidatable for T
 where

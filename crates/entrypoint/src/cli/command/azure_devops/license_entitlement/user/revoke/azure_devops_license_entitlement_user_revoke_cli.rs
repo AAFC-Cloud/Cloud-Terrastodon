@@ -1,4 +1,3 @@
-use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
 use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -8,6 +7,7 @@ use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::remove_group_member;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseAssignmentSource;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
@@ -17,11 +17,10 @@ use eyre::Result;
 use tracing::debug;
 use tracing::info;
 
-/// Find group-based license assignments that grant the provided user a given license.
+/// Demote a user to Stakeholder license level, including removing the user from any groups involved in transitive license assignment.
 #[derive(Args, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
-    #[clap(flatten)]
-    pub user_matcher: AzureDevOpsLicenseEntitlementUserMatcher,
+    pub user: AzureDevOpsUserArgument<'static>,
 
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[arg(long, default_value_t)]
@@ -31,7 +30,7 @@ pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
 impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        let user_predicate = self.user_matcher.as_predicate()?;
+        let user_predicate = self.user.as_predicate()?;
 
         let org_url = get_default_organization_url().await?;
 

@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone, Copy, Hash)]
 pub struct AzureDevOpsUserId(Uuid);
 impl std::fmt::Display for AzureDevOpsUserId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

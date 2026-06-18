@@ -9,19 +9,19 @@ use serde_json::Value;
 use std::path::PathBuf;
 use tracing::debug;
 
-pub struct AzureDevOpsUserLicenseEntitlementsRequest<'a> {
+pub struct AzureDevOpsUserLicenseEntitlementListRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
 }
 
 pub fn fetch_azure_devops_user_license_entitlements<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
-) -> AzureDevOpsUserLicenseEntitlementsRequest<'a> {
-    AzureDevOpsUserLicenseEntitlementsRequest { org_url }
+) -> AzureDevOpsUserLicenseEntitlementListRequest<'a> {
+    AzureDevOpsUserLicenseEntitlementListRequest { org_url }
 }
 
 #[async_trait]
 impl<'a> cloud_terrastodon_command::CacheableCommand
-    for AzureDevOpsUserLicenseEntitlementsRequest<'a>
+    for AzureDevOpsUserLicenseEntitlementListRequest<'a>
 {
     type Output = Vec<AzureDevOpsUserLicenseEntitlement>;
 
@@ -68,7 +68,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsUserLicenseEntitlementsRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsUserLicenseEntitlementListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {

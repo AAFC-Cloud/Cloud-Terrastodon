@@ -1,34 +1,23 @@
-use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserMatcher;
 use clap::Args;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
+use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use eyre::Result;
-use eyre::bail;
 use serde_json::to_writer_pretty;
 use std::io::stdout;
 
 /// Show a single Azure DevOps user license entitlement by user id.
 #[derive(Args, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserShowArgs {
-    #[clap(flatten)]
-    pub user_matcher: AzureDevOpsLicenseEntitlementUserMatcher,
+    pub user: AzureDevOpsUserArgument<'static>,
 }
 
 impl AzureDevOpsLicenseEntitlementUserShowArgs {
     pub async fn invoke(self) -> Result<()> {
-        let user_predicate = self.user_matcher.as_predicate()?;
         let org_url = get_default_organization_url().await?;
-        let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
-
-        match entitlements.into_iter().find(|e| user_predicate(e)) {
-            Some(ent) => {
-                to_writer_pretty(stdout(), &ent)?;
-                Ok(())
-            }
-            None => bail!(
-                "No license entitlement found for user matching criteria {:?}",
-                self.user_matcher
-            ),
-        }
+        let found =
+            fetch_azure_devops_user_license_entitlement(&org_url, &self.user).await?;
+        to_writer_pretty(stdout(), &found)?;
+        Ok(())
     }
 }
