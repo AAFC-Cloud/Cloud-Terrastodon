@@ -2,6 +2,7 @@
 
 - Add `ct az ad role definition find {action}` command
 - Update `ct az role definition find` to include role definition in results
+- Add `ct az devops project member list --project {}` command
 
 # v0.36.0
 

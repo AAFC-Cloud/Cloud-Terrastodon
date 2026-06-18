@@ -33,7 +33,10 @@ impl SoftwareListArgs {
 
         println!("{:<query_width$} count", "query");
         for summary in summaries {
-            println!("{:<query_width$} {}", summary.query, summary.result_count);
+            println!(
+                "{:<query_width$} {}",
+                summary.query, summary.result_count
+            );
         }
 
         Ok(())
