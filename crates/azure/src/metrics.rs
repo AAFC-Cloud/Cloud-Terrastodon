@@ -9,6 +9,7 @@ use cloud_terrastodon_azure_types::AsScope;
 use cloud_terrastodon_azure_types::Metrics;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_pathing::Existy;
 use eyre::OptionExt;
 use tempfile::Builder;
 use tokio::io::AsyncWriteExt;
@@ -46,6 +47,7 @@ pub async fn fetch_metrics(
         .await?;
     // dbg!(resp);
     let dir = AppDir::Temp.as_path_buf();
+    dir.ensure_dir_exists().await?;
     let (file, file_path) = Builder::new()
         .prefix(Local::now().format("%Y%m%d_%H%M%S_").to_string().as_str())
         .suffix(".json")
