@@ -154,4 +154,57 @@ mod tests {
         assert_eq!(response.status, 200);
         assert_eq!(response.reason_phrase.as_deref(), Some("OK"));
     }
+
+    #[test]
+    fn round_trips_json_body_as_json() -> eyre::Result<()> {
+        let mut headers = HeaderMap::new();
+        headers.insert("content-type", HeaderValue::from_static("application/json"));
+        let response = SerializableRestResponse::new(
+            StatusCode::OK,
+            &headers,
+            "{\"hello\":\"world\"}".to_string(),
+        );
+
+        let serialized = facet_json::to_string(&response)?;
+        assert!(serialized.contains(r#""body":["{\"hello\":\"world\"}"]"#));
+        let reparsed: SerializableRestResponse = facet_json::from_str(&serialized)?;
+
+        assert_eq!(reparsed.into_json_body()?.as_str(), "{\"hello\":\"world\"}");
+        Ok(())
+    }
+
+    #[test]
+    fn decodes_cached_single_string_json_body() -> eyre::Result<()> {
+        let cached_response = r#"{
+            "status": 200,
+            "ok": true,
+            "reason_phrase": "OK",
+            "headers": {},
+            "body": ["{\"hello\":\"world\"}"]
+        }"#;
+
+        let response: SerializableRestResponse = facet_json::from_str(cached_response)?;
+
+        assert_eq!(response.into_json_body()?.as_str(), "{\"hello\":\"world\"}");
+        Ok(())
+    }
+
+    #[test]
+    fn preserves_json_array_body() -> eyre::Result<()> {
+        let cached_response = r#"{
+            "status": 200,
+            "ok": true,
+            "reason_phrase": "OK",
+            "headers": {},
+            "body": ["westus", "eastus"]
+        }"#;
+
+        let response: SerializableRestResponse = facet_json::from_str(cached_response)?;
+
+        assert_eq!(
+            response.into_json_body()?.as_str(),
+            r#"["westus", "eastus"]"#
+        );
+        Ok(())
+    }
 }

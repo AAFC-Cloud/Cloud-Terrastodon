@@ -26,10 +26,37 @@ impl TryFrom<RestResponseBodyProxy> for RestResponseBody {
             let text = facet_json::from_str::<String>(body.as_str())
                 .map_err(|error| eyre::eyre!("{error:?}"))?;
             Ok(RestResponseBody::Text(text))
+        } else if let Some(body) = try_decode_serialized_json_body(body.as_str())? {
+            Ok(RestResponseBody::Json(body))
         } else {
             Ok(RestResponseBody::Json(body))
         }
     }
+}
+
+fn try_decode_serialized_json_body(body: &str) -> Result<Option<RawJson<'static>>, eyre::Report> {
+    if !body.trim_start().starts_with('[') {
+        return Ok(None);
+    }
+
+    // Cached RawJson bodies are serialized by facet as a single-element string
+    // array containing the original JSON document.
+    let Ok(mut chunks) = facet_json::from_str::<Vec<String>>(body) else {
+        return Ok(None);
+    };
+    if chunks.len() != 1 {
+        return Ok(None);
+    }
+
+    let content = chunks.remove(0);
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with('{') && !trimmed.starts_with('[') {
+        return Ok(None);
+    }
+
+    facet_json::from_str::<RawJson<'static>>(&content)
+        .map(|_| Some(RawJson::from_owned(content)))
+        .or(Ok(None))
 }
 
 impl TryFrom<&RestResponseBody> for RestResponseBodyProxy {
