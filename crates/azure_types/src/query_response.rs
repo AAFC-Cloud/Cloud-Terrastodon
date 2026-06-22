@@ -89,14 +89,7 @@ where
     let mut rtn = Vec::with_capacity(data.rows.len());
     for (i, row) in data.rows.into_iter().enumerate() {
         let record_value = row_to_object_value(&data.columns, row)?;
-        #[cfg(debug_assertions)]
-        let rec = facet_value::from_value(record_value.clone()).wrap_err(format!(
-            "failed to deserialize entry {i} as {}, value={record_value:?}",
-            std::any::type_name::<T>()
-        ))?;
-        #[cfg(not(debug_assertions))]
-        let rec = facet_value::from_value(record_value)
-            .wrap_err_with(|| format!("failed to deserialize entry {i}"))?;
+        let rec = deserialize_record_value(record_value, i)?;
         rtn.push(rec);
     }
 
@@ -107,6 +100,29 @@ where
         humantime::format_duration(elapsed),
     );
     Ok(rtn)
+}
+
+fn deserialize_record_value<T>(record_value: Value, index: usize) -> Result<T>
+where
+    T: FromCommandOutput,
+{
+    // ugly ugly, we convert back to json so that the deserialization uses json-specific format deserializers instead of coming from facet Value
+    let json = facet_json::to_string(&record_value)
+        .map_err(|error| eyre::eyre!("{error:?}"))
+        .wrap_err_with(|| {
+            format!(
+                "failed to serialize entry {index} before deserializing as {}",
+                std::any::type_name::<T>()
+            )
+        })?;
+    facet_json::from_str(&json)
+        .map_err(|error| eyre::eyre!("{error:?}"))
+        .wrap_err_with(|| {
+            format!(
+                "failed to deserialize entry {index} as {}",
+                std::any::type_name::<T>()
+            )
+        })
 }
 
 fn row_to_object_value(
@@ -167,6 +183,60 @@ mod tests {
         for record in records {
             assert!(!record.name.is_empty());
         }
+    }
+
+    #[test]
+    fn transforms_resource_group_rows_with_string_backed_fields() -> eyre::Result<()> {
+        fn column(name: &str) -> ResourceGraphColumn {
+            ResourceGraphColumn {
+                name: name.to_string(),
+                kind: "dynamic".to_string(),
+            }
+        }
+
+        let raw = RawResourceGraphQueryResponse {
+            count: 1,
+            data: ResourceGraphData {
+                columns: vec![
+                    column("id"),
+                    column("tenant_id"),
+                    column("location"),
+                    column("managed_by"),
+                    column("name"),
+                    column("properties"),
+                    column("tags"),
+                    column("subscription_name"),
+                ],
+                rows: vec![vec![
+                    RawJson::from_owned(
+                        r#""/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example-rg""#
+                            .to_string(),
+                    ),
+                    RawJson::from_owned(
+                        r#""00000000-0000-0000-0000-000000000000""#.to_string(),
+                    ),
+                    RawJson::from_owned(r#""eastus""#.to_string()),
+                    RawJson::from_owned(r#""""#.to_string()),
+                    RawJson::from_owned(r#""example-rg""#.to_string()),
+                    RawJson::from_owned(r#"{"provisioningState":"Succeeded"}"#.to_string()),
+                    RawJson::from_owned(r#"{}"#.to_string()),
+                    RawJson::from_owned(r#""Example Subscription""#.to_string()),
+                ]],
+            },
+            skip_token: None,
+            truncated: "false".to_string(),
+            total_records: 1,
+        };
+
+        let response: ResourceGraphQueryResponse<crate::ResourceGroup> = raw.try_into()?;
+
+        assert_eq!(response.data.len(), 1);
+        assert_eq!(response.data[0].name.to_string(), "example-rg");
+        assert_eq!(
+            response.data[0].properties["provisioningState"],
+            "Succeeded"
+        );
+        Ok(())
     }
 
     #[test]
