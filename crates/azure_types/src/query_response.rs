@@ -33,6 +33,72 @@ pub struct ResourceGraphData {
     pub rows: Vec<Vec<RawJson<'static>>>,
 }
 
+impl ResourceGraphData {
+    pub fn entry_json(&self, index: usize) -> Result<Option<String>> {
+        let Some(row) = self.rows.get(index) else {
+            return Ok(None);
+        };
+        if row.len() != self.columns.len() {
+            return Err(eyre::eyre!(
+                "row {} has {} values but expected {} columns",
+                index,
+                row.len(),
+                self.columns.len()
+            ));
+        }
+        let record_value = row_to_object_value(&self.columns, row.clone())?;
+        serialize_record_value(&record_value, index).map(Some)
+    }
+}
+
+#[derive(Debug)]
+pub struct ResourceGraphEntryDeserializeError {
+    index: usize,
+    type_name: &'static str,
+    entry_json: String,
+    source: eyre::Report,
+}
+
+impl ResourceGraphEntryDeserializeError {
+    fn new(
+        index: usize,
+        type_name: &'static str,
+        entry_json: String,
+        source: eyre::Report,
+    ) -> Self {
+        Self {
+            index,
+            type_name,
+            entry_json,
+            source,
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    pub fn entry_json(&self) -> &str {
+        &self.entry_json
+    }
+}
+
+impl std::fmt::Display for ResourceGraphEntryDeserializeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "failed to deserialize entry {} as {}",
+            self.index, self.type_name
+        )
+    }
+}
+
+impl std::error::Error for ResourceGraphEntryDeserializeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.source.as_ref())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
 pub struct ResourceGraphColumn {
     pub name: String,
@@ -107,22 +173,23 @@ where
     T: FromCommandOutput,
 {
     // ugly ugly, we convert back to json so that the deserialization uses json-specific format deserializers instead of coming from facet Value
-    let json = facet_json::to_string(&record_value)
+    let json = serialize_record_value(&record_value, index)?;
+    match facet_json::from_str(&json) {
+        Ok(record) => Ok(record),
+        Err(error) => Err(ResourceGraphEntryDeserializeError::new(
+            index,
+            std::any::type_name::<T>(),
+            json,
+            eyre::eyre!("{error:?}"),
+        )
+        .into()),
+    }
+}
+
+fn serialize_record_value(record_value: &Value, index: usize) -> Result<String> {
+    facet_json::to_string_pretty(record_value)
         .map_err(|error| eyre::eyre!("{error:?}"))
-        .wrap_err_with(|| {
-            format!(
-                "failed to serialize entry {index} before deserializing as {}",
-                std::any::type_name::<T>()
-            )
-        })?;
-    facet_json::from_str(&json)
-        .map_err(|error| eyre::eyre!("{error:?}"))
-        .wrap_err_with(|| {
-            format!(
-                "failed to deserialize entry {index} as {}",
-                std::any::type_name::<T>()
-            )
-        })
+        .wrap_err_with(|| format!("failed to serialize entry {index} before deserializing",))
 }
 
 fn row_to_object_value(
@@ -237,6 +304,70 @@ mod tests {
             "Succeeded"
         );
         Ok(())
+    }
+
+    #[test]
+    fn entry_json_matches_transformed_record() -> eyre::Result<()> {
+        let data = ResourceGraphData {
+            columns: vec![
+                ResourceGraphColumn {
+                    name: "name".to_string(),
+                    kind: "string".to_string(),
+                },
+                ResourceGraphColumn {
+                    name: "properties".to_string(),
+                    kind: "dynamic".to_string(),
+                },
+            ],
+            rows: vec![vec![
+                RawJson::from_owned(r#""example-policy""#.to_string()),
+                RawJson::from_owned(r#"{"description":"hello"}"#.to_string()),
+            ]],
+        };
+
+        assert_eq!(
+            data.entry_json(0)?.as_deref(),
+            Some(
+                r#"{
+  "name": "example-policy",
+  "properties": {
+    "description": "hello"
+  }
+}"#
+            )
+        );
+        assert!(data.entry_json(1)?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn entry_deserialize_error_carries_failed_entry_json() {
+        let data = ResourceGraphData {
+            columns: vec![ResourceGraphColumn {
+                name: "name".to_string(),
+                kind: "string".to_string(),
+            }],
+            rows: vec![vec![RawJson::from_owned(r#""not-a-number""#.to_string())]],
+        };
+
+        #[derive(Debug, facet::Facet)]
+        struct MyRecord {
+            name: u64,
+        }
+
+        let error = transform::<MyRecord>(data).expect_err("record should fail");
+        let error = error
+            .chain()
+            .find_map(|cause| cause.downcast_ref::<ResourceGraphEntryDeserializeError>())
+            .expect("resource graph entry error should be in the chain");
+
+        assert_eq!(error.index(), 0);
+        assert_eq!(
+            error.entry_json(),
+            r#"{
+  "name": "not-a-number"
+}"#
+        );
     }
 
     #[test]

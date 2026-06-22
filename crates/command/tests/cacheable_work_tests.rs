@@ -101,6 +101,7 @@ async fn cached_work_writes_extra_files() -> eyre::Result<()> {
         extra_files: Some(|raw: &EchoRaw| {
             BTreeMap::from([(PathBuf::from("extra.txt"), raw.message.clone().into())])
         }),
+        failure_extra_files: None,
         executor_kind: "test".to_string(),
         output_type: std::any::type_name::<String>().to_string(),
         execute_raw: || async {
@@ -116,6 +117,47 @@ async fn cached_work_writes_extra_files() -> eyre::Result<()> {
     assert_eq!(
         tokio::fs::read_to_string(cache_dir.join("extra.txt")).await?,
         "hello-extra"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn cached_work_writes_failure_extra_files() -> eyre::Result<()> {
+    let cache_key = unique_cache_key();
+    let failed_parent = cache_key.path_on_disk().join("failed");
+
+    let result: eyre::Result<String> = run_cached_work(CachedWorkSpec {
+        cache_key: cache_key.clone(),
+        context: "failure extra file test".to_string(),
+        debug_inputs: BTreeMap::new(),
+        extra_files: None,
+        failure_extra_files: Some(|error: &eyre::Report| {
+            BTreeMap::from([(PathBuf::from("failed-extra.txt"), error.to_string().into())])
+        }),
+        executor_kind: "test".to_string(),
+        output_type: std::any::type_name::<String>().to_string(),
+        execute_raw: || async {
+            Ok(EchoRaw {
+                message: "hello-failure-extra".to_string(),
+            })
+        },
+        decode: |_| eyre::bail!("decode failed"),
+    })
+    .await;
+
+    let _error = result.expect_err("decode should fail");
+
+    let mut entries = tokio::fs::read_dir(&failed_parent).await?;
+    let dump_dir = entries
+        .next_entry()
+        .await?
+        .expect("failure dump should be written")
+        .path();
+    assert!(entries.next_entry().await?.is_none());
+
+    assert_eq!(
+        tokio::fs::read_to_string(dump_dir.join("failed-extra.txt")).await?,
+        "decode failed"
     );
     Ok(())
 }

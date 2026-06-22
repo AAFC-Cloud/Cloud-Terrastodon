@@ -36,6 +36,7 @@ strum.workspace = true
 rustc-hash.workspace = true
 http.workspace = true
 blake3.workspace = true
+bstr.workspace = true
 
 
 [dev-dependencies]

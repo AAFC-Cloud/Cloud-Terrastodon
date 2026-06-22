@@ -36,6 +36,7 @@ where
     pub context: String,
     pub debug_inputs: BTreeMap<PathBuf, BString>,
     pub extra_files: Option<fn(&Raw) -> BTreeMap<PathBuf, BString>>,
+    pub failure_extra_files: Option<fn(&eyre::Report) -> BTreeMap<PathBuf, BString>>,
     pub executor_kind: String,
     pub output_type: String,
     pub execute_raw: Exec,
@@ -120,6 +121,7 @@ where
         context,
         debug_inputs,
         extra_files,
+        failure_extra_files,
         executor_kind,
         output_type,
         execute_raw,
@@ -163,6 +165,10 @@ where
     match decode(raw) {
         Ok(result) => Ok(result),
         Err(error) => {
+            let mut extra_files = extra_files;
+            if let Some(failure_extra_files) = failure_extra_files {
+                extra_files.extend(failure_extra_files(&error));
+            }
             let dump_dir = artifact_cache::write_failure_with_extra_files(
                 Some(&cache_key),
                 &context,
@@ -194,6 +200,7 @@ where
         context,
         debug_inputs,
         extra_files: None,
+        failure_extra_files: None,
         executor_kind: "in_process".to_string(),
         output_type: std::any::type_name::<Request::Output>().to_string(),
         execute_raw: move || request.execute_raw(),

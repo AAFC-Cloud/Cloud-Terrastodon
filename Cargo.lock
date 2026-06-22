@@ -1015,6 +1015,7 @@ name = "cloud_terrastodon_azure"
 version = "0.36.0"
 dependencies = [
  "blake3",
+ "bstr 1.12.1",
  "chrono",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",

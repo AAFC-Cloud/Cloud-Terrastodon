@@ -28,6 +28,9 @@ use tracing::Instrument;
 use tracing::debug;
 use tracing::info_span;
 
+type ResponseExtraFiles = fn(&SerializableRestResponse) -> BTreeMap<PathBuf, bstr::BString>;
+type ResponseFailureExtraFiles = fn(&eyre::Report) -> BTreeMap<PathBuf, bstr::BString>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RestOutputFormat {
     #[default]
@@ -45,6 +48,7 @@ pub struct RestRequest {
     pub tenant: Option<AzureTenantId>,
     pub cache_key: Option<CacheKey>,
     pub output_format: RestOutputFormat,
+    pub failure_extra_files: Option<ResponseFailureExtraFiles>,
 }
 
 impl RestRequest {
@@ -64,6 +68,7 @@ impl RestRequest {
             tenant: None,
             cache_key: None,
             output_format: RestOutputFormat::default(),
+            failure_extra_files: None,
         })
     }
 
@@ -94,6 +99,14 @@ impl RestRequest {
 
     pub fn output_format(mut self, output_format: RestOutputFormat) -> Self {
         self.output_format = output_format;
+        self
+    }
+
+    pub fn failure_extra_files(
+        mut self,
+        extra_files: fn(&eyre::Report) -> BTreeMap<PathBuf, bstr::BString>,
+    ) -> Self {
+        self.failure_extra_files = Some(extra_files);
         self
     }
 
@@ -195,11 +208,13 @@ impl RestRequest {
             };
 
             let debug_inputs = self.debug_inputs();
+            let failure_extra_files = self.failure_extra_files;
             run_cached_work(CachedWorkSpec {
                 cache_key,
                 context: context.clone(),
                 debug_inputs,
-                extra_files: Some(rest_response_extra_files),
+                extra_files: Some(rest_response_extra_files as ResponseExtraFiles),
+                failure_extra_files,
                 executor_kind: "rest".to_string(),
                 output_type: std::any::type_name::<T>().to_string(),
                 execute_raw: move || Box::pin(self.execute_without_cache_from(caller)),

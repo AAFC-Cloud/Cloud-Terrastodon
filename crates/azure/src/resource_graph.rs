@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::ResourceGraphEntryDeserializeError;
 use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::FromCommandOutput;
@@ -10,6 +11,7 @@ use eyre::Context;
 use eyre::Result;
 #[cfg(debug_assertions)]
 use eyre::bail;
+use std::collections::BTreeMap;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::future::Future;
@@ -323,6 +325,7 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
     }
 
     let mut retries = 0usize;
+    let request = request.failure_extra_files(resource_graph_failure_extra_files);
 
     loop {
         let _recovery_guard = acquire_resource_graph_recovery_guard().await;
@@ -397,6 +400,20 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
             format_rest_error_body(&response.body)
         );
     }
+}
+
+fn resource_graph_failure_extra_files(error: &eyre::Report) -> BTreeMap<PathBuf, bstr::BString> {
+    let mut files = BTreeMap::new();
+    for cause in error.chain() {
+        let Some(error) = cause.downcast_ref::<ResourceGraphEntryDeserializeError>() else {
+            continue;
+        };
+        files.insert(
+            PathBuf::from(format!("entry.{}.json", error.index())),
+            error.entry_json().into(),
+        );
+    }
+    files
 }
 
 fn resource_graph_quota_remaining(response: &SerializableRestResponse) -> Option<u64> {
@@ -500,5 +517,57 @@ resourcecontainers
             resource_graph_retry_delay(&response),
             Some(Duration::from_secs(5))
         );
+    }
+
+    #[test]
+    fn writes_only_failed_resource_graph_entry_extra_file() -> Result<()> {
+        let body = r#"{
+            "count": 2,
+            "data": {
+                "columns": [
+                    {"name": "name", "type": "string"},
+                    {"name": "properties", "type": "dynamic"}
+                ],
+                "rows": [
+                    ["first", {"description": 1}],
+                    ["second", {"description": "two"}]
+                ]
+            },
+            "resultTruncated": "false",
+            "totalRecords": 2
+        }"#;
+        #[derive(Debug, facet::Facet)]
+        struct Row {
+            name: String,
+            properties: TestProperties,
+        }
+
+        #[derive(Debug, facet::Facet)]
+        struct TestProperties {
+            description: u64,
+        }
+
+        let raw: cloud_terrastodon_azure_types::RawResourceGraphQueryResponse =
+            facet_json::from_str(body)?;
+        let result: Result<ResourceGraphQueryResponse<Row>> = raw.try_into();
+        let error = result.expect_err("second entry should fail");
+
+        let files = resource_graph_failure_extra_files(&error);
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            files
+                .get(&PathBuf::from("entry.1.json"))
+                .map(|value| value.as_ref()),
+            Some(
+                &br#"{
+  "name": "second",
+  "properties": {
+    "description": "two"
+  }
+}"#[..],
+            )
+        );
+        Ok(())
     }
 }
