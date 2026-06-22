@@ -1348,6 +1348,7 @@ dependencies = [
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_credentials",
+ "cloud_terrastodon_relative_location",
  "eyre",
  "facet",
  "facet-json",

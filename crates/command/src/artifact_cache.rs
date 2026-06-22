@@ -258,6 +258,25 @@ pub async fn write_output(
     output: &CommandOutput,
     metadata: &ArtifactMetadata,
 ) -> Result<()> {
+    write_output_with_extra_files(
+        parent_dir,
+        context,
+        debug_inputs,
+        output,
+        metadata,
+        &BTreeMap::new(),
+    )
+    .await
+}
+
+pub async fn write_output_with_extra_files(
+    parent_dir: &Path,
+    context: &str,
+    debug_inputs: &BTreeMap<PathBuf, BString>,
+    output: &CommandOutput,
+    metadata: &ArtifactMetadata,
+    extra_files: &BTreeMap<PathBuf, BString>,
+) -> Result<()> {
     parent_dir.ensure_dir_exists().await?;
 
     let status = output.status.to_string();
@@ -294,6 +313,14 @@ pub async fn write_output(
         write_file(&full_path, contents.as_bytes()).await?;
     }
 
+    for (relative_path, contents) in extra_files {
+        let full_path = parent_dir.join(relative_path);
+        if let Some(parent) = full_path.parent() {
+            parent.ensure_dir_exists().await?;
+        }
+        write_file(&full_path, contents.as_bytes()).await?;
+    }
+
     Ok(())
 }
 
@@ -305,6 +332,27 @@ pub async fn write_failure(
     metadata: &ArtifactMetadata,
     error_message: Option<&str>,
 ) -> Result<PathBuf> {
+    write_failure_with_extra_files(
+        cache_key,
+        context,
+        debug_inputs,
+        output,
+        metadata,
+        error_message,
+        &BTreeMap::new(),
+    )
+    .await
+}
+
+pub async fn write_failure_with_extra_files(
+    cache_key: Option<&CacheKey>,
+    context: &str,
+    debug_inputs: &BTreeMap<PathBuf, BString>,
+    output: &CommandOutput,
+    metadata: &ArtifactMetadata,
+    error_message: Option<&str>,
+    extra_files: &BTreeMap<PathBuf, BString>,
+) -> Result<PathBuf> {
     let dir = match cache_key {
         None => AppDir::Commands.join("failed"),
         Some(cache_key) => cache_key.path_on_disk().join("failed"),
@@ -315,7 +363,8 @@ pub async fn write_failure(
         .tempdir_in(dir)?
         .keep();
 
-    write_output(&dir, context, debug_inputs, output, metadata).await?;
+    write_output_with_extra_files(&dir, context, debug_inputs, output, metadata, extra_files)
+        .await?;
 
     if let Some(error_message) = error_message {
         write_file(&dir.join(ERROR_FILE), error_message.as_bytes()).await?;

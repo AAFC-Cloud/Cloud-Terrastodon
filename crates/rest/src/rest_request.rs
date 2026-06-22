@@ -1,4 +1,5 @@
 use crate::RequestHeaders;
+use crate::RestResponseBody;
 use crate::RestService;
 use crate::SerializableRestResponse;
 use crate::execute_rest_request;
@@ -8,6 +9,7 @@ use cloud_terrastodon_command::CacheableWorkRequest;
 use cloud_terrastodon_command::CachedWorkSpec;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_command::run_cached_work;
+use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
@@ -16,10 +18,15 @@ use facet::Facet;
 use http::Method;
 use reqwest::Url;
 use std::collections::BTreeMap;
+use std::future::Future;
+use std::panic::Location;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::time::Duration;
 use std::time::Instant;
+use tracing::Instrument;
 use tracing::debug;
+use tracing::info_span;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RestOutputFormat {
@@ -107,7 +114,30 @@ impl RestRequest {
         inputs
     }
 
-    pub async fn execute_without_cache(self) -> Result<SerializableRestResponse> {
+    #[track_caller]
+    pub fn execute_without_cache(
+        self,
+    ) -> impl Future<Output = Result<SerializableRestResponse>> + Send {
+        self.execute_without_cache_from(Location::caller())
+    }
+
+    fn execute_without_cache_from(
+        self,
+        caller: &'static Location<'static>,
+    ) -> impl Future<Output = Result<SerializableRestResponse>> + Send {
+        let context = self.context();
+        let location = RelativeLocation::from(caller).to_string();
+        async move {
+            self.execute_without_cache_inner()
+                .await
+                .wrap_err(format!(
+                    "RestRequest::execute_without_cache failed, called from {location}"
+                ))
+                .wrap_err(format!("Invoking REST request failed: {context}"))
+        }
+    }
+
+    async fn execute_without_cache_inner(self) -> Result<SerializableRestResponse> {
         let start = Instant::now();
         let response = execute_rest_request(
             self.service,
@@ -128,65 +158,135 @@ impl RestRequest {
         Ok(serialized)
     }
 
-    pub async fn receive_raw_with_decoder<T, Decode>(self, decode: Decode) -> Result<T>
+    #[track_caller]
+    pub fn receive_raw_with_decoder<T, Decode>(
+        self,
+        decode: Decode,
+    ) -> impl Future<Output = Result<T>> + Send
     where
         T: Send + 'static,
         Decode: FnOnce(SerializableRestResponse) -> Result<T> + Send + 'static,
     {
-        let Some(cache_key) = self.cache_key.clone() else {
-            return decode(self.execute_without_cache().await?);
-        };
+        self.receive_raw_with_decoder_from(decode, Location::caller())
+    }
 
+    fn receive_raw_with_decoder_from<T, Decode>(
+        self,
+        decode: Decode,
+        caller: &'static Location<'static>,
+    ) -> impl Future<Output = Result<T>> + Send
+    where
+        T: Send + 'static,
+        Decode: FnOnce(SerializableRestResponse) -> Result<T> + Send + 'static,
+    {
         let context = self.context();
-        let debug_inputs = self.debug_inputs();
-        run_cached_work(CachedWorkSpec {
-            cache_key,
-            context,
-            debug_inputs,
-            executor_kind: "rest".to_string(),
-            output_type: std::any::type_name::<T>().to_string(),
-            execute_raw: move || Box::pin(self.execute_without_cache()),
-            decode,
-        })
-        .await
+        let location = RelativeLocation::from(caller).to_string();
+        let span = info_span!(
+            "rest_receive",
+            summary = %context,
+            ?self.cache_key,
+            location = %location,
+        )
+        .or_current();
+
+        async move {
+            let Some(cache_key) = self.cache_key.clone() else {
+                return decode(self.execute_without_cache_from(caller).await?);
+            };
+
+            let debug_inputs = self.debug_inputs();
+            run_cached_work(CachedWorkSpec {
+                cache_key,
+                context: context.clone(),
+                debug_inputs,
+                extra_files: Some(rest_response_extra_files),
+                executor_kind: "rest".to_string(),
+                output_type: std::any::type_name::<T>().to_string(),
+                execute_raw: move || Box::pin(self.execute_without_cache_from(caller)),
+                decode,
+            })
+            .await
+            .wrap_err(format!(
+                "RestRequest::receive_raw_with_decoder failed, called from {location}"
+            ))
+            .wrap_err(format!("Invoking REST request failed: {context}"))
+        }
+        .instrument(span)
     }
 
-    pub async fn receive_raw(self) -> Result<SerializableRestResponse> {
-        self.receive_raw_with_decoder(Ok).await
+    #[track_caller]
+    pub fn receive_raw(self) -> impl Future<Output = Result<SerializableRestResponse>> + Send {
+        self.receive_raw_from(Location::caller())
     }
 
-    pub async fn receive<T>(self) -> Result<T>
+    fn receive_raw_from(
+        self,
+        caller: &'static Location<'static>,
+    ) -> impl Future<Output = Result<SerializableRestResponse>> + Send {
+        self.receive_raw_with_decoder_from(Ok, caller)
+    }
+
+    #[track_caller]
+    pub fn receive<T>(self) -> impl Future<Output = Result<T>> + Send
     where
         T: Facet<'static> + Send + 'static,
     {
-        self.receive_with_validator(Ok).await
+        self.receive_with_validator_from(Ok, Location::caller())
     }
 
-    pub async fn receive_with_validator<T, F>(self, validator: F) -> Result<T>
+    #[track_caller]
+    pub fn receive_with_validator<T, F>(
+        self,
+        validator: F,
+    ) -> impl Future<Output = Result<T>> + Send
     where
         T: Facet<'static> + Send + 'static,
         F: FnOnce(T) -> Result<T> + Send + 'static,
     {
-        self.receive_raw_with_decoder(|response| {
-            if !response.ok {
-                bail!(
-                    "REST call failed with status {}: {}",
-                    response.status,
-                    response.reason_phrase.as_deref().unwrap_or("Unknown error")
-                );
-            }
-            let parsed = facet_json::from_str::<T>(response.into_json_body()?.as_str())
-                .map_err(|error| eyre::eyre!("{error:?}"))
-                .wrap_err_with(|| {
-                    format!(
-                        "Deserializing REST response into {}",
-                        std::any::type_name::<T>()
-                    )
-                })?;
-            validator(parsed)
-        })
-        .await
+        self.receive_with_validator_from(validator, Location::caller())
     }
+
+    fn receive_with_validator_from<T, F>(
+        self,
+        validator: F,
+        caller: &'static Location<'static>,
+    ) -> impl Future<Output = Result<T>> + Send
+    where
+        T: Facet<'static> + Send + 'static,
+        F: FnOnce(T) -> Result<T> + Send + 'static,
+    {
+        self.receive_raw_with_decoder_from(
+            |response| {
+                if !response.ok {
+                    bail!(
+                        "REST call failed with status {}: {}",
+                        response.status,
+                        response.reason_phrase.as_deref().unwrap_or("Unknown error")
+                    );
+                }
+                let parsed = facet_json::from_str::<T>(response.into_json_body()?.as_str())
+                    .map_err(|error| eyre::eyre!("{error:?}"))
+                    .wrap_err_with(|| {
+                        format!(
+                            "Deserializing REST response into {}",
+                            std::any::type_name::<T>()
+                        )
+                    })?;
+                validator(parsed)
+            },
+            caller,
+        )
+    }
+}
+
+fn rest_response_extra_files(
+    response: &SerializableRestResponse,
+) -> BTreeMap<PathBuf, bstr::BString> {
+    let mut files = BTreeMap::new();
+    if let RestResponseBody::Json(body) = &response.body {
+        files.insert(PathBuf::from("response.body.json"), body.as_str().into());
+    }
+    files
 }
 
 #[async_trait]
@@ -218,4 +318,58 @@ impl CacheableWorkRequest for RestRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_work_into_future!(RestRequest);
+impl std::future::IntoFuture for RestRequest {
+    type Output = Result<SerializableRestResponse>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+
+    #[track_caller]
+    fn into_future(self) -> Self::IntoFuture {
+        let caller = Location::caller();
+        Box::pin(async move { self.receive_raw_from(caller).await })
+    }
+}
+
+impl cloud_terrastodon_command::CacheInvalidatableIntoFuture for RestRequest {
+    type WithInvalidation =
+        Pin<Box<dyn Future<Output = <Self as std::future::IntoFuture>::Output> + Send>>;
+
+    #[track_caller]
+    fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
+        let caller = Location::caller();
+        Box::pin(async move {
+            if invalidate_cache {
+                <RestRequest as CacheableWorkRequest>::cache_key(&self)
+                    .invalidate()
+                    .await?;
+            }
+            self.receive_raw_from(caller).await
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reqwest::header::HeaderMap;
+    use reqwest::header::HeaderValue;
+
+    #[test]
+    fn rest_response_extra_files_include_json_body() {
+        let mut headers = HeaderMap::new();
+        headers.insert("content-type", HeaderValue::from_static("application/json"));
+        let response = SerializableRestResponse::new(
+            http::StatusCode::OK,
+            &headers,
+            "{\"hello\":\"world\"}".to_string(),
+        );
+
+        let files = rest_response_extra_files(&response);
+
+        assert_eq!(
+            files
+                .get(&PathBuf::from("response.body.json"))
+                .map(|value| value.as_ref()),
+            Some(&b"{\"hello\":\"world\"}"[..])
+        );
+    }
+}

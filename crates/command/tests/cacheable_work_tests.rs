@@ -1,6 +1,8 @@
 use bstr::BString;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableWorkRequest;
+use cloud_terrastodon_command::CachedWorkSpec;
+use cloud_terrastodon_command::run_cached_work;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -84,5 +86,36 @@ async fn reuses_cached_in_process_work_without_reexecuting() -> eyre::Result<()>
     assert_eq!(first.await?, "hello");
     assert_eq!(second.await?, "hello");
     assert_eq!(executions.load(Ordering::SeqCst), 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn cached_work_writes_extra_files() -> eyre::Result<()> {
+    let cache_key = unique_cache_key();
+    let cache_dir = cache_key.path_on_disk();
+
+    let result = run_cached_work(CachedWorkSpec {
+        cache_key,
+        context: "extra file test".to_string(),
+        debug_inputs: BTreeMap::new(),
+        extra_files: Some(|raw: &EchoRaw| {
+            BTreeMap::from([(PathBuf::from("extra.txt"), raw.message.clone().into())])
+        }),
+        executor_kind: "test".to_string(),
+        output_type: std::any::type_name::<String>().to_string(),
+        execute_raw: || async {
+            Ok(EchoRaw {
+                message: "hello-extra".to_string(),
+            })
+        },
+        decode: EchoWorkRequest::decode,
+    })
+    .await?;
+
+    assert_eq!(result, "hello-extra");
+    assert_eq!(
+        tokio::fs::read_to_string(cache_dir.join("extra.txt")).await?,
+        "hello-extra"
+    );
     Ok(())
 }

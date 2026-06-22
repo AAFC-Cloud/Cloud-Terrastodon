@@ -35,6 +35,7 @@ where
     pub cache_key: CacheKey,
     pub context: String,
     pub debug_inputs: BTreeMap<PathBuf, BString>,
+    pub extra_files: Option<fn(&Raw) -> BTreeMap<PathBuf, BString>>,
     pub executor_kind: String,
     pub output_type: String,
     pub execute_raw: Exec,
@@ -71,6 +72,7 @@ async fn execute_and_cache_output<Exec, ExecFuture, Raw>(
     context: &str,
     debug_inputs: &BTreeMap<PathBuf, BString>,
     metadata: &ArtifactMetadata,
+    extra_files: Option<fn(&Raw) -> BTreeMap<PathBuf, BString>>,
     execute_raw: Exec,
 ) -> Result<CommandOutput>
 where
@@ -79,6 +81,7 @@ where
     Raw: Facet<'static> + Send + 'static,
 {
     let raw = execute_raw().await?;
+    let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
     let stdout =
         crate::json::to_vec_pretty(&raw).context("serializing cached work raw output to JSON")?;
     let output = CommandOutput {
@@ -86,12 +89,13 @@ where
         stderr: BString::default(),
         status: 0,
     };
-    if let Err(error) = artifact_cache::write_output(
+    if let Err(error) = artifact_cache::write_output_with_extra_files(
         &cache_key.path_on_disk(),
         context,
         debug_inputs,
         &output,
         metadata,
+        &extra_files,
     )
     .await
     {
@@ -115,6 +119,7 @@ where
         cache_key,
         context,
         debug_inputs,
+        extra_files,
         executor_kind,
         output_type,
         execute_raw,
@@ -134,6 +139,7 @@ where
                     &context,
                     &debug_inputs,
                     &metadata,
+                    extra_files,
                     execute_raw,
                 )
                 .await?
@@ -145,6 +151,7 @@ where
                     &context,
                     &debug_inputs,
                     &metadata,
+                    extra_files,
                     execute_raw,
                 )
                 .await?
@@ -152,16 +159,18 @@ where
         };
 
     let raw = crate::json::from_slice::<Raw>(&output.stdout)?;
+    let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
     match decode(raw) {
         Ok(result) => Ok(result),
         Err(error) => {
-            let dump_dir = artifact_cache::write_failure(
+            let dump_dir = artifact_cache::write_failure_with_extra_files(
                 Some(&cache_key),
                 &context,
                 &debug_inputs,
                 &output,
                 &metadata,
                 Some(&format!("{error:?}")),
+                &extra_files,
             )
             .await?;
             Err(error).wrap_err(format!(
@@ -184,6 +193,7 @@ where
         cache_key,
         context,
         debug_inputs,
+        extra_files: None,
         executor_kind: "in_process".to_string(),
         output_type: std::any::type_name::<Request::Output>().to_string(),
         execute_raw: move || request.execute_raw(),

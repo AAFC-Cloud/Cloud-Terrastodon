@@ -14,6 +14,7 @@ categories.workspace = true
 cloud_terrastodon_azure_types.workspace = true
 cloud_terrastodon_command.workspace = true
 cloud_terrastodon_credentials.workspace = true
+cloud_terrastodon_relative_location.workspace = true
 eyre.workspace = true
 http.workspace = true
 reqwest.workspace = true
