@@ -1,29 +1,26 @@
 use super::azure_devops_test_plan::AzureDevOpsTestPlanIdentityRef;
 use crate::AzureDevOpsTestPlanShallowReference;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
 pub struct AzureDevOpsTestCasePointAssignment {
     pub configuration: Option<AzureDevOpsTestPlanShallowReference>,
     pub tester: Option<AzureDevOpsTestPlanIdentityRef>,
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
 pub struct AzureDevOpsTestCaseWorkItemReference {
     pub id: Option<String>,
     pub name: Option<String>,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub wtype: Option<String>,
     pub url: Option<String>,
-    #[serde(rename = "webUrl")]
+    #[facet(rename = "webUrl")]
     pub web_url: Option<String>,
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct SuiteTestCase {
-    #[serde(rename = "pointAssignments")]
     pub point_assignments: Option<Vec<AzureDevOpsTestCasePointAssignment>>,
-    #[serde(rename = "testCase")]
     pub test_case: AzureDevOpsTestCaseWorkItemReference,
 }

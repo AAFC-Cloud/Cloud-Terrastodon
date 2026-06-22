@@ -6,7 +6,6 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use serde::Deserialize;
 use std::path::PathBuf;
 
 pub struct RoleManagementPolicyAssignmentsForRoleRequest<T: Scope + Send> {
@@ -49,7 +48,7 @@ impl<T: Scope + Send> cloud_terrastodon_command::CacheableCommand
             self.role_definition_id.expanded_form()
         );
 
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct Response {
             value: Vec<RoleManagementPolicyAssignment>,
         }

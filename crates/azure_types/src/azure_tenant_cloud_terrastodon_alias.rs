@@ -5,10 +5,12 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 /// A Cloud Terrastodon-specific alias for a tracked Azure tenant.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureTenantAlias {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy_serialize!(AzureTenantAlias, value => value.to_string());
 
 impl AzureTenantAlias {
     pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -104,25 +106,6 @@ impl Deref for AzureTenantAlias {
     }
 }
 
-impl serde::Serialize for AzureTenantAlias {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for AzureTenantAlias {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:#}")))
-    }
-}
-
 impl From<AzureTenantAlias> for CompactString {
     fn from(value: AzureTenantAlias) -> Self {
         value.inner
@@ -137,6 +120,10 @@ mod tests {
     fn it_normalizes_to_lowercase() -> eyre::Result<()> {
         let alias = AzureTenantAlias::try_new("Prod.WEST")?;
         assert_eq!(alias.to_string(), "prod.west");
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&alias)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<AzureTenantAlias>(
+            "\"prod.west\"",
+        )?;
         Ok(())
     }
 

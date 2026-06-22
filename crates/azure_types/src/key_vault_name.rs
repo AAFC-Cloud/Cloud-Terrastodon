@@ -18,10 +18,12 @@ use std::str::FromStr;
 ///  * Case-insensitive (comparisons and hashing lower-case)
 ///
 /// See also: https://github.com/Azure/azure-rest-api-specs/blob/6c548b0bd279f5e233661b1c81fb5b61b19965cd/specification/keyvault/resource-manager/Microsoft.KeyVault/stable/2024-11-01/keyvault.json
-#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct KeyVaultName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy_serialize!(KeyVaultName, value => value.to_string());
 impl PartialEq for KeyVaultName {
     fn eq(&self, other: &Self) -> bool {
         self.inner.eq_ignore_ascii_case(&other.inner)
@@ -120,24 +122,6 @@ fn validate_key_vault_name_inner(value: &CompactString) -> eyre::Result<()> {
 impl std::fmt::Display for KeyVaultName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
-    }
-}
-impl serde::Serialize for KeyVaultName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for KeyVaultName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for KeyVaultName {
@@ -256,6 +240,14 @@ mod test {
             let name = KeyVaultName::arbitrary(&mut un)?;
             assert!(name.validate_slug().is_ok());
         }
+        Ok(())
+    }
+
+    #[test]
+    pub fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let name = facet_json::from_str::<KeyVaultName>("\"my-vault1\"")?;
+        assert_eq!(name, KeyVaultName::try_new("my-vault1")?);
+        assert_eq!(facet_json::to_string(&name)?, "\"my-vault1\"");
         Ok(())
     }
 }

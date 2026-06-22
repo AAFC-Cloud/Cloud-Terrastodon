@@ -1,8 +1,9 @@
 use arbitrary::Arbitrary;
-use compact_str::CompactString;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum AzureLocationName {
     Asia,
     AsiaPacific,
@@ -113,6 +114,7 @@ pub enum AzureLocationName {
     WestUSStage,
     Other(String),
 }
+crate::impl_facet_string_proxy!(AzureLocationName, value => value.to_string());
 impl AzureLocationName {
     pub fn is_canada(&self) -> bool {
         matches!(
@@ -363,23 +365,6 @@ impl FromStr for AzureLocationName {
         })
     }
 }
-impl serde::Serialize for AzureLocationName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.to_string().serialize(serializer)
-    }
-}
-impl<'de> serde::Deserialize<'de> for AzureLocationName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::from_str(&value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
-    }
-}
 impl<'a> Arbitrary<'a> for AzureLocationName {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(u.choose(AzureLocationName::VARIANTS)?.clone())
@@ -405,11 +390,11 @@ mod test {
         }
 
         assert_eq!(expected.to_string(), "CanadaCentral");
-        assert_eq!(serde_json::to_string(&expected)?, "\"CanadaCentral\"");
         assert_eq!(
-            serde_json::from_str::<AzureLocationName>("\"canadaCENTRAL\"")?,
+            facet_json::from_str::<AzureLocationName>("\"canadaCENTRAL\"")?,
             expected
         );
+        assert_eq!(facet_json::to_string(&expected)?, "\"CanadaCentral\"");
         Ok(())
     }
 }

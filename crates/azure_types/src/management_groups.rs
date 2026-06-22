@@ -9,19 +9,17 @@ use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::strip_prefix_case_insensitive;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::hash::Hash;
 use std::str::FromStr;
 
 pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ManagementGroupId {
     expanded: String,
 }
+crate::impl_facet_string_proxy!(ManagementGroupId, value => value.expanded_form());
 impl std::fmt::Display for ManagementGroupId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.expanded)
@@ -79,28 +77,7 @@ impl Scope for ManagementGroupId {
     }
 }
 
-impl Serialize for ManagementGroupId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for ManagementGroupId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = ManagementGroupId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct ManagementGroup {
     pub display_name: String,
     pub id: ManagementGroupId,
@@ -153,6 +130,16 @@ mod tests {
         let id = ManagementGroupId::from_name("bruh");
         let name = id.name();
         assert_eq!(name, "bruh");
+        Ok(())
+    }
+
+    #[test]
+    fn json_roundtrips() -> Result<()> {
+        let id = ManagementGroupId::from_name("bruh");
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&id)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<ManagementGroupId>(
+            "\"/providers/Microsoft.Management/managementGroups/bruh\"",
+        )?;
         Ok(())
     }
 }

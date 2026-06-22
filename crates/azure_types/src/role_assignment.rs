@@ -9,13 +9,11 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
 
 /// An Azure RBAC role assignment.
 ///
 /// Not to be confused with an Entra role assignment.
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
 pub struct RoleAssignment {
     pub id: RoleAssignmentId,
     pub scope: ScopeImpl,

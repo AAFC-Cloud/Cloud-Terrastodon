@@ -6,10 +6,12 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct PolicyAssignmentName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy!(PolicyAssignmentName, value => value.to_string());
 impl PolicyAssignmentName {
     pub fn new(inner: CompactString) -> Self {
         Self { inner }
@@ -39,24 +41,6 @@ impl std::fmt::Display for PolicyAssignmentName {
         f.write_fmt(format_args!("{}", self.inner))
     }
 }
-impl serde::Serialize for PolicyAssignmentName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for PolicyAssignmentName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
-    }
-}
 impl Deref for PolicyAssignmentName {
     type Target = CompactString;
 
@@ -74,5 +58,18 @@ impl TryFrom<CompactString> for PolicyAssignmentName {
 impl From<PolicyAssignmentName> for CompactString {
     fn from(value: PolicyAssignmentName) -> Self {
         value.inner.to_compact_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let name = facet_json::from_str::<PolicyAssignmentName>("\"assignment-name\"")?;
+        assert_eq!(name, PolicyAssignmentName::try_new("assignment-name")?);
+        assert_eq!(facet_json::to_string(&name)?, "\"assignment-name\"");
+        Ok(())
     }
 }

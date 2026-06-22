@@ -1,16 +1,13 @@
 use crate::RolePermissionAction;
 use crate::UnifiedRoleDefinitionId;
-use crate::serde_helpers::deserialize_default_if_null;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 use tracing::warn;
 
 /// An Entra role definition.
 ///
 /// Not to be confused with an Azure RBAC role definition.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct UnifiedRoleDefinition {
     // pub allowed_principal_types: Value, // is present in $metadata but the API isn't giving it :P
     pub description: String,
@@ -23,7 +20,7 @@ pub struct UnifiedRoleDefinition {
     pub template_id: UnifiedRoleDefinitionId,
     pub version: Option<String>,
     pub inherits_permissions_from: Vec<UnifiedRoleDefinitionIdReference>,
-    #[serde(skip)]
+    #[facet(skip)]
     pub canonicalized: bool,
 }
 impl UnifiedRoleDefinition {
@@ -72,18 +69,17 @@ impl UnifiedRoleDefinition {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
 pub struct UnifiedRoleDefinitionIdReference {
     pub id: UnifiedRoleDefinitionId,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct UnifiedRolePermission {
     pub condition: Option<String>,
     pub allowed_resource_actions: Vec<RolePermissionAction>,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_default_if_null")]
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<RolePermissionAction>)]
     pub excluded_resource_actions: Vec<RolePermissionAction>,
 }
 
@@ -109,5 +105,53 @@ impl UnifiedRolePermission {
             }
         }
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn role_definition_json_round_trips_through_facet() -> eyre::Result<()> {
+        let json = r#"
+        {
+            "description": "Can read application registrations",
+            "displayName": "Application Reader",
+            "isBuiltIn": true,
+            "isEnabled": true,
+            "isPrivileged": false,
+            "resourceScopes": ["/"],
+            "rolePermissions": [
+                {
+                    "condition": null,
+                    "allowedResourceActions": [
+                        "microsoft.directory/applications/basic/read"
+                    ],
+                    "excludedResourceActions": null
+                }
+            ],
+            "templateId": "00000000-0000-0000-0000-000000000001",
+            "version": "1",
+            "inheritsPermissionsFrom": [
+                {
+                    "id": "00000000-0000-0000-0000-000000000002"
+                }
+            ]
+        }
+        "#;
+
+        let role_definition = facet_json::from_str::<UnifiedRoleDefinition>(json)?;
+        assert!(!role_definition.canonicalized);
+        assert_eq!(
+            role_definition.role_permissions[0].excluded_resource_actions,
+            Vec::<RolePermissionAction>::new()
+        );
+
+        let serialized = facet_json::to_string(&role_definition)?;
+        assert!(!serialized.contains("canonicalized"));
+        let reparsed = facet_json::from_str::<UnifiedRoleDefinition>(&serialized)?;
+        assert_eq!(role_definition, reparsed);
+        Ok(())
     }
 }

@@ -8,7 +8,7 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::CommandOutput;
 use eyre::Context;
 use eyre::Result;
-use serde::de::DeserializeOwned;
+use facet::Facet;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -16,7 +16,7 @@ use std::time::Duration;
 pub const GITEA_UNCACHED_DELAY: Duration = Duration::from_millis(500);
 pub const GITEA_PAGE_SIZE: usize = 50;
 
-pub async fn gitea_api_get<T: DeserializeOwned + Send + 'static>(
+pub async fn gitea_api_get<T: Facet<'static> + Send + 'static>(
     tenant: &GiteaInstanceUrl,
     endpoint: &str,
     cache_key: Option<CacheKey>,
@@ -27,7 +27,7 @@ pub async fn gitea_api_get<T: DeserializeOwned + Send + 'static>(
     cmd.run_polite(GITEA_UNCACHED_DELAY).await
 }
 
-pub async fn gitea_api_get_best_effort<T: DeserializeOwned + Send + 'static>(
+pub async fn gitea_api_get_best_effort<T: Facet<'static> + Send + 'static>(
     tenant: &GiteaInstanceUrl,
     endpoint: &str,
     cache_key: Option<CacheKey>,
@@ -50,7 +50,7 @@ pub async fn gitea_api_get_paged<T>(
     endpoint_builder: impl Fn(usize, usize) -> String,
 ) -> Result<Vec<T>>
 where
-    T: DeserializeOwned + Send + 'static,
+    T: Facet<'static> + Send + 'static,
 {
     let mut items = Vec::new();
     let mut page = 1usize;
@@ -78,7 +78,7 @@ pub async fn gitea_api_get_search_paged<T>(
     endpoint_builder: impl Fn(usize, usize) -> String,
 ) -> Result<Vec<T>>
 where
-    T: DeserializeOwned + Send + 'static,
+    T: Facet<'static> + Send + 'static,
 {
     let mut items = Vec::new();
     let mut page = 1usize;
@@ -100,8 +100,10 @@ where
     Ok(items)
 }
 
-pub fn parse_command_output<T: DeserializeOwned>(output: &CommandOutput) -> Result<T> {
-    serde_json::from_slice(&output.stdout).wrap_err("Failed to deserialize command output as JSON")
+pub fn parse_command_output<T: Facet<'static>>(output: &CommandOutput) -> Result<T> {
+    facet_json::from_slice(&output.stdout)
+        .map_err(|error| eyre::eyre!("{error:?}"))
+        .wrap_err("Failed to deserialize command output as JSON")
 }
 
 pub fn dedupe_repositories(mut repositories: Vec<GiteaRepo>) -> Vec<GiteaRepo> {

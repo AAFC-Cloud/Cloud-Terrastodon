@@ -8,10 +8,12 @@ use std::str::FromStr;
 
 // TODO: update to conform more closely to <https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftcompute>
 // Simple VM name validation: 1-64 characters, allow alphanumeric, '-', '_' and '.'
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct VirtualMachineName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy!(VirtualMachineName, value => value.to_string());
 
 impl Slug for VirtualMachineName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -82,25 +84,6 @@ impl TryFrom<&str> for VirtualMachineName {
 impl std::fmt::Display for VirtualMachineName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
-    }
-}
-
-impl serde::Serialize for VirtualMachineName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for VirtualMachineName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = CompactString::deserialize(deserializer)?;
-        Self::try_new(s).map_err(serde::de::Error::custom)
     }
 }
 

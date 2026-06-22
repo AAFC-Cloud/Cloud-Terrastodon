@@ -42,7 +42,7 @@ impl CacheableCommand for ComputePublishersListRequest {
             subscription_id = self.subscription_id,
             location = self.location
         );
-        #[derive(serde::Deserialize)]
+        #[derive(facet::Facet)]
         struct Row {
             id: ComputePublisherId,
             // The location and name are also present but are contained within the ID so we ignore them.

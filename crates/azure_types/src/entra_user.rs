@@ -5,32 +5,30 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Arbitrary)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct EntraUser {
-    #[serde(rename = "businessPhones")]
+    #[facet(rename = "businessPhones")]
     pub business_phones: Vec<String>,
-    #[serde(rename = "displayName")]
+    #[facet(rename = "displayName")]
     pub display_name: String,
-    #[serde(rename = "givenName")]
+    #[facet(rename = "givenName")]
     pub given_name: Option<String>,
     pub id: EntraUserId,
-    #[serde(rename = "jobTitle")]
+    #[facet(rename = "jobTitle")]
     pub job_title: Option<String>,
     pub mail: Option<String>,
-    #[serde(rename = "otherMails")]
-    #[serde(default)]
+    #[facet(rename = "otherMails")]
+    #[facet(default)]
     pub other_mails: Vec<String>,
-    #[serde(rename = "mobilePhone")]
+    #[facet(rename = "mobilePhone")]
     pub mobile_phone: Option<String>,
-    #[serde(rename = "officeLocation")]
+    #[facet(rename = "officeLocation")]
     pub office_location: Option<String>,
-    #[serde(rename = "preferredLanguage")]
+    #[facet(rename = "preferredLanguage")]
     pub preferred_language: Option<String>,
     pub surname: Option<String>,
-    #[serde(rename = "userPrincipalName")]
+    #[facet(rename = "userPrincipalName")]
     pub user_principal_name: String,
 }
 impl std::fmt::Display for EntraUser {
@@ -62,7 +60,7 @@ mod tests {
     #[test]
     fn deserializes() -> Result<()> {
         let expanded = "55555555-5555-5555-5555-555555555555";
-        let id: Uuid = serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+        let id: Uuid = facet_json::from_str(&facet_json::to_string(expanded)?)?;
         assert_eq!(id.to_string(), expanded);
 
         Ok(())

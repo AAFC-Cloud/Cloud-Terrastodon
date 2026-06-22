@@ -42,7 +42,10 @@ impl AzureVmBrowseArgs {
                             }))
                     })
                     .await?;
-                println!("{}", serde_json::to_string_pretty(&chosen_resources)?);
+                println!(
+                    "{}",
+                    cloud_terrastodon_command::to_string_pretty(&chosen_resources)?
+                );
             }
             AzureVmBrowseOption::Skus => {
                 let chosen_subscription = PickerTui::new()
@@ -59,11 +62,14 @@ impl AzureVmBrowseArgs {
                     info!(%chosen_subscription.name, %chosen_subscription.id, "Fetching VM SKUs, this may take a while" );
                     let skus = fetch_virtual_machine_skus(chosen_subscription.id).with_invalidation(invalidate).await?;
                     skus.into_iter().map(|sku| eyre::Ok(Choice {
-                        key: format!("{} - {} - {}", sku.resource_type, sku.name, serde_json::to_string(&sku.locations)?),
+                        key: format!("{} - {} - {}", sku.resource_type, sku.name, cloud_terrastodon_command::to_string(&sku.locations)?),
                         value: sku,
                     })).collect::<eyre::Result<Vec<_>>>()
                 }).await?;
-                println!("{}", serde_json::to_string_pretty(&chosen_skus)?);
+                println!(
+                    "{}",
+                    cloud_terrastodon_command::to_string_pretty(&chosen_skus)?
+                );
             }
             AzureVmBrowseOption::Publishers => {
                 AzureVmPublisherBrowseArgs {

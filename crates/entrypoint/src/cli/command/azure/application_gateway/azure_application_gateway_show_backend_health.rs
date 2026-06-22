@@ -44,7 +44,7 @@ impl AzureApplicationGatewayShowBackendHealthArgs {
                         .await?;
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
-                serde_json::to_writer_pretty(&mut handle, &backend_health)?;
+                cloud_terrastodon_command::to_writer_pretty(&mut handle, &backend_health)?;
                 handle.write_all(b"\n")?;
                 Ok(())
             }

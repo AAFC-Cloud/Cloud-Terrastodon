@@ -27,16 +27,14 @@ use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped_with_portal;
 use crate::slug::HasSlug;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub const ROLE_ASSIGNMENT_ID_PREFIX: &str = "/providers/Microsoft.Authorization/roleAssignments/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum RoleAssignmentId {
     Unscoped(UnscopedRoleAssignmentId),
     PortalScoped(PortalScopedRoleAssignmentId),
@@ -46,6 +44,7 @@ pub enum RoleAssignmentId {
     ResourceGroupScoped(ResourceGroupScopedRoleAssignmentId),
     ResourceScoped(ResourceScopedRoleAssignmentId),
 }
+crate::impl_facet_string_proxy!(RoleAssignmentId, value => value.expanded_form());
 impl RoleAssignmentId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
@@ -226,28 +225,6 @@ impl HasPrefix for RoleAssignmentId {
     }
 }
 
-// MARK: Serialize
-impl Serialize for RoleAssignmentId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for RoleAssignmentId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = RoleAssignmentId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -262,8 +239,9 @@ mod tests {
         let expanded = RoleAssignmentId::Unscoped(UnscopedRoleAssignmentId {
             role_assignment_name: RoleAssignmentName::new(Uuid::nil()),
         });
-        let id: RoleAssignmentId =
-            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let json = facet_json::to_string(&expanded)?;
+        assert_eq!(json, facet_json::to_string(&expanded.expanded_form())?);
+        let id: RoleAssignmentId = facet_json::from_str(json.as_str())?;
         assert_eq!(id, expanded);
         Ok(())
     }
@@ -281,8 +259,9 @@ mod tests {
             ),
             role_assignment_name: RoleAssignmentName::new(Uuid::new_v4()),
         });
-        let id: RoleAssignmentId =
-            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let json = facet_json::to_string(&expanded)?;
+        assert_eq!(json, facet_json::to_string(&expanded.expanded_form())?);
+        let id: RoleAssignmentId = facet_json::from_str(json.as_str())?;
         assert_eq!(id, expanded);
         Ok(())
     }
@@ -295,8 +274,9 @@ mod tests {
             service_group_id: service_group_id.clone(),
             role_assignment_name: RoleAssignmentName::new(Uuid::new_v4()),
         });
-        let id: RoleAssignmentId =
-            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let json = facet_json::to_string(&expanded)?;
+        assert_eq!(json, facet_json::to_string(&expanded.expanded_form())?);
+        let id: RoleAssignmentId = facet_json::from_str(json.as_str())?;
         assert_eq!(id, expanded);
         Ok(())
     }

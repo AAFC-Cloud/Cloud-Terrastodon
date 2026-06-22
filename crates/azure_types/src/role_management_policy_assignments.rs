@@ -1,59 +1,51 @@
-use crate::RoleDefinitionId;
-use crate::RoleDefinitionKind;
 use crate::RoleManagementPolicyAssignmentId;
-use crate::RoleManagementPolicyId;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-use serde::de::Visitor;
-use serde::de::{self};
-use serde_json::Value;
+use facet_json::RawJson;
 use std::collections::HashMap;
 use std::fmt;
 use std::time::Duration;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind {
     ManagementGroup,
     Subscription,
     ResourceGroup,
     Other(String),
 }
+crate::impl_facet_string_proxy!(
+    RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind,
+    value => value.to_string()
+);
 
-impl Serialize for RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+impl std::fmt::Display
+    for RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::ManagementGroup => serializer.serialize_str("managementgroup"),
-            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Subscription => serializer.serialize_str("subscription"),
-            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::ResourceGroup => serializer.serialize_str("resourcegroup"),
-            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Other(s) => serializer.serialize_str(s),
+            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::ManagementGroup => {
+                f.write_str("managementgroup")
+            }
+            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Subscription => {
+                f.write_str("subscription")
+            }
+            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::ResourceGroup => {
+                f.write_str("resourcegroup")
+            }
+            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Other(s) => {
+                f.write_str(s)
+            }
         }
     }
 }
 
-struct RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKindVisitor;
-
-impl<'de> Visitor<'de>
-    for RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKindVisitor
+impl std::str::FromStr
+    for RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind
 {
-    type Value = RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind;
+    type Err = std::convert::Infallible;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a string representing the resource kind")
-    }
-
-    fn visit_str<E>(
-        self,
-        value: &str,
-    ) -> Result<RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind, E>
-    where
-        E: de::Error,
-    {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         Ok(match value {
             "managementgroup" => RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::ManagementGroup,
             "subscription" => RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Subscription,
@@ -63,131 +55,91 @@ impl<'de> Visitor<'de>
     }
 }
 
-impl<'de> Deserialize<'de>
-    for RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(
-            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKindVisitor,
-        )
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScope {
-    #[serde(rename = "displayName")]
-    pub display_name: String,
-    pub id: String,
-    #[serde(rename = "type")]
-    pub kind: String,
-}
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesRoleDefinition {
-    #[serde(rename = "displayName")]
-    pub display_name: String,
-    pub id: RoleDefinitionId,
-    #[serde(rename = "type")]
-    pub kind: RoleDefinitionKind,
-}
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesPolicy {
-    pub id: RoleManagementPolicyId,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct RoleManagementPolicyAssignmentPropertiesPolicyAssignmentProperties {
-    pub scope: RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScope,
-    #[serde(rename = "roleDefinition")]
-    pub role_definition:
-        RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesRoleDefinition,
-    pub policy: RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesPolicy,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[repr(C)]
 pub enum RoleManagementPolicyAssignmentPropertiesEffectiveRuleId {
-    #[serde(rename = "Enablement_Admin_Eligibility")]
+    #[facet(rename = "Enablement_Admin_Eligibility")]
     EnablementAdminEligibility,
-    #[serde(rename = "Expiration_Admin_Eligibility")]
+    #[facet(rename = "Expiration_Admin_Eligibility")]
     ExpirationAdminEligibility,
-    #[serde(rename = "Notification_Admin_Admin_Eligibility")]
+    #[facet(rename = "Notification_Admin_Admin_Eligibility")]
     NotificationAdminAdminEligibility,
-    #[serde(rename = "Notification_Requestor_Admin_Eligibility")]
+    #[facet(rename = "Notification_Requestor_Admin_Eligibility")]
     NotificationRequestorAdminEligibility,
-    #[serde(rename = "Notification_Approver_Admin_Eligibility")]
+    #[facet(rename = "Notification_Approver_Admin_Eligibility")]
     NotificationApproverAdminEligibility,
-    #[serde(rename = "Enablement_Admin_Assignment")]
+    #[facet(rename = "Enablement_Admin_Assignment")]
     EnablementAdminAssignment,
-    #[serde(rename = "Expiration_Admin_Assignment")]
+    #[facet(rename = "Expiration_Admin_Assignment")]
     ExpirationAdminAssignment,
-    #[serde(rename = "Notification_Admin_Admin_Assignment")]
+    #[facet(rename = "Notification_Admin_Admin_Assignment")]
     NotificationAdminAdminAssignment,
-    #[serde(rename = "Notification_Requestor_Admin_Assignment")]
+    #[facet(rename = "Notification_Requestor_Admin_Assignment")]
     NotificationRequestorAdminAssignment,
-    #[serde(rename = "Notification_Approver_Admin_Assignment")]
+    #[facet(rename = "Notification_Approver_Admin_Assignment")]
     NotificationApproverAdminAssignment,
-    #[serde(rename = "Approval_EndUser_Assignment")]
+    #[facet(rename = "Approval_EndUser_Assignment")]
     ApprovalEnduserAssignment,
-    #[serde(rename = "AuthenticationContext_EndUser_Assignment")]
+    #[facet(rename = "AuthenticationContext_EndUser_Assignment")]
     AuthenticationcontextEnduserAssignment,
-    #[serde(rename = "Enablement_EndUser_Assignment")]
+    #[facet(rename = "Enablement_EndUser_Assignment")]
     EnablementEnduserAssignment,
-    #[serde(rename = "Expiration_EndUser_Assignment")]
+    #[facet(rename = "Expiration_EndUser_Assignment")]
     ExpirationEnduserAssignment,
-    #[serde(rename = "Notification_Admin_EndUser_Assignment")]
+    #[facet(rename = "Notification_Admin_EndUser_Assignment")]
     NotificationAdminEnduserAssignment,
-    #[serde(rename = "Notification_Requestor_EndUser_Assignment")]
+    #[facet(rename = "Notification_Requestor_EndUser_Assignment")]
     NotificationRequestorEnduserAssignment,
-    #[serde(rename = "Notification_Approver_EndUser_Assignment")]
+    #[facet(rename = "Notification_Approver_EndUser_Assignment")]
     NotificationApproverEnduserAssignment,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "ruleType")]
-pub enum RoleManagementPolicyAssignmentPropertiesEffectiveRule {
-    RoleManagementPolicyEnablementRule,
-    RoleManagementPolicyExpirationRule {
-        id: RoleManagementPolicyAssignmentPropertiesEffectiveRuleId,
-        #[serde(rename = "isExpirationRequired")]
-        is_expiration_required: bool,
-        #[serde(rename = "maximumDuration")]
-        maximum_duration: iso8601_duration::Duration,
-        target: Value,
-    },
-    RoleManagementPolicyNotificationRule,
-    RoleManagementPolicyApprovalRule,
-    RoleManagementPolicyAuthenticationContextRule,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct RoleManagementPolicyAssignmentProperties {
     pub scope: String,
-    #[serde(rename = "roleDefinitionId")]
+    #[facet(rename = "roleDefinitionId")]
     pub role_definition_id: String,
-    #[serde(rename = "policyId")]
+    #[facet(rename = "policyId")]
     pub policy_id: String,
-    #[serde(rename = "effectiveRules")]
-    pub effective_rules: Vec<RoleManagementPolicyAssignmentPropertiesEffectiveRule>,
-    #[serde(rename = "policyAssignmentProperties")]
-    pub policy_assignment_properties: HashMap<String, Value>,
+    #[facet(rename = "effectiveRules")]
+    pub effective_rules: Vec<RawJson<'static>>,
+    #[facet(
+        rename = "policyAssignmentProperties",
+        opaque,
+        proxy = crate::HashMapDefaultNullProxy<RawJson<'static>>
+    )]
+    pub policy_assignment_properties: HashMap<String, RawJson<'static>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct RoleManagementPolicyAssignment {
     pub properties: RoleManagementPolicyAssignmentProperties,
     pub name: String,
     pub id: RoleManagementPolicyAssignmentId,
 }
 
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
+struct RoleManagementPolicyExpirationRule {
+    #[facet(rename = "ruleType")]
+    rule_type: String,
+    id: RoleManagementPolicyAssignmentPropertiesEffectiveRuleId,
+    #[facet(rename = "maximumDuration", opaque, proxy = crate::IsoDurationProxy)]
+    maximum_duration: iso8601_duration::Duration,
+}
+
 impl RoleManagementPolicyAssignment {
     pub fn get_maximum_activation_duration(&self) -> Option<Duration> {
         for rule in &self.properties.effective_rules {
-            if let RoleManagementPolicyAssignmentPropertiesEffectiveRule::RoleManagementPolicyExpirationRule {
-                 id: RoleManagementPolicyAssignmentPropertiesEffectiveRuleId::ExpirationEnduserAssignment, maximum_duration, ..
-            } = rule {
-                return maximum_duration.to_std();
+            if let Ok(rule) =
+                facet_json::from_str::<RoleManagementPolicyExpirationRule>(rule.as_str())
+            {
+                if rule.rule_type == "RoleManagementPolicyExpirationRule"
+                    && rule.id
+                        == RoleManagementPolicyAssignmentPropertiesEffectiveRuleId::ExpirationEnduserAssignment
+                {
+                    return rule.maximum_duration.to_std();
+                }
             }
         }
         None
@@ -208,6 +160,27 @@ mod tests {
             Uuid::nil(),
         );
         RoleManagementPolicyAssignmentId::try_from_expanded(&id)?;
+        let scope_kind =
+            facet_json::from_str::<RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind>(
+                "\"managementgroup\"",
+            )?;
+        assert_eq!(
+            scope_kind,
+            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::ManagementGroup
+        );
+        assert_eq!(facet_json::to_string(&scope_kind)?, "\"managementgroup\"");
+
+        let scope_kind =
+            facet_json::from_str::<RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind>(
+                "\"new-scope-kind\"",
+            )?;
+        assert_eq!(
+            scope_kind,
+            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Other(
+                "new-scope-kind".to_string()
+            )
+        );
+        assert_eq!(facet_json::to_string(&scope_kind)?, "\"new-scope-kind\"");
         Ok(())
     }
 }

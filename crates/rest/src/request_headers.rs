@@ -1,14 +1,12 @@
 use eyre::Result;
 use eyre::WrapErr;
+use facet_json::RawJson;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
 use reqwest::header::HeaderValue;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(untagged)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum RequestHeaderValues {
     One(String),
     Many(Vec<String>),
@@ -23,12 +21,42 @@ impl RequestHeaderValues {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RequestHeaders(BTreeMap<String, RequestHeaderValues>);
 
 impl RequestHeaders {
     pub fn from_json_str(headers: &str) -> Result<Self> {
-        serde_json::from_str(headers).wrap_err("Parsing request headers JSON")
+        let raw_headers = facet_json::from_str::<BTreeMap<String, RawJson<'static>>>(headers)
+            .map_err(|error| eyre::eyre!("{error:?}"))
+            .wrap_err("Parsing request headers JSON")?;
+        let mut parsed = BTreeMap::new();
+        for (name, values) in raw_headers {
+            let values = if let Ok(value) = facet_json::from_str::<String>(values.as_str()) {
+                RequestHeaderValues::One(value)
+            } else {
+                let values = facet_json::from_str::<Vec<String>>(values.as_str())
+                    .map_err(|error| eyre::eyre!("{error:?}"))
+                    .wrap_err_with(|| format!("Parsing values for header {name:?}"))?;
+                RequestHeaderValues::Many(values)
+            };
+            parsed.insert(name, values);
+        }
+        Ok(Self(parsed))
+    }
+
+    pub fn to_json_pretty(&self) -> Result<String> {
+        let values = self
+            .0
+            .iter()
+            .map(|(name, values)| {
+                let values = match values {
+                    RequestHeaderValues::One(value) => vec![value.clone()],
+                    RequestHeaderValues::Many(values) => values.clone(),
+                };
+                (name.clone(), values)
+            })
+            .collect::<BTreeMap<_, _>>();
+        facet_json::to_string_pretty(&values).map_err(|error| eyre::eyre!("{error:?}"))
     }
 
     pub fn to_header_map(&self) -> Result<HeaderMap> {

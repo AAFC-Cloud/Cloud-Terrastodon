@@ -3,7 +3,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops::fetch_work_items_for_query;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use eyre::Result;
-use serde_json::to_writer_pretty;
+use cloud_terrastodon_command::to_writer_pretty;
 use std::io::stdout;
 
 /// Invoke a work item query.

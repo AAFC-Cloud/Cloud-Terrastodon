@@ -6,83 +6,77 @@ use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, facet::Facet, Clone)]
 pub struct AzureClaims {
-    #[serde(rename = "aud")]
+    #[facet(rename = "aud")]
     pub audience: String,
-    #[serde(rename = "iss")]
+    #[facet(rename = "iss")]
     pub issuer: String,
-    #[serde(rename = "iat")]
-    #[serde(
-        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_local_date_time_from_epoch"
-    )]
+    #[facet(rename = "iat")]
+    #[facet(opaque, proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
     pub issued_at: DateTime<Local>,
-    #[serde(rename = "nbf")]
-    #[serde(
-        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_local_date_time_from_epoch"
-    )]
+    #[facet(rename = "nbf")]
+    #[facet(opaque, proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
     pub not_before: DateTime<Local>,
-    #[serde(rename = "exp")]
-    #[serde(
-        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_local_date_time_from_epoch"
-    )]
+    #[facet(rename = "exp")]
+    #[facet(opaque, proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
     pub expires: DateTime<Local>,
-    #[serde(rename = "acr")]
+    #[facet(rename = "acr")]
     pub authentication_context_class: String,
-    #[serde(rename = "acrs")]
+    #[facet(rename = "acrs")]
     pub authentication_context_classes: Vec<String>,
-    #[serde(rename = "aio")]
+    #[facet(rename = "aio")]
     pub aio: String,
-    #[serde(rename = "amr")]
+    #[facet(rename = "amr")]
     pub authentication_methods: Vec<String>,
-    #[serde(rename = "appid")]
+    #[facet(rename = "appid")]
     pub app_id: AppId,
-    #[serde(rename = "appidacr")]
+    #[facet(rename = "appidacr")]
     pub app_id_acr: String,
-    #[serde(rename = "deviceid")]
+    #[facet(rename = "deviceid")]
     pub device_id: Option<Uuid>,
-    #[serde(rename = "family_name")]
+    #[facet(rename = "family_name")]
     pub family_name: String,
-    #[serde(rename = "given_name")]
+    #[facet(rename = "given_name")]
     pub given_name: String,
-    #[serde(rename = "groups")]
+    #[facet(rename = "groups")]
     pub groups: Vec<EntraGroupId>,
-    #[serde(rename = "idtyp")]
+    #[facet(rename = "idtyp")]
     pub identity_type: String,
-    #[serde(rename = "ipaddr")]
+    #[facet(rename = "ipaddr")]
     pub ip_address: String,
-    #[serde(rename = "name")]
+    #[facet(rename = "name")]
     pub name: String,
-    #[serde(rename = "oid")]
+    #[facet(rename = "oid")]
     pub object_id: PrincipalId,
-    #[serde(rename = "puid")]
+    #[facet(rename = "puid")]
     pub puid: String,
-    #[serde(rename = "pwd_url")]
+    #[facet(rename = "pwd_url")]
     pub password_change_url: Option<String>,
-    #[serde(rename = "rh")]
+    #[facet(rename = "rh")]
     pub refresh_token_hash: String,
-    #[serde(rename = "scp")]
+    #[facet(rename = "scp")]
     pub scopes: String,
-    #[serde(rename = "sid")]
+    #[facet(rename = "sid")]
     pub session_id: Uuid,
-    #[serde(rename = "sub")]
+    #[facet(rename = "sub")]
     pub subject: String,
-    #[serde(rename = "tid")]
+    #[facet(rename = "tid")]
     pub tenant_id: AzureTenantId,
-    #[serde(rename = "unique_name")]
+    #[facet(rename = "unique_name")]
     pub unique_name: String,
-    #[serde(rename = "upn")]
+    #[facet(rename = "upn")]
     pub user_principal_name: Option<String>,
-    #[serde(rename = "uti")]
+    #[facet(rename = "uti")]
     pub uti: String,
-    #[serde(rename = "ver")]
+    #[facet(rename = "ver")]
     pub version: String,
-    #[serde(rename = "wids")]
+    #[facet(rename = "wids")]
     pub windows_integrated_device_ids: Vec<Uuid>,
-    #[serde(rename = "xms_ftd")]
+    #[facet(rename = "xms_ftd")]
     pub xms_ftd: String,
-    #[serde(rename = "xms_idrel")]
+    #[facet(rename = "xms_idrel")]
     pub xms_idrel: String,
-    #[serde(rename = "xms_tcdt")]
+    #[facet(rename = "xms_tcdt")]
     pub xms_tcdt: i64,
 }

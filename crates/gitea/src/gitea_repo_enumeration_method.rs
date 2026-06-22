@@ -1,7 +1,7 @@
-use serde::Deserialize;
-use serde::Serialize;
+use facet::Facet;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Facet)]
+#[repr(C)]
 pub enum GiteaRepoEnumerationMethod {
     Organizations,
     Users,

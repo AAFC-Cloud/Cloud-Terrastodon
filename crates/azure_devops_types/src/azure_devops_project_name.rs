@@ -6,15 +6,14 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 /// https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#project-names
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub struct AzureDevOpsProjectName {
-    inner: CompactString,
-}
+#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[facet(transparent)]
+pub struct AzureDevOpsProjectName(CompactString);
 impl AzureDevOpsProjectName {
     pub fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
-        let inner = name.into();
-        validate_azure_devops_project_name(&inner)?;
-        Ok(Self { inner })
+        let value = name.into();
+        validate_azure_devops_project_name(&value)?;
+        Ok(Self(value))
     }
 }
 
@@ -230,12 +229,12 @@ impl Deref for AzureDevOpsProjectName {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 impl std::fmt::Display for AzureDevOpsProjectName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.inner)
+        f.write_str(&self.0)
     }
 }
 
@@ -248,36 +247,17 @@ impl FromStr for AzureDevOpsProjectName {
 }
 impl AsRef<str> for AzureDevOpsProjectName {
     fn as_ref(&self) -> &str {
-        &self.inner
+        &self.0
     }
 }
 impl From<AzureDevOpsProjectName> for CompactString {
     fn from(val: AzureDevOpsProjectName) -> Self {
-        val.inner
+        val.0
     }
 }
 impl From<AzureDevOpsProjectName> for String {
     fn from(val: AzureDevOpsProjectName) -> Self {
-        val.inner.into()
-    }
-}
-
-impl serde::Serialize for AzureDevOpsProjectName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for AzureDevOpsProjectName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(serde::de::Error::custom)
+        val.0.into()
     }
 }
 
@@ -388,11 +368,11 @@ mod tests {
             let raw: Vec<u8> = (0..128).map(|_| rand::random::<u8>()).collect();
             let mut u = Unstructured::new(&raw);
             if let Ok(proj) = AzureDevOpsProjectName::arbitrary(&mut u) {
-                let validation = validate(&proj.inner);
+                let validation = validate(&proj.0);
                 assert!(
                     validation.is_ok(),
                     "Arbitrary produced invalid: {:?} - {:?}",
-                    &proj.inner,
+                    &proj.0,
                     validation
                 );
             }

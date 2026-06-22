@@ -25,30 +25,40 @@ use eyre::Result;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct UnscopedRoleEligibilityScheduleId {
     pub name: RoleEligibilityScheduleName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ManagementGroupScopedRoleEligibilityScheduleId {
     pub management_group_id: ManagementGroupId,
     pub name: RoleEligibilityScheduleName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct SubscriptionScopedRoleEligibilityScheduleId {
     pub subscription_id: SubscriptionId,
     pub name: RoleEligibilityScheduleName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceGroupScopedRoleEligibilityScheduleId {
     pub resource_group_id: ResourceGroupId,
     pub name: RoleEligibilityScheduleName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceScopedRoleEligibilityScheduleId {
     pub resource_id: ResourceId,
     pub name: RoleEligibilityScheduleName,
 }
+crate::impl_facet_string_proxy!(UnscopedRoleEligibilityScheduleId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ManagementGroupScopedRoleEligibilityScheduleId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(SubscriptionScopedRoleEligibilityScheduleId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceGroupScopedRoleEligibilityScheduleId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceScopedRoleEligibilityScheduleId, value => value.expanded_form());
 
 // MARK: impl HasSlug
 

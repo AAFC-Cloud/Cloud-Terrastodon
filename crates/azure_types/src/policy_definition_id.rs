@@ -22,17 +22,15 @@ use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::slug::HasSlug;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub const POLICY_DEFINITION_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyDefinitions/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum PolicyDefinitionId {
     Unscoped(UnscopedPolicyDefinitionId),
     ManagementGroupScoped(ManagementGroupScopedPolicyDefinitionId),
@@ -40,6 +38,7 @@ pub enum PolicyDefinitionId {
     ResourceGroupScoped(ResourceGroupScopedPolicyDefinitionId),
     ResourceScoped(ResourceScopedPolicyDefinitionId),
 }
+crate::impl_facet_string_proxy!(PolicyDefinitionId, value => value.expanded_form());
 impl PolicyDefinitionId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
@@ -186,28 +185,6 @@ impl HasPrefix for PolicyDefinitionId {
     }
 }
 
-// MARK: Serialize
-impl Serialize for PolicyDefinitionId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for PolicyDefinitionId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = PolicyDefinitionId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -260,8 +237,9 @@ mod tests {
             "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555",
             "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555",
         ] {
-            let id: PolicyDefinitionId =
-                serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+            let json = facet_json::to_string(expanded)?;
+            let id: PolicyDefinitionId = facet_json::from_str(json.as_str())?;
+            assert_eq!(facet_json::to_string(&id)?, json);
             assert_eq!(id.expanded_form(), expanded);
         }
         Ok(())

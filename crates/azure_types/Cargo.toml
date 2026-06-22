@@ -19,8 +19,6 @@ cloud_terrastodon_azure_resource_types.workspace = true
 cloud_terrastodon_hcl_types.workspace = true # todo: we want to invert this such that the hcl crates know about azure types without the azure types worrying about HCL.
 eyre.workspace = true
 tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
 tempfile.workspace = true
 uuid.workspace = true
 chrono.workspace = true 
@@ -28,7 +26,7 @@ clap.workspace = true
 iso8601-duration.workspace = true
 itertools.workspace = true
 humantime.workspace = true
-compact_str = { workspace = true, features = ["serde"] }
+compact_str.workspace = true
 # regex.workspace = true
 arbitrary.workspace = true
 unicode_categories.workspace = true
@@ -36,6 +34,9 @@ ipnetwork.workspace = true
 tracing.workspace = true
 strum.workspace = true
 ordermap.workspace = true
+facet.workspace = true
+facet-json.workspace = true
+facet-value.workspace = true
 
 [dev-dependencies]
 rand.workspace=true

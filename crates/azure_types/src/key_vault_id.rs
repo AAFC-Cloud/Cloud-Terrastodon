@@ -11,19 +11,17 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
 pub const KEY_VAULT_ID_PREFIX: &str = "/providers/Microsoft.KeyVault/vaults/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct KeyVaultId {
     pub resource_group_id: ResourceGroupId,
     pub key_vault_name: KeyVaultName,
 }
+crate::impl_facet_string_proxy!(KeyVaultId, value => value.expanded_form());
 impl KeyVaultId {
     pub fn new(
         resource_group_id: impl Into<ResourceGroupId>,
@@ -142,27 +140,6 @@ impl Scope for KeyVaultId {
     }
 }
 
-impl Serialize for KeyVaultId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for KeyVaultId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = KeyVaultId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::KeyVaultId;
@@ -212,6 +189,9 @@ mod test {
             let serialized = id.expanded_form();
             let deserialized: KeyVaultId = serialized.parse()?;
             assert_eq!(id, deserialized);
+            let json = facet_json::to_string(&serialized)?;
+            assert_eq!(facet_json::to_string(&id)?, json);
+            assert_eq!(facet_json::from_str::<KeyVaultId>(&json)?, id);
         }
         Ok(())
     }

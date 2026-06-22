@@ -1,10 +1,8 @@
 use crate::SubnetId;
 use crate::SubnetName;
 use crate::SubnetProperties;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct Subnet {
     pub id: SubnetId,
     pub name: SubnetName,

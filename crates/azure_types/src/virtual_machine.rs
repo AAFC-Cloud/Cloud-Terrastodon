@@ -1,18 +1,14 @@
 use crate::VirtualMachineId;
 use crate::VirtualMachineName;
 use crate::VirtualMachineProperties;
-use crate::serde_helpers::deserialize_default_if_null;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct VirtualMachine {
     pub id: VirtualMachineId,
     pub name: VirtualMachineName,
     pub location: Option<String>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: VirtualMachineProperties,
 }

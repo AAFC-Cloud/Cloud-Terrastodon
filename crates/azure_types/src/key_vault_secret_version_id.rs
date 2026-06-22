@@ -6,21 +6,19 @@ use compact_str::CompactString;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::eyre;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
 /// Something interchangeable with the format of `https://keyvaultname.vault.azure.net/secrets/SECRETNAME/SECRETVERSION`
 ///
 /// Does not contain subscription or resource group info.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct KeyVaultSecretVersionId {
     pub key_vault_name: KeyVaultName,
     pub secret_name: KeyVaultSecretName,
     pub secret_version: CompactString,
 }
+crate::impl_facet_string_proxy!(KeyVaultSecretVersionId, value => value.to_string());
 
 impl KeyVaultSecretVersionId {
     pub fn new(
@@ -107,27 +105,6 @@ impl FromStr for KeyVaultSecretVersionId {
     }
 }
 
-impl Serialize for KeyVaultSecretVersionId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-
-impl<'de> Deserialize<'de> for KeyVaultSecretVersionId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = KeyVaultSecretVersionId::from_str(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::KeyVaultSecretVersionId;
@@ -138,6 +115,12 @@ mod test {
         let parsed: KeyVaultSecretVersionId = s.parse()?;
         let expected = KeyVaultSecretVersionId::try_new("mykv", "SECRETNAME", "SECRETVERSION")?;
         assert_eq!(parsed, expected);
+        let json = facet_json::to_string(s)?;
+        assert_eq!(facet_json::to_string(&parsed)?, json);
+        assert_eq!(
+            facet_json::from_str::<KeyVaultSecretVersionId>(&json)?,
+            parsed
+        );
         Ok(())
     }
 

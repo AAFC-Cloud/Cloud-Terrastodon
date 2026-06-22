@@ -3,43 +3,44 @@
 /// - https://graph.microsoft.com/beta/$metadata
 use chrono::DateTime;
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
+#[repr(C)]
 pub enum GovernanceRoleAssignmentMemberType {
     Group,
     Direct,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
+#[repr(C)]
 pub enum GovernanceRoleAssignmentStatus {
     Provisioned,
     Accepted,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
+#[repr(C)]
 pub enum GovernanceRoleAssignmentState {
     Active,
     Eligible,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
 pub struct GovernanceRoleAssignment {
     pub id: String,
-    #[serde(rename = "linkedEligibleRoleAssignmentId")]
+    #[facet(rename = "linkedEligibleRoleAssignmentId", default)]
     pub linked_eligible_role_assignment_id: Option<String>,
-    #[serde(rename = "memberType")]
+    #[facet(rename = "memberType")]
     pub member_type: GovernanceRoleAssignmentMemberType,
-    #[serde(rename = "roleDefinitionId")]
+    #[facet(rename = "roleDefinitionId")]
     pub role_definition_id: Uuid,
-    #[serde(rename = "startDateTime")]
+    #[facet(rename = "startDateTime", default)]
     pub start_date_time: Option<DateTime<Utc>>,
-    #[serde(rename = "endDateTime")]
+    #[facet(rename = "endDateTime", default)]
     pub end_date_time: Option<DateTime<Utc>>,
     pub status: GovernanceRoleAssignmentStatus,
-    #[serde(rename = "subjectId")]
+    #[facet(rename = "subjectId")]
     pub subject_id: Uuid,
-    #[serde(rename = "assignmentState")]
+    #[facet(rename = "assignmentState")]
     pub assignment_state: GovernanceRoleAssignmentState,
 }

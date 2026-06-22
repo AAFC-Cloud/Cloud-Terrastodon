@@ -1,9 +1,8 @@
 use crate::GiteaRepoEnumerationMethod;
 use crate::GiteaRepoId;
-use serde::Deserialize;
-use serde::Serialize;
+use facet::Facet;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 pub struct GiteaRepoEnumerationMethodReport {
     pub method: GiteaRepoEnumerationMethod,
     pub request_count: usize,
@@ -11,7 +10,7 @@ pub struct GiteaRepoEnumerationMethodReport {
     pub repo_ids: Vec<GiteaRepoId>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 pub struct GiteaRepoEnumerationComparisonReport {
     pub organizations: GiteaRepoEnumerationMethodReport,
     pub users: GiteaRepoEnumerationMethodReport,

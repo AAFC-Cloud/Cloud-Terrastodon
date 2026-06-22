@@ -1,17 +1,15 @@
 use crate::ComputeSkuName;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct VirtualMachineSize {
     pub max_data_disk_count: usize,
-    #[serde(rename = "memoryInMB")]
+    #[facet(rename = "memoryInMB")]
     pub memory_in_mb: usize,
     pub name: ComputeSkuName,
     pub number_of_cores: usize,
-    #[serde(rename = "osDiskSizeInMB")]
+    #[facet(rename = "osDiskSizeInMB")]
     pub os_disk_size_in_mb: usize,
-    #[serde(rename = "resourceDiskSizeInMB")]
+    #[facet(rename = "resourceDiskSizeInMB")]
     pub resource_disk_size_in_mb: usize,
 }

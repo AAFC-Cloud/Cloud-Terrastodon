@@ -22,17 +22,15 @@ use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::slug::HasSlug;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub const ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/roleEligibilitySchedules/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum RoleEligibilityScheduleId {
     Unscoped(UnscopedRoleEligibilityScheduleId),
     ManagementGroupScoped(ManagementGroupScopedRoleEligibilityScheduleId),
@@ -40,6 +38,7 @@ pub enum RoleEligibilityScheduleId {
     ResourceGroupScoped(ResourceGroupScopedRoleEligibilityScheduleId),
     ResourceScoped(ResourceScopedRoleEligibilityScheduleId),
 }
+crate::impl_facet_string_proxy!(RoleEligibilityScheduleId, value => value.expanded_form());
 impl RoleEligibilityScheduleId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
@@ -193,28 +192,6 @@ impl HasPrefix for RoleEligibilityScheduleId {
     }
 }
 
-// MARK: Serialize
-impl Serialize for RoleEligibilityScheduleId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for RoleEligibilityScheduleId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = RoleEligibilityScheduleId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,8 +205,9 @@ mod tests {
         let expanded = RoleEligibilityScheduleId::Unscoped(UnscopedRoleEligibilityScheduleId {
             name: RoleEligibilityScheduleName::new(Uuid::nil()),
         });
-        let id: RoleEligibilityScheduleId =
-            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let json = facet_json::to_string(&expanded)?;
+        assert_eq!(json, facet_json::to_string(&expanded.expanded_form())?);
+        let id: RoleEligibilityScheduleId = facet_json::from_str(json.as_str())?;
         assert_eq!(id, expanded);
         Ok(())
     }
@@ -248,8 +226,9 @@ mod tests {
                 ),
                 name: RoleEligibilityScheduleName::new(Uuid::new_v4()),
             });
-        let id: RoleEligibilityScheduleId =
-            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let json = facet_json::to_string(&expanded)?;
+        assert_eq!(json, facet_json::to_string(&expanded.expanded_form())?);
+        let id: RoleEligibilityScheduleId = facet_json::from_str(json.as_str())?;
         assert_eq!(id, expanded);
         Ok(())
     }

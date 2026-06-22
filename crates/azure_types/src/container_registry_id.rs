@@ -11,19 +11,17 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
 pub const CONTAINER_REGISTRY_ID_PREFIX: &str = "/providers/Microsoft.ContainerRegistry/registries/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ContainerRegistryId {
     pub resource_group_id: ResourceGroupId,
     pub container_registry_name: ContainerRegistryName,
 }
+crate::impl_facet_string_proxy!(ContainerRegistryId, value => value.expanded_form());
 impl ContainerRegistryId {
     pub fn new(
         resource_group_id: impl Into<ResourceGroupId>,
@@ -129,27 +127,6 @@ impl FromStr for ContainerRegistryId {
     }
 }
 
-impl Serialize for ContainerRegistryId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for ContainerRegistryId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = ContainerRegistryId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::ContainerRegistryId;
@@ -187,6 +164,12 @@ mod test {
             )?,
             ContainerRegistryName::try_new("aaaaa")?,
         );
+        let id = ContainerRegistryId::try_from_expanded(
+            "/subscriptions/6998ecdd-44d1-43f9-bb47-49e77cbd5d28/resourceGroups/myRg/providers/Microsoft.ContainerRegistry/registries/myregistry",
+        )?;
+        let json = facet_json::to_string(&id.expanded_form())?;
+        assert_eq!(facet_json::to_string(&id)?, json);
+        assert_eq!(facet_json::from_str::<ContainerRegistryId>(&json)?, id);
         Ok(())
     }
 }

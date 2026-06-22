@@ -40,14 +40,7 @@ use compact_str::ToCompactString;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-use serde::de::Visitor;
-use serde::de::{self};
 use std::convert::Infallible;
-use std::fmt;
 use std::str::FromStr;
 
 pub trait Scope: Sized + FromStr {
@@ -173,9 +166,9 @@ pub fn get_provider_and_resource_type_and_resource_and_remaining(
         ["/providers/".len()..provider.len() + resource_type.len() + "/providers/".len() + 1];
     let resource_type = ResourceType::from_str(provider_and_resource_type)?;
     // my-vault/providers/Microsoft.Authorization/roleAssignments/0000
-    let (resource, remaining) = remaining
-        .split_once('/')
-        .wrap_err("Missing resource name")?;
+    let Some((resource, remaining)) = remaining.split_once('/') else {
+        return Ok((resource_type, remaining, ""));
+    };
     // providers/Microsoft.Authorization/roleAssignments/0000
     let remaining = &expanded[expanded.len() - remaining.len() - 1..];
     // /providers/Microsoft.Authorization/roleAssignments/0000
@@ -694,7 +687,9 @@ pub enum ScopeImplKind {
     Unknown,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum ScopeImpl {
     ManagementGroup(ManagementGroupId),
     PolicyDefinition(PolicyDefinitionId),
@@ -726,6 +721,7 @@ pub enum ScopeImpl {
     AzurePublicIpResource(AzurePublicIpResourceId),
     Unknown(CompactString),
 }
+crate::impl_facet_string_proxy_serialize!(ScopeImpl, value => value.expanded_form());
 impl Scope for ScopeImpl {
     type Err = Infallible;
     fn expanded_form(&self) -> String {
@@ -1033,41 +1029,6 @@ where
     }
 }
 
-impl Serialize for ScopeImpl {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-struct ScopeImplVisitor;
-
-impl<'de> Visitor<'de> for ScopeImplVisitor {
-    type Value = ScopeImpl;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a string representing an azure scope")
-    }
-
-    fn visit_str<E>(self, value: &str) -> Result<ScopeImpl, E>
-    where
-        E: de::Error,
-    {
-        ScopeImpl::try_from_expanded(value).map_err(|e| E::custom(format!("{e:#?}")))
-    }
-}
-
-impl<'de> Deserialize<'de> for ScopeImpl {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(ScopeImplVisitor)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1078,14 +1039,20 @@ mod tests {
     fn it_works() -> eyre::Result<()> {
         let scope = ScopeImpl::TestResource(TestResourceId::new("bruh"));
         let expected = format!("{:?}", scope.expanded_form());
-        assert_eq!(serde_json::to_string(&scope)?, expected);
+        assert_eq!(facet_json::to_string(&scope)?, expected);
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&scope)?;
+        let json = facet_json::to_string(&scope)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<ScopeImpl>(&json)?;
         Ok(())
     }
     #[test]
     fn it_works2() -> eyre::Result<()> {
         let scope = ScopeImpl::Subscription(SubscriptionId::new(Uuid::nil()));
         let expected = format!("{:?}", scope.expanded_form());
-        assert_eq!(serde_json::to_string(&scope)?, expected);
+        assert_eq!(facet_json::to_string(&scope)?, expected);
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&scope)?;
+        let json = facet_json::to_string(&scope)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<ScopeImpl>(&json)?;
         Ok(())
     }
     #[test]

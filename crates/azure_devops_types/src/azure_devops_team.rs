@@ -4,13 +4,12 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureDevOpsTeamId(Uuid);
 impl std::fmt::Display for AzureDevOpsTeamId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -31,6 +30,21 @@ impl AzureDevOpsTeamId {
         AzureDevOpsTeamId(uuid)
     }
 }
+
+impl From<&AzureDevOpsTeamId> for String {
+    fn from(value: &AzureDevOpsTeamId) -> Self {
+        value.to_string()
+    }
+}
+
+impl TryFrom<String> for AzureDevOpsTeamId {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
 impl FromStr for AzureDevOpsTeamId {
     type Err = eyre::Error;
 
@@ -40,16 +54,14 @@ impl FromStr for AzureDevOpsTeamId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTeam {
     pub description: String,
     pub id: AzureDevOpsTeamId,
-    #[serde(rename = "identityUrl")]
     pub identity_url: String,
     pub name: String,
-    #[serde(rename = "projectId")]
     pub project_id: AzureDevOpsProjectId,
-    #[serde(rename = "projectName")]
     pub project_name: String,
     pub url: String,
 }

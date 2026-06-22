@@ -1,43 +1,42 @@
 use crate::GiteaInstanceUrl;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
+use facet::Facet;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 pub struct GiteaLogin {
     pub name: String,
     pub url: GiteaInstanceUrl,
-    #[serde(default)]
+    #[facet(default)]
     pub ssh_host: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub user: Option<String>,
-    #[serde(
-        rename = "default",
-        default,
-        deserialize_with = "deserialize_default_flag"
-    )]
+    #[facet(rename = "default", default, proxy = DefaultFlagProxy)]
     pub is_default: bool,
 }
 
-fn deserialize_default_flag<'de, D>(deserializer: D) -> Result<bool, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum RawFlag {
-        Bool(bool),
-        String(String),
-        Integer(i64),
-    }
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
+#[facet(untagged)]
+#[repr(C)]
+enum DefaultFlagProxy {
+    Bool(bool),
+    String(String),
+    Integer(i64),
+}
 
-    let raw = RawFlag::deserialize(deserializer)?;
-    Ok(match raw {
-        RawFlag::Bool(value) => value,
-        RawFlag::String(value) => matches!(
-            value.trim().to_ascii_lowercase().as_str(),
-            "true" | "1" | "yes"
-        ),
-        RawFlag::Integer(value) => value != 0,
-    })
+impl From<DefaultFlagProxy> for bool {
+    fn from(value: DefaultFlagProxy) -> Self {
+        match value {
+            DefaultFlagProxy::Bool(value) => value,
+            DefaultFlagProxy::String(value) => matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "true" | "1" | "yes"
+            ),
+            DefaultFlagProxy::Integer(value) => value != 0,
+        }
+    }
+}
+
+impl From<&bool> for DefaultFlagProxy {
+    fn from(value: &bool) -> Self {
+        Self::Bool(*value)
+    }
 }

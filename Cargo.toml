@@ -25,7 +25,7 @@ categories = [
 [workspace.dependencies]
 anyhow = "1.0.82"
 itertools = "0.14.0"
-serde = { version = "1.0.197", features = ["derive"] }
+serde = "1.0.197"
 serde_json = "1.0.116"
 tokio = { version = "1.44.2", features = ["full"] }
 tempfile = "3.10.1"
@@ -35,21 +35,21 @@ indoc = "2.0.5"
 hcl-rs = "0.19.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
-indexmap = { version = "2.2.6", features = ["serde"] }
-ordermap = { version = "0.5.0", features = ["serde"] } # ordered map cares abour equality for comparison?
+indexmap = "2.2.6"
+ordermap = "0.5.0" # ordered map cares abour equality for comparison?
 hcl-primitives = "0.1.5"
-uuid = { version = "1.8.0", features = ["serde", "v4", "arbitrary"] }
-chrono = { version = "0.4.38", features = ["serde", "arbitrary"] }
+uuid = { version = "1.8.0", features = ["v4", "arbitrary"] }
+chrono = { version = "0.4.38", features = ["arbitrary"] }
 rand = "0.10.1"
 teamy-mft = "0.7.1"
 test-log = { version = "0.2.16", features = ["trace"] }
 clap = { version = "4.5.9", features = ["derive", "string"] }
-iso8601-duration = { version = "0.2.0", features = ["serde", "chrono"] }
+iso8601-duration = { version = "0.2.0", features = ["chrono"] }
 humantime = "2.1.0"
 directories-next = "2.0.0"
 ratatui = "0.30.1"
 opener = "0.8.3"
-emath = { version = "0.33.0", features = ["serde"] }
+emath = "0.33.0"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures = "0.3.31"
 strum = { version = "0.27.2", features = ["derive"] }
@@ -63,7 +63,7 @@ syn = { version = "2.0.106", default-features = false, features = [
 ] }
 eyre = "0.6.12"
 color-eyre = "0.6.3"
-bstr = { version = "1.11.3", features = ["serde"] }
+bstr = "1.11.3"
 reqwest = { version = "0.12.22", features = ["json"] }
 base64 = "0.22.1"
 async-trait = "0.1.88"
@@ -71,7 +71,7 @@ compact_str = { version = "0.9.0", features = ["arbitrary"] }
 regex = "1.11.1"
 arbitrary = { version = "1.4.1", features = ["derive"] }
 unicode_categories = "0.1.1"
-ipnetwork = { version = "0.21.1", features = ["serde"] }
+ipnetwork = "0.21.1"
 nucleo = "0.5.0"
 tui-textarea = { version = "0.7.0", path = "./vendor/tui-textarea" }
 rustc-hash = "2.1.1"
@@ -88,6 +88,12 @@ eframe = { version = "0.33.0", features = ["persistence"] }
 egui_extras = { version = "0.33.0", features = ["default", "image"] }
 egui-toast = "0.19.1"
 egui_tiles = "0.14.1"
+facet = {version="=0.46.5",features=["uuid","compact_str","chrono"]}
+facet-csv = "=0.46.1"
+facet-json = "=0.46.1"
+facet-pretty = "=0.46.5"
+facet-value = "=0.46.0"
+figue = { package = "teamy-figue", version = "=5.1.0", features = ["arbitrary"] }
 
 [workspace.dependencies.cloud_terrastodon_pathing]
 version = "0.36.0"        # CT_VERSION

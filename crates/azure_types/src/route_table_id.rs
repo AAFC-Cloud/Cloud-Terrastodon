@@ -10,18 +10,16 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 pub const ROUTE_TABLE_ID_PREFIX: &str = "/providers/Microsoft.Network/routeTables/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct RouteTableId {
     pub resource_group_id: ResourceGroupId,
     pub route_table_name: RouteTableName,
 }
+crate::impl_facet_string_proxy!(RouteTableId, value => value.expanded_form());
 
 impl RouteTableId {
     pub fn new(
@@ -131,25 +129,6 @@ impl FromStr for RouteTableId {
     }
 }
 
-impl Serialize for RouteTableId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.expanded_form().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for RouteTableId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        Self::try_from_expanded(&s).map_err(serde::de::Error::custom)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -163,11 +142,11 @@ mod test {
         let rg_id = ResourceGroupId::new(sub_id, ResourceGroupName::try_new("test-rg").unwrap());
         let rt_id = RouteTableId::try_new(rg_id, "test-route-table")?;
 
-        let serialized = serde_json::to_string(&rt_id)?;
         let expected_str = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.Network/routeTables/test-route-table".to_string();
-        assert_eq!(serialized, serde_json::to_string(&expected_str)?);
+        let serialized = facet_json::to_string(&rt_id)?;
+        assert_eq!(serialized, facet_json::to_string(&expected_str)?);
 
-        let deserialized: RouteTableId = serde_json::from_str(&serialized)?;
+        let deserialized: RouteTableId = facet_json::from_str(&serialized)?;
         assert_eq!(rt_id, deserialized);
 
         Ok(())
@@ -184,6 +163,8 @@ mod test {
         let expanded = original_id.expanded_form();
         let parsed_id = RouteTableId::try_from_expanded(&expanded)?;
         assert_eq!(original_id, parsed_id);
+        let json = facet_json::to_string(&expanded)?;
+        assert_eq!(facet_json::from_str::<RouteTableId>(&json)?, original_id);
         Ok(())
     }
 

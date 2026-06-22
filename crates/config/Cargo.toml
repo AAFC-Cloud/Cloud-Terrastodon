@@ -16,8 +16,9 @@ eyre = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
-serde = { workspace = true }
 ordermap = { workspace = true }
-serde_json = { workspace = true }
 async-trait.workspace = true
-emath = { workspace = true, features = ["serde"] }
+emath = { workspace = true }
+facet = { workspace = true }
+facet-json = { workspace = true }
+facet-value = { workspace = true }

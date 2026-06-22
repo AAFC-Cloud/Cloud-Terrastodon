@@ -41,7 +41,7 @@ pub async fn fetch_metrics(
         "Fetching metrics for {} resources",
         batch_request.requests.len()
     );
-    let resp = batch_request.invoke::<serde_json::Value>().await?;
+    let resp = batch_request.invoke::<facet_json::RawJson<'static>>().await?;
     // dbg!(resp);
     let dir = AppDir::Temp.as_path_buf();
     let (file, file_path) = Builder::new()
@@ -50,7 +50,8 @@ pub async fn fetch_metrics(
         .tempfile_in(dir)?
         .keep()?;
     let mut file = tokio::fs::File::from_std(file);
-    file.write_all(serde_json::to_string_pretty(&resp)?.as_bytes())
+    let json = facet_json::to_string_pretty(&resp).map_err(|error| eyre::eyre!("{error:?}"))?;
+    file.write_all(json.as_bytes())
         .await?;
     println!("Dumped info for previewing to {}", file_path.display());
 

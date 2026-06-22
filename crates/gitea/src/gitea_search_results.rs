@@ -1,11 +1,9 @@
-use serde::Deserialize;
-use serde::Serialize;
+use facet::Facet;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(bound(serialize = "T: Serialize", deserialize = "T: Deserialize<'de>"))]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 pub struct GiteaSearchResults<T> {
-    #[serde(default)]
+    #[facet(default)]
     pub data: Vec<T>,
-    #[serde(default)]
+    #[facet(default)]
     pub ok: bool,
 }

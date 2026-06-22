@@ -11,19 +11,17 @@ use arbitrary::Arbitrary;
 use compact_str::ToCompactString;
 use eyre::Context;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
 pub const VIRTUAL_MACHINE_ID_PREFIX: &str = "/providers/Microsoft.Compute/virtualMachines/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct VirtualMachineId {
     pub resource_group_id: ResourceGroupId,
     pub vm_name: VirtualMachineName,
 }
+crate::impl_facet_string_proxy!(VirtualMachineId, value => value.expanded_form());
 impl core::fmt::Display for VirtualMachineId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
@@ -136,25 +134,6 @@ impl FromStr for VirtualMachineId {
     }
 }
 
-impl Serialize for VirtualMachineId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.expanded_form().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for VirtualMachineId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        Self::try_from_expanded(&s).map_err(serde::de::Error::custom)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -168,11 +147,11 @@ mod test {
         let rg_id = ResourceGroupId::new(sub_id, ResourceGroupName::try_new("test-rg").unwrap());
         let vm_id = VirtualMachineId::try_new(rg_id, "test-vm")?;
 
-        let serialized = serde_json::to_string(&vm_id)?;
         let expected_str = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/test-vm".to_string();
-        assert_eq!(serialized, serde_json::to_string(&expected_str)?);
+        let serialized = facet_json::to_string(&vm_id)?;
+        assert_eq!(serialized, facet_json::to_string(&expected_str)?);
 
-        let deserialized: VirtualMachineId = serde_json::from_str(&serialized)?;
+        let deserialized: VirtualMachineId = facet_json::from_str(&serialized)?;
         assert_eq!(vm_id, deserialized);
         Ok(())
     }

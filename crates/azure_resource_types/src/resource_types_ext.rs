@@ -18,3 +18,17 @@ impl std::fmt::Display for ResourceType {
         write!(f, "{}", self.as_ref())
     }
 }
+
+impl From<&ResourceType> for String {
+    fn from(value: &ResourceType) -> Self {
+        value.as_ref().to_string()
+    }
+}
+
+impl TryFrom<String> for ResourceType {
+    type Error = <ResourceType as std::str::FromStr>::Err;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}

@@ -2,24 +2,22 @@ use crate::StorageAccountId;
 use crate::StorageAccountName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use crate::serde_helpers::deserialize_default_if_null;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
 pub struct StorageAccountSKU {
     name: String,
     tier: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[repr(C)]
 pub enum StorageAccountKind {
     BlockBlobStorage,
     BlobStorage,
@@ -27,16 +25,15 @@ pub enum StorageAccountKind {
     StorageV2,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
 pub struct StorageAccount {
     pub id: StorageAccountId,
     pub name: StorageAccountName,
     pub kind: StorageAccountKind,
     pub location: String,
     pub sku: StorageAccountSKU,
-    pub properties: Value,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    pub properties: RawJson<'static>,
+    #[facet(default)]
     pub tags: HashMap<String, String>,
 }
 
@@ -89,8 +86,7 @@ mod tests {
             ),
             storage_account_name: StorageAccountName::try_new("bruh")?,
         };
-        let id: StorageAccountId =
-            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let id: StorageAccountId = facet_json::from_str(&facet_json::to_string(&expanded)?)?;
         assert_eq!(id, expanded);
         Ok(())
     }

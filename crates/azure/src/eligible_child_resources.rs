@@ -10,7 +10,6 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use serde::Deserialize;
 use std::path::PathBuf;
 
 #[derive(Eq, PartialEq, Debug, Default)]
@@ -39,7 +38,7 @@ pub async fn fetch_eligible_child_resources(
         .filter(|x| !x.is_empty())
         .for_each(|x| cache_chunks.push(x));
 
-    #[derive(Deserialize)]
+    #[derive(facet::Facet)]
     struct Response {
         value: Vec<EligibleChildResource>,
     }

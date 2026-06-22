@@ -1,31 +1,31 @@
 use crate::AddressPrefix;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct RouteTableProperties {
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<Route>)]
     pub routes: Vec<Route>,
-    #[serde(default = "Vec::new")]
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<SubnetReference>)]
     pub subnets: Vec<SubnetReference>,
     pub resource_guid: String,
     pub provisioning_state: String,
+    #[facet(default)]
     pub disable_bgp_route_propagation: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct Route {
     pub id: String,
     pub name: String,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub resource_type: String,
     pub etag: String,
     pub properties: RouteProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct RouteProperties {
     pub address_prefix: AddressPrefix,
     pub next_hop_type: NextHopType,
@@ -34,21 +34,23 @@ pub struct RouteProperties {
     pub has_bgp_override: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[repr(C)]
 pub enum NextHopType {
-    #[serde(rename = "VirtualNetworkGateway")]
+    #[facet(rename = "VirtualNetworkGateway")]
     VirtualNetworkGateway,
-    #[serde(rename = "VnetLocal")]
+    #[facet(rename = "VnetLocal")]
     VnetLocal,
-    #[serde(rename = "Internet")]
+    #[facet(rename = "Internet")]
     Internet,
-    #[serde(rename = "VirtualAppliance")]
+    #[facet(rename = "VirtualAppliance")]
     VirtualAppliance,
-    #[serde(rename = "None")]
+    #[facet(rename = "None")]
     None,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct SubnetReference {
+    #[facet(default)]
     pub id: Option<String>,
 }

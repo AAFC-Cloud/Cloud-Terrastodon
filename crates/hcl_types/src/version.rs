@@ -124,7 +124,8 @@ impl ProviderVersionConstraint {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(opaque, proxy = String)]
 pub struct SemVer {
     pub major: u64,
     pub minor: Option<u64>,
@@ -196,22 +197,17 @@ impl FromStr for SemVer {
     }
 }
 
-impl serde::Serialize for SemVer {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.to_string().serialize(serializer)
+impl TryFrom<String> for SemVer {
+    type Error = eyre::ErrReport;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for SemVer {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <String as serde::Deserialize>::deserialize(deserializer)?;
-        Self::from_str(&value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
+impl From<&SemVer> for String {
+    fn from(value: &SemVer) -> Self {
+        value.to_string()
     }
 }
 

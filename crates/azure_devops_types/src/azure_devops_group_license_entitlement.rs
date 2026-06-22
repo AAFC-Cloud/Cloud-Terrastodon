@@ -2,29 +2,27 @@ use crate::AzureDevOpsDescriptor;
 use crate::AzureDevOpsLicenseRule;
 use chrono::DateTime;
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupLicenseEntitlement {
-    pub extension_rules: Vec<Value>,
+    pub extension_rules: Vec<RawJson<'static>>,
     pub group: AzureDevOpsGroupLicenseEntitlementGroupReference,
     pub id: Uuid,
     pub last_executed: DateTime<Utc>,
     pub license_rule: AzureDevOpsLicenseRule,
-    pub members: Option<Value>,
-    pub project_entitlements: Vec<Value>,
+    pub members: Option<RawJson<'static>>,
+    pub project_entitlements: Vec<RawJson<'static>>,
     pub status: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupLicenseEntitlementGroupReference {
-    #[serde(rename = "_links")]
-    pub links: Value,
+    #[facet(rename = "_links")]
+    pub links: RawJson<'static>,
     pub description: String,
     pub descriptor: AzureDevOpsDescriptor,
     pub display_name: String,

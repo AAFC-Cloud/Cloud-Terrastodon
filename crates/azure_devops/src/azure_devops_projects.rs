@@ -5,8 +5,6 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Serialize;
 use std::path::PathBuf;
 use tracing::debug;
 use tracing::field::debug;
@@ -49,9 +47,9 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
         ]);
         cmd.cache(self.cache_key());
 
-        #[derive(Serialize, Deserialize)]
+        #[derive(facet::Facet)]
         pub struct Response {
-            #[serde(rename = "continuationToken")]
+            #[facet(rename = "continuationToken")]
             continuation_token: Option<String>,
             value: Vec<AzureDevOpsProject>,
         }

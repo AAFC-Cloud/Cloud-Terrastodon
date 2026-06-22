@@ -1,118 +1,120 @@
 use crate::AzureCognitiveServicesAccountDeploymentId;
 use crate::AzureCognitiveServicesAccountDeploymentName;
-use crate::serde_helpers::deserialize_default_if_null;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountDeployment {
     pub id: AzureCognitiveServicesAccountDeploymentId,
     pub name: AzureCognitiveServicesAccountDeploymentName,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub resource_type: String,
-    #[serde(default)]
+    #[facet(default)]
     pub sku: Option<AzureCognitiveServicesAccountDeploymentSku>,
     pub properties: AzureCognitiveServicesAccountDeploymentProperties,
-    #[serde(default)]
+    #[facet(default)]
     pub system_data: Option<AzureCognitiveServicesSystemData>,
-    #[serde(default)]
+    #[facet(default)]
     pub etag: Option<String>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountDeploymentSku {
     pub name: String,
-    #[serde(default)]
+    #[facet(default)]
     pub capacity: Option<i32>,
-    #[serde(default)]
+    #[facet(default)]
     pub tier: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub family: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub size: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountDeploymentProperties {
-    #[serde(default)]
+    #[facet(default)]
     pub model: Option<AzureCognitiveServicesAccountDeploymentModel>,
-    #[serde(default)]
+    #[facet(default)]
     pub version_upgrade_option: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub current_capacity: Option<i32>,
-    #[serde(default)]
+    #[facet(default)]
     pub provisioning_state: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub rai_policy_name: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub parent_deployment_name: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub dynamic_throttling_enabled: Option<bool>,
-    #[serde(default)]
+    #[facet(default)]
     pub service_tier: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub spillover_deployment_name: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub capabilities: Option<HashMap<String, String>>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AzureCognitiveServicesAccountDeploymentRateLimit>
+    )]
     pub rate_limits: Vec<AzureCognitiveServicesAccountDeploymentRateLimit>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct AzureCognitiveServicesAccountDeploymentModel {
-    #[serde(default)]
+    #[facet(default)]
     pub format: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub name: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub version: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub publisher: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub source: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub source_account: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountDeploymentRateLimit {
-    #[serde(default)]
+    #[facet(default)]
     pub key: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub renewal_period: Option<u64>,
-    #[serde(default)]
+    #[facet(default)]
     pub count: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesSystemData {
-    #[serde(default)]
+    #[facet(default)]
     pub created_by: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub created_by_type: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub created_at: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub last_modified_by: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub last_modified_by_type: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub last_modified_at: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct AzureCognitiveServicesAccountDeploymentListResult {
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AzureCognitiveServicesAccountDeployment>
+    )]
     pub value: Vec<AzureCognitiveServicesAccountDeployment>,
 }

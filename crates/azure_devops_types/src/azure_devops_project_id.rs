@@ -1,10 +1,9 @@
-use serde::Deserialize;
-use serde::Serialize;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureDevOpsProjectId(Uuid);
 impl std::fmt::Display for AzureDevOpsProjectId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -24,6 +23,21 @@ impl AzureDevOpsProjectId {
         AzureDevOpsProjectId(uuid)
     }
 }
+
+impl From<&AzureDevOpsProjectId> for String {
+    fn from(value: &AzureDevOpsProjectId) -> Self {
+        value.to_string()
+    }
+}
+
+impl TryFrom<String> for AzureDevOpsProjectId {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
 impl FromStr for AzureDevOpsProjectId {
     type Err = eyre::Error;
 

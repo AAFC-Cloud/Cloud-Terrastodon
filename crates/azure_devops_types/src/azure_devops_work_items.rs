@@ -1,19 +1,19 @@
 use chrono::DateTime;
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
 
 /// The result type of a query.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
+#[repr(C)]
 pub enum QueryResultType {
     WorkItem,
     WorkItemLink,
 }
 
 /// The type of query.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
+#[repr(C)]
 pub enum QueryType {
     Flat,
     OneHop,
@@ -21,8 +21,8 @@ pub enum QueryType {
 }
 
 /// Reference to a field in a work item.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct WorkItemFieldReference {
     /// The reference name of the field.
     pub reference_name: String,
@@ -33,7 +33,7 @@ pub struct WorkItemFieldReference {
 }
 
 /// Contains reference to a work item.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
 pub struct WorkItemReference {
     /// Work item ID.
     pub id: i32,
@@ -42,8 +42,8 @@ pub struct WorkItemReference {
 }
 
 /// A sort column.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct WorkItemQuerySortColumn {
     /// The direction to sort by.
     pub descending: bool,
@@ -52,14 +52,14 @@ pub struct WorkItemQuerySortColumn {
 }
 
 /// A link between two work items.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct WorkItemLink {
     /// The type of link (optional).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[facet(skip_serializing_if = Option::is_none)]
     pub rel: Option<String>,
     /// The source work item (optional).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[facet(skip_serializing_if = Option::is_none)]
     pub source: Option<WorkItemReference>,
     /// The target work item.
     pub target: WorkItemReference,
@@ -68,8 +68,8 @@ pub struct WorkItemLink {
 /// The result of a work item query.
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-id?view=azure-devops-rest-7.1
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1&tabs=HTTP#workitemqueryresult
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct WorkItemQueryResult {
     /// The date the query was run in the context of.
     pub as_of: DateTime<Utc>,

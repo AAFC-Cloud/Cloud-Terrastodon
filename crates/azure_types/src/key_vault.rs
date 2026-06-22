@@ -3,24 +3,20 @@ use crate::KeyVaultName;
 use crate::KeyVaultProperties;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use crate::serde_helpers::deserialize_default_if_null;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct KeyVault {
     pub id: KeyVaultId,
     pub name: KeyVaultName,
     pub location: String,
     pub properties: KeyVaultProperties,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default)]
     pub tags: HashMap<String, String>,
 }
 
@@ -73,7 +69,7 @@ mod tests {
             ),
             key_vault_name: KeyVaultName::try_new("bruh")?,
         };
-        let id: KeyVaultId = serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let id: KeyVaultId = facet_json::from_str(&facet_json::to_string(&expanded)?)?;
         assert_eq!(id, expanded);
         Ok(())
     }

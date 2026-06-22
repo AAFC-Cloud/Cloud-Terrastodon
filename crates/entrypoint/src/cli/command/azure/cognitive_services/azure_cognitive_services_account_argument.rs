@@ -184,20 +184,24 @@ mod tests {
 
     fn sample_account() -> AzureCognitiveServicesAccountResource {
         // todo: replace with Arbitrary trait usage
-        serde_json::from_value(serde_json::json!({
-            "id": "/subscriptions/fe120e1b-a5bf-4e2d-8b00-66a68aabe412/resourceGroups/my-resource-group/providers/Microsoft.CognitiveServices/accounts/my-openai",
-            "tenantId": "fe120e1b-a5bf-4e2d-8b00-66a68aabe412",
-            "name": "my-openai",
-            "kind": "OpenAI",
-            "location": "canadaeast",
-            "tags": {},
-            "properties": {
-                "provisioningState": "Succeeded",
-                "capabilities": [],
-                "endpoints": {},
-                "associatedProjects": []
+        facet_json::from_str(
+            r#"
+            {
+                "id": "/subscriptions/fe120e1b-a5bf-4e2d-8b00-66a68aabe412/resourceGroups/my-resource-group/providers/Microsoft.CognitiveServices/accounts/my-openai",
+                "tenantId": "fe120e1b-a5bf-4e2d-8b00-66a68aabe412",
+                "name": "my-openai",
+                "kind": "OpenAI",
+                "location": "canadaeast",
+                "tags": {},
+                "properties": {
+                    "provisioningState": "Succeeded",
+                    "capabilities": [],
+                    "endpoints": {},
+                    "associatedProjects": []
+                }
             }
-        }))
+            "#,
+        )
         .unwrap()
     }
 

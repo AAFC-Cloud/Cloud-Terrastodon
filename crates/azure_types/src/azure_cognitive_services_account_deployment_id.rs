@@ -4,19 +4,17 @@ use crate::scopes::Scope;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
 pub const AZURE_COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENT_ID_SEGMENT: &str = "/deployments/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureCognitiveServicesAccountDeploymentId {
     pub account_id: AzureCognitiveServicesAccountResourceId,
     pub deployment_name: AzureCognitiveServicesAccountDeploymentName,
 }
+crate::impl_facet_string_proxy!(AzureCognitiveServicesAccountDeploymentId, value => value.expanded_form());
 
 impl AzureCognitiveServicesAccountDeploymentId {
     pub fn new(
@@ -75,27 +73,6 @@ impl FromStr for AzureCognitiveServicesAccountDeploymentId {
     }
 }
 
-impl Serialize for AzureCognitiveServicesAccountDeploymentId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for AzureCognitiveServicesAccountDeploymentId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        expanded
-            .parse()
-            .map_err(|e: eyre::Error| serde::de::Error::custom(format!("{e:?}")))
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::AzureCognitiveServicesAccountDeploymentId;
@@ -112,6 +89,12 @@ mod test {
             "my-openai"
         );
         assert_eq!(id.deployment_name.to_string(), "gpt-4.1");
+        let json = facet_json::to_string(&expanded)?;
+        assert_eq!(facet_json::to_string(&id)?, json);
+        assert_eq!(
+            facet_json::from_str::<AzureCognitiveServicesAccountDeploymentId>(&json)?,
+            id
+        );
         Ok(())
     }
 }

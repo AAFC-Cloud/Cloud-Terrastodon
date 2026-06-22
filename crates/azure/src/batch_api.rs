@@ -7,16 +7,15 @@ use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use eyre::ensure;
+use facet::Facet;
 use http::Method;
 use itertools::Itertools;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::future::Future;
 use std::panic::Location;
 use tracing::debug;
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct BatchRequest<T> {
     pub requests: Vec<BatchRequestEntry<T>>,
 }
@@ -29,18 +28,13 @@ where
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Default, Clone, facet::Facet)]
 struct BatchRequestUpstream<T> {
     requests: Vec<BatchRequestEntryUpstream<T>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct BatchRequestEntry<T> {
-    #[serde(
-        rename = "httpMethod",
-        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_using_from_str",
-        serialize_with = "cloud_terrastodon_azure_types::serde_helpers::serialize_using_asref_str"
-    )]
     pub http_method: Method,
     pub tenant_id: AzureTenantId,
     pub name: Uuid,
@@ -48,17 +42,31 @@ pub struct BatchRequestEntry<T> {
     pub content: Option<T>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
 struct BatchRequestEntryUpstream<T> {
-    #[serde(
-        rename = "httpMethod",
-        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_using_from_str",
-        serialize_with = "cloud_terrastodon_azure_types::serde_helpers::serialize_using_asref_str"
-    )]
+    #[facet(rename = "httpMethod", opaque, proxy = HttpMethodProxy)]
     pub http_method: Method,
     pub name: Uuid,
     pub url: String,
     pub content: Option<T>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(transparent)]
+struct HttpMethodProxy(String);
+
+impl TryFrom<HttpMethodProxy> for Method {
+    type Error = http::method::InvalidMethod;
+
+    fn try_from(value: HttpMethodProxy) -> Result<Self, Self::Error> {
+        Method::from_bytes(value.0.as_bytes())
+    }
+}
+
+impl From<&Method> for HttpMethodProxy {
+    fn from(value: &Method) -> Self {
+        Self(value.as_str().to_string())
+    }
 }
 
 impl<T: Clone> From<&BatchRequestEntry<T>> for BatchRequestEntryUpstream<T> {
@@ -100,18 +108,18 @@ impl<T> BatchRequestEntry<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
 pub struct BatchResponse<T> {
     pub responses: Vec<BatchResponseEntry<T>>,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
 pub struct BatchResponseEntry<T> {
     pub name: Uuid,
-    #[serde(rename = "httpStatusCode")]
+    #[facet(rename = "httpStatusCode")]
     pub http_status_code: u16,
     pub headers: HashMap<String, String>,
     pub content: T,
-    #[serde(rename = "contentLength")]
+    #[facet(rename = "contentLength")]
     pub content_length: u64,
 }
 
@@ -120,7 +128,7 @@ pub fn invoke_batch_request<REQ, RESP>(
     request: &BatchRequest<REQ>,
 ) -> impl Future<Output = Result<BatchResponse<RESP>>> + '_
 where
-    REQ: Serialize + Clone,
+    REQ: Facet<'static> + Clone,
     RESP: FromCommandOutput,
 {
     invoke_batch_request_from(request, Location::caller())
@@ -131,7 +139,7 @@ async fn invoke_batch_request_from<REQ, RESP>(
     caller: &'static Location<'static>,
 ) -> Result<BatchResponse<RESP>>
 where
-    REQ: Serialize + Clone,
+    REQ: Facet<'static> + Clone,
     RESP: FromCommandOutput,
 {
     let result: Result<BatchResponse<RESP>> = async {
@@ -162,12 +170,13 @@ where
         let num_chunks = chunks.len();
         for (i, chunk) in chunks.enumerate() {
             let request = RestRequest::new(Method::POST, url)?.tenant(tenant_id).body(
-                serde_json::to_string_pretty(&BatchRequestUpstream {
+                facet_json::to_string_pretty(&BatchRequestUpstream {
                     requests: chunk
                         .iter()
                         .map(BatchRequestEntryUpstream::from)
                         .collect_vec(),
-                })?,
+                })
+                .map_err(|error| eyre::eyre!("{error:?}"))?,
             );
 
             debug!(
@@ -206,7 +215,7 @@ where
 }
 impl<T> BatchRequest<T>
 where
-    T: Serialize + Clone,
+    T: Facet<'static> + Clone,
 {
     #[track_caller]
     pub fn invoke<RESP>(&self) -> impl Future<Output = eyre::Result<BatchResponse<RESP>>> + '_

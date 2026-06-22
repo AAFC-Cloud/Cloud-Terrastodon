@@ -7,10 +7,12 @@ use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ContainerRegistryName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy!(ContainerRegistryName, value => value.to_string());
 impl Slug for ContainerRegistryName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = name.into();
@@ -80,24 +82,6 @@ impl TryFrom<&str> for ContainerRegistryName {
 impl std::fmt::Display for ContainerRegistryName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
-    }
-}
-impl serde::Serialize for ContainerRegistryName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for ContainerRegistryName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for ContainerRegistryName {

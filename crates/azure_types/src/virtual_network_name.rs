@@ -12,10 +12,12 @@ use std::str::FromStr;
 // - Can contain letters, numbers, underscores, periods, and hyphens.
 // - Must start with a letter or number.
 // - Must end with a letter, number, or underscore.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct VirtualNetworkName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy!(VirtualNetworkName, value => value.to_string());
 
 impl Slug for VirtualNetworkName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -104,25 +106,6 @@ impl TryFrom<&str> for VirtualNetworkName {
 impl std::fmt::Display for VirtualNetworkName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
-    }
-}
-
-impl serde::Serialize for VirtualNetworkName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for VirtualNetworkName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = CompactString::deserialize(deserializer)?;
-        Self::try_new(s).map_err(serde::de::Error::custom)
     }
 }
 

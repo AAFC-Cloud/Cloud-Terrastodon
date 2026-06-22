@@ -1,18 +1,17 @@
-use serde::Deserialize;
-use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
+#[repr(C)]
 pub enum PimEntraRoleDefinitionKind {
     BuiltInRole,
     CustomRole,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct PimEntraRoleDefinition {
-    #[serde(rename = "displayName")]
+    #[facet(rename = "displayName")]
     pub display_name: String,
     pub id: Uuid,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: PimEntraRoleDefinitionKind,
 }

@@ -2,7 +2,7 @@ use clap::Args;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use eyre::Result;
-use serde_json::to_writer_pretty;
+use cloud_terrastodon_command::to_writer_pretty;
 use std::io::Write;
 use std::io::stdout;
 

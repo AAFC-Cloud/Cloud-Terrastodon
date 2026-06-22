@@ -4,16 +4,13 @@ use compact_str::CompactString;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
 /// Represents an Azure DevOps organization URL, which can be in either the
 /// modern dev.azure.com format or the legacy visualstudio.com format.
 /// Does NOT contain a trailing slash when expanded.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[facet(opaque, proxy = String)]
 pub struct AzureDevOpsOrganizationUrl {
     pub base_url: CompactString,
     pub organization_name: AzureDevOpsOrganizationName,
@@ -178,22 +175,9 @@ impl TryFrom<String> for AzureDevOpsOrganizationUrl {
     }
 }
 
-impl Serialize for AzureDevOpsOrganizationUrl {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for AzureDevOpsOrganizationUrl {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let url = String::deserialize(deserializer)?;
-        Self::from_str(&url).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
+impl From<&AzureDevOpsOrganizationUrl> for String {
+    fn from(value: &AzureDevOpsOrganizationUrl) -> Self {
+        value.expanded_form()
     }
 }
 
@@ -240,13 +224,13 @@ mod tests {
     #[test]
     fn test_roundtrip_serialization() -> Result<()> {
         let original_dev = AzureDevOpsOrganizationUrl::try_new_dev_azure_com("test-org")?;
-        let serialized = serde_json::to_string(&original_dev)?;
-        let deserialized: AzureDevOpsOrganizationUrl = serde_json::from_str(&serialized)?;
+        let serialized = facet_json::to_string(&original_dev)?;
+        let deserialized: AzureDevOpsOrganizationUrl = facet_json::from_str(&serialized)?;
         assert_eq!(original_dev, deserialized);
 
         let original_vs = AzureDevOpsOrganizationUrl::try_new_visual_studio_com("test-org")?;
-        let serialized = serde_json::to_string(&original_vs)?;
-        let deserialized: AzureDevOpsOrganizationUrl = serde_json::from_str(&serialized)?;
+        let serialized = facet_json::to_string(&original_vs)?;
+        let deserialized: AzureDevOpsOrganizationUrl = facet_json::from_str(&serialized)?;
         assert_eq!(original_vs, deserialized);
         Ok(())
     }

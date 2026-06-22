@@ -1,5 +1,26 @@
 # TODO
 
+## deny unknown
+
+serde to facet migration removed many
+
+```
+#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+```
+
+which should become
+
+```
+#[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
+```
+
+
+also introduced many `#[facet(opaque)]` fields which may not need be opaque
+
+`cloud_terrastodon_command::to_writer_pretty` to be replaced with facet-json usage
+
+## user search
+
 - make it not use ct rest / make people not need ct to use the template cli
 - make it lazy search for users
 

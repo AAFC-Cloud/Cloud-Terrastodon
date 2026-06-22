@@ -4,10 +4,12 @@ use compact_str::CompactString;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct MicrosoftGraphEntityId {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy_serialize!(MicrosoftGraphEntityId, value => value.to_string());
 
 impl MicrosoftGraphEntityId {
     pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -51,24 +53,6 @@ impl TryFrom<&String> for MicrosoftGraphEntityId {
 impl std::fmt::Display for MicrosoftGraphEntityId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
-    }
-}
-impl serde::Serialize for MicrosoftGraphEntityId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for MicrosoftGraphEntityId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for MicrosoftGraphEntityId {
@@ -173,6 +157,14 @@ mod test {
         // Leading/trailing spaces are allowed
         assert!(MicrosoftGraphEntityId::try_new(CompactString::from("  spaced  ")).is_ok());
 
+        Ok(())
+    }
+
+    #[test]
+    pub fn json_roundtrips() -> eyre::Result<()> {
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<MicrosoftGraphEntityId>(
+            "\"My Azure Subscription\"",
+        )?;
         Ok(())
     }
 

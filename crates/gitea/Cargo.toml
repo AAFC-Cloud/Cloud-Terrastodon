@@ -15,9 +15,9 @@ cloud_terrastodon_command.workspace = true
 cloud_terrastodon_pathing.workspace = true
 eyre.workspace = true
 tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-compact_str = { workspace = true, features = ["serde"] }
+facet.workspace = true
+facet-json.workspace = true
+compact_str.workspace = true
 chrono.workspace = true
 blake3.workspace = true
 tracing.workspace = true

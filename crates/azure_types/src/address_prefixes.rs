@@ -1,57 +1,66 @@
 use crate::AddressPrefix;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-use serde::de::{self};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(opaque, proxy = AddressPrefixesProxy)]
 pub struct AddressPrefixes {
     pub address_prefixes: Vec<AddressPrefix>,
 }
 
-impl Serialize for AddressPrefixes {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        use serde::ser::SerializeMap;
-        let mut map = serializer.serialize_map(Some(1))?;
-        let values: Vec<String> = self
-            .address_prefixes
-            .iter()
-            .map(|p| p.to_string())
-            .collect();
-        map.serialize_entry("addressPrefixes", &values)?;
-        map.end()
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+pub struct AddressPrefixesProxy {
+    #[facet(rename = "addressPrefix", default)]
+    single: Option<AddressPrefix>,
+    #[facet(
+        rename = "addressPrefixes",
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AddressPrefix>
+    )]
+    multiple: Vec<AddressPrefix>,
+}
+
+impl From<AddressPrefixesProxy> for AddressPrefixes {
+    fn from(value: AddressPrefixesProxy) -> Self {
+        let mut result = Vec::new();
+        if let Some(single) = value.single {
+            result.push(single);
+        }
+        result.extend(value.multiple);
+        AddressPrefixes {
+            address_prefixes: result,
+        }
     }
 }
 
-impl<'de> Deserialize<'de> for AddressPrefixes {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct PrefixesHelper {
-            #[serde(rename = "addressPrefix")]
-            single: Option<String>,
-            #[serde(rename = "addressPrefixes")]
-            multiple: Option<Vec<String>>,
+impl From<&AddressPrefixes> for AddressPrefixesProxy {
+    fn from(value: &AddressPrefixes) -> Self {
+        Self {
+            single: None,
+            multiple: value.address_prefixes.clone(),
         }
+    }
+}
 
-        let h = PrefixesHelper::deserialize(deserializer)?;
-        let mut result = Vec::new();
-        if let Some(s) = h.single {
-            result.push(s.parse().map_err(de::Error::custom)?);
-        }
-        if let Some(m) = h.multiple {
-            for prefix in m {
-                result.push(prefix.parse().map_err(de::Error::custom)?);
-            }
-        }
-        Ok(AddressPrefixes {
-            address_prefixes: result,
-        })
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_round_trips() -> eyre::Result<()> {
+        let prefixes = AddressPrefixes {
+            address_prefixes: vec!["10.0.0.0/24".parse()?, "AzureLoadBalancer".parse()?],
+        };
+        let json = facet_json::to_string(&prefixes)?;
+        let reparsed = facet_json::from_str::<AddressPrefixes>(&json)?;
+        assert_eq!(prefixes, reparsed);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_single_address_prefix_json() -> eyre::Result<()> {
+        let prefixes: AddressPrefixes =
+            facet_json::from_str(r#"{"addressPrefix":"10.0.0.0/24"}"#)?;
+        assert_eq!(prefixes.address_prefixes, vec!["10.0.0.0/24".parse()?]);
+        Ok(())
     }
 }

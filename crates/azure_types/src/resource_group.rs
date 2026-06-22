@@ -6,17 +6,14 @@ use crate::SubscriptionName;
 use crate::SubscriptionScoped;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use crate::serde_helpers::deserialize_default_if_null;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct ResourceGroup {
     pub id: ResourceGroupId,
     pub subscription_name: SubscriptionName,
@@ -25,8 +22,7 @@ pub struct ResourceGroup {
     pub managed_by: Option<String>,
     pub name: ResourceGroupName,
     pub properties: HashMap<String, String>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
 }
 
@@ -80,11 +76,40 @@ mod tests {
             ResourceGroupName::try_new("bruh")?,
         );
         let expanded = id.expanded_form();
-        let x: ResourceGroupId = serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+        let x: ResourceGroupId = facet_json::from_str(&facet_json::to_string(&expanded)?)?;
         assert_eq!(x, id);
         assert_eq!(x.expanded_form(), expanded);
         assert_eq!(x.to_string(), expanded);
 
+        Ok(())
+    }
+
+    #[test]
+    fn null_tags_default_to_empty_map() -> Result<()> {
+        let id = ResourceGroupId::new(
+            SubscriptionId::new(Uuid::nil()),
+            ResourceGroupName::try_new("bruh")?,
+        );
+        let json = format!(
+            r#"{{
+                "id": "{}",
+                "subscription_name": "Example Subscription",
+                "tenant_id": "00000000-0000-0000-0000-000000000000",
+                "location": "eastus",
+                "managed_by": null,
+                "name": "bruh",
+                "properties": {{}},
+                "tags": null
+            }}"#,
+            id.expanded_form()
+        );
+
+        let resource_group = facet_json::from_str::<ResourceGroup>(&json)?;
+        assert!(resource_group.tags.is_empty());
+        let reparsed = facet_json::from_str::<ResourceGroup>(&facet_json::to_string(
+            &resource_group,
+        )?)?;
+        assert_eq!(resource_group, reparsed);
         Ok(())
     }
 }

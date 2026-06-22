@@ -1,4 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::EntraGroup;
+use cloud_terrastodon_azure::Principal;
 use cloud_terrastodon_azure::PrincipalId;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::RoleDefinition;
@@ -14,8 +16,6 @@ use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::are_you_sure;
 use eyre::Result;
 use eyre::bail;
-use serde_json::Value;
-use serde_json::json;
 use std::collections::HashMap;
 use strum::VariantArray;
 use tokio::try_join;
@@ -26,6 +26,20 @@ enum SecurityGroupAction {
     FetchAndDisplayMembersAndOwners,
     FetchAndDisplayRoleAssignments,
     JustPrint,
+}
+
+#[derive(Debug, facet::Facet)]
+struct SecurityGroupBrowseRow {
+    group: EntraGroup,
+    owners: Option<Vec<Principal>>,
+    members: Option<Vec<Principal>>,
+    role_assignments: Option<Vec<SecurityGroupRoleAssignmentRow>>,
+}
+
+#[derive(Debug, facet::Facet)]
+struct SecurityGroupRoleAssignmentRow {
+    role_assignment: RoleAssignment,
+    role_definition: RoleDefinition,
 }
 
 pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
@@ -47,7 +61,7 @@ pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
 
     info!(
         "You chose:\n{}",
-        serde_json::to_string_pretty(&security_groups)?
+        cloud_terrastodon_command::to_string_pretty(&security_groups)?
     );
 
     if !actions.is_empty()
@@ -62,9 +76,12 @@ pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
 
     let mut rows = Vec::with_capacity(security_groups.len());
     for group in &security_groups {
-        let row = json!({
-            "group": &group,
-        });
+        let row = SecurityGroupBrowseRow {
+            group: group.clone(),
+            owners: None,
+            members: None,
+            role_assignments: None,
+        };
         rows.push(row);
     }
 
@@ -80,8 +97,8 @@ pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
                         fetch_group_owners(tenant_id, group.id),
                         fetch_group_members(tenant_id, group.id)
                     )?;
-                    row["owners"] = serde_json::to_value(&owners)?;
-                    row["members"] = serde_json::to_value(&members)?;
+                    row.owners = Some(owners);
+                    row.members = Some(members);
                 }
             }
             SecurityGroupAction::FetchAndDisplayRoleAssignments => {
@@ -115,32 +132,32 @@ pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
                         .unwrap_or(&[])
                         .iter()
                         .map(|role_assignment| {
-                            let mut role_assignment_for_group = json!({
-                                "role_assignment": &role_assignment,
-                            });
-                            //  serde_json::to_value(role_assignment)?;
                             if let Some(role_definition) =
                                 role_definitions_by_id.get(&role_assignment.role_definition_id)
                             {
-                                role_assignment_for_group["role_definition"] =
-                                    serde_json::to_value(role_definition)?;
+                                Ok(SecurityGroupRoleAssignmentRow {
+                                    role_assignment: (*role_assignment).clone(),
+                                    role_definition: (*role_definition).clone(),
+                                })
                             } else {
                                 bail!(
                                     "Failed to find role definition with id {} for assignment {}",
                                     role_assignment.role_definition_id.expanded_form(),
                                     role_assignment.id.expanded_form()
                                 );
-                            };
-                            Ok(role_assignment_for_group)
+                            }
                         })
-                        .collect::<Result<Vec<Value>, _>>()?;
-                    row["role_assignments"] = serde_json::to_value(role_assignments_for_group)?;
+                        .collect::<Result<Vec<_>>>()?;
+                    row.role_assignments = Some(role_assignments_for_group);
                 }
             }
             SecurityGroupAction::JustPrint => {}
         }
     }
-    info!("You chose:\n{}", serde_json::to_string_pretty(&rows)?);
+    info!(
+        "You chose:\n{}",
+        cloud_terrastodon_command::to_string_pretty(&rows)?
+    );
 
     Ok(())
 }

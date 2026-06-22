@@ -29,7 +29,7 @@ impl GiteaOrgShowArgs {
             [organization] => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
-                serde_json::to_writer_pretty(&mut handle, organization)?;
+                cloud_terrastodon_command::to_writer_pretty(&mut handle, organization)?;
                 handle.write_all(b"\n")?;
                 Ok(())
             }

@@ -106,8 +106,10 @@ pub async fn audit(source_dir: &Path) -> eyre::Result<()> {
                 .get(&url)
                 .send()
                 .await?
-                .json::<TerraformProviderInfo>()
+                .text()
                 .await?;
+            let json = facet_json::from_str::<TerraformProviderInfo>(&json)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
             let latest_version = json.versions.last().unwrap();
             let satisfies = provider.version.is_satisfied_by(latest_version);
             if !satisfies {

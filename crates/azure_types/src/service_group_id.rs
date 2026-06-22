@@ -7,19 +7,17 @@ use crate::scopes::ScopeImplKind;
 use crate::slug::Slug;
 use crate::strip_prefix_case_insensitive;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::hash::Hash;
 use std::str::FromStr;
 
 pub const SERVICE_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/serviceGroups/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ServiceGroupId {
     name: ServiceGroupName,
 }
+crate::impl_facet_string_proxy!(ServiceGroupId, value => value.expanded_form());
 
 impl ServiceGroupId {
     pub fn from_name(name: ServiceGroupName) -> Self {
@@ -80,26 +78,6 @@ impl Scope for ServiceGroupId {
     }
 }
 
-impl Serialize for ServiceGroupId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for ServiceGroupId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        ServiceGroupId::try_from_expanded(&expanded)
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,6 +89,9 @@ mod tests {
         let id = ServiceGroupId::from_name(name.clone());
         assert_eq!(id.name(), &name);
         assert_eq!(ServiceGroupId::try_from_expanded(&id.expanded_form())?, id);
+        let json = facet_json::to_string(&id.expanded_form())?;
+        assert_eq!(facet_json::to_string(&id)?, json);
+        assert_eq!(facet_json::from_str::<ServiceGroupId>(&json)?, id);
         Ok(())
     }
 }

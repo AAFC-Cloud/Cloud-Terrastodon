@@ -4,41 +4,29 @@ use crate::read_azure_devops_pat_from_credential_manager;
 use reqwest::header::HeaderValue;
 use std::ops::Deref;
 
-#[derive(Debug)]
-pub struct AzureDevOpsPersonalAccessToken {
-    inner: String,
-}
+#[derive(Debug, facet::Facet)]
+#[facet(transparent)]
+pub struct AzureDevOpsPersonalAccessToken(String);
 impl AzureDevOpsPersonalAccessToken {
     pub fn new(inner: impl Into<String>) -> Self {
-        Self {
-            inner: inner.into(),
-        }
+        Self(inner.into())
     }
 }
 impl AsRef<str> for AzureDevOpsPersonalAccessToken {
     fn as_ref(&self) -> &str {
-        &self.inner
+        &self.0
     }
 }
 impl Deref for AzureDevOpsPersonalAccessToken {
     type Target = String;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 impl std::fmt::Display for AzureDevOpsPersonalAccessToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.inner)
-    }
-}
-impl<'de> serde::Deserialize<'de> for AzureDevOpsPersonalAccessToken {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <String as serde::Deserialize>::deserialize(deserializer)?;
-        Ok(Self::new(value))
+        write!(f, "{}", self.0)
     }
 }
 impl From<AzureDevOpsPersonalAccessToken> for HeaderValue {

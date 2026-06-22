@@ -4,13 +4,16 @@ use crate::EntraUserId;
 use std::hash::Hash;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum PrincipalId {
     UserId(EntraUserId),
     GroupId(EntraGroupId),
     ServicePrincipalId(EntraServicePrincipalId),
     Unknown(Uuid),
 }
+crate::impl_facet_string_proxy!(PrincipalId, value => value.to_string());
 
 impl PrincipalId {
     pub fn new(uuid: impl Into<Uuid>) -> Self {
@@ -25,27 +28,6 @@ impl AsRef<Uuid> for PrincipalId {
             PrincipalId::ServicePrincipalId(inner) => inner.as_ref(),
             PrincipalId::Unknown(inner) => inner,
         }
-    }
-}
-
-impl serde::Serialize for PrincipalId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(self.as_ref().to_string().as_str())
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for PrincipalId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        use std::str::FromStr;
-        let uuid = Uuid::from_str(&s).map_err(serde::de::Error::custom)?;
-        Ok(Self::new(uuid))
     }
 }
 
@@ -124,5 +106,21 @@ impl<T: AsRef<Uuid>> PartialEq<T> for PrincipalId {
         let left: &Uuid = self;
         let right: &Uuid = other.as_ref();
         left == right
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let id = facet_json::from_str::<PrincipalId>(
+            "\"00000000-0000-0000-0000-000000000000\"",
+        )?;
+        assert_eq!(id, Uuid::nil());
+        let reparsed = facet_json::from_str::<PrincipalId>(&facet_json::to_string(&id)?)?;
+        assert_eq!(id, reparsed);
+        Ok(())
     }
 }

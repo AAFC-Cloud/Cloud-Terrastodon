@@ -2,24 +2,64 @@ use crate::EntraGroup;
 use crate::EntraServicePrincipal;
 use crate::EntraUser;
 use crate::PrincipalId;
-use serde::Deserialize;
-use serde::Serialize;
+use facet_json::RawJson;
+use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, strum::EnumDiscriminants)]
+#[derive(Debug, Clone, Eq, PartialEq, strum::EnumDiscriminants, facet::Facet)]
 #[strum_discriminants(name(PrincipalKind))]
 #[strum_discriminants(derive(strum::Display))]
-#[serde(tag = "@odata.type")]
+#[facet(opaque, proxy = RawJson<'static>)]
+#[repr(C)]
 pub enum Principal {
-    #[serde(rename = "#microsoft.graph.user")]
     User(Box<EntraUser>),
-    #[serde(rename = "#microsoft.graph.group")]
     Group(Box<EntraGroup>),
-    #[serde(rename = "#microsoft.graph.servicePrincipal")]
     ServicePrincipal(Box<EntraServicePrincipal>),
-    // #[serde(rename = "#microsoft.graph.device")]
-    // Device(Value),
 }
+
+impl TryFrom<RawJson<'static>> for Principal {
+    type Error = eyre::Error;
+
+    fn try_from(value: RawJson<'static>) -> Result<Self, Self::Error> {
+        let object = facet_json::from_str::<HashMap<String, RawJson<'static>>>(value.as_str())?;
+        let odata_type = object
+            .get("@odata.type")
+            .ok_or_else(|| eyre::eyre!("Principal missing @odata.type"))?;
+        let odata_type = facet_json::from_str::<String>(odata_type.as_str())?;
+        Ok(match odata_type.as_str() {
+            "#microsoft.graph.user" => Self::User(Box::new(facet_json::from_str(value.as_str())?)),
+            "#microsoft.graph.group" => {
+                Self::Group(Box::new(facet_json::from_str(value.as_str())?))
+            }
+            "#microsoft.graph.servicePrincipal" => {
+                Self::ServicePrincipal(Box::new(facet_json::from_str(value.as_str())?))
+            }
+            other => eyre::bail!("Unsupported principal @odata.type: {other}"),
+        })
+    }
+}
+
+impl TryFrom<&Principal> for RawJson<'static> {
+    type Error = eyre::Error;
+
+    fn try_from(value: &Principal) -> Result<Self, Self::Error> {
+        let (odata_type, inner_json) = match value {
+            Principal::User(user) => ("#microsoft.graph.user", facet_json::to_string(user)?),
+            Principal::Group(group) => ("#microsoft.graph.group", facet_json::to_string(group)?),
+            Principal::ServicePrincipal(service_principal) => (
+                "#microsoft.graph.servicePrincipal",
+                facet_json::to_string(service_principal)?,
+            ),
+        };
+        let mut object = facet_json::from_str::<HashMap<String, RawJson<'static>>>(&inner_json)?;
+        object.insert(
+            "@odata.type".to_string(),
+            RawJson::from_owned(facet_json::to_string(odata_type)?),
+        );
+        Ok(RawJson::from_owned(facet_json::to_string(&object)?))
+    }
+}
+
 impl From<EntraUser> for Principal {
     fn from(value: EntraUser) -> Self {
         Self::User(Box::new(value))
@@ -109,7 +149,6 @@ impl std::fmt::Display for Principal {
 mod tests {
     use super::*;
     use crate::user_id::EntraUserId;
-    use serde_json::Value;
 
     #[test]
     fn it_works() -> eyre::Result<()> {
@@ -128,13 +167,10 @@ mod tests {
             user_principal_name: "fake.user@example.com".to_string(),
         };
         let principal = Principal::from(user);
-        let encoded = serde_json::to_string_pretty(&principal)?;
-        let decoded: Value = serde_json::from_str(&encoded)?;
-        assert_eq!(
-            decoded.get("@odata.type").unwrap().as_str().unwrap(),
-            "#microsoft.graph.user"
-        );
-        let decoded_principal = serde_json::from_value::<Principal>(decoded)?;
+        let encoded = facet_json::to_string_pretty(&principal)?;
+        assert!(encoded.contains(r##""@odata.type""##));
+        assert!(encoded.contains(r##"#microsoft.graph.user"##));
+        let decoded_principal = facet_json::from_str::<Principal>(&encoded)?;
         assert_eq!(principal, decoded_principal);
         Ok(())
     }

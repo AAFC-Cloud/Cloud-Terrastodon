@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct EntraApplicationRegistrationId(uuid::Uuid);
 
 crate::impl_uuid_newtype!(EntraApplicationRegistrationId);

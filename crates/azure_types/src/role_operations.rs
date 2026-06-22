@@ -1,18 +1,14 @@
 use crate::RolePermissionAction;
-use crate::serde_helpers::deserialize_optional_bool_from_bool_or_string;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationsMetadata {
     pub display_name: Option<String>,
     pub id: String,
     pub name: String,
     pub operations: Vec<AzureProviderOperation>,
     pub resource_types: Vec<AzureProviderOperationResourceType>,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: String,
 }
 
@@ -60,18 +56,16 @@ impl AzureProviderOperationsMetadata {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationResourceType {
     pub name: String,
     pub display_name: Option<String>,
     pub operations: Vec<AzureProviderOperation>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperation {
     pub name: RolePermissionAction,
     pub display_name: Option<String>,
@@ -81,29 +75,26 @@ pub struct AzureProviderOperation {
     pub is_data_action: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationProperties {
-    #[serde(alias = "ServiceSpecification")]
+    #[facet(alias = "ServiceSpecification")]
     pub service_specification: Option<AzureProviderOperationServiceSpecification>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationServiceSpecification {
-    #[serde(alias = "LegacyMetricSpecifications")]
+    #[facet(alias = "LegacyMetricSpecifications")]
     pub legacy_metric_specifications: Option<Vec<AzureProviderOperationMetricSpecification>>,
-    #[serde(alias = "MetricSpecifications")]
+    #[facet(alias = "MetricSpecifications")]
     pub metric_specifications: Option<Vec<AzureProviderOperationMetricSpecification>>,
-    #[serde(alias = "LogSpecifications")]
+    #[facet(alias = "LogSpecifications")]
     pub log_specifications: Option<Vec<AzureProviderOperationLogSpecification>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationMetricSpecification {
     pub aggregation_type: String,
     pub availabilities: Option<Vec<AzureProviderOperationAvailabilitySpecification>>,
@@ -115,13 +106,11 @@ pub struct AzureProviderOperationMetricSpecification {
     pub display_name: String,
     pub display_description: Option<String>,
     pub unit: String,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_optional_bool_from_bool_or_string")]
+    #[facet(default, opaque, proxy = crate::OptionalBoolOrStringProxy)]
     pub enable_regional_mdm_account: Option<bool>,
-    #[serde(alias = "LockAggregationType")]
+    #[facet(alias = "LockAggregationType")]
     pub lock_aggregation_type: Option<String>,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_optional_bool_from_bool_or_string")]
+    #[facet(default, opaque, proxy = crate::OptionalBoolOrStringProxy)]
     pub fill_gap_with_zero: Option<bool>,
     pub internal_metric_name: Option<String>,
     pub is_dimension_required: Option<bool>,
@@ -136,67 +125,63 @@ pub struct AzureProviderOperationMetricSpecification {
     pub supports_instance_level_aggregation: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationAvailabilitySpecification {
-    #[serde(alias = "BlobDuration")]
+    #[facet(alias = "BlobDuration")]
     pub blob_duration: Option<String>,
-    #[serde(alias = "Retention")]
+    #[facet(alias = "Retention")]
     pub retention: Option<String>,
-    #[serde(alias = "TimeGrain")]
+    #[facet(alias = "TimeGrain")]
     pub time_grain: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationDimensionSpecification {
-    #[serde(alias = "DisplayName")]
+    #[facet(alias = "DisplayName")]
     pub display_name: Option<String>,
-    #[serde(alias = "Name")]
+    #[facet(alias = "Name")]
     pub name: String,
-    #[serde(alias = "DefaultDimensionValues")]
+    #[facet(alias = "DefaultDimensionValues")]
     pub default_dimension_values: Option<Vec<AzureProviderOperationDimensionDefaultValue>>,
-    #[serde(alias = "InternalName")]
+    #[facet(alias = "InternalName")]
     pub internal_name: Option<String>,
-    #[serde(alias = "IsHidden")]
+    #[facet(alias = "IsHidden")]
     pub is_hidden: Option<bool>,
-    #[serde(alias = "ToBeExportedForCustomer")]
+    #[facet(alias = "ToBeExportedForCustomer")]
     pub to_be_exported_for_customer: Option<bool>,
-    #[serde(alias = "ToBeExportedForShoebox")]
+    #[facet(alias = "ToBeExportedForShoebox")]
     pub to_be_exported_for_shoebox: Option<bool>,
-    #[serde(alias = "ToBeExportedToShoebox")]
+    #[facet(alias = "ToBeExportedToShoebox")]
     pub to_be_exported_to_shoebox: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationDimensionDefaultValue {
-    #[serde(alias = "Value")]
+    #[facet(alias = "Value")]
     pub value: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationLogSpecification {
-    #[serde(alias = "BlobDuration")]
+    #[facet(alias = "BlobDuration")]
     pub blob_duration: Option<String>,
-    #[serde(alias = "CategoryGroups")]
+    #[facet(alias = "CategoryGroups")]
     pub category_groups: Option<Vec<String>>,
-    #[serde(alias = "Description")]
+    #[facet(alias = "Description")]
     pub description: Option<String>,
-    #[serde(alias = "LogFilterPattern")]
+    #[facet(alias = "LogFilterPattern")]
     pub log_filter_pattern: Option<String>,
-    #[serde(alias = "Name")]
+    #[facet(alias = "Name")]
     pub name: String,
-    #[serde(alias = "DisplayName")]
+    #[facet(alias = "DisplayName")]
     pub display_name: String,
 }
 
-#[derive(Debug, Serialize, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
 pub struct AzureRoleOperation {
     pub provider_name: String,
     pub provider_display_name: Option<String>,
@@ -246,11 +231,11 @@ pub fn flatten_role_operations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     #[test]
     fn deserializes_provider_operations_with_nested_properties() -> eyre::Result<()> {
-        let provider: AzureProviderOperationsMetadata = serde_json::from_value(json!({
+        let json = r#"
+        {
             "displayName": "Domain Services Resource Provider",
             "id": "/providers/Microsoft.Authorization/providerOperations/Microsoft.AAD",
             "name": "Microsoft.AAD",
@@ -283,12 +268,12 @@ mod tests {
                             "description": "Gets the available logs for Domain Service",
                             "origin": "system",
                             "properties": {
-                                "serviceSpecification": {
-                                    "logSpecifications": [
+                                "ServiceSpecification": {
+                                    "LogSpecifications": [
                                         {
-                                            "name": "SystemSecurity",
-                                            "displayName": "SystemSecurity",
-                                            "blobDuration": "PT1H"
+                                            "Name": "SystemSecurity",
+                                            "DisplayName": "SystemSecurity",
+                                            "BlobDuration": "PT1H"
                                         }
                                     ]
                                 }
@@ -308,14 +293,16 @@ mod tests {
                             "origin": "system",
                             "properties": {
                                 "serviceSpecification": {
-                                    "metricSpecifications": [
+                                    "MetricSpecifications": [
                                         {
                                             "name": "\\\\DNS\\\\Total Query Received/sec",
                                             "displayName": "DNS - Total Query Received/sec",
                                             "displayDescription": "Metric description",
                                             "unit": "CountPerSecond",
                                             "aggregationType": "Average",
-                                            "fillGapWithZero": true
+                                            "fillGapWithZero": true,
+                                            "enableRegionalMdmAccount": "true",
+                                            "LockAggregationType": "Average"
                                         }
                                     ]
                                 }
@@ -340,7 +327,10 @@ mod tests {
                 }
             ],
             "type": "Microsoft.Authorization/providerOperations"
-        }))?;
+        }
+        "#;
+
+        let provider: AzureProviderOperationsMetadata = facet_json::from_str(json)?;
 
         assert_eq!(provider.name, "Microsoft.AAD");
         assert_eq!(provider.operations.len(), 2);
@@ -363,7 +353,28 @@ mod tests {
             metric_definition.resource_type_name.as_deref(),
             Some("domainServices/providers/Microsoft.Insights/metricDefinitions")
         );
-        assert!(metric_definition.properties.is_some());
+        let service_specification = metric_definition
+            .properties
+            .as_ref()
+            .and_then(|properties| properties.service_specification.as_ref())
+            .expect("expected metric service specification");
+        let metric_specification = service_specification
+            .metric_specifications
+            .as_ref()
+            .and_then(|metrics| metrics.first())
+            .expect("expected metric specification");
+        assert_eq!(metric_specification.fill_gap_with_zero, Some(true));
+        assert_eq!(metric_specification.enable_regional_mdm_account, Some(true));
+        assert_eq!(
+            metric_specification.lock_aggregation_type.as_deref(),
+            Some("Average")
+        );
+
+        let reparsed =
+            facet_json::from_str::<AzureProviderOperationsMetadata>(&facet_json::to_string(
+                &provider,
+            )?)?;
+        assert_eq!(provider, reparsed);
         Ok(())
     }
 }

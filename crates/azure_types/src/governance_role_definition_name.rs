@@ -9,10 +9,12 @@ use std::str::FromStr;
 /// TODO: find documentation on the real limit, I made up this value.
 pub const GOVERNANCE_ROLE_DEFINITION_NAME_MAX_LENGTH: usize = 128;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct GovernanceRoleDefinitionName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy_serialize!(GovernanceRoleDefinitionName, value => value.to_string());
 
 fn validate_governance_role_definition_name(value: &str) -> eyre::Result<()> {
     validate_governance_role_definition_name_inner(value)
@@ -72,24 +74,6 @@ impl TryFrom<&String> for GovernanceRoleDefinitionName {
 impl std::fmt::Display for GovernanceRoleDefinitionName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
-    }
-}
-impl serde::Serialize for GovernanceRoleDefinitionName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for GovernanceRoleDefinitionName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for GovernanceRoleDefinitionName {
@@ -170,6 +154,14 @@ mod test {
                     && name.inner.chars().count() <= GOVERNANCE_ROLE_DEFINITION_NAME_MAX_LENGTH
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    pub fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let name = facet_json::from_str::<GovernanceRoleDefinitionName>("\"Reader\"")?;
+        assert_eq!(name, GovernanceRoleDefinitionName::try_new("Reader")?);
+        assert_eq!(facet_json::to_string(&name)?, "\"Reader\"");
         Ok(())
     }
 }

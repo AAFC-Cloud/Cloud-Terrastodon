@@ -85,9 +85,11 @@ impl CacheableCommand for CognitiveServicesAccountDeploymentListRequest {
             .into_json_body()
             .wrap_err("Expected deployment list response body to contain JSON")?;
         let deployments: AzureCognitiveServicesAccountDeploymentListResult =
-            serde_json::from_value(body).wrap_err(
-                "Failed to deserialize Cognitive Services account deployment list response",
-            )?;
+            facet_json::from_str(body.as_str())
+                .map_err(|error| eyre::eyre!("{error:?}"))
+                .wrap_err(
+                    "Failed to deserialize Cognitive Services account deployment list response",
+                )?;
         info!(
             count = deployments.value.len(),
             account_id = %self.account_id.expanded_form(),

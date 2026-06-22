@@ -8,11 +8,13 @@ use eyre::Context;
 use std::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct SubnetId {
     pub virtual_network_id: VirtualNetworkId,
     pub subnet_name: SubnetName,
 }
+crate::impl_facet_string_proxy!(SubnetId, value => value.expanded_form());
 
 impl SubnetId {
     pub fn new(
@@ -140,27 +142,6 @@ impl Display for SubnetId {
     }
 }
 
-impl serde::Serialize for SubnetId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for SubnetId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = SubnetId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,6 +172,9 @@ mod tests {
         // Test round-trip through string
         let subnet_id_from_str = SubnetId::try_from(subnet_id.expanded_form().as_str())?;
         assert_eq!(subnet_id, subnet_id_from_str);
+        let json = facet_json::to_string(&subnet_id.expanded_form())?;
+        assert_eq!(facet_json::to_string(&subnet_id)?, json);
+        assert_eq!(facet_json::from_str::<SubnetId>(&json)?, subnet_id);
 
         Ok(())
     }

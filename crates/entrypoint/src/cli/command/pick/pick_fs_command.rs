@@ -4,8 +4,8 @@ use clap::Args;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
-use serde_json::Value;
-use serde_json::json;
+use crate::serde_json_isolation::json;
+use crate::serde_json_isolation::Value;
 use std::path::Path;
 
 #[derive(Debug, Clone)]

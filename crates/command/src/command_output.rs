@@ -5,9 +5,7 @@ use bstr::ByteSlice;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Error;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use facet::Facet;
 use std::future::Future;
 #[cfg(not(windows))]
 use std::os::unix::process::ExitStatusExt;
@@ -17,9 +15,11 @@ use std::panic::Location;
 use std::process::ExitStatus;
 use std::process::Output;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, facet::Facet, Eq, PartialEq)]
 pub struct CommandOutput {
+    #[facet(opaque, proxy = crate::BStringJsonProxy)]
     pub stdout: BString,
+    #[facet(opaque, proxy = crate::BStringJsonProxy)]
     pub stderr: BString,
     pub status: i32,
 }
@@ -31,23 +31,23 @@ impl CommandOutput {
         return ExitStatus::from_raw(self.status).success();
     }
     #[track_caller]
-    pub fn try_interpret<'a, T: DeserializeOwned + 'a>(
+    pub fn try_interpret<'a, T: Facet<'static> + 'a>(
         &'a self,
         command: &'a CommandBuilder,
     ) -> impl Future<Output = eyre::Result<T>> + 'a {
         self.try_interpret_from(command, Location::caller())
     }
 
-    async fn try_interpret_from<T: DeserializeOwned>(
+    async fn try_interpret_from<T: Facet<'static>>(
         &self,
         command: &CommandBuilder,
         caller: &'static Location<'static>,
     ) -> eyre::Result<T> {
-        match serde_json::from_slice(self.stdout.to_str_lossy().as_bytes()) {
+        match crate::json::from_slice(self.stdout.to_str_lossy().as_bytes()) {
             Ok(results) => Ok(results),
             Err(e) => {
                 let dir = command.write_failure(self).await?;
-                Err(eyre::Error::new(e)
+                Err(e
                     .wrap_err(format!("Called from {}", RelativeLocation::from(caller)))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}",

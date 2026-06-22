@@ -5,7 +5,6 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use serde::Deserialize;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
@@ -37,7 +36,7 @@ impl CacheableCommand for PimEntraRoleDefinitionListRequest {
             "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleDefinitions?$select=id,displayName,type,isbuiltIn&$orderby=displayName",
             tenant_id = self.tenant_id,
         );
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct Response {
             value: Vec<PimEntraRoleDefinition>,
         }

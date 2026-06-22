@@ -1,8 +1,6 @@
 use bstr::BString;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableWorkRequest;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -18,7 +16,7 @@ struct EchoWorkRequest {
     executions: Arc<AtomicUsize>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
 struct EchoRaw {
     message: String,
 }

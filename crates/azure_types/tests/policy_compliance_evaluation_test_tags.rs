@@ -54,7 +54,7 @@ const REQUIRE_A_TAG_ON_RESOURCE_GROUPS_POLICY_DEFINITION_JSON_STR: &str = r#"
 fn tag_policy_compliance_evaluation() -> eyre::Result<()> {
     // Load the policy
     let require_a_tag_on_resource_groups_policy_definition: PolicyDefinition =
-        serde_json::from_str(REQUIRE_A_TAG_ON_RESOURCE_GROUPS_POLICY_DEFINITION_JSON_STR)?;
+        facet_json::from_str(REQUIRE_A_TAG_ON_RESOURCE_GROUPS_POLICY_DEFINITION_JSON_STR)?;
 
     // Create a resource group without tags
     let bytes = [0u8; 100];

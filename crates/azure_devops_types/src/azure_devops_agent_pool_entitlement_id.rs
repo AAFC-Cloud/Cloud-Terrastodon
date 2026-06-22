@@ -1,26 +1,3 @@
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(transparent)]
 pub struct AzureDevOpsAgentPoolEntitlementId(usize);
-
-impl Serialize for AzureDevOpsAgentPoolEntitlementId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for AzureDevOpsAgentPoolEntitlementId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = usize::deserialize(deserializer)?;
-        Ok(Self(s))
-    }
-}

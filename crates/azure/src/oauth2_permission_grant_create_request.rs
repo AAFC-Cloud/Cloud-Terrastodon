@@ -76,7 +76,7 @@ impl CacheableCommand for OAuth2PermissionGrantCreateRequest {
         let created = RestRequest::new(Method::POST, url)?
             .tenant(self.tenant_id)
             .cache(cache_key)
-            .body(serde_json::to_string_pretty(&body)?)
+            .body(facet_json::to_string_pretty(&body).map_err(|error| eyre::eyre!("{error:?}"))?)
             .receive()
             .await?;
         bust_oauth2_permission_grants_cache(self.tenant_id).await?;

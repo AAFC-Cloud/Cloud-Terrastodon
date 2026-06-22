@@ -12,8 +12,7 @@ pub async fn fetch_virtual_machine_sizes(
     let url = format!(
         "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/vmSizes?api-version=2022-11-01"
     );
-    #[derive(serde::Deserialize)]
-    #[serde(deny_unknown_fields)]
+    #[derive(facet::Facet)]
     struct Response {
         value: Vec<VirtualMachineSize>,
     }

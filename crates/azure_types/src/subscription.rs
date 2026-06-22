@@ -6,18 +6,16 @@ use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use cloud_terrastodon_hcl_types::HclProviderBlock;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct Subscription {
     pub id: SubscriptionId,
     pub name: SubscriptionName,
     pub tenant_id: AzureTenantId,
     pub management_group_ancestors_chain: ManagementGroupAncestorsChain,
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
 }
 

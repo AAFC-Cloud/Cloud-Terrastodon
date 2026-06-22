@@ -1,17 +1,19 @@
 use crate::GiteaOwnerName;
 use crate::GiteaRepoName;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
+use facet::Facet;
 use std::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Facet)]
+#[facet(opaque, proxy = GiteaRepoFullNameProxy)]
 pub struct GiteaRepoFullName {
     pub owner: GiteaOwnerName,
     pub repo_name: GiteaRepoName,
 }
+
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
+#[facet(transparent)]
+pub struct GiteaRepoFullNameProxy(String);
 
 impl GiteaRepoFullName {
     pub fn try_new(owner: GiteaOwnerName, repo_name: GiteaRepoName) -> eyre::Result<Self> {
@@ -42,21 +44,18 @@ impl FromStr for GiteaRepoFullName {
     }
 }
 
-impl Serialize for GiteaRepoFullName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
+impl TryFrom<GiteaRepoFullNameProxy> for GiteaRepoFullName {
+    type Error = eyre::Error;
+
+    fn try_from(value: GiteaRepoFullNameProxy) -> Result<Self, Self::Error> {
+        Self::from_str(&value.0)
     }
 }
 
-impl<'de> Deserialize<'de> for GiteaRepoFullName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = String::deserialize(deserializer)?;
-        Self::from_str(&value).map_err(serde::de::Error::custom)
+impl TryFrom<&GiteaRepoFullName> for GiteaRepoFullNameProxy {
+    type Error = std::convert::Infallible;
+
+    fn try_from(value: &GiteaRepoFullName) -> Result<Self, Self::Error> {
+        Ok(Self(value.to_string()))
     }
 }

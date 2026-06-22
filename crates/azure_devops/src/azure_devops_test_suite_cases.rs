@@ -4,9 +4,8 @@ use cloud_terrastodon_azure_devops_types::SuiteTestCase;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
+use facet_json::RawJson;
 use reqwest::Method;
-use serde::Deserialize;
-use serde_json::Value;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -52,10 +51,10 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestSuiteCas
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!("Fetching Azure DevOps test cases for suite");
 
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         #[allow(dead_code)]
         struct InvokeResponse {
-            continuation_token: Option<Value>,
+            continuation_token: Option<RawJson<'static>>,
             count: u32,
             value: Vec<SuiteTestCase>,
         }

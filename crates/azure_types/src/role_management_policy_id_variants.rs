@@ -25,30 +25,40 @@ use eyre::Result;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct UnscopedRoleManagementPolicyId {
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ManagementGroupScopedRoleManagementPolicyId {
     pub management_group_id: ManagementGroupId,
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct SubscriptionScopedRoleManagementPolicyId {
     pub subscription_id: SubscriptionId,
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceGroupScopedRoleManagementPolicyId {
     pub resource_group_id: ResourceGroupId,
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceScopedRoleManagementPolicyId {
     pub resource_id: ResourceId,
     pub name: RoleManagementPolicyAssignmentName,
 }
+crate::impl_facet_string_proxy!(UnscopedRoleManagementPolicyId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ManagementGroupScopedRoleManagementPolicyId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(SubscriptionScopedRoleManagementPolicyId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceGroupScopedRoleManagementPolicyId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceScopedRoleManagementPolicyId, value => value.expanded_form());
 
 // MARK: impl HasSlug
 

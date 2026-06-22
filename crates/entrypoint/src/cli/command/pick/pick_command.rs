@@ -5,7 +5,7 @@ use clap::Subcommand;
 use eyre::Result;
 use jmespath::Variable;
 use jsonpath_rust::JsonPath;
-use serde_json::Value;
+use crate::serde_json_isolation::Value;
 use std::io::IsTerminal;
 use strum::Display;
 
@@ -63,16 +63,16 @@ pub enum QueryEngine {
 impl QueryEngine {
     pub fn query(&self, data: &Value, query: &str) -> Result<String> {
         if query.is_empty() {
-            return Ok(serde_json::to_string(data)?);
+            return crate::serde_json_isolation::to_string(data);
         }
         match self {
-            QueryEngine::JsonPath => Ok(serde_json::to_string(&data.query(query)?)?),
+            QueryEngine::JsonPath => crate::serde_json_isolation::to_string(&data.query(query)?),
             QueryEngine::JmesPath => {
                 let expr = jmespath::compile(query)?;
                 let result = expr.search(data)?;
                 match *result {
                     Variable::String(ref s) => Ok(s.to_owned()),
-                    _ => Ok(serde_json::to_string(&result)?),
+                    _ => crate::serde_json_isolation::to_string(&result),
                 }
             }
             QueryEngine::Liquid => {
@@ -127,8 +127,8 @@ mod test {
     use crate::cli::pick::PickCommand;
     use crate::cli::pick::QueryEngine;
     use crate::cli::pick::pick_command::resolve_default_pick_command;
+    use crate::serde_json_isolation::json;
     use clap::ValueEnum;
-    use serde_json::json;
 
     #[test]
     fn query_engine_examples_work() -> eyre::Result<()> {

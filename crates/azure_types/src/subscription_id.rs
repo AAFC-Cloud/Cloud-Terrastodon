@@ -4,6 +4,7 @@ use crate::scopes::ScopeImplKind;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::ContextCompat;
+use facet::Facet;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -12,8 +13,10 @@ use uuid::Uuid;
 
 pub const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord, Facet)]
+#[facet(json::proxy = String)]
 pub struct SubscriptionId(Uuid);
+crate::impl_facet_string_proxy_serialize!(SubscriptionId, value => value.to_string());
 impl SubscriptionId {
     pub fn new(uuid: Uuid) -> Self {
         Self(uuid)
@@ -50,26 +53,6 @@ impl DerefMut for SubscriptionId {
 impl From<Uuid> for SubscriptionId {
     fn from(value: Uuid) -> Self {
         Self(value)
-    }
-}
-impl serde::Serialize for SubscriptionId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-impl<'de> serde::Deserialize<'de> for SubscriptionId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| serde::de::Error::custom(format!("{e:#}")))?;
-        Ok(id)
     }
 }
 impl Scope for SubscriptionId {
@@ -134,11 +117,22 @@ impl TryFrom<&String> for SubscriptionId {
 #[cfg(test)]
 mod test {
     use super::SubscriptionId;
+    use uuid::Uuid;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
         // a random guid
         let _id = SubscriptionId::try_new("ba53fb6a-867e-413b-8c91-53fb5ff77d70")?;
+        Ok(())
+    }
+
+    #[test]
+    pub fn json_roundtrips() -> eyre::Result<()> {
+        let id = SubscriptionId::new(Uuid::nil());
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&id)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<SubscriptionId>(
+            "\"00000000-0000-0000-0000-000000000000\"",
+        )?;
         Ok(())
     }
 }

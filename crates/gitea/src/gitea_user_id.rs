@@ -1,10 +1,10 @@
-use serde::Deserialize;
-use serde::Serialize;
+use facet::Facet;
 use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Facet)]
+#[facet(transparent)]
 pub struct GiteaUserId(u64);
 
 impl GiteaUserId {

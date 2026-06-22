@@ -15,7 +15,7 @@ pub async fn fetch_cost_query_results(
     );
     let resp = RestRequest::new(http::Method::POST, url.as_str())?
         .tenant(tenant_id)
-        .body(serde_json::to_string_pretty(query)?)
+        .body(facet_json::to_string_pretty(query).map_err(|error| eyre::eyre!("{error:?}"))?)
         .receive::<CostManagementQueryResult>()
         .await?;
     Ok(resp)

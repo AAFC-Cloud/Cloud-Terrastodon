@@ -48,7 +48,7 @@ impl CacheableCommand for ComputePublisherImageOfferListRequest {
             location = self.location,
             publisher_name = self.publisher_name
         );
-        #[derive(serde::Deserialize)]
+        #[derive(facet::Facet)]
         struct Row {
             id: ComputePublisherVmImageOfferId,
             // The location and name are also present but are contained within the ID so we ignore them.

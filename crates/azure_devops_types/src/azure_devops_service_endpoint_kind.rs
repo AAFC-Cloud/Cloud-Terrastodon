@@ -1,11 +1,9 @@
 use compact_str::CompactString;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-use std::fmt;
+use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum AzureDevOpsServiceEndpointKind {
     AWS,
     AWSServiceEndpoint,
@@ -16,12 +14,9 @@ pub enum AzureDevOpsServiceEndpointKind {
     Other(CompactString),
 }
 
-impl Serialize for AzureDevOpsServiceEndpointKind {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let s = match self {
+impl From<&AzureDevOpsServiceEndpointKind> for String {
+    fn from(value: &AzureDevOpsServiceEndpointKind) -> Self {
+        match value {
             AzureDevOpsServiceEndpointKind::AWS => "aws",
             AzureDevOpsServiceEndpointKind::AWSServiceEndpoint => "awsserviceendpoint",
             AzureDevOpsServiceEndpointKind::AzureRM => "azurerm",
@@ -29,44 +24,32 @@ impl Serialize for AzureDevOpsServiceEndpointKind {
             AzureDevOpsServiceEndpointKind::ExternalTFS => "externaltfs",
             AzureDevOpsServiceEndpointKind::SSH => "ssh",
             AzureDevOpsServiceEndpointKind::Other(val) => val.as_str(),
-        };
-        serializer.serialize_str(s)
+        }
+        .to_owned()
     }
 }
 
-impl<'de> Deserialize<'de> for AzureDevOpsServiceEndpointKind {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct Visitor;
+impl TryFrom<String> for AzureDevOpsServiceEndpointKind {
+    type Error = eyre::Error;
 
-        impl<'de> serde::de::Visitor<'de> for Visitor {
-            type Value = AzureDevOpsServiceEndpointKind;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
+    }
+}
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a string representing a service endpoint kind")
-            }
+impl FromStr for AzureDevOpsServiceEndpointKind {
+    type Err = eyre::Error;
 
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match v.to_ascii_lowercase().as_str() {
-                    "aws" => Ok(AzureDevOpsServiceEndpointKind::AWS),
-                    "awsserviceendpoint" => Ok(AzureDevOpsServiceEndpointKind::AWSServiceEndpoint),
-                    "azurerm" => Ok(AzureDevOpsServiceEndpointKind::AzureRM),
-                    "dockerregistry" => Ok(AzureDevOpsServiceEndpointKind::DockerRegistry),
-                    "externaltfs" => Ok(AzureDevOpsServiceEndpointKind::ExternalTFS),
-                    "ssh" => Ok(AzureDevOpsServiceEndpointKind::SSH),
-                    other => Ok(AzureDevOpsServiceEndpointKind::Other(CompactString::from(
-                        other,
-                    ))),
-                }
-            }
-        }
-
-        deserializer.deserialize_str(Visitor)
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(match value.to_ascii_lowercase().as_str() {
+            "aws" => AzureDevOpsServiceEndpointKind::AWS,
+            "awsserviceendpoint" => AzureDevOpsServiceEndpointKind::AWSServiceEndpoint,
+            "azurerm" => AzureDevOpsServiceEndpointKind::AzureRM,
+            "dockerregistry" => AzureDevOpsServiceEndpointKind::DockerRegistry,
+            "externaltfs" => AzureDevOpsServiceEndpointKind::ExternalTFS,
+            "ssh" => AzureDevOpsServiceEndpointKind::SSH,
+            other => AzureDevOpsServiceEndpointKind::Other(CompactString::from(other)),
+        })
     }
 }
 
@@ -78,27 +61,27 @@ mod tests {
     #[test]
     fn test_serialize_known_variants() {
         assert_eq!(
-            serde_json::to_string(&AzureDevOpsServiceEndpointKind::AWS).unwrap(),
+            facet_json::to_string(&AzureDevOpsServiceEndpointKind::AWS).unwrap(),
             "\"aws\""
         );
         assert_eq!(
-            serde_json::to_string(&AzureDevOpsServiceEndpointKind::AWSServiceEndpoint).unwrap(),
+            facet_json::to_string(&AzureDevOpsServiceEndpointKind::AWSServiceEndpoint).unwrap(),
             "\"awsserviceendpoint\""
         );
         assert_eq!(
-            serde_json::to_string(&AzureDevOpsServiceEndpointKind::AzureRM).unwrap(),
+            facet_json::to_string(&AzureDevOpsServiceEndpointKind::AzureRM).unwrap(),
             "\"azurerm\""
         );
         assert_eq!(
-            serde_json::to_string(&AzureDevOpsServiceEndpointKind::DockerRegistry).unwrap(),
+            facet_json::to_string(&AzureDevOpsServiceEndpointKind::DockerRegistry).unwrap(),
             "\"dockerregistry\""
         );
         assert_eq!(
-            serde_json::to_string(&AzureDevOpsServiceEndpointKind::ExternalTFS).unwrap(),
+            facet_json::to_string(&AzureDevOpsServiceEndpointKind::ExternalTFS).unwrap(),
             "\"externaltfs\""
         );
         assert_eq!(
-            serde_json::to_string(&AzureDevOpsServiceEndpointKind::SSH).unwrap(),
+            facet_json::to_string(&AzureDevOpsServiceEndpointKind::SSH).unwrap(),
             "\"ssh\""
         );
     }
@@ -106,34 +89,34 @@ mod tests {
     #[test]
     fn test_serialize_other_variant() {
         let other = AzureDevOpsServiceEndpointKind::Other(CompactString::from("custom"));
-        assert_eq!(serde_json::to_string(&other).unwrap(), "\"custom\"");
+        assert_eq!(facet_json::to_string(&other).unwrap(), "\"custom\"");
     }
 
     #[test]
     fn test_deserialize_known_variants_case_insensitive() {
         assert_eq!(
-            serde_json::from_str::<AzureDevOpsServiceEndpointKind>("\"AWS\"").unwrap(),
+            facet_json::from_str::<AzureDevOpsServiceEndpointKind>("\"AWS\"").unwrap(),
             AzureDevOpsServiceEndpointKind::AWS
         );
         assert_eq!(
-            serde_json::from_str::<AzureDevOpsServiceEndpointKind>("\"awsserviceendpoint\"")
+            facet_json::from_str::<AzureDevOpsServiceEndpointKind>("\"awsserviceendpoint\"")
                 .unwrap(),
             AzureDevOpsServiceEndpointKind::AWSServiceEndpoint
         );
         assert_eq!(
-            serde_json::from_str::<AzureDevOpsServiceEndpointKind>("\"AZURERM\"").unwrap(),
+            facet_json::from_str::<AzureDevOpsServiceEndpointKind>("\"AZURERM\"").unwrap(),
             AzureDevOpsServiceEndpointKind::AzureRM
         );
         assert_eq!(
-            serde_json::from_str::<AzureDevOpsServiceEndpointKind>("\"DockerRegistry\"").unwrap(),
+            facet_json::from_str::<AzureDevOpsServiceEndpointKind>("\"DockerRegistry\"").unwrap(),
             AzureDevOpsServiceEndpointKind::DockerRegistry
         );
         assert_eq!(
-            serde_json::from_str::<AzureDevOpsServiceEndpointKind>("\"externaltfs\"").unwrap(),
+            facet_json::from_str::<AzureDevOpsServiceEndpointKind>("\"externaltfs\"").unwrap(),
             AzureDevOpsServiceEndpointKind::ExternalTFS
         );
         assert_eq!(
-            serde_json::from_str::<AzureDevOpsServiceEndpointKind>("\"ssh\"").unwrap(),
+            facet_json::from_str::<AzureDevOpsServiceEndpointKind>("\"ssh\"").unwrap(),
             AzureDevOpsServiceEndpointKind::SSH
         );
     }
@@ -141,7 +124,7 @@ mod tests {
     #[test]
     fn test_deserialize_other_variant() {
         let val = "\"somethingelse\"";
-        let parsed: AzureDevOpsServiceEndpointKind = serde_json::from_str(val).unwrap();
+        let parsed: AzureDevOpsServiceEndpointKind = facet_json::from_str(val).unwrap();
         assert_eq!(
             parsed,
             AzureDevOpsServiceEndpointKind::Other(CompactString::from("somethingelse"))

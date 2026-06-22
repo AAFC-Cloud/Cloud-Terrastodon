@@ -17,7 +17,7 @@ impl AzureTenantAddArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &tenant)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &tenant)?;
         handle.write_all(b"\n")?;
         Ok(())
     }

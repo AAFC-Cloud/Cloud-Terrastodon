@@ -10,8 +10,6 @@ use cloud_terrastodon_pathing::Existy;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::Path;
@@ -41,7 +39,7 @@ fn memory_cache() -> &'static Mutex<HashMap<String, CommandOutput>> {
     MEMORY_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct ArtifactMetadata {
     pub version: u8,
     pub fingerprint: String,
@@ -167,7 +165,7 @@ pub async fn get_cached_output(
 
     let metadata = match load_file(&cache_dir, METADATA_FILE).await {
         Ok(contents) => Some(
-            serde_json::from_slice::<ArtifactMetadata>(&contents).context(format!(
+            crate::json::from_slice::<ArtifactMetadata>(&contents).context(format!(
                 "deserializing cache metadata at {}",
                 cache_dir.display()
             ))?,
@@ -264,7 +262,7 @@ pub async fn write_output(
 
     let status = output.status.to_string();
     let timestamp = Local::now().to_rfc2822();
-    let metadata = serde_json::to_vec_pretty(metadata)?;
+    let metadata = crate::json::to_vec_pretty(metadata)?;
     let files = [
         (CONTEXT_FILE, context.as_bytes()),
         (STDOUT_FILE, output.stdout.as_bytes()),

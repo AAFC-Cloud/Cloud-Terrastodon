@@ -1,22 +1,21 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::ScopeImpl;
-use cloud_terrastodon_azure_types::serde_helpers::deserialize_none_if_empty_string;
 use compact_str::CompactString;
-use serde::Deserialize;
-use serde::Serialize;
+use facet_json::RawJson;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
-#[serde(tag = "scheme", content = "parameters")]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(tag = "scheme", content = "parameters")]
+#[repr(C)]
 pub enum AzureDevOpsServiceEndpointAuthorization {
     ServicePrincipal(AzureDevOpsServiceEndpointAuthorizationServicePrincipal),
     UsernamePassword(AzureDevOpsServiceEndpointAuthorizationUsernamePassword),
     WorkloadIdentityFederation(AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation),
     /// For stuff like Azure Container Registry authorization
     ManagedServiceIdentity(AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity),
-    #[serde(untagged)] // https://github.com/serde-rs/serde/issues/912#issuecomment-1868785603
-    Other(serde_json::Value),
+    #[facet(untagged)]
+    Other(RawJson<'static>),
 }
 impl AzureDevOpsServiceEndpointAuthorization {
     pub fn service_principal_id(&self) -> Option<&EntraServicePrincipalId> {
@@ -34,63 +33,57 @@ impl AzureDevOpsServiceEndpointAuthorization {
 
 // ============
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointAuthorizationServicePrincipal {
-    #[serde(rename = "authenticationType")]
     pub authentication_type:
         AzureDevOpsServiceEndpointAuthorizationServicePrincipalAuthenticationType,
-    #[serde(rename = "serviceprincipalid")]
+    #[facet(rename = "serviceprincipalid")]
     pub service_principal_id: EntraServicePrincipalId,
-    #[serde(rename = "tenantId")]
-    #[serde(alias = "tenantid")]
+    #[facet(rename = "tenantId", alias = "tenantid")]
     pub tenant_id: AzureTenantId,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[repr(C)]
 pub enum AzureDevOpsServiceEndpointAuthorizationServicePrincipalAuthenticationType {
-    #[serde(rename = "spnKey")]
+    #[facet(rename = "spnKey")]
     SpnKey,
 }
 
 // ============
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
 pub struct AzureDevOpsServiceEndpointAuthorizationUsernamePassword {
     pub username: CompactString,
-    #[serde(flatten)]
+    #[facet(flatten)]
     pub extra: HashMap<CompactString, CompactString>,
 }
 
 // ============
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
     pub scope: Option<ScopeImpl>,
-    #[serde(rename = "servicePrincipalId")]
-    #[serde(alias = "serviceprincipalid")]
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_none_if_empty_string")]
+    #[facet(rename = "servicePrincipalId", alias = "serviceprincipalid")]
     pub service_principal_id: Option<EntraServicePrincipalId>,
-    #[serde(rename = "tenantId")]
-    #[serde(alias = "tenantid")]
+    #[facet(rename = "tenantId", alias = "tenantid")]
     pub tenant_id: AzureTenantId,
-    #[serde(rename = "workloadIdentityFederationIssuer")]
     pub workload_identity_federation_issuer: String,
-    #[serde(rename = "workloadIdentityFederationSubject")]
     pub workload_identity_federation_subject: String,
-    #[serde(rename = "workloadIdentityFederationIssuerType")]
     pub workload_identity_federation_issuer_type: Option<CompactString>,
 }
 
 // ============
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity {
-    #[serde(rename = "tenantId")]
-    #[serde(alias = "tenantid")]
+    #[facet(rename = "tenantId", alias = "tenantid")]
     pub tenant_id: AzureTenantId,
     /// For stuff like Azure Container Registry authorization
     /// "loginServer": "pipelineimage.azurecr.io",
-    #[serde(flatten)]
+    #[facet(flatten)]
     pub extra: HashMap<CompactString, CompactString>,
 }

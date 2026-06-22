@@ -1,10 +1,9 @@
-use serde::Deserialize;
-use serde::Serialize;
+use facet_json::RawJson;
 use std::collections::HashMap;
 use std::ops::Deref;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Default)]
-#[serde(transparent)]
+#[derive(Debug, Eq, PartialEq, Default, facet::Facet)]
+#[facet(transparent)]
 pub struct AzurePolicyDefinitionParametersDefinition(
     pub HashMap<String, AzurePolicyDefinitionParametersDefinitionValue>,
 );
@@ -17,13 +16,13 @@ impl Deref for AzurePolicyDefinitionParametersDefinition {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Eq, PartialEq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzurePolicyDefinitionParametersDefinitionValue {
-    pub allowed_values: Option<serde_json::Value>, // todo: harden this
-    pub default_value: Option<serde_json::Value>,  // todo: harden this
-    pub metadata: Option<serde_json::Value>,       // todo: harden this
-    pub schema: Option<serde_json::Value>,         // todo: harden this
-    #[serde(rename = "type")]
+    pub allowed_values: Option<RawJson<'static>>, // todo: harden this
+    pub default_value: Option<RawJson<'static>>,  // todo: harden this
+    pub metadata: Option<RawJson<'static>>,       // todo: harden this
+    pub schema: Option<RawJson<'static>>,         // todo: harden this
+    #[facet(rename = "type")]
     pub r#type: String,
 }

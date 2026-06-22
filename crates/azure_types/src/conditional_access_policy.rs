@@ -6,99 +6,112 @@ use crate::all_or::AllOr;
 use chrono::DateTime;
 use chrono::Utc;
 use compact_str::CompactString;
-use serde_json::Value;
+use facet_json::RawJson;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicy {
     pub id: ConditionalAccessPolicyId,
-    pub template_id: Option<Value>,
+    pub template_id: Option<RawJson<'static>>,
     pub display_name: CompactString,
     pub created_date_time: Option<DateTime<Utc>>,
     pub modified_date_time: Option<DateTime<Utc>>,
     pub state: ConditionalAccessPolicyState,
     pub deleted_date_time: Option<DateTime<Utc>>,
-    pub partial_enablement_strategy: Option<Value>,
-    pub session_controls: Option<Value>,
+    pub partial_enablement_strategy: Option<RawJson<'static>>,
+    pub session_controls: Option<RawJson<'static>>,
     pub conditions: ConditionalAccessPolicyConditions,
     pub grant_controls: Option<ConditionalAccessPolicyGrantControls>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
+#[repr(C)]
 pub enum ConditionalAccessPolicyState {
     Enabled,
     Disabled,
     EnabledForReportingButNotEnforced,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditions {
-    pub user_risk_levels: Vec<Value>,
-    pub sign_in_risk_levels: Vec<Value>,
-    pub client_app_types: Vec<Value>,
-    pub platforms: Option<Value>,
-    pub times: Option<Value>,
-    pub device_states: Option<Value>,
-    pub devices: Option<Value>,
-    pub client_applications: Option<Value>,
+    pub user_risk_levels: Vec<RawJson<'static>>,
+    pub sign_in_risk_levels: Vec<RawJson<'static>>,
+    pub client_app_types: Vec<RawJson<'static>>,
+    pub platforms: Option<RawJson<'static>>,
+    pub times: Option<RawJson<'static>>,
+    pub device_states: Option<RawJson<'static>>,
+    pub devices: Option<RawJson<'static>>,
+    pub client_applications: Option<RawJson<'static>>,
     pub applications: ConditionalAccessPolicyConditionsApplications,
     pub users: ConditionalAccessPolicyConditionsUsers,
     pub locations: Option<ConditionalAccessPolicyConditionsLocations>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsApplications {
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub include_applications: Vec<AllOr<String>>, // commonly a Uuid, but may be a literal like "Office365"
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub exclude_applications: Vec<AllOr<String>>, // commonly a Uuid, but may be a literal like "Office365"
-    pub include_user_actions: Vec<Value>,
-    pub include_authentication_context_class_references: Vec<Value>,
-    pub application_filter: Option<Value>,
+    pub include_user_actions: Vec<RawJson<'static>>,
+    pub include_authentication_context_class_references: Vec<RawJson<'static>>,
+    pub application_filter: Option<RawJson<'static>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsUsers {
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub include_users: Vec<AllOr<EntraUserId>>,
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub exclude_users: Vec<AllOr<EntraUserId>>,
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub include_groups: Vec<AllOr<EntraGroupId>>,
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub exclude_groups: Vec<AllOr<EntraGroupId>>,
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub include_roles: Vec<AllOr<Uuid>>, // TODO: dedicated type for entra role definition IDs
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub exclude_roles: Vec<AllOr<Uuid>>, // TODO: dedicated type for entra role definition IDs
-    pub include_guests_or_external_users: Option<Value>,
-    pub exclude_guests_or_external_users: Option<Value>,
+    pub include_guests_or_external_users: Option<RawJson<'static>>,
+    pub exclude_guests_or_external_users: Option<RawJson<'static>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsLocations {
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub include_locations: Vec<AllOr<ConditionalAccessNamedLocationId>>,
+    #[facet(opaque, proxy = crate::AllOrVecProxy)]
     pub exclude_locations: Vec<AllOr<ConditionalAccessNamedLocationId>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyGrantControls {
     pub operator: ConditionalAccessPolicyGrantControlOperator,
     pub built_in_controls: Vec<ConditionalAccessPolicyGrantControlBuiltInControl>,
-    pub custom_authentication_factors: Vec<Value>,
-    pub terms_of_use: Vec<Value>,
-    #[serde(rename = "authenticationStrength@odata.context")]
+    pub custom_authentication_factors: Vec<RawJson<'static>>,
+    pub terms_of_use: Vec<RawJson<'static>>,
+    #[facet(rename = "authenticationStrength@odata.context")]
     pub authentication_strength_context: String,
-    pub authentication_strength: Option<Value>,
+    pub authentication_strength: Option<RawJson<'static>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "UPPERCASE")]
+#[repr(C)]
 pub enum ConditionalAccessPolicyGrantControlOperator {
     And,
     Or,
 }
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
+#[repr(C)]
 pub enum ConditionalAccessPolicyGrantControlBuiltInControl {
     Block,
     Mfa,

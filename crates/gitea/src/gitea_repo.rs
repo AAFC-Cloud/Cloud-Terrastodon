@@ -4,35 +4,34 @@ use crate::GiteaRepoName;
 use crate::GiteaUser;
 use chrono::DateTime;
 use chrono::FixedOffset;
-use serde::Deserialize;
-use serde::Serialize;
+use facet::Facet;
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 pub struct GiteaRepo {
     pub id: GiteaRepoId,
     pub name: GiteaRepoName,
     pub full_name: GiteaRepoFullName,
-    #[serde(default)]
+    #[facet(default)]
     pub description: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub private: bool,
     pub owner: GiteaUser,
-    #[serde(default)]
+    #[facet(default)]
     pub html_url: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub ssh_url: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub clone_url: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub default_branch: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub created_at: Option<DateTime<FixedOffset>>,
-    #[serde(default)]
+    #[facet(default)]
     pub updated_at: Option<DateTime<FixedOffset>>,
-    #[serde(default)]
+    #[facet(default)]
     pub topics: Vec<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub archived: bool,
 }
 

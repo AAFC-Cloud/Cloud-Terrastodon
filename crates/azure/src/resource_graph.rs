@@ -10,8 +10,6 @@ use eyre::Context;
 use eyre::Result;
 #[cfg(debug_assertions)]
 use eyre::bail;
-use serde::Deserialize;
-use serde::Serialize;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 use std::future::Future;
@@ -55,32 +53,34 @@ pub struct ResourceGraphHelper {
     #[cfg(debug_assertions)]
     seen_skip_tokens: HashSet<String>,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
 pub struct ResourceGraphQueryRestOptions {
-    #[serde(rename = "$skip")]
+    #[facet(rename = "$skip")]
     skip: u64,
-    #[serde(rename = "$top")]
+    #[facet(rename = "$top")]
     top: u64,
-    #[serde(rename = "$skipToken")]
+    #[facet(rename = "$skipToken")]
     skip_token: Option<String>,
-    #[serde(rename = "authorizationScopeFilter")]
+    #[facet(rename = "authorizationScopeFilter")]
     authorization_scope_filter: ResourceGraphQueryRestScopeFilterOption,
-    #[serde(rename = "resultFormat")]
+    #[facet(rename = "resultFormat")]
     result_format: QueryRestResultFormat,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
+#[repr(C)]
 pub enum ResourceGraphQueryRestScopeFilterOption {
     AtScopeAboveAndBelow,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
+#[repr(C)]
 pub enum QueryRestResultFormat {
-    #[serde(rename = "table")]
+    #[facet(rename = "table")]
     Table,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
 pub struct ResourceGraphQueryRestBody {
     query: String,
     options: ResourceGraphQueryRestOptions,
@@ -145,7 +145,7 @@ impl ResourceGraphHelper {
                 Some((skip, token)) => (*skip, Some(token.to_owned())),
                 None => (0u64, None),
             };
-            let body = serde_json::to_string_pretty(&ResourceGraphQueryRestBody {
+            let body = facet_json::to_string_pretty(&ResourceGraphQueryRestBody {
                 query: self.query.to_string(),
                 options: ResourceGraphQueryRestOptions {
                     skip,
@@ -155,7 +155,8 @@ impl ResourceGraphHelper {
                         ResourceGraphQueryRestScopeFilterOption::AtScopeAboveAndBelow,
                     result_format: QueryRestResultFormat::Table,
                 },
-            })?;
+            })
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
             let mut request = self.get_request(body)?;
 
             // Set up caching
@@ -333,15 +334,29 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
             .clone()
             .receive_raw_with_decoder(move |response| {
                 if response.ok {
-                    let parsed = serde_json::from_value(response.into_json_body()?)
-                        .wrap_err_with(|| match &cache_path {
+                    let raw = facet_json::from_str::<
+                        cloud_terrastodon_azure_types::RawResourceGraphQueryResponse,
+                    >(response.into_json_body()?.as_str())
+                    .map_err(|error| eyre::eyre!("{error:?}"))
+                    .wrap_err_with(|| match &cache_path {
+                        Some(cache_path) => format!(
+                            "Deserializing REST response into {}. Cached response can be inspected at {:?}",
+                            std::any::type_name::<cloud_terrastodon_azure_types::RawResourceGraphQueryResponse>(),
+                            cache_path
+                        ),
+                        None => format!(
+                            "Deserializing REST response into {}",
+                            std::any::type_name::<cloud_terrastodon_azure_types::RawResourceGraphQueryResponse>()
+                        ),
+                    })?;
+                    let parsed = ResourceGraphQueryResponse::try_from(raw).wrap_err_with(|| match &cache_path {
                             Some(cache_path) => format!(
-                                "Deserializing REST response into {}. Cached response can be inspected at {:?}",
+                                "Converting REST response into {}. Cached response can be inspected at {:?}",
                                 std::any::type_name::<ResourceGraphQueryResponse<T>>(),
                                 cache_path
                             ),
                             None => format!(
-                                "Deserializing REST response into {}",
+                                "Converting REST response into {}",
                                 std::any::type_name::<ResourceGraphQueryResponse<T>>()
                             ),
                         })?;
@@ -416,9 +431,7 @@ fn parse_retry_after(value: &str) -> Option<Duration> {
 
 fn format_rest_error_body(body: &RestResponseBody) -> String {
     match body {
-        RestResponseBody::Json(value) => serde_json::to_string(value)
-            .map(|json| format!("\nBody: {json}"))
-            .unwrap_or_default(),
+        RestResponseBody::Json(value) => format!("\nBody: {}", value.as_str()),
         RestResponseBody::Text(text) if text.trim().is_empty() => String::new(),
         RestResponseBody::Text(text) => format!("\nBody: {}", text.trim()),
     }
@@ -430,7 +443,6 @@ mod tests {
     use http::HeaderMap;
     use http::HeaderValue;
     use http::StatusCode;
-    use serde::Deserialize;
     use std::path::PathBuf;
 
     #[tokio::test]
@@ -439,7 +451,7 @@ mod tests {
 resourcecontainers
 | project name
 "#;
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct Row {
             name: String,
         }

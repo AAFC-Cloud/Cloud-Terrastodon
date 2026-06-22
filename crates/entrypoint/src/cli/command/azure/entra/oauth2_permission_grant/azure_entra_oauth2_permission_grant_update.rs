@@ -12,7 +12,6 @@ use cloud_terrastodon_azure::remove_oauth2_permission_grant;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
 use eyre::ContextCompat;
 use eyre::Result;
-use serde_json::json;
 use std::io::Write;
 
 /// Update an Entra OAuth2 permission grant.
@@ -104,27 +103,40 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
         if merged_scope.is_empty() {
+            #[derive(facet::Facet)]
+            struct DeletedResponse {
+                deleted: bool,
+                id: cloud_terrastodon_azure::OAuth2PermissionGrantId,
+            }
+
             remove_oauth2_permission_grant(tenant_id, grant.id.clone()).await?;
-            serde_json::to_writer_pretty(
+            cloud_terrastodon_command::to_writer_pretty(
                 &mut handle,
-                &json!({
-                    "deleted": true,
-                    "id": grant.id,
-                }),
+                &DeletedResponse {
+                    deleted: true,
+                    id: grant.id,
+                },
             )?;
             handle.write_all(b"\n")?;
             return Ok(());
         }
 
+        #[derive(facet::Facet)]
+        struct UpdatedResponse {
+            deleted: bool,
+            id: cloud_terrastodon_azure::OAuth2PermissionGrantId,
+            scope: String,
+        }
+
         let () = update_oauth2_permission_grant(tenant_id, grant.id.clone(), merged_scope.clone())
             .await?;
-        serde_json::to_writer_pretty(
+        cloud_terrastodon_command::to_writer_pretty(
             &mut handle,
-            &json!({
-                "deleted": false,
-                "id": grant.id,
-                "scope": merged_scope,
-            }),
+            &UpdatedResponse {
+                deleted: false,
+                id: grant.id,
+                scope: merged_scope,
+            },
         )?;
         handle.write_all(b"\n")?;
         Ok(())

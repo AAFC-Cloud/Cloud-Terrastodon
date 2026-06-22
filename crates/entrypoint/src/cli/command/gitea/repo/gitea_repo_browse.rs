@@ -17,7 +17,7 @@ impl GiteaRepoBrowseArgs {
         let chosen = cloud_terrastodon_user_input::PickerTui::new().pick_many(repositories)?;
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &chosen)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &chosen)?;
         handle.write_all(b"\n")?;
         Ok(())
     }

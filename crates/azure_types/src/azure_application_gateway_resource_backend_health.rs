@@ -1,55 +1,50 @@
 use crate::AzureApplicationGatewayResourceReference;
-use crate::serde_helpers::deserialize_default_if_null;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
+use facet_json::RawJson;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthResponse {
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default)]
     pub backend_address_pools: Vec<AzureApplicationGatewayResourceBackendHealthPool>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthPool {
     pub backend_address_pool: AzureApplicationGatewayResourceReference,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default)]
     pub backend_http_settings_collection:
         Vec<AzureApplicationGatewayResourceBackendHealthHttpSettings>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthHttpSettings {
     pub backend_http_settings: AzureApplicationGatewayResourceReference,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default)]
     pub servers: Vec<AzureApplicationGatewayResourceBackendHealthServer>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthServer {
     pub address: String,
     pub health: AzureApplicationGatewayResourceBackendHealthServerHealth,
-    #[serde(default)]
+    #[facet(default)]
     pub health_probe_log: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub health_probe_error_name: Option<AzureApplicationGatewayResourceBackendHealthProbeErrorName>,
-    #[serde(default)]
+    #[facet(default)]
     pub ip_configuration: Option<AzureApplicationGatewayResourceReference>,
-    #[serde(default)]
+    #[facet(default)]
     pub backend_certificate_chain_metadata:
         Option<AzureApplicationGatewayResourceBackendHealthCertificateChainMetadata>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum AzureApplicationGatewayResourceBackendHealthServerHealth {
     Unknown,
     Up,
@@ -60,6 +55,10 @@ pub enum AzureApplicationGatewayResourceBackendHealthServerHealth {
     Unhealthy,
     Other(String),
 }
+crate::impl_facet_string_proxy_serialize!(
+    AzureApplicationGatewayResourceBackendHealthServerHealth,
+    value => String::from(value.clone())
+);
 
 impl From<String> for AzureApplicationGatewayResourceBackendHealthServerHealth {
     fn from(value: String) -> Self {
@@ -101,31 +100,18 @@ impl From<AzureApplicationGatewayResourceBackendHealthServerHealth> for String {
     }
 }
 
-impl Serialize for AzureApplicationGatewayResourceBackendHealthServerHealth {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let value = String::from(self.clone());
-        serializer.serialize_str(&value)
-    }
-}
-
-impl<'de> Deserialize<'de> for AzureApplicationGatewayResourceBackendHealthServerHealth {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self::from(String::deserialize(deserializer)?))
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum AzureApplicationGatewayResourceBackendHealthProbeErrorName {
     SuccessWithStatusCode,
     HttpStatusCodeMismatchWithStatusCode,
     Other(String),
 }
+crate::impl_facet_string_proxy_serialize!(
+    AzureApplicationGatewayResourceBackendHealthProbeErrorName,
+    value => String::from(value.clone())
+);
 
 impl From<String> for AzureApplicationGatewayResourceBackendHealthProbeErrorName {
     fn from(value: String) -> Self {
@@ -151,38 +137,18 @@ impl From<AzureApplicationGatewayResourceBackendHealthProbeErrorName> for String
     }
 }
 
-impl Serialize for AzureApplicationGatewayResourceBackendHealthProbeErrorName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let value = String::from(self.clone());
-        serializer.serialize_str(&value)
-    }
-}
-
-impl<'de> Deserialize<'de> for AzureApplicationGatewayResourceBackendHealthProbeErrorName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self::from(String::deserialize(deserializer)?))
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthCertificateChainMetadata {
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default)]
     pub certificate_chain_metadata:
         Vec<AzureApplicationGatewayResourceBackendHealthCertificateMetadataEntry>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default, facet::Facet)]
 pub struct AzureApplicationGatewayResourceBackendHealthCertificateMetadataEntry {
-    #[serde(flatten)]
-    pub fields: BTreeMap<String, serde_json::Value>,
+    #[facet(flatten)]
+    pub fields: BTreeMap<String, RawJson<'static>>,
 }
 
 #[cfg(test)]
@@ -193,7 +159,7 @@ mod tests {
 
     #[test]
     fn deserializes_backend_health_response() -> eyre::Result<()> {
-        let response = serde_json::from_str::<AzureApplicationGatewayResourceBackendHealthResponse>(
+        let response = facet_json::from_str::<AzureApplicationGatewayResourceBackendHealthResponse>(
             r#"
             {
               "backendAddressPools": [
@@ -240,11 +206,16 @@ mod tests {
             server.health,
             AzureApplicationGatewayResourceBackendHealthServerHealth::Unhealthy
         );
+        assert_eq!(facet_json::to_string(&server.health)?, "\"Unhealthy\"");
         assert_eq!(
           server.health_probe_error_name,
           Some(
             AzureApplicationGatewayResourceBackendHealthProbeErrorName::HttpStatusCodeMismatchWithStatusCode,
           )
+        );
+        assert_eq!(
+            facet_json::to_string(&server.health_probe_error_name)?,
+            "\"HttpStatusCodeMismatchWithStatusCode\""
         );
         assert_eq!(
             server
@@ -259,7 +230,7 @@ mod tests {
 
     #[test]
     fn preserves_unknown_enum_values() -> eyre::Result<()> {
-        let response = serde_json::from_str::<AzureApplicationGatewayResourceBackendHealthResponse>(
+        let response = facet_json::from_str::<AzureApplicationGatewayResourceBackendHealthResponse>(
             r#"
             {
               "backendAddressPools": [
@@ -293,6 +264,7 @@ mod tests {
             server.health,
             AzureApplicationGatewayResourceBackendHealthServerHealth::Other("Wobbly".to_string())
         );
+        assert_eq!(facet_json::to_string(&server.health)?, "\"Wobbly\"");
         assert_eq!(
             server.health_probe_error_name,
             Some(
@@ -300,6 +272,10 @@ mod tests {
                     "BrandNewErrorName".to_string()
                 )
             )
+        );
+        assert_eq!(
+            facet_json::to_string(&server.health_probe_error_name)?,
+            "\"BrandNewErrorName\""
         );
 
         Ok(())

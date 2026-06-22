@@ -1,24 +1,23 @@
 use crate::GiteaOrganizationId;
 use crate::GiteaOrganizationName;
-use serde::Deserialize;
-use serde::Serialize;
+use facet::Facet;
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 pub struct GiteaOrganization {
     pub id: GiteaOrganizationId,
     pub username: GiteaOrganizationName,
-    #[serde(default)]
+    #[facet(default)]
     pub full_name: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub description: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub avatar_url: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub website: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub location: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub visibility: Option<String>,
 }
 

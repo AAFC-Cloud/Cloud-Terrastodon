@@ -29,7 +29,7 @@ pub async fn activate_pim_role(
             path: PathBuf::from_iter(["az", "rest", "PUT", "roleAssignmentScheduleRequests"]),
             valid_for: Duration::ZERO,
         })
-        .body(serde_json::to_string_pretty(
+        .body(facet_json::to_string_pretty(
             &RoleAssignmentScheduleRequest::new_self_activation(
                 principal_id.into(),
                 role_definition_id,
@@ -37,7 +37,8 @@ pub async fn activate_pim_role(
                 justification,
                 duration,
             ),
-        )?)
+        )
+        .map_err(|error| eyre::eyre!("{error:?}"))?)
         .receive_raw()
         .await?;
     Ok(())

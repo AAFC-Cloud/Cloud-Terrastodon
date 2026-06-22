@@ -5,18 +5,16 @@ use crate::ScopeImplKind;
 use crate::strip_suffix_case_insensitive;
 use eyre::Context;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
 pub const TAGS_SUFFIX: &str = "/providers/Microsoft.Resources/tags/default";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceTagsId {
     expanded: String,
 }
+crate::impl_facet_string_proxy!(ResourceTagsId, value => value.expanded_form());
 impl ResourceTagsId {
     pub fn from_scope(resource: &impl AsScope) -> ResourceTagsId {
         match resource.as_scope().as_scope_impl() {
@@ -74,24 +72,17 @@ impl Scope for ResourceTagsId {
     }
 }
 
-impl Serialize for ResourceTagsId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.expanded.to_string().as_str())
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::TestResourceId;
 
-impl<'de> Deserialize<'de> for ResourceTagsId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
+    #[test]
+    fn json_roundtrips() -> Result<()> {
+        let id = ResourceTagsId::from_scope(&TestResourceId::new("example"));
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&id)?;
+        let json = facet_json::to_string(&id)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<ResourceTagsId>(&json)?;
+        Ok(())
     }
 }

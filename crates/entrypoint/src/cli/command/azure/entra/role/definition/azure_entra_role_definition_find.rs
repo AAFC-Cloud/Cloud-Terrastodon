@@ -5,7 +5,6 @@ use cloud_terrastodon_azure::RolePermissionAction;
 use cloud_terrastodon_azure::UnifiedRoleDefinition;
 use cloud_terrastodon_azure::fetch_all_unified_role_definitions_and_assignments;
 use eyre::Result;
-use serde::Serialize;
 use std::collections::HashSet;
 use std::io::Write;
 use tracing::info;
@@ -103,14 +102,14 @@ impl AzureEntraRoleDefinitionFindArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &output)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &output)?;
         handle.write_all(b"\n")?;
 
         Ok(())
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, facet::Facet)]
 struct RoleDefinitionFindOutput {
     query_action: String,
     fallback_chain: Vec<String>,
@@ -120,13 +119,13 @@ struct RoleDefinitionFindOutput {
     role_assignment_matches: Vec<RoleAssignmentMatch>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, facet::Facet)]
 struct LiteralMatchCount {
     candidate: String,
     role_definition_count: usize,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, facet::Facet, Clone)]
 struct RoleDefinitionMatch {
     role_definition_id: cloud_terrastodon_azure::UnifiedRoleDefinitionId,
     role_definition_name: String,
@@ -137,7 +136,7 @@ struct RoleDefinitionMatch {
     condition: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, facet::Facet)]
 struct RoleAssignmentMatch {
     role_assignment_id: cloud_terrastodon_azure::UnifiedRoleAssignmentId,
     role_definition_id: cloud_terrastodon_azure::UnifiedRoleDefinitionId,

@@ -1,17 +1,15 @@
 use chrono::DateTime;
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
 pub struct AzureDevOpsAgentPackageVersion {
     pub major: u32,
     pub minor: u32,
     pub patch: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPackage {
     pub created_on: DateTime<Utc>,
     pub download_url: String,
@@ -19,7 +17,7 @@ pub struct AzureDevOpsAgentPackage {
     pub hash_value: Option<String>,
     pub info_url: String,
     pub platform: String,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub r#type: String,
     pub version: AzureDevOpsAgentPackageVersion,
 }
@@ -41,7 +39,7 @@ mod test {
             "version": { "major": 4, "minor": 266, "patch": 2 }
         }"#;
 
-        let pkg: AzureDevOpsAgentPackage = serde_json::from_str(s)?;
+        let pkg: AzureDevOpsAgentPackage = facet_json::from_str(s)?;
         assert_eq!(pkg.platform, "win-x64");
         assert_eq!(pkg.r#type, "agent");
         assert_eq!(pkg.version.major, 4);

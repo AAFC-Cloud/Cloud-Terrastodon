@@ -8,11 +8,10 @@ use egui_tiles::TileId;
 use egui_tiles::Tiles;
 use egui_tiles::Tree;
 use egui_tiles::UiResponse;
-use serde::Deserialize;
-use serde::Serialize;
 use std::fmt::Debug;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, facet::Facet)]
+#[repr(u8)]
 pub enum Pane {
     Home,
     Subscriptions,

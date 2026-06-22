@@ -3,8 +3,8 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
+use facet_json::RawJson;
 use reqwest::Method;
-use serde::Deserialize;
 use std::path::PathBuf;
 
 pub fn fetch_azure_devops_groups_for_member<'a>(
@@ -19,18 +19,18 @@ pub struct AzureDevOpsGroupsForMemberRequest<'a> {
     pub member_id: &'a AzureDevOpsDescriptor,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, facet::Facet)]
 pub struct AzureDevOpsGroupsForMemberResponse {
     pub count: usize,
     pub value: Vec<AzureDevOpsGroupsForMemberResponseEntry>,
 }
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupsForMemberResponseEntry {
     pub container_descriptor: AzureDevOpsDescriptor,
     pub member_descriptor: AzureDevOpsDescriptor,
-    #[serde(rename = "_links")]
-    pub _links: serde_json::Value,
+    #[facet(rename = "_links")]
+    pub links: RawJson<'static>,
 }
 
 #[async_trait]

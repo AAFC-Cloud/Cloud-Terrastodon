@@ -4,13 +4,11 @@ use crate::RoleEligibilityScheduleId;
 use crate::to_iso8601;
 use chrono::DateTime;
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
 use std::time::Duration;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
 pub struct RoleAssignmentScheduleRequest {
-    #[serde(rename = "Properties")]
+    #[facet(rename = "Properties")]
     pub properties: RoleAssignmentScheduleRequestProperties,
 }
 impl RoleAssignmentScheduleRequest {
@@ -44,30 +42,31 @@ impl RoleAssignmentScheduleRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
 pub struct RoleAssignmentScheduleRequestProperties {
-    #[serde(rename = "PrincipalId")]
+    #[facet(rename = "PrincipalId")]
     pub principal_id: PrincipalId,
-    #[serde(rename = "RoleDefinitionId")]
+    #[facet(rename = "RoleDefinitionId")]
     pub role_definition_id: RoleDefinitionId,
-    #[serde(rename = "RequestType")]
+    #[facet(rename = "RequestType")]
     pub request_type: RoleAssignmentScheduleRequestPropertiesRequestType,
-    #[serde(rename = "LinkedRoleEligibilityScheduleId")]
+    #[facet(rename = "LinkedRoleEligibilityScheduleId")]
     pub linked_role_eligibility_schedule_id: RoleEligibilityScheduleId,
-    #[serde(rename = "Justification")]
+    #[facet(rename = "Justification")]
     pub justification: String,
-    #[serde(rename = "ScheduleInfo")]
+    #[facet(rename = "ScheduleInfo")]
     pub schedule_info: RoleAssignmentScheduleRequestPropertiesScheduleInfo,
-    #[serde(rename = "TicketInfo")]
+    #[facet(rename = "TicketInfo")]
     pub ticket_info: RoleAssignmentScheduleRequestPropertiesTicketInfo,
-    #[serde(rename = "IsValidationOnly")]
+    #[facet(rename = "IsValidationOnly")]
     pub is_validation_only: bool,
-    #[serde(rename = "IsActivativation")]
+    #[facet(rename = "IsActivativation")]
     pub is_activativation: bool,
 }
 
 // https://learn.microsoft.com/en-us/azure/templates/microsoft.authorization/roleassignmentschedulerequests?pivots=deployment-language-terraform#roleassignmentschedulerequestproperties-2
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[repr(C)]
 pub enum RoleAssignmentScheduleRequestPropertiesRequestType {
     AdminAssign,
     AdminExtend,
@@ -80,32 +79,33 @@ pub enum RoleAssignmentScheduleRequestPropertiesRequestType {
     SelfRenew,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
 pub struct RoleAssignmentScheduleRequestPropertiesScheduleInfo {
-    #[serde(rename = "StartDateTime")]
+    #[facet(rename = "StartDateTime", default)]
     pub start_date_time: Option<DateTime<Utc>>,
-    #[serde(rename = "Expiration")]
+    #[facet(rename = "Expiration")]
     pub expiration: RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "Type")]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[facet(tag = "Type")]
+#[repr(C)]
 pub enum RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration {
     AfterDateTime {
-        #[serde(rename = "EndDateTime")]
+        #[facet(rename = "EndDateTime")]
         end_date_time: DateTime<Utc>,
     },
     AfterDuration {
-        #[serde(rename = "Duration")]
+        #[facet(rename = "Duration", opaque, proxy = crate::IsoDurationProxy)]
         duration: iso8601_duration::Duration,
     },
     NoExpiration,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
 pub struct RoleAssignmentScheduleRequestPropertiesTicketInfo {
-    #[serde(rename = "TicketNumber")]
+    #[facet(rename = "TicketNumber")]
     pub ticket_number: String,
-    #[serde(rename = "TicketSystem")]
+    #[facet(rename = "TicketSystem")]
     pub ticket_system: String,
 }

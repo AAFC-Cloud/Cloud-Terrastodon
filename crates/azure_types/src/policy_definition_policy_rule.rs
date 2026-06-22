@@ -1,117 +1,123 @@
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
 pub struct AzurePolicyDefinitionPolicyRule {
     pub r#if: AzurePolicyDefinitionPolicyRuleIfBlock,
     pub then: AzurePolicyDefinitionPolicyRuleEffectBlock,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
 pub struct AzurePolicyDefinitionPolicyRuleEffectBlock {
     pub effect: AzurePolicyDefinitionPolicyRuleEffect,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
+#[repr(C)]
 pub enum AzurePolicyDefinitionPolicyRuleEffect {
     Audit,
     Deny,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[facet(opaque, proxy = RawJson<'static>)]
+#[repr(C)]
 pub enum AzurePolicyDefinitionPolicyRuleIfBlock {
     AllOf(AzurePolicyDefinitionPolicyRuleIfBlockAllOf),
     AnyOf(AzurePolicyDefinitionPolicyRuleIfBlockAnyOf),
     Equals(AzurePolicyDefinitionPolicyRuleIfBlockEquals),
     FieldIn(AzurePolicyDefinitionPolicyRuleIfBlockFieldIn),
-    Other(HashMap<String, Value>),
-}
-impl Serialize for AzurePolicyDefinitionPolicyRuleIfBlock {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            AzurePolicyDefinitionPolicyRuleIfBlock::AllOf(all_of) => all_of.serialize(serializer),
-            AzurePolicyDefinitionPolicyRuleIfBlock::AnyOf(any_of) => any_of.serialize(serializer),
-            AzurePolicyDefinitionPolicyRuleIfBlock::Equals(equals_block) => {
-                equals_block.serialize(serializer)
-            }
-            AzurePolicyDefinitionPolicyRuleIfBlock::FieldIn(field_in) => {
-                field_in.serialize(serializer)
-            }
-            AzurePolicyDefinitionPolicyRuleIfBlock::Other(value) => value.serialize(serializer),
-        }
-    }
+    Other(HashMap<String, RawJson<'static>>),
 }
 
-impl<'de> Deserialize<'de> for AzurePolicyDefinitionPolicyRuleIfBlock {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let Value::Object(obj) = serde_json::Value::deserialize(deserializer)? else {
-            return Err(serde::de::Error::custom("Expected an object"));
-        };
+impl TryFrom<RawJson<'static>> for AzurePolicyDefinitionPolicyRuleIfBlock {
+    type Error = eyre::Error;
+
+    fn try_from(value: RawJson<'static>) -> Result<Self, Self::Error> {
+        let obj = facet_json::from_str::<HashMap<String, RawJson<'static>>>(value.as_str())?;
 
         if let Some(all_of) = obj.get("allOf") {
-            let all_of = AzurePolicyDefinitionPolicyRuleIfBlockAllOf::deserialize(all_of.clone())
-                .map_err(serde::de::Error::custom)?;
+            let all_of = AzurePolicyDefinitionPolicyRuleIfBlockAllOf(facet_json::from_str(
+                all_of.as_str(),
+            )?);
             Ok(Self::AllOf(all_of))
         } else if let Some(any_of) = obj.get("anyOf") {
-            let any_of = AzurePolicyDefinitionPolicyRuleIfBlockAnyOf::deserialize(any_of.clone())
-                .map_err(serde::de::Error::custom)?;
+            let any_of = AzurePolicyDefinitionPolicyRuleIfBlockAnyOf(facet_json::from_str(
+                any_of.as_str(),
+            )?);
             Ok(Self::AnyOf(any_of))
         } else if obj.contains_key("field") {
             if obj.contains_key("equals") {
-                let equals_block =
-                    AzurePolicyDefinitionPolicyRuleIfBlockEquals::deserialize(Value::Object(obj))
-                        .map_err(serde::de::Error::custom)?;
+                let equals_block = facet_json::from_str(value.as_str())?;
                 Ok(Self::Equals(equals_block))
             } else if obj.contains_key("in") {
-                let field_in =
-                    AzurePolicyDefinitionPolicyRuleIfBlockFieldIn::deserialize(Value::Object(obj))
-                        .map_err(serde::de::Error::custom)?;
+                let field_in = facet_json::from_str(value.as_str())?;
                 Ok(Self::FieldIn(field_in))
             } else {
-                Err(serde::de::Error::custom(
+                Err(eyre::eyre!(
                     "Expected an object with 'field' to also have either 'equals' or 'in'",
                 ))
             }
         } else {
-            // Err(serde::de::Error::custom(
-            //     "Expected an object with either 'allOf', 'anyOf', or 'field'",
-            // ))
-            Ok(Self::Other(obj.into_iter().collect()))
+            Ok(Self::Other(obj))
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(transparent)]
+impl TryFrom<&AzurePolicyDefinitionPolicyRuleIfBlock> for RawJson<'static> {
+    type Error = eyre::Error;
+
+    fn try_from(value: &AzurePolicyDefinitionPolicyRuleIfBlock) -> Result<Self, Self::Error> {
+        let json = match value {
+            AzurePolicyDefinitionPolicyRuleIfBlock::AllOf(all_of) => {
+                let mut object = HashMap::new();
+                object.insert(
+                    "allOf".to_string(),
+                    RawJson::from_owned(facet_json::to_string(&all_of.0)?),
+                );
+                facet_json::to_string(&object)?
+            }
+            AzurePolicyDefinitionPolicyRuleIfBlock::AnyOf(any_of) => {
+                let mut object = HashMap::new();
+                object.insert(
+                    "anyOf".to_string(),
+                    RawJson::from_owned(facet_json::to_string(&any_of.0)?),
+                );
+                facet_json::to_string(&object)?
+            }
+            AzurePolicyDefinitionPolicyRuleIfBlock::Equals(equals_block) => {
+                facet_json::to_string(equals_block)?
+            }
+            AzurePolicyDefinitionPolicyRuleIfBlock::FieldIn(field_in) => {
+                facet_json::to_string(field_in)?
+            }
+            AzurePolicyDefinitionPolicyRuleIfBlock::Other(value) => facet_json::to_string(value)?,
+        };
+        Ok(RawJson::from_owned(json))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[facet(transparent)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockAllOf(
     pub Vec<AzurePolicyDefinitionPolicyRuleIfBlock>,
 );
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(transparent)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[facet(transparent)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockAnyOf(
     pub Vec<AzurePolicyDefinitionPolicyRuleIfBlock>,
 );
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockEquals {
     pub equals: String,
     pub field: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockFieldIn {
     pub r#in: HashSet<String>,
     pub field: String,
@@ -122,16 +128,15 @@ mod test {
     use crate::AzurePolicyDefinitionPolicyRuleIfBlock;
     use crate::AzurePolicyDefinitionPolicyRuleIfBlockAllOf;
     use crate::AzurePolicyDefinitionPolicyRuleIfBlockEquals;
-    use serde_json::json;
 
     #[test]
     pub fn it_works1() -> eyre::Result<()> {
-        let json = json!({
+        let json = r#"{
             "equals": "Microsoft.DesktopVirtualization/workspaces",
             "field": "type"
-        });
+        }"#;
         let deserialized: AzurePolicyDefinitionPolicyRuleIfBlock =
-            serde_json::from_value(json.clone())?;
+            facet_json::from_str(json)?;
         assert!(matches!(
             &deserialized,
             AzurePolicyDefinitionPolicyRuleIfBlock::Equals(AzurePolicyDefinitionPolicyRuleIfBlockEquals {
@@ -139,13 +144,15 @@ mod test {
                 field
             }) if equals == "Microsoft.DesktopVirtualization/workspaces" && field == "type"
         ));
-        assert_eq!(serde_json::to_value(&deserialized)?, json,);
+        let reparsed: AzurePolicyDefinitionPolicyRuleIfBlock =
+            facet_json::from_str(&facet_json::to_string(&deserialized)?)?;
+        assert_eq!(deserialized, reparsed);
         Ok(())
     }
 
     #[test]
     pub fn it_works2() -> eyre::Result<()> {
-        let json = json!({
+        let json = r#"{
           "allOf": [
             {
               "field": "type",
@@ -159,9 +166,9 @@ mod test {
               "value": "false"
             }
           ]
-        });
+        }"#;
         let deserialized: AzurePolicyDefinitionPolicyRuleIfBlock =
-            serde_json::from_value(json.clone())?;
+            facet_json::from_str(json)?;
         assert!(matches!(
             &deserialized,
             AzurePolicyDefinitionPolicyRuleIfBlock::AllOf(AzurePolicyDefinitionPolicyRuleIfBlockAllOf(all_of)) if all_of.len() == 2

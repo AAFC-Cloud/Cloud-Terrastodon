@@ -4,90 +4,97 @@ use crate::azure_devops_account_id::AzureDevOpsAccountId;
 use crate::azure_devops_user_id::AzureDevOpsUserId;
 use chrono::DateTime;
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
+use std::str::FromStr;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(rename_all = "lowercase")]
+#[repr(C)]
 pub enum AzureDevOpsLicenseEntitlementStatus {
     Active,
     Pending,
     Disabled,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(rename_all = "lowercase")]
+#[repr(C)]
 pub enum AzureDevOpsLicenseEntitlementOrigin {
     None,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(rename_all = "camelCase")]
+#[repr(C)]
 pub enum AzureDevOpsLicenseAssignmentSource {
     Unknown,
     GroupRule,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsUserLicenseEntitlement {
-    #[serde(rename = "accountId")]
+    #[facet(rename = "accountId")]
     pub account_id: AzureDevOpsAccountId,
-    #[serde(rename = "assignmentDate")]
+    #[facet(rename = "assignmentDate")]
     pub assignment_date: DateTime<Utc>,
-    #[serde(rename = "assignmentSource")]
+    #[facet(rename = "assignmentSource")]
     pub assignment_source: AzureDevOpsLicenseAssignmentSource,
-    #[serde(rename = "dateCreated")]
+    #[facet(rename = "dateCreated")]
     pub date_created: DateTime<Utc>,
-    #[serde(rename = "lastAccessedDate")]
+    #[facet(rename = "lastAccessedDate")]
     pub last_accessed_date: LastAccessedDate,
-    #[serde(rename = "lastUpdated")]
+    #[facet(rename = "lastUpdated")]
     pub last_updated: DateTime<Utc>,
-    #[serde(rename = "license")]
+    #[facet(rename = "license")]
     pub license: AzureDevOpsLicenseType,
-    #[serde(rename = "origin")]
+    #[facet(rename = "origin")]
     pub origin: AzureDevOpsLicenseEntitlementOrigin,
-    #[serde(rename = "status")]
+    #[facet(rename = "status")]
     pub status: AzureDevOpsLicenseEntitlementStatus,
-    #[serde(rename = "user")]
+    #[facet(rename = "user")]
     pub user: AzureDevOpsLicenseEntitlementUserReference,
-    #[serde(rename = "userId")]
+    #[facet(rename = "userId")]
     pub user_id: AzureDevOpsUserId,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum LastAccessedDate {
     Some(DateTime<Utc>),
     Never,
 }
-impl<'de> Deserialize<'de> for LastAccessedDate {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // Step 1: deserialize into a String
-        let s = String::deserialize(deserializer)?;
 
-        // Step 2: if value eq "0001-01-01T00:00:00+00:00" then return LastAccessedDate::Never
-        if s == "0001-01-01T00:00:00+00:00" {
+impl FromStr for LastAccessedDate {
+    type Err = chrono::ParseError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value == "0001-01-01T00:00:00+00:00" {
             return Ok(LastAccessedDate::Never);
         }
-        let dt = DateTime::parse_from_rfc3339(&s)
-            .map_err(serde::de::Error::custom)?
-            .with_timezone(&Utc);
-        Ok(LastAccessedDate::Some(dt))
+
+        Ok(LastAccessedDate::Some(
+            DateTime::parse_from_rfc3339(value)?.with_timezone(&Utc),
+        ))
     }
 }
-impl Serialize for LastAccessedDate {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            LastAccessedDate::Some(dt) => serializer.serialize_str(&dt.to_rfc3339()),
-            LastAccessedDate::Never => serializer.serialize_str("0001-01-01T00:00:00+00:00"),
+
+impl From<&LastAccessedDate> for String {
+    fn from(value: &LastAccessedDate) -> Self {
+        match value {
+            LastAccessedDate::Some(dt) => dt.to_rfc3339(),
+            LastAccessedDate::Never => "0001-01-01T00:00:00+00:00".to_owned(),
         }
     }
 }
+
+impl TryFrom<String> for LastAccessedDate {
+    type Error = chrono::ParseError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::azure_devops_user_license_entitlement;
@@ -96,7 +103,9 @@ mod test {
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
-        let x = serde_json::from_str::<super::LastAccessedDate>(r#""0001-01-01T00:00:00+00:00""#)?;
+        let x = facet_json::from_str::<super::LastAccessedDate>(
+            r#""0001-01-01T00:00:00+00:00""#,
+        )?;
         assert_eq!(
             x,
             azure_devops_user_license_entitlement::LastAccessedDate::Never
@@ -106,7 +115,9 @@ mod test {
 
     #[test]
     pub fn it_works2() -> eyre::Result<()> {
-        let x = serde_json::from_str::<super::LastAccessedDate>(r#""2023-10-05T12:34:56+00:00""#)?;
+        let x = facet_json::from_str::<super::LastAccessedDate>(
+            r#""2023-10-05T12:34:56+00:00""#,
+        )?;
         assert_eq!(
             x,
             azure_devops_user_license_entitlement::LastAccessedDate::Some(
@@ -117,18 +128,18 @@ mod test {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsLicenseEntitlementUserReference {
-    #[serde(rename = "descriptor")]
+    #[facet(rename = "descriptor")]
     pub descriptor: AzureDevOpsDescriptor,
-    #[serde(rename = "displayName")]
+    #[facet(rename = "displayName")]
     pub display_name: String,
-    #[serde(rename = "id")]
+    #[facet(rename = "id")]
     pub id: AzureDevOpsUserId,
-    #[serde(rename = "imageUrl")]
+    #[facet(rename = "imageUrl")]
     pub image_url: String,
-    #[serde(rename = "uniqueName")]
+    #[facet(rename = "uniqueName")]
     pub unique_name: String,
-    #[serde(rename = "url")]
+    #[facet(rename = "url")]
     pub url: String,
 }

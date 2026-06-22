@@ -1,9 +1,7 @@
 use compact_str::CompactString;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct GovernanceRoleDefinition {
     pub display_name: CompactString,
     pub external_id: String,

@@ -8,7 +8,8 @@ use uuid::Uuid;
 
 pub const SUBSCRIPTION_ID_PREFIX: &str = "/subscriptions/";
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureDevOpsServiceEndpointId(Uuid);
 impl AzureDevOpsServiceEndpointId {
     pub fn new(uuid: Uuid) -> Self {
@@ -48,24 +49,18 @@ impl From<Uuid> for AzureDevOpsServiceEndpointId {
         Self(value)
     }
 }
-impl serde::Serialize for AzureDevOpsServiceEndpointId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
+
+impl From<&AzureDevOpsServiceEndpointId> for String {
+    fn from(value: &AzureDevOpsServiceEndpointId) -> Self {
+        value.to_string()
     }
 }
-impl<'de> serde::Deserialize<'de> for AzureDevOpsServiceEndpointId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| serde::de::Error::custom(format!("{e:#}")))?;
-        Ok(id)
+
+impl TryFrom<String> for AzureDevOpsServiceEndpointId {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }
 

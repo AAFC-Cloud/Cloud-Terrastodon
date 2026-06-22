@@ -2,35 +2,34 @@ use crate::KeyVaultSecretId;
 use crate::KeyVaultSecretName;
 use chrono::DateTime;
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
+use facet_json::RawJson;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct KeyVaultSecretAttributes {
     pub created: DateTime<Utc>,
     pub enabled: bool,
-    #[serde(default)]
+    #[facet(default)]
     pub expires: Option<DateTime<Utc>>,
-    #[serde(default)]
+    #[facet(default)]
     pub not_before: Option<DateTime<Utc>>,
     pub recoverable_days: i64,
     pub recovery_level: String,
     pub updated: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct KeyVaultSecret {
     pub attributes: KeyVaultSecretAttributes,
-    #[serde(default)]
+    #[facet(default)]
     pub content_type: Option<String>,
     pub id: KeyVaultSecretId,
-    #[serde(default)]
+    #[facet(default)]
     pub managed: Option<bool>,
     pub name: KeyVaultSecretName,
-    #[serde(default)]
-    pub tags: serde_json::Value, // map but keep flexible
+    #[facet(default)]
+    pub tags: Option<RawJson<'static>>, // map but keep flexible
 }
 
 #[cfg(test)]
@@ -55,7 +54,7 @@ mod test {
             "name": "BruhBruhBruh",
             "tags": {}
           }"#;
-        let secret: KeyVaultSecret = serde_json::from_str(raw)?;
+        let secret: KeyVaultSecret = facet_json::from_str(raw)?;
         assert_eq!(secret.name.to_string(), "BruhBruhBruh");
         Ok(())
     }

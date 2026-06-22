@@ -1,7 +1,9 @@
 use std::convert::Infallible;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct UnifiedRoleAssignmentId(String);
+crate::impl_facet_string_proxy!(UnifiedRoleAssignmentId, value => value.to_string());
 impl UnifiedRoleAssignmentId {
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
@@ -29,20 +31,18 @@ impl std::ops::Deref for UnifiedRoleAssignmentId {
         &self.0
     }
 }
-impl<'de> serde::Deserialize<'de> for UnifiedRoleAssignmentId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        Ok(Self::new(s))
-    }
-}
-impl serde::Serialize for UnifiedRoleAssignmentId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&self.0)
+
+#[cfg(test)]
+mod test {
+    use super::UnifiedRoleAssignmentId;
+
+    #[test]
+    fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let id = facet_json::from_str::<UnifiedRoleAssignmentId>("\"role-assignment-id\"")?;
+        assert_eq!(id.as_ref(), "role-assignment-id");
+        let reparsed =
+            facet_json::from_str::<UnifiedRoleAssignmentId>(&facet_json::to_string(&id)?)?;
+        assert_eq!(id, reparsed);
+        Ok(())
     }
 }

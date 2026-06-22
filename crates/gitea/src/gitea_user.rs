@@ -2,31 +2,30 @@ use crate::GiteaUserId;
 use crate::GiteaUsername;
 use chrono::DateTime;
 use chrono::FixedOffset;
-use serde::Deserialize;
-use serde::Serialize;
+use facet::Facet;
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 pub struct GiteaUser {
     pub id: GiteaUserId,
     pub login: GiteaUsername,
-    #[serde(default)]
+    #[facet(default)]
     pub full_name: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub email: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub avatar_url: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub html_url: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub language: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub last_login: Option<DateTime<FixedOffset>>,
-    #[serde(default)]
+    #[facet(default)]
     pub created: Option<DateTime<FixedOffset>>,
-    #[serde(default)]
+    #[facet(default)]
     pub visibility: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub active: bool,
 }
 

@@ -6,7 +6,6 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::replace_tags_for_resources;
 use cloud_terrastodon_command::CacheKey;
 use eyre::Result;
-use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -26,7 +25,7 @@ ResourceContainers
 | where isnull(count_)  
 | project id, tags
    "#;
-    #[derive(Deserialize)]
+    #[derive(facet::Facet)]
     struct Row {
         id: ResourceGroupId,
         tags: HashMap<String, String>,

@@ -1,12 +1,14 @@
 use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::Principal;
+use cloud_terrastodon_azure::UnifiedRoleAssignment;
+use cloud_terrastodon_azure::UnifiedRoleDefinition;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_all_unified_role_definitions_and_assignments;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
-use serde_json::json;
 use std::borrow::Cow;
 use std::io::Write;
 use tokio::try_join;
@@ -18,6 +20,13 @@ pub struct AzureEntraRoleAssignmentBrowseArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[arg(long, default_value_t)]
     pub tenant: AzureTenantArgument<'static>,
+}
+
+#[derive(facet::Facet)]
+struct EntraRoleAssignmentBrowseOutput<'a> {
+    role_assignment: &'a UnifiedRoleAssignment,
+    role_definition: &'a UnifiedRoleDefinition,
+    principal: Option<&'a Principal>,
 }
 
 impl AzureEntraRoleAssignmentBrowseArgs {
@@ -57,18 +66,16 @@ impl AzureEntraRoleAssignmentBrowseArgs {
             .set_header("Entra role assignments")
             .pick_many(choices)?
             .into_iter()
-            .map(|(role_assignment, role_definition, principal)| {
-                json!({
-                    "role_assignment": role_assignment,
-                    "role_definition": role_definition,
-                    "principal": principal,
-                })
+            .map(|(role_assignment, role_definition, principal)| EntraRoleAssignmentBrowseOutput {
+                role_assignment,
+                role_definition,
+                principal,
             })
             .collect::<Vec<_>>();
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &chosen)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &chosen)?;
         handle.write_all(b"\n")?;
         Ok(())
     }

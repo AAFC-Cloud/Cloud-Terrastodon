@@ -13,6 +13,7 @@ version = "0.36.0" # CT_VERSION
 
 [dependencies]
 cloud_terrastodon_azure_devops_types.workspace = true
+cloud_terrastodon_azure_types.workspace = true
 cloud_terrastodon_command.workspace = true
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_hcl_types.workspace = true
@@ -20,9 +21,9 @@ cloud_terrastodon_pathing.workspace = true
 cloud_terrastodon_credentials.workspace = true
 cloud_terrastodon_rest.workspace = true
 eyre.workspace = true
+facet.workspace = true
+facet-json.workspace = true
 tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
 tempfile.workspace = true
 tracing.workspace = true
 itertools.workspace = true

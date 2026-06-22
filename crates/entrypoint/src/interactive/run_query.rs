@@ -5,7 +5,7 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_user_input::PickerTui;
-use serde_json::Value;
+use facet_json::RawJson;
 use tracing::debug;
 use tracing::info;
 
@@ -46,10 +46,10 @@ resources
         debug!("Received query:\n{}", query);
 
         info!("Running query");
-        let rows: Vec<Value> = ResourceGraphHelper::new(tenant_id, query.clone(), None)
+        let rows: Vec<RawJson<'static>> = ResourceGraphHelper::new(tenant_id, query.clone(), None)
             .collect_all()
             .await?;
-        let rows_json = serde_json::to_string_pretty(&rows)?;
+        let rows_json = cloud_terrastodon_command::to_string_pretty(&rows)?;
 
         debug!("Writing results to temp file");
         let results_path = tempfile::Builder::new()

@@ -11,20 +11,18 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
 pub const AZURE_PRIVATE_ENDPOINT_RESOURCE_ID_PREFIX: &str =
     "/providers/Microsoft.Network/privateEndpoints/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzurePrivateEndpointResourceId {
     pub resource_group_id: ResourceGroupId,
     pub azure_private_endpoint_resource_name: AzurePrivateEndpointResourceName,
 }
+crate::impl_facet_string_proxy!(AzurePrivateEndpointResourceId, value => value.expanded_form());
 
 impl AzurePrivateEndpointResourceId {
     pub fn new(
@@ -140,27 +138,6 @@ impl Scope for AzurePrivateEndpointResourceId {
     }
 }
 
-impl Serialize for AzurePrivateEndpointResourceId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for AzurePrivateEndpointResourceId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = AzurePrivateEndpointResourceId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::AzurePrivateEndpointResourceId;
@@ -209,6 +186,12 @@ mod test {
             let serialized = id.expanded_form();
             let deserialized: AzurePrivateEndpointResourceId = serialized.parse()?;
             assert_eq!(id, deserialized);
+            let json = facet_json::to_string(&serialized)?;
+            assert_eq!(facet_json::to_string(&id)?, json);
+            assert_eq!(
+                facet_json::from_str::<AzurePrivateEndpointResourceId>(&json)?,
+                id
+            );
         }
         Ok(())
     }

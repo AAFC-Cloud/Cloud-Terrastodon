@@ -9,10 +9,8 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::ContextCompat;
-use eyre::OptionExt;
 use eyre::Result;
-use serde_json;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -40,7 +38,7 @@ impl TerraformShowArgs {
 
         let plan: TerraformPlan = if is_json {
             let content = fs::read_to_string(&self.plan_file).await?;
-            serde_json::from_str(&content)?
+            facet_json::from_str(&content)?
         } else {
             let path_str = self
                 .plan_file
@@ -172,34 +170,24 @@ impl TerraformShowArgs {
 }
 
 fn extract_members_and_owners(
-    azuread_group_data: Option<&Value>,
+    azuread_group_data: Option<&RawJson<'static>>,
 ) -> Result<(HashSet<PrincipalId>, HashSet<PrincipalId>), eyre::Error> {
+    #[derive(facet::Facet)]
+    struct AzureAdGroupMembersAndOwners {
+        members: Vec<PrincipalId>,
+        owners: Vec<PrincipalId>,
+    }
+
     Ok(match azuread_group_data {
         None => (HashSet::new(), HashSet::new()),
         Some(group_data) => {
-            let mut members = HashSet::new();
-            let mut owners = HashSet::new();
-
-            let members_data = group_data
-                .get("members")
-                .ok_or_eyre("expected members")?
-                .as_array()
-                .ok_or_eyre("expected array")?;
-            for member in members_data {
-                let member_str = member.as_str().ok_or_eyre("expected member to be string")?;
-                members.insert(member_str.parse()?);
-            }
-
-            let owners_data = group_data
-                .get("owners")
-                .ok_or_eyre("expected owners")?
-                .as_array()
-                .ok_or_eyre("expected array")?;
-            for owner in owners_data {
-                let owner_str = owner.as_str().ok_or_eyre("expected owner to be string")?;
-                owners.insert(owner_str.parse()?);
-            }
-            (members, owners)
+            let group_data = facet_json::from_str::<AzureAdGroupMembersAndOwners>(
+                group_data.as_str(),
+            )?;
+            (
+                group_data.members.into_iter().collect(),
+                group_data.owners.into_iter().collect(),
+            )
         }
     })
 }

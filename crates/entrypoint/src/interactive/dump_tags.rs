@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_user_input::PickerTui;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
 use tokio::fs::try_exists;
@@ -41,7 +41,7 @@ resources
 "#,
         None,
     )
-    .collect_all::<Value>()
+    .collect_all::<RawJson<'static>>()
     .await?;
 
     let mut file = OpenOptions::new()
@@ -51,7 +51,7 @@ resources
         .open(&path)
         .await?;
 
-    file.write_all(serde_json::to_string_pretty(&data)?.as_bytes())
+    file.write_all(cloud_terrastodon_command::to_vec_pretty(&data)?.as_slice())
         .await?;
     info!("Dumped resources to {}", path.display());
     warn!("YOU PROBABLY WANT TO GITIGNORE THIS!");

@@ -1,7 +1,4 @@
-use serde::Deserialize;
-use serde::Serialize;
-
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Debug, facet::Facet)]
 pub struct MicrosoftGraphEntity<Id> {
     pub id: Id,
 }

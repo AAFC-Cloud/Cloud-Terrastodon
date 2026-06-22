@@ -2,195 +2,268 @@ use crate::AzureAppServiceResourceId;
 use crate::AzureAppServiceResourceName;
 use crate::AzureLocationName;
 use crate::AzureTenantId;
-use crate::serde_helpers::deserialize_default_if_null;
 use arbitrary::Arbitrary;
-use serde::Deserialize;
-use serde::Serialize;
+use facet_json::RawJson;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::net::IpAddr;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureAppServiceResource {
     pub id: AzureAppServiceResourceId,
     pub tenant_id: AzureTenantId,
     pub name: AzureAppServiceResourceName,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_app_service_resource_kinds")]
+    #[facet(default, opaque, proxy = AzureAppServiceResourceKindListProxy)]
     pub kind: Vec<AzureAppServiceResourceKind>,
     pub location: AzureLocationName,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: AzureAppServiceResourceProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum AzureAppServiceResourceKind {
-    #[serde(rename = "workflowapp")]
     WorkflowApp,
-    #[serde(rename = "azurecontainerapps")]
     AzureContainerApps,
-    #[serde(rename = "container")]
     Container,
-    #[serde(rename = "app")]
     App,
-    #[serde(rename = "functionapp")]
     FunctionApp,
-    #[serde(rename = "linux")]
     Linux,
-    #[serde(untagged)]
     Other(String),
 }
 
-fn deserialize_app_service_resource_kinds<'de, D>(
-    deserializer: D,
-) -> Result<Vec<AzureAppServiceResourceKind>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let raw = Option::<String>::deserialize(deserializer)?;
-    let Some(raw) = raw else {
-        return Ok(Vec::new());
-    };
+impl TryFrom<String> for AzureAppServiceResourceKind {
+    type Error = Infallible;
 
-    raw.split(',')
-        .map(str::trim)
-        .filter(|kind| !kind.is_empty())
-        .map(|kind| {
-            serde_json::from_value::<AzureAppServiceResourceKind>(serde_json::Value::String(
-                kind.to_string(),
-            ))
-            .map_err(serde::de::Error::custom)
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Ok(match value.as_str() {
+            "workflowapp" => Self::WorkflowApp,
+            "azurecontainerapps" => Self::AzureContainerApps,
+            "container" => Self::Container,
+            "app" => Self::App,
+            "functionapp" => Self::FunctionApp,
+            "linux" => Self::Linux,
+            other => Self::Other(other.to_string()),
         })
-        .collect()
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
-#[serde(rename_all = "camelCase")]
+impl From<&AzureAppServiceResourceKind> for String {
+    fn from(value: &AzureAppServiceResourceKind) -> Self {
+        match value {
+            AzureAppServiceResourceKind::WorkflowApp => "workflowapp",
+            AzureAppServiceResourceKind::AzureContainerApps => "azurecontainerapps",
+            AzureAppServiceResourceKind::Container => "container",
+            AzureAppServiceResourceKind::App => "app",
+            AzureAppServiceResourceKind::FunctionApp => "functionapp",
+            AzureAppServiceResourceKind::Linux => "linux",
+            AzureAppServiceResourceKind::Other(value) => return value.clone(),
+        }
+        .to_string()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(transparent)]
+pub struct AzureAppServiceResourceKindListProxy(Option<String>);
+
+impl From<AzureAppServiceResourceKindListProxy> for Vec<AzureAppServiceResourceKind> {
+    fn from(value: AzureAppServiceResourceKindListProxy) -> Self {
+        let Some(raw) = value.0 else {
+            return Vec::new();
+        };
+        raw.split(',')
+            .map(str::trim)
+            .filter(|kind| !kind.is_empty())
+            .map(
+                |kind| match AzureAppServiceResourceKind::try_from(kind.to_string()) {
+                    Ok(kind) => kind,
+                    Err(err) => match err {},
+                },
+            )
+            .collect()
+    }
+}
+
+impl From<&Vec<AzureAppServiceResourceKind>> for AzureAppServiceResourceKindListProxy {
+    fn from(value: &Vec<AzureAppServiceResourceKind>) -> Self {
+        if value.is_empty() {
+            Self(None)
+        } else {
+            Self(Some(
+                value
+                    .iter()
+                    .map(String::from)
+                    .collect::<Vec<_>>()
+                    .join(","),
+            ))
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureAppServiceResourceProperties {
-    #[serde(default)]
+    #[facet(default)]
     pub state: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub enabled: Option<bool>,
-    #[serde(default)]
+    #[facet(default)]
     pub public_network_access: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub default_host_name: Option<String>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
     pub host_names: Vec<String>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
     pub enabled_host_names: Vec<String>,
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::OptionalIpAddrProxy)]
     pub inbound_ip_address: Option<IpAddr>,
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::OptionalIpAddrProxy)]
     pub inbound_ipv6_address: Option<IpAddr>,
-    #[serde(default)]
+    #[facet(default)]
     pub outbound_ip_addresses: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub possible_outbound_ip_addresses: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub possible_outbound_ipv6_addresses: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub possible_inbound_ip_addresses: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub possible_inbound_ipv6_addresses: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub private_link_identifiers: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub server_farm_id: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub virtual_network_subnet_id: Option<String>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AzureAppServicePrivateEndpointConnection>
+    )]
     pub private_endpoint_connections: Vec<AzureAppServicePrivateEndpointConnection>,
-    #[serde(default)]
+    #[facet(default)]
     pub site_config: Option<AzureAppServiceSiteConfig>,
-    #[serde(flatten)]
     #[arbitrary(default)]
-    pub additional_properties: HashMap<String, serde_json::Value>,
+    #[facet(flatten)]
+    pub additional_properties: HashMap<String, RawJson<'static>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureAppServicePrivateEndpointConnection {
     pub name: String,
-    #[serde(rename = "type")]
-    #[serde(default)]
+    #[facet(rename = "type", default)]
     pub resource_type: Option<String>,
     pub id: String,
-    #[serde(default)]
+    #[facet(default)]
     pub location: Option<AzureLocationName>,
     pub properties: AzureAppServicePrivateEndpointConnectionProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureAppServicePrivateEndpointConnectionProperties {
-    #[serde(default)]
+    #[facet(default)]
     pub provisioning_state: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub private_link_service_connection_state:
         Option<AzureAppServicePrivateLinkServiceConnectionState>,
-    #[serde(default)]
+    #[facet(default)]
     pub private_endpoint: Option<AzureAppServiceResourceReference>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::IpAddrVecDefaultNullProxy)]
     pub ip_addresses: Vec<IpAddr>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
     pub group_ids: Vec<String>,
-    #[serde(flatten)]
     #[arbitrary(default)]
-    pub additional_properties: HashMap<String, serde_json::Value>,
+    #[facet(flatten)]
+    pub additional_properties: HashMap<String, RawJson<'static>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureAppServicePrivateLinkServiceConnectionState {
-    #[serde(default)]
+    #[facet(default)]
     pub description: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub status: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub actions_required: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct AzureAppServiceResourceReference {
     pub id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Arbitrary)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureAppServiceSiteConfig {
-    #[serde(default)]
+    #[facet(default)]
     pub public_network_access: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub linux_fx_version: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub windows_fx_version: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub always_on: Option<bool>,
-    #[serde(flatten)]
     #[arbitrary(default)]
-    pub additional_properties: HashMap<String, serde_json::Value>,
+    #[facet(flatten)]
+    pub additional_properties: HashMap<String, RawJson<'static>>,
 }
 
 #[cfg(test)]
 mod tests {
+    use super::AzureAppServiceResource;
     use super::AzureAppServiceResourceKind;
 
     #[test]
     fn deserializes_unknown_app_service_kind_to_other() -> eyre::Result<()> {
-        let kind = serde_json::from_str::<AzureAppServiceResourceKind>("\"brandnewkind\"")?;
+        let kind = facet_json::from_str::<AzureAppServiceResourceKind>("\"brandnewkind\"")?;
 
         assert_eq!(
             kind,
             AzureAppServiceResourceKind::Other("brandnewkind".to_string())
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn resource_json_round_trips() -> eyre::Result<()> {
+        let json = r#"
+        {
+            "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg/providers/Microsoft.Web/sites/my-app-service",
+            "tenantId": "11111111-1111-1111-1111-111111111111",
+            "name": "my-app-service",
+            "kind": "app,linux,brandnewkind",
+            "location": "canadacentral",
+            "tags": null,
+            "properties": {
+                "hostNames": null,
+                "enabledHostNames": null,
+                "privateEndpointConnections": null,
+                "customProperty": { "kept": true }
+            }
+        }
+        "#;
+
+        let resource = facet_json::from_str::<AzureAppServiceResource>(json)?;
+        assert_eq!(
+            resource.kind,
+            vec![
+                AzureAppServiceResourceKind::App,
+                AzureAppServiceResourceKind::Linux,
+                AzureAppServiceResourceKind::Other("brandnewkind".to_string())
+            ]
+        );
+
+        let reparsed =
+            facet_json::from_str::<AzureAppServiceResource>(&facet_json::to_string(&resource)?)?;
+        assert_eq!(resource, reparsed);
 
         Ok(())
     }

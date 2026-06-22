@@ -2,18 +2,14 @@ use crate::ResourceGroupId;
 use crate::VirtualNetworkId;
 use crate::VirtualNetworkName;
 use crate::VirtualNetworkProperties;
-use crate::serde_helpers::deserialize_default_if_null;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct VirtualNetwork {
     pub id: VirtualNetworkId,
     pub name: VirtualNetworkName,
     pub location: String,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: VirtualNetworkProperties,
 }

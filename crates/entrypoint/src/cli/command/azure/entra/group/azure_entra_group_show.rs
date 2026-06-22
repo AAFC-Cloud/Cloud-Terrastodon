@@ -16,11 +16,10 @@ use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use color_eyre::owo_colors::OwoColorize;
+use cloud_terrastodon_command::to_writer_pretty;
 use eyre::OptionExt;
 use eyre::Result;
 use eyre::bail;
-use serde::Serialize;
-use serde_json::to_writer_pretty;
 use std::collections::HashMap;
 use std::io::BufRead;
 use std::io::IsTerminal;
@@ -169,7 +168,7 @@ impl AzureEntraGroupShowArgs {
             bail!("Failed to fetch role definitions and assignments");
         };
 
-        #[derive(Serialize)]
+        #[derive(facet::Facet)]
         struct GroupData<'a> {
             group: EntraGroup,
             members: Vec<Principal>,

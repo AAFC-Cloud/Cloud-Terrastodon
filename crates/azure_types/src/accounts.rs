@@ -1,36 +1,32 @@
 use crate::tenant_id::AzureTenantId;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, facet::Facet)]
 pub struct Account {
-    #[serde(rename = "cloudName")]
+    #[facet(rename = "cloudName")]
     pub cloud_name: String,
-    #[serde(rename = "homeTenantId")]
+    #[facet(rename = "homeTenantId")]
     pub home_tenant_id: AzureTenantId,
     pub id: Uuid,
-    #[serde(rename = "isDefault")]
+    #[facet(rename = "isDefault")]
     pub is_default: bool,
-    #[serde(rename = "managedByTenants")]
-    pub managed_by_tenants: Vec<Value>,
+    #[facet(rename = "managedByTenants")]
+    pub managed_by_tenants: Vec<RawJson<'static>>,
     pub name: String,
     pub state: String,
-    #[serde(rename = "tenantId")]
+    #[facet(rename = "tenantId")]
     pub tenant_id: AzureTenantId,
     pub user: AccountUser,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, facet::Facet)]
 pub struct TenantIdHolder {
-    #[serde(rename = "tenantId")]
+    #[facet(rename = "tenantId")]
     pub tenant_id: AzureTenantId,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, facet::Facet)]
 pub struct AccountUser {
     pub name: String,
-    // #[serde(rename="type")]
-    // kind: UserKind,
 }

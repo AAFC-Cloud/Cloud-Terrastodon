@@ -8,10 +8,9 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, facet::Facet)]
+#[repr(C)]
 pub enum RoleDefinitionKind {
     BuiltInRole,
     CustomRole,
@@ -20,12 +19,14 @@ pub enum RoleDefinitionKind {
 /// An Azure RBAC role definition.
 ///
 /// Not to be confused with an Entra role definition.
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
 pub struct RoleDefinition {
     pub id: RoleDefinitionId,
     pub display_name: String,
     pub description: String,
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
     pub assignable_scopes: Vec<String>,
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<RolePermissions>)]
     pub permissions: Vec<RolePermissions>,
     pub kind: RoleDefinitionKind,
 }
@@ -104,7 +105,7 @@ mod tests {
     fn deserializes() -> Result<()> {
         let expanded = format!("{}{}", ROLE_DEFINITION_ID_PREFIX, Uuid::default());
         let id: RoleDefinitionId =
-            serde_json::from_str(serde_json::to_string(&expanded)?.as_str())?;
+            facet_json::from_str(facet_json::to_string(&expanded)?.as_str())?;
         assert_eq!(id.expanded_form(), expanded);
 
         Ok(())

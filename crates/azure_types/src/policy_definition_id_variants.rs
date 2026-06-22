@@ -25,30 +25,40 @@ use eyre::Result;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct UnscopedPolicyDefinitionId {
     pub name: PolicyDefinitionName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ManagementGroupScopedPolicyDefinitionId {
     pub management_group_id: ManagementGroupId,
     pub name: PolicyDefinitionName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct SubscriptionScopedPolicyDefinitionId {
     pub subscription_id: SubscriptionId,
     pub name: PolicyDefinitionName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceGroupScopedPolicyDefinitionId {
     pub resource_group_id: ResourceGroupId,
     pub name: PolicyDefinitionName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceScopedPolicyDefinitionId {
     pub resource_id: ResourceId,
     pub name: PolicyDefinitionName,
 }
+crate::impl_facet_string_proxy!(UnscopedPolicyDefinitionId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ManagementGroupScopedPolicyDefinitionId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(SubscriptionScopedPolicyDefinitionId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceGroupScopedPolicyDefinitionId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceScopedPolicyDefinitionId, value => value.expanded_form());
 
 // MARK: impl HasSlug
 

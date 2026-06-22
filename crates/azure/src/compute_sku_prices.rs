@@ -6,7 +6,6 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use compact_str::CompactString;
 use std::path::PathBuf;
 
 pub struct ComputeSkuPricesRequest {
@@ -50,16 +49,20 @@ impl CacheableCommand for ComputeSkuPricesRequest {
         cmd.azure_file_arg("url.txt", url);
         cmd.cache(self.cache_key());
 
-        #[derive(serde::Deserialize)]
-        #[serde(deny_unknown_fields)]
-        #[serde(rename_all = "PascalCase")]
+        #[derive(facet::Facet)]
         #[allow(dead_code)]
         struct Response {
-            billing_currency: CompactString,
+            #[facet(rename = "BillingCurrency")]
+            billing_currency: String,
+            #[facet(rename = "Count")]
             count: usize,
-            customer_entity_id: CompactString,
-            customer_entity_type: CompactString,
+            #[facet(rename = "CustomerEntityId")]
+            customer_entity_id: String,
+            #[facet(rename = "CustomerEntityType")]
+            customer_entity_type: String,
+            #[facet(rename = "Items")]
             items: Vec<Price>,
+            #[facet(rename = "NextPageLink")]
             next_page_link: Option<String>,
         }
         let rtn = cmd.run::<Response>().await?.items;

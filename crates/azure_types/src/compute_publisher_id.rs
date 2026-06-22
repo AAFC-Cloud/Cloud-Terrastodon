@@ -5,19 +5,17 @@ use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::any::type_name;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ComputePublisherId {
     pub subscription_id: SubscriptionId,
     pub location_name: AzureLocationName,
     pub publisher_name: ComputePublisherName,
 }
+crate::impl_facet_string_proxy!(ComputePublisherId, value => value.to_string());
 impl core::fmt::Display for ComputePublisherId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
@@ -136,28 +134,6 @@ impl FromStr for ComputePublisherId {
     }
 }
 
-impl Serialize for ComputePublisherId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_str())
-    }
-}
-
-impl<'de> Deserialize<'de> for ComputePublisherId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::ComputePublisherId;
@@ -167,6 +143,9 @@ mod test {
         let id = "/Subscriptions/4ad30413-8288-4b35-b3c6-89ba1fef6503/Providers/Microsoft.Compute/Locations/CanadaCentral/Publishers/yeeHaw";
         let parsed_id = id.parse::<ComputePublisherId>()?;
         assert!(id.eq_ignore_ascii_case(&parsed_id.to_string()));
+        let json = facet_json::to_string(id)?;
+        assert_eq!(facet_json::to_string(&parsed_id)?, json);
+        assert_eq!(facet_json::from_str::<ComputePublisherId>(&json)?, parsed_id);
         Ok(())
     }
 }

@@ -1,74 +1,83 @@
 use crate::AddressPrefixes;
 use crate::RouteTableId;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct SubnetProperties {
-    #[serde(flatten)]
+    #[facet(flatten, opaque, proxy = crate::address_prefixes::AddressPrefixesProxy)]
     pub address_prefixes: AddressPrefixes,
 
-    #[serde(rename = "networkSecurityGroup")]
+    #[facet(rename = "networkSecurityGroup")]
     pub network_security_group: Option<NetworkSecurityGroupReference>,
 
-    #[serde(rename = "routeTable")]
+    #[facet(rename = "routeTable")]
     pub route_table: Option<RouteTableReference>,
 
-    #[serde(rename = "privateEndpointNetworkPolicies")]
+    #[facet(rename = "privateEndpointNetworkPolicies")]
     pub private_endpoint_network_policies: String,
 
-    #[serde(rename = "privateLinkServiceNetworkPolicies")]
+    #[facet(rename = "privateLinkServiceNetworkPolicies")]
     pub private_link_service_network_policies: String,
 
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<Delegation>)]
     pub delegations: Vec<Delegation>,
 
-    #[serde(rename = "serviceEndpoints")]
-    #[serde(default)]
+    #[facet(
+        rename = "serviceEndpoints",
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<ServiceEndpoint>
+    )]
     pub service_endpoints: Vec<ServiceEndpoint>,
 
-    #[serde(rename = "serviceEndpointPolicies")]
-    #[serde(default)]
+    #[facet(
+        rename = "serviceEndpointPolicies",
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<ServiceEndpointPolicyReference>
+    )]
     pub service_endpoint_policies: Vec<ServiceEndpointPolicyReference>,
 
-    #[serde(rename = "natGateway")]
+    #[facet(rename = "natGateway")]
     pub nat_gateway: Option<NatGatewayReference>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct NetworkSecurityGroupReference {
     pub id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct RouteTableReference {
     pub id: RouteTableId,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct Delegation {
     pub name: String,
     pub properties: DelegationProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct DelegationProperties {
-    #[serde(rename = "serviceName")]
+    #[facet(rename = "serviceName")]
     pub service_name: String,
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
     pub actions: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct ServiceEndpoint {
     pub service: String,
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
     pub locations: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct ServiceEndpointPolicyReference {
     pub id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct NatGatewayReference {
     pub id: String,
 }

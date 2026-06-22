@@ -2,16 +2,14 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ComputePublisherVmImageOfferSkuVersionName(CompactString);
+crate::impl_facet_string_proxy!(ComputePublisherVmImageOfferSkuVersionName, value => value.to_string());
 impl PartialEq for ComputePublisherVmImageOfferSkuVersionName {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq_ignore_ascii_case(&other.0)
@@ -83,22 +81,20 @@ impl<'a> Arbitrary<'a> for ComputePublisherVmImageOfferSkuVersionName {
     }
 }
 
-impl Serialize for ComputePublisherVmImageOfferSkuVersionName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.0)
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl<'de> Deserialize<'de> for ComputePublisherVmImageOfferSkuVersionName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        s.parse()
-            .map_err(|e: eyre::Error| serde::de::Error::custom(format!("{e:?}")))
+    #[test]
+    fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let name = facet_json::from_str::<ComputePublisherVmImageOfferSkuVersionName>(
+            "\"latest\"",
+        )?;
+        assert_eq!(
+            name,
+            ComputePublisherVmImageOfferSkuVersionName::try_new("latest")?
+        );
+        assert_eq!(facet_json::to_string(&name)?, "\"latest\"");
+        Ok(())
     }
 }

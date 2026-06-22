@@ -7,7 +7,6 @@ use crate::PrincipalId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
-use crate::serde_helpers::deserialize_default_if_null;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
@@ -16,60 +15,57 @@ use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use compact_str::CompactString;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
 pub struct PolicyAssignment {
     pub id: PolicyAssignmentId,
     pub name: PolicyAssignmentName,
     pub location: AzureLocationName,
-    pub identity: Option<Value>,
+    pub identity: Option<RawJson<'static>>,
     pub properties: PolicyAssignmentProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentProperties {
     pub policy_definition_id: PolicyDefinitionIdReference,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    pub non_compliance_messages: Vec<Value>,
+    #[facet(default)]
+    pub non_compliance_messages: Vec<RawJson<'static>>,
     pub definition_version: CompactString,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    pub resource_selectors: Vec<Value>,
+    #[facet(default)]
+    pub resource_selectors: Vec<RawJson<'static>>,
     pub enforcement_mode: PolicyAssignmentEnforcementMode,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
     pub display_name: CompactString,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
     pub description: CompactString,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
+    #[facet(default)]
     pub parameters: AzurePolicyDefinitionParametersSupplied,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
+    #[facet(default)]
     pub not_scopes: Vec<String>,
     pub metadata: PolicyAssignmentMetadata,
     pub scope: ScopeImpl,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[repr(C)]
 pub enum PolicyAssignmentEnforcementMode {
     Default,
     DoNotEnforce,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentMetadata {
     pub created_on: DateTime<Utc>,
     pub created_by: PrincipalId,
     pub assigned_by: Option<CompactString>,
-    pub parameter_scopes: Option<Value>,
+    pub parameter_scopes: Option<RawJson<'static>>,
     pub updated_by: Option<PrincipalId>,
     pub updated_on: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentNonComplianceMessage {
     pub policy_definition_reference_id: CompactString,
     pub message: CompactString,

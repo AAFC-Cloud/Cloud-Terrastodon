@@ -13,6 +13,9 @@ pub async fn browse_storage_accounts(tenant_id: AzureTenantId) -> Result<()> {
             key: storage_account.id.expanded_form(),
             value: storage_account,
         }))?;
-    println!("You chose: {}", serde_json::to_string_pretty(&chosen)?);
+    println!(
+        "You chose: {}",
+        cloud_terrastodon_command::to_string_pretty(&chosen)?
+    );
     Ok(())
 }

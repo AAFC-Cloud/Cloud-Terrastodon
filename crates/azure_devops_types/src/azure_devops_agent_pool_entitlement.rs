@@ -5,9 +5,8 @@ use crate::AzureDevOpsProjectId;
 
 /// In Azure DevOps documentation, the grant for a given [`AzureDevOpsProject`] to use an [`AzureDevOpsAgentPool`] is called a "queue" but that's silly so we will call it an entitlement instead.
 /// <https://learn.microsoft.com/en-us/rest/api/azure/devops/distributedtask/queues/get?view=azure-devops-rest-7.1>
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPoolEntitlement {
     /// The queue id (this is NOT the same as the underlying pool id).
     pub id: AzureDevOpsAgentPoolEntitlementId,
@@ -16,9 +15,8 @@ pub struct AzureDevOpsAgentPoolEntitlement {
     pub project_id: AzureDevOpsProjectId,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPoolEntitlementPoolReference {
     pub id: AzureDevOpsAgentPoolId,
     pub is_hosted: bool,

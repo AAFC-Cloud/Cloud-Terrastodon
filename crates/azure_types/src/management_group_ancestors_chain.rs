@@ -1,10 +1,9 @@
 use crate::ManagementGroupId;
-use serde::Deserialize;
-use serde::Serialize;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(transparent)]
 pub struct ManagementGroupAncestorsChain(Vec<ManagementGroupAncestorsChainEntry>);
 impl Deref for ManagementGroupAncestorsChain {
     type Target = Vec<ManagementGroupAncestorsChainEntry>;
@@ -18,10 +17,10 @@ impl DerefMut for ManagementGroupAncestorsChain {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct ManagementGroupAncestorsChainEntry {
     pub name: String,
-    #[serde(rename = "displayName")]
+    #[facet(rename = "displayName")]
     pub display_name: String,
 }
 impl ManagementGroupAncestorsChainEntry {

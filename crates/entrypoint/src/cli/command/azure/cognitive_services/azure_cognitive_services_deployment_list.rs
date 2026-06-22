@@ -9,10 +9,9 @@ use cloud_terrastodon_azure::fetch_all_cognitive_services_accounts;
 use cloud_terrastodon_azure::fetch_cognitive_services_account_deployments;
 use eyre::Result;
 use eyre::bail;
-use serde::Serialize;
 use std::io::Write;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, facet::Facet)]
 struct CognitiveServicesAccountDeploymentListEntry {
     account: AzureCognitiveServicesAccountResource,
     deployment: AzureCognitiveServicesAccountDeployment,
@@ -91,7 +90,7 @@ impl AzureCognitiveServicesDeploymentListArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &deployments)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &deployments)?;
         handle.write_all(b"\n")?;
         Ok(())
     }

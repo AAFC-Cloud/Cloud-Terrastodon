@@ -15,10 +15,12 @@ use std::str::FromStr;
 /// I was unable to find a definitive source for the rules governing container registry repository names.
 ///
 /// For now, this type will always successfully validate.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ContainerRegistryRepositoryName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy!(ContainerRegistryRepositoryName, value => value.to_string());
 impl Slug for ContainerRegistryRepositoryName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = name.into();
@@ -47,24 +49,6 @@ impl TryFrom<&str> for ContainerRegistryRepositoryName {
 impl std::fmt::Display for ContainerRegistryRepositoryName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
-    }
-}
-impl serde::Serialize for ContainerRegistryRepositoryName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for ContainerRegistryRepositoryName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for ContainerRegistryRepositoryName {
@@ -106,6 +90,10 @@ mod test {
         assert!(ContainerRegistryRepositoryName::try_new("a".repeat(23)).is_ok());
         assert!(ContainerRegistryRepositoryName::try_new("a".repeat(24)).is_ok());
         assert!(ContainerRegistryRepositoryName::try_new("a".repeat(25)).is_ok());
+        let name = ContainerRegistryRepositoryName::try_new("bruh")?;
+        assert_eq!(facet_json::to_string(&name)?, "\"bruh\"");
+        let reparsed = facet_json::from_str::<ContainerRegistryRepositoryName>("\"bruh\"")?;
+        assert_eq!(reparsed, name);
         Ok(())
     }
 }

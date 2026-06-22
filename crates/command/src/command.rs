@@ -12,8 +12,7 @@ use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use facet::Facet;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -40,8 +39,8 @@ use tracing::info;
 use tracing::info_span;
 use tracing::warn;
 
-pub trait FromCommandOutput: DeserializeOwned + Send + 'static {}
-impl<T> FromCommandOutput for T where T: DeserializeOwned + Send + 'static {}
+pub trait FromCommandOutput: Facet<'static> + Send + 'static {}
+impl<T> FromCommandOutput for T where T: Facet<'static> + Send + 'static {}
 
 #[derive(Clone, Copy, Default, Debug)]
 pub enum RetryBehaviour {
@@ -73,14 +72,15 @@ pub struct CommandBuilder {
 
 static LOGIN_LOCK: OnceCell<Arc<Mutex<()>>> = OnceCell::const_new();
 
-#[derive(Serialize)]
-struct ProcessFingerprint<'a> {
+#[derive(facet::Facet)]
+struct ProcessFingerprint {
     program: String,
     args: Vec<String>,
     env: BTreeMap<String, String>,
-    run_dir: Option<PathBuf>,
+    run_dir: Option<String>,
     stdin_content: Option<String>,
-    debug_inputs: &'a BTreeMap<PathBuf, BString>,
+    #[facet(opaque, proxy = crate::BStringMapJsonProxy)]
+    debug_inputs: BTreeMap<String, BString>,
 }
 
 impl CommandBuilder {
@@ -258,11 +258,17 @@ impl CommandBuilder {
                 .iter()
                 .map(|(key, value)| (key.clone(), value.clone()))
                 .collect(),
-            run_dir: self.run_dir.clone(),
+            run_dir: self
+                .run_dir
+                .as_ref()
+                .map(|path| path.to_string_lossy().into_owned()),
             stdin_content: self.stdin_content.clone(),
-            debug_inputs,
+            debug_inputs: debug_inputs
+                .iter()
+                .map(|(path, contents)| (path.to_string_lossy().into_owned(), contents.clone()))
+                .collect(),
         };
-        let bytes = serde_json::to_vec(&fingerprint)?;
+        let bytes = crate::json::to_vec(&fingerprint)?;
         Ok(blake3::hash(&bytes).to_hex().to_string())
     }
 
@@ -648,7 +654,7 @@ impl CommandBuilder {
 
                 let stdout = output.stdout.to_str_lossy();
                 let slice = stdout.as_bytes();
-                let parse_result = serde_json::from_slice(slice);
+                let parse_result = crate::json::from_slice(slice);
 
                 let elapsed = Instant::now().duration_since(start);
                 debug!(
@@ -668,7 +674,7 @@ impl CommandBuilder {
                     .write_failure(&output)
                     .instrument(span.or_current())
                     .await?;
-                Err(eyre::Error::new(e).wrap_err(format!(
+                Err(e.wrap_err(format!(
                     "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}",
                     RelativeLocation::from(caller),
                     std::any::type_name::<T>()
@@ -705,7 +711,7 @@ impl CommandBuilder {
 
                 let stdout = output.stdout.to_str_lossy();
                 let slice = stdout.as_bytes();
-                let parse_result = serde_json::from_slice(slice);
+                let parse_result = crate::json::from_slice(slice);
 
                 let elapsed = Instant::now().duration_since(start);
                 debug!(
@@ -725,8 +731,7 @@ impl CommandBuilder {
                     .write_failure(&output)
                     .instrument(span.or_current())
                     .await?;
-                Err(eyre::Error::new(e)
-                    .wrap_err(format!(
+                Err(e.wrap_err(format!(
                         "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}",
                         RelativeLocation::from(caller),
                         std::any::type_name::<T>()
@@ -760,7 +765,7 @@ impl CommandBuilder {
         let output = self.run_raw().await?;
 
         // Parse
-        match serde_json::from_slice(&output.stdout) {
+        match crate::json::from_slice(&output.stdout) {
             Ok(results) => match validator(results) {
                 Ok(results) => Ok(results),
                 Err(e) => {
@@ -774,7 +779,7 @@ impl CommandBuilder {
             },
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
-                Err(eyre::Error::new(e).wrap_err(format!(
+                Err(e.wrap_err(format!(
                     "deserializing `{}` failed\ncalled by \"{}\"\ndumped to {:?}",
                     self.summarize().await,
                     RelativeLocation::from(caller),

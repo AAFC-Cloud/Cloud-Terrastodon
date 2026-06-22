@@ -14,17 +14,15 @@ use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
+use facet::Facet;
 use std::hash::Hash;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceGroupId {
     pub subscription_id: SubscriptionId,
     pub resource_group_name: ResourceGroupName,
@@ -58,6 +56,12 @@ impl ResourceGroupId {
             subscription_id,
             resource_group_name,
         })
+    }
+}
+
+impl From<&ResourceGroupId> for String {
+    fn from(value: &ResourceGroupId) -> Self {
+        value.expanded_form()
     }
 }
 
@@ -205,32 +209,11 @@ impl Scope for ResourceGroupId {
     }
 }
 
-impl Serialize for ResourceGroupId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.expanded_form().as_str())
-    }
-}
-
-impl<'de> Deserialize<'de> for ResourceGroupId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::ResourceGroupId;
     use crate::scopes::Scope;
+    use facet::Facet;
     use uuid::Uuid;
 
     #[test]
@@ -250,6 +233,31 @@ mod test {
             id.expanded_form(),
             "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG"
         );
+        Ok(())
+    }
+
+    #[derive(Debug, PartialEq, Facet)]
+    pub struct Something {
+        pub resource_group_id: ResourceGroupId,
+    }
+
+    #[test]
+    pub fn json_round_trip() -> eyre::Result<()> {
+        let id_str = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG";
+        let something = Something {
+            resource_group_id: id_str.parse()?,
+        };
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&something)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<Something>(
+            r#"{"resource_group_id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG"}"#,
+        )?;
+        let json = facet_json::to_string(&something)?;
+        let json_expected = r#"{"resource_group_id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG"}"#;
+        assert_eq!(
+            facet_json::from_str::<facet_json::RawJson>(&json)?,
+            facet_json::from_str::<facet_json::RawJson>(json_expected)?
+        );
+
         Ok(())
     }
 }

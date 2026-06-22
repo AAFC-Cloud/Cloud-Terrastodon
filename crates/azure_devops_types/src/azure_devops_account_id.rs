@@ -1,10 +1,9 @@
-use serde::Deserialize;
-use serde::Serialize;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureDevOpsAccountId(Uuid);
 
 impl std::fmt::Display for AzureDevOpsAccountId {
@@ -24,6 +23,20 @@ impl Deref for AzureDevOpsAccountId {
 impl AzureDevOpsAccountId {
     pub fn new(uuid: Uuid) -> AzureDevOpsAccountId {
         AzureDevOpsAccountId(uuid)
+    }
+}
+
+impl From<&AzureDevOpsAccountId> for String {
+    fn from(value: &AzureDevOpsAccountId) -> Self {
+        value.to_string()
+    }
+}
+
+impl TryFrom<String> for AzureDevOpsAccountId {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }
 

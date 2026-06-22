@@ -5,7 +5,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -61,8 +60,8 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsListRe
         ]);
         cmd.cache(self.cache_key());
 
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
+        #[derive(facet::Facet)]
+        #[facet(rename_all = "camelCase")]
         struct Response {
             continuation_token: Option<String>,
             graph_groups: Vec<AzureDevOpsGroup>,

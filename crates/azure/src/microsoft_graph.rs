@@ -3,7 +3,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::FromCommandOutput;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use serde::Deserialize;
 
 enum NextLink {
     Uninitialized,
@@ -72,11 +71,9 @@ impl MicrosoftGraphHelper {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, facet::Facet)]
 pub struct MicrosoftGraphResponse<T> {
-    // #[serde(rename = "@odata.context")]
-    // context: String,
-    #[serde(rename = "@odata.nextLink")]
+    #[facet(rename = "@odata.nextLink")]
     pub next_link: Option<String>,
     pub value: Vec<T>,
 }

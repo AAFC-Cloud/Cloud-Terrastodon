@@ -3,7 +3,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use serde::Deserialize;
 use std::path::PathBuf;
 
 pub struct MyEntraRoleEligibilityScheduleListRequest;
@@ -28,7 +27,7 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraRoleEligibilitySched
     async fn run(self) -> Result<Self::Output> {
         let url = "https://management.azure.com/providers/Microsoft.Authorization/roleEligibilitySchedules?api-version=2020-10-01&$filter=asTarget()";
 
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct Response {
             value: Vec<RoleEligibilitySchedule>,
         }

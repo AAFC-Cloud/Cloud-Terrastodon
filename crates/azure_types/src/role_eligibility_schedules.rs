@@ -6,85 +6,86 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use chrono::DateTime;
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
+#[repr(C)]
 pub enum RoleEligibilityScheduleMemberType {
     Group,
     Direct,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
+#[repr(C)]
 pub enum RoleEligibilitySchedulePrincipalType {
     Group,
     User,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
+#[repr(C)]
 pub enum RoleEligibilityScheduleStatus {
     Provisioned,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct RoleEligibilityScheduleExpandedPropertiesPrincipal {
-    #[serde(rename = "displayName")]
+    #[facet(rename = "displayName")]
     pub display_name: String,
     pub id: Uuid,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: RoleEligibilitySchedulePrincipalType,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct RoleEligibilityScheduleExpandedPropertiesRoleDefinition {
-    #[serde(rename = "displayName")]
+    #[facet(rename = "displayName")]
     pub display_name: String,
     pub id: RoleDefinitionId,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: RoleDefinitionKind,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct RoleEligibilityScheduleExpandedPropertiesScope {
-    #[serde(rename = "displayName")]
+    #[facet(rename = "displayName")]
     pub display_name: String,
     pub id: String,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct RoleEligibilityScheduleExpandedProperties {
     pub principal: RoleEligibilityScheduleExpandedPropertiesPrincipal,
-    #[serde(rename = "roleDefinition")]
+    #[facet(rename = "roleDefinition")]
     pub role_definition: RoleEligibilityScheduleExpandedPropertiesRoleDefinition,
     pub scope: RoleEligibilityScheduleExpandedPropertiesScope,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct RoleEligibilityScheduleProperties {
-    #[serde(rename = "createdOn")]
+    #[facet(rename = "createdOn")]
     pub created_on: DateTime<Utc>,
-    #[serde(rename = "expandedProperties")]
+    #[facet(rename = "expandedProperties")]
     pub expanded_properties: RoleEligibilityScheduleExpandedProperties,
-    #[serde(rename = "memberType")]
+    #[facet(rename = "memberType")]
     pub member_type: RoleEligibilityScheduleMemberType,
-    #[serde(rename = "principalId")]
+    #[facet(rename = "principalId")]
     pub principal_id: Uuid,
-    #[serde(rename = "principalType")]
+    #[facet(rename = "principalType")]
     pub principal_type: RoleEligibilitySchedulePrincipalType,
-    #[serde(rename = "roleDefinitionId")]
+    #[facet(rename = "roleDefinitionId")]
     pub role_definition_id: RoleDefinitionId,
-    #[serde(rename = "roleEligibilityScheduleRequestId")]
+    #[facet(rename = "roleEligibilityScheduleRequestId")]
     pub role_eligibility_schedule_request_id: String,
-    #[serde(rename = "scope")]
+    #[facet(rename = "scope")]
     pub scope: ScopeImpl,
-    #[serde(rename = "startDateTime")]
+    #[facet(rename = "startDateTime")]
     pub start_date_time: DateTime<Utc>,
-    #[serde(rename = "status")]
+    #[facet(rename = "status")]
     pub status: RoleEligibilityScheduleStatus,
-    #[serde(rename = "updatedOn")]
+    #[facet(rename = "updatedOn")]
     pub updated_on: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct RoleEligibilitySchedule {
     pub id: RoleEligibilityScheduleId,
     pub name: Uuid,

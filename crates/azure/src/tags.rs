@@ -8,21 +8,18 @@ use cloud_terrastodon_azure_types::Scope;
 use eyre::Result;
 use http::Method;
 use itertools::Itertools;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::json;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, facet::Facet)]
 struct TagContentProperties {
     tags: HashMap<String, String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
 struct TagContent {
     id: ResourceTagsId,
     name: String,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     kind: String,
     properties: TagContentProperties,
 }
@@ -30,6 +27,21 @@ impl TagContent {
     pub fn validate(&self) {
         assert_eq!(self.name, "default");
         assert_eq!(self.kind, "Microsoft.Resources/tags");
+    }
+}
+
+#[derive(Clone, Debug, facet::Facet)]
+struct TagPatchContent {
+    operation: String, // todo: make enum
+    properties: TagContentProperties,
+}
+
+impl TagPatchContent {
+    fn new(operation: &str, tags: HashMap<String, String>) -> Self {
+        Self {
+            operation: operation.to_string(),
+            properties: TagContentProperties { tags },
+        }
     }
 }
 
@@ -65,12 +77,7 @@ pub async fn replace_tags_for_resources(
                     tenant_id,
                     Method::PATCH,
                     format!("{}{}", resource_id.expanded_form(), url_tail),
-                    Some(json!({
-                        "operation": "Replace",
-                        "properties": json!({
-                            "tags": tags,
-                        }),
-                    })),
+                    Some(TagPatchContent::new("Replace", tags)),
                 )
             })
             .collect_vec(),
@@ -94,12 +101,7 @@ pub async fn merge_tags_for_resources(
                     tenant_id,
                     Method::PATCH,
                     format!("{}{}", resource_id.expanded_form(), url_tail),
-                    Some(json!({
-                        "operation": "Merge",
-                        "properties": json!({
-                            "tags": tags,
-                        }),
-                    })),
+                    Some(TagPatchContent::new("Merge", tags)),
                 )
             })
             .collect_vec(),
@@ -123,12 +125,7 @@ pub async fn delete_tags_for_resources(
                     tenant_id,
                     Method::PATCH,
                     format!("{}{}", resource_id.expanded_form(), url_tail),
-                    Some(json!({
-                        "operation": "Delete",
-                        "properties": json!({
-                            "tags": tags,
-                        }),
-                    })),
+                    Some(TagPatchContent::new("Delete", tags)),
                 )
             })
             .collect_vec(),

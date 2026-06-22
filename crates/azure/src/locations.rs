@@ -33,7 +33,7 @@ impl CacheableCommand for LocationListRequest {
             "https://management.azure.com/subscriptions/{}/locations?api-version=2022-12-01",
             self.subscription_id
         );
-        #[derive(serde::Deserialize)]
+        #[derive(facet::Facet)]
         struct Response {
             value: Vec<AzureLocation>,
         }

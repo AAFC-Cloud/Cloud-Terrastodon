@@ -7,30 +7,29 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[repr(C)]
 pub enum AzureDevOpsProjectState {
-    #[serde(rename = "wellFormed")]
+    #[facet(rename = "wellFormed")]
     WellFormed,
 }
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[repr(C)]
 pub enum AzureDevOpsProjectVisibility {
-    #[serde(rename = "private")]
+    #[facet(rename = "private")]
     Private,
-    #[serde(rename = "public")]
+    #[facet(rename = "public")]
     Public, // just assuming this exists
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsProject {
     pub abbreviation: Option<String>,
-    #[serde(rename = "defaultTeamImageUrl")]
     pub default_team_image_url: Option<String>,
     pub description: Option<String>,
     pub id: AzureDevOpsProjectId,
-    #[serde(rename = "lastUpdateTime")]
     pub last_update_time: DateTime<Utc>,
     pub name: AzureDevOpsProjectName,
     pub revision: u16,

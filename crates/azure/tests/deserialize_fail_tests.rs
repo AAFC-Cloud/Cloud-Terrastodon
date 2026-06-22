@@ -1,15 +1,13 @@
-use serde::Deserialize;
-
 #[test]
 fn bruh() -> eyre::Result<()> {
     let json = r#"{"id":1,"name":"Test"}"#;
-    #[derive(Deserialize, Debug)]
+    #[derive(Debug, facet::Facet)]
     #[allow(unused)]
     struct Response {
         id: u32,
         name: String,
     }
-    let v: Response = serde_json::from_str(json)?;
+    let v: Response = facet_json::from_str(json)?;
     assert_eq!(v.id, 1);
     assert_eq!(v.name, "Test");
     Ok(())
@@ -20,13 +18,13 @@ fn bruh2() -> eyre::Result<()> {
     "id":1,
     "name":null
 }"#;
-    #[derive(Deserialize, Debug)]
+    #[derive(Debug, facet::Facet)]
     #[allow(unused)]
     struct Response {
         id: u32,
         name: String,
     }
-    let v: Result<Response, _> = serde_json::from_str(json);
+    let v: Result<Response, _> = facet_json::from_str(json);
     assert!(v.is_err());
     Ok(())
 }
@@ -42,13 +40,13 @@ fn bruh3() -> eyre::Result<()> {
     "name":null
 }
 ]"#;
-    #[derive(Deserialize, Debug)]
+    #[derive(Debug, facet::Facet)]
     #[allow(unused)]
     struct Response {
         id: u32,
         name: String,
     }
-    let v: Result<Vec<Response>, _> = serde_json::from_str(json);
+    let v: Result<Vec<Response>, _> = facet_json::from_str(json);
     assert!(v.is_err());
     Ok(())
 }

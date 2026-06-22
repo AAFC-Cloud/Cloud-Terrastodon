@@ -30,39 +30,53 @@ use eyre::Result;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct UnscopedRoleAssignmentId {
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct PortalScopedRoleAssignmentId {
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ServiceGroupScopedRoleAssignmentId {
     pub service_group_id: ServiceGroupId,
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ManagementGroupScopedRoleAssignmentId {
     pub management_group_id: ManagementGroupId,
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct SubscriptionScopedRoleAssignmentId {
     pub subscription_id: SubscriptionId,
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceGroupScopedRoleAssignmentId {
     pub resource_group_id: ResourceGroupId,
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceScopedRoleAssignmentId {
     pub resource_id: ResourceId,
     pub role_assignment_name: RoleAssignmentName,
 }
+crate::impl_facet_string_proxy!(UnscopedRoleAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(PortalScopedRoleAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ServiceGroupScopedRoleAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ManagementGroupScopedRoleAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(SubscriptionScopedRoleAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceGroupScopedRoleAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceScopedRoleAssignmentId, value => value.expanded_form());
 
 // MARK: impl HasSlug
 

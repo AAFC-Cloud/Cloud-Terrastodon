@@ -1,14 +1,13 @@
 use chrono::DateTime;
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::collections::VecDeque;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureDevOpsWorkItemQueryId(Uuid);
 impl std::fmt::Display for AzureDevOpsWorkItemQueryId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -28,6 +27,21 @@ impl AzureDevOpsWorkItemQueryId {
         AzureDevOpsWorkItemQueryId(uuid)
     }
 }
+
+impl From<&AzureDevOpsWorkItemQueryId> for String {
+    fn from(value: &AzureDevOpsWorkItemQueryId) -> Self {
+        value.to_string()
+    }
+}
+
+impl TryFrom<String> for AzureDevOpsWorkItemQueryId {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
 impl FromStr for AzureDevOpsWorkItemQueryId {
     type Err = eyre::Error;
 
@@ -37,36 +51,23 @@ impl FromStr for AzureDevOpsWorkItemQueryId {
     }
 }
 /// Also known as: QueryHierarchyItem
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsWorkItemQuery {
-    #[serde(rename = "_links")]
-    pub _links: Value,
-    #[serde(rename = "children")]
-    #[serde(default)]
+    #[facet(rename = "_links")]
+    pub links: RawJson<'static>,
+    #[facet(recursive_type)]
     pub children: Vec<AzureDevOpsWorkItemQuery>,
-    #[serde(rename = "createdBy")]
-    pub created_by: Option<Value>,
-    #[serde(rename = "createdDate")]
+    pub created_by: Option<RawJson<'static>>,
     pub created_date: DateTime<Utc>,
-    #[serde(rename = "hasChildren")]
-    #[serde(default)]
     pub has_children: bool,
-    #[serde(rename = "id")]
     pub id: AzureDevOpsWorkItemQueryId,
-    #[serde(rename = "isFolder")]
-    #[serde(default)]
     pub is_folder: bool,
-    #[serde(rename = "isPublic")]
     pub is_public: bool,
-    #[serde(rename = "lastModifiedBy")]
-    pub last_modified_by: Value,
-    #[serde(rename = "lastModifiedDate")]
+    pub last_modified_by: RawJson<'static>,
     pub last_modified_date: DateTime<Utc>,
-    #[serde(rename = "name")]
     pub name: String,
-    #[serde(rename = "path")]
     pub path: String,
-    #[serde(rename = "url")]
     pub url: String,
 }
 

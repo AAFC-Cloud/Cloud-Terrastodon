@@ -1,11 +1,9 @@
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::collections::HashMap;
 use std::ops::Deref;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Default)]
-#[serde(transparent)]
+#[derive(Debug, Eq, PartialEq, Default, facet::Facet)]
+#[facet(transparent)]
 pub struct AzurePolicyDefinitionParametersSupplied(
     pub HashMap<String, AzurePolicyDefinitionParametersSuppliedValue>,
 );
@@ -18,18 +16,25 @@ impl Deref for AzurePolicyDefinitionParametersSupplied {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, facet::Facet)]
 pub struct AzurePolicyDefinitionParametersSuppliedValue {
-    pub value: Value,
+    pub value: RawJson<'static>,
 }
-impl<V> From<V> for AzurePolicyDefinitionParametersSuppliedValue
-where
-    V: Into<Value>,
-{
-    fn from(value: V) -> Self {
+
+impl From<&str> for AzurePolicyDefinitionParametersSuppliedValue {
+    fn from(value: &str) -> Self {
         AzurePolicyDefinitionParametersSuppliedValue {
-            value: value.into(),
+            value: RawJson::from_owned(
+                facet_json::to_string(value)
+                    .expect("serializing a string policy parameter should not fail"),
+            ),
         }
+    }
+}
+
+impl From<String> for AzurePolicyDefinitionParametersSuppliedValue {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
     }
 }
 

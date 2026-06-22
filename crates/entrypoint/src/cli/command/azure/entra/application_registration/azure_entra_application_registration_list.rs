@@ -22,7 +22,7 @@ impl AzureEntraApplicationRegistrationListArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &applications)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &applications)?;
         handle.write_all(b"\n")?;
         Ok(())
     }

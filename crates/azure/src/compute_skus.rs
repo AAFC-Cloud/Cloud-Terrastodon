@@ -4,7 +4,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
-use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -38,8 +37,7 @@ impl CacheableCommand for ComputeSkuListRequest {
             "https://management.azure.com/subscriptions/{}/providers/Microsoft.Compute/skus?api-version=2019-04-01",
             self.subscription_id
         );
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
+        #[derive(facet::Facet)]
         struct Response {
             value: Vec<ComputeSku>,
         }

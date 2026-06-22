@@ -6,27 +6,24 @@ use crate::ScopeImpl;
 use crate::ScopeImplKind;
 use crate::scopes::HasPrefix;
 use crate::scopes::TryFromResourceScoped;
-use crate::serde_helpers::deserialize_default_if_null;
 use crate::slug::HasSlug;
 use compact_str::CompactString;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::collections::HashMap;
 use std::str::FromStr;
 
 /// This is the ID for an ill-defined resource that is specifically the child of a resource group.
 /// Some things are children of things that are children of resource groups, which this would not apply to.
 /// At some point, this should be replaced with ScopeImpl or something in the fields where this type is used.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(opaque, json::proxy = String)]
 pub struct ResourceId {
     pub resource_group_id: ResourceGroupId,
     pub resource_type: ResourceType,
     pub resource_name: CompactString,
 }
+crate::impl_facet_string_proxy!(ResourceId, value => value.expanded_form());
 impl ResourceId {
     pub fn new(
         resource_group_id: ResourceGroupId,
@@ -95,39 +92,46 @@ impl FromStr for ResourceId {
     }
 }
 
-impl Serialize for ResourceId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.expanded_form().as_str())
+#[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
+#[facet(opaque, proxy = RawJson<'static>)]
+pub struct ResourcePropertyValue {
+    raw: RawJson<'static>,
+    string: Option<String>,
+}
+
+impl ResourcePropertyValue {
+    pub fn as_str(&self) -> Option<&str> {
+        self.string.as_deref()
     }
 }
 
-impl<'de> Deserialize<'de> for ResourceId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
+impl From<RawJson<'static>> for ResourcePropertyValue {
+    fn from(raw: RawJson<'static>) -> Self {
+        let string = facet_json::from_str::<String>(raw.as_str()).ok();
+        Self { raw, string }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+impl From<&ResourcePropertyValue> for RawJson<'static> {
+    fn from(value: &ResourcePropertyValue) -> Self {
+        value.raw.clone()
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, facet::Facet)]
 pub struct Resource {
     pub id: ScopeImpl,
+    #[facet(opaque, proxy = crate::ResourceTypeProxy)]
     pub kind: ResourceType,
     pub name: String,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
-    pub properties: HashMap<String, Value>,
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::HashMapDefaultNullProxy<ResourcePropertyValue>
+    )]
+    pub properties: HashMap<String, ResourcePropertyValue>,
 }
 impl AsScope for Resource {
     fn as_scope(&self) -> &impl Scope {
@@ -161,7 +165,6 @@ mod test {
     use crate::scopes::Scope;
     use crate::slug::Slug;
     use cloud_terrastodon_azure_resource_types::ResourceType;
-    use serde_json::json;
     use uuid::Uuid;
 
     #[test]
@@ -186,32 +189,58 @@ mod test {
     }
 
     #[test]
-    fn deserializes_resource_properties() -> eyre::Result<()> {
-        let resource: crate::Resource = serde_json::from_value(json!({
-            "id": format!(
-                "/subscriptions/{nil}/resourceGroups/my-rg/providers/Microsoft.Network/publicIPAddresses/my-ip",
-                nil = Uuid::nil()
+    fn resource_id_json_roundtrips() -> eyre::Result<()> {
+        let id = ResourceId::new(
+            ResourceGroupId::new(
+                SubscriptionId::new(Uuid::nil()),
+                ResourceGroupName::try_new("MY-RG")?,
             ),
+            ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
+            "MY-VNET",
+        );
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&id)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<ResourceId>(
+            "\"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/MY-RG/providers/Microsoft.Network/virtualNetworks/MY-VNET\"",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn deserializes_resource_properties() -> eyre::Result<()> {
+        let id = format!(
+            "/subscriptions/{nil}/resourceGroups/my-rg/providers/Microsoft.Network/publicIPAddresses/my-ip",
+            nil = Uuid::nil()
+        );
+        let resource: crate::Resource = facet_json::from_str(&format!(
+            r#"{{
+            "id": "{id}",
             "kind": "Microsoft.Network/publicIPAddresses",
             "name": "my-ip",
-            "properties": {
+            "properties": {{
                 "displayName": "My IP",
                 "provisioningState": "Succeeded",
                 "ipAddress": "203.0.113.10"
-            },
-            "tags": {
+            }},
+            "tags": {{
                 "env": "test"
-            }
-        }))?;
+            }}
+        }}"#
+        ))?;
 
         assert_eq!(resource.display_name(), Some("My IP"));
         assert_eq!(
-            resource.properties.get("provisioningState"),
-            Some(&json!("Succeeded"))
+            resource
+                .properties
+                .get("provisioningState")
+                .and_then(crate::ResourcePropertyValue::as_str),
+            Some("Succeeded")
         );
         assert_eq!(
-            resource.properties.get("ipAddress"),
-            Some(&json!("203.0.113.10"))
+            resource
+                .properties
+                .get("ipAddress")
+                .and_then(crate::ResourcePropertyValue::as_str),
+            Some("203.0.113.10")
         );
 
         Ok(())
@@ -219,16 +248,19 @@ mod test {
 
     #[test]
     fn deserializes_null_properties_to_empty_map() -> eyre::Result<()> {
-        let resource: crate::Resource = serde_json::from_value(json!({
-            "id": format!(
-                "/subscriptions/{nil}/resourceGroups/my-rg/providers/Contoso.Widgets/widgets/my-widget",
-                nil = Uuid::nil()
-            ),
+        let id = format!(
+            "/subscriptions/{nil}/resourceGroups/my-rg/providers/Contoso.Widgets/widgets/my-widget",
+            nil = Uuid::nil()
+        );
+        let resource: crate::Resource = facet_json::from_str(&format!(
+            r#"{{
+            "id": "{id}",
             "kind": "Contoso.Widgets/widgets",
             "name": "my-widget",
             "properties": null,
             "tags": null
-        }))?;
+        }}"#
+        ))?;
 
         assert_eq!(resource.display_name(), None);
         assert!(resource.properties.is_empty());

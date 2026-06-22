@@ -3,26 +3,23 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::FromCommandOutput;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::bail;
+use facet::Facet;
+use facet_json::RawJson;
 use http::Method;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-#[derive(Serialize)]
-pub struct MicrosoftGraphBatchRequest<REQ: Serialize> {
+pub struct MicrosoftGraphBatchRequest<REQ> {
     /// The requests to be made in the batch
     pub requests: Vec<MicrosoftGraphBatchRequestEntry<REQ>>,
     /// The IDs of the requests, in the order the requests were added
     pub ids: Vec<String>,
     /// The key to use for caching the batch request
-    #[serde(skip)]
     pub cache_key: Option<CacheKey>,
-    #[serde(skip)]
     pub tenant_id: AzureTenantId,
 }
-impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
+impl<REQ> MicrosoftGraphBatchRequest<REQ> {
     pub fn new(tenant_id: AzureTenantId) -> Self {
         MicrosoftGraphBatchRequest {
             requests: Vec::new(),
@@ -54,18 +51,32 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
     }
     pub async fn send<RESP: FromCommandOutput>(
         self,
-    ) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>> {
+    ) -> eyre::Result<MicrosoftGraphBatchResponse<RESP>>
+    where
+        REQ: Facet<'static>,
+    {
+        let Self {
+            requests,
+            ids,
+            cache_key,
+            tenant_id,
+        } = self;
+        let body = MicrosoftGraphBatchRequestWire {
+            requests: requests
+                .into_iter()
+                .map(MicrosoftGraphBatchRequestEntryWire::from)
+                .collect(),
+        };
         let mut request =
             RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
-                .tenant(self.tenant_id)
-                .body(serde_json::to_string_pretty(&self)?);
-        request.cache_key = self.cache_key;
-        let mut response = request
-            .receive::<MicrosoftGraphBatchResponse<RESP>>()
-            .await?;
+                .tenant(tenant_id)
+                .body(facet_json::to_string_pretty(&body).map_err(|error| eyre::eyre!("{error:?}"))?);
+        request.cache_key = cache_key;
+        let response = request.receive::<MicrosoftGraphBatchWireResponse>().await?;
+        let mut response = response.into_typed::<RESP>()?;
         // reorder the responses to match the order of the requests
         response.responses.sort_by_key(|r| {
-            self.ids
+            ids
                 .iter()
                 .position(|id| id == &r.id)
                 .unwrap_or(usize::MAX)
@@ -74,13 +85,9 @@ impl<REQ: Serialize> MicrosoftGraphBatchRequest<REQ> {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct MicrosoftGraphBatchRequestEntry<T> {
     pub id: String,
-    #[serde(
-        deserialize_with = "cloud_terrastodon_azure_types::serde_helpers::deserialize_using_from_str",
-        serialize_with = "cloud_terrastodon_azure_types::serde_helpers::serialize_using_asref_str"
-    )]
     pub method: Method,
     pub url: String,
     pub headers: HashMap<String, String>,
@@ -122,8 +129,33 @@ impl<T> MicrosoftGraphBatchRequestEntry<T> {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(bound(deserialize = "T: FromCommandOutput"))]
+#[derive(Debug, facet::Facet)]
+struct MicrosoftGraphBatchRequestWire<T> {
+    requests: Vec<MicrosoftGraphBatchRequestEntryWire<T>>,
+}
+
+#[derive(Debug, facet::Facet)]
+struct MicrosoftGraphBatchRequestEntryWire<T> {
+    id: String,
+    method: String,
+    url: String,
+    headers: HashMap<String, String>,
+    body: Option<T>,
+}
+
+impl<T> From<MicrosoftGraphBatchRequestEntry<T>> for MicrosoftGraphBatchRequestEntryWire<T> {
+    fn from(value: MicrosoftGraphBatchRequestEntry<T>) -> Self {
+        Self {
+            id: value.id,
+            method: value.method.as_str().to_string(),
+            url: value.url,
+            headers: value.headers,
+            body: value.body,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct MicrosoftGraphBatchResponse<T: FromCommandOutput> {
     pub responses: Vec<MicrosoftGraphBatchResponseEntry<T>>,
 }
@@ -139,8 +171,7 @@ impl<T: FromCommandOutput> DerefMut for MicrosoftGraphBatchResponse<T> {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(bound(deserialize = "T: FromCommandOutput"))]
+#[derive(Debug)]
 pub struct MicrosoftGraphBatchResponseEntry<T: FromCommandOutput> {
     pub id: String,
     pub status: u16,
@@ -167,30 +198,103 @@ pub enum MicrosoftGraphBatchResponseEntryBody<T: FromCommandOutput> {
     Success(T),
     Error(MicrosoftGraphBatchResponseEntryError),
 }
-impl<'de, T: FromCommandOutput> Deserialize<'de> for MicrosoftGraphBatchResponseEntryBody<T> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let mut v = serde_json::Value::deserialize(deserializer)?;
-        if let Some(error) = v.get_mut("error") {
-            let err = serde_json::from_value::<MicrosoftGraphBatchResponseEntryError>(
-                std::mem::take(error),
-            )
-            .map_err(serde::de::Error::custom)?;
-            Ok(MicrosoftGraphBatchResponseEntryBody::Error(err))
-        } else {
-            let t = serde_json::from_value::<T>(v).map_err(serde::de::Error::custom)?;
-            Ok(MicrosoftGraphBatchResponseEntryBody::Success(t))
-        }
+
+#[derive(Debug, facet::Facet)]
+struct MicrosoftGraphBatchWireResponse {
+    responses: Vec<MicrosoftGraphBatchWireResponseEntry>,
+}
+
+impl MicrosoftGraphBatchWireResponse {
+    fn into_typed<T: FromCommandOutput>(self) -> eyre::Result<MicrosoftGraphBatchResponse<T>> {
+        let responses = self
+            .responses
+            .into_iter()
+            .map(MicrosoftGraphBatchWireResponseEntry::into_typed)
+            .collect::<eyre::Result<_>>()?;
+        Ok(MicrosoftGraphBatchResponse { responses })
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
+struct MicrosoftGraphBatchWireResponseEntry {
+    id: String,
+    status: u16,
+    headers: HashMap<String, String>,
+    body: RawJson<'static>,
+}
+
+impl MicrosoftGraphBatchWireResponseEntry {
+    fn into_typed<T: FromCommandOutput>(self) -> eyre::Result<MicrosoftGraphBatchResponseEntry<T>> {
+        let body = MicrosoftGraphBatchResponseEntryBodyProxy(self.body).try_into()?;
+        Ok(MicrosoftGraphBatchResponseEntry {
+            id: self.id,
+            status: self.status,
+            headers: self.headers,
+            body,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[facet(transparent)]
+pub struct MicrosoftGraphBatchResponseEntryBodyProxy(RawJson<'static>);
+
+#[derive(Debug, facet::Facet)]
+struct MicrosoftGraphBatchErrorEnvelope {
+    error: MicrosoftGraphBatchResponseEntryError,
+}
+
+impl<T: FromCommandOutput> TryFrom<MicrosoftGraphBatchResponseEntryBodyProxy>
+    for MicrosoftGraphBatchResponseEntryBody<T>
+{
+    type Error = eyre::Report;
+
+    fn try_from(
+        value: MicrosoftGraphBatchResponseEntryBodyProxy,
+    ) -> Result<Self, <Self as TryFrom<MicrosoftGraphBatchResponseEntryBodyProxy>>::Error> {
+        let raw = value.0;
+        if let Ok(envelope) =
+            facet_json::from_str::<MicrosoftGraphBatchErrorEnvelope>(raw.as_str())
+        {
+            return Ok(Self::Error(envelope.error));
+        }
+        let value = facet_json::from_str::<T>(raw.as_str()).map_err(|error| {
+            eyre::eyre!(
+                "failed to deserialize Microsoft Graph batch body as {}: {:?}",
+                std::any::type_name::<T>(),
+                error
+            )
+        })?;
+        Ok(Self::Success(value))
+    }
+}
+
+impl<T: FromCommandOutput> TryFrom<&MicrosoftGraphBatchResponseEntryBody<T>>
+    for MicrosoftGraphBatchResponseEntryBodyProxy
+{
+    type Error = eyre::Report;
+
+    fn try_from(value: &MicrosoftGraphBatchResponseEntryBody<T>) -> Result<Self, Self::Error> {
+        let json = match value {
+            MicrosoftGraphBatchResponseEntryBody::Success(value) => {
+                facet_json::to_string(value).map_err(|error| eyre::eyre!("{error:?}"))?
+            }
+            MicrosoftGraphBatchResponseEntryBody::Error(error) => {
+                facet_json::to_string(&MicrosoftGraphBatchErrorEnvelope {
+                    error: error.clone(),
+                })
+                .map_err(|error| eyre::eyre!("{error:?}"))?
+            }
+        };
+        Ok(Self(RawJson::from_owned(json)))
+    }
+}
+
+#[derive(Clone, Debug, facet::Facet)]
 pub struct MicrosoftGraphBatchResponseEntryError {
     pub code: String,
     pub message: String,
-    pub inner_error: Option<HashMap<String, serde_json::Value>>,
+    pub inner_error: Option<HashMap<String, RawJson<'static>>>,
 }
 
 #[cfg(test)]

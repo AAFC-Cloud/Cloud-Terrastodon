@@ -5,39 +5,36 @@ use crate::PolicySetDefinitionId;
 use crate::PolicySetDefinitionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use crate::serde_helpers::deserialize_default_if_null;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct PolicySetDefinitionPolicyDefinitionGroup {
-    #[serde(rename = "additionalMetadataId")]
+    #[facet(rename = "additionalMetadataId")]
     pub additional_metadata_id: Option<String>,
     pub category: Option<String>,
     pub description: Option<String>,
-    #[serde(rename = "displayName")]
+    #[facet(rename = "displayName")]
     pub display_name: Option<String>,
     pub name: String,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct PolicySetDefinitionPolicyDefinition {
-    #[serde(rename = "groupNames")]
+    #[facet(rename = "groupNames")]
     pub group_names: Option<Vec<String>>,
     /// The policy definitions in a policy set can have their parameters supplied with fixed values.
-    #[serde(deserialize_with = "deserialize_default_if_null")]
+    #[facet(default)]
     pub parameters: AzurePolicyDefinitionParametersSupplied,
-    #[serde(rename = "policyDefinitionId")]
+    #[facet(rename = "policyDefinitionId")]
     pub policy_definition_id: PolicyDefinitionId,
-    #[serde(rename = "policyDefinitionReferenceId")]
+    #[facet(rename = "policyDefinitionReferenceId")]
     pub policy_definition_reference_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct PolicySetDefinition {
     pub id: PolicySetDefinitionId,
     pub name: PolicySetDefinitionName,
@@ -45,7 +42,7 @@ pub struct PolicySetDefinition {
     pub description: Option<String>,
     /// Policy set definitions can declare their own parameters, which can be supplied when assigning the policy set definition.
     /// These parameters are separate from the parameters of the individual policy definitions referenced by the policy set definition.
-    #[serde(deserialize_with = "deserialize_default_if_null")]
+    #[facet(default)]
     pub parameters: AzurePolicyDefinitionParametersDefinition,
     pub policy_definitions: Option<Vec<PolicySetDefinitionPolicyDefinition>>,
     pub policy_definition_groups: Option<Vec<PolicySetDefinitionPolicyDefinitionGroup>>,
@@ -145,7 +142,7 @@ mod tests {
             "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name",
         ] {
             let id: PolicySetDefinitionId =
-                serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+                facet_json::from_str(&facet_json::to_string(expanded)?)?;
             assert_eq!(id.expanded_form(), expanded);
         }
         Ok(())

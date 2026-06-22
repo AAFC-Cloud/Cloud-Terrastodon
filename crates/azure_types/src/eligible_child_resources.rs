@@ -1,18 +1,11 @@
 use crate::scopes::ScopeImpl;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-use serde::de::Visitor;
-use serde::de::{self};
 use std::fmt;
 
 // TODO: this should be converted to an enum to prevent states where `kind` doesn't match `id`
-//#[serde(tag = "type")]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet, PartialEq)]
 pub struct EligibleChildResource {
     pub name: String,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: EligibleChildResourceKind,
     pub id: ScopeImpl,
 }
@@ -22,58 +15,38 @@ impl std::fmt::Display for EligibleChildResource {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum EligibleChildResourceKind {
     ManagementGroup,
     Subscription,
     ResourceGroup,
     Other(String),
 }
+crate::impl_facet_string_proxy!(EligibleChildResourceKind, value => value.to_string());
 
-impl Serialize for EligibleChildResourceKind {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+impl std::fmt::Display for EligibleChildResourceKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EligibleChildResourceKind::ManagementGroup => {
-                serializer.serialize_str("managementgroup")
-            }
-            EligibleChildResourceKind::Subscription => serializer.serialize_str("subscription"),
-            EligibleChildResourceKind::ResourceGroup => serializer.serialize_str("resourcegroup"),
-            EligibleChildResourceKind::Other(s) => serializer.serialize_str(s),
+            EligibleChildResourceKind::ManagementGroup => f.write_str("managementgroup"),
+            EligibleChildResourceKind::Subscription => f.write_str("subscription"),
+            EligibleChildResourceKind::ResourceGroup => f.write_str("resourcegroup"),
+            EligibleChildResourceKind::Other(s) => f.write_str(s),
         }
     }
 }
 
-struct EligibleChildResourceKindVisitor;
+impl std::str::FromStr for EligibleChildResourceKind {
+    type Err = std::convert::Infallible;
 
-impl<'de> Visitor<'de> for EligibleChildResourceKindVisitor {
-    type Value = EligibleChildResourceKind;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a string representing the resource kind")
-    }
-
-    fn visit_str<E>(self, value: &str) -> Result<EligibleChildResourceKind, E>
-    where
-        E: de::Error,
-    {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         Ok(match value {
             "managementgroup" => EligibleChildResourceKind::ManagementGroup,
             "subscription" => EligibleChildResourceKind::Subscription,
             "resourcegroup" => EligibleChildResourceKind::ResourceGroup,
             other => EligibleChildResourceKind::Other(other.to_string()),
         })
-    }
-}
-
-impl<'de> Deserialize<'de> for EligibleChildResourceKind {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(EligibleChildResourceKindVisitor)
     }
 }
 
@@ -85,7 +58,7 @@ mod tests {
     use crate::scopes::Scope;
 
     #[test]
-    fn test_serialization() {
+    fn test_serialization() -> eyre::Result<()> {
         let thing_id = ManagementGroupId::from_name("test-mg");
         let resource = EligibleChildResource {
             name: String::from("Example Resource"),
@@ -93,23 +66,26 @@ mod tests {
             id: thing_id.as_scope_impl(),
         };
 
-        let json = serde_json::to_string(&resource).unwrap();
+        let json = facet_json::to_string(&resource)?;
         let expected_json = format!(
             r#"{{"name":"Example Resource","type":"managementgroup","id":"{}"}}"#,
             thing_id.expanded_form()
         );
 
         assert_eq!(json, expected_json);
+        let reparsed = facet_json::from_str::<EligibleChildResource>(&json)?;
+        assert_eq!(resource, reparsed);
+        Ok(())
     }
 
     #[test]
-    fn test_deserialization() {
+    fn test_deserialization() -> eyre::Result<()> {
         let thing_id = ManagementGroupId::from_name("test-mg");
         let json = format!(
             r#"{{"name":"Example Resource","type":"managementgroup","id":"{}"}}"#,
             thing_id.expanded_form()
         );
-        let resource: EligibleChildResource = serde_json::from_str(&json).unwrap();
+        let resource: EligibleChildResource = facet_json::from_str(&json)?;
 
         assert_eq!(resource.name, "Example Resource");
         assert_eq!(resource.id, thing_id.as_scope_impl());
@@ -117,10 +93,11 @@ mod tests {
             EligibleChildResourceKind::ManagementGroup => {}
             _ => panic!("Expected ManagementGroup"),
         }
+        Ok(())
     }
 
     #[test]
-    fn test_serialization_with_other() {
+    fn test_serialization_with_other() -> eyre::Result<()> {
         let thing_id = TestResourceId::new("resource-id-456");
         let resource = EligibleChildResource {
             name: String::from("Another Resource"),
@@ -128,23 +105,26 @@ mod tests {
             id: thing_id.as_scope_impl(),
         };
 
-        let json = serde_json::to_string(&resource).unwrap();
+        let json = facet_json::to_string(&resource)?;
         let expected_json = format!(
             r#"{{"name":"Another Resource","type":"customtype","id":"{}"}}"#,
             thing_id.expanded_form()
         );
 
         assert_eq!(json, expected_json);
+        let reparsed = facet_json::from_str::<EligibleChildResource>(&json)?;
+        assert_eq!(resource, reparsed);
+        Ok(())
     }
 
     #[test]
-    fn test_deserialization_with_other() {
+    fn test_deserialization_with_other() -> eyre::Result<()> {
         let thing_id = TestResourceId::new("test-resource-123");
         let json = format!(
             r#"{{"name":"Another Resource","type":"customtype","id":"{}"}}"#,
             thing_id.expanded_form()
         );
-        let resource: EligibleChildResource = serde_json::from_str(&json).unwrap();
+        let resource: EligibleChildResource = facet_json::from_str(&json)?;
 
         assert_eq!(resource.name, "Another Resource");
         assert_eq!(resource.id, thing_id.as_scope_impl());
@@ -152,5 +132,6 @@ mod tests {
             EligibleChildResourceKind::Other(ref s) if s == "customtype" => {}
             _ => panic!("Expected Other with value 'customtype'"),
         }
+        Ok(())
     }
 }

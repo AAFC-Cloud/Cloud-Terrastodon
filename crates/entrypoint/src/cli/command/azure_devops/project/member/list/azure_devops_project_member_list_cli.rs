@@ -12,9 +12,7 @@ use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
-use serde::Serialize;
-use serde_json::Value;
-use serde_json::to_writer_pretty;
+use cloud_terrastodon_command::to_writer_pretty;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -30,8 +28,8 @@ pub struct AzureDevOpsProjectMemberListArgs {
     pub project: AzureDevOpsProjectArgument<'static>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 struct AzureDevOpsProjectMember {
     descriptor: AzureDevOpsDescriptor,
     display_name: String,
@@ -43,8 +41,8 @@ struct AzureDevOpsProjectMember {
     permission_objects: Vec<AzureDevOpsProjectPermissionObject>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 struct AzureDevOpsProjectPermissionObject {
     descriptor: AzureDevOpsDescriptor,
     display_name: String,
@@ -211,15 +209,11 @@ impl From<AzureDevOpsProjectMemberAccumulator> for AzureDevOpsProjectMember {
             descriptor: value.member.descriptor,
             display_name: value.member.display_name,
             principal_name: value.member.principal_name,
-            mail_address: string_value(value.member.mail_address),
+            mail_address: value.member.mail_address,
             origin: value.member.origin,
             origin_id: value.member.origin_id,
             subject_kind: value.member.subject_kind,
             permission_objects,
         }
     }
-}
-
-fn string_value(value: Option<Value>) -> Option<String> {
-    value.and_then(|value| value.as_str().map(ToOwned::to_owned))
 }

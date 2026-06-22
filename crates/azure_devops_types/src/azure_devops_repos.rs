@@ -4,14 +4,13 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureDevOpsRepoId(Uuid);
 impl Deref for AzureDevOpsRepoId {
     type Target = Uuid;
@@ -26,6 +25,21 @@ impl AzureDevOpsRepoId {
         AzureDevOpsRepoId(uuid)
     }
 }
+
+impl From<&AzureDevOpsRepoId> for String {
+    fn from(value: &AzureDevOpsRepoId) -> Self {
+        value.0.to_string()
+    }
+}
+
+impl TryFrom<String> for AzureDevOpsRepoId {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
 impl FromStr for AzureDevOpsRepoId {
     type Err = eyre::Error;
 
@@ -35,43 +49,35 @@ impl FromStr for AzureDevOpsRepoId {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsRepo {
-    #[serde(rename = "defaultBranch")]
     pub default_branch: Option<String>,
 
     pub id: AzureDevOpsRepoId,
 
-    #[serde(rename = "isDisabled")]
     pub is_disabled: bool,
 
-    #[serde(rename = "isFork")]
     pub is_fork: Option<bool>,
 
-    #[serde(rename = "isInMaintenance")]
     pub is_in_maintenance: bool,
 
     pub name: String,
 
-    #[serde(rename = "parentRepository")]
-    pub parent_repository: Option<Value>,
+    pub parent_repository: Option<RawJson<'static>>,
 
     pub project: AzureDevOpsProject,
 
-    #[serde(rename = "remoteUrl")]
     pub remote_url: String,
 
     pub size: u64,
 
-    #[serde(rename = "sshUrl")]
     pub ssh_url: String,
 
     pub url: String,
 
-    #[serde(rename = "validRemoteUrls")]
-    pub valid_remote_urls: Option<Value>,
+    pub valid_remote_urls: Option<RawJson<'static>>,
 
-    #[serde(rename = "webUrl")]
     pub web_url: String,
 }
 

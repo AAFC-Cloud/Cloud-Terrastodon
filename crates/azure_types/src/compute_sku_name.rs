@@ -1,13 +1,12 @@
 use compact_str::CompactString;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
 use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ComputeSkuName(CompactString);
+crate::impl_facet_string_proxy!(ComputeSkuName, value => value.to_string());
 impl ComputeSkuName {
     pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
         let value = value.into();
@@ -51,21 +50,16 @@ impl From<ComputeSkuName> for CompactString {
     }
 }
 
-impl Serialize for ComputeSkuName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::ComputeSkuName;
 
-impl<'de> Deserialize<'de> for ComputeSkuName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = <CompactString as Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
+    #[test]
+    fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let name = facet_json::from_str::<ComputeSkuName>("\"Standard_D2s_v5\"")?;
+        assert_eq!(name.as_str(), "Standard_D2s_v5");
+        let reparsed = facet_json::from_str::<ComputeSkuName>(&facet_json::to_string(&name)?)?;
+        assert_eq!(name, reparsed);
+        Ok(())
     }
 }

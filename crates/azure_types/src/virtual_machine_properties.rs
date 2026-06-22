@@ -1,10 +1,8 @@
-use serde::Deserialize;
-use serde::Serialize;
+use facet_json::RawJson;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct VirtualMachineProperties {
     pub availability_set: Option<VirtualMachinePropertiesAvailabilitySet>,
     pub priority: Option<String>,
@@ -12,6 +10,7 @@ pub struct VirtualMachineProperties {
     pub time_created: String,
     pub network_profile: NetworkProfile,
     pub storage_profile: StorageProfile,
+    #[facet(opaque, proxy = crate::OptionalIsoDurationProxy)]
     pub extensions_time_budget: Option<iso8601_duration::Duration>,
     pub hardware_profile: HardwareProfile,
     pub license_type: Option<String>,
@@ -22,70 +21,93 @@ pub struct VirtualMachineProperties {
     pub vm_id: Uuid,
     pub additional_capabilities: Option<AdditionalCapabilities>,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct VirtualMachinePropertiesAvailabilitySet {
     pub id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct NetworkProfile {
     pub network_interfaces: Vec<NetworkInterfaceReference>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct NetworkInterfaceReference {
     pub properties: Option<NetworkInterfacePropertiesReference>,
     pub id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct NetworkInterfacePropertiesReference {
     pub delete_option: Option<NetworkInterfacePropertiesDeleteOption>,
     pub primary: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[repr(C)]
 pub enum NetworkInterfacePropertiesDeleteOption {
     Delete,
     Detach,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct StorageProfile {
     pub image_reference: Option<StorageProfileImageReference>,
     pub disk_controller_type: Option<StorageProfileDiskControllerType>,
-    #[serde(default)]
+    #[facet(default)]
     pub data_disks: Vec<DataDisk>,
     pub os_disk: OsDisk,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(untagged)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum StorageProfileDiskControllerType {
     SCSI,
     Other(String),
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(untagged)]
+impl From<String> for StorageProfileDiskControllerType {
+    fn from(value: String) -> Self {
+        if value == "SCSI" {
+            Self::SCSI
+        } else {
+            Self::Other(value)
+        }
+    }
+}
+
+impl From<StorageProfileDiskControllerType> for String {
+    fn from(value: StorageProfileDiskControllerType) -> Self {
+        match value {
+            StorageProfileDiskControllerType::SCSI => "SCSI".to_string(),
+            StorageProfileDiskControllerType::Other(value) => value,
+        }
+    }
+}
+
+impl From<&StorageProfileDiskControllerType> for String {
+    fn from(value: &StorageProfileDiskControllerType) -> Self {
+        String::from(value.clone())
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(untagged)]
+#[repr(C)]
 pub enum StorageProfileImageReference {
     ByPublisher(StorageProfileImageReferenceByPublisher),
     ById(StorageProfileImageReferenceById),
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct StorageProfileImageReferenceByPublisher {
     exact_version: String,
     offer: String,
@@ -94,38 +116,36 @@ pub struct StorageProfileImageReferenceByPublisher {
     version: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct StorageProfileImageReferenceById {
     exact_version: Option<String>,
     id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct OsDisk {
     pub name: String,
     pub create_option: String,
     pub delete_option: Option<OsDiskDeleteOption>,
     pub os_type: String,
-    #[serde(rename = "diskSizeGB")]
+    #[facet(rename = "diskSizeGB")]
     pub disk_size_gb: Option<usize>,
     pub managed_disk: ManagedDiskReference,
     pub caching: String,
     pub write_accelerator_enabled: Option<bool>,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct DataDisk {
     pub caching: String,
     pub create_option: String,
     pub delete_option: Option<OsDiskDeleteOption>,
-    #[serde(rename = "diskSizeGB")]
+    #[facet(rename = "diskSizeGB")]
     pub disk_size_gb: Option<usize>,
-    #[serde(rename = "lun")]
+    #[facet(rename = "lun")]
     pub logical_unit_number: usize,
     pub managed_disk: ManagedDiskReference,
     pub name: String,
@@ -133,92 +153,83 @@ pub struct DataDisk {
     pub write_accelerator_enabled: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[repr(C)]
 pub enum OsDiskDeleteOption {
     Delete,
     Detach,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ManagedDiskReference {
     pub id: String,
     pub storage_account_type: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct HardwareProfile {
     pub vm_size: String,
     pub vm_size_properties: Option<HardwareProfileVmSizeProperties>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct HardwareProfileVmSizeProperties {
-    #[serde(rename = "vCPUsAvailable")]
+    #[facet(rename = "vCPUsAvailable")]
     pub v_cpus_available: usize,
-    #[serde(rename = "vCPUsPerCore")]
+    #[facet(rename = "vCPUsPerCore")]
     pub v_cpus_per_core: usize,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct SecurityProfile {
     pub security_type: String,
     pub uefi_settings: UefiSettings,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct UefiSettings {
     pub secure_boot_enabled: bool,
     pub v_tpm_enabled: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct OsProfile {
     pub computer_name: Option<String>,
     pub require_guest_provision_signal: Option<bool>,
     pub allow_extension_operations: Option<bool>,
     pub admin_username: Option<String>,
-    pub secrets: Option<serde_json::Value>,
-    pub linux_configuration: Option<serde_json::Value>,
-    pub windows_configuration: Option<serde_json::Value>,
+    pub secrets: Option<RawJson<'static>>,
+    pub linux_configuration: Option<RawJson<'static>>,
+    pub windows_configuration: Option<RawJson<'static>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct DiagnosticsProfile {
     pub boot_diagnostics: BootDiagnostics,
     pub storage_uri: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct BootDiagnostics {
     pub enabled: bool,
     pub storage_uri: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ExtendedProperties {
     pub instance_view: InstanceView,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct InstanceView {
     pub computer_name: Option<String>,
     pub hyper_v_generation: String,
@@ -227,18 +238,16 @@ pub struct InstanceView {
     pub power_state: PowerState,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct PowerState {
     pub display_status: String,
     pub level: String,
     pub code: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AdditionalCapabilities {
     pub hibernation_enabled: bool,
 }

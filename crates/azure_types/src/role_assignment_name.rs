@@ -7,10 +7,12 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct RoleAssignmentName {
     inner: Uuid,
 }
+crate::impl_facet_string_proxy!(RoleAssignmentName, value => value.to_string());
 impl RoleAssignmentName {
     pub fn new(inner: Uuid) -> Self {
         Self { inner }
@@ -41,24 +43,6 @@ impl std::fmt::Display for RoleAssignmentName {
         f.write_fmt(format_args!("{}", self.inner.hyphenated()))
     }
 }
-impl serde::Serialize for RoleAssignmentName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for RoleAssignmentName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
-    }
-}
 impl Deref for RoleAssignmentName {
     type Target = Uuid;
 
@@ -76,5 +60,19 @@ impl TryFrom<CompactString> for RoleAssignmentName {
 impl From<RoleAssignmentName> for CompactString {
     fn from(value: RoleAssignmentName) -> Self {
         value.inner.as_hyphenated().to_compact_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let json = "\"00000000-0000-0000-0000-000000000000\"";
+        let name = facet_json::from_str::<RoleAssignmentName>(json)?;
+        assert_eq!(name, RoleAssignmentName::new(Uuid::nil()));
+        assert_eq!(facet_json::to_string(&name)?, json);
+        Ok(())
     }
 }

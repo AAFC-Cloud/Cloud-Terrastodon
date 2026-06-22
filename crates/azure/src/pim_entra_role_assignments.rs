@@ -5,7 +5,6 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use itertools::Itertools;
-use serde::Deserialize;
 use std::path::PathBuf;
 
 pub struct MyEntraPimRoleAssignmentsListRequest;
@@ -54,7 +53,7 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraPimRoleAssignmentsLi
                 .join(",")
             )
         );
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct Response {
             value: Vec<GovernanceRoleAssignment>,
         }

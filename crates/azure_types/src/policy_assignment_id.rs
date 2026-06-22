@@ -22,16 +22,14 @@ use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::slug::HasSlug;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub const POLICY_ASSIGNMENT_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyAssignments/";
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum PolicyAssignmentId {
     Unscoped(UnscopedPolicyAssignmentId),
     ManagementGroupScoped(ManagementGroupScopedPolicyAssignmentId),
@@ -39,6 +37,7 @@ pub enum PolicyAssignmentId {
     ResourceGroupScoped(ResourceGroupScopedPolicyAssignmentId),
     ResourceScoped(ResourceScopedPolicyAssignmentId),
 }
+crate::impl_facet_string_proxy!(PolicyAssignmentId, value => value.expanded_form());
 impl PolicyAssignmentId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
@@ -187,28 +186,6 @@ impl HasPrefix for PolicyAssignmentId {
     }
 }
 
-// MARK: Serialize
-impl Serialize for PolicyAssignmentId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for PolicyAssignmentId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = PolicyAssignmentId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,8 +240,9 @@ mod tests {
             "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policyAssignments/abc123",
             "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policyAssignments/GC Audit ISO 27001:20133",
         ] {
-            let id: PolicyAssignmentId =
-                serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+            let json = facet_json::to_string(expanded)?;
+            let id: PolicyAssignmentId = facet_json::from_str(json.as_str())?;
+            assert_eq!(facet_json::to_string(&id)?, json);
             assert_eq!(id.expanded_form(), expanded);
         }
         Ok(())

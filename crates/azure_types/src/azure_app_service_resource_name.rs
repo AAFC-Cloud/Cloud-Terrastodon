@@ -10,10 +10,12 @@ use std::str::FromStr;
 /// Length 2-60.
 /// Alphanumeric or hyphen characters, including Unicode alphanumerics.
 /// Cannot start or end with a hyphen.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureAppServiceResourceName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy!(AzureAppServiceResourceName, value => value.to_string());
 
 impl Slug for AzureAppServiceResourceName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -77,25 +79,6 @@ impl TryFrom<&str> for AzureAppServiceResourceName {
 impl std::fmt::Display for AzureAppServiceResourceName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
-    }
-}
-
-impl serde::Serialize for AzureAppServiceResourceName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for AzureAppServiceResourceName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 
@@ -184,6 +167,14 @@ mod test {
             let name = AzureAppServiceResourceName::arbitrary(&mut un)?;
             assert!(name.validate_slug().is_ok());
         }
+        Ok(())
+    }
+
+    #[test]
+    fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let name = facet_json::from_str::<AzureAppServiceResourceName>("\"my-app-service\"")?;
+        assert_eq!(name, AzureAppServiceResourceName::try_new("my-app-service")?);
+        assert_eq!(facet_json::to_string(&name)?, "\"my-app-service\"");
         Ok(())
     }
 }

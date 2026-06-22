@@ -4,7 +4,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use eyre::Result;
 use eyre::bail;
-use serde_json::to_writer_pretty;
+use cloud_terrastodon_command::to_writer_pretty;
 use std::io::stdout;
 
 /// Show Azure DevOps test plan details.

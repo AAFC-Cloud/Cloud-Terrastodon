@@ -6,7 +6,6 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::bail;
-use serde::Deserialize;
 use std::path::PathBuf;
 
 pub struct EntraPimRoleSettingsRequest {
@@ -49,7 +48,7 @@ impl cloud_terrastodon_command::CacheableCommand for EntraPimRoleSettingsRequest
             )
         );
 
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct Response {
             value: Vec<PimEntraRoleSettings>,
         }

@@ -1,7 +1,5 @@
-use serde::Deserialize;
-use serde::Serialize;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[repr(C)]
 pub enum AzureDevOpsServiceEndpointOwner {
     Library,
 }

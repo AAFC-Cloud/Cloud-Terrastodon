@@ -1,20 +1,15 @@
 use eyre::Result;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::de;
-use serde::de::DeserializeOwned;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::time::Duration;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct PimEntraRoleSettings {
     id: Uuid,
-    #[serde(rename = "roleDefinitionId")]
+    #[facet(rename = "roleDefinitionId")]
     role_definition_id: Uuid,
-    #[serde(rename = "userMemberSettings")]
+    #[facet(rename = "userMemberSettings")]
     user_member_settings: Vec<PimEntraRoleSettingsRule>,
 }
 
@@ -31,32 +26,110 @@ impl PimEntraRoleSettings {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "ruleIdentifier", content = "setting")]
+#[derive(Debug, PartialEq, facet::Facet)]
+#[facet(opaque, proxy = PimEntraRoleSettingsRuleProxy)]
+#[repr(C)]
 pub enum PimEntraRoleSettingsRule {
-    #[serde(deserialize_with = "json_string_deserializer")]
     ExpirationRule(ExpirationRuleSetting),
-    MfaRule(Value),
-    JustificationRule(Value),
-    ApprovalRule(Value),
-    TicketingRule(Value),
-    AcrsRule(Value),
-    AttributeConditionRule(Value),
+    MfaRule(RawJson<'static>),
+    JustificationRule(RawJson<'static>),
+    ApprovalRule(RawJson<'static>),
+    TicketingRule(RawJson<'static>),
+    AcrsRule(RawJson<'static>),
+    AttributeConditionRule(RawJson<'static>),
 }
 
-fn json_string_deserializer<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: DeserializeOwned,
-{
-    let s: String = Deserialize::deserialize(deserializer)?;
-    serde_json::from_str(&s).map_err(de::Error::custom)
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
+pub struct PimEntraRoleSettingsRuleProxy {
+    #[facet(rename = "ruleIdentifier")]
+    rule_identifier: String,
+    setting: RawJson<'static>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl TryFrom<PimEntraRoleSettingsRuleProxy> for PimEntraRoleSettingsRule {
+    type Error = eyre::Error;
+
+    fn try_from(value: PimEntraRoleSettingsRuleProxy) -> Result<Self, Self::Error> {
+        let raw_setting = value.setting.as_str();
+        Ok(match value.rule_identifier.as_str() {
+            "ExpirationRule" => {
+                let setting_json = facet_json::from_str::<String>(raw_setting)
+                    .unwrap_or_else(|_| raw_setting.to_string());
+                Self::ExpirationRule(facet_json::from_str(&setting_json)?)
+            }
+            "MfaRule" => Self::MfaRule(value.setting),
+            "JustificationRule" => Self::JustificationRule(value.setting),
+            "ApprovalRule" => Self::ApprovalRule(value.setting),
+            "TicketingRule" => Self::TicketingRule(value.setting),
+            "AcrsRule" => Self::AcrsRule(value.setting),
+            "AttributeConditionRule" => Self::AttributeConditionRule(value.setting),
+            _ => Self::AttributeConditionRule(value.setting),
+        })
+    }
+}
+
+impl TryFrom<&PimEntraRoleSettingsRule> for PimEntraRoleSettingsRuleProxy {
+    type Error = eyre::Error;
+
+    fn try_from(value: &PimEntraRoleSettingsRule) -> Result<Self, Self::Error> {
+        let (rule_identifier, setting) = match value {
+            PimEntraRoleSettingsRule::ExpirationRule(setting) => (
+                "ExpirationRule",
+                RawJson::from_owned(facet_json::to_string(setting)?),
+            ),
+            PimEntraRoleSettingsRule::MfaRule(setting) => ("MfaRule", setting.clone()),
+            PimEntraRoleSettingsRule::JustificationRule(setting) => {
+                ("JustificationRule", setting.clone())
+            }
+            PimEntraRoleSettingsRule::ApprovalRule(setting) => ("ApprovalRule", setting.clone()),
+            PimEntraRoleSettingsRule::TicketingRule(setting) => ("TicketingRule", setting.clone()),
+            PimEntraRoleSettingsRule::AcrsRule(setting) => ("AcrsRule", setting.clone()),
+            PimEntraRoleSettingsRule::AttributeConditionRule(setting) => {
+                ("AttributeConditionRule", setting.clone())
+            }
+        };
+        Ok(Self {
+            rule_identifier: rule_identifier.to_string(),
+            setting,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct ExpirationRuleSetting {
-    #[serde(rename = "maximumGrantPeriodInMinutes")]
+    #[facet(rename = "maximumGrantPeriodInMinutes")]
     maximum_grant_period_in_minutes: u32,
-    #[serde(rename = "permanentAssignment")]
+    #[facet(rename = "permanentAssignment")]
     permanent_assignment: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_json_round_trips() -> eyre::Result<()> {
+        let json = r#"
+        {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "roleDefinitionId": "11111111-1111-1111-1111-111111111111",
+            "userMemberSettings": [
+                {
+                    "ruleIdentifier": "ExpirationRule",
+                    "setting": "{\"maximumGrantPeriodInMinutes\":120,\"permanentAssignment\":false}"
+                }
+            ]
+        }
+        "#;
+
+        let settings = facet_json::from_str::<PimEntraRoleSettings>(json)?;
+        assert_eq!(
+            settings.get_maximum_grant_period()?,
+            Duration::from_mins(120)
+        );
+        let reparsed =
+            facet_json::from_str::<PimEntraRoleSettings>(&facet_json::to_string(&settings)?)?;
+        assert_eq!(settings, reparsed);
+        Ok(())
+    }
 }

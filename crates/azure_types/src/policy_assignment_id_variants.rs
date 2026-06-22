@@ -24,30 +24,40 @@ use crate::slug::HasSlug;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct UnscopedPolicyAssignmentId {
     pub role_assignment_name: PolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ManagementGroupScopedPolicyAssignmentId {
     pub management_group_id: ManagementGroupId,
     pub name: PolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct SubscriptionScopedPolicyAssignmentId {
     pub subscription_id: SubscriptionId,
     pub name: PolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceGroupScopedPolicyAssignmentId {
     pub resource_group_id: ResourceGroupId,
     pub name: PolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceScopedPolicyAssignmentId {
     pub resource_id: ResourceId,
     pub name: PolicyAssignmentName,
 }
+crate::impl_facet_string_proxy!(UnscopedPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ManagementGroupScopedPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(SubscriptionScopedPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceGroupScopedPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceScopedPolicyAssignmentId, value => value.expanded_form());
 
 // MARK: impl HasSlug
 

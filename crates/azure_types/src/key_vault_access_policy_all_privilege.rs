@@ -1,11 +1,8 @@
-use serde::Deserialize;
-use serde::Serialize;
-
 /// Shared "All" privilege used across key/secret/certificate access policy privilege enums
-/// to reduce duplication. Deserializes case-insensitively for common variants of "All".
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy, Default)]
+/// to reduce duplication. Facet decodes common variants of "All" case-insensitively.
+#[derive(Debug, PartialEq, Clone, Copy, Default, facet::Facet)]
+#[repr(C)]
 pub enum KeyVaultAccessPolicyAllPrivilege {
-    #[serde(alias = "All", alias = "all", alias = "ALL")]
     #[default]
     All,
 }

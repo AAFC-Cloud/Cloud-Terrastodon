@@ -3,58 +3,66 @@ use crate::VirtualNetworkId;
 use crate::VirtualNetworkPeeringId;
 use crate::VirtualNetworkPeeringName;
 use ipnetwork::Ipv4Network;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct VirtualNetworkProperties {
     pub address_space: VirtualNetworkAddressSpace,
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<Subnet>)]
     pub subnets: Vec<Subnet>,
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<VirtualNetworkPeering>
+    )]
     pub virtual_network_peerings: Vec<VirtualNetworkPeering>,
     pub resource_guid: String,
     pub provisioning_state: String,
     pub enable_ddos_protection: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct VirtualNetworkAddressSpace {
-    #[serde(rename = "addressPrefixes")]
+    #[facet(
+        rename = "addressPrefixes",
+        opaque,
+        proxy = crate::Ipv4NetworkVecProxy
+    )]
     pub address_prefixes: Vec<Ipv4Network>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct VirtualNetworkPeering {
     pub id: VirtualNetworkPeeringId,
     pub name: VirtualNetworkPeeringName,
     pub properties: VirtualNetworkPeeringProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct VirtualNetworkPeeringProperties {
-    #[serde(rename = "allowVirtualNetworkAccess")]
+    #[facet(rename = "allowVirtualNetworkAccess")]
     pub allow_virtual_network_access: bool,
 
-    #[serde(rename = "allowForwardedTraffic")]
+    #[facet(rename = "allowForwardedTraffic")]
     pub allow_forwarded_traffic: bool,
 
-    #[serde(rename = "allowGatewayTransit")]
+    #[facet(rename = "allowGatewayTransit")]
     pub allow_gateway_transit: bool,
 
-    #[serde(rename = "useRemoteGateways")]
+    #[facet(rename = "useRemoteGateways")]
     pub use_remote_gateways: bool,
 
-    #[serde(rename = "remoteVirtualNetwork")]
+    #[facet(rename = "remoteVirtualNetwork")]
     pub remote_virtual_network: RemoteVirtualNetworkReference,
 
-    #[serde(rename = "peeringState")]
+    #[facet(rename = "peeringState")]
     pub peering_state: String,
 
-    #[serde(rename = "provisioningState")]
+    #[facet(rename = "provisioningState")]
     pub provisioning_state: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct RemoteVirtualNetworkReference {
     pub id: VirtualNetworkId,
 }

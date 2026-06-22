@@ -1,23 +1,23 @@
 use crate::RestOutputFormat;
 use crate::RestResponseBody;
+use crate::RestResponseBodyProxy;
 use crate::parse_response_body;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
+use facet_json::RawJson;
 use reqwest::Response;
 use reqwest::header::HeaderMap;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
 use std::collections::BTreeMap;
 use std::io::Write;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct SerializableRestResponse {
     pub status: u16,
     pub ok: bool,
     pub reason_phrase: Option<String>,
     pub headers: BTreeMap<String, Vec<String>>,
+    #[facet(opaque, proxy = RestResponseBodyProxy)]
     pub body: RestResponseBody,
 }
 
@@ -49,10 +49,11 @@ impl SerializableRestResponse {
         })
     }
 
-    pub fn into_json_body(self) -> Result<Value> {
+    pub fn into_json_body(self) -> Result<RawJson<'static>> {
         match self.body {
             RestResponseBody::Json(body) => Ok(body),
-            RestResponseBody::Text(content) => serde_json::from_str(&content)
+            RestResponseBody::Text(content) => facet_json::from_str::<RawJson<'static>>(&content)
+                .map_err(|error| eyre::eyre!("{error:?}"))
                 .wrap_err("Expected REST response body to contain JSON"),
         }
     }
@@ -60,13 +61,15 @@ impl SerializableRestResponse {
     pub fn write(&self, output_format: RestOutputFormat, mut writer: impl Write) -> Result<()> {
         match output_format {
             RestOutputFormat::Text => match &self.body {
-                RestResponseBody::Json(value) => {
-                    writeln!(writer, "{}", serde_json::to_string_pretty(value)?)?
-                }
+                RestResponseBody::Json(value) => writeln!(writer, "{}", value.as_str())?,
                 RestResponseBody::Text(content) => writeln!(writer, "{}", content)?,
             },
             RestOutputFormat::Json => {
-                writeln!(writer, "{}", serde_json::to_string_pretty(self)?)?;
+                writeln!(
+                    writer,
+                    "{}",
+                    facet_json::to_string_pretty(self).map_err(|error| eyre::eyre!("{error:?}"))?
+                )?;
             }
         }
 

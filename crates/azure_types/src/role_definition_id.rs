@@ -22,16 +22,14 @@ use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::slug::HasSlug;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub const ROLE_DEFINITION_ID_PREFIX: &str = "/providers/Microsoft.Authorization/RoleDefinitions/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum RoleDefinitionId {
     Unscoped(UnscopedRoleDefinitionId),
     ManagementGroupScoped(ManagementGroupScopedRoleDefinitionId),
@@ -39,6 +37,7 @@ pub enum RoleDefinitionId {
     ResourceGroupScoped(ResourceGroupScopedRoleDefinitionId),
     ResourceScoped(ResourceScopedRoleDefinitionId),
 }
+crate::impl_facet_string_proxy!(RoleDefinitionId, value => value.expanded_form());
 impl RoleDefinitionId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
@@ -187,24 +186,19 @@ impl HasPrefix for RoleDefinitionId {
     }
 }
 
-// MARK: Serialize
-impl Serialize for RoleDefinitionId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl<'de> Deserialize<'de> for RoleDefinitionId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = RoleDefinitionId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
+    #[test]
+    fn json_round_trips_through_facet() -> Result<()> {
+        let expanded = RoleDefinitionId::Unscoped(UnscopedRoleDefinitionId {
+            role_definition_name: RoleDefinitionName::new(Uuid::nil()),
+        });
+        let json = facet_json::to_string(&expanded)?;
+        assert_eq!(json, facet_json::to_string(&expanded.expanded_form())?);
+        let id: RoleDefinitionId = facet_json::from_str(json.as_str())?;
+        assert_eq!(id, expanded);
+        Ok(())
     }
 }

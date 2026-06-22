@@ -7,10 +7,12 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 /// I was unable to find any documentation on this. ChatGPT says 1-50 chars is the only limitation.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct SubscriptionName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy_serialize!(SubscriptionName, value => value.to_string());
 
 fn validate_subscription_name(value: &str) -> eyre::Result<()> {
     validate_subscription_name_inner(value)
@@ -71,24 +73,6 @@ impl TryFrom<&String> for SubscriptionName {
 impl std::fmt::Display for SubscriptionName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
-    }
-}
-impl serde::Serialize for SubscriptionName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for SubscriptionName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for SubscriptionName {
@@ -202,6 +186,14 @@ mod test {
             // Name is already validated during construction
             assert!(name.inner.chars().count() >= 1 && name.inner.chars().count() <= 50);
         }
+        Ok(())
+    }
+
+    #[test]
+    pub fn json_roundtrips() -> eyre::Result<()> {
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<SubscriptionName>(
+            "\"My Azure Subscription\"",
+        )?;
         Ok(())
     }
 }

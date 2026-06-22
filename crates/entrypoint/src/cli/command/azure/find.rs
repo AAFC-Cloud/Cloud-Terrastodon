@@ -32,7 +32,7 @@ impl AzureFindArgs {
 
         let serialized_resources = resources
             .iter()
-            .map(serde_json::to_string)
+            .map(cloud_terrastodon_command::to_string)
             .collect::<Result<Vec<_>, _>>()?;
 
         let mut nucleo: Nucleo<usize> =
@@ -65,7 +65,7 @@ impl AzureFindArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &matches)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &matches)?;
         handle.write_all(b"\n")?;
         Ok(())
     }

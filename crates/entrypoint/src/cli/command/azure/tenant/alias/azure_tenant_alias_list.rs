@@ -23,10 +23,10 @@ impl AzureTenantAliasListArgs {
             let tenant_id = tenant.resolve().await?;
             let mut aliases = list_tracked_tenant_aliases_for(tenant_id).await?;
             aliases.sort();
-            serde_json::to_writer_pretty(&mut handle, &aliases)?;
+            cloud_terrastodon_command::to_writer_pretty(&mut handle, &aliases)?;
         } else {
             let aliases = list_tracked_tenant_aliases().await?;
-            serde_json::to_writer_pretty(&mut handle, &aliases)?;
+            cloud_terrastodon_command::to_writer_pretty(&mut handle, &aliases)?;
         }
 
         handle.write_all(b"\n")?;

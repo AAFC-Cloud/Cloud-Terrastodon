@@ -1,28 +1,27 @@
-use serde::Deserialize;
-use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, facet::Facet)]
+#[repr(C)]
 pub enum OAuth2PermissionScopeKind {
     Admin,
     User,
 }
-#[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, facet::Facet)]
 pub struct OAuth2PermissionScope {
-    #[serde(rename = "adminConsentDescription")]
+    #[facet(rename = "adminConsentDescription")]
     pub admin_consent_description: String,
-    #[serde(rename = "adminConsentDisplayName")]
+    #[facet(rename = "adminConsentDisplayName")]
     pub admin_consent_display_name: String,
-    #[serde(rename = "id")]
+    #[facet(rename = "id")]
     pub id: Uuid,
-    #[serde(rename = "isEnabled")]
+    #[facet(rename = "isEnabled")]
     pub is_enabled: bool,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: OAuth2PermissionScopeKind,
-    #[serde(rename = "userConsentDescription")]
+    #[facet(rename = "userConsentDescription")]
     pub user_consent_description: String,
-    #[serde(rename = "userConsentDisplayName")]
+    #[facet(rename = "userConsentDisplayName")]
     pub user_consent_display_name: String,
-    #[serde(rename = "value")]
+    #[facet(rename = "value")]
     pub value: String,
 }

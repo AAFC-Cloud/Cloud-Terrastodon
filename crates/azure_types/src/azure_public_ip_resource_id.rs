@@ -11,20 +11,18 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
 pub const AZURE_PUBLIC_IP_RESOURCE_ID_PREFIX: &str =
     "/providers/Microsoft.Network/publicIPAddresses/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzurePublicIpResourceId {
     pub resource_group_id: ResourceGroupId,
     pub azure_public_ip_resource_name: AzurePublicIpResourceName,
 }
+crate::impl_facet_string_proxy!(AzurePublicIpResourceId, value => value.expanded_form());
 impl AzurePublicIpResourceId {
     pub fn new(
         resource_group_id: impl Into<ResourceGroupId>,
@@ -130,27 +128,6 @@ impl Scope for AzurePublicIpResourceId {
     }
 }
 
-impl Serialize for AzurePublicIpResourceId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for AzurePublicIpResourceId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = AzurePublicIpResourceId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::AzurePublicIpResourceId;
@@ -200,6 +177,9 @@ mod test {
             let serialized = id.expanded_form();
             let deserialized: AzurePublicIpResourceId = serialized.parse()?;
             assert_eq!(id, deserialized);
+            let json = facet_json::to_string(&serialized)?;
+            assert_eq!(facet_json::to_string(&id)?, json);
+            assert_eq!(facet_json::from_str::<AzurePublicIpResourceId>(&json)?, id);
         }
         Ok(())
     }

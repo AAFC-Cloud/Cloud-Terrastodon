@@ -19,8 +19,8 @@ use directories_next::BaseDirs;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
+use facet_json::RawJson;
 use hcl::edit::structure::Block;
-use serde::Deserialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env::{self};
@@ -116,11 +116,11 @@ impl ProviderManager {
                         let mut index_json_str = String::new();
                         index_json_file.read_to_string(&mut index_json_str).await?;
                         // Parse JSON into structs
-                        #[derive(Debug, Deserialize)]
+                        #[derive(Debug, facet::Facet)]
                         struct IndexJson {
-                            pub versions: HashMap<String, HashMap<(), ()>>,
+                            pub versions: HashMap<String, RawJson<'static>>,
                         }
-                        let index_json: IndexJson = serde_json::from_str(&index_json_str)?;
+                        let index_json: IndexJson = facet_json::from_str(&index_json_str)?;
                         for version in index_json.versions.into_keys() {
                             let registry_name = registry.file_name();
                             let registry_name = registry_name.to_string_lossy().into_owned();

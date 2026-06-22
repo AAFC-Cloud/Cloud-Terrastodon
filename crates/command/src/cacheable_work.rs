@@ -6,15 +6,14 @@ use async_trait::async_trait;
 use bstr::BString;
 use eyre::Context;
 use eyre::Result;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use facet::Facet;
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::path::PathBuf;
 
 #[async_trait]
 pub trait CacheableWorkRequest: Sized + Send {
-    type Raw: Serialize + DeserializeOwned + Send + 'static;
+    type Raw: Facet<'static> + Send + 'static;
     type Output;
 
     fn cache_key(&self) -> CacheKey;
@@ -42,11 +41,12 @@ where
     pub decode: Decode,
 }
 
-#[derive(Serialize)]
+#[derive(facet::Facet)]
 struct WorkFingerprint<'a> {
     cache_path: String,
     context: &'a str,
-    debug_inputs: &'a BTreeMap<PathBuf, BString>,
+    #[facet(opaque, proxy = crate::BStringMapJsonProxy)]
+    debug_inputs: BTreeMap<String, BString>,
 }
 
 fn work_fingerprint(
@@ -57,9 +57,12 @@ fn work_fingerprint(
     let fingerprint = WorkFingerprint {
         cache_path: cache_key.path.to_string_lossy().into_owned(),
         context,
-        debug_inputs,
+        debug_inputs: debug_inputs
+            .iter()
+            .map(|(path, contents)| (path.to_string_lossy().into_owned(), contents.clone()))
+            .collect(),
     };
-    let bytes = serde_json::to_vec(&fingerprint)?;
+    let bytes = crate::json::to_vec(&fingerprint)?;
     Ok(blake3::hash(&bytes).to_hex().to_string())
 }
 
@@ -73,11 +76,11 @@ async fn execute_and_cache_output<Exec, ExecFuture, Raw>(
 where
     Exec: FnOnce() -> ExecFuture + Send,
     ExecFuture: Future<Output = Result<Raw>> + Send,
-    Raw: Serialize + DeserializeOwned + Send + 'static,
+    Raw: Facet<'static> + Send + 'static,
 {
     let raw = execute_raw().await?;
     let stdout =
-        serde_json::to_vec_pretty(&raw).context("serializing cached work raw output to JSON")?;
+        crate::json::to_vec_pretty(&raw).context("serializing cached work raw output to JSON")?;
     let output = CommandOutput {
         stdout: BString::from(stdout),
         stderr: BString::default(),
@@ -106,7 +109,7 @@ where
     Exec: FnOnce() -> ExecFuture + Send,
     ExecFuture: Future<Output = Result<Raw>> + Send,
     Decode: FnOnce(Raw) -> Result<Output> + Send,
-    Raw: Serialize + DeserializeOwned + Send + 'static,
+    Raw: Facet<'static> + Send + 'static,
 {
     let CachedWorkSpec {
         cache_key,
@@ -148,8 +151,7 @@ where
             }
         };
 
-    let raw =
-        serde_json::from_slice::<Raw>(&output.stdout).map_err(|error| eyre::Error::new(error))?;
+    let raw = crate::json::from_slice::<Raw>(&output.stdout)?;
     match decode(raw) {
         Ok(result) => Ok(result),
         Err(error) => {

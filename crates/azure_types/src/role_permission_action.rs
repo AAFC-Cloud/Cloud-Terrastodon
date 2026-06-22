@@ -1,38 +1,16 @@
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::ops::Deref;
 use std::str::FromStr;
 use tracing::warn;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct RolePermissionAction {
     inner: String,
 }
+crate::impl_facet_string_proxy!(RolePermissionAction, value => value.to_string());
 impl std::fmt::Display for RolePermissionAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.inner)
-    }
-}
-
-impl Serialize for RolePermissionAction {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.inner)
-    }
-}
-
-impl<'de> Deserialize<'de> for RolePermissionAction {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = RolePermissionAction { inner: expanded };
-        Ok(id)
     }
 }
 
@@ -98,6 +76,12 @@ mod test {
         let a = RolePermissionAction::new("Microsoft.KeyVault/vaults/secrets/readMetadata/action");
         let b = RolePermissionAction::new("Microsoft.KeyVault/vaults/secrets/*/action");
         assert!(a.is_satisfied_by(&b));
+        let parsed = facet_json::from_str::<RolePermissionAction>(
+            "\"Microsoft.KeyVault/vaults/secrets/readMetadata/action\"",
+        )?;
+        assert_eq!(parsed, a);
+        let reparsed = facet_json::from_str::<RolePermissionAction>(&facet_json::to_string(&a)?)?;
+        assert_eq!(a, reparsed);
         Ok(())
     }
     #[test]

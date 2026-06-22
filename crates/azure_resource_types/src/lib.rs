@@ -1,6 +1,5 @@
 mod resource_types;
 mod resource_types_ext;
-mod resource_types_serde;
 
 #[cfg(test)]
 mod resource_types_generator;

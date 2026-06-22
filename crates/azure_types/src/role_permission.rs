@@ -1,23 +1,36 @@
 use crate::RolePermissionAction;
 use ordermap::OrderSet;
-use serde::Deserialize;
-use serde::Serialize;
 use std::cmp::Ordering;
 
 /// See also: `az provider operation list`
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, facet::Facet)]
 pub struct RolePermissions {
-    #[serde(rename = "actions")]
-    #[serde(alias = "Actions")]
+    #[facet(
+        alias = "Actions",
+        opaque,
+        proxy = crate::RolePermissionActionSetProxy
+    )]
     pub actions: OrderSet<RolePermissionAction>,
-    #[serde(rename = "notActions")]
-    #[serde(alias = "NotActions")]
+    #[facet(
+        alias = "NotActions",
+        rename = "notActions",
+        opaque,
+        proxy = crate::RolePermissionActionSetProxy
+    )]
     pub not_actions: OrderSet<RolePermissionAction>,
-    #[serde(rename = "dataActions")]
-    #[serde(alias = "DataActions")]
+    #[facet(
+        alias = "DataActions",
+        rename = "dataActions",
+        opaque,
+        proxy = crate::RolePermissionActionSetProxy
+    )]
     pub data_actions: OrderSet<RolePermissionAction>,
-    #[serde(rename = "notDataActions")]
-    #[serde(alias = "NotDataActions")]
+    #[facet(
+        alias = "NotDataActions",
+        rename = "notDataActions",
+        opaque,
+        proxy = crate::RolePermissionActionSetProxy
+    )]
     pub not_data_actions: OrderSet<RolePermissionAction>,
 }
 
@@ -154,6 +167,29 @@ mod test {
                 "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
             )]
         ));
+        Ok(())
+    }
+
+    #[test]
+    pub fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let json = r#"{
+            "Actions": ["Microsoft.Storage/accounts/read/action"],
+            "NotActions": ["Microsoft.Storage/accounts/write/action"],
+            "DataActions": ["Microsoft.KeyVault/vaults/secrets/readMetadata/action"],
+            "NotDataActions": []
+        }"#;
+
+        let permissions: RolePermissions = facet_json::from_str(json)?;
+        assert_eq!(permissions.actions.len(), 1);
+        assert_eq!(permissions.not_actions.len(), 1);
+        assert_eq!(permissions.data_actions.len(), 1);
+        assert!(permissions.not_data_actions.is_empty());
+
+        let reparsed = facet_json::from_str::<RolePermissions>(&facet_json::to_string(
+            &permissions,
+        )?)?;
+        assert_eq!(permissions, reparsed);
+
         Ok(())
     }
     #[test]

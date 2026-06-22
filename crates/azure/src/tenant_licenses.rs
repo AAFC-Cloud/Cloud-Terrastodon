@@ -5,7 +5,6 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use serde::Deserialize;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
@@ -25,11 +24,9 @@ impl CacheableCommand for TenantLicenseListRequest {
 
     async fn run(self) -> Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/subscribedSkus";
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
+        #[derive(facet::Facet)]
         struct Response {
-            #[expect(dead_code)]
-            #[serde(rename = "@odata.context")]
+            #[facet(rename = "@odata.context")]
             context: String,
             value: Vec<TenantLicense>,
         }

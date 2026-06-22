@@ -5,7 +5,6 @@ use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
-use serde::Deserialize;
 
 pub async fn create_role_assignment(
     scope: &impl Scope,
@@ -17,7 +16,7 @@ pub async fn create_role_assignment(
     cmd.args(["--role", role_definition_id.expanded_form().as_ref()]);
     cmd.args(["--assignee-object-id", &principal_object_id.to_string()]);
     cmd.args(["--scope", &scope.expanded_form()]);
-    #[derive(Deserialize)]
+    #[derive(facet::Facet)]
     struct Response {
         id: RoleAssignmentId,
     }

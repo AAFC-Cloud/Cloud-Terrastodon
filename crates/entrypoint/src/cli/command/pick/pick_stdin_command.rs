@@ -4,7 +4,7 @@ use clap::Args;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
-use serde_json::Value;
+use crate::serde_json_isolation::Value;
 use std::io::Read;
 use strum::Display;
 
@@ -49,7 +49,7 @@ impl PickStdinArgs {
 
         match resolve_input_format(self.input_format, &stdin_buf) {
             InputFormat::Json => {
-                let stdin_json: Vec<Value> = serde_json::from_str(&stdin_buf)?;
+                let stdin_json: Vec<Value> = crate::serde_json_isolation::from_str(&stdin_buf)?;
 
                 let mut choices = Vec::with_capacity(stdin_json.len());
                 for value in &stdin_json {
@@ -62,7 +62,7 @@ impl PickStdinArgs {
                     .set_query(common.default_query.unwrap_or_default())
                     .pick_inner(!common.single, choices)?;
 
-                serde_json::to_writer_pretty(std::io::stdout(), &rtn)?;
+                crate::serde_json_isolation::to_writer_pretty(std::io::stdout(), &rtn)?;
             }
             InputFormat::Lines => {
                 let lines: Vec<String> = stdin_buf

@@ -24,30 +24,40 @@ use crate::slug::HasSlug;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct UnscopedRoleManagementPolicyAssignmentId {
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ManagementGroupScopedRoleManagementPolicyAssignmentId {
     pub management_group_id: ManagementGroupId,
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct SubscriptionScopedRoleManagementPolicyAssignmentId {
     pub subscription_id: SubscriptionId,
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceGroupScopedRoleManagementPolicyAssignmentId {
     pub resource_group_id: ResourceGroupId,
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ResourceScopedRoleManagementPolicyAssignmentId {
     pub resource_id: ResourceId,
     pub name: RoleManagementPolicyAssignmentName,
 }
+crate::impl_facet_string_proxy!(UnscopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ManagementGroupScopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(SubscriptionScopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceGroupScopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(ResourceScopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
 
 // MARK: impl HasSlug
 

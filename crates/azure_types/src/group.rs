@@ -6,14 +6,12 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct EntraGroup {
-    pub classification: Option<Value>,
+    pub classification: Option<RawJson<'static>>,
     pub created_date_time: Option<DateTime<Utc>>,
     pub creation_options: Vec<String>,
     pub deleted_date_time: Option<DateTime<Utc>>,
@@ -26,12 +24,12 @@ pub struct EntraGroup {
     pub mail: Option<String>,
     pub mail_enabled: Option<bool>,
     pub mail_nickname: Option<String>,
-    pub membership_rule: Option<Value>,
-    pub membership_rule_processing_state: Option<Value>,
+    pub membership_rule: Option<RawJson<'static>>,
+    pub membership_rule_processing_state: Option<RawJson<'static>>,
     pub on_premises_domain_name: Option<String>,
     pub on_premises_last_sync_date_time: Option<DateTime<Utc>>,
     pub on_premises_net_bios_name: Option<String>,
-    pub on_premises_provisioning_errors: Vec<Value>,
+    pub on_premises_provisioning_errors: Vec<RawJson<'static>>,
     pub on_premises_sam_account_name: Option<String>,
     pub on_premises_security_identifier: Option<String>,
     pub on_premises_sync_enabled: Option<bool>,
@@ -43,8 +41,8 @@ pub struct EntraGroup {
     pub resource_provisioning_options: Vec<String>,
     pub security_enabled: bool,
     pub security_identifier: String,
-    pub service_provisioning_errors: Vec<Value>,
-    pub theme: Option<Value>,
+    pub service_provisioning_errors: Vec<RawJson<'static>>,
+    pub theme: Option<RawJson<'static>>,
     pub unique_name: Option<String>,
     pub visibility: Option<String>,
 }
@@ -77,7 +75,7 @@ mod tests {
     #[test]
     fn deserializes() -> Result<()> {
         let expanded = "55555555-5555-5555-5555-555555555555";
-        let id: EntraGroupId = serde_json::from_str(serde_json::to_string(expanded)?.as_str())?;
+        let id: EntraGroupId = facet_json::from_str(&facet_json::to_string(expanded)?)?;
         assert_eq!(id.to_string(), expanded);
 
         Ok(())

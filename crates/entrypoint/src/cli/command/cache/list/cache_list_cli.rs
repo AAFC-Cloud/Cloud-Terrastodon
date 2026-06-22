@@ -3,10 +3,15 @@ use cloud_terrastodon_command::discover_caches;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use itertools::Itertools;
-use serde_json::json;
 
 #[derive(Args, Debug, Clone)]
 pub struct CacheListArgs {}
+
+#[derive(Debug, facet::Facet)]
+struct CacheListEntry {
+    path: String,
+    last_used: String,
+}
 
 impl CacheListArgs {
     pub async fn invoke(self) -> Result<()> {
@@ -15,13 +20,16 @@ impl CacheListArgs {
         let caches = discover_caches(&root).await?;
 
         // Convert to a serializable form (path string and rfc2822 string)
-        let payload: Vec<serde_json::Value> = caches
+        let payload: Vec<CacheListEntry> = caches
             .into_iter()
-            .sorted_by(|a,b| b.1.cmp(&a.1)) // sort by last_used desc
-            .map(|(cache_key, dt)| json!({"path": cache_key.path_on_disk().to_string_lossy().into_owned(), "last_used": dt.to_rfc2822()}))
+            .sorted_by(|a, b| b.1.cmp(&a.1)) // sort by last_used desc
+            .map(|(cache_key, dt)| CacheListEntry {
+                path: cache_key.path_on_disk().to_string_lossy().into_owned(),
+                last_used: dt.to_rfc2822(),
+            })
             .collect();
 
-        println!("{}", serde_json::to_string_pretty(&payload)?);
+        println!("{}", cloud_terrastodon_command::to_string_pretty(&payload)?);
         Ok(())
     }
 }

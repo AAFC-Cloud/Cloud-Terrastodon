@@ -2,120 +2,122 @@ use crate::AzureLocationName;
 use crate::AzureNetworkInterfaceResourceId;
 use crate::AzureNetworkInterfaceResourceName;
 use crate::AzureTenantId;
-use crate::serde_helpers::deserialize_default_if_null;
-use crate::serde_helpers::deserialize_none_if_empty_string;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::net::IpAddr;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureNetworkInterfaceResource {
     pub id: AzureNetworkInterfaceResourceId,
     pub tenant_id: AzureTenantId,
     pub name: AzureNetworkInterfaceResourceName,
     pub location: AzureLocationName,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_none_if_empty_string")]
+    #[facet(default, opaque, proxy = crate::OptionalNonEmptyStringProxy)]
     pub managed_by: Option<String>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: AzureNetworkInterfaceResourceProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureNetworkInterfaceResourceProperties {
-    #[serde(default)]
+    #[facet(default)]
     pub provisioning_state: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub resource_guid: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub virtual_machine: Option<AzureNetworkInterfaceResourceReference>,
-    #[serde(default)]
+    #[facet(default)]
     pub network_security_group: Option<AzureNetworkInterfaceResourceReference>,
-    #[serde(default)]
+    #[facet(default)]
     pub mac_address: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub primary: Option<bool>,
-    #[serde(default)]
+    #[facet(default)]
     pub enable_accelerated_networking: Option<bool>,
-    #[serde(default)]
+    #[facet(default)]
     pub enable_ip_forwarding: Option<bool>,
-    #[serde(default)]
+    #[facet(default)]
     pub dns_settings: Option<AzureNetworkInterfaceDnsSettings>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceIpConfiguration>
+    )]
     pub ip_configurations: Vec<AzureNetworkInterfaceIpConfiguration>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureNetworkInterfaceDnsSettings {
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
     pub dns_servers: Vec<String>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
     pub applied_dns_servers: Vec<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub internal_dns_name_label: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub internal_fqdn: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub internal_domain_name_suffix: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct AzureNetworkInterfaceIpConfiguration {
     pub name: String,
     pub id: String,
-    #[serde(default)]
+    #[facet(default)]
     pub etag: Option<String>,
-    #[serde(rename = "type")]
-    #[serde(default)]
+    #[facet(rename = "type", default)]
     pub resource_type: Option<String>,
     pub properties: AzureNetworkInterfaceIpConfigurationProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureNetworkInterfaceIpConfigurationProperties {
-    #[serde(default)]
+    #[facet(default)]
     pub provisioning_state: Option<String>,
-    #[serde(rename = "privateIPAddress")]
-    #[serde(default)]
+    #[facet(rename = "privateIPAddress", default, opaque, proxy = crate::OptionalIpAddrProxy)]
     pub private_ip_address: Option<IpAddr>,
-    #[serde(rename = "privateIPAllocationMethod")]
-    #[serde(default)]
+    #[facet(rename = "privateIPAllocationMethod", default)]
     pub private_ip_allocation_method: Option<String>,
-    #[serde(rename = "privateIPAddressVersion")]
-    #[serde(default)]
+    #[facet(rename = "privateIPAddressVersion", default)]
     pub private_ip_address_version: Option<String>,
-    #[serde(default)]
+    #[facet(default)]
     pub primary: Option<bool>,
-    #[serde(rename = "publicIPAddress")]
-    #[serde(default)]
+    #[facet(rename = "publicIPAddress", default)]
     pub public_ip_address: Option<AzureNetworkInterfaceResourceReference>,
-    #[serde(default)]
+    #[facet(default)]
     pub subnet: Option<AzureNetworkInterfaceResourceReference>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
+    )]
     pub application_gateway_backend_address_pools: Vec<AzureNetworkInterfaceResourceReference>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
+    )]
     pub load_balancer_backend_address_pools: Vec<AzureNetworkInterfaceResourceReference>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
+    )]
     pub load_balancer_inbound_nat_rules: Vec<AzureNetworkInterfaceResourceReference>,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
-    #[serde(default)]
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
+    )]
     pub application_security_groups: Vec<AzureNetworkInterfaceResourceReference>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct AzureNetworkInterfaceResourceReference {
     pub id: String,
 }
@@ -126,7 +128,7 @@ mod tests {
 
     #[test]
     fn deserializes_network_interface_resource() -> eyre::Result<()> {
-        let resource = serde_json::from_str::<AzureNetworkInterfaceResource>(
+        let resource = facet_json::from_str::<AzureNetworkInterfaceResource>(
             r#"
             {
               "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/networkInterfaces/my-nic",
@@ -191,6 +193,12 @@ mod tests {
                 "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/publicIPAddresses/my-pip"
             )
         );
+
+        let reparsed =
+            facet_json::from_str::<AzureNetworkInterfaceResource>(&facet_json::to_string(
+                &resource,
+            )?)?;
+        assert_eq!(resource, reparsed);
 
         Ok(())
     }

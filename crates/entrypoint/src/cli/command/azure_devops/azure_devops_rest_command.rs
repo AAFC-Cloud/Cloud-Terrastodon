@@ -44,7 +44,7 @@ mod test {
         let response = RestRequest::new(Method::GET, url.as_str())?
             .receive_raw()
             .await?;
-        println!("{}", serde_json::to_string_pretty(&response)?);
+        println!("{}", facet_json::to_string_pretty(&response)?);
         Ok(())
     }
 }

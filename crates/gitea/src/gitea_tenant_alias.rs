@@ -1,26 +1,20 @@
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
+use facet::Facet;
 use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct GiteaTenantAlias {
-    inner: CompactString,
-}
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Facet)]
+#[facet(transparent)]
+pub struct GiteaTenantAlias(CompactString);
 
 impl GiteaTenantAlias {
     pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
         let value = value.into();
         validate_tenant_alias(&value)?;
-        Ok(Self {
-            inner: value.to_ascii_lowercase(),
-        })
+        Ok(Self(value.to_ascii_lowercase()))
     }
 }
 
@@ -61,7 +55,7 @@ fn validate_tenant_alias_inner(value: &str) -> eyre::Result<()> {
 
 impl Display for GiteaTenantAlias {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.inner)
+        f.write_str(&self.0)
     }
 }
 
@@ -69,13 +63,13 @@ impl Deref for GiteaTenantAlias {
     type Target = CompactString;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 
 impl AsRef<str> for GiteaTenantAlias {
     fn as_ref(&self) -> &str {
-        &self.inner
+        &self.0
     }
 }
 
@@ -84,24 +78,5 @@ impl FromStr for GiteaTenantAlias {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::try_new(s)
-    }
-}
-
-impl Serialize for GiteaTenantAlias {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for GiteaTenantAlias {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = <CompactString as Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|error| serde::de::Error::custom(format!("{error:#}")))
     }
 }

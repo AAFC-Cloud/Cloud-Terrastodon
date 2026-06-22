@@ -19,17 +19,15 @@ use cloud_terrastodon_azure_resource_types::ResourceType;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct VirtualNetworkPeeringId {
     pub virtual_network_id: VirtualNetworkId,
     pub virtual_network_peering_name: VirtualNetworkPeeringName,
 }
+crate::impl_facet_string_proxy!(VirtualNetworkPeeringId, value => value.expanded_form());
 impl VirtualNetworkPeeringId {
     pub fn new(
         virtual_network_id: impl Into<VirtualNetworkId>,
@@ -153,30 +151,10 @@ impl FromStr for VirtualNetworkPeeringId {
     }
 }
 
-impl Serialize for VirtualNetworkPeeringId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
-
-impl<'de> Deserialize<'de> for VirtualNetworkPeeringId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = VirtualNetworkPeeringId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::VirtualNetworkPeeringId;
+    use crate::scopes::Scope;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use rand::RngExt;
@@ -187,8 +165,12 @@ mod test {
         rand::rng().fill(&mut raw);
         let mut un = Unstructured::new(&raw);
         let name = VirtualNetworkPeeringId::arbitrary(&mut un)?;
-        let serialized = serde_json::to_string(&name)?;
-        let deserialized: VirtualNetworkPeeringId = serde_json::from_str(&serialized)?;
+        let serialized = facet_json::to_string(&name)?;
+        assert_eq!(
+            serialized,
+            facet_json::to_string(&name.expanded_form())?
+        );
+        let deserialized: VirtualNetworkPeeringId = facet_json::from_str(&serialized)?;
         assert_eq!(name, deserialized);
         Ok(())
     }

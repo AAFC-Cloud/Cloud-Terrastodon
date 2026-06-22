@@ -8,14 +8,11 @@ use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::bail;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::any::type_name;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ComputePublisherVmImageOfferSkuVersionId {
     pub subscription_id: SubscriptionId,
     pub location_name: AzureLocationName,
@@ -24,6 +21,7 @@ pub struct ComputePublisherVmImageOfferSkuVersionId {
     pub sku_name: ComputePublisherVmImageOfferSkuName,
     pub version_name: ComputePublisherVmImageOfferSkuVersionName,
 }
+crate::impl_facet_string_proxy!(ComputePublisherVmImageOfferSkuVersionId, value => value.to_string());
 impl core::fmt::Display for ComputePublisherVmImageOfferSkuVersionId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
@@ -163,24 +161,26 @@ impl FromStr for ComputePublisherVmImageOfferSkuVersionId {
     }
 }
 
-impl Serialize for ComputePublisherVmImageOfferSkuVersionId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_str())
-    }
-}
+#[cfg(test)]
+mod test {
+    use crate::ComputePublisherVmImageOfferSkuVersionId;
 
-impl<'de> Deserialize<'de> for ComputePublisherVmImageOfferSkuVersionId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
+    #[test]
+    pub fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let id = "/Subscriptions/e50a2404-2957-4a5a-83b2-5af37fe041c2/Providers/Microsoft.Compute/Locations/westus/Publishers/center-for-internet-security-inc/ArtifactTypes/VMImage/Offers/cis-almalinux/Skus/1-0/Versions/latest";
+        let parsed_id = id.parse::<ComputePublisherVmImageOfferSkuVersionId>()?;
+        assert!(id.eq_ignore_ascii_case(&parsed_id.to_string()));
+        let input_json = facet_json::to_string(id)?;
+        assert_eq!(
+            facet_json::from_str::<ComputePublisherVmImageOfferSkuVersionId>(&input_json)?,
+            parsed_id
+        );
+        let json = facet_json::to_string(&parsed_id)?;
+        assert_eq!(json, facet_json::to_string(&parsed_id.to_string())?);
+        assert_eq!(
+            facet_json::from_str::<ComputePublisherVmImageOfferSkuVersionId>(&json)?,
+            parsed_id
+        );
+        Ok(())
     }
 }

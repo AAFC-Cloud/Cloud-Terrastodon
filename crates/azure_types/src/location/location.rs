@@ -1,28 +1,27 @@
 use crate::location::AzureLocationName;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureLocation {
-    #[serde(default)]
+    #[facet(default)]
     pub availability_zone_mappings: Vec<AzureLocationAvailabilityZoneMapping>,
     pub metadata: AzureLocationMetadata,
     pub name: AzureLocationName,
     pub display_name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureLocationAvailabilityZoneMapping {
     pub logical_zone: String,
     pub physical_zone: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-#[serde(tag = "regionType")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[repr(C)]
+#[facet(tag = "regionType")]
 pub enum AzureLocationMetadata {
-    #[serde(rename_all = "camelCase")]
+    #[facet(rename_all = "camelCase")]
     Physical {
         geography: String,
         geography_group: String,
@@ -32,7 +31,7 @@ pub enum AzureLocationMetadata {
         physical_location: String,
         region_category: String,
     },
-    #[serde(rename_all = "camelCase")]
+    #[facet(rename_all = "camelCase")]
     Logical {
         geography: Option<String>,
         geography_group: Option<String>,
@@ -40,8 +39,39 @@ pub enum AzureLocationMetadata {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
 pub struct AzureLocationPairedRegion {
     pub id: String,
     pub name: AzureLocationName,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn location_json_round_trips_through_facet() -> eyre::Result<()> {
+        let json = r#"
+        {
+            "metadata": {
+                "regionType": "Physical",
+                "geography": "United States",
+                "geographyGroup": "US",
+                "latitude": "37.3719",
+                "longitude": "-79.8164",
+                "pairedRegion": [],
+                "physicalLocation": "Virginia",
+                "regionCategory": "Recommended"
+            },
+            "name": "eastus",
+            "displayName": "East US"
+        }
+        "#;
+
+        let location = facet_json::from_str::<AzureLocation>(json)?;
+        assert!(location.availability_zone_mappings.is_empty());
+        let reparsed = facet_json::from_str::<AzureLocation>(&facet_json::to_string(&location)?)?;
+        assert_eq!(location, reparsed);
+        Ok(())
+    }
 }

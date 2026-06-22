@@ -54,7 +54,7 @@ impl CacheableCommand for ComputePublisherImageOfferSkuListRequest {
             publisher_name = self.publisher_name,
             offer_name = self.offer_name
         );
-        #[derive(serde::Deserialize)]
+        #[derive(facet::Facet)]
         struct Row {
             id: ComputePublisherVmImageOfferSkuId,
         }

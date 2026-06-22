@@ -7,6 +7,7 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
 use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
+use facet_json::RawJson;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -78,7 +79,7 @@ pub fn fetch_azure_devops_group_members_v2<'a>(
 
 #[async_trait]
 impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembersV2Request<'a> {
-    type Output = serde_json::Value;
+    type Output = RawJson<'static>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
@@ -104,8 +105,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
         )
         .await?;
         let resp = client.get(url).send().await?;
-        let resp = resp.json().await?;
-        Ok(resp)
+        Ok(RawJson::from_owned(resp.text().await?))
     }
 }
 
@@ -121,6 +121,7 @@ mod test {
     use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
     use eyre::bail;
+    use facet_json::RawJson;
     use std::str::FromStr;
 
     #[tokio::test]
@@ -148,11 +149,20 @@ mod test {
     #[tokio::test]
     #[ignore]
     pub async fn it_works_v2() -> eyre::Result<()> {
+        #[derive(facet::Facet)]
+        struct MembershipsResponse {
+            #[facet(default)]
+            value: Option<RawJson<'static>>,
+            #[facet(default)]
+            count: Option<usize>,
+        }
+
         let org = AzureDevOpsOrganizationUrl::from_str("https://dev.azure.com/aafc/")?;
         let desc = AzureDevOpsDescriptor::AzureDevOpsGroup("vssgp.redacted".to_string());
         let resp = fetch_azure_devops_group_members_v2(&org, &desc).await?;
+        let resp: MembershipsResponse = facet_json::from_str(resp.as_str())?;
         assert!(
-            resp.get("value").is_some() || resp.get("count").is_some(),
+            resp.value.is_some() || resp.count.is_some(),
             "Expected Azure DevOps group memberships V2 response payload"
         );
         Ok(())

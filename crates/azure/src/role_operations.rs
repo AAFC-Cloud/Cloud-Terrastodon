@@ -5,7 +5,6 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -35,10 +34,9 @@ impl CacheableCommand for RoleOperationListRequest {
     }
 
     async fn run(self) -> Result<Self::Output> {
-        #[derive(Deserialize)]
-        #[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
-        #[serde(rename_all = "camelCase")]
+        #[derive(facet::Facet)]
         struct Response {
+            #[facet(rename = "nextLink")]
             next_link: Option<String>,
             value: Vec<AzureProviderOperationsMetadata>,
         }

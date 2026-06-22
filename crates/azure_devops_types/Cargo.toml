@@ -18,16 +18,16 @@ cloud_terrastodon_command = { workspace = true }
 cloud_terrastodon_azure_types = { workspace = true }
 cloud_terrastodon_hcl_types = { workspace = true }
 eyre = { workspace = true }
+facet = { workspace = true }
+facet-json = { workspace = true }
 tokio = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 tempfile = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true } 
 clap = { workspace = true } 
 iso8601-duration = { workspace = true }
 itertools = { workspace = true }
-compact_str = { workspace = true, features = ["serde"] }
+compact_str = { workspace = true }
 arbitrary = { workspace = true }
 unicode_categories = { workspace = true }
 

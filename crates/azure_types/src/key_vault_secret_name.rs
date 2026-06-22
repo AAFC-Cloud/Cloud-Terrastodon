@@ -13,10 +13,12 @@ use std::str::FromStr;
 /// * Case-sensitive (we keep the exact casing) but validation only checks allowed set
 ///
 /// (Docs excerpt provided by user: "vaults / secrets Vault 1-127 Alphanumerics and hyphens")
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct KeyVaultSecretName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy!(KeyVaultSecretName, value => value.to_string());
 
 impl Slug for KeyVaultSecretName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -81,23 +83,6 @@ impl Deref for KeyVaultSecretName {
     type Target = CompactString;
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-impl serde::Serialize for KeyVaultSecretName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-impl<'de> serde::Deserialize<'de> for KeyVaultSecretName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl TryFrom<CompactString> for KeyVaultSecretName {

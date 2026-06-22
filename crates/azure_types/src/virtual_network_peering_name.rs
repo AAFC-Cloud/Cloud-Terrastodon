@@ -8,10 +8,12 @@ use std::ops::Deref;
 use std::str::FromStr;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct VirtualNetworkPeeringName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy!(VirtualNetworkPeeringName, value => value.to_string());
 
 fn validate_virtual_network_peering_name(value: &str) -> eyre::Result<()> {
     validate_virtual_network_peering_name_inner(value)
@@ -98,24 +100,6 @@ impl TryFrom<&str> for VirtualNetworkPeeringName {
 impl std::fmt::Display for VirtualNetworkPeeringName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
-    }
-}
-impl serde::Serialize for VirtualNetworkPeeringName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for VirtualNetworkPeeringName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for VirtualNetworkPeeringName {

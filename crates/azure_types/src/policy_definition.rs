@@ -4,25 +4,24 @@ use crate::PolicyDefinitionId;
 use crate::PolicyDefinitionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use crate::serde_helpers::deserialize_default_if_null;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
+use facet::Facet;
+use facet_json::RawJson;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, facet::Facet)]
 pub struct PolicyDefinition {
     pub id: PolicyDefinitionId,
     pub name: PolicyDefinitionName,
     pub display_name: Option<String>,
     pub description: Option<String>,
     pub mode: String,
-    #[serde(deserialize_with = "deserialize_default_if_null")]
+    #[facet(default)]
     pub parameters: AzurePolicyDefinitionParametersDefinition,
-    pub policy_rule: serde_json::Value, // todo: strong type this!
+    pub policy_rule: RawJson<'static>, // todo: strong type this!
     // todo: strong type this!
     // todo: strong type this!
     // todo: strong type this!
@@ -72,11 +71,11 @@ impl PolicyDefinition {
     pub fn evaluate_compliance(
         &self,
         _parameters: &AzurePolicyDefinitionParametersSupplied,
-        resource: &impl Serialize,
+        resource: &impl Facet<'static>,
     ) -> eyre::Result<()> {
         // Ensure all parameters are present
-        // Convert the resource to JSON value
-        let _json = serde_json::to_value(resource)?;
+        // Convert the resource to JSON for eventual policy evaluation.
+        let _json = facet_json::to_string(resource)?;
 
         todo!();
     }
@@ -108,15 +107,15 @@ mod test {
                     description: Some(format!("This is policy definition number {}", i)),
                     mode: "All".to_string(),
                     parameters: Default::default(),
-                    policy_rule: Default::default(),
+                    policy_rule: facet_json::RawJson::from_owned("{}".to_string()),
                     policy_type: "Custom".to_string(),
                     version: "1.0".to_string(),
                 }
             })
             .collect_vec();
-        let json = serde_json::to_string_pretty(&policies)?;
+        let json = facet_json::to_string_pretty(&policies)?;
         let start = Instant::now();
-        let deserialized: Vec<PolicyDefinition> = serde_json::from_str(&json)?;
+        let deserialized: Vec<PolicyDefinition> = facet_json::from_str(&json)?;
         let duration = Instant::now().duration_since(start);
         assert_eq!(deserialized, policies);
         assert!(

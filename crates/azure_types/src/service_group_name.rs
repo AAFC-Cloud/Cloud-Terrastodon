@@ -8,10 +8,12 @@ use std::str::FromStr;
 /// Represents the name component of a service group resource id.
 ///
 /// Can be up to [250 characters](https://learn.microsoft.com/en-us/azure/governance/service-groups/overview#important-facts-about-service-groups)
-#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ServiceGroupName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy_serialize!(ServiceGroupName, value => value.to_string());
 impl PartialEq for ServiceGroupName {
     fn eq(&self, other: &Self) -> bool {
         self.inner.eq_ignore_ascii_case(&other.inner)
@@ -69,23 +71,6 @@ impl std::fmt::Display for ServiceGroupName {
         f.write_str(&self.inner)
     }
 }
-impl serde::Serialize for ServiceGroupName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-impl<'de> serde::Deserialize<'de> for ServiceGroupName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        ServiceGroupName::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
-    }
-}
 impl Deref for ServiceGroupName {
     type Target = CompactString;
 
@@ -129,5 +114,13 @@ mod tests {
         assert!(ServiceGroupName::try_new("").is_err());
         assert!(ServiceGroupName::try_new("has space").is_err());
         assert!(ServiceGroupName::try_new("unicode-π").is_err());
+    }
+
+    #[test]
+    fn json_round_trips_through_facet() -> eyre::Result<()> {
+        let name = facet_json::from_str::<ServiceGroupName>("\"My-Service_Group~1\"")?;
+        assert_eq!(name, ServiceGroupName::try_new("My-Service_Group~1")?);
+        assert_eq!(facet_json::to_string(&name)?, "\"My-Service_Group~1\"");
+        Ok(())
     }
 }

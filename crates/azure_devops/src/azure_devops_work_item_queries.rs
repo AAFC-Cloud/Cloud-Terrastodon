@@ -6,8 +6,7 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use serde::Deserialize;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::path::PathBuf;
 use tracing::info;
 
@@ -56,9 +55,9 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
         cmd.args(["--query-parameters", "$expand=all", "$depth=2"]);
         cmd.cache(self.cache_key());
 
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct InvokeResponse {
-            continuation_token: Option<Value>,
+            continuation_token: Option<RawJson<'static>>,
             count: u32,
             value: Vec<AzureDevOpsWorkItemQuery>,
         }

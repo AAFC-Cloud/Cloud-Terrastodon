@@ -1,15 +1,18 @@
 use clap::Args;
+use cloud_terrastodon_azure_devops::AzureDevOpsGroup;
+use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
+use cloud_terrastodon_azure_devops::AzureDevOpsTeam;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members_v2;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
-use serde_json::json;
-use serde_json::to_writer_pretty;
+use facet_json::RawJson;
 use std::io::stdout;
 use tracing::Instrument;
 use tracing::info;
@@ -20,6 +23,14 @@ use tracing::info_span;
 pub struct AzureDevOpsProjectDumpArgs {
     /// Project id (UUID) or project name.
     project: AzureDevOpsProjectArgument<'static>,
+}
+
+#[derive(facet::Facet)]
+struct AzureDevOpsProjectDumpPayload {
+    project: AzureDevOpsProject,
+    teams: Vec<AzureDevOpsTeam>,
+    groups: Vec<AzureDevOpsGroup>,
+    group_members: Vec<RawJson<'static>>,
 }
 
 impl AzureDevOpsProjectDumpArgs {
@@ -42,20 +53,15 @@ impl AzureDevOpsProjectDumpArgs {
             bail!("No project found matching '{}'.", self.project);
         };
 
-        let mut payload = json!({});
-        payload["project"] = json!(project);
-
         let teams = fetch_azure_devops_teams_for_project(&org_url, &project)
             .into_future()
             .instrument(span.clone())
             .await?;
-        payload["teams"] = json!(teams);
 
         let groups = fetch_azure_devops_groups_for_project(&org_url, &project)
             .into_future()
             .instrument(span.clone())
             .await?;
-        payload["groups"] = json!(groups);
 
         let mut group_members = ParallelFallibleWorkQueue::new("fetching group members", 4);
         for group in groups.iter() {
@@ -70,7 +76,13 @@ impl AzureDevOpsProjectDumpArgs {
             });
         }
         let group_members = group_members.join().await?;
-        payload["group_members"] = json!(group_members);
+
+        let payload = AzureDevOpsProjectDumpPayload {
+            project,
+            teams,
+            groups,
+            group_members,
+        };
 
         to_writer_pretty(stdout(), &payload)?;
 

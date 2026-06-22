@@ -10,10 +10,12 @@ use std::str::FromStr;
 /// Length 1-80.
 /// Alphanumerics, underscores, periods, and hyphens.
 /// Start with alphanumeric. End with alphanumeric or underscore.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzurePublicIpResourceName {
     inner: CompactString,
 }
+crate::impl_facet_string_proxy!(AzurePublicIpResourceName, value => value.to_string());
 impl Slug for AzurePublicIpResourceName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = name.into();
@@ -83,24 +85,6 @@ impl TryFrom<&str> for AzurePublicIpResourceName {
 impl std::fmt::Display for AzurePublicIpResourceName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
-    }
-}
-impl serde::Serialize for AzurePublicIpResourceName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for AzurePublicIpResourceName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 impl Deref for AzurePublicIpResourceName {

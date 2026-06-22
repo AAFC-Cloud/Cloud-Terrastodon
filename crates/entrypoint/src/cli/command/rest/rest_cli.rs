@@ -96,6 +96,7 @@ mod test {
     use cloud_terrastodon_rest::RestResponseBody;
     use cloud_terrastodon_rest::parse_response_body;
     use cloud_terrastodon_rest::serialize_headers;
+    use facet_json::RawJson;
     use reqwest::Url;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
@@ -139,7 +140,7 @@ mod test {
         let body = parse_response_body("{\"hello\":\"world\"}".to_string());
         assert_eq!(
             body,
-            RestResponseBody::Json(serde_json::json!({"hello": "world"}))
+            RestResponseBody::Json(RawJson::from_owned("{\"hello\":\"world\"}".to_string()))
         );
     }
 

@@ -1,15 +1,13 @@
 use crate::version::SemVer;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
 pub struct TerraformProviderInfo {
     pub id: String,
     pub owner: String,
     pub namespace: String,
     pub name: String,
-    pub alias: Option<Value>,
+    pub alias: Option<RawJson<'static>>,
     pub version: String,
     pub tag: String,
     pub description: String,
@@ -19,7 +17,7 @@ pub struct TerraformProviderInfo {
     pub tier: String,
     pub logo_url: String,
     pub versions: Vec<SemVer>,
-    pub docs: Vec<Value>,
+    pub docs: Vec<RawJson<'static>>,
 }
 
 #[cfg(test)]
@@ -27,14 +25,14 @@ mod test {
     #[test]
     pub fn it_works_devops() -> eyre::Result<()> {
         let json = include_str!("../test_data/azuredevops.json");
-        let provider = serde_json::from_str::<super::TerraformProviderInfo>(json)?;
+        let provider = facet_json::from_str::<super::TerraformProviderInfo>(json)?;
         println!("Parsed Azure DevOps provider: {provider:#?}");
         Ok(())
     }
     #[test]
     pub fn it_works_azurerm() -> eyre::Result<()> {
         let json = include_str!("../test_data/azurerm.json");
-        let provider = serde_json::from_str::<super::TerraformProviderInfo>(json)?;
+        let provider = facet_json::from_str::<super::TerraformProviderInfo>(json)?;
         println!("Parsed AzureRM provider: {provider:#?}");
         Ok(())
     }

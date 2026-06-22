@@ -21,7 +21,7 @@ pub async fn create_azure_devops_rest_client(token: &impl AuthBearerExt) -> eyre
 mod test {
     use crate::create_azure_devops_rest_client;
     use crate::get_azure_devops_personal_access_token_from_credential_manager;
-    use serde_json::Value;
+    use facet_json::RawJson;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -36,8 +36,8 @@ mod test {
         let content = resp.text().await?;
 
         assert_eq!(200, status.as_u16(), "{:?}", status.canonical_reason());
-        let parsed = serde_json::from_str::<Value>(&content)?;
-        assert!(parsed.is_object());
+        let parsed = facet_json::from_str::<RawJson<'static>>(&content)?;
+        assert!(parsed.as_str().trim_start().starts_with('{'));
         Ok(())
     }
 }

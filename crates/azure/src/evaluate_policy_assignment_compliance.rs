@@ -10,7 +10,6 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use indoc::formatdoc;
-use serde::Deserialize;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
@@ -49,7 +48,7 @@ policyResources
         "#,
         policy_assignment.id.expanded_form()
     };
-    #[derive(Deserialize)]
+    #[derive(facet::Facet)]
     struct ReferenceIdRow {
         policy_definition_reference_id: String,
         resource_type: String,
@@ -112,7 +111,7 @@ policyResources
         chosen_reference_id.policy_definition_reference_id,
         chosen_reference_id.resource_type
     };
-    #[derive(Deserialize)]
+    #[derive(facet::Facet)]
     struct ResourceRow {
         resource_group_name: String,
         subscription_id: String,

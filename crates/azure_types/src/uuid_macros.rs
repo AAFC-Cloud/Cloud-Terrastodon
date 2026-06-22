@@ -19,23 +19,16 @@ macro_rules! impl_uuid_newtype {
                 &self.0
             }
         }
-        impl serde::Serialize for $name {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: serde::Serializer,
-            {
-                serializer.serialize_str(self.as_ref().to_string().as_str())
+        impl From<&$name> for String {
+            fn from(value: &$name) -> Self {
+                value.as_ref().to_string()
             }
         }
-        impl<'de> serde::Deserialize<'de> for $name {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: serde::Deserializer<'de>,
-            {
-                let s = String::deserialize(deserializer)?;
-                use std::str::FromStr;
-                let uuid = uuid::Uuid::from_str(&s).map_err(serde::de::Error::custom)?;
-                Ok(Self::new(uuid))
+        impl TryFrom<String> for $name {
+            type Error = eyre::Error;
+
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                value.parse()
             }
         }
         impl std::fmt::Display for $name {
@@ -53,6 +46,50 @@ macro_rules! impl_uuid_newtype {
             type Target = uuid::Uuid;
             fn deref(&self) -> &Self::Target {
                 self.as_ref()
+            }
+        }
+        #[cfg(test)]
+        mod facet_json_roundtrip {
+            use super::*;
+
+            #[test]
+            fn uuid_newtype_json_round_trips_through_facet() -> eyre::Result<()> {
+                let value =
+                    facet_json::from_str::<$name>("\"00000000-0000-0000-0000-000000000000\"")?;
+                assert_eq!(value, $name::new(uuid::Uuid::nil()));
+                let reparsed = facet_json::from_str::<$name>(&facet_json::to_string(&value)?)?;
+                assert_eq!(value, reparsed);
+                Ok(())
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_facet_string_proxy {
+    ($name:ty, $value:ident => $serialized:expr) => {
+        impl From<&$name> for String {
+            fn from($value: &$name) -> Self {
+                $serialized
+            }
+        }
+
+        impl TryFrom<String> for $name {
+            type Error = <$name as std::str::FromStr>::Err;
+
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                value.parse()
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_facet_string_proxy_serialize {
+    ($name:ty, $value:ident => $serialized:expr) => {
+        impl From<&$name> for String {
+            fn from($value: &$name) -> Self {
+                $serialized
             }
         }
     };

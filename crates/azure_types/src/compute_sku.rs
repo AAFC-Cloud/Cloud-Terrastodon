@@ -2,10 +2,10 @@ use crate::ComputeSkuName;
 use crate::location::AzureLocationName;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ComputeSku {
-    #[serde(default)]
+    #[facet(default)]
     pub capabilities: Vec<ComputeSkuCapability>,
     pub location_info: Vec<ComputeSkuLocationInfo>,
     pub locations: Vec<AzureLocationName>,
@@ -14,7 +14,9 @@ pub struct ComputeSku {
     pub restrictions: Vec<ComputeSkuRestriction>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum ComputeSkuResourceType {
     VirtualMachines,
     AvailabilitySets,
@@ -23,6 +25,7 @@ pub enum ComputeSkuResourceType {
     Snapshots,
     Other(String),
 }
+crate::impl_facet_string_proxy!(ComputeSkuResourceType, value => value.to_string());
 
 impl core::fmt::Display for ComputeSkuResourceType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -38,53 +41,18 @@ impl core::fmt::Display for ComputeSkuResourceType {
     }
 }
 
-impl serde::Serialize for ComputeSkuResourceType {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let value = match self {
-            ComputeSkuResourceType::VirtualMachines => "virtualMachines",
-            ComputeSkuResourceType::AvailabilitySets => "availabilitySets",
-            ComputeSkuResourceType::HostGroupsSlashHosts => "hostGroups/hosts",
-            ComputeSkuResourceType::Disks => "disks",
-            ComputeSkuResourceType::Snapshots => "snapshots",
-            ComputeSkuResourceType::Other(other) => other.as_str(),
-        };
-        serializer.serialize_str(value)
-    }
-}
+impl std::str::FromStr for ComputeSkuResourceType {
+    type Err = std::convert::Infallible;
 
-impl<'de> serde::Deserialize<'de> for ComputeSkuResourceType {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct ResourceTypeVisitor;
-
-        impl<'de> serde::de::Visitor<'de> for ResourceTypeVisitor {
-            type Value = ComputeSkuResourceType;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a string representing a virtual machine SKU resource type")
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match v {
-                    "virtualMachines" => Ok(ComputeSkuResourceType::VirtualMachines),
-                    "availabilitySets" => Ok(ComputeSkuResourceType::AvailabilitySets),
-                    "hostGroups/hosts" => Ok(ComputeSkuResourceType::HostGroupsSlashHosts),
-                    "disks" => Ok(ComputeSkuResourceType::Disks),
-                    "snapshots" => Ok(ComputeSkuResourceType::Snapshots),
-                    other => Ok(ComputeSkuResourceType::Other(other.to_owned())),
-                }
-            }
-        }
-
-        deserializer.deserialize_str(ResourceTypeVisitor)
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(match value {
+            "virtualMachines" => ComputeSkuResourceType::VirtualMachines,
+            "availabilitySets" => ComputeSkuResourceType::AvailabilitySets,
+            "hostGroups/hosts" => ComputeSkuResourceType::HostGroupsSlashHosts,
+            "disks" => ComputeSkuResourceType::Disks,
+            "snapshots" => ComputeSkuResourceType::Snapshots,
+            other => ComputeSkuResourceType::Other(other.to_owned()),
+        })
     }
 }
 
@@ -93,7 +61,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn roundtrip_known_variants() {
+    fn roundtrip_known_variants() -> eyre::Result<()> {
         let cases = vec![
             ("virtualMachines", ComputeSkuResourceType::VirtualMachines),
             ("availabilitySets", ComputeSkuResourceType::AvailabilitySets),
@@ -106,52 +74,74 @@ mod tests {
         ];
 
         for (expected, variant) in cases {
-            let json = serde_json::to_string(&variant).unwrap();
+            let json = facet_json::to_string(&variant)?;
             assert_eq!(json, format!("\"{expected}\""));
 
-            let parsed: ComputeSkuResourceType = serde_json::from_str(&json).unwrap();
+            let parsed: ComputeSkuResourceType = facet_json::from_str(&json)?;
             assert_eq!(parsed, variant);
         }
+        Ok(())
     }
 
     #[test]
-    fn roundtrip_other_variant() {
+    fn roundtrip_other_variant() -> eyre::Result<()> {
         let json = "\"brandNewType\"";
-        let parsed: ComputeSkuResourceType = serde_json::from_str(json).unwrap();
+        let parsed: ComputeSkuResourceType = facet_json::from_str(json)?;
         assert_eq!(
             parsed,
             ComputeSkuResourceType::Other("brandNewType".to_owned())
         );
-        assert_eq!(serde_json::to_string(&parsed).unwrap(), json);
+        assert_eq!(facet_json::to_string(&parsed)?, json);
+        Ok(())
+    }
+
+    #[test]
+    fn sku_json_defaults_missing_capabilities() -> eyre::Result<()> {
+        let json = r#"
+        {
+            "locationInfo": [],
+            "locations": ["eastus"],
+            "name": "Standard_D2s_v5",
+            "resourceType": "virtualMachines",
+            "restrictions": []
+        }
+        "#;
+
+        let sku = facet_json::from_str::<ComputeSku>(json)?;
+        assert!(sku.capabilities.is_empty());
+        assert_eq!(sku.resource_type, ComputeSkuResourceType::VirtualMachines);
+        let reparsed = facet_json::from_str::<ComputeSku>(&facet_json::to_string(&sku)?)?;
+        assert_eq!(sku, reparsed);
+        Ok(())
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ComputeSkuCapability {
     pub name: String,
     pub value: String,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ComputeSkuLocationInfo {
     pub location: AzureLocationName,
     pub zones: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ComputeSkuRestriction {
     pub reason_code: String,
     pub restriction_info: ComputeSkuRestrictionInfo,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: String,
     pub values: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ComputeSkuRestrictionInfo {
     pub locations: Vec<String>,
 }

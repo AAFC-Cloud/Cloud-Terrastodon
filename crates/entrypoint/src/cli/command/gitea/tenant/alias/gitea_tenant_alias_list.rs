@@ -22,10 +22,10 @@ impl GiteaTenantAliasListArgs {
             let tenant_url = tenant.resolve().await?;
             let mut aliases = list_tracked_tenant_aliases_for(&tenant_url).await?;
             aliases.sort();
-            serde_json::to_writer_pretty(&mut handle, &aliases)?;
+            cloud_terrastodon_command::to_writer_pretty(&mut handle, &aliases)?;
         } else {
             let aliases = list_tracked_tenant_aliases().await?;
-            serde_json::to_writer_pretty(&mut handle, &aliases)?;
+            cloud_terrastodon_command::to_writer_pretty(&mut handle, &aliases)?;
         }
 
         handle.write_all(b"\n")?;

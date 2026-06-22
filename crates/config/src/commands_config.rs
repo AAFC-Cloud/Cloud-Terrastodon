@@ -1,8 +1,6 @@
 use crate::config::Config;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, facet::Facet, Clone, PartialEq)]
 pub struct CommandsConfig {
     pub azure_cli: String,
     pub tofu: String,

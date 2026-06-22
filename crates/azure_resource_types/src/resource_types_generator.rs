@@ -4,7 +4,6 @@ mod tests {
     use cloud_terrastodon_command::CommandKind;
     use proc_macro2::Ident;
     use quote::quote;
-    use serde::Deserialize;
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
@@ -28,18 +27,18 @@ mod tests {
             "--url",
             "https://management.azure.com/providers?api-version=2020-01-01",
         ]);
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct RT {
-            #[serde(rename = "resourceType")]
+            #[facet(rename = "resourceType")]
             resource_type: String,
         }
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct Provider {
             namespace: String,
-            #[serde(rename = "resourceTypes")]
+            #[facet(rename = "resourceTypes")]
             resource_types: Vec<RT>,
         }
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct Resp {
             value: Vec<Provider>,
         }
@@ -70,11 +69,10 @@ mod tests {
             Other(String),
         };
 
-        // Combine all the generated variants into a full enum definition
-        // use serde::{Deserialize, Serialize};
-        // #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
         let generated_enum = quote! {
-            #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+            #[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+            #[facet(proxy = String)]
+            #[repr(C)]
             #[allow(non_camel_case_types)]
             pub enum ResourceType {
                 #(#enum_variants)*
@@ -126,11 +124,27 @@ mod tests {
                 }
             }
         };
+        let impl_facet_string_proxy = quote! {
+            impl From<&ResourceType> for String {
+                fn from(value: &ResourceType) -> Self {
+                    value.as_ref().to_string()
+                }
+            }
+
+            impl TryFrom<String> for ResourceType {
+                type Error = <ResourceType as std::str::FromStr>::Err;
+
+                fn try_from(value: String) -> Result<Self, Self::Error> {
+                    value.parse()
+                }
+            }
+        };
 
         let all_together = quote! {
             #generated_enum
             #impl_fromstr
             #impl_asrefstr
+            #impl_facet_string_proxy
         };
 
         // Format the generated code using prettyplease

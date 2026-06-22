@@ -1,11 +1,9 @@
 use crate::AzureDevOpsEntraUserDescriptor;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum AzureDevOpsDescriptor {
     EntraUser(AzureDevOpsEntraUserDescriptor),
     EntraGroup(String),
@@ -25,15 +23,6 @@ impl std::fmt::Display for AzureDevOpsDescriptor {
         }
     }
 }
-impl Serialize for AzureDevOpsDescriptor {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_str())
-    }
-}
-
 impl FromStr for AzureDevOpsDescriptor {
     type Err = eyre::Error;
 
@@ -54,16 +43,17 @@ impl FromStr for AzureDevOpsDescriptor {
     }
 }
 
-impl<'de> Deserialize<'de> for AzureDevOpsDescriptor {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
+impl TryFrom<String> for AzureDevOpsDescriptor {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
+    }
+}
+
+impl From<&AzureDevOpsDescriptor> for String {
+    fn from(value: &AzureDevOpsDescriptor) -> Self {
+        value.to_string()
     }
 }
 
@@ -117,9 +107,9 @@ mod test {
         let descriptor = AzureDevOpsDescriptor::EntraUser(AzureDevOpsEntraUserDescriptor::try_new(
             "aad.bruh".to_string(),
         )?);
-        let serialized = serde_json::to_string(&descriptor)?;
+        let serialized = facet_json::to_string(&descriptor)?;
         assert_eq!(serialized, "\"aad.bruh\"");
-        let deserialized: AzureDevOpsDescriptor = serde_json::from_str(&serialized)?;
+        let deserialized: AzureDevOpsDescriptor = facet_json::from_str(&serialized)?;
         assert_eq!(deserialized, descriptor);
         Ok(())
     }

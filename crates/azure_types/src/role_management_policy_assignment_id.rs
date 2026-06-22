@@ -22,17 +22,15 @@ use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::slug::HasSlug;
 use eyre::Result;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub const ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/roleManagementPolicyAssignments/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum RoleManagementPolicyAssignmentId {
     Unscoped(UnscopedRoleManagementPolicyAssignmentId),
     ManagementGroupScoped(ManagementGroupScopedRoleManagementPolicyAssignmentId),
@@ -40,6 +38,7 @@ pub enum RoleManagementPolicyAssignmentId {
     ResourceGroupScoped(ResourceGroupScopedRoleManagementPolicyAssignmentId),
     ResourceScoped(ResourceScopedRoleManagementPolicyAssignmentId),
 }
+crate::impl_facet_string_proxy!(RoleManagementPolicyAssignmentId, value => value.expanded_form());
 impl RoleManagementPolicyAssignmentId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
@@ -196,24 +195,20 @@ impl HasPrefix for RoleManagementPolicyAssignmentId {
     }
 }
 
-// MARK: Serialize
-impl Serialize for RoleManagementPolicyAssignmentId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.expanded_form())
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl<'de> Deserialize<'de> for RoleManagementPolicyAssignmentId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = RoleManagementPolicyAssignmentId::try_from_expanded(expanded.as_str())
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
+    #[test]
+    fn json_round_trips_through_facet() -> Result<()> {
+        let expanded =
+            RoleManagementPolicyAssignmentId::Unscoped(UnscopedRoleManagementPolicyAssignmentId {
+                name: RoleManagementPolicyAssignmentName::new(Uuid::nil().to_string().into()),
+            });
+        let json = facet_json::to_string(&expanded)?;
+        assert_eq!(json, facet_json::to_string(&expanded.expanded_form())?);
+        let id: RoleManagementPolicyAssignmentId = facet_json::from_str(json.as_str())?;
+        assert_eq!(id, expanded);
+        Ok(())
     }
 }

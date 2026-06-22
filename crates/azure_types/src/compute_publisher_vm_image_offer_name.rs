@@ -6,8 +6,10 @@ use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct ComputePublisherVmImageOfferName(CompactString);
+crate::impl_facet_string_proxy!(ComputePublisherVmImageOfferName, value => value.to_string());
 impl PartialEq for ComputePublisherVmImageOfferName {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq_ignore_ascii_case(&other.0)

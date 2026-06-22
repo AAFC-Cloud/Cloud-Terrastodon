@@ -4,6 +4,7 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -24,29 +25,29 @@ use unicode_categories::UnicodeCategories;
 /// Can't end with period.
 ///
 /// See also: https://github.com/Azure/azure-rest-api-specs/blob/6c548b0bd279f5e233661b1c81fb5b61b19965cd/specification/storage/resource-manager/Microsoft.Storage/stable/2025-01-01/storage.json#L5841-L5852
-#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
-pub struct ResourceGroupName {
-    inner: CompactString,
-}
+#[derive(Debug, Clone, Eq, PartialOrd, Ord, Facet)]
+#[facet(transparent)]
+pub struct ResourceGroupName(CompactString);
+
 impl PartialEq for ResourceGroupName {
     fn eq(&self, other: &Self) -> bool {
-        self.inner.eq_ignore_ascii_case(&other.inner)
+        self.0.eq_ignore_ascii_case(&other.0)
     }
 }
 impl Hash for ResourceGroupName {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.inner.to_ascii_lowercase().hash(state);
+        self.0.to_ascii_lowercase().hash(state);
     }
 }
 impl Slug for ResourceGroupName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = name.into();
         validate_resource_group_name(&inner)?;
-        Ok(Self { inner })
+        Ok(Self(inner))
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        validate_resource_group_name(&self.inner)?;
+        validate_resource_group_name(&self.0)?;
         Ok(())
     }
 }
@@ -142,32 +143,14 @@ fn validate_resource_group_name(value: &str) -> eyre::Result<()> {
 
 impl std::fmt::Display for ResourceGroupName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.inner)
-    }
-}
-impl serde::Serialize for ResourceGroupName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for ResourceGroupName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
+        f.write_str(&self.0)
     }
 }
 impl Deref for ResourceGroupName {
     type Target = CompactString;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 impl TryFrom<CompactString> for ResourceGroupName {
@@ -179,7 +162,7 @@ impl TryFrom<CompactString> for ResourceGroupName {
 }
 impl From<ResourceGroupName> for CompactString {
     fn from(value: ResourceGroupName) -> Self {
-        value.inner
+        value.0
     }
 }
 
@@ -266,6 +249,16 @@ mod test {
             let name = ResourceGroupName::arbitrary(&mut un)?;
             assert!(name.validate_slug().is_ok());
         }
+        Ok(())
+    }
+
+    #[test]
+    pub fn json_roundtrips() -> eyre::Result<()> {
+        let name = ResourceGroupName::try_new("My-RG")?;
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&name)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<ResourceGroupName>(
+            "\"My-RG\"",
+        )?;
         Ok(())
     }
 }

@@ -6,7 +6,6 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use http::Method;
-use serde::Serialize;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
@@ -55,7 +54,7 @@ impl CacheableCommand for OAuth2PermissionGrantUpdateRequest {
             self.id
         );
 
-        #[derive(Serialize)]
+        #[derive(facet::Facet)]
         struct UpdateBody {
             scope: String,
         }
@@ -64,7 +63,7 @@ impl CacheableCommand for OAuth2PermissionGrantUpdateRequest {
         RestRequest::new(Method::PATCH, &url)?
             .tenant(self.tenant_id)
             .cache(cache_key)
-            .body(serde_json::to_string_pretty(&body)?)
+            .body(facet_json::to_string_pretty(&body).map_err(|error| eyre::eyre!("{error:?}"))?)
             .receive_raw()
             .await?;
         bust_oauth2_permission_grants_cache(self.tenant_id).await?;

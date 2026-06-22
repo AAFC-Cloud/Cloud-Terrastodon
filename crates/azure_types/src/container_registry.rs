@@ -7,23 +7,21 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
 pub struct ContainerRegistrySKU {
     name: String,
     tier: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq, Eq, facet::Facet)]
 pub struct ContainerRegistry {
     pub id: ContainerRegistryId,
     pub name: ContainerRegistryName,
     pub location: String,
     pub sku: ContainerRegistrySKU,
-    pub properties: Value,
+    pub properties: RawJson<'static>,
 }
 
 impl AsScope for ContainerRegistry {

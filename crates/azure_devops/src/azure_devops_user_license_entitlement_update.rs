@@ -11,9 +11,7 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::debug;
@@ -90,15 +88,15 @@ impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>, 'a);
 
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
+#[derive(facet::Facet, Debug)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsLicenseEntitlementUpdateResponse {
     pub access_level: AzureDevOpsLicenseRule,
     pub date_created: DateTime<Utc>,
-    pub extensions: Vec<Value>,
-    pub group_assignments: Vec<Value>,
+    pub extensions: Vec<RawJson<'static>>,
+    pub group_assignments: Vec<RawJson<'static>>,
     pub id: AzureDevOpsUserId,
     pub last_accessed_date: LastAccessedDate,
-    pub project_entitlements: Vec<Value>,
-    pub user: Value,
+    pub project_entitlements: Vec<RawJson<'static>>,
+    pub user: RawJson<'static>,
 }

@@ -4,12 +4,13 @@ use chrono::Utc;
 use compact_str::CompactString;
 use ipnetwork::Ipv4Network;
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "@odata.type")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[repr(C)]
+#[facet(tag = "@odata.type")]
 pub enum ConditionalAccessNamedLocation {
-    #[serde(rename = "#microsoft.graph.ipNamedLocation")]
+    #[facet(rename = "#microsoft.graph.ipNamedLocation")]
     IpNamedLocation(ConditionalAccessIpNamedLocation),
-    #[serde(rename = "#microsoft.graph.countryNamedLocation")]
+    #[facet(rename = "#microsoft.graph.countryNamedLocation")]
     CountryNamedLocation(ConditionalAccessCountryNamedLocation),
 }
 impl ConditionalAccessNamedLocation {
@@ -39,32 +40,41 @@ impl ConditionalAccessNamedLocation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessIpNamedLocation {
     pub id: ConditionalAccessNamedLocationId,
     pub display_name: CompactString,
+    #[facet(default)]
     pub modified_date_time: Option<DateTime<Utc>>,
+    #[facet(default)]
     pub created_date_time: Option<DateTime<Utc>>,
+    #[facet(default)]
     pub deleted_date_time: Option<DateTime<Utc>>,
     pub is_trusted: bool,
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<CidrHolder>)]
     pub ip_ranges: Vec<CidrHolder>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct CidrHolder {
+    #[facet(opaque, proxy = crate::Ipv4NetworkProxy)]
     pub cidr_address: Ipv4Network,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessCountryNamedLocation {
     pub id: ConditionalAccessNamedLocationId,
     pub display_name: CompactString,
+    #[facet(default)]
     pub modified_date_time: Option<DateTime<Utc>>,
+    #[facet(default)]
     pub created_date_time: Option<DateTime<Utc>>,
+    #[facet(default)]
     pub deleted_date_time: Option<DateTime<Utc>>,
+    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<CompactString>)]
     pub countries_and_regions: Vec<CompactString>,
     pub include_unknown_countries_and_regions: bool,
     pub country_lookup_method: CompactString,

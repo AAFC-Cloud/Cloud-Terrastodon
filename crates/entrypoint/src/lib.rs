@@ -5,6 +5,7 @@ mod interactive;
 mod menu;
 mod menu_action;
 mod noninteractive;
+mod serde_json_isolation;
 mod version;
 
 pub(crate) mod windows_support;

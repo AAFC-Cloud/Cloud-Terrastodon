@@ -1,15 +1,14 @@
 use crate::ResourceGroupId;
 use crate::RouteTableId;
 use crate::RouteTableProperties;
-use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct RouteTable {
     pub id: RouteTableId,
     pub name: String, // This is the name from Azure, distinct from RouteTableName in ID
     pub location: String,
+    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: RouteTableProperties,
 }

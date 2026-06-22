@@ -1,17 +1,15 @@
 use crate::AzureDevOpsDescriptor;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
+use facet_json::RawJson;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupMember {
     pub description: Option<String>,
     pub descriptor: AzureDevOpsDescriptor,
     pub display_name: String,
     pub domain: String,
-    pub legacy_descriptor: Option<Value>,
-    pub mail_address: Option<Value>,
+    pub legacy_descriptor: Option<RawJson<'static>>,
+    pub mail_address: Option<String>,
     pub origin: String,
     pub origin_id: String,
     pub principal_name: String,

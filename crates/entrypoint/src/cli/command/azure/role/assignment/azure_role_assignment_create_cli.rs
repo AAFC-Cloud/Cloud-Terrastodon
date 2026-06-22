@@ -13,7 +13,6 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use itertools::Itertools;
-use serde_json::json;
 use std::io::Write;
 use tracing::info;
 
@@ -35,6 +34,14 @@ pub struct AzureRoleAssignmentCreateArgs {
     /// Scope (resource id, subscription, resource group, etc.)
     #[arg(long)]
     pub scope: Option<ScopeImpl>,
+}
+
+#[derive(facet::Facet)]
+struct RoleAssignmentCreateResult {
+    scope: String,
+    role: String,
+    principal: String,
+    assignment_id: cloud_terrastodon_azure::RoleAssignmentId,
 }
 
 impl AzureRoleAssignmentCreateArgs {
@@ -115,14 +122,19 @@ impl AzureRoleAssignmentCreateArgs {
                         scope.expanded_form()
                     );
                     let id = create_role_assignment(&scope, &role.id, principal.as_ref()).await?;
-                    results.push(json!({"scope": scope.expanded_form(), "role": role.display_name, "principal": principal.display_name(), "assignment_id": id}));
+                    results.push(RoleAssignmentCreateResult {
+                        scope: scope.expanded_form(),
+                        role: role.display_name.clone(),
+                        principal: principal.display_name().to_owned(),
+                        assignment_id: id,
+                    });
                 }
             }
         }
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &results)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &results)?;
         handle.write_all(b"\n")?;
 
         info!("Successfully created {} role assignments", results.len());

@@ -12,9 +12,9 @@ use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use http::Method;
 use reqwest::Url;
-use serde::de::DeserializeOwned;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -100,7 +100,7 @@ impl RestRequest {
             inputs.insert(PathBuf::from("body.json"), body.clone().into());
         }
         if let Some(headers) = &self.headers
-            && let Ok(json) = serde_json::to_string_pretty(headers)
+            && let Ok(json) = headers.to_json_pretty()
         {
             inputs.insert(PathBuf::from("headers.json"), json.into());
         }
@@ -157,14 +157,14 @@ impl RestRequest {
 
     pub async fn receive<T>(self) -> Result<T>
     where
-        T: DeserializeOwned + Send + 'static,
+        T: Facet<'static> + Send + 'static,
     {
         self.receive_with_validator(Ok).await
     }
 
     pub async fn receive_with_validator<T, F>(self, validator: F) -> Result<T>
     where
-        T: DeserializeOwned + Send + 'static,
+        T: Facet<'static> + Send + 'static,
         F: FnOnce(T) -> Result<T> + Send + 'static,
     {
         self.receive_raw_with_decoder(|response| {
@@ -175,8 +175,9 @@ impl RestRequest {
                     response.reason_phrase.as_deref().unwrap_or("Unknown error")
                 );
             }
-            let parsed =
-                serde_json::from_value(response.into_json_body()?).wrap_err_with(|| {
+            let parsed = facet_json::from_str::<T>(response.into_json_body()?.as_str())
+                .map_err(|error| eyre::eyre!("{error:?}"))
+                .wrap_err_with(|| {
                     format!(
                         "Deserializing REST response into {}",
                         std::any::type_name::<T>()

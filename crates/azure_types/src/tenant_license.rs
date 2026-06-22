@@ -1,7 +1,5 @@
 use crate::SubscriptionId;
 use crate::tenant_id::AzureTenantId;
-use serde::Deserialize;
-use serde::Serialize;
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -16,8 +14,8 @@ impl TenantLicenseCollection {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct TenantLicense {
     pub account_id: AzureTenantId,
     pub account_name: String,
@@ -33,21 +31,23 @@ pub struct TenantLicense {
     pub subscription_ids: Vec<SubscriptionId>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
+#[repr(C)]
 pub enum TenantLicenseAppliesTo {
     User,
     Company,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, facet::Facet)]
+#[repr(C)]
 pub enum TenantLicenseCapabilityStatus {
     Enabled,
     LockedOut,
     Suspended,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct TenantLicensePrepaidUnits {
     pub enabled: u32,
     pub locked_out: u32,
@@ -55,8 +55,8 @@ pub struct TenantLicensePrepaidUnits {
     pub warning: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct TenantLicenseServicePlan {
     pub applies_to: TenantLicenseAppliesTo,
     pub provisioning_status: TenantLicenseServicePlanProvisioningStatus,
@@ -65,7 +65,8 @@ pub struct TenantLicenseServicePlan {
     pub service_plan_name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, facet::Facet)]
+#[repr(C)]
 pub enum TenantLicenseServicePlanProvisioningStatus {
     Success,
     Disabled,

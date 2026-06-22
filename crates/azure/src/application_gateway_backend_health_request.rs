@@ -177,7 +177,8 @@ fn build_backend_health_url(application_gateway_id: &AzureApplicationGatewayReso
 fn parse_backend_health_response(
     response: SerializableRestResponse,
 ) -> Result<AzureApplicationGatewayResourceBackendHealthResponse> {
-    serde_json::from_value(response.into_json_body()?)
+    facet_json::from_str(response.into_json_body()?.as_str())
+        .map_err(|error| eyre::eyre!("{error:?}"))
         .wrap_err("Deserializing Azure application gateway backend health response")
 }
 
@@ -192,6 +193,7 @@ mod tests {
     use cloud_terrastodon_azure_types::Scope;
     use cloud_terrastodon_rest::RestResponseBody;
     use cloud_terrastodon_rest::SerializableRestResponse;
+    use facet_json::RawJson;
     use std::collections::BTreeMap;
 
     #[test]
@@ -219,7 +221,7 @@ mod tests {
                 String::from("Location"),
                 vec![String::from("https://example.test/poll")],
             )]),
-            body: RestResponseBody::Json(serde_json::Value::Null),
+            body: RestResponseBody::Json(RawJson::from_owned("null".to_string())),
         };
         assert_eq!(
             response.header("location"),
@@ -234,33 +236,36 @@ mod tests {
             ok: true,
             reason_phrase: Some("OK".to_string()),
             headers: BTreeMap::new(),
-            body: RestResponseBody::Json(serde_json::json!({
-                "backendAddressPools": [
-                    {
-                        "backendAddressPool": {
-                            "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw/backendAddressPools/pool-a"
-                        },
-                        "backendHttpSettingsCollection": [
-                            {
-                                "backendHttpSettings": {
-                                    "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw/backendHttpSettingsCollection/settings-a"
-                                },
-                                "servers": [
-                                    {
-                                        "address": "10.0.0.5",
-                                        "health": "Healthy",
-                                        "healthProbeLog": "Success",
-                                        "healthProbeErrorName": "SuccessWithStatusCode",
-                                        "backendCertificateChainMetadata": {
-                                            "certificateChainMetadata": []
+            body: RestResponseBody::Json(RawJson::from_owned(
+                r#"{
+                    "backendAddressPools": [
+                        {
+                            "backendAddressPool": {
+                                "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw/backendAddressPools/pool-a"
+                            },
+                            "backendHttpSettingsCollection": [
+                                {
+                                    "backendHttpSettings": {
+                                        "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw/backendHttpSettingsCollection/settings-a"
+                                    },
+                                    "servers": [
+                                        {
+                                            "address": "10.0.0.5",
+                                            "health": "Healthy",
+                                            "healthProbeLog": "Success",
+                                            "healthProbeErrorName": "SuccessWithStatusCode",
+                                            "backendCertificateChainMetadata": {
+                                                "certificateChainMetadata": []
+                                            }
                                         }
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            })),
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }"#
+                .to_string(),
+            )),
         };
 
         let parsed: AzureApplicationGatewayResourceBackendHealthResponse =

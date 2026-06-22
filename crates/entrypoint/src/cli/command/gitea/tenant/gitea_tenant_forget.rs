@@ -17,7 +17,7 @@ impl GiteaTenantForgetArgs {
         let forgotten = forget_tracked_tenant(&tenant_url).await?;
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &forgotten)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &forgotten)?;
         handle.write_all(b"\n")?;
         Ok(())
     }

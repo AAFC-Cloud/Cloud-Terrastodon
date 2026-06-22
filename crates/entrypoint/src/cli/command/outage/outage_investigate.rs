@@ -26,7 +26,6 @@ use hickory_resolver::proto::rr::RData;
 use hickory_resolver::proto::rr::RecordType;
 use hickory_resolver::system_conf::read_system_conf;
 use reqwest::Url;
-use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
@@ -98,7 +97,7 @@ impl OutageInvestigateArgs {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, facet::Facet)]
 struct OutageInvestigationReport {
     input: String,
     tenant: String,
@@ -107,14 +106,14 @@ struct OutageInvestigationReport {
     matches: Vec<OutagePublicIpMatch>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, facet::Facet)]
 struct DnsResolution {
     canonical_name: String,
     aliases: Vec<String>,
     addresses: Vec<IpAddr>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, facet::Facet)]
 struct OutagePublicIpMatch {
     public_ip: AzurePublicIpResource,
     application_gateway_id: Option<String>,
@@ -125,7 +124,7 @@ struct OutagePublicIpMatch {
     failing_backend_probe_investigations: Vec<FailingBackendProbeInvestigation>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, facet::Facet, Clone)]
 struct FailingBackendProbeInvestigation {
     backend_address_pool_id: String,
     backend_http_settings_id: String,
@@ -148,7 +147,7 @@ struct FailingBackendServerCandidate {
     server: AzureApplicationGatewayResourceBackendHealthServer,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, facet::Facet)]
 struct ApplicationGatewayBackendHealthArtifact {
     application_gateway_id: String,
     backend_health: Option<AzureApplicationGatewayResourceBackendHealthResponse>,
@@ -879,10 +878,13 @@ fn write_investigation_artifacts(
     Ok(())
 }
 
-fn write_json_file(path: PathBuf, value: &impl Serialize) -> Result<()> {
+fn write_json_file<'facet, T>(path: PathBuf, value: &T) -> Result<()>
+where
+    T: facet::Facet<'facet>,
+{
     let file =
         std::fs::File::create(&path).with_context(|| format!("creating '{}'", path.display()))?;
-    serde_json::to_writer_pretty(file, value)
+    cloud_terrastodon_command::to_writer_pretty(file, value)
         .with_context(|| format!("writing '{}'", path.display()))?;
     Ok(())
 }
@@ -937,7 +939,7 @@ mod tests {
     #[test]
     fn network_interface_backend_address_match_supports_private_ip_and_internal_fqdn() -> Result<()>
     {
-        let network_interface = serde_json::from_str::<AzureNetworkInterfaceResource>(
+        let network_interface = facet_json::from_str::<AzureNetworkInterfaceResource>(
             r#"
                         {
                             "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/networkInterfaces/my-nic",

@@ -12,7 +12,6 @@ use eyre::Context;
 use indexmap::IndexMap;
 use indoc::indoc;
 use itertools::Itertools;
-use serde::Deserialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -22,7 +21,7 @@ use tracing::info;
 use tracing::trace;
 use tracing::warn;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, facet::Facet)]
 struct PolicyComplianceRow {
     policy_assignment_id: PolicyAssignmentId,
     policy_definition_reference_id: Option<String>,

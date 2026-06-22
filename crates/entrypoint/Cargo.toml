@@ -29,6 +29,8 @@ cloud_terrastodon_ui_ratatui.workspace = true
 cloud_terrastodon_tracing.workspace = true
 cloud_terrastodon_software.workspace = true
 eyre.workspace = true
+facet.workspace = true
+facet-json.workspace = true
 color-eyre.workspace = true
 chrono.workspace = true
 itertools.workspace = true
@@ -50,7 +52,7 @@ quote.workspace = true
 proc-macro2.workspace = true
 prettyplease.workspace = true
 tracing-subscriber.workspace = true
-compact_str = { workspace = true, features = ["serde"] }
+compact_str.workspace = true
 jsonpath-rust.workspace = true
 jmespath.workspace = true
 uuid.workspace = true

@@ -2,10 +2,10 @@ use crate::AzureDevOpsAgentPoolId;
 use crate::AzureDevOpsAgentPoolName;
 use chrono::DateTime;
 use chrono::Utc;
+use facet_json::RawJson;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPool {
     pub agent_cloud_id: Option<usize>,
     pub auto_provision: bool,
@@ -25,12 +25,11 @@ pub struct AzureDevOpsAgentPool {
     pub target_size: Option<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPoolCreatedBy {
-    #[serde(rename = "_links")]
-    pub links: serde_json::Value,
+    #[facet(rename = "_links")]
+    pub links: RawJson<'static>,
     pub descriptor: String,
     pub display_name: String,
     pub id: String,
@@ -38,12 +37,11 @@ pub struct AzureDevOpsAgentPoolCreatedBy {
     pub unique_name: String,
     pub url: String,
 }
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(debug_assertions, serde(deny_unknown_fields))]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPoolOwner {
-    #[serde(rename = "_links")]
-    pub links: serde_json::Value,
+    #[facet(rename = "_links")]
+    pub links: RawJson<'static>,
     pub descriptor: String,
     pub display_name: String,
     pub id: String,

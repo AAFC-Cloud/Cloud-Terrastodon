@@ -3,7 +3,7 @@ use hcl::edit::expr::Expression;
 use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::visit_mut::visit_expr_mut;
-use serde_json::Value;
+use facet_value::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -34,13 +34,13 @@ impl VisitMut for ReflowJsonAttributes {
             return;
         }
 
-        // Must deserialize as json
-        let Ok(value) = serde_json::from_str::<Value>(node_content) else {
+        // Must decode as json
+        let Ok(value) = facet_json::from_str::<Value>(node_content) else {
             return;
         };
 
         // Must serialize as json
-        let Ok(json) = serde_json::to_string_pretty(&value) else {
+        let Ok(json) = facet_json::to_string_pretty(&value) else {
             return;
         };
 
@@ -69,7 +69,7 @@ mod tests {
         // A json example
         let inner = r#"{"guh": true}"#;
         // Encode it as a string
-        let encoded = serde_json::to_string(inner)?;
+        let encoded = facet_json::to_string(inner)?;
         // Embed it as if it were a string in HCL
         let input = format!(r#"a = {encoded}"#);
         // Parse the body

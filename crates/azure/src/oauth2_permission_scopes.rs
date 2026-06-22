@@ -3,7 +3,6 @@ use cloud_terrastodon_azure_types::OAuth2PermissionScope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
-use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::info;
 
@@ -42,9 +41,9 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionScopesListR
             "https://graph.microsoft.com/v1.0/servicePrincipals/{service_principal_id}?$select=oauth2PermissionScopes",
             service_principal_id = self.service_principal_id
         );
-        #[derive(Deserialize)]
+        #[derive(facet::Facet)]
         struct Response {
-            #[serde(rename = "oauth2PermissionScopes")]
+            #[facet(rename = "oauth2PermissionScopes")]
             oauth2_permission_scopes: Vec<OAuth2PermissionScope>,
         }
         let entries = RestRequest::new(http::Method::GET, url.as_str())?

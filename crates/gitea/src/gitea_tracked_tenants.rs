@@ -16,7 +16,7 @@ use tracing::warn;
 const ALIASES_FILE_NAME: &str = "aliases.txt";
 const URL_FILE_NAME: &str = "url.txt";
 
-#[derive(Debug, Clone, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
 pub struct GiteaTrackedTenant {
     pub url: GiteaInstanceUrl,
     pub aliases: Vec<GiteaTenantAlias>,

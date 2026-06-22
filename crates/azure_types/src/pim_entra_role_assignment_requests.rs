@@ -2,53 +2,55 @@ use crate::AzureTenantId;
 use crate::GovernanceRoleAssignment;
 use crate::PrincipalId;
 use crate::to_iso8601;
-use serde::Deserialize;
-use serde::Serialize;
 use std::time::Duration;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct RoleAssignmentRequest {
-    #[serde(rename = "roleDefinitionId")]
+    #[facet(rename = "roleDefinitionId")]
     pub role_definition_id: Uuid,
-    #[serde(rename = "resourceId")]
+    #[facet(rename = "resourceId")]
     pub resource_id: Uuid,
-    #[serde(rename = "subjectId")]
+    #[facet(rename = "subjectId")]
     pub subject_id: PrincipalId,
-    #[serde(rename = "assignmentState")]
+    #[facet(rename = "assignmentState")]
     pub assignment_state: RoleAssignmentRequestAssignmentState,
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: RoleAssignmentRequestKind,
-    #[serde(rename = "reason")]
+    #[facet(rename = "reason")]
     pub reason: String,
-    #[serde(rename = "ticketNumber")]
+    #[facet(rename = "ticketNumber")]
     pub ticket_number: String,
-    #[serde(rename = "ticketSystem")]
+    #[facet(rename = "ticketSystem")]
     pub ticket_system: String,
-    #[serde(rename = "schedule")]
+    #[facet(rename = "schedule")]
     pub schedule: RoleAssignmentRequestSchedule,
-    #[serde(rename = "linkedEligibleRoleAssignmentId")]
+    #[facet(rename = "linkedEligibleRoleAssignmentId")]
     pub linked_eligible_role_assignment_id: String,
-    // #[serde(rename = "scopedResourceId")]
+    // #[facet(rename = "scopedResourceId")]
     // scoped_resource_id: Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
+#[repr(C)]
 pub enum RoleAssignmentRequestAssignmentState {
     Active,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
+#[repr(C)]
 pub enum RoleAssignmentRequestKind {
     UserAdd,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct RoleAssignmentRequestSchedule {
-    #[serde(rename = "type")]
+    #[facet(rename = "type")]
     pub kind: RoleAssignmentRequestScheduleKind,
+    #[facet(opaque, proxy = crate::IsoDurationProxy)]
     pub duration: iso8601_duration::Duration,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, facet::Facet)]
+#[repr(C)]
 pub enum RoleAssignmentRequestScheduleKind {
     Once,
 }

@@ -3,22 +3,21 @@ use compact_str::CompactString;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub struct AzureDevOpsServiceEndpointName {
-    inner: CompactString,
-}
+#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[facet(transparent)]
+pub struct AzureDevOpsServiceEndpointName(CompactString);
 
 impl Deref for AzureDevOpsServiceEndpointName {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 
 impl std::fmt::Display for AzureDevOpsServiceEndpointName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.inner)
+        f.write_str(&self.0)
     }
 }
 
@@ -28,7 +27,7 @@ impl AzureDevOpsServiceEndpointName {
         if inner.is_empty() {
             eyre::bail!("Service endpoint name cannot be empty");
         }
-        Ok(Self { inner })
+        Ok(Self(inner))
     }
 }
 
@@ -42,7 +41,7 @@ impl FromStr for AzureDevOpsServiceEndpointName {
 
 impl AsRef<str> for AzureDevOpsServiceEndpointName {
     fn as_ref(&self) -> &str {
-        &self.inner
+        &self.0
     }
 }
 
@@ -75,30 +74,9 @@ impl<'a> Arbitrary<'a> for AzureDevOpsServiceEndpointName {
             })
             .collect();
 
-        let name = AzureDevOpsServiceEndpointName {
-            inner: chars?.into(),
-        };
+        let name = AzureDevOpsServiceEndpointName(chars?.into());
         // Since we generate length 1..=64, it's guaranteed to be non-empty
         Ok(name)
-    }
-}
-
-impl serde::Serialize for AzureDevOpsServiceEndpointName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for AzureDevOpsServiceEndpointName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 
@@ -132,7 +110,7 @@ mod tests {
             let mut u = Unstructured::new(&raw);
             if let Ok(name) = AzureDevOpsServiceEndpointName::arbitrary(&mut u) {
                 // Since Arbitrary generates valid names, just check it's not empty
-                assert!(!name.inner.is_empty(), "Arbitrary produced empty name");
+                assert!(!name.0.is_empty(), "Arbitrary produced empty name");
             }
         }
     }

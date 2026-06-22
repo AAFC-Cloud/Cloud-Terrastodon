@@ -1,14 +1,12 @@
 use arbitrary::Arbitrary;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord, facet::Facet)]
+#[facet(json::proxy = String)]
 pub struct AzureTenantId(Uuid);
+crate::impl_facet_string_proxy!(AzureTenantId, value => value.to_string());
 
 impl AzureTenantId {
     pub fn new(uuid: Uuid) -> Self {
@@ -37,24 +35,15 @@ impl FromStr for AzureTenantId {
     }
 }
 
-impl Serialize for AzureTenantId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.hyphenated().to_string().serialize(serializer)
-    }
-}
+#[cfg(test)]
+mod test {
+    use super::AzureTenantId;
 
-impl<'de> Deserialize<'de> for AzureTenantId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let expanded = String::deserialize(deserializer)?;
-        let id = expanded
-            .parse()
-            .map_err(|e| serde::de::Error::custom(format!("{e:?}")))?;
-        Ok(id)
+    #[test]
+    fn json_roundtrips() -> eyre::Result<()> {
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<AzureTenantId>(
+            "\"00000000-0000-0000-0000-000000000000\"",
+        )?;
+        Ok(())
     }
 }

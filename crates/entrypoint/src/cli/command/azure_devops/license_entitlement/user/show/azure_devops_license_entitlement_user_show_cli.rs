@@ -3,7 +3,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use eyre::Result;
-use serde_json::to_writer_pretty;
+use cloud_terrastodon_command::to_writer_pretty;
 use std::io::stdout;
 
 /// Show a single Azure DevOps user license entitlement by user id.

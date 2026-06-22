@@ -1,9 +1,8 @@
 use crate::key_vault_access_policy_all_privilege::KeyVaultAccessPolicyAllPrivilege;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(untagged)]
+#[derive(Debug, PartialEq, Clone, Copy, facet::Facet)]
+#[facet(proxy = String)]
+#[repr(C)]
 pub enum KeyVaultAccessPolicyKeyPrivilege {
     KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation),
     CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation),
@@ -11,75 +10,175 @@ pub enum KeyVaultAccessPolicyKeyPrivilege {
     RotationPolicyOperation(KeyVaultAccessPolicyRotationPolicyOperation),
     All(KeyVaultAccessPolicyAllPrivilege),
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+crate::impl_facet_string_proxy!(KeyVaultAccessPolicyKeyPrivilege, value => value.to_string());
+
+impl std::fmt::Display for KeyVaultAccessPolicyKeyPrivilege {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            KeyVaultAccessPolicyKeyPrivilege::KeyManagementOperation(operation) => {
+                operation.as_str()
+            }
+            KeyVaultAccessPolicyKeyPrivilege::CryptographicOperation(operation) => {
+                operation.as_str()
+            }
+            KeyVaultAccessPolicyKeyPrivilege::PrivilegedKeyOperation(operation) => {
+                operation.as_str()
+            }
+            KeyVaultAccessPolicyKeyPrivilege::RotationPolicyOperation(operation) => {
+                operation.as_str()
+            }
+            KeyVaultAccessPolicyKeyPrivilege::All(_) => "All",
+        })
+    }
+}
+
+impl std::str::FromStr for KeyVaultAccessPolicyKeyPrivilege {
+    type Err = eyre::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(match value.to_ascii_lowercase().as_str() {
+            "get" => Self::KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation::Get),
+            "list" => {
+                Self::KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation::List)
+            }
+            "update" => {
+                Self::KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation::Update)
+            }
+            "create" => {
+                Self::KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation::Create)
+            }
+            "import" => {
+                Self::KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation::Import)
+            }
+            "delete" => {
+                Self::KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation::Delete)
+            }
+            "recover" => {
+                Self::KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation::Recover)
+            }
+            "backup" => {
+                Self::KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation::Backup)
+            }
+            "restore" => {
+                Self::KeyManagementOperation(KeyVaultAccessPolicyKeyManagementOperation::Restore)
+            }
+            "decrypt" => {
+                Self::CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation::Decrypt)
+            }
+            "encrypt" => {
+                Self::CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation::Encrypt)
+            }
+            "unwrapkey" => {
+                Self::CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation::UnwrapKey)
+            }
+            "wrapkey" => {
+                Self::CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation::WrapKey)
+            }
+            "verify" => {
+                Self::CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation::Verify)
+            }
+            "sign" => Self::CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation::Sign),
+            "purge" => {
+                Self::PrivilegedKeyOperation(KeyVaultAccessPolicyPrivilegedKeyOperation::Purge)
+            }
+            "release" => {
+                Self::PrivilegedKeyOperation(KeyVaultAccessPolicyPrivilegedKeyOperation::Release)
+            }
+            "rotate" => Self::RotationPolicyOperation(
+                KeyVaultAccessPolicyRotationPolicyOperation::Rotate,
+            ),
+            "getrotationpolicy" => Self::RotationPolicyOperation(
+                KeyVaultAccessPolicyRotationPolicyOperation::GetRotationPolicy,
+            ),
+            "setrotationpolicy" => Self::RotationPolicyOperation(
+                KeyVaultAccessPolicyRotationPolicyOperation::SetRotationPolicy,
+            ),
+            "all" => Self::All(KeyVaultAccessPolicyAllPrivilege::All),
+            _ => eyre::bail!("unknown key vault key privilege {value:?}"),
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, facet::Facet)]
+#[repr(C)]
 pub enum KeyVaultAccessPolicyKeyManagementOperation {
-    #[serde(alias = "Get", alias = "get", alias = "GET")]
     Get,
-    #[serde(alias = "List", alias = "list", alias = "LIST")]
     List,
-    #[serde(alias = "Update", alias = "update", alias = "UPDATE")]
     Update,
-    #[serde(alias = "Create", alias = "create", alias = "CREATE")]
     Create,
-    #[serde(alias = "Import", alias = "import", alias = "IMPORT")]
     Import,
-    #[serde(alias = "Delete", alias = "delete", alias = "DELETE")]
     Delete,
-    #[serde(alias = "Recover", alias = "recover", alias = "RECOVER")]
     Recover,
-    #[serde(alias = "Backup", alias = "backup", alias = "BACKUP")]
     Backup,
-    #[serde(alias = "Restore", alias = "restore", alias = "RESTORE")]
     Restore,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+impl KeyVaultAccessPolicyKeyManagementOperation {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Get => "Get",
+            Self::List => "List",
+            Self::Update => "Update",
+            Self::Create => "Create",
+            Self::Import => "Import",
+            Self::Delete => "Delete",
+            Self::Recover => "Recover",
+            Self::Backup => "Backup",
+            Self::Restore => "Restore",
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, facet::Facet)]
+#[repr(C)]
 pub enum KeyVaultAccessPolicyCryptographicOperation {
-    #[serde(alias = "Decrypt", alias = "decrypt", alias = "DECRYPT")]
     Decrypt,
-    #[serde(alias = "Encrypt", alias = "encrypt", alias = "ENCRYPT")]
     Encrypt,
-    #[serde(
-        alias = "UnwrapKey",
-        alias = "unwrapkey",
-        alias = "UNWRAPKEY",
-        alias = "unwrapKey"
-    )]
     UnwrapKey,
-    #[serde(
-        alias = "WrapKey",
-        alias = "wrapkey",
-        alias = "WRAPKEY",
-        alias = "wrapKey"
-    )]
     WrapKey,
-    #[serde(alias = "Verify", alias = "verify", alias = "VERIFY")]
     Verify,
-    #[serde(alias = "Sign", alias = "sign", alias = "SIGN")]
     Sign,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+impl KeyVaultAccessPolicyCryptographicOperation {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Decrypt => "Decrypt",
+            Self::Encrypt => "Encrypt",
+            Self::UnwrapKey => "UnwrapKey",
+            Self::WrapKey => "WrapKey",
+            Self::Verify => "Verify",
+            Self::Sign => "Sign",
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, facet::Facet)]
+#[repr(C)]
 pub enum KeyVaultAccessPolicyPrivilegedKeyOperation {
-    #[serde(alias = "Purge", alias = "purge", alias = "PURGE")]
     Purge,
-    #[serde(alias = "Release", alias = "release", alias = "RELEASE")]
     Release,
 }
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+impl KeyVaultAccessPolicyPrivilegedKeyOperation {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Purge => "Purge",
+            Self::Release => "Release",
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, facet::Facet)]
+#[repr(C)]
 pub enum KeyVaultAccessPolicyRotationPolicyOperation {
-    #[serde(alias = "Rotate", alias = "rotate", alias = "ROTATE")]
     Rotate,
-    #[serde(
-        alias = "GetRotationPolicy",
-        alias = "getrotationpolicy",
-        alias = "GETROTATIONPOLICY",
-        alias = "getRotationPolicy"
-    )]
     GetRotationPolicy,
-    #[serde(
-        alias = "SetRotationPolicy",
-        alias = "setrotationpolicy",
-        alias = "SETROTATIONPOLICY",
-        alias = "setRotationPolicy"
-    )]
     SetRotationPolicy,
+}
+impl KeyVaultAccessPolicyRotationPolicyOperation {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Rotate => "Rotate",
+            Self::GetRotationPolicy => "GetRotationPolicy",
+            Self::SetRotationPolicy => "SetRotationPolicy",
+        }
+    }
 }

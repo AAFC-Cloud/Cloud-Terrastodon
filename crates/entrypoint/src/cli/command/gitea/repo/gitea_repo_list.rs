@@ -47,7 +47,7 @@ impl GiteaRepoListArgs {
         info!(count = repositories.len(), ?self.method, "Fetched Gitea repositories");
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &repositories)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &repositories)?;
         handle.write_all(b"\n")?;
         Ok(())
     }

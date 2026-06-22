@@ -21,7 +21,7 @@ impl GiteaOrgListArgs {
         info!(count = organizations.len(), "Fetched Gitea organizations");
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &organizations)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &organizations)?;
         handle.write_all(b"\n")?;
         Ok(())
     }

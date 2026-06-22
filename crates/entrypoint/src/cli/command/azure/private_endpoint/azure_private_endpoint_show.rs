@@ -41,7 +41,7 @@ impl AzurePrivateEndpointShowArgs {
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
-                serde_json::to_writer_pretty(&mut handle, &matches.remove(0))?;
+                cloud_terrastodon_command::to_writer_pretty(&mut handle, &matches.remove(0))?;
                 handle.write_all(b"\n")?;
                 Ok(())
             }
@@ -122,7 +122,7 @@ mod tests {
     use cloud_terrastodon_azure::AzurePrivateEndpointResource;
 
     fn sample_private_endpoint() -> AzurePrivateEndpointResource {
-        serde_json::from_str(
+        facet_json::from_str(
             r#"
             {
               "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/privateEndpoints/my-private-endpoint",

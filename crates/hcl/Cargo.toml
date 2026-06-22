@@ -21,12 +21,13 @@ cloud_terrastodon_command = { workspace = true }
 cloud_terrastodon_pathing = { workspace = true }
 tokio = { workspace = true }
 eyre = { workspace = true }
+facet = { workspace = true }
+facet-json = { workspace = true }
+facet-value = { workspace = true }
 itertools = { workspace = true }
 indoc = { workspace = true }
 reqwest = { workspace = true }
 hcl-rs = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 tracing = { workspace = true }
 tempfile = { workspace = true }
 async-trait.workspace = true

@@ -14,10 +14,9 @@ use std::str::FromStr;
 /// Ensure that your organization doesn't exceed 50 Unicode characters
 ///
 /// End with a letter or number
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub struct AzureDevOpsOrganizationName {
-    inner: CompactString,
-}
+#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[facet(transparent)]
+pub struct AzureDevOpsOrganizationName(CompactString);
 
 fn is_english_letter(ch: char) -> bool {
     ch.is_ascii_alphabetic()
@@ -98,13 +97,13 @@ impl Deref for AzureDevOpsOrganizationName {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 
 impl std::fmt::Display for AzureDevOpsOrganizationName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.inner)
+        f.write_str(&self.0)
     }
 }
 
@@ -112,7 +111,7 @@ impl AzureDevOpsOrganizationName {
     pub fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = name.into();
         validate_azure_devops_organization_name_contents(&inner)?;
-        Ok(Self { inner })
+        Ok(Self(inner))
     }
 }
 
@@ -126,7 +125,7 @@ impl FromStr for AzureDevOpsOrganizationName {
 
 impl AsRef<str> for AzureDevOpsOrganizationName {
     fn as_ref(&self) -> &str {
-        &self.inner
+        &self.0
     }
 }
 
@@ -180,31 +179,10 @@ impl<'a> Arbitrary<'a> for AzureDevOpsOrganizationName {
             let candidate: String = chars.into_iter().collect();
 
             if validate_azure_devops_organization_name_contents(&candidate).is_ok() {
-                return Ok(AzureDevOpsOrganizationName {
-                    inner: CompactString::from(candidate),
-                });
+                return Ok(AzureDevOpsOrganizationName(CompactString::from(candidate)));
             }
         }
         Err(arbitrary::Error::IncorrectFormat)
-    }
-}
-
-impl serde::Serialize for AzureDevOpsOrganizationName {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for AzureDevOpsOrganizationName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = <CompactString as serde::Deserialize>::deserialize(deserializer)?;
-        Self::try_new(value).map_err(|e| serde::de::Error::custom(format!("{e:?}")))
     }
 }
 
@@ -283,9 +261,9 @@ mod tests {
             if let Ok(org) = AzureDevOpsOrganizationName::arbitrary(&mut u) {
                 // Since Arbitrary uses the validation function, names should be valid
                 assert!(
-                    validate_azure_devops_organization_name_contents(&org.inner).is_ok(),
+                    validate_azure_devops_organization_name_contents(&org.0).is_ok(),
                     "Arbitrary produced invalid: {:?}",
-                    &org.inner
+                    &org.0
                 );
             }
         }

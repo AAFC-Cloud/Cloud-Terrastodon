@@ -83,7 +83,7 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        serde_json::to_writer_pretty(&mut handle, &grant)?;
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &grant)?;
         handle.write_all(b"\n")?;
         Ok(())
     }
