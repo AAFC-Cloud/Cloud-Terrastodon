@@ -353,6 +353,11 @@ mod tests {
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
 
+    fn pretty_json(input: &str) -> String {
+        facet_json::to_string_pretty(&facet_json::from_str::<facet_value::Value>(input).unwrap())
+            .unwrap()
+    }
+
     #[test]
     fn rest_response_extra_files_include_json_body() {
         let mut headers = HeaderMap::new();
@@ -364,12 +369,13 @@ mod tests {
         );
 
         let files = rest_response_extra_files(&response);
+        let expected = pretty_json(r#"{"hello":"world"}"#);
 
         assert_eq!(
             files
                 .get(&PathBuf::from("response.body.json"))
                 .map(|value| value.as_ref()),
-            Some(&b"{\"hello\":\"world\"}"[..])
+            Some(expected.as_bytes())
         );
     }
 }

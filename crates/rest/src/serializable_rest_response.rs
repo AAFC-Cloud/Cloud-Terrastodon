@@ -105,6 +105,11 @@ mod tests {
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
 
+    fn pretty_json(input: &str) -> String {
+        facet_json::to_string_pretty(&facet_json::from_str::<facet_value::Value>(input).unwrap())
+            .unwrap()
+    }
+
     #[test]
     fn looks_up_headers_case_insensitively() {
         let response = SerializableRestResponse {
@@ -166,10 +171,13 @@ mod tests {
         );
 
         let serialized = facet_json::to_string(&response)?;
-        assert!(serialized.contains(r#""body":["{\"hello\":\"world\"}"]"#));
+        assert!(serialized.contains(r#""body":["{\n  \"hello\": \"world\"\n}"]"#));
         let reparsed: SerializableRestResponse = facet_json::from_str(&serialized)?;
 
-        assert_eq!(reparsed.into_json_body()?.as_str(), "{\"hello\":\"world\"}");
+        assert_eq!(
+            reparsed.into_json_body()?.as_str(),
+            pretty_json(r#"{"hello":"world"}"#)
+        );
         Ok(())
     }
 
@@ -185,7 +193,10 @@ mod tests {
 
         let response: SerializableRestResponse = facet_json::from_str(cached_response)?;
 
-        assert_eq!(response.into_json_body()?.as_str(), "{\"hello\":\"world\"}");
+        assert_eq!(
+            response.into_json_body()?.as_str(),
+            pretty_json(r#"{"hello":"world"}"#)
+        );
         Ok(())
     }
 

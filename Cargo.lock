@@ -1352,6 +1352,7 @@ dependencies = [
  "eyre",
  "facet",
  "facet-json",
+ "facet-value",
  "http",
  "humantime",
  "reqwest",

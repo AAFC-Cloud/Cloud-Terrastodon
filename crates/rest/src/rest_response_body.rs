@@ -8,8 +8,18 @@ pub enum RestResponseBody {
 
 pub fn parse_response_body(content: String) -> RestResponseBody {
     match facet_json::from_str::<RawJson<'static>>(&content) {
-        Ok(_) => RestResponseBody::Json(RawJson::from_owned(content)),
+        Ok(_) => RestResponseBody::Json(pretty_json_body(content)),
         Err(_) => RestResponseBody::Text(content),
+    }
+}
+
+fn pretty_json_body(content: String) -> RawJson<'static> {
+    let Ok(value) = facet_json::from_str::<facet_value::Value>(&content) else {
+        return RawJson::from_owned(content);
+    };
+    match facet_json::to_string_pretty(&value) {
+        Ok(pretty) => RawJson::from_owned(pretty),
+        Err(_) => RawJson::from_owned(content),
     }
 }
 
@@ -55,7 +65,7 @@ fn try_decode_serialized_json_body(body: &str) -> Result<Option<RawJson<'static>
     }
 
     facet_json::from_str::<RawJson<'static>>(&content)
-        .map(|_| Some(RawJson::from_owned(content)))
+        .map(|_| Some(pretty_json_body(content)))
         .or(Ok(None))
 }
 
@@ -80,12 +90,17 @@ mod tests {
     use super::parse_response_body;
     use facet_json::RawJson;
 
+    fn pretty_json(input: &str) -> String {
+        facet_json::to_string_pretty(&facet_json::from_str::<facet_value::Value>(input).unwrap())
+            .unwrap()
+    }
+
     #[test]
     fn parses_json_response_body() {
         let body = parse_response_body("{\"hello\":\"world\"}".to_string());
         assert_eq!(
             body,
-            RestResponseBody::Json(RawJson::from_owned("{\"hello\":\"world\"}".to_string()))
+            RestResponseBody::Json(RawJson::from_owned(pretty_json(r#"{"hello":"world"}"#)))
         );
     }
 
