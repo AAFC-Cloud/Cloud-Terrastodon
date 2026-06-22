@@ -67,7 +67,8 @@ impl AzureRoleAssignmentBrowseArgs {
             });
         }
 
-        let chosen = PickerTui::new().pick_many(choices)?
+        let chosen = PickerTui::new()
+            .pick_many(choices)?
             .into_iter()
             .map(
                 |(role_assignment, role_definition, principal)| RoleAssignmentBrowseOutput {

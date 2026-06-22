@@ -87,9 +87,8 @@ mod tests {
 
     #[test]
     fn json_round_trips_through_facet() -> eyre::Result<()> {
-        let name = facet_json::from_str::<ComputePublisherVmImageOfferSkuVersionName>(
-            "\"latest\"",
-        )?;
+        let name =
+            facet_json::from_str::<ComputePublisherVmImageOfferSkuVersionName>("\"latest\"")?;
         assert_eq!(
             name,
             ComputePublisherVmImageOfferSkuVersionName::try_new("latest")?

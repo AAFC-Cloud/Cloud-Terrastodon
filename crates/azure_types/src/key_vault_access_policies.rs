@@ -95,10 +95,9 @@ mod test {
         assert_eq!(permissions.certificates.len(), 16);
         assert_eq!(permissions.keys.len(), 20);
         assert_eq!(permissions.secrets.len(), 8);
-        let reparsed =
-            facet_json::from_str::<Vec<KeyVaultAccessPolicy>>(&facet_json::to_string(
-                &access_policies,
-            )?)?;
+        let reparsed = facet_json::from_str::<Vec<KeyVaultAccessPolicy>>(&facet_json::to_string(
+            &access_policies,
+        )?)?;
         assert_eq!(access_policies, reparsed);
         Ok(())
     }

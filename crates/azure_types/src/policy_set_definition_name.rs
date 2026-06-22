@@ -70,7 +70,10 @@ mod tests {
     #[test]
     fn json_round_trips_through_facet() -> eyre::Result<()> {
         let name = facet_json::from_str::<PolicySetDefinitionName>("\"set-definition-name\"")?;
-        assert_eq!(name, PolicySetDefinitionName::try_new("set-definition-name")?);
+        assert_eq!(
+            name,
+            PolicySetDefinitionName::try_new("set-definition-name")?
+        );
         assert_eq!(facet_json::to_string(&name)?, "\"set-definition-name\"");
         Ok(())
     }

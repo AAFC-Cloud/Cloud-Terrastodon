@@ -1,8 +1,8 @@
 use clap::Args;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
-use eyre::Result;
 use cloud_terrastodon_command::to_writer_pretty;
+use eyre::Result;
 use std::io::stdout;
 
 /// List Azure DevOps group license entitlements for the organization.

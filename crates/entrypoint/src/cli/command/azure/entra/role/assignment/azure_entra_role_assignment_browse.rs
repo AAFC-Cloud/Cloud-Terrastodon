@@ -66,11 +66,13 @@ impl AzureEntraRoleAssignmentBrowseArgs {
             .set_header("Entra role assignments")
             .pick_many(choices)?
             .into_iter()
-            .map(|(role_assignment, role_definition, principal)| EntraRoleAssignmentBrowseOutput {
-                role_assignment,
-                role_definition,
-                principal,
-            })
+            .map(
+                |(role_assignment, role_definition, principal)| EntraRoleAssignmentBrowseOutput {
+                    role_assignment,
+                    role_definition,
+                    principal,
+                },
+            )
             .collect::<Vec<_>>();
 
         let stdout = std::io::stdout();

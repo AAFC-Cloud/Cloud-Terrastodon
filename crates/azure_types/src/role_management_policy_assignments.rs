@@ -160,20 +160,18 @@ mod tests {
             Uuid::nil(),
         );
         RoleManagementPolicyAssignmentId::try_from_expanded(&id)?;
-        let scope_kind =
-            facet_json::from_str::<RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind>(
-                "\"managementgroup\"",
-            )?;
+        let scope_kind = facet_json::from_str::<
+            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind,
+        >("\"managementgroup\"")?;
         assert_eq!(
             scope_kind,
             RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::ManagementGroup
         );
         assert_eq!(facet_json::to_string(&scope_kind)?, "\"managementgroup\"");
 
-        let scope_kind =
-            facet_json::from_str::<RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind>(
-                "\"new-scope-kind\"",
-            )?;
+        let scope_kind = facet_json::from_str::<
+            RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind,
+        >("\"new-scope-kind\"")?;
         assert_eq!(
             scope_kind,
             RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind::Other(

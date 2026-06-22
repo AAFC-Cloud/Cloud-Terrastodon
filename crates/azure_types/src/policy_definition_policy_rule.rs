@@ -39,14 +39,12 @@ impl TryFrom<RawJson<'static>> for AzurePolicyDefinitionPolicyRuleIfBlock {
         let obj = facet_json::from_str::<HashMap<String, RawJson<'static>>>(value.as_str())?;
 
         if let Some(all_of) = obj.get("allOf") {
-            let all_of = AzurePolicyDefinitionPolicyRuleIfBlockAllOf(facet_json::from_str(
-                all_of.as_str(),
-            )?);
+            let all_of =
+                AzurePolicyDefinitionPolicyRuleIfBlockAllOf(facet_json::from_str(all_of.as_str())?);
             Ok(Self::AllOf(all_of))
         } else if let Some(any_of) = obj.get("anyOf") {
-            let any_of = AzurePolicyDefinitionPolicyRuleIfBlockAnyOf(facet_json::from_str(
-                any_of.as_str(),
-            )?);
+            let any_of =
+                AzurePolicyDefinitionPolicyRuleIfBlockAnyOf(facet_json::from_str(any_of.as_str())?);
             Ok(Self::AnyOf(any_of))
         } else if obj.contains_key("field") {
             if obj.contains_key("equals") {
@@ -135,8 +133,7 @@ mod test {
             "equals": "Microsoft.DesktopVirtualization/workspaces",
             "field": "type"
         }"#;
-        let deserialized: AzurePolicyDefinitionPolicyRuleIfBlock =
-            facet_json::from_str(json)?;
+        let deserialized: AzurePolicyDefinitionPolicyRuleIfBlock = facet_json::from_str(json)?;
         assert!(matches!(
             &deserialized,
             AzurePolicyDefinitionPolicyRuleIfBlock::Equals(AzurePolicyDefinitionPolicyRuleIfBlockEquals {
@@ -167,8 +164,7 @@ mod test {
             }
           ]
         }"#;
-        let deserialized: AzurePolicyDefinitionPolicyRuleIfBlock =
-            facet_json::from_str(json)?;
+        let deserialized: AzurePolicyDefinitionPolicyRuleIfBlock = facet_json::from_str(json)?;
         assert!(matches!(
             &deserialized,
             AzurePolicyDefinitionPolicyRuleIfBlock::AllOf(AzurePolicyDefinitionPolicyRuleIfBlockAllOf(all_of)) if all_of.len() == 2

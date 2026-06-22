@@ -173,7 +173,10 @@ mod test {
     #[test]
     fn json_round_trips_through_facet() -> eyre::Result<()> {
         let name = facet_json::from_str::<AzureAppServiceResourceName>("\"my-app-service\"")?;
-        assert_eq!(name, AzureAppServiceResourceName::try_new("my-app-service")?);
+        assert_eq!(
+            name,
+            AzureAppServiceResourceName::try_new("my-app-service")?
+        );
         assert_eq!(facet_json::to_string(&name)?, "\"my-app-service\"");
         Ok(())
     }

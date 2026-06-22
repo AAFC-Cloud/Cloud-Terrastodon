@@ -40,9 +40,7 @@ impl<'a> From<&'a AzureDevOpsUserArgument<'a>> for AzureDevOpsUserArgument<'a> {
             AzureDevOpsUserArgument::Email(email) => {
                 AzureDevOpsUserArgument::EmailRef(email.as_str())
             }
-            AzureDevOpsUserArgument::EmailRef(email) => {
-                AzureDevOpsUserArgument::EmailRef(*email)
-            }
+            AzureDevOpsUserArgument::EmailRef(email) => AzureDevOpsUserArgument::EmailRef(*email),
         }
     }
 }

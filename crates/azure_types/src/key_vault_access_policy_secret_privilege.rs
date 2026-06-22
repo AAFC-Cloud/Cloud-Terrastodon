@@ -29,15 +29,15 @@ impl std::str::FromStr for KeyVaultAccessPolicySecretPrivilege {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         Ok(match value.to_ascii_lowercase().as_str() {
-            "get" => Self::SecretManagementOperation(
-                KeyVaultAccessPolicySecretManagementOperation::Get,
-            ),
-            "list" => Self::SecretManagementOperation(
-                KeyVaultAccessPolicySecretManagementOperation::List,
-            ),
-            "set" => Self::SecretManagementOperation(
-                KeyVaultAccessPolicySecretManagementOperation::Set,
-            ),
+            "get" => {
+                Self::SecretManagementOperation(KeyVaultAccessPolicySecretManagementOperation::Get)
+            }
+            "list" => {
+                Self::SecretManagementOperation(KeyVaultAccessPolicySecretManagementOperation::List)
+            }
+            "set" => {
+                Self::SecretManagementOperation(KeyVaultAccessPolicySecretManagementOperation::Set)
+            }
             "delete" => Self::SecretManagementOperation(
                 KeyVaultAccessPolicySecretManagementOperation::Delete,
             ),

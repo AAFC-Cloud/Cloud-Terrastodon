@@ -2,8 +2,8 @@ use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPackage;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_packages;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
-use eyre::Result;
 use cloud_terrastodon_command::to_writer_pretty;
+use eyre::Result;
 use std::collections::HashMap;
 use std::io::stdout;
 

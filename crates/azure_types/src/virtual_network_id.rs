@@ -160,7 +160,10 @@ mod test {
         let parsed_id = VirtualNetworkId::try_from_expanded(&expanded)?;
         assert_eq!(original_id, parsed_id);
         let json = facet_json::to_string(&expanded)?;
-        assert_eq!(facet_json::from_str::<VirtualNetworkId>(&json)?, original_id);
+        assert_eq!(
+            facet_json::from_str::<VirtualNetworkId>(&json)?,
+            original_id
+        );
         Ok(())
     }
 

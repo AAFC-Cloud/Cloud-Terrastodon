@@ -69,7 +69,8 @@ mod tests {
         assert!(props.additional_properties.contains_key("custom"));
         assert_eq!(props.additional_properties["custom"].as_str(), "42");
 
-        let reparsed: ServiceGroupProperties = facet_json::from_str(&facet_json::to_string(&props)?)?;
+        let reparsed: ServiceGroupProperties =
+            facet_json::from_str(&facet_json::to_string(&props)?)?;
         assert_eq!(props, reparsed);
         Ok(())
     }
@@ -84,7 +85,8 @@ mod tests {
         }"#;
 
         let props: ServiceGroupProperties = facet_json::from_str(json)?;
-        let reparsed: ServiceGroupProperties = facet_json::from_str(&facet_json::to_string(&props)?)?;
+        let reparsed: ServiceGroupProperties =
+            facet_json::from_str(&facet_json::to_string(&props)?)?;
         assert_eq!(props, reparsed);
         Ok(())
     }

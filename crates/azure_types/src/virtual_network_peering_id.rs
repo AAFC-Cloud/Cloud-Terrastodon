@@ -166,10 +166,7 @@ mod test {
         let mut un = Unstructured::new(&raw);
         let name = VirtualNetworkPeeringId::arbitrary(&mut un)?;
         let serialized = facet_json::to_string(&name)?;
-        assert_eq!(
-            serialized,
-            facet_json::to_string(&name.expanded_form())?
-        );
+        assert_eq!(serialized, facet_json::to_string(&name.expanded_form())?);
         let deserialized: VirtualNetworkPeeringId = facet_json::from_str(&serialized)?;
         assert_eq!(name, deserialized);
         Ok(())

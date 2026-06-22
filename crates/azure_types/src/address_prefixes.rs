@@ -58,8 +58,7 @@ mod tests {
 
     #[test]
     fn parses_single_address_prefix_json() -> eyre::Result<()> {
-        let prefixes: AddressPrefixes =
-            facet_json::from_str(r#"{"addressPrefix":"10.0.0.0/24"}"#)?;
+        let prefixes: AddressPrefixes = facet_json::from_str(r#"{"addressPrefix":"10.0.0.0/24"}"#)?;
         assert_eq!(prefixes.address_prefixes, vec!["10.0.0.0/24".parse()?]);
         Ok(())
     }

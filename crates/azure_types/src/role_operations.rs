@@ -370,10 +370,9 @@ mod tests {
             Some("Average")
         );
 
-        let reparsed =
-            facet_json::from_str::<AzureProviderOperationsMetadata>(&facet_json::to_string(
-                &provider,
-            )?)?;
+        let reparsed = facet_json::from_str::<AzureProviderOperationsMetadata>(
+            &facet_json::to_string(&provider)?,
+        )?;
         assert_eq!(provider, reparsed);
         Ok(())
     }

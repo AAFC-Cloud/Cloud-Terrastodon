@@ -23,16 +23,16 @@ pub async fn activate_pim_entra_role(
             path: PathBuf::from_iter(["az", "rest", "POST", "roleAssignmentScheduleRequests"]),
             valid_for: Duration::ZERO,
         })
-        .body(facet_json::to_string_pretty(
-            &RoleAssignmentRequest::new_self_activation(
+        .body(
+            facet_json::to_string_pretty(&RoleAssignmentRequest::new_self_activation(
                 principal_id.into(),
                 tenant_id,
                 role_assignment,
                 justification,
                 duration,
-            ),
+            ))
+            .map_err(|error| eyre::eyre!("{error:?}"))?,
         )
-        .map_err(|error| eyre::eyre!("{error:?}"))?)
         .receive_raw()
         .await?;
     Ok(())

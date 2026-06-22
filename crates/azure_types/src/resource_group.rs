@@ -106,9 +106,8 @@ mod tests {
 
         let resource_group = facet_json::from_str::<ResourceGroup>(&json)?;
         assert!(resource_group.tags.is_empty());
-        let reparsed = facet_json::from_str::<ResourceGroup>(&facet_json::to_string(
-            &resource_group,
-        )?)?;
+        let reparsed =
+            facet_json::from_str::<ResourceGroup>(&facet_json::to_string(&resource_group)?)?;
         assert_eq!(resource_group, reparsed);
         Ok(())
     }

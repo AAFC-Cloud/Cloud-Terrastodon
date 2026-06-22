@@ -145,7 +145,10 @@ mod test {
         assert!(id.eq_ignore_ascii_case(&parsed_id.to_string()));
         let json = facet_json::to_string(id)?;
         assert_eq!(facet_json::to_string(&parsed_id)?, json);
-        assert_eq!(facet_json::from_str::<ComputePublisherId>(&json)?, parsed_id);
+        assert_eq!(
+            facet_json::from_str::<ComputePublisherId>(&json)?,
+            parsed_id
+        );
         Ok(())
     }
 }

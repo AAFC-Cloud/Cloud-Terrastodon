@@ -94,11 +94,7 @@ impl From<&Vec<AzureAppServiceResourceKind>> for AzureAppServiceResourceKindList
             Self(None)
         } else {
             Self(Some(
-                value
-                    .iter()
-                    .map(String::from)
-                    .collect::<Vec<_>>()
-                    .join(","),
+                value.iter().map(String::from).collect::<Vec<_>>().join(","),
             ))
         }
     }

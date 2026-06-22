@@ -184,7 +184,10 @@ mod test {
             assert_eq!(id, deserialized);
             let json = facet_json::to_string(&serialized)?;
             assert_eq!(facet_json::to_string(&id)?, json);
-            assert_eq!(facet_json::from_str::<AzureAppServiceResourceId>(&json)?, id);
+            assert_eq!(
+                facet_json::from_str::<AzureAppServiceResourceId>(&json)?,
+                id
+            );
         }
         Ok(())
     }

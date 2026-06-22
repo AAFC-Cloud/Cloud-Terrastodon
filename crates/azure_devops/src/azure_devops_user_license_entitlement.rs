@@ -29,7 +29,9 @@ pub fn fetch_azure_devops_user_license_entitlement<'a>(
 #[async_trait]
 impl<'a> CacheInvalidatable for AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     async fn invalidate(&self) -> eyre::Result<()> {
-        fetch_azure_devops_user_license_entitlements(&self.org_url).invalidate().await
+        fetch_azure_devops_user_license_entitlements(&self.org_url)
+            .invalidate()
+            .await
     }
 }
 

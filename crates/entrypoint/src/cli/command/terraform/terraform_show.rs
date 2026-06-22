@@ -181,9 +181,8 @@ fn extract_members_and_owners(
     Ok(match azuread_group_data {
         None => (HashSet::new(), HashSet::new()),
         Some(group_data) => {
-            let group_data = facet_json::from_str::<AzureAdGroupMembersAndOwners>(
-                group_data.as_str(),
-            )?;
+            let group_data =
+                facet_json::from_str::<AzureAdGroupMembersAndOwners>(group_data.as_str())?;
             (
                 group_data.members.into_iter().collect(),
                 group_data.owners.into_iter().collect(),

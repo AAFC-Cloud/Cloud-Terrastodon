@@ -73,9 +73,6 @@ pub async fn dump_azure_devops() -> eyre::Result<()> {
         group_members,
     };
 
-    println!(
-        "{}",
-        cloud_terrastodon_command::to_string_pretty(&payload)?
-    );
+    println!("{}", cloud_terrastodon_command::to_string_pretty(&payload)?);
     Ok(())
 }

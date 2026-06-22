@@ -175,14 +175,20 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
         // pretty print a final report
         for outcome in outcomes {
             let (user, was, now) = match outcome {
-                Outcome::NoChangeNeeded(user) => (user, Some(self.license.clone()), Some(self.license.clone())),
+                Outcome::NoChangeNeeded(user) => {
+                    (user, Some(self.license.clone()), Some(self.license.clone()))
+                }
                 Outcome::SkippedDueToLicenseMatchFailureDueToMissingLicense(user) => {
                     (user, None, None)
                 }
                 Outcome::SkippedDueToLicenseMatchFailure {
                     user,
                     was: entitlement,
-                } => (user, Some(entitlement.license.clone()), Some(entitlement.license)),
+                } => (
+                    user,
+                    Some(entitlement.license.clone()),
+                    Some(entitlement.license),
+                ),
                 Outcome::Updated { user, was } => {
                     (user, was.map(|x| x.license), Some(self.license.clone()))
                 }

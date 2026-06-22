@@ -4,8 +4,8 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_queries_for_project;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
-use eyre::Result;
 use cloud_terrastodon_command::to_writer_pretty;
+use eyre::Result;
 use std::io::stdout;
 
 /// List Azure DevOps work item queries for a project.

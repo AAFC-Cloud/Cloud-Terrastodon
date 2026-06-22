@@ -2,9 +2,9 @@ use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
-use cloud_terrastodon_command::to_writer_pretty;
 use std::io::stdout;
 
 /// Azure DevOps project-related commands.

@@ -2,17 +2,7 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Arbitrary,
-    facet::Facet,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ContainerRegistryRepositoryTag {
     pub created_time: DateTime<Utc>,

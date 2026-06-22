@@ -109,7 +109,10 @@ where
     Ok(rtn)
 }
 
-fn row_to_object_value(columns: &[ResourceGraphColumn], row: Vec<RawJson<'static>>) -> Result<Value> {
+fn row_to_object_value(
+    columns: &[ResourceGraphColumn],
+    row: Vec<RawJson<'static>>,
+) -> Result<Value> {
     columns
         .iter()
         .zip(row)

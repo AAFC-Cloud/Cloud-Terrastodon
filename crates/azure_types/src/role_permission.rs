@@ -185,9 +185,8 @@ mod test {
         assert_eq!(permissions.data_actions.len(), 1);
         assert!(permissions.not_data_actions.is_empty());
 
-        let reparsed = facet_json::from_str::<RolePermissions>(&facet_json::to_string(
-            &permissions,
-        )?)?;
+        let reparsed =
+            facet_json::from_str::<RolePermissions>(&facet_json::to_string(&permissions)?)?;
         assert_eq!(permissions, reparsed);
 
         Ok(())

@@ -95,7 +95,8 @@ mod test {
     #[test]
     pub fn it_works() -> eyre::Result<()> {
         let json_string = "\"all\"";
-        let all_or: super::AllOr<String> = RawJson::from_owned(json_string.to_owned()).try_into()?;
+        let all_or: super::AllOr<String> =
+            RawJson::from_owned(json_string.to_owned()).try_into()?;
         assert_eq!(all_or, super::AllOr::All);
 
         let json_value = "\"some_value\"";

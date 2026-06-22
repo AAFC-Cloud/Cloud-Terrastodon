@@ -1,9 +1,9 @@
 use crate::reflow::HclReflower;
+use facet_value::Value;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::visit_mut::visit_expr_mut;
-use facet_value::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 

@@ -77,16 +77,18 @@ impl std::str::FromStr for KeyVaultAccessPolicyKeyPrivilege {
             "verify" => {
                 Self::CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation::Verify)
             }
-            "sign" => Self::CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation::Sign),
+            "sign" => {
+                Self::CryptographicOperation(KeyVaultAccessPolicyCryptographicOperation::Sign)
+            }
             "purge" => {
                 Self::PrivilegedKeyOperation(KeyVaultAccessPolicyPrivilegedKeyOperation::Purge)
             }
             "release" => {
                 Self::PrivilegedKeyOperation(KeyVaultAccessPolicyPrivilegedKeyOperation::Release)
             }
-            "rotate" => Self::RotationPolicyOperation(
-                KeyVaultAccessPolicyRotationPolicyOperation::Rotate,
-            ),
+            "rotate" => {
+                Self::RotationPolicyOperation(KeyVaultAccessPolicyRotationPolicyOperation::Rotate)
+            }
             "getrotationpolicy" => Self::RotationPolicyOperation(
                 KeyVaultAccessPolicyRotationPolicyOperation::GetRotationPolicy,
             ),

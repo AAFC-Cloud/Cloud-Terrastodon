@@ -194,10 +194,9 @@ mod tests {
             )
         );
 
-        let reparsed =
-            facet_json::from_str::<AzureNetworkInterfaceResource>(&facet_json::to_string(
-                &resource,
-            )?)?;
+        let reparsed = facet_json::from_str::<AzureNetworkInterfaceResource>(
+            &facet_json::to_string(&resource)?,
+        )?;
         assert_eq!(resource, reparsed);
 
         Ok(())

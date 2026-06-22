@@ -115,9 +115,7 @@ mod tests {
 
     #[test]
     fn json_round_trips_through_facet() -> eyre::Result<()> {
-        let id = facet_json::from_str::<PrincipalId>(
-            "\"00000000-0000-0000-0000-000000000000\"",
-        )?;
+        let id = facet_json::from_str::<PrincipalId>("\"00000000-0000-0000-0000-000000000000\"")?;
         assert_eq!(id, Uuid::nil());
         let reparsed = facet_json::from_str::<PrincipalId>(&facet_json::to_string(&id)?)?;
         assert_eq!(id, reparsed);

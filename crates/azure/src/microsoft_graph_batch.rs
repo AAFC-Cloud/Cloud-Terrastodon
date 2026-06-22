@@ -70,17 +70,17 @@ impl<REQ> MicrosoftGraphBatchRequest<REQ> {
         let mut request =
             RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
                 .tenant(tenant_id)
-                .body(facet_json::to_string_pretty(&body).map_err(|error| eyre::eyre!("{error:?}"))?);
+                .body(
+                    facet_json::to_string_pretty(&body)
+                        .map_err(|error| eyre::eyre!("{error:?}"))?,
+                );
         request.cache_key = cache_key;
         let response = request.receive::<MicrosoftGraphBatchWireResponse>().await?;
         let mut response = response.into_typed::<RESP>()?;
         // reorder the responses to match the order of the requests
-        response.responses.sort_by_key(|r| {
-            ids
-                .iter()
-                .position(|id| id == &r.id)
-                .unwrap_or(usize::MAX)
-        });
+        response
+            .responses
+            .sort_by_key(|r| ids.iter().position(|id| id == &r.id).unwrap_or(usize::MAX));
         Ok(response)
     }
 }
@@ -253,8 +253,7 @@ impl<T: FromCommandOutput> TryFrom<MicrosoftGraphBatchResponseEntryBodyProxy>
         value: MicrosoftGraphBatchResponseEntryBodyProxy,
     ) -> Result<Self, <Self as TryFrom<MicrosoftGraphBatchResponseEntryBodyProxy>>::Error> {
         let raw = value.0;
-        if let Ok(envelope) =
-            facet_json::from_str::<MicrosoftGraphBatchErrorEnvelope>(raw.as_str())
+        if let Ok(envelope) = facet_json::from_str::<MicrosoftGraphBatchErrorEnvelope>(raw.as_str())
         {
             return Ok(Self::Error(envelope.error));
         }

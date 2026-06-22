@@ -55,9 +55,7 @@ impl FromStr for AzureDevOpsLicenseType {
         Ok(match s {
             "Account-Express" | "Basic" | "basic" | "express" => Self::AccountExpress,
             "Account-Stakeholder" | "Stakeholder" | "stakeholder" => Self::AccountStakeholder,
-            "Account-Advanced" | "Advanced" | "advanced" | "test" | "Test" => {
-                Self::AccountAdvanced
-            }
+            "Account-Advanced" | "Advanced" | "advanced" | "test" | "Test" => Self::AccountAdvanced,
             "Msdn-Eligible" => Self::MsdnEligible,
             "Msdn-Enterprise" => Self::MsdnEnterprise,
             "Msdn-Professional" => Self::MsdnProfessional,
