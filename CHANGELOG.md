@@ -1,5 +1,6 @@
 # v0.37.0
 
+- Switch from `serde` to `facet`
 - Add `ct az ad role definition find {action}` command
 - Update `ct az role definition find` to include role definition in results
 - Add `ct az devops project member list --project {}` command
