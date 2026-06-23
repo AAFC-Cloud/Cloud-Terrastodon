@@ -153,7 +153,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
             // Fetch to verify
             let new_license = fetch_azure_devops_user_license_entitlement(&org_url, &user)
                 // underlying cache is shared for all users, so only invalidate on the first check
-                .with_invalidation(i == 0 && self.no_cache)
+                .with_invalidation(i == 0)
                 .await?;
 
             if new_license.license != self.license {
