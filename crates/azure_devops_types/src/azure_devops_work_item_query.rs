@@ -57,11 +57,14 @@ pub struct AzureDevOpsWorkItemQuery {
     #[facet(rename = "_links")]
     pub links: RawJson<'static>,
     #[facet(recursive_type)]
+    #[facet(default)]
     pub children: Vec<AzureDevOpsWorkItemQuery>,
     pub created_by: Option<RawJson<'static>>,
     pub created_date: DateTime<Utc>,
+    #[facet(default)]
     pub has_children: bool,
     pub id: AzureDevOpsWorkItemQueryId,
+    #[facet(default)]
     pub is_folder: bool,
     pub is_public: bool,
     pub last_modified_by: RawJson<'static>,
