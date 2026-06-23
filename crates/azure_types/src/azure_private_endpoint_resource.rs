@@ -39,7 +39,11 @@ pub struct AzurePrivateEndpointResourceProperties {
         Vec<AzurePrivateEndpointPrivateLinkServiceConnection>,
     #[facet(default)]
     pub private_link_service_connections: Vec<AzurePrivateEndpointPrivateLinkServiceConnection>,
-    #[facet(default)]
+    #[facet(
+        default,
+        opaque,
+        proxy = crate::OptionalNonEmptyStringProxy
+    )]
     pub custom_network_interface_name: Option<AzureNetworkInterfaceResourceName>,
     #[facet(default)]
     pub custom_dns_configs: Vec<AzurePrivateEndpointCustomDnsConfig>,
@@ -100,4 +104,41 @@ pub struct AzurePrivateEndpointCustomDnsConfig {
     pub ip_addresses: Vec<IpAddr>,
     #[facet(default)]
     pub fqdn: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AzurePrivateEndpointResourceProperties;
+
+    #[test]
+    fn empty_custom_network_interface_name_deserializes_as_none() -> eyre::Result<()> {
+        let properties = facet_json::from_str::<AzurePrivateEndpointResourceProperties>(
+            r#"{"customNetworkInterfaceName":""}"#,
+        )?;
+
+        assert_eq!(properties.custom_network_interface_name, None);
+        Ok(())
+    }
+
+    #[test]
+    fn custom_network_interface_name_preserves_valid_names() -> eyre::Result<()> {
+        let properties = facet_json::from_str::<AzurePrivateEndpointResourceProperties>(
+            r#"{"customNetworkInterfaceName":"my-nic"}"#,
+        )?;
+
+        assert_eq!(
+            properties
+                .custom_network_interface_name
+                .as_ref()
+                .map(ToString::to_string)
+                .as_deref(),
+            Some("my-nic")
+        );
+
+        let reparsed = facet_json::from_str::<AzurePrivateEndpointResourceProperties>(
+            &facet_json::to_string(&properties)?,
+        )?;
+        assert_eq!(properties, reparsed);
+        Ok(())
+    }
 }

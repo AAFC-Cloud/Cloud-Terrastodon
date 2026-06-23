@@ -124,12 +124,21 @@ pub async fn browse_policy_assignments(tenant_id: AzureTenantId) -> eyre::Result
     for ass in policy_assignments {
         let mut row = IndexMap::<&str, String>::new();
         row.insert("ass id", ass.id.expanded_form().to_owned());
-        if !ass.properties.description.is_empty() {
-            row.insert("ass desc", ass.properties.description.to_string());
+        if let Some(description) = ass
+            .properties
+            .description
+            .as_deref()
+            .filter(|v| !v.is_empty())
+        {
+            row.insert("ass desc", description.to_string());
         }
         row.insert(
             "ass dispaly name",
-            ass.properties.display_name.as_str().to_owned(),
+            ass.properties
+                .display_name
+                .as_deref()
+                .unwrap_or(ass.name.as_str())
+                .to_owned(),
         );
         row.insert("ass scope", ass.properties.scope.expanded_form());
         match &ass.properties.policy_definition_id {

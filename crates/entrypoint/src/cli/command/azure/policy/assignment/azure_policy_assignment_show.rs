@@ -54,8 +54,8 @@ impl AzurePolicyAssignmentShowArgs {
                     policy_assignment
                         .properties
                         .display_name
-                        .as_str()
-                        .eq_ignore_ascii_case(needle)
+                        .as_deref()
+                        .is_some_and(|display_name| display_name.eq_ignore_ascii_case(needle))
                 })
                 .collect::<Vec<_>>();
         }

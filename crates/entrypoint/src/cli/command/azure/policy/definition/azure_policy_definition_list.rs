@@ -67,9 +67,11 @@ impl AzurePolicyDefinitionListArgs {
             let mut matcher = Matcher::new(Config::DEFAULT);
             policy_definitions.retain(
                 |policy_definition: &cloud_terrastodon_azure::PolicyDefinition| {
+                    let Some(parameters) = &policy_definition.parameters else {
+                        return false;
+                    };
                     for pattern in &patterns {
-                        let matches =
-                            pattern.match_list(policy_definition.parameters.keys(), &mut matcher);
+                        let matches = pattern.match_list(parameters.keys(), &mut matcher);
                         if matches.is_empty() {
                             return false;
                         }

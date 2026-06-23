@@ -26,7 +26,14 @@ pub async fn remediate_policy_assignment(tenant_id: AzureTenantId) -> Result<()>
         .into_iter()
         .distinct_by_scope()
         .map(|ass| Choice::<PolicyAssignment> {
-            key: format!("{} {:?}", ass.name, ass.properties.display_name),
+            key: format!(
+                "{} {:?}",
+                ass.name,
+                ass.properties
+                    .display_name
+                    .as_deref()
+                    .unwrap_or(ass.name.as_str())
+            ),
             value: ass,
         });
 

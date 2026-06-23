@@ -10,7 +10,7 @@ pub struct VirtualMachineProperties {
     pub time_created: String,
     pub network_profile: NetworkProfile,
     pub storage_profile: StorageProfile,
-    #[facet(opaque, proxy = crate::OptionalIsoDurationProxy)]
+    #[facet(default, opaque, proxy = crate::OptionalIsoDurationProxy)]
     pub extensions_time_budget: Option<iso8601_duration::Duration>,
     pub hardware_profile: HardwareProfile,
     pub license_type: Option<String>,

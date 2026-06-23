@@ -15,9 +15,10 @@ use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use compact_str::CompactString;
+use facet::Facet;
 use facet_json::RawJson;
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 pub struct PolicyAssignment {
     pub id: PolicyAssignmentId,
     pub name: PolicyAssignmentName,
@@ -26,34 +27,30 @@ pub struct PolicyAssignment {
     pub properties: PolicyAssignmentProperties,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentProperties {
     pub policy_definition_id: PolicyDefinitionIdReference,
-    #[facet(default)]
-    pub non_compliance_messages: Vec<RawJson<'static>>,
+    pub non_compliance_messages: Option<Vec<RawJson<'static>>>,
     pub definition_version: CompactString,
-    #[facet(default)]
-    pub resource_selectors: Vec<RawJson<'static>>,
+    pub resource_selectors: Option<Vec<RawJson<'static>>>,
     pub enforcement_mode: PolicyAssignmentEnforcementMode,
-    pub display_name: CompactString,
-    pub description: CompactString,
-    #[facet(default)]
-    pub parameters: AzurePolicyDefinitionParametersSupplied,
-    #[facet(default)]
-    pub not_scopes: Vec<String>,
+    pub display_name: Option<CompactString>,
+    pub description: Option<CompactString>,
+    pub parameters: Option<AzurePolicyDefinitionParametersSupplied>,
+    pub not_scopes: Option<Vec<String>>,
     pub metadata: PolicyAssignmentMetadata,
     pub scope: ScopeImpl,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[repr(C)]
 pub enum PolicyAssignmentEnforcementMode {
     Default,
     DoNotEnforce,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentMetadata {
     pub created_on: DateTime<Utc>,
@@ -64,7 +61,7 @@ pub struct PolicyAssignmentMetadata {
     pub updated_on: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentNonComplianceMessage {
     pub policy_definition_reference_id: CompactString,
@@ -86,7 +83,12 @@ impl std::fmt::Display for PolicyAssignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;
         f.write_str(" (")?;
-        f.write_fmt(format_args!("{:?}", &self.properties.display_name))?;
+        f.write_str(
+            self.properties
+                .display_name
+                .as_deref()
+                .unwrap_or(self.name.as_str()),
+        )?;
         f.write_str(")")?;
         Ok(())
     }

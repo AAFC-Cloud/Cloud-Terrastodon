@@ -20,7 +20,7 @@ pub struct PolicyDefinition {
     pub description: Option<String>,
     pub mode: String,
     #[facet(default)]
-    pub parameters: AzurePolicyDefinitionParametersDefinition,
+    pub parameters: Option<AzurePolicyDefinitionParametersDefinition>,
     pub policy_rule: RawJson<'static>, // todo: strong type this!
     // todo: strong type this!
     // todo: strong type this!
@@ -106,7 +106,7 @@ mod test {
                     display_name: Some(format!("Policy Definition {}", i)),
                     description: Some(format!("This is policy definition number {}", i)),
                     mode: "All".to_string(),
-                    parameters: Default::default(),
+                    parameters: Some(Default::default()),
                     policy_rule: facet_json::RawJson::from_owned("{}".to_string()),
                     policy_type: "Custom".to_string(),
                     version: "1.0".to_string(),

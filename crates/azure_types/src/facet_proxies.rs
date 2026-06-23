@@ -8,8 +8,9 @@ use ordermap::OrderSet;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
+use facet::Facet;
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct StringMapDefaultNullProxy(Option<HashMap<String, String>>);
 
@@ -25,7 +26,7 @@ impl From<&HashMap<String, String>> for StringMapDefaultNullProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct VecDefaultNullProxy<T>(Option<Vec<T>>);
 
@@ -41,7 +42,7 @@ impl<T: Clone> From<&Vec<T>> for VecDefaultNullProxy<T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct HashMapDefaultNullProxy<T>(Option<HashMap<String, T>>);
 
@@ -57,23 +58,35 @@ impl<T: Clone> From<&HashMap<String, T>> for HashMapDefaultNullProxy<T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
-pub struct OptionalNonEmptyStringProxy(Option<String>);
+pub struct OptionalNonEmptyStringProxy(pub Option<String>);
 
-impl From<OptionalNonEmptyStringProxy> for Option<String> {
-    fn from(value: OptionalNonEmptyStringProxy) -> Self {
-        value.0.filter(|value| !value.is_empty())
+
+impl<T: FromStr> TryFrom<OptionalNonEmptyStringProxy> for Option<T>
+where
+    T::Err: Into<eyre::Error>,
+{
+    type Error = eyre::Error;
+
+    fn try_from(value: OptionalNonEmptyStringProxy) -> Result<Self, Self::Error> {
+        match value.0 {
+            None => Ok(None),
+            Some(s) => Ok(Some(s.parse().map_err(Into::into)?)),
+        }
     }
 }
 
-impl From<&Option<String>> for OptionalNonEmptyStringProxy {
-    fn from(value: &Option<String>) -> Self {
-        Self(value.clone())
+impl<T> From<&Option<T>> for OptionalNonEmptyStringProxy
+where
+    T: ToString,
+{
+    fn from(value: &Option<T>) -> Self {
+        Self(value.as_ref().map(|s| s.to_string()))
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(opaque, proxy = RawJson<'static>)]
 pub struct OptionalBoolOrStringProxy(Option<bool>);
 
@@ -117,7 +130,7 @@ impl From<&Option<bool>> for OptionalBoolOrStringProxy {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, facet::Facet)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Facet)]
 #[facet(transparent)]
 pub struct LocalDateTimeEpochSecondsProxy(i64);
 
@@ -137,7 +150,7 @@ impl From<&DateTime<Local>> for LocalDateTimeEpochSecondsProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct IpAddrProxy(String);
 
@@ -155,7 +168,7 @@ impl From<&IpAddr> for IpAddrProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct OptionalIpAddrProxy(Option<IpAddrProxy>);
 
@@ -173,7 +186,7 @@ impl From<&Option<IpAddr>> for OptionalIpAddrProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct IpAddrVecProxy(Vec<IpAddrProxy>);
 
@@ -191,7 +204,7 @@ impl From<&Vec<IpAddr>> for IpAddrVecProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct IpAddrVecDefaultNullProxy(Option<Vec<IpAddrProxy>>);
 
@@ -214,7 +227,7 @@ impl From<&Vec<IpAddr>> for IpAddrVecDefaultNullProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct ResourceTypeProxy(String);
 
@@ -232,7 +245,7 @@ impl From<&ResourceType> for ResourceTypeProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct Ipv4NetworkProxy(String);
 
@@ -250,7 +263,7 @@ impl From<&Ipv4Network> for Ipv4NetworkProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct Ipv4NetworkVecProxy(Vec<Ipv4NetworkProxy>);
 
@@ -268,7 +281,7 @@ impl From<&Vec<Ipv4Network>> for Ipv4NetworkVecProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Facet)]
 #[facet(transparent)]
 pub struct IsoDurationProxy(String);
 
@@ -286,7 +299,7 @@ impl From<&iso8601_duration::Duration> for IsoDurationProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Facet)]
 #[facet(transparent)]
 pub struct OptionalIsoDurationProxy(Option<IsoDurationProxy>);
 
@@ -307,7 +320,7 @@ impl From<&Option<iso8601_duration::Duration>> for OptionalIsoDurationProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct RolePermissionActionSetProxy(Vec<RolePermissionAction>);
 

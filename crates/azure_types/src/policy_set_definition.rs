@@ -27,7 +27,7 @@ pub struct PolicySetDefinitionPolicyDefinition {
     pub group_names: Option<Vec<String>>,
     /// The policy definitions in a policy set can have their parameters supplied with fixed values.
     #[facet(default)]
-    pub parameters: AzurePolicyDefinitionParametersSupplied,
+    pub parameters: Option<AzurePolicyDefinitionParametersSupplied>,
     #[facet(rename = "policyDefinitionId")]
     pub policy_definition_id: PolicyDefinitionId,
     #[facet(rename = "policyDefinitionReferenceId")]
@@ -43,7 +43,7 @@ pub struct PolicySetDefinition {
     /// Policy set definitions can declare their own parameters, which can be supplied when assigning the policy set definition.
     /// These parameters are separate from the parameters of the individual policy definitions referenced by the policy set definition.
     #[facet(default)]
-    pub parameters: AzurePolicyDefinitionParametersDefinition,
+    pub parameters: Option<AzurePolicyDefinitionParametersDefinition>,
     pub policy_definitions: Option<Vec<PolicySetDefinitionPolicyDefinition>>,
     pub policy_definition_groups: Option<Vec<PolicySetDefinitionPolicyDefinitionGroup>>,
     pub policy_type: String, // TODO: create enum

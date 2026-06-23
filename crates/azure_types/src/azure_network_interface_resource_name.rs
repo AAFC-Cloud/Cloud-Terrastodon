@@ -11,29 +11,27 @@ use std::str::FromStr;
 /// Alphanumerics, underscores, periods, and hyphens.
 /// Start with alphanumeric. End with alphanumeric or underscore.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
-#[facet(json::proxy = String)]
-pub struct AzureNetworkInterfaceResourceName {
-    inner: CompactString,
-}
-crate::impl_facet_string_proxy!(AzureNetworkInterfaceResourceName, value => value.to_string());
+#[facet(transparent)]
+pub struct AzureNetworkInterfaceResourceName(CompactString);
+// crate::impl_facet_string_proxy!(AzureNetworkInterfaceResourceName, value => value.to_string());
 
 impl Slug for AzureNetworkInterfaceResourceName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = name.into();
         validate_network_interface_resource_name(&inner)?;
-        Ok(Self { inner })
+        Ok(Self(inner))
     }
 
     fn validate_slug(&self) -> eyre::Result<()> {
-        validate_network_interface_resource_name(&self.inner)?;
+        validate_network_interface_resource_name(&self.0)?;
         Ok(())
     }
 }
 
 fn validate_network_interface_resource_name(value: &CompactString) -> eyre::Result<()> {
     validate_network_interface_resource_name_inner(value)
-        .wrap_err_with(|| format!("Invalid network interface resource name: {}", value))
         .wrap_err("https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork")
+        .wrap_err_with(|| format!("Invalid network interface resource name: `{}`", value))
 }
 
 fn validate_network_interface_resource_name_inner(value: &CompactString) -> eyre::Result<()> {
@@ -88,7 +86,7 @@ impl TryFrom<&str> for AzureNetworkInterfaceResourceName {
 
 impl std::fmt::Display for AzureNetworkInterfaceResourceName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.inner)
+        f.write_str(&self.0)
     }
 }
 
@@ -96,7 +94,7 @@ impl Deref for AzureNetworkInterfaceResourceName {
     type Target = CompactString;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 
@@ -110,7 +108,7 @@ impl TryFrom<CompactString> for AzureNetworkInterfaceResourceName {
 
 impl From<AzureNetworkInterfaceResourceName> for CompactString {
     fn from(value: AzureNetworkInterfaceResourceName) -> Self {
-        value.inner
+        value.0
     }
 }
 

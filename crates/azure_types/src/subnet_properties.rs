@@ -1,10 +1,18 @@
-use crate::AddressPrefixes;
+use crate::AddressPrefix;
 use crate::RouteTableId;
 
 #[derive(Debug, PartialEq, Clone, facet::Facet)]
 pub struct SubnetProperties {
-    #[facet(flatten, opaque, proxy = crate::address_prefixes::AddressPrefixesProxy)]
-    pub address_prefixes: AddressPrefixes,
+    #[facet(rename = "addressPrefix", default)]
+    pub address_prefix: Option<AddressPrefix>,
+
+    #[facet(
+        rename = "addressPrefixes",
+        default,
+        opaque,
+        proxy = crate::VecDefaultNullProxy<AddressPrefix>
+    )]
+    pub address_prefixes: Vec<AddressPrefix>,
 
     #[facet(rename = "networkSecurityGroup")]
     pub network_security_group: Option<NetworkSecurityGroupReference>,
@@ -17,6 +25,9 @@ pub struct SubnetProperties {
 
     #[facet(rename = "privateLinkServiceNetworkPolicies")]
     pub private_link_service_network_policies: String,
+
+    #[facet(rename = "provisioningState", default)]
+    pub provisioning_state: Option<String>, // todo: make enum
 
     #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<Delegation>)]
     pub delegations: Vec<Delegation>,

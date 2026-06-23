@@ -25,14 +25,26 @@ pub async fn evaluate_policy_assignment_compliance(tenant_id: AzureTenantId) -> 
                 .into_iter()
                 .distinct_by_scope()
                 .map(|ass| Choice::<PolicyAssignment> {
-                    key: format!("{} {:?}", ass.name, ass.properties.display_name),
+                    key: format!(
+                        "{} {:?}",
+                        ass.name,
+                        ass.properties
+                            .display_name
+                            .as_deref()
+                            .unwrap_or(ass.name.as_str())
+                    ),
                     value: ass,
                 }),
         )?;
 
     info!(
-        "Querying policy compliance for {} ({:?})",
-        policy_assignment.name, policy_assignment.properties.display_name
+        "Querying policy compliance for {} ({})",
+        policy_assignment.name,
+        policy_assignment
+            .properties
+            .display_name
+            .as_deref()
+            .unwrap_or(policy_assignment.name.as_str())
     );
 
     let query = formatdoc! {
