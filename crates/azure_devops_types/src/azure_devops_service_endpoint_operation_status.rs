@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_types::OptionalNonEmptyStringProxy;
 use facet_json::RawJson;
 use std::str::FromStr;
 
@@ -5,6 +6,7 @@ use std::str::FromStr;
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointOperationStatus {
     pub error_code: Option<RawJson<'static>>,
+    #[facet(proxy = OptionalNonEmptyStringProxy)]
     pub severity: Option<AzureDevOpsServiceEndpointOperationStatusSeverity>,
     pub state: AzureDevOpsServiceEndpointOperationStatusState,
     pub status_message: String,
@@ -29,9 +31,37 @@ impl FromStr for AzureDevOpsServiceEndpointOperationStatusSeverity {
     }
 }
 
+impl std::fmt::Display for AzureDevOpsServiceEndpointOperationStatusSeverity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AzureDevOpsServiceEndpointOperationStatusSeverity::Warning => f.write_str("Warning"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointOperationStatusState {
     Failed,
     Ready,
+}
+
+#[cfg(test)]
+mod test {
+    use crate::AzureDevOpsServiceEndpointOperationStatus;
+    use crate::AzureDevOpsServiceEndpointOperationStatusState;
+
+    #[test]
+    fn empty_severity_deserializes_as_none() -> eyre::Result<()> {
+        let json = r#"{"severity":"","state":"Ready","statusMessage":""}"#;
+
+        let status: AzureDevOpsServiceEndpointOperationStatus = facet_json::from_str(json)?;
+
+        assert_eq!(status.severity, None);
+        assert_eq!(
+            status.state,
+            AzureDevOpsServiceEndpointOperationStatusState::Ready
+        );
+        Ok(())
+    }
 }

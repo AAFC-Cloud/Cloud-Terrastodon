@@ -7,9 +7,27 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
 use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
+use eyre::Context;
 use facet_json::RawJson;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::str::FromStr;
+
+fn parse_group_members_by_descriptor(
+    members_by_descriptor: HashMap<String, AzureDevOpsGroupMember>,
+) -> eyre::Result<HashMap<AzureDevOpsDescriptor, AzureDevOpsGroupMember>> {
+    members_by_descriptor
+        .into_iter()
+        .map(|(descriptor, member)| {
+            Ok((
+                AzureDevOpsDescriptor::from_str(&descriptor).wrap_err_with(|| {
+                    format!("parsing Azure DevOps descriptor map key {descriptor:?}")
+                })?,
+                member,
+            ))
+        })
+        .collect()
+}
 
 pub struct AzureDevOpsGroupMembersListRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
@@ -59,7 +77,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             "json",
         ]);
         cmd.cache(self.cache_key());
-        cmd.run().await
+        cmd.run_with_mapper(parse_group_members_by_descriptor).await
     }
 }
 
@@ -119,10 +137,43 @@ mod test {
     use crate::fetch_azure_devops_groups_for_project;
     use crate::get_default_organization_url;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
     use eyre::bail;
     use facet_json::RawJson;
+    use std::collections::HashMap;
     use std::str::FromStr;
+
+    #[test]
+    pub fn parses_group_members_with_descriptor_map_keys() -> eyre::Result<()> {
+        let json = r#"{
+            "aad.user": {
+                "description": null,
+                "descriptor": "aad.user",
+                "displayName": "Ada",
+                "domain": "aad",
+                "legacyDescriptor": null,
+                "mailAddress": null,
+                "origin": "aad",
+                "originId": "origin-id",
+                "principalName": "ada@example.com",
+                "subjectKind": "user",
+                "url": "https://example.invalid"
+            }
+        }"#;
+
+        let members_by_descriptor =
+            facet_json::from_str::<HashMap<String, AzureDevOpsGroupMember>>(json)?;
+        let members = super::parse_group_members_by_descriptor(members_by_descriptor)?;
+
+        let descriptor = AzureDevOpsDescriptor::from_str("aad.user")?;
+        let member = members
+            .get(&descriptor)
+            .ok_or_else(|| eyre::eyre!("missing parsed descriptor key"))?;
+        assert_eq!(member.display_name, "Ada");
+        assert_eq!(member.descriptor, descriptor);
+        Ok(())
+    }
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

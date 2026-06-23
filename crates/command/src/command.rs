@@ -42,6 +42,11 @@ use tracing::warn;
 pub trait FromCommandOutput: Facet<'static> + Send + 'static {}
 impl<T> FromCommandOutput for T where T: Facet<'static> + Send + 'static {}
 
+enum CommandOutputDecodeError {
+    Deserialize(eyre::Report),
+    Map(eyre::Report),
+}
+
 #[derive(Clone, Copy, Default, Debug)]
 pub enum RetryBehaviour {
     Fail,
@@ -617,6 +622,7 @@ impl CommandBuilder {
         self.run_from(Location::caller())
     }
 
+    /// Politely wait between uncached command executions, but still return cached results if available.
     #[track_caller]
     pub fn run_polite<T: FromCommandOutput>(
         &self,
@@ -625,6 +631,7 @@ impl CommandBuilder {
         self.run_polite_from(uncached_delay, Location::caller())
     }
 
+    /// Politely wait between uncached command executions, but still return cached results if available.
     async fn run_polite_from<T: FromCommandOutput>(
         &self,
         uncached_delay: Duration,
@@ -750,6 +757,98 @@ impl CommandBuilder {
         F: FnOnce(T) -> Result<T> + Send + 'static,
     {
         self.run_with_validator_from(validator, Location::caller())
+    }
+
+    /// Parse command output as `Raw`, then fallibly map it to a different output shape.
+    /// Both parse and map failures are dumped through the command failure artifact path.
+    #[track_caller]
+    pub fn run_with_mapper<Raw, Output, F>(
+        &self,
+        mapper: F,
+    ) -> impl Future<Output = Result<Output>> + Send + '_
+    where
+        Raw: FromCommandOutput,
+        Output: Send + 'static,
+        F: FnOnce(Raw) -> Result<Output> + Send + 'static,
+    {
+        self.run_with_mapper_from(mapper, Location::caller())
+    }
+
+    async fn run_with_mapper_from<Raw, Output, F>(
+        &self,
+        mapper: F,
+        caller: &'static Location<'static>,
+    ) -> Result<Output>
+    where
+        Raw: FromCommandOutput,
+        Output: Send + 'static,
+        F: FnOnce(Raw) -> Result<Output> + Send + 'static,
+    {
+        let summary = self.summarize().await;
+        let span = info_span!("command_run_with_mapper", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
+
+        let output = self
+            .run_raw_from(caller)
+            .instrument(span.clone())
+            .await
+            .wrap_err(format!(
+                "Command::run_with_mapper failed, called from {}",
+                RelativeLocation::from(caller)
+            ))?;
+        let output = Arc::new(output);
+
+        let decode_result = {
+            let output = Arc::clone(&output);
+            let span = span.clone();
+            spawn_blocking(move || {
+                let _guard = span.enter();
+                let span2 = info_span!("command_parse_and_map_output").or_current();
+                let _guard2 = span2.enter();
+                let start = Instant::now();
+
+                let stdout = output.stdout.to_str_lossy();
+                let slice = stdout.as_bytes();
+                let decode_result = crate::json::from_slice::<Raw>(slice)
+                    .map_err(CommandOutputDecodeError::Deserialize)
+                    .and_then(|raw| mapper(raw).map_err(CommandOutputDecodeError::Map));
+
+                let elapsed = Instant::now().duration_since(start);
+                debug!(
+                    parse_ms = elapsed.as_millis(),
+                    "Parsed and mapped command output in {}",
+                    humantime::format_duration(elapsed),
+                );
+                decode_result
+            })
+            .await?
+        };
+
+        match decode_result {
+            Ok(results) => Ok(results),
+            Err(CommandOutputDecodeError::Deserialize(e)) => {
+                let dir = self
+                    .write_failure(&output)
+                    .instrument(span.or_current())
+                    .await?;
+                Err(e.wrap_err(format!(
+                    "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}",
+                    RelativeLocation::from(caller),
+                    std::any::type_name::<Raw>()
+                )))
+            }
+            Err(CommandOutputDecodeError::Map(e)) => {
+                let dir = self
+                    .write_failure(&output)
+                    .instrument(span.or_current())
+                    .await?;
+                Err(e.wrap_err(format!(
+                    "Output mapping failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Parsed Type: {}\n - Output Type: {}",
+                    RelativeLocation::from(caller),
+                    std::any::type_name::<Raw>(),
+                    std::any::type_name::<Output>()
+                )))
+            }
+        }
     }
 
     pub async fn run_with_validator_from<T, F>(
