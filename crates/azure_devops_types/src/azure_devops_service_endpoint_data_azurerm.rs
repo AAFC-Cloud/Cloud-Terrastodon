@@ -33,7 +33,7 @@ pub enum AzureDevOpsServiceEndpointAzureRMDataIdentityType {
     AppRegistrationManual,
     AppRegistrationAutomatic,
     ManagedIdentity,
-    #[facet(untagged)]
+    #[facet(other)]
     Other(CompactString),
 }
 #[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
