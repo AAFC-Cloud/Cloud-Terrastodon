@@ -2,13 +2,13 @@ use crate::RolePermissionAction;
 use chrono::DateTime;
 use chrono::Local;
 use cloud_terrastodon_azure_resource_types::ResourceType;
+use facet::Facet;
 use facet_json::RawJson;
 use ipnetwork::Ipv4Network;
 use ordermap::OrderSet;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
-use facet::Facet;
 
 #[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
@@ -62,7 +62,6 @@ impl<T: Clone> From<&HashMap<String, T>> for HashMapDefaultNullProxy<T> {
 #[facet(transparent)]
 pub struct OptionalNonEmptyStringProxy(pub Option<String>);
 
-
 impl<T: FromStr> TryFrom<OptionalNonEmptyStringProxy> for Option<T>
 where
     T::Err: Into<eyre::Error>,
@@ -72,6 +71,7 @@ where
     fn try_from(value: OptionalNonEmptyStringProxy) -> Result<Self, Self::Error> {
         match value.0 {
             None => Ok(None),
+            Some(ref s) if s.is_empty() => Ok(None),
             Some(s) => Ok(Some(s.parse().map_err(Into::into)?)),
         }
     }
