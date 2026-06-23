@@ -25,7 +25,8 @@ fn bruh2() -> eyre::Result<()> {
         name: String,
     }
     let v: Result<Response, _> = facet_json::from_str(json);
-    assert!(v.is_err());
+    dbg!(&v);
+    assert!(v.is_ok()); // facet coalesces null to default string ""
     Ok(())
 }
 
@@ -47,6 +48,29 @@ fn bruh3() -> eyre::Result<()> {
         name: String,
     }
     let v: Result<Vec<Response>, _> = facet_json::from_str(json);
+    dbg!(&v);
+    assert!(v.is_ok()); // facet coalesces null to default string ""
+    Ok(())
+}
+
+#[test]
+fn bruh4() -> eyre::Result<()> {
+    let json = r#"[{
+    "id":1,
+    "name":"some"
+},
+{
+    "id":2
+}
+]"#;
+    #[derive(Debug, facet::Facet)]
+    #[allow(unused)]
+    struct Response {
+        id: u32,
+        name: String,
+    }
+    let v: Result<Vec<Response>, _> = facet_json::from_str(json);
+    dbg!(&v);
     assert!(v.is_err());
     Ok(())
 }
