@@ -4,11 +4,15 @@ use crate::RestService;
 use crate::SerializableRestResponse;
 use crate::execute_rest_request;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_command::ArtifactMetadata;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableWorkRequest;
 use cloud_terrastodon_command::CachedWorkSpec;
+use cloud_terrastodon_command::CommandOutput;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_command::run_cached_work;
+use cloud_terrastodon_command::to_vec_pretty;
+use cloud_terrastodon_command::write_failure_with_extra_files;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::ContextCompat;
@@ -204,7 +208,32 @@ impl RestRequest {
 
         async move {
             let Some(cache_key) = self.cache_key.clone() else {
-                return decode(self.execute_without_cache_from(caller).await?);
+                let debug_inputs = self.debug_inputs();
+                let failure_extra_files = self.failure_extra_files;
+                let response = self.execute_without_cache_from(caller).await?;
+                let response_for_failure = response.clone();
+                return match decode(response) {
+                    Ok(result) => Ok(result),
+                    Err(error) => {
+                        let output = rest_response_output(&response_for_failure)?;
+                        let extra_files = rest_response_extra_files(&response_for_failure);
+                        let dump_dir = write_rest_decode_failure(
+                            None,
+                            &context,
+                            &debug_inputs,
+                            &output,
+                            extra_files,
+                            failure_extra_files,
+                            &error,
+                            std::any::type_name::<T>(),
+                        )
+                        .await?;
+                        Err(error).wrap_err(format!(
+                            "Decoded REST response failed, dumped to {:?}",
+                            dump_dir
+                        ))
+                    }
+                };
             };
 
             let debug_inputs = self.debug_inputs();
@@ -298,10 +327,60 @@ fn rest_response_extra_files(
     response: &SerializableRestResponse,
 ) -> BTreeMap<PathBuf, bstr::BString> {
     let mut files = BTreeMap::new();
-    if let RestResponseBody::Json(body) = &response.body {
-        files.insert(PathBuf::from("response.body.json"), body.as_str().into());
+    if let Ok(headers) = facet_json::to_string_pretty(&response.headers) {
+        files.insert(PathBuf::from("response.headers.json"), headers.into());
+    }
+    match &response.body {
+        RestResponseBody::Json(body) => {
+            files.insert(
+                PathBuf::from("response.body.json"),
+                facet_json::to_string_pretty(body)
+                    .unwrap_or_else(|_| body.as_str().to_string())
+                    .into(),
+            );
+        }
+        RestResponseBody::Text(body) => {
+            files.insert(PathBuf::from("response.body.txt"), body.as_str().into());
+        }
     }
     files
+}
+
+fn rest_response_output(response: &SerializableRestResponse) -> Result<CommandOutput> {
+    Ok(CommandOutput {
+        stdout: to_vec_pretty(response)
+            .wrap_err("serializing failed REST response to JSON")?
+            .into(),
+        stderr: bstr::BString::default(),
+        status: response.status.into(),
+    })
+}
+
+async fn write_rest_decode_failure(
+    cache_key: Option<&CacheKey>,
+    context: &str,
+    debug_inputs: &BTreeMap<PathBuf, bstr::BString>,
+    output: &CommandOutput,
+    mut extra_files: BTreeMap<PathBuf, bstr::BString>,
+    failure_extra_files: Option<ResponseFailureExtraFiles>,
+    error: &eyre::Report,
+    output_type: &str,
+) -> Result<PathBuf> {
+    if let Some(failure_extra_files) = failure_extra_files {
+        extra_files.extend(failure_extra_files(error));
+    }
+    let metadata = ArtifactMetadata::new("uncached-rest-response", "rest", output_type);
+    let error_message = format!("{error:?}");
+    write_failure_with_extra_files(
+        cache_key,
+        context,
+        debug_inputs,
+        output,
+        &metadata,
+        Some(&error_message),
+        &extra_files,
+    )
+    .await
 }
 
 #[async_trait]
@@ -377,6 +456,7 @@ mod tests {
     fn rest_response_extra_files_include_json_body() {
         let mut headers = HeaderMap::new();
         headers.insert("content-type", HeaderValue::from_static("application/json"));
+        headers.insert("x-ms-retry-after-ms", HeaderValue::from_static("1000"));
         let response = SerializableRestResponse::new(
             http::StatusCode::OK,
             &headers,
@@ -385,6 +465,8 @@ mod tests {
 
         let files = rest_response_extra_files(&response);
         let expected = pretty_json(r#"{"hello":"world"}"#);
+        let expected_headers =
+            pretty_json(r#"{"content-type":["application/json"],"x-ms-retry-after-ms":["1000"]}"#);
 
         assert_eq!(
             files
@@ -392,5 +474,31 @@ mod tests {
                 .map(|value| value.as_ref()),
             Some(expected.as_bytes())
         );
+        assert_eq!(
+            files
+                .get(&PathBuf::from("response.headers.json"))
+                .map(|value| value.as_ref()),
+            Some(expected_headers.as_bytes())
+        );
+    }
+
+    #[test]
+    fn rest_response_extra_files_include_text_body() {
+        let headers = HeaderMap::new();
+        let response = SerializableRestResponse::new(
+            http::StatusCode::TOO_MANY_REQUESTS,
+            &headers,
+            "slow down".to_string(),
+        );
+
+        let files = rest_response_extra_files(&response);
+
+        assert_eq!(
+            files
+                .get(&PathBuf::from("response.body.txt"))
+                .map(|value| value.as_ref()),
+            Some("slow down".as_bytes())
+        );
+        assert!(!files.contains_key(&PathBuf::from("response.body.json")));
     }
 }

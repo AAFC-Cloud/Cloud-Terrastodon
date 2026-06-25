@@ -11,7 +11,7 @@ use reqwest::header::HeaderMap;
 use std::collections::BTreeMap;
 use std::io::Write;
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, facet::Facet)]
 pub struct SerializableRestResponse {
     pub status: u16,
     pub ok: bool,

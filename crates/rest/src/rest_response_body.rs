@@ -1,9 +1,29 @@
 use facet_json::RawJson;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum RestResponseBody {
     Json(RawJson<'static>),
     Text(String),
+}
+impl PartialEq for RestResponseBody {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (RestResponseBody::Json(a), RestResponseBody::Json(b)) => {
+                facet_json::from_str::<facet_value::Value>(a.as_str()).ok()
+                    == facet_json::from_str::<facet_value::Value>(b.as_str()).ok()
+            }
+            (RestResponseBody::Text(a), RestResponseBody::Text(b)) => {
+                a == b
+                    || facet_json::from_str::<facet_value::Value>(a.as_str()).ok()
+                        == facet_json::from_str::<facet_value::Value>(b.as_str()).ok()
+            }
+            (RestResponseBody::Text(a), RestResponseBody::Json(b))
+            | (RestResponseBody::Json(b), RestResponseBody::Text(a)) => {
+                facet_json::from_str::<facet_value::Value>(a.as_str()).ok()
+                    == facet_json::from_str::<facet_value::Value>(b.as_str()).ok()
+            }
+        }
+    }
 }
 
 pub fn parse_response_body(content: String) -> RestResponseBody {
