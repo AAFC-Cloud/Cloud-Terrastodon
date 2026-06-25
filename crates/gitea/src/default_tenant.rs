@@ -32,7 +32,7 @@ impl IntoFuture for DefaultGiteaInstanceUrlRequest {
                 bail!("No Gitea logins were found. Configure one with the `tea` CLI first.");
             }
 
-            if let Some(login) = logins.iter().find(|login| login.is_default) {
+            if let Some(login) = logins.iter().find(|login| login.is_default()) {
                 return Ok(login.url.clone());
             }
 
