@@ -1,4 +1,6 @@
+use crate::BuildTimestamp;
 use crate::Version;
+use crate::build_timestamp::set_build_timestamp;
 use crate::cli::Cli;
 use crate::cli::CloudTerrastodonCommand;
 use crate::git_revision::GitRevision;
@@ -12,9 +14,14 @@ use eyre::Result;
 use std::str::FromStr;
 use tracing::level_filters::LevelFilter;
 
-pub fn entrypoint(version: Version, git_rev: GitRevision) -> Result<()> {
+pub fn entrypoint(
+    version: Version,
+    git_rev: GitRevision,
+    build_timestamp: BuildTimestamp,
+) -> Result<()> {
     // Track version information globally
     set_git_revision(git_rev);
+    set_build_timestamp(build_timestamp);
     set_version(version);
 
     color_eyre::install()?;

@@ -35,8 +35,9 @@ pub fn version() -> Version {
 
 pub fn full_version() -> Version {
     Version::new(format!(
-        "{} (git revision: {})",
+        "{} (rev {}, built {})",
         version(),
-        crate::git_revision::git_revision()
+        crate::git_revision::git_revision(),
+        crate::build_timestamp::build_timestamp()
     ))
 }
