@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+// https://github.com/facet-rs/facet/issues/2341
 fn parse_group_members_by_descriptor(
     members_by_descriptor: HashMap<String, AzureDevOpsGroupMember>,
 ) -> eyre::Result<HashMap<AzureDevOpsDescriptor, AzureDevOpsGroupMember>> {

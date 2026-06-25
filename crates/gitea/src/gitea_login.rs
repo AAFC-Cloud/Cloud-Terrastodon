@@ -10,6 +10,7 @@ pub struct GiteaLogin {
     pub ssh_host: Option<String>,
     #[facet(default)]
     pub user: Option<String>,
+    // https://github.com/facet-rs/facet/issues/2363
     #[facet(rename = "default", default = default_default_flag_raw_json())]
     pub is_default: RawJson<'static>,
 }

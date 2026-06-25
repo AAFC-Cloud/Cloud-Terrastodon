@@ -8,6 +8,7 @@ use facet_json::RawJson;
 use std::collections::HashMap;
 
 #[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+// https://github.com/facet-rs/facet/issues/2342
 #[facet(opaque, proxy = RawJson<'static>)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointAuthorization {
