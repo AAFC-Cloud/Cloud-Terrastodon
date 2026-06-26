@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::any::type_name;
+use std::collections::BTreeMap;
 use std::future::Future;
 use std::future::IntoFuture;
 use std::pin::Pin;
@@ -12,6 +13,20 @@ pub use linkme::distributed_slice;
 
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;
 pub type InvokeFn = fn(Box<dyn Any + Send>) -> InvocationFuture;
+
+#[derive(Clone)]
+pub struct KnownShapeInfo {
+    pub thing: &'static Thing,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ShapeFieldInfo {
+    pub field_name: &'static str,
+    pub field_shape_name: String,
+    pub has_default: bool,
+    pub default_value_label: Option<String>,
+}
 
 #[derive(Clone, Copy)]
 pub struct Thing {
@@ -164,6 +179,18 @@ pub fn things_producing(shape: &'static Shape) -> Vec<&'static Thing> {
         .collect()
 }
 
+pub fn known_shapes() -> Vec<KnownShapeInfo> {
+    let mut by_label = BTreeMap::<String, &'static Thing>::new();
+    for thing in KNOWN_THINGS {
+        by_label.entry(describe_shape(thing.shape)).or_insert(thing);
+    }
+
+    by_label
+        .into_iter()
+        .map(|(label, thing)| KnownShapeInfo { thing, label })
+        .collect()
+}
+
 pub fn input_dependencies(shape: &'static Shape) -> Vec<InputDependency> {
     match shape.ty {
         Type::User(UserType::Struct(struct_type)) => struct_type
@@ -177,6 +204,10 @@ pub fn input_dependencies(shape: &'static Shape) -> Vec<InputDependency> {
             .collect(),
         _ => Vec::new(),
     }
+}
+
+pub fn shape_fields_for_thing(thing: &Thing) -> Vec<ShapeFieldInfo> {
+    shape_fields(thing.shape)
 }
 
 pub fn list_element_shape(shape: &'static Shape) -> Option<&'static Shape> {
@@ -194,16 +225,55 @@ pub fn describe_shape(shape: &'static Shape) -> String {
     shape.type_identifier.to_string()
 }
 
+fn shape_fields(shape: &'static Shape) -> Vec<ShapeFieldInfo> {
+    match shape.ty {
+        Type::User(UserType::Struct(struct_type)) => struct_type
+            .fields
+            .iter()
+            .filter(|field| !field.should_skip_deserializing())
+            .map(|field| ShapeFieldInfo {
+                field_name: field.effective_name(),
+                field_shape_name: describe_shape(field.shape()),
+                has_default: field.has_default(),
+                default_value_label: default_value_label(field),
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn default_value_label(field: &facet::Field) -> Option<String> {
+    if !field.has_default() {
+        return None;
+    }
+
+    let field_shape = field.shape();
+    match field_shape.ty {
+        Type::User(UserType::Enum(enum_type))
+            if enum_type
+                .variants
+                .iter()
+                .any(|variant| variant.effective_name() == "Default") =>
+        {
+            Some(format!("{}::Default", describe_shape(field_shape)))
+        }
+        _ => Some("<default>".to_string()),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use facet::Facet;
 
     use super::KNOWN_THINGS;
     use super::ProductionKind;
+    use super::ShapeFieldInfo;
     use super::Thing;
     use super::describe_shape;
     use super::distributed_slice;
     use super::invocation_for_result_future;
+    use super::known_shapes;
+    use super::shape_fields_for_thing;
     use super::things_producing;
 
     #[derive(Debug, Clone, Copy, Facet)]
@@ -222,6 +292,21 @@ mod test {
         tenant: DummyTenant,
     }
 
+    #[derive(Debug, Clone, Copy, Default, Facet)]
+    #[repr(C)]
+    enum DummyArgument {
+        #[default]
+        Default,
+        Explicit,
+    }
+
+    #[derive(Debug, Clone, Facet)]
+    #[repr(C)]
+    struct DummyDefaultedRequest {
+        #[facet(default)]
+        tenant: DummyArgument,
+    }
+
     impl IntoFuture for DummyListRequest {
         type Output = eyre::Result<Vec<DummyOutput>>;
         type IntoFuture = std::pin::Pin<Box<dyn Future<Output = Self::Output> + Send>>;
@@ -235,6 +320,9 @@ mod test {
     static THING_DUMMY_TENANT: Thing = Thing::value(DummyTenant::SHAPE);
 
     #[distributed_slice(KNOWN_THINGS)]
+    static THING_DUMMY_TENANT_DUPLICATE: Thing = Thing::value(DummyTenant::SHAPE);
+
+    #[distributed_slice(KNOWN_THINGS)]
     static THING_DUMMY_OUTPUT: Thing = Thing::value(DummyOutput::SHAPE);
 
     #[distributed_slice(KNOWN_THINGS)]
@@ -244,6 +332,9 @@ mod test {
             <Vec<DummyOutput> as Facet<'static>>::SHAPE,
         ),
     );
+
+    #[distributed_slice(KNOWN_THINGS)]
+    static THING_DUMMY_DEFAULTED_REQUEST: Thing = Thing::value(DummyDefaultedRequest::SHAPE);
 
     #[test]
     pub fn invokable_thing_describes_dependencies_and_output() {
@@ -289,6 +380,39 @@ mod test {
         assert_eq!(output.len(), 1);
         assert_eq!(output[0].value, "ok");
         Ok(())
+    }
+
+    #[test]
+    pub fn known_shapes_deduplicates_shapes_by_label() {
+        let shapes = known_shapes();
+        let tenant_entries = shapes
+            .iter()
+            .filter(|entry| entry.label == describe_shape(DummyTenant::SHAPE))
+            .count();
+
+        assert_eq!(tenant_entries, 1);
+    }
+
+    #[test]
+    pub fn shape_fields_report_default_labels() {
+        let thing = KNOWN_THINGS
+            .iter()
+            .find(|thing| thing.shape.is_shape(DummyDefaultedRequest::SHAPE))
+            .unwrap();
+        let fields = shape_fields_for_thing(thing);
+
+        assert_eq!(
+            fields,
+            vec![ShapeFieldInfo {
+                field_name: "tenant",
+                field_shape_name: describe_shape(DummyArgument::SHAPE),
+                has_default: true,
+                default_value_label: Some(format!(
+                    "{}::Default",
+                    describe_shape(DummyArgument::SHAPE)
+                )),
+            }]
+        );
     }
 
     #[test]
