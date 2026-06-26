@@ -1435,11 +1435,13 @@ dependencies = [
  "eyre",
  "futures",
  "itertools 0.14.0",
+ "nucleo",
  "ratatui",
  "rustc-hash 2.1.1",
  "strum 0.27.2",
  "tokio",
  "tracing",
+ "tui-textarea",
 ]
 
 [[package]]

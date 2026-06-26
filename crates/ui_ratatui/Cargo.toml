@@ -20,10 +20,13 @@ tracing = { workspace = true }
 crossterm = { workspace = true }
 futures = { workspace = true }
 rustc-hash = { workspace = true }
+nucleo = { workspace = true }
+tui-textarea = { workspace = true }
 cloud_terrastodon_azure = { workspace = true }
 cloud_terrastodon_command = { workspace = true }
 cloud_terrastodon_registry = { workspace = true }
 
 [dev-dependencies]
 color-eyre = { workspace = true }
+
 

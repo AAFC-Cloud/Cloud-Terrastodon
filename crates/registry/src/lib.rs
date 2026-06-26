@@ -28,6 +28,14 @@ pub struct ShapeFieldInfo {
     pub default_value_label: Option<String>,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ShapeVariantInfo {
+    pub variant_name: &'static str,
+    pub payload_shape_name: Option<String>,
+    pub payload_fields: Vec<ShapeFieldInfo>,
+    pub is_default: bool,
+}
+
 #[derive(Clone, Copy)]
 pub struct Thing {
     pub shape: &'static Shape,
@@ -210,6 +218,10 @@ pub fn shape_fields_for_thing(thing: &Thing) -> Vec<ShapeFieldInfo> {
     shape_fields(thing.shape)
 }
 
+pub fn shape_variants_for_thing(thing: &Thing) -> Vec<ShapeVariantInfo> {
+    shape_variants(thing.shape)
+}
+
 pub fn list_element_shape(shape: &'static Shape) -> Option<&'static Shape> {
     match shape.def {
         Def::List(list) => Some(list.t()),
@@ -231,14 +243,48 @@ fn shape_fields(shape: &'static Shape) -> Vec<ShapeFieldInfo> {
             .fields
             .iter()
             .filter(|field| !field.should_skip_deserializing())
-            .map(|field| ShapeFieldInfo {
-                field_name: field.effective_name(),
-                field_shape_name: describe_shape(field.shape()),
-                has_default: field.has_default(),
-                default_value_label: default_value_label(field),
+            .map(shape_field_info)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn shape_variants(shape: &'static Shape) -> Vec<ShapeVariantInfo> {
+    match shape.ty {
+        Type::User(UserType::Enum(enum_type)) => enum_type
+            .variants
+            .iter()
+            .map(|variant| ShapeVariantInfo {
+                variant_name: variant.effective_name(),
+                payload_shape_name: variant_payload_shape_name(variant),
+                payload_fields: variant.data.fields.iter().map(shape_field_info).collect(),
+                is_default: variant.effective_name() == "Default",
             })
             .collect(),
         _ => Vec::new(),
+    }
+}
+
+fn shape_field_info(field: &facet::Field) -> ShapeFieldInfo {
+    ShapeFieldInfo {
+        field_name: field.effective_name(),
+        field_shape_name: describe_shape(field.shape()),
+        has_default: field.has_default(),
+        default_value_label: default_value_label(field),
+    }
+}
+
+fn variant_payload_shape_name(variant: &facet::Variant) -> Option<String> {
+    match variant.data.fields {
+        [] => None,
+        [field] => Some(describe_shape(field.shape())),
+        fields => Some(
+            fields
+                .iter()
+                .map(|field| describe_shape(field.shape()))
+                .collect::<Vec<_>>()
+                .join(", "),
+        ),
     }
 }
 
@@ -268,12 +314,14 @@ mod test {
     use super::KNOWN_THINGS;
     use super::ProductionKind;
     use super::ShapeFieldInfo;
+    use super::ShapeVariantInfo;
     use super::Thing;
     use super::describe_shape;
     use super::distributed_slice;
     use super::invocation_for_result_future;
     use super::known_shapes;
     use super::shape_fields_for_thing;
+    use super::shape_variants_for_thing;
     use super::things_producing;
 
     #[derive(Debug, Clone, Copy, Facet)]
@@ -324,6 +372,9 @@ mod test {
 
     #[distributed_slice(KNOWN_THINGS)]
     static THING_DUMMY_OUTPUT: Thing = Thing::value(DummyOutput::SHAPE);
+
+    #[distributed_slice(KNOWN_THINGS)]
+    static THING_DUMMY_ARGUMENT: Thing = Thing::value(DummyArgument::SHAPE);
 
     #[distributed_slice(KNOWN_THINGS)]
     static THING_DUMMY_LIST_REQUEST: Thing = Thing::invokable(
@@ -412,6 +463,33 @@ mod test {
                     describe_shape(DummyArgument::SHAPE)
                 )),
             }]
+        );
+    }
+
+    #[test]
+    pub fn shape_variants_describe_enum_variants() {
+        let thing = KNOWN_THINGS
+            .iter()
+            .find(|thing| thing.shape.is_shape(DummyArgument::SHAPE))
+            .unwrap();
+        let variants = shape_variants_for_thing(thing);
+
+        assert_eq!(
+            variants,
+            vec![
+                ShapeVariantInfo {
+                    variant_name: "Default",
+                    payload_shape_name: None,
+                    payload_fields: Vec::new(),
+                    is_default: true,
+                },
+                ShapeVariantInfo {
+                    variant_name: "Explicit",
+                    payload_shape_name: None,
+                    payload_fields: Vec::new(),
+                    is_default: false,
+                },
+            ]
         );
     }
 
