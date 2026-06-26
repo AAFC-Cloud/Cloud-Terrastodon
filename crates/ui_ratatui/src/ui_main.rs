@@ -43,6 +43,7 @@ use ratatui::widgets::ScrollbarOrientation;
 use ratatui::widgets::ScrollbarState;
 use ratatui::widgets::Widget;
 use ratatui::widgets::Wrap;
+use std::collections::BTreeSet;
 use std::ops::Range;
 use std::time::Duration;
 use tracing::info;
@@ -64,6 +65,7 @@ struct ObjectBrowserApp {
     variant_picker: Option<VariantPickerState>,
     field_picker: Option<FieldPickerState>,
     link_action_picker: Option<LinkActionPickerState>,
+    rename_slot: Option<RenameSlotState>,
     shape_choices: Vec<KnownShapeInfo>,
     object_slots: Vec<ObjectSlot>,
     active_slot_index: usize,
@@ -84,6 +86,7 @@ impl Default for ObjectBrowserApp {
             variant_picker: None,
             field_picker: None,
             link_action_picker: None,
+            rename_slot: None,
             shape_choices,
             object_slots: Vec::new(),
             active_slot_index: 0,
@@ -137,6 +140,7 @@ impl ObjectBrowserApp {
             UiMode::VariantPicker => self.draw_variant_picker_popup(frame),
             UiMode::FieldPicker => self.draw_field_picker_popup(frame),
             UiMode::LinkActionPicker => self.draw_link_action_picker_popup(frame),
+            UiMode::RenameSlot => self.draw_rename_slot_popup(frame),
         }
     }
 
@@ -187,9 +191,10 @@ impl ObjectBrowserApp {
         let Some(slot) = self.slot_by_id(slot_id) else {
             return;
         };
+        let slot_label = slot.name.as_deref().unwrap_or("unnamed");
         let title = match slot.kind {
-            SlotKind::Owned => format!("slot {} [owned]", slot.id),
-            SlotKind::View(_) => format!("slot {} [view]", slot.id),
+            SlotKind::Owned => format!("slot {} ({slot_label}) [owned]", slot.id),
+            SlotKind::View(_) => format!("slot {} ({slot_label}) [view]", slot.id),
         };
         let block = Block::default()
             .borders(Borders::ALL)
@@ -304,6 +309,38 @@ impl ObjectBrowserApp {
         frame.render_widget(preview, preview_area);
     }
 
+    fn draw_rename_slot_popup(&mut self, frame: &mut Frame) {
+        let Some(rename_slot) = self.rename_slot.as_mut() else {
+            return;
+        };
+
+        let area = centered_rect(52, 28, frame.area());
+        frame.render_widget(Clear, area);
+
+        let popup_block = Block::default()
+            .borders(Borders::ALL)
+            .title("Rename Slot")
+            .border_style(Style::default().fg(Color::Cyan));
+        let inner = popup_block.inner(area);
+        frame.render_widget(popup_block, area);
+
+        let [hint_area, editor_area] =
+            Layout::vertical([Constraint::Length(2), Constraint::Length(3)]).areas(inner);
+
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::from(format!("slot {}", rename_slot.slot_id)),
+                Line::from("Enter: save | Esc: cancel"),
+            ]),
+            hint_area,
+        );
+
+        rename_slot
+            .textarea
+            .set_block(Block::default().borders(Borders::ALL).title("Name"));
+        rename_slot.textarea.render(editor_area, frame.buffer_mut());
+    }
+
     fn handle_event(&mut self, event: &Event) {
         let Event::Key(key) = event else {
             return;
@@ -322,6 +359,7 @@ impl ObjectBrowserApp {
             UiMode::VariantPicker => self.handle_variant_picker_key(*key),
             UiMode::FieldPicker => self.handle_field_picker_key(*key),
             UiMode::LinkActionPicker => self.handle_link_action_picker_key(*key),
+            UiMode::RenameSlot => self.handle_rename_slot_key(*key),
         }
     }
 
@@ -409,6 +447,25 @@ impl ObjectBrowserApp {
             _ => {}
         }
     }
+
+    fn handle_rename_slot_key(&mut self, key: KeyEvent) {
+        let Some(rename_slot) = self.rename_slot.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+
+        match key.code {
+            KeyCode::Esc => {
+                self.rename_slot = None;
+                self.mode = UiMode::Pool;
+                self.status_message = "Rename cancelled.".to_string();
+            }
+            KeyCode::Enter => self.apply_rename_slot(),
+            _ => {
+                rename_slot.textarea.input(key);
+            }
+        }
+    }
     fn move_slot_left(&mut self) {
         self.active_slot_index = self.active_slot_index.saturating_sub(1);
         self.clamp_active_row();
@@ -444,10 +501,6 @@ impl ObjectBrowserApp {
         };
 
         match target {
-            SlotFocusTarget::SlotName => {
-                self.status_message =
-                    "Slot naming is the next interaction to add for the focused row.".to_string();
-            }
             SlotFocusTarget::Shape => self.open_shape_picker(),
             SlotFocusTarget::ViewPointer => self.jump_to_view_owner(slot_id),
             SlotFocusTarget::Variant => self.open_variant_picker(),
@@ -456,6 +509,7 @@ impl ObjectBrowserApp {
             }
             SlotFocusTarget::FieldValue(field_index) => self.activate_field_value(field_index),
             SlotFocusTarget::Inlink(inlink_index) => self.activate_inlink(slot_id, inlink_index),
+            SlotFocusTarget::Action(action) => self.activate_slot_action(slot_id, action),
         }
     }
 
@@ -464,7 +518,7 @@ impl ObjectBrowserApp {
         self.object_slots.push(slot);
         self.next_slot_id += 1;
         self.active_slot_index = self.object_slots.len().saturating_sub(1);
-        self.active_row_index = 1;
+        self.active_row_index = 0;
         self.status_message = format!(
             "Created slot {}. Pick a shape on the highlighted row.",
             self.object_slots[self.active_slot_index].id
@@ -582,6 +636,99 @@ impl ObjectBrowserApp {
         self.status_message =
             "Choose whether the selected object should move into the field or stay where it is."
                 .to_string();
+    }
+
+    fn activate_slot_action(&mut self, slot_id: usize, action: SlotAction) {
+        match action {
+            SlotAction::Rename => self.open_rename_slot(slot_id),
+            SlotAction::Delete => self.delete_slot(slot_id),
+            SlotAction::Clone => self.clone_slot(slot_id),
+            SlotAction::Take => self.take_slot(slot_id),
+        }
+    }
+
+    fn open_rename_slot(&mut self, slot_id: usize) {
+        let existing_name = self.slot_by_id(slot_id).and_then(|slot| slot.name.clone());
+        self.rename_slot = Some(RenameSlotState::new(slot_id, existing_name));
+        self.mode = UiMode::RenameSlot;
+        self.status_message = "Rename the slot and press Enter to save.".to_string();
+    }
+
+    fn apply_rename_slot(&mut self) {
+        let Some(rename_slot) = self.rename_slot.take() else {
+            return;
+        };
+        let slot_id = rename_slot.slot_id;
+        let name = rename_slot.text_value();
+
+        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+            slot.name = name.clone();
+        }
+
+        self.mode = UiMode::Pool;
+        self.status_message = match name {
+            Some(name) => format!("Renamed slot {} to {}.", slot_id, name),
+            None => format!("Cleared the name for slot {}.", slot_id),
+        };
+    }
+
+    fn delete_slot(&mut self, slot_id: usize) {
+        let Some(slot_kind) = self.slot_by_id(slot_id).map(|slot| slot.kind.clone()) else {
+            return;
+        };
+
+        if let SlotKind::View(info) = &slot_kind {
+            self.clear_owner_field_link(info.owner_slot_id, info.field_index, slot_id);
+        }
+
+        self.remove_slots_cascade(slot_id);
+        self.mode = UiMode::Pool;
+        self.status_message = match slot_kind {
+            SlotKind::Owned => format!("Deleted owned slot {}.", slot_id),
+            SlotKind::View(_) => format!("Deleted view slot {} and unset its field.", slot_id),
+        };
+    }
+
+    fn clone_slot(&mut self, slot_id: usize) {
+        let Some(snapshot) = self.slot_snapshot(slot_id) else {
+            return;
+        };
+        let new_slot_id = self.next_slot_id;
+        self.next_slot_id += 1;
+        self.object_slots
+            .push(ObjectSlot::from_snapshot(new_slot_id, snapshot));
+        self.jump_to_slot(new_slot_id);
+        self.status_message = format!(
+            "Cloned slot {} into new owned slot {}.",
+            slot_id, new_slot_id
+        );
+    }
+
+    fn take_slot(&mut self, slot_id: usize) {
+        let Some(slot_kind) = self.slot_by_id(slot_id).map(|slot| slot.kind.clone()) else {
+            return;
+        };
+
+        let SlotKind::View(info) = slot_kind else {
+            self.status_message = format!("Slot {} is already owned.", slot_id);
+            return;
+        };
+
+        let Some(snapshot) = self.slot_snapshot(slot_id) else {
+            return;
+        };
+        self.clear_owner_field_link(info.owner_slot_id, info.field_index, slot_id);
+        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+            slot.name = snapshot.name;
+            slot.kind = SlotKind::Owned;
+            slot.shape_name = snapshot.shape_name;
+            slot.body = snapshot.body;
+        }
+        self.jump_to_slot(slot_id);
+        self.status_message = format!(
+            "Took slot {} out of slot {}.{} and made it owned.",
+            slot_id, info.owner_slot_id, info.field_name
+        );
     }
 
     fn apply_shape_selection(&mut self) {
@@ -942,6 +1089,59 @@ impl ObjectBrowserApp {
         }
     }
 
+    fn clear_owner_field_link(&mut self, owner_slot_id: usize, field_index: usize, slot_id: usize) {
+        if let Some(field) = self.slot_field_mut(owner_slot_id, field_index) {
+            if matches!(
+                field.value_state,
+                FieldValueState::Linked {
+                    slot_id: linked_slot_id,
+                } if linked_slot_id == slot_id
+            ) {
+                reset_field_value(field);
+            }
+        }
+    }
+
+    fn slot_snapshot(&self, slot_id: usize) -> Option<SlotSnapshot> {
+        let data_slot = self.slot_by_id(self.data_slot_id_for(slot_id)?)?;
+        let display_slot = self.slot_by_id(slot_id)?;
+        Some(SlotSnapshot {
+            name: display_slot.name.clone().or_else(|| data_slot.name.clone()),
+            shape_name: data_slot.shape_name.clone(),
+            body: data_slot.body.clone(),
+        })
+    }
+
+    fn remove_slots_cascade(&mut self, initial_slot_id: usize) {
+        let mut to_remove = BTreeSet::from([initial_slot_id]);
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for slot in &self.object_slots {
+                let SlotKind::View(info) = &slot.kind else {
+                    continue;
+                };
+                if to_remove.contains(&slot.id)
+                    || to_remove.contains(&info.source_slot_id)
+                    || to_remove.contains(&info.owner_slot_id)
+                {
+                    changed |= to_remove.insert(slot.id);
+                }
+            }
+        }
+
+        let removed_ids = to_remove.iter().copied().collect::<Vec<_>>();
+        for slot_id in removed_ids {
+            self.clear_links_to_slot(slot_id);
+        }
+        self.object_slots
+            .retain(|slot| !to_remove.contains(&slot.id));
+
+        let max_index = self.total_slot_count().saturating_sub(1);
+        self.active_slot_index = self.active_slot_index.min(max_index);
+        self.clamp_active_row();
+    }
+
     fn total_slot_count(&self) -> usize {
         self.object_slots.len() + 1
     }
@@ -1048,7 +1248,7 @@ impl ObjectBrowserApp {
     }
 
     fn slot_focus_targets(&self, slot_id: usize) -> Vec<SlotFocusTarget> {
-        let mut targets = vec![SlotFocusTarget::SlotName];
+        let mut targets = Vec::new();
         if matches!(
             self.slot_by_id(slot_id).map(|slot| &slot.kind),
             Some(SlotKind::View(_))
@@ -1079,6 +1279,13 @@ impl ObjectBrowserApp {
         for (index, _) in self.slot_inlinks(slot_id).iter().enumerate() {
             targets.push(SlotFocusTarget::Inlink(index));
         }
+
+        targets.extend([
+            SlotFocusTarget::Action(SlotAction::Rename),
+            SlotFocusTarget::Action(SlotAction::Delete),
+            SlotFocusTarget::Action(SlotAction::Clone),
+            SlotFocusTarget::Action(SlotAction::Take),
+        ]);
 
         targets
     }
@@ -1193,6 +1400,30 @@ impl ObjectBrowserApp {
         format!("slot {} [{}] - {}", slot.id, kind, shape_name)
     }
 
+    fn slot_action_label(&self, slot_id: usize, action: SlotAction) -> String {
+        let Some(slot) = self.slot_by_id(slot_id) else {
+            return match action {
+                SlotAction::Rename => "rename".to_string(),
+                SlotAction::Delete => "delete".to_string(),
+                SlotAction::Clone => "clone".to_string(),
+                SlotAction::Take => "take".to_string(),
+            };
+        };
+
+        match action {
+            SlotAction::Rename => "rename".to_string(),
+            SlotAction::Delete => match slot.kind {
+                SlotKind::Owned => "delete".to_string(),
+                SlotKind::View(_) => "delete (unset field)".to_string(),
+            },
+            SlotAction::Clone => "clone".to_string(),
+            SlotAction::Take => match slot.kind {
+                SlotKind::Owned => "take (already owned)".to_string(),
+                SlotKind::View(_) => "take".to_string(),
+            },
+        }
+    }
+
     fn variant_picker_preview_lines(&self) -> Option<Vec<Line<'static>>> {
         let picker = self.variant_picker.as_ref()?;
         let variant = picker.selected_variant()?;
@@ -1255,14 +1486,7 @@ impl ObjectBrowserApp {
             None
         };
 
-        let mut lines = vec![selectable_plain_line(
-            format!(
-                "slot {} ({})",
-                slot.id,
-                slot.name.as_deref().unwrap_or("unnamed")
-            ),
-            active_target == Some(SlotFocusTarget::SlotName),
-        )];
+        let mut lines = Vec::new();
 
         if let SlotKind::View(info) = &slot.kind {
             lines.push(selectable_spans_line(
@@ -1318,6 +1542,19 @@ impl ObjectBrowserApp {
                     active_target == Some(SlotFocusTarget::Inlink(index)),
                 ));
             }
+        }
+
+        lines.push(separator_line("actions"));
+        for action in [
+            SlotAction::Rename,
+            SlotAction::Delete,
+            SlotAction::Clone,
+            SlotAction::Take,
+        ] {
+            lines.push(selectable_plain_line(
+                self.slot_action_label(slot_id, action),
+                active_target == Some(SlotFocusTarget::Action(action)),
+            ));
         }
 
         lines
@@ -1439,17 +1676,26 @@ enum UiMode {
     VariantPicker,
     FieldPicker,
     LinkActionPicker,
+    RenameSlot,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SlotFocusTarget {
-    SlotName,
     Shape,
     ViewPointer,
     Variant,
     FieldType(usize),
     FieldValue(usize),
     Inlink(usize),
+    Action(SlotAction),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SlotAction {
+    Rename,
+    Delete,
+    Clone,
+    Take,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1703,6 +1949,26 @@ enum FieldPickerChoice {
     CreateNew,
 }
 
+struct RenameSlotState {
+    slot_id: usize,
+    textarea: TextArea<'static>,
+}
+
+impl RenameSlotState {
+    fn new(slot_id: usize, existing_name: Option<String>) -> Self {
+        let mut textarea = build_text_area(existing_name.as_deref().unwrap_or(""));
+        if existing_name.is_some() {
+            textarea.select_all();
+        }
+        Self { slot_id, textarea }
+    }
+
+    fn text_value(&self) -> Option<String> {
+        let text = self.textarea.lines().join("\n").trim().to_string();
+        (!text.is_empty()).then_some(text)
+    }
+}
+
 struct LinkActionPickerState {
     owner_slot_id: usize,
     field_index: usize,
@@ -1741,6 +2007,13 @@ enum LinkAction {
 }
 
 #[derive(Clone, Debug)]
+struct SlotSnapshot {
+    name: Option<String>,
+    shape_name: Option<String>,
+    body: SlotBody,
+}
+
+#[derive(Clone, Debug)]
 struct ObjectSlot {
     id: usize,
     name: Option<String>,
@@ -1750,6 +2023,16 @@ struct ObjectSlot {
 }
 
 impl ObjectSlot {
+    fn from_snapshot(id: usize, snapshot: SlotSnapshot) -> Self {
+        Self {
+            id,
+            name: snapshot.name,
+            kind: SlotKind::Owned,
+            shape_name: snapshot.shape_name,
+            body: snapshot.body,
+        }
+    }
+
     fn new(id: usize) -> Self {
         Self {
             id,
@@ -2299,7 +2582,7 @@ mod tests {
 
         assert_eq!(app.object_slots.len(), 1);
         assert_eq!(app.active_slot_index, 0);
-        assert_eq!(app.active_row_index, 1);
+        assert_eq!(app.active_row_index, 0);
     }
 
     #[test]
@@ -2327,7 +2610,7 @@ mod tests {
         app.shape_picker.search.list_state.select(Some(shape_index));
         app.apply_shape_selection();
 
-        assert_eq!(app.active_row_index, 2);
+        assert_eq!(app.active_row_index, 1);
         assert!(matches!(app.object_slots[0].body, SlotBody::Enum { .. }));
     }
 
@@ -2389,7 +2672,7 @@ mod tests {
             .select(Some(request_index));
         app.apply_shape_selection();
 
-        app.active_row_index = 3;
+        app.active_row_index = 2;
         app.activate_current_row();
 
         let picker = app.field_picker.as_ref().expect("field picker should open");
@@ -2399,6 +2682,91 @@ mod tests {
                 .contains(&FieldPickerChoice::ExistingSlot { slot_id: 1 })
         );
         assert!(picker.choices.contains(&FieldPickerChoice::CreateNew));
+    }
+
+    #[test]
+    fn deleting_a_view_slot_unsets_the_owner_field() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let tenant_argument_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantArgument"))
+            .expect("AzureTenantArgument should be registered");
+        app.shape_picker.open(Some(tenant_argument_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(tenant_argument_index));
+        app.apply_shape_selection();
+
+        app.active_slot_index = 1;
+        app.activate_current_row();
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantIdResolveRequest"))
+            .expect("AzureTenantIdResolveRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.clone_slot_into_field(2, 0, 1);
+        app.delete_slot(3);
+
+        assert!(app.slot_by_id(3).is_none());
+        assert!(matches!(
+            app.slot_field(2, 0).map(|field| field.value_state),
+            Some(super::FieldValueState::Unset)
+        ));
+    }
+
+    #[test]
+    fn taking_a_view_slot_makes_it_owned_and_unsets_the_owner_field() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let tenant_argument_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantArgument"))
+            .expect("AzureTenantArgument should be registered");
+        app.shape_picker.open(Some(tenant_argument_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(tenant_argument_index));
+        app.apply_shape_selection();
+
+        app.active_slot_index = 1;
+        app.activate_current_row();
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantIdResolveRequest"))
+            .expect("AzureTenantIdResolveRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.clone_slot_into_field(2, 0, 1);
+        app.take_slot(3);
+
+        assert!(matches!(
+            app.slot_by_id(3).map(|slot| &slot.kind),
+            Some(SlotKind::Owned)
+        ));
+        assert!(matches!(
+            app.slot_field(2, 0).map(|field| field.value_state),
+            Some(super::FieldValueState::Unset)
+        ));
     }
 
     #[test]
@@ -2434,10 +2802,27 @@ mod tests {
 
         app.move_slot_left();
         app.move_slot_right();
-        app.active_row_index = 3;
+        app.active_row_index = 2;
         app.open_link_action_picker(2, 0, 1);
         app.apply_link_action_selection();
 
         assert!(matches!(app.object_slots[0].kind, SlotKind::View(_)));
+    }
+
+    #[test]
+    fn rename_action_updates_the_slot_name() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        app.open_rename_slot(1);
+        if let Some(rename_slot) = app.rename_slot.as_mut() {
+            rename_slot.textarea = super::build_text_area("tenant source");
+        }
+        app.apply_rename_slot();
+
+        assert_eq!(
+            app.slot_by_id(1).and_then(|slot| slot.name.as_deref()),
+            Some("tenant source")
+        );
     }
 }
