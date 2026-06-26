@@ -16,6 +16,7 @@ categories.workspace = true
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_command.workspace = true
 cloud_terrastodon_azure_resource_types.workspace = true
+cloud_terrastodon_registry.workspace = true
 cloud_terrastodon_hcl_types.workspace = true # todo: we want to invert this such that the hcl crates know about azure types without the azure types worrying about HCL.
 eyre.workspace = true
 tokio.workspace = true
@@ -37,6 +38,12 @@ ordermap.workspace = true
 facet.workspace = true
 facet-json.workspace = true
 facet-value.workspace = true
+linkme.workspace = true
 
 [dev-dependencies]
 rand.workspace=true
+
+
+
+
+

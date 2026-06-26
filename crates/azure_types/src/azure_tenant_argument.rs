@@ -4,7 +4,8 @@ use eyre::bail;
 use std::str::FromStr;
 
 /// Tenant can be specified as the default tenant, a tenant id, or a Cloud Terrastodon tenant alias.
-#[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Hash, facet::Facet)]
+#[repr(C)]
 pub enum AzureTenantArgument<'a> {
     #[default]
     Default,
@@ -91,3 +92,5 @@ mod tests {
         assert_eq!(arg, AzureTenantArgument::Default);
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureTenantArgument<'static>);

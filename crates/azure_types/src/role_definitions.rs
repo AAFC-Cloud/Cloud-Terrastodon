@@ -111,3 +111,5 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(RoleDefinition);

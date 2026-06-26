@@ -1022,6 +1022,7 @@ dependencies = [
  "cloud_terrastodon_credentials",
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_pathing",
+ "cloud_terrastodon_registry",
  "cloud_terrastodon_relative_location",
  "cloud_terrastodon_rest",
  "cloud_terrastodon_user_input",
@@ -1032,6 +1033,7 @@ dependencies = [
  "humantime",
  "indoc",
  "itertools 0.14.0",
+ "linkme",
  "rand 0.10.1",
  "rustc-hash 2.1.1",
  "strum 0.27.2",
@@ -1120,6 +1122,7 @@ dependencies = [
  "cloud_terrastodon_azure_resource_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_hcl_types",
+ "cloud_terrastodon_registry",
  "cloud_terrastodon_user_input",
  "compact_str",
  "eyre",
@@ -1130,6 +1133,7 @@ dependencies = [
  "ipnetwork",
  "iso8601-duration",
  "itertools 0.14.0",
+ "linkme",
  "ordermap",
  "rand 0.10.1",
  "strum 0.27.2",
@@ -1228,6 +1232,7 @@ dependencies = [
  "eyre",
  "facet",
  "facet-json",
+ "facet-pretty",
  "hickory-resolver",
  "http",
  "humantime",
@@ -1237,6 +1242,7 @@ dependencies = [
  "itertools 0.14.0",
  "jmespath",
  "jsonpath-rust",
+ "linkme",
  "liquid",
  "nucleo",
  "opener",
@@ -1335,6 +1341,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_registry"
+version = "0.36.0"
+dependencies = [
+ "eyre",
+ "facet",
+ "linkme",
+ "tokio",
+]
+
+[[package]]
 name = "cloud_terrastodon_relative_location"
 version = "0.36.0"
 dependencies = [
@@ -1413,6 +1429,7 @@ version = "0.36.0"
 dependencies = [
  "cloud_terrastodon_azure",
  "cloud_terrastodon_command",
+ "cloud_terrastodon_registry",
  "color-eyre",
  "crossterm 0.29.0",
  "eyre",
@@ -4328,6 +4345,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9bd35dcd25f8578944c44cd75649d6487d74cf895002f6d86613164f2635b72"
 dependencies = [
  "bitflags 2.13.0",
+]
+
+[[package]]
+name = "linkme"
+version = "0.3.36"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e83272d46373fb8decca684579ac3e7c8f3d71d4cc3aa693df8759e260ae41cf"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.36"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32d59e20403c7d08fe62b4376edfe5c7fb2ef1e6b1465379686d0f21c8df444b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]

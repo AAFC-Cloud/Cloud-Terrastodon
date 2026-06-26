@@ -94,6 +94,7 @@ facet-json = "=0.46.1"
 facet-pretty = "=0.46.5"
 facet-value = "=0.46.0"
 figue = { package = "teamy-figue", version = "=5.1.0", features = ["arbitrary"] }
+linkme = { version = "0.3.36" }
 
 [workspace.dependencies.cloud_terrastodon_pathing]
 version = "0.36.0"        # CT_VERSION
@@ -106,6 +107,10 @@ path = "./crates/config"
 [workspace.dependencies.cloud_terrastodon_azure]
 version = "0.36.0"      # CT_VERSION
 path = "./crates/azure"
+
+[workspace.dependencies.cloud_terrastodon_registry]
+version = "0.36.0"         # CT_VERSION
+path = "./crates/registry"
 
 [workspace.dependencies.cloud_terrastodon_azure_types]
 version = "0.36.0"            # CT_VERSION
@@ -327,3 +332,5 @@ unnecessary_safety_doc = "warn"
 unneeded_field_pattern = "warn"
 unused_result_ok = "warn"
 # module_inception = "allow"
+
+

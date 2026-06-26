@@ -47,3 +47,5 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureTenantId);

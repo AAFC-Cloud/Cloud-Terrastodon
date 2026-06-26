@@ -1,0 +1,20 @@
+[package]
+name = "cloud_terrastodon_registry"
+description = "Distributed registry of Cloud Terrastodon domain types and request metadata"
+version = "0.36.0" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+eyre.workspace = true
+facet.workspace = true
+linkme.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+

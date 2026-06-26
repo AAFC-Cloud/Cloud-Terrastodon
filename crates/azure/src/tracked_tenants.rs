@@ -72,6 +72,24 @@ pub trait AzureTenantArgumentExt {
     async fn resolve(&self) -> eyre::Result<AzureTenantId>;
 }
 
+#[must_use = "This is a future request, you must .run().await it"]
+#[derive(Debug, Clone, facet::Facet)]
+pub struct AzureTenantIdResolveRequest {
+    pub tenant: AzureTenantArgument<'static>,
+}
+
+impl AzureTenantIdResolveRequest {
+    pub async fn run(self) -> eyre::Result<AzureTenantId> {
+        self.tenant.resolve().await
+    }
+}
+
+pub fn resolve_azure_tenant_id(
+    tenant: AzureTenantArgument<'static>,
+) -> AzureTenantIdResolveRequest {
+    AzureTenantIdResolveRequest { tenant }
+}
+
 impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
     async fn resolve(&self) -> eyre::Result<AzureTenantId> {
         match self {
@@ -638,3 +656,14 @@ mod tests {
         Ok(())
     }
 }
+
+impl std::future::IntoFuture for AzureTenantIdResolveRequest {
+    type Output = eyre::Result<AzureTenantId>;
+    type IntoFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(self.run())
+    }
+}
+
+cloud_terrastodon_registry::register_thing!(AzureTenantIdResolveRequest => AzureTenantId);

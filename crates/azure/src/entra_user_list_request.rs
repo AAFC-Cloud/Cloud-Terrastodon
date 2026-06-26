@@ -5,10 +5,12 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
+use facet::Facet;
 use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(Facet)]
 pub struct EntraUserListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -46,6 +48,8 @@ impl CacheableCommand for EntraUserListRequest {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserListRequest);
+
+cloud_terrastodon_registry::register_thing!(EntraUserListRequest => Vec<EntraUser>);
 
 #[cfg(test)]
 mod tests {

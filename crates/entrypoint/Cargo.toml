@@ -30,6 +30,7 @@ cloud_terrastodon_tracing.workspace = true
 cloud_terrastodon_software.workspace = true
 eyre.workspace = true
 facet.workspace = true
+facet-pretty.workspace = true
 facet-json.workspace = true
 color-eyre.workspace = true
 chrono.workspace = true
@@ -61,6 +62,7 @@ reqwest.workspace = true
 liquid.workspace = true
 hickory-resolver.workspace = true
 nucleo.workspace = true
+linkme.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62.2", features = [
@@ -73,3 +75,5 @@ windows = { version = "0.62.2", features = [
 [dev-dependencies]
 arbitrary.workspace = true
 test-log.workspace = true
+
+

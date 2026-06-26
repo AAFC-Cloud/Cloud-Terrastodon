@@ -20,6 +20,7 @@ cloud_terrastodon_rest.workspace = true
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_hcl_types.workspace = true
 cloud_terrastodon_pathing.workspace = true
+cloud_terrastodon_registry.workspace = true
 cloud_terrastodon_relative_location.workspace = true
 eyre.workspace = true
 tokio.workspace = true
@@ -37,7 +38,13 @@ rustc-hash.workspace = true
 http.workspace = true
 blake3.workspace = true
 bstr.workspace = true
+linkme.workspace = true
 
 
 [dev-dependencies]
 test-log.workspace = true
+
+
+
+
+

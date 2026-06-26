@@ -58,3 +58,5 @@ impl RoleAssignment {
             .starts_with(&self.scope.expanded_form().to_lowercase())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(RoleAssignment);
