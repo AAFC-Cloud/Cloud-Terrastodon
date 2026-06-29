@@ -160,8 +160,8 @@ impl ObjectBrowserApp {
             updates.push((slot.id, next_state));
         }
 
-        for (slot_id, next_state) in updates {
-            let status_message = match &next_state {
+        for (slot_id, next_state) in &updates {
+            let status_message = match next_state {
                 SlotRuntimeState::ResolvedValue { .. } => {
                     format!("Result slot {slot_id} resolved.")
                 }
@@ -170,13 +170,23 @@ impl ObjectBrowserApp {
                 }
                 SlotRuntimeState::Pending(_) => continue,
             };
-            if let Some(slot) = self.slot_by_id_mut(slot_id) {
-                slot.runtime_state = Some(next_state);
+            if let Some(slot) = self.slot_by_id_mut(*slot_id) {
+                slot.runtime_state = Some(match next_state {
+                    SlotRuntimeState::ResolvedValue { json } => {
+                        SlotRuntimeState::ResolvedValue { json: json.clone() }
+                    }
+                    SlotRuntimeState::Failed { message } => {
+                        SlotRuntimeState::Failed { message: message.clone() }
+                    }
+                    SlotRuntimeState::Pending(_) => continue,
+                });
             }
             self.status_message = status_message;
         }
+        if !updates.is_empty() {
+            self.invalidate_all_slot_display_caches();
+        }
     }
-
     fn draw(&mut self, frame: &mut Frame) {
         let vertical = Layout::vertical([
             Constraint::Length(1),
@@ -204,7 +214,7 @@ impl ObjectBrowserApp {
         }
     }
 
-    fn draw_pool(&self, frame: &mut Frame, area: Rect) {
+    fn draw_pool(&mut self, frame: &mut Frame, area: Rect) {
         let block = Block::default().borders(Borders::ALL).title("Object Pool");
         let inner = block.inner(area);
         frame.render_widget(block, area);
@@ -247,7 +257,7 @@ impl ObjectBrowserApp {
         }
     }
 
-    fn draw_object_slot(&self, frame: &mut Frame, area: Rect, slot_id: usize, is_active: bool) {
+    fn draw_object_slot(&mut self, frame: &mut Frame, area: Rect, slot_id: usize, is_active: bool) {
         let Some(slot) = self.slot_by_id(slot_id) else {
             return;
         };
@@ -536,7 +546,6 @@ impl ObjectBrowserApp {
         self.active_slot_index = (self.active_slot_index + 1).min(max_index);
         self.clamp_active_row();
     }
-
     fn move_row_up(&mut self) {
         self.active_row_index = self.active_row_index.saturating_sub(1);
     }
@@ -728,6 +737,7 @@ impl ObjectBrowserApp {
         }
 
         self.mode = UiMode::Pool;
+        self.invalidate_all_slot_display_caches();
         self.status_message = match name {
             Some(name) => format!("Renamed slot {} to {}.", slot_id, name),
             None => format!("Cleared the name for slot {}.", slot_id),
@@ -759,6 +769,7 @@ impl ObjectBrowserApp {
         self.next_slot_id += 1;
         self.object_slots
             .push(ObjectSlot::from_snapshot(new_slot_id, snapshot));
+        self.invalidate_all_slot_display_caches();
         self.jump_to_slot(new_slot_id);
         self.status_message = format!(
             "Cloned slot {} into new owned slot {}.",
@@ -789,6 +800,7 @@ impl ObjectBrowserApp {
                 .value_json
                 .map(|json| SlotRuntimeState::ResolvedValue { json });
         }
+        self.invalidate_all_slot_display_caches();
         self.jump_to_slot(slot_id);
         self.status_message = format!(
             "Took slot {} out of slot {}.{} and made it owned.",
@@ -806,7 +818,6 @@ impl ObjectBrowserApp {
         self.jump_to_slot(result_slot_id);
         self.status_message = format!("Jumped to result slot {}.", result_slot_id);
     }
-
     fn invoke_slot(&mut self, slot_id: usize) {
         let Some(shape_name) = self.slot_shape_name(slot_id).map(str::to_string) else {
             self.status_message = "Pick a shape before invoking.".to_string();
@@ -857,6 +868,7 @@ impl ObjectBrowserApp {
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
             slot.result_slot_ids.push(result_slot_id);
         }
+        self.invalidate_all_slot_display_caches();
         self.jump_to_slot(result_slot_id);
         self.status_message = format!(
             "Invoked slot {} and started result slot {} for {}.",
@@ -885,6 +897,7 @@ impl ObjectBrowserApp {
         };
 
         self.mode = UiMode::Pool;
+        self.invalidate_all_slot_display_caches();
         self.active_row_index = self
             .focus_row_for_slot_target(slot_id, default_focus_target)
             .unwrap_or(0);
@@ -930,6 +943,7 @@ impl ObjectBrowserApp {
 
         self.variant_picker = None;
         self.mode = UiMode::Pool;
+        self.invalidate_all_slot_display_caches();
         self.active_row_index = self
             .focus_row_for_slot_target(source_slot_id, next_focus_target)
             .unwrap_or(0);
@@ -1119,6 +1133,7 @@ impl ObjectBrowserApp {
             field_name,
         ));
         self.set_field_link(owner_slot_id, field_index, slot_id);
+        self.invalidate_all_slot_display_caches();
         self.jump_to_slot(slot_id);
         self.status_message = format!(
             "Cloned slot {} into slot {}.{} as view slot {}.",
@@ -1150,7 +1165,6 @@ impl ObjectBrowserApp {
             _ => self.toggle_default_field_value(owner_slot_id, field_index),
         }
     }
-
     fn toggle_default_field_value(&mut self, owner_slot_id: usize, field_index: usize) {
         let Some(status_message) = self
             .slot_field_mut(owner_slot_id, field_index)
@@ -1179,8 +1193,8 @@ impl ObjectBrowserApp {
         };
 
         self.status_message = status_message;
+        self.invalidate_all_slot_display_caches();
     }
-
     fn describe_field_type_actions(&mut self, field_index: usize) {
         let Some(slot_id) = self.current_slot_id() else {
             return;
@@ -1200,6 +1214,7 @@ impl ObjectBrowserApp {
                 slot_id: linked_slot_id,
             };
         }
+        self.invalidate_all_slot_display_caches();
     }
 
     fn clear_links_to_slot(&mut self, slot_id: usize) {
@@ -1220,6 +1235,7 @@ impl ObjectBrowserApp {
                 }
             }
         }
+        self.invalidate_all_slot_display_caches();
     }
 
     fn clear_owner_field_link(&mut self, owner_slot_id: usize, field_index: usize, slot_id: usize) {
@@ -1233,6 +1249,7 @@ impl ObjectBrowserApp {
                 reset_field_value(field);
             }
         }
+        self.invalidate_all_slot_display_caches();
     }
 
     fn slot_snapshot(&self, slot_id: usize) -> Option<SlotSnapshot> {
@@ -1296,6 +1313,7 @@ impl ObjectBrowserApp {
                 .retain(|slot_id| !to_remove.contains(slot_id));
         }
 
+        self.invalidate_all_slot_display_caches();
         let max_index = self.total_slot_count().saturating_sub(1);
         self.active_slot_index = self.active_slot_index.min(max_index);
         self.clamp_active_row();
@@ -1531,6 +1549,125 @@ impl ObjectBrowserApp {
             default_value_label
         );
     }
+    fn slot_display_rows(&mut self, slot_id: usize) -> Vec<SlotDisplayRow> {
+        let Some(slot_index) = self.slot_index_by_id(slot_id) else {
+            return Vec::new();
+        };
+        let needs_rebuild = self.object_slots[slot_index].display_cache.is_none();
+        if needs_rebuild {
+            let rows = self.build_slot_display_rows(slot_id);
+            self.object_slots[slot_index].display_cache = Some(rows);
+        }
+        self.object_slots[slot_index]
+            .display_cache
+            .clone()
+            .unwrap_or_default()
+    }
+
+    fn build_slot_display_rows(&self, slot_id: usize) -> Vec<SlotDisplayRow> {
+        let Some(slot) = self.slot_by_id(slot_id) else {
+            return Vec::new();
+        };
+
+        let mut rows = Vec::new();
+
+        if let SlotKind::View(info) = &slot.kind {
+            rows.push(focusable_spans_row(
+                SlotFocusTarget::ViewPointer,
+                vec![
+                    Span::styled(
+                        "pointer ",
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::DIM),
+                    ),
+                    Span::styled(
+                        format!("slot {}.{}", info.owner_slot_id, info.field_name),
+                        Style::default().fg(Color::Cyan),
+                    ),
+                ],
+            ));
+        }
+
+        rows.push(shape_row(self.slot_shape_name(slot_id)));
+
+        match self.slot_body(slot_id) {
+            Some(SlotBody::Unset) | None => {}
+            Some(SlotBody::Struct { fields }) => {
+                if !fields.is_empty() {
+                    rows.push(SlotDisplayRow::Static(separator_line("fields")));
+                }
+                rows.extend(field_rows(fields));
+            }
+            Some(SlotBody::Enum {
+                variants,
+                selected_variant,
+                fields,
+            }) => {
+                rows.push(variant_row(variants, *selected_variant));
+                if !fields.is_empty() {
+                    rows.push(SlotDisplayRow::Static(separator_line("fields")));
+                }
+                rows.extend(field_rows(fields));
+            }
+        }
+
+        let inlinks = self.slot_inlinks(slot_id);
+        if !inlinks.is_empty() {
+            rows.push(SlotDisplayRow::Static(separator_line("inlinks")));
+            for (index, inlink) in inlinks.iter().enumerate() {
+                rows.push(focusable_plain_row(
+                    SlotFocusTarget::Inlink(index),
+                    format!("slot {}.{}", inlink.owner_slot_id, inlink.field_name),
+                ));
+            }
+        }
+
+        if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
+            rows.push(SlotDisplayRow::Static(separator_line("status")));
+            rows.extend(runtime_state_rows(runtime_state));
+        }
+
+        if !slot.result_slot_ids.is_empty() {
+            rows.push(SlotDisplayRow::Static(separator_line("results")));
+            for (index, result_slot_id) in slot.result_slot_ids.iter().copied().enumerate() {
+                rows.push(focusable_plain_row(
+                    SlotFocusTarget::Result(index),
+                    self.result_slot_label(result_slot_id),
+                ));
+            }
+        }
+
+        rows.push(SlotDisplayRow::Static(separator_line("actions")));
+        for action in [
+            SlotAction::Rename,
+            SlotAction::Delete,
+            SlotAction::Clone,
+            SlotAction::Take,
+            SlotAction::Invoke,
+        ] {
+            if action == SlotAction::Invoke
+                && !self
+                    .slot_shape_name(slot_id)
+                    .and_then(|shape_name| self.thing_for_shape_name(shape_name))
+                    .is_some_and(|thing| thing.is_invokable())
+            {
+                continue;
+            }
+            rows.push(focusable_plain_row(
+                SlotFocusTarget::Action(action),
+                self.slot_action_label(slot_id, action),
+            ));
+        }
+
+        rows
+    }
+
+    fn invalidate_all_slot_display_caches(&mut self) {
+        for slot in &mut self.object_slots {
+            slot.display_cache = None;
+        }
+    }
     fn slot_focus_targets(&self, slot_id: usize) -> Vec<SlotFocusTarget> {
         let mut targets = Vec::new();
         if matches!(
@@ -1721,21 +1858,23 @@ impl ObjectBrowserApp {
             SlotAction::Invoke => "invoke".to_string(),
         }
     }
-    fn variant_picker_preview_lines(&self) -> Option<Vec<Line<'static>>> {
+    fn variant_picker_preview_lines(&mut self) -> Option<Vec<Line<'static>>> {
         let picker = self.variant_picker.as_ref()?;
         let variant = picker.selected_variant()?;
         Some(variant_preview_lines(&picker.shape_name, variant))
     }
 
-    fn field_picker_preview_lines(&self) -> Option<Vec<Line<'static>>> {
-        let picker = self.field_picker.as_ref()?;
-        let choice = picker.selected_choice()?;
+    fn field_picker_preview_lines(&mut self) -> Option<Vec<Line<'static>>> {
+        let (choice, required_shape_name) = {
+            let picker = self.field_picker.as_ref()?;
+            (picker.selected_choice()?, picker.required_shape_name.clone())
+        };
         match choice {
             FieldPickerChoice::ExistingSlot { slot_id } => Some(self.slot_preview_lines(slot_id)),
             FieldPickerChoice::CreateNew => self
                 .shape_choices
                 .iter()
-                .find(|shape| shape.label == picker.required_shape_name)
+                .find(|shape| shape.label == required_shape_name)
                 .map(shape_preview_lines),
         }
     }
@@ -1773,171 +1912,20 @@ impl ObjectBrowserApp {
         }
     }
 
-    fn slot_lines(&self, slot_id: usize, is_active: bool, active_row: usize) -> Vec<Line<'static>> {
-        let Some(slot) = self.slot_by_id(slot_id) else {
-            return Vec::new();
-        };
+    fn slot_lines(&mut self, slot_id: usize, is_active: bool, active_row: usize) -> Vec<Line<'static>> {
         let active_target = if is_active {
             self.slot_focus_targets(slot_id).get(active_row).copied()
         } else {
             None
         };
-
-        let mut lines = Vec::new();
-
-        if let SlotKind::View(info) = &slot.kind {
-            lines.push(selectable_spans_line(
-                vec![
-                    Span::styled(
-                        "pointer ",
-                        Style::default()
-                            .fg(Color::DarkGray)
-                            .add_modifier(Modifier::DIM),
-                    ),
-                    Span::styled(
-                        format!("slot {}.{}", info.owner_slot_id, info.field_name),
-                        Style::default().fg(Color::Cyan),
-                    ),
-                ],
-                active_target == Some(SlotFocusTarget::ViewPointer),
-            ));
-        }
-
-        lines.push(self.shape_line(slot_id, active_target == Some(SlotFocusTarget::Shape)));
-
-        match self.slot_body(slot_id) {
-            Some(SlotBody::Unset) | None => {}
-            Some(SlotBody::Struct { fields }) => {
-                if !fields.is_empty() {
-                    lines.push(separator_line("fields"));
-                }
-                lines.extend(field_lines(fields, active_target));
-            }
-            Some(SlotBody::Enum {
-                variants,
-                selected_variant,
-                fields,
-            }) => {
-                lines.push(self.variant_line(
-                    variants,
-                    *selected_variant,
-                    active_target == Some(SlotFocusTarget::Variant),
-                ));
-                if !fields.is_empty() {
-                    lines.push(separator_line("fields"));
-                }
-                lines.extend(field_lines(fields, active_target));
-            }
-        }
-
-        let inlinks = self.slot_inlinks(slot_id);
-        if !inlinks.is_empty() {
-            lines.push(separator_line("inlinks"));
-            for (index, inlink) in inlinks.iter().enumerate() {
-                lines.push(selectable_plain_line(
-                    format!("slot {}.{}", inlink.owner_slot_id, inlink.field_name),
-                    active_target == Some(SlotFocusTarget::Inlink(index)),
-                ));
-            }
-        }
-
-        if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
-            lines.push(separator_line("status"));
-            lines.extend(self.runtime_state_lines(runtime_state));
-        }
-
-        if !slot.result_slot_ids.is_empty() {
-            lines.push(separator_line("results"));
-            for (index, result_slot_id) in slot.result_slot_ids.iter().copied().enumerate() {
-                lines.push(selectable_plain_line(
-                    self.result_slot_label(result_slot_id),
-                    active_target == Some(SlotFocusTarget::Result(index)),
-                ));
-            }
-        }
-
-        lines.push(separator_line("actions"));
-        for action in [
-            SlotAction::Rename,
-            SlotAction::Delete,
-            SlotAction::Clone,
-            SlotAction::Take,
-            SlotAction::Invoke,
-        ] {
-            if action == SlotAction::Invoke
-                && !self
-                    .slot_shape_name(slot_id)
-                    .and_then(|shape_name| self.thing_for_shape_name(shape_name))
-                    .is_some_and(|thing| thing.is_invokable())
-            {
-                continue;
-            }
-            lines.push(selectable_plain_line(
-                self.slot_action_label(slot_id, action),
-                active_target == Some(SlotFocusTarget::Action(action)),
-            ));
-        }
-
-        lines
-    }
-    fn slot_preview_lines(&self, slot_id: usize) -> Vec<Line<'static>> {
-        self.slot_lines(slot_id, false, 0)
+        let rows = self.slot_display_rows(slot_id);
+        render_slot_display_rows(&rows, active_target)
     }
 
-    fn shape_line(&self, slot_id: usize, focused: bool) -> Line<'static> {
-        if let Some(shape_name) = self.slot_shape_name(slot_id) {
-            return selectable_plain_line(shape_name.to_string(), focused);
-        }
-
-        selectable_spans_line(
-            vec![Span::raw("shape "), Span::styled("unset", unset_style())],
-            focused,
-        )
+    fn slot_preview_lines(&mut self, slot_id: usize) -> Vec<Line<'static>> {
+        let rows = self.slot_display_rows(slot_id);
+        render_slot_display_rows(&rows, None)
     }
-
-    fn variant_line(
-        &self,
-        variants: &[ObjectVariantState],
-        selected_variant: Option<usize>,
-        focused: bool,
-    ) -> Line<'static> {
-        let Some(variant_index) = selected_variant else {
-            return selectable_spans_line(
-                vec![Span::raw("variant "), Span::styled("unset", unset_style())],
-                focused,
-            );
-        };
-        let Some(variant) = variants.get(variant_index) else {
-            return selectable_spans_line(
-                vec![Span::raw("variant "), Span::styled("unset", unset_style())],
-                focused,
-            );
-        };
-
-        let mut spans = vec![
-            Span::styled(
-                "variant ",
-                Style::default()
-                    .fg(Color::DarkGray)
-                    .add_modifier(Modifier::DIM),
-            ),
-            Span::styled(
-                variant.info.variant_name.to_string(),
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            ),
-        ];
-        if let Some(payload_shape_name) = &variant.info.payload_shape_name {
-            spans.push(Span::styled(
-                format!(": {payload_shape_name}"),
-                Style::default().fg(Color::DarkGray),
-            ));
-        }
-
-        selectable_spans_line(spans, focused)
-    }
-
     fn slot_border_style(&self, slot_id: usize, is_active: bool) -> Style {
         if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
             let color = match runtime_state {
@@ -2008,32 +1996,6 @@ impl ObjectBrowserApp {
         let data_slot_id = self.data_slot_id_for(slot_id)?;
         self.slot_by_id(data_slot_id)
             .and_then(|slot| slot.runtime_state.as_ref())
-    }
-
-    fn runtime_state_lines(&self, runtime_state: &SlotRuntimeState) -> Vec<Line<'static>> {
-        match runtime_state {
-            SlotRuntimeState::Pending(_) => {
-                vec![Line::from("  pending invocation...")]
-            }
-            SlotRuntimeState::Failed { message } => vec![Line::from(vec![
-                Span::raw("  "),
-                Span::styled("failed", unset_style()),
-                Span::raw(format!(": {message}")),
-            ])],
-            SlotRuntimeState::ResolvedValue { json } => {
-                let mut lines = vec![Line::from(vec![
-                    Span::raw("  "),
-                    Span::styled(
-                        "resolved",
-                        Style::default()
-                            .fg(Color::Green)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                ])];
-                lines.extend(pretty_json_lines(json));
-                lines
-            }
-        }
     }
 
     fn result_slot_label(&self, slot_id: usize) -> String {
@@ -2391,6 +2353,14 @@ enum LinkAction {
 }
 
 #[derive(Clone, Debug)]
+enum SlotDisplayRow {
+    Static(Line<'static>),
+    Focusable {
+        target: SlotFocusTarget,
+        spans: Vec<Span<'static>>,
+    },
+}
+#[derive(Clone, Debug)]
 struct SlotSnapshot {
     name: Option<String>,
     shape_name: Option<String>,
@@ -2420,6 +2390,7 @@ struct ObjectSlot {
     body: SlotBody,
     result_slot_ids: Vec<usize>,
     runtime_state: Option<SlotRuntimeState>,
+    display_cache: Option<Vec<SlotDisplayRow>>,
 }
 
 impl ObjectSlot {
@@ -2434,6 +2405,7 @@ impl ObjectSlot {
             runtime_state: snapshot
                 .value_json
                 .map(|json| SlotRuntimeState::ResolvedValue { json }),
+            display_cache: None,
         }
     }
 
@@ -2446,6 +2418,7 @@ impl ObjectSlot {
             body: SlotBody::Unset,
             result_slot_ids: Vec::new(),
             runtime_state: None,
+            display_cache: None,
         }
     }
 
@@ -2458,6 +2431,7 @@ impl ObjectSlot {
             body: SlotBody::Unset,
             result_slot_ids: Vec::new(),
             runtime_state: Some(SlotRuntimeState::Pending(pending)),
+            display_cache: None,
         }
     }
 
@@ -2481,6 +2455,7 @@ impl ObjectSlot {
             body: SlotBody::Unset,
             result_slot_ids: Vec::new(),
             runtime_state: None,
+            display_cache: None,
         }
     }
 
@@ -2622,23 +2597,20 @@ impl ObjectFieldState {
         Self { info, value_state }
     }
 
-    fn type_line(&self, accent: Color, focused: bool) -> Line<'static> {
-        selectable_spans_line(
-            vec![
-                Span::styled(
-                    "type ",
-                    Style::default().fg(accent).add_modifier(Modifier::DIM),
-                ),
-                Span::styled(
-                    self.info.field_shape_name.clone(),
-                    Style::default().fg(accent).add_modifier(Modifier::DIM),
-                ),
-            ],
-            focused,
-        )
+    fn type_spans(&self, accent: Color) -> Vec<Span<'static>> {
+        vec![
+            Span::styled(
+                "type ",
+                Style::default().fg(accent).add_modifier(Modifier::DIM),
+            ),
+            Span::styled(
+                self.info.field_shape_name.clone(),
+                Style::default().fg(accent).add_modifier(Modifier::DIM),
+            ),
+        ]
     }
 
-    fn value_line(&self, accent: Color, focused: bool) -> Line<'static> {
+    fn value_spans(&self, accent: Color) -> Vec<Span<'static>> {
         let mut spans = vec![Span::styled(
             format!("{}: ", self.info.field_name),
             Style::default().fg(accent),
@@ -2666,8 +2638,9 @@ impl ObjectFieldState {
             )),
         }
 
-        selectable_spans_line(spans, focused)
+        spans
     }
+
 }
 
 #[derive(Clone, Debug)]
@@ -2687,25 +2660,121 @@ enum FieldValueState {
     Unset,
     Linked { slot_id: usize },
 }
-fn field_lines(
-    fields: &[ObjectFieldState],
-    active_target: Option<SlotFocusTarget>,
-) -> Vec<Line<'static>> {
-    let mut lines = Vec::with_capacity(fields.len() * 2);
+
+fn field_rows(fields: &[ObjectFieldState]) -> Vec<SlotDisplayRow> {
+    let mut rows = Vec::with_capacity(fields.len() * 2);
     for (index, field) in fields.iter().enumerate() {
         let accent = field_group_color(index);
-        lines.push(field.type_line(
-            accent,
-            active_target == Some(SlotFocusTarget::FieldType(index)),
+        rows.push(focusable_spans_row(
+            SlotFocusTarget::FieldType(index),
+            field.type_spans(accent),
         ));
-        lines.push(field.value_line(
-            accent,
-            active_target == Some(SlotFocusTarget::FieldValue(index)),
+        rows.push(focusable_spans_row(
+            SlotFocusTarget::FieldValue(index),
+            field.value_spans(accent),
         ));
     }
-    lines
+    rows
 }
 
+fn shape_row(shape_name: Option<&str>) -> SlotDisplayRow {
+    match shape_name {
+        Some(shape_name) => focusable_plain_row(SlotFocusTarget::Shape, shape_name.to_string()),
+        None => focusable_spans_row(
+            SlotFocusTarget::Shape,
+            vec![Span::raw("shape "), Span::styled("unset", unset_style())],
+        ),
+    }
+}
+
+fn variant_row(
+    variants: &[ObjectVariantState],
+    selected_variant: Option<usize>,
+) -> SlotDisplayRow {
+    let Some(variant_index) = selected_variant else {
+        return focusable_spans_row(
+            SlotFocusTarget::Variant,
+            vec![Span::raw("variant "), Span::styled("unset", unset_style())],
+        );
+    };
+    let Some(variant) = variants.get(variant_index) else {
+        return focusable_spans_row(
+            SlotFocusTarget::Variant,
+            vec![Span::raw("variant "), Span::styled("unset", unset_style())],
+        );
+    };
+
+    let mut spans = vec![
+        Span::styled(
+            "variant ",
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::DIM),
+        ),
+        Span::styled(
+            variant.info.variant_name.to_string(),
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        ),
+    ];
+    if let Some(payload_shape_name) = &variant.info.payload_shape_name {
+        spans.push(Span::styled(
+            format!(": {payload_shape_name}"),
+            Style::default().fg(Color::DarkGray),
+        ));
+    }
+
+    focusable_spans_row(SlotFocusTarget::Variant, spans)
+}
+
+fn runtime_state_rows(runtime_state: &SlotRuntimeState) -> Vec<SlotDisplayRow> {
+    match runtime_state {
+        SlotRuntimeState::Pending(_) => {
+            vec![SlotDisplayRow::Static(Line::from("  pending invocation..."))]
+        }
+        SlotRuntimeState::Failed { message } => vec![SlotDisplayRow::Static(Line::from(vec![
+            Span::raw("  "),
+            Span::styled("failed", unset_style()),
+            Span::raw(format!(": {message}")),
+        ]))],
+        SlotRuntimeState::ResolvedValue { json } => {
+            let mut rows = vec![SlotDisplayRow::Static(Line::from(vec![
+                Span::raw("  "),
+                Span::styled(
+                    "resolved",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]))];
+            rows.extend(pretty_json_lines(json).into_iter().map(SlotDisplayRow::Static));
+            rows
+        }
+    }
+}
+
+fn focusable_plain_row(target: SlotFocusTarget, label: impl Into<String>) -> SlotDisplayRow {
+    focusable_spans_row(target, vec![Span::raw(label.into())])
+}
+
+fn focusable_spans_row(target: SlotFocusTarget, spans: Vec<Span<'static>>) -> SlotDisplayRow {
+    SlotDisplayRow::Focusable { target, spans }
+}
+
+fn render_slot_display_rows(
+    rows: &[SlotDisplayRow],
+    active_target: Option<SlotFocusTarget>,
+) -> Vec<Line<'static>> {
+    rows.iter()
+        .map(|row| match row {
+            SlotDisplayRow::Static(line) => line.clone(),
+            SlotDisplayRow::Focusable { target, spans } => {
+                selectable_spans_line(spans.clone(), active_target == Some(*target))
+            }
+        })
+        .collect()
+}
 fn field_is_resolved(field: &ObjectFieldState) -> bool {
     !matches!(field.value_state, FieldValueState::Unset)
 }
@@ -3325,3 +3394,4 @@ mod tests {
         assert!(resolved_json.contains("\"message\":\"done\""));
     }
 }
+
