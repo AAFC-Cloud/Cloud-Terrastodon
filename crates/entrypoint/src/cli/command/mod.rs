@@ -10,6 +10,7 @@ pub mod egui;
 pub mod extract_uuid;
 pub mod get_path;
 pub mod gitea;
+pub mod jwt;
 pub mod nslookup;
 pub mod outage;
 pub mod perform_code_generation_from_imports;
@@ -32,6 +33,7 @@ use crate::cli::egui::EguiArgs;
 use crate::cli::extract_uuid::ExtractUuidArgs;
 use crate::cli::get_path::GetPathArgs;
 use crate::cli::gitea::GiteaArgs;
+use crate::cli::jwt::JwtArgs;
 use crate::cli::nslookup::NslookupArgs;
 use crate::cli::outage::OutageArgs;
 use crate::cli::perform_code_generation_from_imports::PerformCodeGenerationFromImportsArgs;
@@ -87,6 +89,8 @@ pub enum CloudTerrastodonCommand {
     /// Perform Gitea-specific operations via the `tea` CLI.
     #[command(name = "tea", alias = "gitea")]
     Tea(GiteaArgs),
+    /// Decode or inspect JWTs.
+    Jwt(JwtArgs),
     /// Extract UUIDs from text input (use '-' to read from stdin)
     ExtractUuid(ExtractUuidArgs),
     /// Pick from stdin or the filesystem
@@ -116,6 +120,7 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::AzureDevOps(args) => args.invoke().await,
             CloudTerrastodonCommand::Azure(args) => args.invoke().await,
             CloudTerrastodonCommand::Tea(args) => args.invoke().await,
+            CloudTerrastodonCommand::Jwt(args) => args.invoke().await,
             CloudTerrastodonCommand::ExtractUuid(args) => args.invoke().await,
             CloudTerrastodonCommand::Pick(args) => args.invoke().await,
             CloudTerrastodonCommand::Cache(args) => args.invoke().await,

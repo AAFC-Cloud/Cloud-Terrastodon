@@ -1210,6 +1210,7 @@ version = "0.36.0"
 dependencies = [
  "arbitrary",
  "async-recursion",
+ "base64 0.22.1",
  "chrono",
  "clap",
  "cloud_terrastodon_azure",
@@ -1233,6 +1234,7 @@ dependencies = [
  "facet",
  "facet-json",
  "facet-pretty",
+ "facet-value",
  "hickory-resolver",
  "http",
  "humantime",
@@ -1346,6 +1348,7 @@ version = "0.36.0"
 dependencies = [
  "eyre",
  "facet",
+ "facet-json",
  "linkme",
  "tokio",
 ]
@@ -1433,11 +1436,14 @@ dependencies = [
  "color-eyre",
  "crossterm 0.29.0",
  "eyre",
+ "facet",
  "futures",
  "itertools 0.14.0",
+ "linkme",
  "nucleo",
  "ratatui",
  "rustc-hash 2.1.1",
+ "serde_json",
  "strum 0.27.2",
  "tokio",
  "tracing",
