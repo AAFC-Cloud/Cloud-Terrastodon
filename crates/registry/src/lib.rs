@@ -290,13 +290,7 @@ pub fn describe_shape(shape: &'static Shape) -> String {
         return format!("List<{}>", describe_shape(element_shape));
     }
 
-    if shape.type_identifier == "Option" {
-        if let Some(inner_shape) = shape.inner {
-            return format!("Option<{}>", describe_shape(inner_shape));
-        }
-    }
-
-    shape.type_identifier.to_string()
+    shape.type_name().to_string()
 }
 
 fn shape_fields(shape: &'static Shape) -> Vec<ShapeFieldInfo> {
@@ -594,6 +588,18 @@ mod test {
         assert_eq!(
             describe_shape(<Option<DummyOutput> as Facet<'static>>::SHAPE),
             format!("Option<{}>", DummyOutput::SHAPE.type_identifier)
+        );
+    }
+
+    #[test]
+    pub fn shape_display_uses_facet_type_name_for_other_generics() {
+        assert_eq!(
+            describe_shape(<Result<DummyOutput, DummyArgument> as Facet<'static>>::SHAPE),
+            format!(
+                "Result<{}, {}>",
+                DummyOutput::SHAPE.type_identifier,
+                DummyArgument::SHAPE.type_identifier,
+            )
         );
     }
 }
