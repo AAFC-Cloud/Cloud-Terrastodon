@@ -322,11 +322,14 @@ impl ObjectBrowserApp {
 
         let max_visible = self.max_visible_slots(cards_area.width);
         if self.total_slot_count() > max_visible {
-            let scrollbar = Scrollbar::new(ScrollbarOrientation::HorizontalBottom);
-            let mut scrollbar_state = ScrollbarState::new(self.total_slot_count())
-                .position(visible.start)
-                .viewport_content_length(max_visible);
-            frame.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
+            let scrollbar_area = horizontal_scrollbar_overlay_area(area);
+            if scrollbar_area.width > 0 && scrollbar_area.height > 0 {
+                let scrollbar = Scrollbar::new(ScrollbarOrientation::HorizontalBottom);
+                let mut scrollbar_state = ScrollbarState::new(self.total_slot_count())
+                    .position(visible.start)
+                    .viewport_content_length(max_visible);
+                frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+            }
         }
     }
 
@@ -359,11 +362,14 @@ impl ObjectBrowserApp {
         frame.render_widget(paragraph, area);
 
         if is_active && usize::from(inner.height) > 0 && lines.len() > usize::from(inner.height) {
-            let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-            let mut scrollbar_state = ScrollbarState::new(lines.len())
-                .position(scroll_offset)
-                .viewport_content_length(usize::from(inner.height));
-            frame.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
+            let scrollbar_area = vertical_scrollbar_overlay_area(area);
+            if scrollbar_area.width > 0 && scrollbar_area.height > 0 {
+                let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
+                let mut scrollbar_state = ScrollbarState::new(lines.len())
+                    .position(scroll_offset)
+                    .viewport_content_length(usize::from(inner.height));
+                frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+            }
         }
     }
 
@@ -4004,6 +4010,32 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     let [_, middle, _] = horizontal.areas(center);
     middle
 }
+
+fn horizontal_scrollbar_overlay_area(area: Rect) -> Rect {
+    if area.width <= 2 || area.height == 0 {
+        return Rect::default();
+    }
+
+    Rect {
+        x: area.x + 1,
+        y: area.y + area.height - 1,
+        width: area.width.saturating_sub(2),
+        height: 1,
+    }
+}
+
+fn vertical_scrollbar_overlay_area(area: Rect) -> Rect {
+    if area.width == 0 || area.height <= 2 {
+        return Rect::default();
+    }
+
+    Rect {
+        x: area.x + area.width - 1,
+        y: area.y + 1,
+        width: 1,
+        height: area.height.saturating_sub(2),
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::FieldPickerChoice;
@@ -4426,6 +4458,20 @@ mod tests {
 
         app.move_slot_home();
         assert_eq!(app.active_slot_index, 0);
+    }
+
+    #[test]
+    fn scrollbar_overlay_areas_skip_block_corners() {
+        let area = ratatui::layout::Rect::new(10, 5, 12, 8);
+
+        assert_eq!(
+            super::horizontal_scrollbar_overlay_area(area),
+            ratatui::layout::Rect::new(11, 12, 10, 1)
+        );
+        assert_eq!(
+            super::vertical_scrollbar_overlay_area(area),
+            ratatui::layout::Rect::new(21, 6, 1, 6)
+        );
     }
 
     #[test]
