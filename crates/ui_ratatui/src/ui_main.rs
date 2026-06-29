@@ -1,10 +1,12 @@
 use cloud_terrastodon_registry::KnownShapeInfo;
+use cloud_terrastodon_registry::ProductionKind;
 use cloud_terrastodon_registry::ShapeFieldInfo;
 use cloud_terrastodon_registry::ShapeVariantInfo;
 use cloud_terrastodon_registry::describe_shape;
 use cloud_terrastodon_registry::known_shapes;
 use cloud_terrastodon_registry::shape_fields_for_thing;
 use cloud_terrastodon_registry::shape_variants_for_thing;
+use cloud_terrastodon_registry::things_producing;
 use crossterm::event::EventStream;
 use eyre::Result;
 use futures::FutureExt;
@@ -925,6 +927,7 @@ impl ObjectBrowserApp {
                     SlotFocusTarget::Inlink(inlink_index) => {
                         self.activate_inlink(slot_id, inlink_index)
                     }
+                    SlotFocusTarget::CreatedFor => self.activate_created_for(slot_id),
                     SlotFocusTarget::ProducedBy => self.activate_produced_by(slot_id),
                     SlotFocusTarget::RuntimeValue => self.activate_runtime_value(slot_id),
                     SlotFocusTarget::Result(result_index) => {
@@ -1010,24 +1013,40 @@ impl ObjectBrowserApp {
             return;
         }
 
+        let required_shape_name = field.info.field_shape_name.clone();
         let mut choices = self
-            .matching_slot_ids(&field.info.field_shape_name, owner_slot_id)
+            .matching_slot_ids(&required_shape_name, owner_slot_id)
             .into_iter()
             .map(|slot_id| FieldPickerChoice::ExistingSlot { slot_id })
             .collect::<Vec<_>>();
+        choices.extend(
+            self.existing_producer_slot_ids(&required_shape_name, owner_slot_id)
+                .into_iter()
+                .map(|slot_id| FieldPickerChoice::ExistingProducerSlot { slot_id }),
+        );
+        choices.extend(
+            self.producer_request_shape_names_for(&required_shape_name)
+                .into_iter()
+                .map(|request_shape_name| FieldPickerChoice::CreateProducer { request_shape_name }),
+        );
         choices.push(FieldPickerChoice::CreateNew);
 
         let labels = choices
             .iter()
-            .map(|choice| self.field_picker_label(*choice, &field.info.field_shape_name))
+            .map(|choice| self.field_picker_label(choice, &required_shape_name))
             .collect::<Vec<_>>();
         let preferred_index = match field.value_state {
             FieldValueState::Linked { slot_id } => choices
                 .iter()
-                .position(|choice| *choice == FieldPickerChoice::ExistingSlot { slot_id }),
+                .position(|choice| choice == &FieldPickerChoice::ExistingSlot { slot_id }),
             _ => choices
                 .iter()
-                .position(|choice| *choice == FieldPickerChoice::CreateNew),
+                .position(|choice| matches!(choice, FieldPickerChoice::CreateProducer { .. }))
+                .or_else(|| {
+                    choices
+                        .iter()
+                        .position(|choice| choice == &FieldPickerChoice::CreateNew)
+                }),
         };
 
         self.field_picker = Some(FieldPickerState::new(
@@ -1040,7 +1059,7 @@ impl ObjectBrowserApp {
         ));
         self.mode = UiMode::FieldPicker;
         self.status_message =
-            "Choose an object for the field. Type to search; PgUp/PgDn scrolls the preview pane."
+            "Choose an object for the field, or a request that can produce one. Type to search; PgUp/PgDn scrolls the preview pane."
                 .to_string();
     }
 
@@ -1160,6 +1179,20 @@ impl ObjectBrowserApp {
         self.status_message = format!(
             "Took slot {} out of slot {}.{} and made it owned.",
             slot_id, info.owner_slot_id, info.field_name
+        );
+    }
+
+    fn activate_created_for(&mut self, slot_id: usize) {
+        let Some(created_for) = self.slot_by_id(slot_id).and_then(|slot| slot.created_for) else {
+            return;
+        };
+        self.jump_to_slot_target(
+            created_for.owner_slot_id,
+            SlotFocusTarget::FieldValue(created_for.field_index),
+        );
+        self.status_message = format!(
+            "Jumped to slot {}.{}.",
+            created_for.owner_slot_id, created_for.field_name
         );
     }
 
@@ -1345,11 +1378,21 @@ impl ObjectBrowserApp {
         self.mode = UiMode::Pool;
 
         match choice {
-            FieldPickerChoice::CreateNew => {
-                self.create_field_object(owner_slot_id, field_index, &required_shape_name)
-            }
             FieldPickerChoice::ExistingSlot { slot_id } => {
                 self.open_link_action_picker(owner_slot_id, field_index, slot_id)
+            }
+            FieldPickerChoice::ExistingProducerSlot { slot_id } => {
+                self.jump_to_existing_producer_slot(slot_id, &required_shape_name)
+            }
+            FieldPickerChoice::CreateProducer { request_shape_name } => self
+                .create_producer_request_for_field(
+                    owner_slot_id,
+                    field_index,
+                    &request_shape_name,
+                    &required_shape_name,
+                ),
+            FieldPickerChoice::CreateNew => {
+                self.create_field_object(owner_slot_id, field_index, &required_shape_name)
             }
         }
     }
@@ -1379,6 +1422,61 @@ impl ObjectBrowserApp {
                 self.clone_slot_into_field(owner_slot_id, field_index, selected_slot_id)
             }
         }
+    }
+
+    fn jump_to_existing_producer_slot(&mut self, slot_id: usize, required_shape_name: &str) {
+        self.jump_to_slot(slot_id);
+        self.status_message = format!(
+            "Jumped to request slot {}. It can produce {}.",
+            slot_id, required_shape_name
+        );
+    }
+
+    fn create_producer_request_for_field(
+        &mut self,
+        owner_slot_id: usize,
+        field_index: usize,
+        request_shape_name: &str,
+        required_shape_name: &str,
+    ) {
+        let Some(field_name) = self
+            .slot_field(owner_slot_id, field_index)
+            .map(|field| field.info.field_name)
+        else {
+            return;
+        };
+        let Some(choice) = self
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == request_shape_name)
+            .cloned()
+        else {
+            self.status_message = format!(
+                "{} is not currently registered as a constructible request shape.",
+                request_shape_name
+            );
+            return;
+        };
+
+        let slot_id = self.next_slot_id;
+        self.next_slot_id += 1;
+
+        let mut slot = ObjectSlot::new(slot_id);
+        slot.apply_shape_choice(&choice);
+        slot.created_for = Some(SlotCreatedFor {
+            owner_slot_id,
+            field_index,
+            field_name,
+        });
+        let focus_target = slot.default_focus_target();
+
+        self.object_slots.push(slot);
+        self.invalidate_all_slot_display_caches();
+        self.jump_to_slot_target(slot_id, focus_target);
+        self.status_message = format!(
+            "Created request slot {} ({}) to produce {} for slot {}.{}.",
+            slot_id, request_shape_name, required_shape_name, owner_slot_id, field_name
+        );
     }
 
     fn create_field_object(
@@ -2010,11 +2108,21 @@ impl ObjectBrowserApp {
         }
 
         let inlinks = self.slot_inlinks(slot_id);
-        let has_activity = slot.produced_by_slot_id.is_some()
+        let has_activity = slot.created_for.is_some()
+            || slot.produced_by_slot_id.is_some()
             || !inlinks.is_empty()
             || !slot.result_slot_ids.is_empty();
         if has_activity {
             rows.push(SlotDisplayRow::Static(separator_line("activity")));
+            if let Some(created_for) = slot.created_for {
+                rows.push(focusable_plain_row(
+                    SlotFocusTarget::CreatedFor,
+                    format!(
+                        "created for slot {}.{}",
+                        created_for.owner_slot_id, created_for.field_name
+                    ),
+                ));
+            }
             if let Some(produced_by_slot_id) = slot.produced_by_slot_id {
                 rows.push(focusable_plain_row(
                     SlotFocusTarget::ProducedBy,
@@ -2099,6 +2207,14 @@ impl ObjectBrowserApp {
                     }
                 }
             }
+        }
+
+        if self
+            .slot_by_id(slot_id)
+            .and_then(|slot| slot.created_for)
+            .is_some()
+        {
+            targets.push(SlotFocusTarget::CreatedFor);
         }
 
         if self
@@ -2235,9 +2351,58 @@ impl ObjectBrowserApp {
             .collect()
     }
 
-    fn field_picker_label(&self, choice: FieldPickerChoice, required_shape_name: &str) -> String {
+    fn existing_producer_slot_ids(
+        &self,
+        required_shape_name: &str,
+        owner_slot_id: usize,
+    ) -> Vec<usize> {
+        let Some(required_thing) = self.thing_for_shape_name(required_shape_name) else {
+            return Vec::new();
+        };
+
+        self.object_slots
+            .iter()
+            .filter(|slot| slot.id != owner_slot_id)
+            .filter_map(|slot| {
+                let shape_name = self.slot_shape_name(slot.id)?;
+                let thing = self.thing_for_shape_name(shape_name)?;
+                (thing.production_kind(required_thing.shape) == Some(ProductionKind::Exact))
+                    .then_some(slot.id)
+            })
+            .collect()
+    }
+
+    fn producer_request_shape_names_for(&self, required_shape_name: &str) -> Vec<String> {
+        let Some(required_thing) = self.thing_for_shape_name(required_shape_name) else {
+            return Vec::new();
+        };
+
+        let mut labels = BTreeSet::new();
+        for thing in things_producing(required_thing.shape) {
+            if thing.production_kind(required_thing.shape) != Some(ProductionKind::Exact) {
+                continue;
+            }
+            labels.insert(describe_shape(thing.shape));
+        }
+        labels.into_iter().collect()
+    }
+
+    fn field_picker_label(&self, choice: &FieldPickerChoice, required_shape_name: &str) -> String {
         match choice {
-            FieldPickerChoice::ExistingSlot { slot_id } => self.slot_picker_label(slot_id),
+            FieldPickerChoice::ExistingSlot { slot_id } => self.slot_picker_label(*slot_id),
+            FieldPickerChoice::ExistingProducerSlot { slot_id } => {
+                format!(
+                    "{} [produces {}]",
+                    self.slot_picker_label(*slot_id),
+                    required_shape_name
+                )
+            }
+            FieldPickerChoice::CreateProducer { request_shape_name } => {
+                format!(
+                    "+ create request {} -> {}",
+                    request_shape_name, required_shape_name
+                )
+            }
             FieldPickerChoice::CreateNew => format!("+ create new {required_shape_name}"),
         }
     }
@@ -2726,7 +2891,15 @@ impl ObjectBrowserApp {
             )
         };
         match choice {
-            FieldPickerChoice::ExistingSlot { slot_id } => Some(self.slot_preview_lines(slot_id)),
+            FieldPickerChoice::ExistingSlot { slot_id }
+            | FieldPickerChoice::ExistingProducerSlot { slot_id } => {
+                Some(self.slot_preview_lines(slot_id))
+            }
+            FieldPickerChoice::CreateProducer { request_shape_name } => self
+                .shape_choices
+                .iter()
+                .find(|shape| shape.label == request_shape_name)
+                .map(shape_preview_lines),
             FieldPickerChoice::CreateNew => self
                 .shape_choices
                 .iter()
@@ -2930,6 +3103,7 @@ enum SlotFocusTarget {
     FieldType(usize),
     FieldValue(usize),
     Inlink(usize),
+    CreatedFor,
     ProducedBy,
     RuntimeValue,
     Result(usize),
@@ -2949,6 +3123,13 @@ enum SlotCompletion {
     Unset,
     Partial,
     Complete,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct SlotCreatedFor {
+    owner_slot_id: usize,
+    field_index: usize,
+    field_name: &'static str,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -3176,7 +3357,7 @@ impl FieldPickerState {
 
     fn selected_choice(&self) -> Option<FieldPickerChoice> {
         let index = self.search.selected_filtered_index()?;
-        self.choices.get(index).copied()
+        self.choices.get(index).cloned()
     }
 
     fn list_items(&self) -> Vec<ListItem<'static>> {
@@ -3189,9 +3370,11 @@ impl FieldPickerState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum FieldPickerChoice {
     ExistingSlot { slot_id: usize },
+    ExistingProducerSlot { slot_id: usize },
+    CreateProducer { request_shape_name: String },
     CreateNew,
 }
 
@@ -3289,6 +3472,7 @@ struct ObjectSlot {
     shape_name: Option<String>,
     body: SlotBody,
     result_slot_ids: Vec<usize>,
+    created_for: Option<SlotCreatedFor>,
     produced_by_slot_id: Option<usize>,
     runtime_state: Option<SlotRuntimeState>,
     display_cache: Option<Vec<SlotDisplayRow>>,
@@ -3303,6 +3487,7 @@ impl ObjectSlot {
             shape_name: snapshot.shape_name,
             body: snapshot.body,
             result_slot_ids: Vec::new(),
+            created_for: None,
             produced_by_slot_id: None,
             runtime_state: snapshot.value_json.and_then(|json| {
                 serde_json::from_str::<Value>(&json)
@@ -3321,6 +3506,7 @@ impl ObjectSlot {
             shape_name: None,
             body: SlotBody::Unset,
             result_slot_ids: Vec::new(),
+            created_for: None,
             produced_by_slot_id: None,
             runtime_state: None,
             display_cache: None,
@@ -3335,6 +3521,7 @@ impl ObjectSlot {
             shape_name: Some(shape_name),
             body: SlotBody::Unset,
             result_slot_ids: Vec::new(),
+            created_for: None,
             produced_by_slot_id: None,
             runtime_state: Some(SlotRuntimeState::Pending(pending)),
             display_cache: None,
@@ -3360,6 +3547,7 @@ impl ObjectSlot {
             shape_name: None,
             body: SlotBody::Unset,
             result_slot_ids: Vec::new(),
+            created_for: None,
             produced_by_slot_id: None,
             runtime_state: None,
             display_cache: None,
@@ -4185,6 +4373,138 @@ mod tests {
     }
 
     #[test]
+    fn field_picker_offers_request_producers_for_matching_output_types() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("EntraUserListRequest"))
+            .expect("EntraUserListRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.active_row_index = 2;
+        app.activate_current_row();
+
+        let picker = app.field_picker.as_ref().expect("field picker should open");
+        assert!(picker.choices.contains(&FieldPickerChoice::CreateProducer {
+            request_shape_name: "AzureTenantIdResolveRequest".to_string(),
+        }));
+    }
+
+    #[test]
+    fn selecting_a_request_producer_creates_a_request_slot() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("EntraUserListRequest"))
+            .expect("EntraUserListRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.active_row_index = 2;
+        app.activate_current_row();
+
+        let producer_index = app
+            .field_picker
+            .as_ref()
+            .and_then(|picker| {
+                picker.choices.iter().position(|choice| {
+                    matches!(
+                        choice,
+                        FieldPickerChoice::CreateProducer { request_shape_name }
+                            if request_shape_name == "AzureTenantIdResolveRequest"
+                    )
+                })
+            })
+            .expect("field picker should offer AzureTenantIdResolveRequest");
+        app.field_picker
+            .as_mut()
+            .expect("field picker should still be open")
+            .search
+            .list_state
+            .select(Some(producer_index));
+
+        app.apply_field_picker_selection();
+
+        let created_slot = app
+            .slot_by_id(2)
+            .expect("selecting the producer should create a new request slot");
+        assert!(matches!(created_slot.kind, SlotKind::Owned));
+        assert_eq!(
+            created_slot.shape_name.as_deref(),
+            Some("AzureTenantIdResolveRequest")
+        );
+        assert!(matches!(
+            created_slot.created_for,
+            Some(super::SlotCreatedFor {
+                owner_slot_id: 1,
+                field_index: 0,
+                field_name: "tenant_id",
+            })
+        ));
+        assert!(matches!(
+            app.slot_field(1, 0).map(|field| field.value_state),
+            Some(super::FieldValueState::Unset)
+        ));
+    }
+
+    #[test]
+    fn field_picker_lists_existing_request_slots_that_can_produce_the_field_type() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let tenant_resolve_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantIdResolveRequest"))
+            .expect("AzureTenantIdResolveRequest should be registered");
+        app.shape_picker.open(Some(tenant_resolve_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(tenant_resolve_index));
+        app.apply_shape_selection();
+
+        app.active_slot_index = 1;
+        app.activate_current_row();
+        let user_list_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("EntraUserListRequest"))
+            .expect("EntraUserListRequest should be registered");
+        app.shape_picker.open(Some(user_list_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(user_list_index));
+        app.apply_shape_selection();
+
+        app.active_row_index = 2;
+        app.activate_current_row();
+
+        let picker = app.field_picker.as_ref().expect("field picker should open");
+        assert!(
+            picker
+                .choices
+                .contains(&FieldPickerChoice::ExistingProducerSlot { slot_id: 1 })
+        );
+    }
+
+    #[test]
     fn deleting_a_view_slot_unsets_the_owner_field() {
         let mut app = ObjectBrowserApp::default();
         app.activate_current_row();
@@ -4488,6 +4808,7 @@ mod tests {
             shape_name: Some("Vec<EntraUser>".to_string()),
             body: super::SlotBody::Unset,
             result_slot_ids: Vec::new(),
+            created_for: None,
             produced_by_slot_id: None,
             runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
                 json: serde_json::to_string(&value).expect("json"),
