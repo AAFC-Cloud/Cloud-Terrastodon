@@ -7,6 +7,7 @@ use cloud_terrastodon_registry::shape_fields_for_thing;
 use cloud_terrastodon_registry::shape_variants_for_thing;
 use crossterm::event::EventStream;
 use eyre::Result;
+use futures::FutureExt;
 use futures::StreamExt;
 use nucleo::Matcher;
 use nucleo::pattern::CaseMatching;
@@ -43,9 +44,12 @@ use ratatui::widgets::ScrollbarOrientation;
 use ratatui::widgets::ScrollbarState;
 use ratatui::widgets::Widget;
 use ratatui::widgets::Wrap;
+use serde_json::Map;
+use serde_json::Value;
 use std::collections::BTreeSet;
 use std::ops::Range;
 use std::time::Duration;
+use tokio::task::JoinHandle;
 use tracing::info;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
@@ -109,12 +113,68 @@ impl ObjectBrowserApp {
 
         while !self.should_quit {
             tokio::select! {
-                _ = interval.tick() => { terminal.draw(|frame| self.draw(frame))?; },
+                _ = interval.tick() => { self.advance_pending_invocations(); terminal.draw(|frame| self.draw(frame))?; },
                 Some(Ok(event)) = events.next() => self.handle_event(&event),
             }
         }
 
         Ok(())
+    }
+
+    fn advance_pending_invocations(&mut self) {
+        let mut updates = Vec::new();
+        for slot_index in 0..self.object_slots.len() {
+            let is_finished = matches!(
+                self.object_slots.get(slot_index).and_then(|slot| slot.runtime_state.as_ref()),
+                Some(SlotRuntimeState::Pending(pending)) if pending.join_handle.is_finished()
+            );
+            if !is_finished {
+                continue;
+            }
+
+            let Some(slot) = self.object_slots.get_mut(slot_index) else {
+                continue;
+            };
+            let Some(SlotRuntimeState::Pending(pending)) = slot.runtime_state.take() else {
+                continue;
+            };
+
+            let next_state = match pending
+                .join_handle
+                .now_or_never()
+                .expect("finished join handle should resolve immediately")
+            {
+                Ok(Ok(output)) => match (pending.output_serialize)(output.as_ref()) {
+                    Ok(json) => SlotRuntimeState::ResolvedValue { json },
+                    Err(error) => SlotRuntimeState::Failed {
+                        message: format!("could not serialize invocation result: {error}"),
+                    },
+                },
+                Ok(Err(error)) => SlotRuntimeState::Failed {
+                    message: error.to_string(),
+                },
+                Err(error) => SlotRuntimeState::Failed {
+                    message: format!("task join failed: {error}"),
+                },
+            };
+            updates.push((slot.id, next_state));
+        }
+
+        for (slot_id, next_state) in updates {
+            let status_message = match &next_state {
+                SlotRuntimeState::ResolvedValue { .. } => {
+                    format!("Result slot {slot_id} resolved.")
+                }
+                SlotRuntimeState::Failed { message } => {
+                    format!("Result slot {slot_id} failed: {message}")
+                }
+                SlotRuntimeState::Pending(_) => continue,
+            };
+            if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                slot.runtime_state = Some(next_state);
+            }
+            self.status_message = status_message;
+        }
     }
 
     fn draw(&mut self, frame: &mut Frame) {
@@ -509,6 +569,7 @@ impl ObjectBrowserApp {
             }
             SlotFocusTarget::FieldValue(field_index) => self.activate_field_value(field_index),
             SlotFocusTarget::Inlink(inlink_index) => self.activate_inlink(slot_id, inlink_index),
+            SlotFocusTarget::Result(result_index) => self.activate_result(slot_id, result_index),
             SlotFocusTarget::Action(action) => self.activate_slot_action(slot_id, action),
         }
     }
@@ -644,6 +705,7 @@ impl ObjectBrowserApp {
             SlotAction::Delete => self.delete_slot(slot_id),
             SlotAction::Clone => self.clone_slot(slot_id),
             SlotAction::Take => self.take_slot(slot_id),
+            SlotAction::Invoke => self.invoke_slot(slot_id),
         }
     }
 
@@ -723,11 +785,82 @@ impl ObjectBrowserApp {
             slot.kind = SlotKind::Owned;
             slot.shape_name = snapshot.shape_name;
             slot.body = snapshot.body;
+            slot.runtime_state = snapshot
+                .value_json
+                .map(|json| SlotRuntimeState::ResolvedValue { json });
         }
         self.jump_to_slot(slot_id);
         self.status_message = format!(
             "Took slot {} out of slot {}.{} and made it owned.",
             slot_id, info.owner_slot_id, info.field_name
+        );
+    }
+
+    fn activate_result(&mut self, slot_id: usize, result_index: usize) {
+        let Some(result_slot_id) = self
+            .slot_by_id(slot_id)
+            .and_then(|slot| slot.result_slot_ids.get(result_index).copied())
+        else {
+            return;
+        };
+        self.jump_to_slot(result_slot_id);
+        self.status_message = format!("Jumped to result slot {}.", result_slot_id);
+    }
+
+    fn invoke_slot(&mut self, slot_id: usize) {
+        let Some(shape_name) = self.slot_shape_name(slot_id).map(str::to_string) else {
+            self.status_message = "Pick a shape before invoking.".to_string();
+            return;
+        };
+        let Some(thing) = self.thing_for_shape_name(&shape_name) else {
+            self.status_message = format!("{shape_name} is not a registered invokable thing.");
+            return;
+        };
+        let Some(invocation) = thing.invocation else {
+            self.status_message = format!("{shape_name} is not invokable.");
+            return;
+        };
+        let json = match self.slot_json_string(slot_id) {
+            Ok(json) => json,
+            Err(error) => {
+                self.status_message = format!("Could not invoke slot {}: {error}", slot_id);
+                return;
+            }
+        };
+        let request = match thing.parse_boxed(&json) {
+            Ok(request) => request,
+            Err(error) => {
+                self.status_message = format!("Could not build {shape_name} request: {error}");
+                return;
+            }
+        };
+        let future = match thing.invoke_boxed(request) {
+            Ok(future) => future,
+            Err(error) => {
+                self.status_message = format!("Could not invoke {shape_name}: {error}");
+                return;
+            }
+        };
+
+        let result_slot_id = self.next_slot_id;
+        self.next_slot_id += 1;
+        let output_shape_name = describe_shape(invocation.output_shape);
+        let pending = PendingInvocationState {
+            join_handle: tokio::spawn(future),
+            output_serialize: invocation.output_serialize,
+        };
+        self.object_slots.push(ObjectSlot::new_result(
+            result_slot_id,
+            output_shape_name.clone(),
+            pending,
+        ));
+        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+            slot.result_slot_ids.push(result_slot_id);
+        }
+        self.jump_to_slot(result_slot_id);
+        self.status_message = format!(
+            "Invoked slot {} and started result slot {} for {}.",
+            slot_id, result_slot_id, output_shape_name
         );
     }
 
@@ -1105,19 +1238,34 @@ impl ObjectBrowserApp {
     fn slot_snapshot(&self, slot_id: usize) -> Option<SlotSnapshot> {
         let data_slot = self.slot_by_id(self.data_slot_id_for(slot_id)?)?;
         let display_slot = self.slot_by_id(slot_id)?;
+        if matches!(
+            data_slot.runtime_state,
+            Some(SlotRuntimeState::Pending(_)) | Some(SlotRuntimeState::Failed { .. })
+        ) {
+            return None;
+        }
         Some(SlotSnapshot {
             name: display_slot.name.clone().or_else(|| data_slot.name.clone()),
             shape_name: data_slot.shape_name.clone(),
             body: data_slot.body.clone(),
+            value_json: match &data_slot.runtime_state {
+                Some(SlotRuntimeState::ResolvedValue { json }) => Some(json.clone()),
+                _ => None,
+            },
         })
     }
-
     fn remove_slots_cascade(&mut self, initial_slot_id: usize) {
         let mut to_remove = BTreeSet::from([initial_slot_id]);
         let mut changed = true;
         while changed {
             changed = false;
             for slot in &self.object_slots {
+                if to_remove.contains(&slot.id) {
+                    for result_slot_id in &slot.result_slot_ids {
+                        changed |= to_remove.insert(*result_slot_id);
+                    }
+                }
+
                 let SlotKind::View(info) = &slot.kind else {
                     continue;
                 };
@@ -1134,14 +1282,24 @@ impl ObjectBrowserApp {
         for slot_id in removed_ids {
             self.clear_links_to_slot(slot_id);
         }
+        for slot in &mut self.object_slots {
+            if to_remove.contains(&slot.id) {
+                if let Some(SlotRuntimeState::Pending(pending)) = &slot.runtime_state {
+                    pending.join_handle.abort();
+                }
+            }
+        }
         self.object_slots
             .retain(|slot| !to_remove.contains(&slot.id));
+        for slot in &mut self.object_slots {
+            slot.result_slot_ids
+                .retain(|slot_id| !to_remove.contains(slot_id));
+        }
 
         let max_index = self.total_slot_count().saturating_sub(1);
         self.active_slot_index = self.active_slot_index.min(max_index);
         self.clamp_active_row();
     }
-
     fn total_slot_count(&self) -> usize {
         self.object_slots.len() + 1
     }
@@ -1247,6 +1405,132 @@ impl ObjectBrowserApp {
             .and_then(ObjectSlot::variant_picker_seed)
     }
 
+    fn thing_for_shape_name(
+        &self,
+        shape_name: &str,
+    ) -> Option<&'static cloud_terrastodon_registry::Thing> {
+        self.shape_choices
+            .iter()
+            .find(|shape| shape.label == shape_name)
+            .map(|shape| shape.thing)
+    }
+
+    fn slot_json_string(&self, slot_id: usize) -> Result<String> {
+        let value = self.slot_json_value(slot_id)?;
+        Ok(serde_json::to_string(&value)?)
+    }
+
+    fn slot_json_value(&self, slot_id: usize) -> Result<Value> {
+        let data_slot_id = self
+            .data_slot_id_for(slot_id)
+            .ok_or_else(|| eyre::eyre!("slot {slot_id} has no backing value"))?;
+        let slot = self
+            .slot_by_id(data_slot_id)
+            .ok_or_else(|| eyre::eyre!("slot {data_slot_id} is missing"))?;
+
+        match &slot.runtime_state {
+            Some(SlotRuntimeState::Pending(_)) => {
+                eyre::bail!("slot {} is still pending", slot.id);
+            }
+            Some(SlotRuntimeState::Failed { message }) => {
+                eyre::bail!("slot {} failed: {}", slot.id, message);
+            }
+            Some(SlotRuntimeState::ResolvedValue { json }) => {
+                return Ok(serde_json::from_str(json)?);
+            }
+            None => {}
+        }
+
+        match &slot.body {
+            SlotBody::Unset => eyre::bail!("slot {} is still unset", slot.id),
+            SlotBody::Struct { fields } => {
+                let mut object = Map::new();
+                for field in fields {
+                    object.insert(
+                        field.info.field_name.to_string(),
+                        self.field_json_value(field)?,
+                    );
+                }
+                Ok(Value::Object(object))
+            }
+            SlotBody::Enum {
+                variants,
+                selected_variant,
+                fields,
+            } => {
+                let Some(variant_index) = selected_variant else {
+                    eyre::bail!("slot {} does not have a selected variant", slot.id);
+                };
+                let Some(variant) = variants.get(*variant_index) else {
+                    eyre::bail!("slot {} selected an invalid variant", slot.id);
+                };
+
+                if variant.info.payload_shape_name.is_none() {
+                    return Ok(Value::String(variant.info.variant_name.to_string()));
+                }
+                if fields.is_empty() {
+                    eyre::bail!(
+                        "{} requires payload value editing, which is not implemented yet",
+                        variant.info.variant_name
+                    );
+                }
+
+                let payload = if fields.len() == 1 {
+                    self.field_json_value(&fields[0])?
+                } else {
+                    let mut payload = Map::new();
+                    for field in fields {
+                        payload.insert(
+                            field.info.field_name.to_string(),
+                            self.field_json_value(field)?,
+                        );
+                    }
+                    Value::Object(payload)
+                };
+
+                let mut object = Map::new();
+                object.insert(variant.info.variant_name.to_string(), payload);
+                Ok(Value::Object(object))
+            }
+        }
+    }
+
+    fn field_json_value(&self, field: &ObjectFieldState) -> Result<Value> {
+        match field.value_state {
+            FieldValueState::Linked { slot_id } => self.slot_json_value(slot_id),
+            FieldValueState::Defaulted => self.default_json_value(
+                &field.info.field_shape_name,
+                field.info.default_value_label.as_deref(),
+            ),
+            FieldValueState::Unset => {
+                eyre::bail!("{} is unset", field.info.field_name);
+            }
+        }
+    }
+
+    fn default_json_value(
+        &self,
+        field_shape_name: &str,
+        default_value_label: Option<&str>,
+    ) -> Result<Value> {
+        let Some(default_value_label) = default_value_label else {
+            eyre::bail!(
+                "default value metadata is unavailable for {}",
+                field_shape_name
+            );
+        };
+        if let Some(variant_name) = default_value_label
+            .strip_prefix(field_shape_name)
+            .and_then(|rest| rest.strip_prefix("::"))
+        {
+            return Ok(Value::String(variant_name.to_string()));
+        }
+        eyre::bail!(
+            "generic default serialization is not implemented for {} ({})",
+            field_shape_name,
+            default_value_label
+        );
+    }
     fn slot_focus_targets(&self, slot_id: usize) -> Vec<SlotFocusTarget> {
         let mut targets = Vec::new();
         if matches!(
@@ -1280,16 +1564,28 @@ impl ObjectBrowserApp {
             targets.push(SlotFocusTarget::Inlink(index));
         }
 
+        if let Some(slot) = self.slot_by_id(slot_id) {
+            for (index, _) in slot.result_slot_ids.iter().enumerate() {
+                targets.push(SlotFocusTarget::Result(index));
+            }
+        }
+
         targets.extend([
             SlotFocusTarget::Action(SlotAction::Rename),
             SlotFocusTarget::Action(SlotAction::Delete),
             SlotFocusTarget::Action(SlotAction::Clone),
             SlotFocusTarget::Action(SlotAction::Take),
         ]);
+        if self
+            .slot_shape_name(slot_id)
+            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
+            .is_some_and(|thing| thing.is_invokable())
+        {
+            targets.push(SlotFocusTarget::Action(SlotAction::Invoke));
+        }
 
         targets
     }
-
     fn slot_default_focus_target(&self, slot_id: usize) -> SlotFocusTarget {
         self.slot_by_id(self.data_slot_id_for(slot_id).unwrap_or(slot_id))
             .map(ObjectSlot::default_focus_target)
@@ -1407,6 +1703,7 @@ impl ObjectBrowserApp {
                 SlotAction::Delete => "delete".to_string(),
                 SlotAction::Clone => "clone".to_string(),
                 SlotAction::Take => "take".to_string(),
+                SlotAction::Invoke => "invoke".to_string(),
             };
         };
 
@@ -1421,9 +1718,9 @@ impl ObjectBrowserApp {
                 SlotKind::Owned => "take (already owned)".to_string(),
                 SlotKind::View(_) => "take".to_string(),
             },
+            SlotAction::Invoke => "invoke".to_string(),
         }
     }
-
     fn variant_picker_preview_lines(&self) -> Option<Vec<Line<'static>>> {
         let picker = self.variant_picker.as_ref()?;
         let variant = picker.selected_variant()?;
@@ -1544,13 +1841,37 @@ impl ObjectBrowserApp {
             }
         }
 
+        if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
+            lines.push(separator_line("status"));
+            lines.extend(self.runtime_state_lines(runtime_state));
+        }
+
+        if !slot.result_slot_ids.is_empty() {
+            lines.push(separator_line("results"));
+            for (index, result_slot_id) in slot.result_slot_ids.iter().copied().enumerate() {
+                lines.push(selectable_plain_line(
+                    self.result_slot_label(result_slot_id),
+                    active_target == Some(SlotFocusTarget::Result(index)),
+                ));
+            }
+        }
+
         lines.push(separator_line("actions"));
         for action in [
             SlotAction::Rename,
             SlotAction::Delete,
             SlotAction::Clone,
             SlotAction::Take,
+            SlotAction::Invoke,
         ] {
+            if action == SlotAction::Invoke
+                && !self
+                    .slot_shape_name(slot_id)
+                    .and_then(|shape_name| self.thing_for_shape_name(shape_name))
+                    .is_some_and(|thing| thing.is_invokable())
+            {
+                continue;
+            }
             lines.push(selectable_plain_line(
                 self.slot_action_label(slot_id, action),
                 active_target == Some(SlotFocusTarget::Action(action)),
@@ -1559,7 +1880,6 @@ impl ObjectBrowserApp {
 
         lines
     }
-
     fn slot_preview_lines(&self, slot_id: usize) -> Vec<Line<'static>> {
         self.slot_lines(slot_id, false, 0)
     }
@@ -1619,6 +1939,15 @@ impl ObjectBrowserApp {
     }
 
     fn slot_border_style(&self, slot_id: usize, is_active: bool) -> Style {
+        if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
+            let color = match runtime_state {
+                SlotRuntimeState::Pending(_) => Color::Yellow,
+                SlotRuntimeState::ResolvedValue { .. } => Color::Green,
+                SlotRuntimeState::Failed { .. } => Color::Red,
+            };
+            return slot_border_style(color, is_active);
+        }
+
         let color = match (
             self.slot_by_id(slot_id).map(|slot| &slot.kind),
             self.slot_completion(slot_id),
@@ -1634,6 +1963,13 @@ impl ObjectBrowserApp {
     }
 
     fn slot_completion(&self, slot_id: usize) -> SlotCompletion {
+        if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
+            return match runtime_state {
+                SlotRuntimeState::Pending(_) => SlotCompletion::Partial,
+                SlotRuntimeState::ResolvedValue { .. } => SlotCompletion::Complete,
+                SlotRuntimeState::Failed { .. } => SlotCompletion::Unset,
+            };
+        }
         let Some(shape_name) = self.slot_shape_name(slot_id) else {
             return SlotCompletion::Unset;
         };
@@ -1667,6 +2003,52 @@ impl ObjectBrowserApp {
             }
         }
     }
+
+    fn slot_runtime_state(&self, slot_id: usize) -> Option<&SlotRuntimeState> {
+        let data_slot_id = self.data_slot_id_for(slot_id)?;
+        self.slot_by_id(data_slot_id)
+            .and_then(|slot| slot.runtime_state.as_ref())
+    }
+
+    fn runtime_state_lines(&self, runtime_state: &SlotRuntimeState) -> Vec<Line<'static>> {
+        match runtime_state {
+            SlotRuntimeState::Pending(_) => {
+                vec![Line::from("  pending invocation...")]
+            }
+            SlotRuntimeState::Failed { message } => vec![Line::from(vec![
+                Span::raw("  "),
+                Span::styled("failed", unset_style()),
+                Span::raw(format!(": {message}")),
+            ])],
+            SlotRuntimeState::ResolvedValue { json } => {
+                let mut lines = vec![Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled(
+                        "resolved",
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ])];
+                lines.extend(pretty_json_lines(json));
+                lines
+            }
+        }
+    }
+
+    fn result_slot_label(&self, slot_id: usize) -> String {
+        let Some(slot) = self.slot_by_id(slot_id) else {
+            return format!("slot {slot_id}");
+        };
+        let shape_name = slot.shape_name.as_deref().unwrap_or("unset");
+        let status = match slot.runtime_state.as_ref() {
+            Some(SlotRuntimeState::Pending(_)) => "pending",
+            Some(SlotRuntimeState::ResolvedValue { .. }) => "resolved",
+            Some(SlotRuntimeState::Failed { .. }) => "failed",
+            None => "ready",
+        };
+        format!("slot {} [{}] - {}", slot.id, status, shape_name)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1687,6 +2069,7 @@ enum SlotFocusTarget {
     FieldType(usize),
     FieldValue(usize),
     Inlink(usize),
+    Result(usize),
     Action(SlotAction),
 }
 
@@ -1696,6 +2079,7 @@ enum SlotAction {
     Delete,
     Clone,
     Take,
+    Invoke,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -2011,15 +2395,31 @@ struct SlotSnapshot {
     name: Option<String>,
     shape_name: Option<String>,
     body: SlotBody,
+    value_json: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+enum SlotRuntimeState {
+    Pending(PendingInvocationState),
+    ResolvedValue { json: String },
+    Failed { message: String },
+}
+
+#[derive(Debug)]
+struct PendingInvocationState {
+    join_handle: JoinHandle<Result<Box<dyn std::any::Any + Send>>>,
+    output_serialize: cloud_terrastodon_registry::SerializeFn,
+}
+
+#[derive(Debug)]
 struct ObjectSlot {
     id: usize,
     name: Option<String>,
     kind: SlotKind,
     shape_name: Option<String>,
     body: SlotBody,
+    result_slot_ids: Vec<usize>,
+    runtime_state: Option<SlotRuntimeState>,
 }
 
 impl ObjectSlot {
@@ -2030,6 +2430,10 @@ impl ObjectSlot {
             kind: SlotKind::Owned,
             shape_name: snapshot.shape_name,
             body: snapshot.body,
+            result_slot_ids: Vec::new(),
+            runtime_state: snapshot
+                .value_json
+                .map(|json| SlotRuntimeState::ResolvedValue { json }),
         }
     }
 
@@ -2040,6 +2444,20 @@ impl ObjectSlot {
             kind: SlotKind::Owned,
             shape_name: None,
             body: SlotBody::Unset,
+            result_slot_ids: Vec::new(),
+            runtime_state: None,
+        }
+    }
+
+    fn new_result(id: usize, shape_name: String, pending: PendingInvocationState) -> Self {
+        Self {
+            id,
+            name: None,
+            kind: SlotKind::Owned,
+            shape_name: Some(shape_name),
+            body: SlotBody::Unset,
+            result_slot_ids: Vec::new(),
+            runtime_state: Some(SlotRuntimeState::Pending(pending)),
         }
     }
 
@@ -2061,6 +2479,8 @@ impl ObjectSlot {
             }),
             shape_name: None,
             body: SlotBody::Unset,
+            result_slot_ids: Vec::new(),
+            runtime_state: None,
         }
     }
 
@@ -2548,6 +2968,15 @@ fn separator_line(label: &str) -> Line<'static> {
     ])
 }
 
+fn pretty_json_lines(json: &str) -> Vec<Line<'static>> {
+    let pretty = serde_json::from_str::<Value>(json)
+        .and_then(|value| serde_json::to_string_pretty(&value))
+        .unwrap_or_else(|_| json.to_string());
+    pretty
+        .lines()
+        .map(|line| Line::from(format!("  {line}")))
+        .collect()
+}
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     let vertical = Layout::vertical([
         Constraint::Percentage((100 - percent_y) / 2),
@@ -2573,7 +3002,35 @@ mod tests {
     use super::SlotBody;
     use super::SlotKind;
     use cloud_terrastodon_registry::known_shapes;
+    use facet::Facet;
+    use std::future::Future;
+    use std::future::IntoFuture;
 
+    #[derive(Debug, Clone, Facet)]
+    #[repr(C)]
+    struct DummyInvokeOutput {
+        message: String,
+    }
+
+    #[derive(Debug, Clone, Facet)]
+    #[repr(C)]
+    struct DummyInvokeRequest {}
+
+    impl IntoFuture for DummyInvokeRequest {
+        type Output = eyre::Result<DummyInvokeOutput>;
+        type IntoFuture = std::pin::Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+
+        fn into_future(self) -> Self::IntoFuture {
+            Box::pin(async {
+                Ok(DummyInvokeOutput {
+                    message: "done".to_string(),
+                })
+            })
+        }
+    }
+
+    cloud_terrastodon_registry::register_thing!(DummyInvokeOutput);
+    cloud_terrastodon_registry::register_thing!(DummyInvokeRequest => DummyInvokeOutput);
     #[test]
     fn creating_a_slot_focuses_the_shape_row() {
         let mut app = ObjectBrowserApp::default();
@@ -2824,5 +3281,47 @@ mod tests {
             app.slot_by_id(1).and_then(|slot| slot.name.as_deref()),
             Some("tenant source")
         );
+    }
+
+    #[tokio::test]
+    async fn invoke_action_creates_and_resolves_a_result_slot() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label == "DummyInvokeRequest")
+            .expect("DummyInvokeRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.invoke_slot(1);
+        let result_slot_id = app
+            .slot_by_id(1)
+            .and_then(|slot| slot.result_slot_ids.first().copied())
+            .expect("invocation should create a result slot");
+        assert!(matches!(
+            app.slot_by_id(result_slot_id)
+                .and_then(|slot| slot.runtime_state.as_ref()),
+            Some(super::SlotRuntimeState::Pending(_))
+        ));
+
+        tokio::task::yield_now().await;
+        app.advance_pending_invocations();
+
+        let resolved_json = app
+            .slot_by_id(result_slot_id)
+            .and_then(|slot| slot.runtime_state.as_ref())
+            .and_then(|runtime| match runtime {
+                super::SlotRuntimeState::ResolvedValue { json } => Some(json.clone()),
+                _ => None,
+            })
+            .expect("result slot should resolve");
+        assert!(resolved_json.contains("\"message\":\"done\""));
     }
 }

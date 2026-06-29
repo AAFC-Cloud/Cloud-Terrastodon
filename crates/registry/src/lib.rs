@@ -13,6 +13,8 @@ pub use linkme::distributed_slice;
 
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;
 pub type InvokeFn = fn(Box<dyn Any + Send>) -> InvocationFuture;
+pub type ParseFn = fn(&str) -> eyre::Result<Box<dyn Any + Send>>;
+pub type SerializeFn = fn(&(dyn Any + Send)) -> eyre::Result<String>;
 
 #[derive(Clone)]
 pub struct KnownShapeInfo {
@@ -40,20 +42,31 @@ pub struct ShapeVariantInfo {
 pub struct Thing {
     pub shape: &'static Shape,
     pub invocation: Option<Invocation>,
+    pub parse: ParseFn,
+    pub serialize: SerializeFn,
 }
 
 impl Thing {
-    pub const fn value(shape: &'static Shape) -> Self {
+    pub const fn value(shape: &'static Shape, parse: ParseFn, serialize: SerializeFn) -> Self {
         Self {
             shape,
             invocation: None,
+            parse,
+            serialize,
         }
     }
 
-    pub const fn invokable(shape: &'static Shape, invocation: Invocation) -> Self {
+    pub const fn invokable(
+        shape: &'static Shape,
+        invocation: Invocation,
+        parse: ParseFn,
+        serialize: SerializeFn,
+    ) -> Self {
         Self {
             shape,
             invocation: Some(invocation),
+            parse,
+            serialize,
         }
     }
 
@@ -82,6 +95,14 @@ impl Thing {
         input_dependencies(self.shape)
     }
 
+    pub fn parse_boxed(&self, json: &str) -> eyre::Result<Box<dyn Any + Send>> {
+        (self.parse)(json)
+    }
+
+    pub fn serialize_boxed(&self, value: &(dyn Any + Send)) -> eyre::Result<String> {
+        (self.serialize)(value)
+    }
+
     pub fn invoke_boxed(&self, input: Box<dyn Any + Send>) -> eyre::Result<InvocationFuture> {
         let Some(invocation) = self.invocation else {
             eyre::bail!("{} is not invokable", describe_shape(self.shape));
@@ -100,13 +121,19 @@ impl core::fmt::Display for Thing {
 pub struct Invocation {
     pub output_shape: &'static Shape,
     pub invoke: InvokeFn,
+    pub output_serialize: SerializeFn,
 }
 
 impl Invocation {
-    pub const fn new(output_shape: &'static Shape, invoke: InvokeFn) -> Self {
+    pub const fn new(
+        output_shape: &'static Shape,
+        invoke: InvokeFn,
+        output_serialize: SerializeFn,
+    ) -> Self {
         Self {
             output_shape,
             invoke,
+            output_serialize,
         }
     }
 }
@@ -115,16 +142,40 @@ pub const fn invocation_for_result_future<T, O>(output_shape: &'static Shape) ->
 where
     T: IntoFuture<Output = eyre::Result<O>> + Any + Send + 'static,
     T::IntoFuture: Send + 'static,
-    O: Any + Send + 'static,
+    O: facet::Facet<'static> + Any + Send + 'static,
 {
-    Invocation::new(output_shape, invoke_result_future::<T, O>)
+    Invocation::new(
+        output_shape,
+        invoke_result_future::<T, O>,
+        serialize_boxed::<O>,
+    )
+}
+
+pub fn parse_boxed<T>(json: &str) -> eyre::Result<Box<dyn Any + Send>>
+where
+    T: facet::Facet<'static> + Any + Send + 'static,
+{
+    Ok(Box::new(facet_json::from_str::<T>(json)?) as Box<dyn Any + Send>)
+}
+
+pub fn serialize_boxed<T>(value: &(dyn Any + Send)) -> eyre::Result<String>
+where
+    T: facet::Facet<'static> + Any + Send + 'static,
+{
+    let typed = value.downcast_ref::<T>().ok_or_else(|| {
+        eyre::eyre!(
+            "serialization expected value type {}, but received a different erased value",
+            type_name::<T>()
+        )
+    })?;
+    Ok(facet_json::to_string(typed)?)
 }
 
 pub fn invoke_result_future<T, O>(input: Box<dyn Any + Send>) -> InvocationFuture
 where
     T: IntoFuture<Output = eyre::Result<O>> + Any + Send + 'static,
     T::IntoFuture: Send + 'static,
-    O: Any + Send + 'static,
+    O: facet::Facet<'static> + Any + Send + 'static,
 {
     Box::pin(async move {
         let request = input.downcast::<T>().map_err(|_| {
@@ -155,8 +206,11 @@ macro_rules! register_thing {
     ($thing_ty:ty) => {
         const _: () = {
             #[linkme::distributed_slice($crate::KNOWN_THINGS)]
-            static REGISTERED_THING: $crate::Thing =
-                $crate::Thing::value(<$thing_ty as facet::Facet<'static>>::SHAPE);
+            static REGISTERED_THING: $crate::Thing = $crate::Thing::value(
+                <$thing_ty as facet::Facet<'static>>::SHAPE,
+                $crate::parse_boxed::<$thing_ty>,
+                $crate::serialize_boxed::<$thing_ty>,
+            );
         };
     };
     ($thing_ty:ty => $output_ty:ty) => {
@@ -167,6 +221,8 @@ macro_rules! register_thing {
                 $crate::invocation_for_result_future::<$thing_ty, $output_ty>(
                     <$output_ty as facet::Facet<'static>>::SHAPE,
                 ),
+                $crate::parse_boxed::<$thing_ty>,
+                $crate::serialize_boxed::<$thing_ty>,
             );
         };
     };
@@ -365,16 +421,32 @@ mod test {
     }
 
     #[distributed_slice(KNOWN_THINGS)]
-    static THING_DUMMY_TENANT: Thing = Thing::value(DummyTenant::SHAPE);
+    static THING_DUMMY_TENANT: Thing = Thing::value(
+        DummyTenant::SHAPE,
+        super::parse_boxed::<DummyTenant>,
+        super::serialize_boxed::<DummyTenant>,
+    );
 
     #[distributed_slice(KNOWN_THINGS)]
-    static THING_DUMMY_TENANT_DUPLICATE: Thing = Thing::value(DummyTenant::SHAPE);
+    static THING_DUMMY_TENANT_DUPLICATE: Thing = Thing::value(
+        DummyTenant::SHAPE,
+        super::parse_boxed::<DummyTenant>,
+        super::serialize_boxed::<DummyTenant>,
+    );
 
     #[distributed_slice(KNOWN_THINGS)]
-    static THING_DUMMY_OUTPUT: Thing = Thing::value(DummyOutput::SHAPE);
+    static THING_DUMMY_OUTPUT: Thing = Thing::value(
+        DummyOutput::SHAPE,
+        super::parse_boxed::<DummyOutput>,
+        super::serialize_boxed::<DummyOutput>,
+    );
 
     #[distributed_slice(KNOWN_THINGS)]
-    static THING_DUMMY_ARGUMENT: Thing = Thing::value(DummyArgument::SHAPE);
+    static THING_DUMMY_ARGUMENT: Thing = Thing::value(
+        DummyArgument::SHAPE,
+        super::parse_boxed::<DummyArgument>,
+        super::serialize_boxed::<DummyArgument>,
+    );
 
     #[distributed_slice(KNOWN_THINGS)]
     static THING_DUMMY_LIST_REQUEST: Thing = Thing::invokable(
@@ -382,10 +454,16 @@ mod test {
         invocation_for_result_future::<DummyListRequest, Vec<DummyOutput>>(
             <Vec<DummyOutput> as Facet<'static>>::SHAPE,
         ),
+        super::parse_boxed::<DummyListRequest>,
+        super::serialize_boxed::<DummyListRequest>,
     );
 
     #[distributed_slice(KNOWN_THINGS)]
-    static THING_DUMMY_DEFAULTED_REQUEST: Thing = Thing::value(DummyDefaultedRequest::SHAPE);
+    static THING_DUMMY_DEFAULTED_REQUEST: Thing = Thing::value(
+        DummyDefaultedRequest::SHAPE,
+        super::parse_boxed::<DummyDefaultedRequest>,
+        super::serialize_boxed::<DummyDefaultedRequest>,
+    );
 
     #[test]
     pub fn invokable_thing_describes_dependencies_and_output() {
