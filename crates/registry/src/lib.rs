@@ -290,6 +290,12 @@ pub fn describe_shape(shape: &'static Shape) -> String {
         return format!("List<{}>", describe_shape(element_shape));
     }
 
+    if shape.type_identifier == "Option" {
+        if let Some(inner_shape) = shape.inner {
+            return format!("Option<{}>", describe_shape(inner_shape));
+        }
+    }
+
     shape.type_identifier.to_string()
 }
 
@@ -580,6 +586,14 @@ mod test {
         assert_eq!(
             describe_shape(<Vec<DummyOutput> as Facet<'static>>::SHAPE),
             format!("List<{}>", DummyOutput::SHAPE.type_identifier)
+        );
+    }
+
+    #[test]
+    pub fn shape_display_includes_option_inner_type() {
+        assert_eq!(
+            describe_shape(<Option<DummyOutput> as Facet<'static>>::SHAPE),
+            format!("Option<{}>", DummyOutput::SHAPE.type_identifier)
         );
     }
 }

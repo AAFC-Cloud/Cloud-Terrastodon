@@ -79,6 +79,10 @@ struct ObjectBrowserApp {
     object_slots: Vec<ObjectSlot>,
     active_slot_index: usize,
     active_row_index: usize,
+    slot_view_offset: usize,
+    row_view_offset: usize,
+    last_visible_slot_count: usize,
+    last_visible_row_count: usize,
     next_slot_id: usize,
     status_message: String,
 }
@@ -104,8 +108,12 @@ impl Default for ObjectBrowserApp {
             object_slots: Vec::new(),
             active_slot_index: 0,
             active_row_index: 0,
+            slot_view_offset: 0,
+            row_view_offset: 0,
+            last_visible_slot_count: 1,
+            last_visible_row_count: 1,
             next_slot_id: 1,
-            status_message: "Left/Right: slots | Up/Down: rows | Enter/Space: act | q: quit"
+            status_message: "Left/Right: slots | Up/Down: rows | PageUp/PageDown: page | Enter/Space: act | q: quit"
                 .to_string(),
         }
     }
@@ -241,10 +249,15 @@ impl ObjectBrowserApp {
             return;
         }
 
-        let [cards_area, scrollbar_area] = if inner.height > 1 {
-            Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(inner)
+        let [top_margin_area, cards_area, bottom_margin_area] = if inner.height >= 5 {
+            Layout::vertical([
+                Constraint::Length(1),
+                Constraint::Fill(1),
+                Constraint::Length(1),
+            ])
+            .areas(inner)
         } else {
-            [inner, Rect::default()]
+            [Rect::default(), inner, Rect::default()]
         };
         if cards_area.width == 0 || cards_area.height == 0 {
             return;
@@ -252,7 +265,17 @@ impl ObjectBrowserApp {
 
         let visible = self.visible_slot_range(cards_area.width);
         let constraints = vec![Constraint::Fill(1); visible.len()];
-        let slot_areas = Layout::horizontal(constraints).split(cards_area);
+        let slot_areas = Layout::horizontal(constraints.clone()).split(cards_area);
+        let top_marker_areas = if top_margin_area.height > 0 {
+            Some(Layout::horizontal(constraints.clone()).split(top_margin_area))
+        } else {
+            None
+        };
+        let bottom_marker_areas = if bottom_margin_area.height > 0 {
+            Some(Layout::horizontal(constraints).split(bottom_margin_area))
+        } else {
+            None
+        };
 
         for (offset, slot_index) in visible.clone().enumerate() {
             let Some(slot_area) = slot_areas.get(offset).copied() else {
@@ -269,43 +292,92 @@ impl ObjectBrowserApp {
                 }
                 None => {}
             }
+
+            if !is_active {
+                continue;
+            }
+
+            let marker_style = Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD);
+            if let Some(areas) = &top_marker_areas {
+                if let Some(marker_area) = areas.get(offset).copied() {
+                    frame.render_widget(
+                        Paragraph::new(Line::from(Span::styled("vvvvv", marker_style)))
+                            .alignment(Alignment::Center),
+                        marker_area,
+                    );
+                }
+            }
+            if let Some(areas) = &bottom_marker_areas {
+                if let Some(marker_area) = areas.get(offset).copied() {
+                    frame.render_widget(
+                        Paragraph::new(Line::from(Span::styled("^^^^^", marker_style)))
+                            .alignment(Alignment::Center),
+                        marker_area,
+                    );
+                }
+            }
         }
 
         let max_visible = self.max_visible_slots(cards_area.width);
-        if scrollbar_area.height > 0 && self.total_slot_count() > max_visible {
+        if self.total_slot_count() > max_visible {
             let scrollbar = Scrollbar::new(ScrollbarOrientation::HorizontalBottom);
             let mut scrollbar_state = ScrollbarState::new(self.total_slot_count())
                 .position(visible.start)
                 .viewport_content_length(max_visible);
-            frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+            frame.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
         }
     }
 
     fn draw_object_slot(&mut self, frame: &mut Frame, area: Rect, slot_id: usize, is_active: bool) {
-        let Some(slot) = self.slot_by_id(slot_id) else {
+        let Some(title) = self.slot_by_id(slot_id).map(|slot| {
+            let slot_label = slot.name.as_deref().unwrap_or("unnamed");
+            match slot.kind {
+                SlotKind::Owned => format!("slot {} ({slot_label}) [owned]", slot.id),
+                SlotKind::View(_) => format!("slot {} ({slot_label}) [view]", slot.id),
+            }
+        }) else {
             return;
-        };
-        let slot_label = slot.name.as_deref().unwrap_or("unnamed");
-        let title = match slot.kind {
-            SlotKind::Owned => format!("slot {} ({slot_label}) [owned]", slot.id),
-            SlotKind::View(_) => format!("slot {} ({slot_label}) [view]", slot.id),
         };
         let block = Block::default()
             .borders(Borders::ALL)
             .title(title)
             .border_style(self.slot_border_style(slot_id, is_active));
-        let paragraph = Paragraph::new(self.slot_lines(slot_id, is_active, self.active_row_index))
+        let inner = block.inner(area);
+        if is_active {
+            self.last_visible_row_count = usize::from(inner.height).max(1);
+            self.clamp_row_view_offset();
+            self.ensure_active_row_visible();
+        }
+        let scroll_offset = if is_active { self.row_view_offset } else { 0 };
+        let lines = self.slot_lines(slot_id, is_active, self.active_row_index);
+        let paragraph = Paragraph::new(lines.clone())
             .block(block)
-            .alignment(Alignment::Left);
+            .alignment(Alignment::Left)
+            .scroll((scroll_offset.min(u16::MAX as usize) as u16, 0));
         frame.render_widget(paragraph, area);
+
+        if is_active && usize::from(inner.height) > 0 && lines.len() > usize::from(inner.height) {
+            let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
+            let mut scrollbar_state = ScrollbarState::new(lines.len())
+                .position(scroll_offset)
+                .viewport_content_length(usize::from(inner.height));
+            frame.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
+        }
     }
 
-    fn draw_new_slot(&self, frame: &mut Frame, area: Rect, is_active: bool) {
+    fn draw_new_slot(&mut self, frame: &mut Frame, area: Rect, is_active: bool) {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::LightTripleDashed)
             .title("new slot")
             .border_style(slot_border_style(Color::DarkGray, is_active));
+        let inner = block.inner(area);
+        if is_active {
+            self.last_visible_row_count = usize::from(inner.height).max(1);
+            self.clamp_row_view_offset();
+        }
         let line =
             selectable_plain_line("+ create object", is_active && self.active_row_index == 0);
         frame.render_widget(Paragraph::new(vec![line]).block(block), area);
@@ -448,7 +520,7 @@ impl ObjectBrowserApp {
         }
 
         match self.mode {
-            UiMode::Pool => self.handle_pool_key(key.code),
+            UiMode::Pool => self.handle_pool_key(*key),
             UiMode::ShapePicker => self.handle_shape_picker_key(*key),
             UiMode::VariantPicker => self.handle_variant_picker_key(*key),
             UiMode::FieldPicker => self.handle_field_picker_key(*key),
@@ -457,9 +529,9 @@ impl ObjectBrowserApp {
         }
     }
 
-    fn handle_pool_key(&mut self, key: KeyCode) {
+    fn handle_pool_key(&mut self, key: KeyEvent) {
         match self.pool_surface {
-            PoolSurface::Breadcrumbs => match key {
+            PoolSurface::Breadcrumbs => match key.code {
                 KeyCode::Char('q') => self.should_quit = true,
                 KeyCode::Esc => self.handle_escape(),
                 KeyCode::Left => self.move_breadcrumb_left(),
@@ -468,16 +540,25 @@ impl ObjectBrowserApp {
                 KeyCode::Enter | KeyCode::Char(' ') => self.activate_current_breadcrumb(),
                 _ => {}
             },
-            PoolSurface::Slots => match key {
-                KeyCode::Char('q') => self.should_quit = true,
-                KeyCode::Esc => self.handle_escape(),
-                KeyCode::Left => self.move_slot_left(),
-                KeyCode::Right => self.move_slot_right(),
-                KeyCode::Up => self.move_row_up(),
-                KeyCode::Down => self.move_row_down(),
-                KeyCode::Enter | KeyCode::Char(' ') => self.activate_current_row(),
-                _ => {}
-            },
+            PoolSurface::Slots => {
+                let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+                match (ctrl, key.code) {
+                    (_, KeyCode::Char('q')) => self.should_quit = true,
+                    (_, KeyCode::Esc) => self.handle_escape(),
+                    (true, KeyCode::Left) => self.shift_slot_view_left(1),
+                    (true, KeyCode::Right) => self.shift_slot_view_right(1),
+                    (true, KeyCode::Up) => self.shift_row_view_up(1),
+                    (true, KeyCode::Down) => self.shift_row_view_down(1),
+                    (_, KeyCode::Left) => self.move_slot_left(),
+                    (_, KeyCode::Right) => self.move_slot_right(),
+                    (_, KeyCode::Up) => self.move_row_up(),
+                    (_, KeyCode::Down) => self.move_row_down(),
+                    (_, KeyCode::PageUp) => self.page_rows_up(),
+                    (_, KeyCode::PageDown) => self.page_rows_down(),
+                    (_, KeyCode::Enter | KeyCode::Char(' ')) => self.activate_current_row(),
+                    _ => {}
+                }
+            }
         }
     }
 
@@ -600,12 +681,14 @@ impl ObjectBrowserApp {
     fn move_slot_left(&mut self) {
         self.active_slot_index = self.active_slot_index.saturating_sub(1);
         self.clamp_active_row();
+        self.sync_selection_viewports();
     }
 
     fn move_slot_right(&mut self) {
         let max_index = self.total_slot_count().saturating_sub(1);
         self.active_slot_index = (self.active_slot_index + 1).min(max_index);
         self.clamp_active_row();
+        self.sync_selection_viewports();
     }
 
     fn move_row_up(&mut self) {
@@ -618,11 +701,145 @@ impl ObjectBrowserApp {
             return;
         }
         self.active_row_index = self.active_row_index.saturating_sub(1);
+        self.ensure_active_row_visible();
     }
 
     fn move_row_down(&mut self) {
         let max_row = self.active_focusable_rows().saturating_sub(1);
         self.active_row_index = (self.active_row_index + 1).min(max_row);
+        self.ensure_active_row_visible();
+    }
+
+    fn page_rows_up(&mut self) {
+        let step = self.last_visible_row_count.saturating_sub(1).max(1);
+        self.active_row_index = self.active_row_index.saturating_sub(step);
+        self.ensure_active_row_visible();
+    }
+
+    fn page_rows_down(&mut self) {
+        let step = self.last_visible_row_count.saturating_sub(1).max(1);
+        let max_row = self.active_focusable_rows().saturating_sub(1);
+        self.active_row_index = (self.active_row_index + step).min(max_row);
+        self.ensure_active_row_visible();
+    }
+
+    fn shift_slot_view_left(&mut self, amount: usize) {
+        self.slot_view_offset = self.slot_view_offset.saturating_sub(amount);
+        self.clamp_slot_view_offset();
+    }
+
+    fn shift_slot_view_right(&mut self, amount: usize) {
+        let visible = self.last_visible_slot_count.max(1);
+        let max_start = self.total_slot_count().saturating_sub(visible);
+        self.slot_view_offset = (self.slot_view_offset + amount).min(max_start);
+    }
+
+    fn shift_row_view_up(&mut self, amount: usize) {
+        self.row_view_offset = self.row_view_offset.saturating_sub(amount);
+        self.clamp_row_view_offset();
+    }
+
+    fn shift_row_view_down(&mut self, amount: usize) {
+        let visible = self.last_visible_row_count.max(1);
+        let max_start = self.active_rendered_line_count().saturating_sub(visible);
+        self.row_view_offset = (self.row_view_offset + amount).min(max_start);
+    }
+
+    fn sync_selection_viewports(&mut self) {
+        self.ensure_active_slot_visible();
+        self.ensure_active_row_visible();
+    }
+
+    fn clamp_slot_view_offset(&mut self) {
+        let visible = self.last_visible_slot_count.max(1);
+        let max_start = self.total_slot_count().saturating_sub(visible);
+        self.slot_view_offset = self.slot_view_offset.min(max_start);
+    }
+
+    fn clamp_row_view_offset(&mut self) {
+        let visible = self.last_visible_row_count.max(1);
+        let max_start = self.active_rendered_line_count().saturating_sub(visible);
+        self.row_view_offset = self.row_view_offset.min(max_start);
+    }
+
+    fn ensure_active_slot_visible(&mut self) {
+        let visible = self.last_visible_slot_count.max(1);
+        if self.active_slot_index < self.slot_view_offset {
+            self.slot_view_offset = self.active_slot_index;
+        } else if self.active_slot_index >= self.slot_view_offset + visible {
+            self.slot_view_offset = self.active_slot_index + 1 - visible;
+        }
+        self.clamp_slot_view_offset();
+    }
+
+    fn ensure_active_row_visible(&mut self) {
+        let visible = self.last_visible_row_count.max(1);
+        let active_line_index = self.active_line_index();
+        if active_line_index < self.row_view_offset {
+            self.row_view_offset = active_line_index;
+        } else if active_line_index >= self.row_view_offset + visible {
+            self.row_view_offset = active_line_index + 1 - visible;
+        }
+        self.clamp_row_view_offset();
+    }
+
+    fn active_rendered_line_count(&mut self) -> usize {
+        match self.current_pool_entry() {
+            Some(PoolEntry::RealSlot(slot_id)) => self.slot_display_rows(slot_id).len(),
+            Some(PoolEntry::Projection(projection)) => {
+                self.projection_rendered_line_count(&projection)
+            }
+            Some(PoolEntry::NewSlot) | None => 1,
+        }
+    }
+
+    fn active_line_index(&mut self) -> usize {
+        match self.current_pool_entry() {
+            Some(PoolEntry::RealSlot(slot_id)) => {
+                self.slot_line_index_for_row(slot_id, self.active_row_index)
+            }
+            Some(PoolEntry::Projection(projection)) => {
+                self.projection_line_index(&projection, self.active_row_index)
+            }
+            Some(PoolEntry::NewSlot) | None => 0,
+        }
+    }
+
+    fn slot_line_index_for_row(&mut self, slot_id: usize, active_row: usize) -> usize {
+        let Some(active_target) = self.slot_focus_targets(slot_id).get(active_row).copied() else {
+            return 0;
+        };
+        self.slot_display_rows(slot_id)
+            .iter()
+            .position(|row| {
+                matches!(
+                    row,
+                    SlotDisplayRow::Focusable { target, .. } if *target == active_target
+                )
+            })
+            .unwrap_or(0)
+    }
+
+    fn projection_rendered_line_count(&self, projection: &ProjectionSlot) -> usize {
+        match self.projection_value(projection) {
+            Some(Value::Object(object)) if !object.is_empty() => 2 + object.len() * 2,
+            Some(_) => 1,
+            None => 1,
+        }
+    }
+
+    fn projection_line_index(&self, projection: &ProjectionSlot, active_row: usize) -> usize {
+        match self.projection_value(projection) {
+            Some(Value::Object(object)) if !object.is_empty() && active_row > 0 => (active_row + 1)
+                .min(
+                    self.projection_rendered_line_count(projection)
+                        .saturating_sub(1),
+                ),
+            Some(_) | None => active_row.min(
+                self.projection_rendered_line_count(projection)
+                    .saturating_sub(1),
+            ),
+        }
     }
 
     fn activate_current_row(&mut self) {
@@ -670,6 +887,7 @@ impl ObjectBrowserApp {
         self.next_slot_id += 1;
         self.active_slot_index = self.object_slots.len().saturating_sub(1);
         self.active_row_index = 0;
+        self.sync_selection_viewports();
         self.status_message = format!(
             "Created slot {}. Pick a shape on the highlighted row.",
             self.object_slots[self.active_slot_index].id
@@ -993,6 +1211,7 @@ impl ObjectBrowserApp {
         self.active_row_index = self
             .focus_row_for_slot_target(slot_id, default_focus_target)
             .unwrap_or(0);
+        self.ensure_active_row_visible();
         self.status_message = match self.slot_body(slot_id) {
             Some(SlotBody::Unset) => format!("Shape set to {}.", choice.label),
             Some(SlotBody::Struct { fields }) if fields.is_empty() => format!(
@@ -1039,6 +1258,7 @@ impl ObjectBrowserApp {
         self.active_row_index = self
             .focus_row_for_slot_target(source_slot_id, next_focus_target)
             .unwrap_or(0);
+        self.ensure_active_row_visible();
         self.status_message = match variant.payload_shape_name {
             Some(payload_shape_name) if variant.payload_fields.is_empty() => format!(
                 "Selected {}::{}. This payload is a {} value; general value editing is the next interaction to add.",
@@ -1409,6 +1629,7 @@ impl ObjectBrowserApp {
         let max_index = self.total_slot_count().saturating_sub(1);
         self.active_slot_index = self.active_slot_index.min(max_index);
         self.clamp_active_row();
+        self.sync_selection_viewports();
     }
     fn total_slot_count(&self) -> usize {
         self.current_projection_view()
@@ -1455,18 +1676,17 @@ impl ObjectBrowserApp {
         usize::from((width / Self::MIN_SLOT_WIDTH).max(1))
     }
 
-    fn visible_slot_range(&self, width: u16) -> Range<usize> {
+    fn visible_slot_range(&mut self, width: u16) -> Range<usize> {
         let total = self.total_slot_count();
         let max_visible = self.max_visible_slots(width);
+        self.last_visible_slot_count = max_visible.max(1);
         if total <= max_visible {
+            self.slot_view_offset = 0;
             return 0..total;
         }
 
-        let half = max_visible / 2;
-        let mut start = self.active_slot_index.saturating_sub(half);
-        if start + max_visible > total {
-            start = total.saturating_sub(max_visible);
-        }
+        self.clamp_slot_view_offset();
+        let start = self.slot_view_offset.min(total.saturating_sub(max_visible));
         start..(start + max_visible)
     }
 
@@ -1893,6 +2113,7 @@ impl ObjectBrowserApp {
         self.pool_surface = PoolSurface::Slots;
         self.active_slot_index = slot_index;
         self.active_row_index = self.focus_row_for_slot_target(slot_id, target).unwrap_or(0);
+        self.sync_selection_viewports();
     }
     fn jump_to_view_owner(&mut self, slot_id: usize) {
         let Some(SlotKind::View(info)) = self.slot_by_id(slot_id).map(|slot| slot.kind.clone())
@@ -2078,6 +2299,7 @@ impl ObjectBrowserApp {
                 .min(self.total_slot_count().saturating_sub(1));
             self.active_row_index = 0;
             self.pool_surface = PoolSurface::Slots;
+            self.sync_selection_viewports();
             self.status_message = "Returned to the full object pool.".to_string();
             return;
         }
@@ -2086,6 +2308,7 @@ impl ObjectBrowserApp {
         self.active_slot_index = 0;
         self.active_row_index = 0;
         self.pool_surface = PoolSurface::Slots;
+        self.sync_selection_viewports();
         self.status_message = format!(
             "Focused {}.",
             self.projection_stack
@@ -2104,6 +2327,7 @@ impl ObjectBrowserApp {
             .min(self.breadcrumb_count().saturating_sub(1));
         self.active_slot_index = 0;
         self.active_row_index = 0;
+        self.sync_selection_viewports();
         self.status_message = match popped {
             Some(view) => format!("Closed {}.", self.projection_view_label(&view)),
             None => "Returned to the full object pool.".to_string(),
@@ -2273,6 +2497,7 @@ impl ObjectBrowserApp {
             self.active_slot_index = 0;
             self.active_row_index = 0;
             self.pool_surface = PoolSurface::Slots;
+            self.sync_selection_viewports();
             self.status_message = format!(
                 "Browsing {}.",
                 self.projection_stack
@@ -2340,7 +2565,7 @@ impl ObjectBrowserApp {
         }
     }
     fn draw_projection_slot(
-        &self,
+        &mut self,
         frame: &mut Frame,
         area: Rect,
         projection: &ProjectionSlot,
@@ -2351,9 +2576,27 @@ impl ObjectBrowserApp {
             .borders(Borders::ALL)
             .title(format!("{} [projection]", title))
             .border_style(slot_border_style(Color::Cyan, is_active));
+        let inner = block.inner(area);
+        if is_active {
+            self.last_visible_row_count = usize::from(inner.height).max(1);
+            self.clamp_row_view_offset();
+            self.ensure_active_row_visible();
+        }
+        let scroll_offset = if is_active { self.row_view_offset } else { 0 };
         let lines =
             self.projection_slot_lines(projection, is_active.then_some(self.active_row_index));
-        frame.render_widget(Paragraph::new(lines).block(block), area);
+        let paragraph = Paragraph::new(lines.clone())
+            .block(block)
+            .scroll((scroll_offset.min(u16::MAX as usize) as u16, 0));
+        frame.render_widget(paragraph, area);
+
+        if is_active && usize::from(inner.height) > 0 && lines.len() > usize::from(inner.height) {
+            let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
+            let mut scrollbar_state = ScrollbarState::new(lines.len())
+                .position(scroll_offset)
+                .viewport_content_length(usize::from(inner.height));
+            frame.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
+        }
     }
 
     fn projection_slot_lines(
@@ -4043,6 +4286,47 @@ mod tests {
             })
             .expect("result slot should resolve");
         assert!(resolved_json.contains("\"message\":\"done\""));
+    }
+
+    #[test]
+    fn horizontal_navigation_only_scrolls_once_selection_reaches_the_edge() {
+        let mut app = ObjectBrowserApp::default();
+        app.last_visible_slot_count = 3;
+
+        for _ in 0..5 {
+            app.append_slot();
+        }
+
+        app.active_slot_index = 0;
+        app.slot_view_offset = 0;
+        app.move_slot_right();
+        assert_eq!(app.slot_view_offset, 0);
+
+        app.move_slot_right();
+        assert_eq!(app.slot_view_offset, 0);
+
+        app.move_slot_right();
+        assert_eq!(app.slot_view_offset, 1);
+
+        app.move_slot_right();
+        assert_eq!(app.slot_view_offset, 2);
+    }
+
+    #[test]
+    fn ctrl_style_viewport_shift_does_not_move_the_selection() {
+        let mut app = ObjectBrowserApp::default();
+        app.last_visible_slot_count = 3;
+
+        for _ in 0..5 {
+            app.append_slot();
+        }
+
+        app.active_slot_index = 1;
+        app.slot_view_offset = 0;
+        app.shift_slot_view_right(1);
+
+        assert_eq!(app.active_slot_index, 1);
+        assert_eq!(app.slot_view_offset, 1);
     }
 
     #[test]
