@@ -12,6 +12,7 @@ use eyre::Result;
 use futures::FutureExt;
 use futures::StreamExt;
 use nucleo::Matcher;
+use nucleo::Utf32Str;
 use nucleo::pattern::CaseMatching;
 use nucleo::pattern::Normalization;
 use nucleo::pattern::Pattern;
@@ -77,6 +78,7 @@ struct ObjectBrowserApp {
     field_picker: Option<FieldPickerState>,
     link_action_picker: Option<LinkActionPickerState>,
     rename_slot: Option<RenameSlotState>,
+    slot_search: Option<SlotSearchState>,
     shape_choices: Vec<KnownShapeInfo>,
     object_slots: Vec<ObjectSlot>,
     active_slot_index: usize,
@@ -106,6 +108,7 @@ impl Default for ObjectBrowserApp {
             field_picker: None,
             link_action_picker: None,
             rename_slot: None,
+            slot_search: None,
             shape_choices,
             object_slots: Vec::new(),
             active_slot_index: 0,
@@ -115,7 +118,7 @@ impl Default for ObjectBrowserApp {
             last_visible_slot_count: 1,
             last_visible_row_count: 1,
             next_slot_id: 1,
-            status_message: "Left/Right: slots | Up/Down: rows | PageUp/PageDown: page | Enter/Space: act | q: quit"
+            status_message: "Left/Right: slots | Up/Down: rows | Type to jump | PageUp/PageDown: page | Enter/Space: act | Esc: back/exit"
                 .to_string(),
         }
     }
@@ -234,7 +237,7 @@ impl ObjectBrowserApp {
         frame.render_widget(Line::from(self.status_message.as_str()), status_area);
 
         match self.mode {
-            UiMode::Pool => {}
+            UiMode::Pool | UiMode::SlotSearch => {}
             UiMode::ShapePicker => self.draw_shape_picker_popup(frame),
             UiMode::VariantPicker => self.draw_variant_picker_popup(frame),
             UiMode::FieldPicker => self.draw_field_picker_popup(frame),
@@ -529,6 +532,7 @@ impl ObjectBrowserApp {
 
         match self.mode {
             UiMode::Pool => self.handle_pool_key(*key),
+            UiMode::SlotSearch => self.handle_slot_search_key(*key),
             UiMode::ShapePicker => self.handle_shape_picker_key(*key),
             UiMode::VariantPicker => self.handle_variant_picker_key(*key),
             UiMode::FieldPicker => self.handle_field_picker_key(*key),
@@ -540,7 +544,6 @@ impl ObjectBrowserApp {
     fn handle_pool_key(&mut self, key: KeyEvent) {
         match self.pool_surface {
             PoolSurface::Breadcrumbs => match key.code {
-                KeyCode::Char('q') => self.should_quit = true,
                 KeyCode::Esc => self.handle_escape(),
                 KeyCode::Left => self.move_breadcrumb_left(),
                 KeyCode::Right => self.move_breadcrumb_right(),
@@ -556,7 +559,6 @@ impl ObjectBrowserApp {
                 let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
                 let shift = key.modifiers.contains(KeyModifiers::SHIFT);
                 match (ctrl, shift, key.code) {
-                    (_, _, KeyCode::Char('q')) => self.should_quit = true,
                     (_, _, KeyCode::Esc) => self.handle_escape(),
                     (true, _, KeyCode::Left) => self.shift_slot_view_left(1),
                     (true, _, KeyCode::Right) => self.shift_slot_view_right(1),
@@ -575,7 +577,30 @@ impl ObjectBrowserApp {
                     (_, false, KeyCode::PageUp) => self.page_rows_up(),
                     (_, false, KeyCode::PageDown) => self.page_rows_down(),
                     (_, _, KeyCode::Enter | KeyCode::Char(' ')) => self.activate_current_row(),
+                    _ if self.is_slot_search_key(key) => self.start_slot_search(key),
                     _ => {}
+                }
+            }
+        }
+    }
+
+    fn handle_slot_search_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Esc => self.cancel_slot_search(),
+            KeyCode::Enter => self.submit_slot_search(),
+            KeyCode::Up => self.move_slot_search_selection(-1),
+            KeyCode::Down => self.move_slot_search_selection(1),
+            KeyCode::Home => self.move_slot_search_to_edge(true),
+            KeyCode::End => self.move_slot_search_to_edge(false),
+            KeyCode::PageUp => self.page_slot_search(-1),
+            KeyCode::PageDown => self.page_slot_search(1),
+            _ => {
+                let Some(slot_search) = self.slot_search.as_mut() else {
+                    self.mode = UiMode::Pool;
+                    return;
+                };
+                if slot_search.query.input(key) {
+                    self.refresh_slot_search();
                 }
             }
         }
@@ -695,6 +720,192 @@ impl ObjectBrowserApp {
                 rename_slot.textarea.input(key);
             }
         }
+    }
+
+    fn is_slot_search_key(&self, key: KeyEvent) -> bool {
+        matches!(key.code, KeyCode::Char(character) if character != ' ' && !character.is_control())
+            && !key
+                .modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+    }
+
+    fn start_slot_search(&mut self, key: KeyEvent) {
+        let Some(slot_id) = self.current_slot_id() else {
+            return;
+        };
+
+        let mut query = build_text_area("");
+        if !query.input(key) {
+            return;
+        }
+
+        self.slot_search = Some(SlotSearchState {
+            slot_id,
+            query,
+            filtered_matches: Vec::new(),
+            selected_match_index: 0,
+        });
+        self.mode = UiMode::SlotSearch;
+        self.refresh_slot_search();
+    }
+
+    fn cancel_slot_search(&mut self) {
+        self.slot_search = None;
+        self.mode = UiMode::Pool;
+        self.status_message = "Row search cancelled.".to_string();
+    }
+
+    fn submit_slot_search(&mut self) {
+        let has_match = self.slot_search_current_target().is_some();
+        self.slot_search = None;
+        self.mode = UiMode::Pool;
+        if has_match {
+            self.activate_current_row();
+        } else {
+            self.status_message = "No matching rows in the active slot.".to_string();
+        }
+    }
+
+    fn move_slot_search_selection(&mut self, direction: isize) {
+        let Some(slot_search) = self.slot_search.as_mut() else {
+            return;
+        };
+        if slot_search.filtered_matches.is_empty() {
+            return;
+        }
+
+        let max_index = slot_search.filtered_matches.len().saturating_sub(1) as isize;
+        let next_index =
+            (slot_search.selected_match_index as isize + direction).clamp(0, max_index);
+        slot_search.selected_match_index = next_index as usize;
+        self.sync_slot_search_selection();
+    }
+
+    fn move_slot_search_to_edge(&mut self, to_start: bool) {
+        let Some(slot_search) = self.slot_search.as_mut() else {
+            return;
+        };
+        if slot_search.filtered_matches.is_empty() {
+            return;
+        }
+
+        slot_search.selected_match_index = if to_start {
+            0
+        } else {
+            slot_search.filtered_matches.len().saturating_sub(1)
+        };
+        self.sync_slot_search_selection();
+    }
+
+    fn page_slot_search(&mut self, direction: isize) {
+        let Some(slot_search) = self.slot_search.as_mut() else {
+            return;
+        };
+        if slot_search.filtered_matches.is_empty() {
+            return;
+        }
+
+        let step = self.last_visible_row_count.saturating_sub(1).max(1) as isize;
+        let max_index = slot_search.filtered_matches.len().saturating_sub(1) as isize;
+        let next_index =
+            (slot_search.selected_match_index as isize + direction * step).clamp(0, max_index);
+        slot_search.selected_match_index = next_index as usize;
+        self.sync_slot_search_selection();
+    }
+
+    fn refresh_slot_search(&mut self) {
+        let Some((slot_id, query, preferred_target)) =
+            self.slot_search.as_ref().map(|slot_search| {
+                (
+                    slot_search.slot_id,
+                    slot_search.query.lines().join("\n"),
+                    slot_search
+                        .filtered_matches
+                        .get(slot_search.selected_match_index)
+                        .map(|matched| matched.target)
+                        .or_else(|| {
+                            self.slot_focus_targets(slot_search.slot_id)
+                                .get(self.active_row_index)
+                                .copied()
+                        }),
+                )
+            })
+        else {
+            return;
+        };
+
+        let filtered_matches = self.slot_search_matches(slot_id, &query);
+        let selected_match_index = preferred_target
+            .and_then(|target| {
+                filtered_matches
+                    .iter()
+                    .position(|matched| matched.target == target)
+            })
+            .unwrap_or(0);
+
+        if let Some(slot_search) = self.slot_search.as_mut() {
+            slot_search.filtered_matches = filtered_matches;
+            slot_search.selected_match_index =
+                selected_match_index.min(slot_search.filtered_matches.len().saturating_sub(1));
+        }
+
+        self.sync_slot_search_selection();
+    }
+
+    fn sync_slot_search_selection(&mut self) {
+        if let Some(target) = self.slot_search_current_target() {
+            if let Some(slot_id) = self
+                .slot_search
+                .as_ref()
+                .map(|slot_search| slot_search.slot_id)
+            {
+                self.active_row_index = self
+                    .focus_row_for_slot_target(slot_id, target)
+                    .unwrap_or(self.active_row_index);
+            }
+        }
+        self.ensure_active_row_visible();
+        self.update_slot_search_status();
+    }
+
+    fn slot_search_current_target(&self) -> Option<SlotFocusTarget> {
+        let slot_search = self.slot_search.as_ref()?;
+        slot_search
+            .filtered_matches
+            .get(slot_search.selected_match_index)
+            .map(|matched| matched.target)
+    }
+
+    fn update_slot_search_status(&mut self) {
+        let Some(slot_search) = self.slot_search.as_ref() else {
+            return;
+        };
+        let query = slot_search.query.lines().join("\n");
+        let match_count = slot_search.filtered_matches.len();
+        self.status_message = format!(
+            "Search slot {}: {} ({} match{}) | Up/Down/PgUp/PgDn: navigate | Enter: activate | Esc: cancel",
+            slot_search.slot_id,
+            if query.is_empty() {
+                "<empty>"
+            } else {
+                query.as_str()
+            },
+            match_count,
+            if match_count == 1 { "" } else { "es" },
+        );
+    }
+
+    fn allocate_slot_id(&mut self) -> usize {
+        let next_available = self
+            .object_slots
+            .iter()
+            .map(|slot| slot.id)
+            .max()
+            .unwrap_or(0)
+            .saturating_add(1);
+        let slot_id = self.next_slot_id.max(next_available);
+        self.next_slot_id = slot_id.saturating_add(1);
+        slot_id
     }
 
     fn move_slot_left(&mut self) {
@@ -841,7 +1052,12 @@ impl ObjectBrowserApp {
 
     fn active_rendered_line_count(&mut self) -> usize {
         match self.current_pool_entry() {
-            Some(PoolEntry::RealSlot(slot_id)) => self.slot_display_rows(slot_id).len(),
+            Some(PoolEntry::RealSlot(slot_id)) => self
+                .slot_search
+                .as_ref()
+                .filter(|slot_search| slot_search.slot_id == slot_id)
+                .map(|slot_search| slot_search.filtered_matches.len().max(1))
+                .unwrap_or_else(|| self.slot_display_rows(slot_id).len()),
             Some(PoolEntry::Projection(projection)) => {
                 self.projection_rendered_line_count(&projection)
             }
@@ -852,6 +1068,17 @@ impl ObjectBrowserApp {
     fn active_line_index(&mut self) -> usize {
         match self.current_pool_entry() {
             Some(PoolEntry::RealSlot(slot_id)) => {
+                if let Some(slot_search) = self
+                    .slot_search
+                    .as_ref()
+                    .filter(|slot_search| slot_search.slot_id == slot_id)
+                {
+                    return if slot_search.filtered_matches.is_empty() {
+                        0
+                    } else {
+                        slot_search.selected_match_index
+                    };
+                }
                 self.slot_line_index_for_row(slot_id, self.active_row_index)
             }
             Some(PoolEntry::Projection(projection)) => {
@@ -939,15 +1166,15 @@ impl ObjectBrowserApp {
         }
     }
     fn append_slot(&mut self) {
-        let slot = ObjectSlot::new(self.next_slot_id);
+        let slot_id = self.allocate_slot_id();
+        let slot = ObjectSlot::new(slot_id);
         self.object_slots.push(slot);
-        self.next_slot_id += 1;
-        self.active_slot_index = self.object_slots.len().saturating_sub(1);
+        self.active_slot_index = self.total_slot_count().saturating_sub(2);
         self.active_row_index = 0;
         self.sync_selection_viewports();
         self.status_message = format!(
             "Created slot {}. Pick a shape on the highlighted row.",
-            self.object_slots[self.active_slot_index].id
+            slot_id
         );
     }
 
@@ -1137,8 +1364,7 @@ impl ObjectBrowserApp {
         let Some(snapshot) = self.slot_snapshot(slot_id) else {
             return;
         };
-        let new_slot_id = self.next_slot_id;
-        self.next_slot_id += 1;
+        let new_slot_id = self.allocate_slot_id();
         self.object_slots
             .push(ObjectSlot::from_snapshot(new_slot_id, snapshot));
         self.invalidate_all_slot_display_caches();
@@ -1252,8 +1478,7 @@ impl ObjectBrowserApp {
             }
         };
 
-        let result_slot_id = self.next_slot_id;
-        self.next_slot_id += 1;
+        let result_slot_id = self.allocate_slot_id();
         let output_shape_name = describe_shape(invocation.output_shape);
         let pending = PendingInvocationState {
             join_handle: tokio::spawn(future),
@@ -1458,8 +1683,7 @@ impl ObjectBrowserApp {
             return;
         };
 
-        let slot_id = self.next_slot_id;
-        self.next_slot_id += 1;
+        let slot_id = self.allocate_slot_id();
 
         let mut slot = ObjectSlot::new(slot_id);
         slot.apply_shape_choice(&choice);
@@ -1504,8 +1728,7 @@ impl ObjectBrowserApp {
             return;
         };
 
-        let slot_id = self.next_slot_id;
-        self.next_slot_id += 1;
+        let slot_id = self.allocate_slot_id();
 
         let mut slot = ObjectSlot::new(slot_id);
         slot.apply_shape_choice(&choice);
@@ -1587,8 +1810,7 @@ impl ObjectBrowserApp {
             return;
         };
 
-        let slot_id = self.next_slot_id;
-        self.next_slot_id += 1;
+        let slot_id = self.allocate_slot_id();
         self.object_slots.push(ObjectSlot::new_view(
             slot_id,
             source_slot_id,
@@ -2947,6 +3169,19 @@ impl ObjectBrowserApp {
         is_active: bool,
         active_row: usize,
     ) -> Vec<Line<'static>> {
+        if is_active {
+            if let Some(slot_search) = self
+                .slot_search
+                .as_ref()
+                .filter(|slot_search| slot_search.slot_id == slot_id)
+            {
+                return render_slot_search_matches(
+                    &slot_search.filtered_matches,
+                    slot_search.selected_match_index,
+                );
+            }
+        }
+
         let active_target = if is_active {
             self.slot_focus_targets(slot_id).get(active_row).copied()
         } else {
@@ -2960,6 +3195,34 @@ impl ObjectBrowserApp {
         let rows = self.slot_display_rows(slot_id);
         render_slot_display_rows(&rows, None)
     }
+
+    fn slot_search_matches(&mut self, slot_id: usize, query: &str) -> Vec<SlotSearchMatch> {
+        let focusable_rows = self
+            .slot_display_rows(slot_id)
+            .into_iter()
+            .filter_map(|row| match row {
+                SlotDisplayRow::Focusable { target, spans } => Some((target, spans)),
+                SlotDisplayRow::Static(_) => None,
+            })
+            .collect::<Vec<_>>();
+        let labels = focusable_rows
+            .iter()
+            .map(|(_, spans)| spans_plain_text(spans))
+            .collect::<Vec<_>>();
+
+        ranked_match_indices(query, &labels)
+            .into_iter()
+            .filter_map(|(index, matched_indices)| {
+                let (target, spans) = focusable_rows.get(index)?.clone();
+                Some(SlotSearchMatch {
+                    target,
+                    spans,
+                    matched_indices,
+                })
+            })
+            .collect()
+    }
+
     fn slot_border_style(&self, slot_id: usize, is_active: bool) -> Style {
         if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
             let color = match runtime_state {
@@ -3050,6 +3313,7 @@ impl ObjectBrowserApp {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum UiMode {
     Pool,
+    SlotSearch,
     ShapePicker,
     VariantPicker,
     FieldPicker,
@@ -3137,6 +3401,20 @@ struct SlotInlink {
     owner_slot_id: usize,
     field_index: usize,
     field_name: &'static str,
+}
+
+#[derive(Clone, Debug)]
+struct SlotSearchMatch {
+    target: SlotFocusTarget,
+    spans: Vec<Span<'static>>,
+    matched_indices: Vec<u32>,
+}
+
+struct SlotSearchState {
+    slot_id: usize,
+    query: TextArea<'static>,
+    filtered_matches: Vec<SlotSearchMatch>,
+    selected_match_index: usize,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -3867,6 +4145,32 @@ fn render_slot_display_rows(
         })
         .collect()
 }
+
+fn render_slot_search_matches(
+    matches: &[SlotSearchMatch],
+    selected_match_index: usize,
+) -> Vec<Line<'static>> {
+    if matches.is_empty() {
+        return vec![Line::from(Span::styled(
+            "  no matches",
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::DIM),
+        ))];
+    }
+
+    matches
+        .iter()
+        .enumerate()
+        .map(|(index, matched)| {
+            selectable_spans_line(
+                highlight_matched_spans(&matched.spans, &matched.matched_indices),
+                index == selected_match_index,
+            )
+        })
+        .collect()
+}
+
 fn field_is_resolved(field: &ObjectFieldState) -> bool {
     !matches!(field.value_state, FieldValueState::Unset)
 }
@@ -4055,19 +4359,114 @@ fn variant_label(variant: &ShapeVariantInfo) -> String {
 }
 
 fn filter_indices(query: &str, labels: &[String]) -> Vec<usize> {
+    ranked_match_indices(query, labels)
+        .into_iter()
+        .map(|(index, _)| index)
+        .collect()
+}
+
+fn ranked_match_indices(query: &str, labels: &[String]) -> Vec<(usize, Vec<u32>)> {
     if query.trim().is_empty() {
-        return (0..labels.len()).collect::<Vec<_>>();
+        return labels
+            .iter()
+            .enumerate()
+            .map(|(index, _)| (index, Vec::new()))
+            .collect();
     }
 
     let pattern = Pattern::parse(query, CaseMatching::Smart, Normalization::Smart);
     let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+    let mut taken = BTreeSet::new();
     pattern
         .match_list(labels, &mut matcher)
         .into_iter()
         .filter_map(|(matched_label, _score)| {
-            labels.iter().position(|label| label == matched_label)
+            let index = labels.iter().enumerate().find_map(|(index, label)| {
+                (label == matched_label && taken.insert(index)).then_some(index)
+            })?;
+            Some((
+                index,
+                match_indices(query, matched_label).unwrap_or_default(),
+            ))
         })
         .collect()
+}
+
+fn match_indices(query: &str, label: &str) -> Option<Vec<u32>> {
+    if query.trim().is_empty() {
+        return Some(Vec::new());
+    }
+
+    let pattern = Pattern::parse(query, CaseMatching::Smart, Normalization::Smart);
+    let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+    let mut haystack_buf = Vec::new();
+    let haystack = Utf32Str::new(label, &mut haystack_buf);
+    let mut indices = Vec::new();
+    pattern.indices(haystack, &mut matcher, &mut indices)?;
+    indices.sort_unstable();
+    indices.dedup();
+    Some(indices)
+}
+
+fn spans_plain_text(spans: &[Span<'static>]) -> String {
+    spans.iter().map(|span| span.content.as_ref()).collect()
+}
+
+fn highlight_matched_spans(spans: &[Span<'static>], matched_indices: &[u32]) -> Vec<Span<'static>> {
+    if matched_indices.is_empty() {
+        return spans.to_vec();
+    }
+
+    let mut highlighted = Vec::new();
+    let mut match_cursor = 0usize;
+    let mut char_index = 0u32;
+
+    for span in spans {
+        let mut run = String::new();
+        let mut run_highlighted = None;
+        for character in span.content.chars() {
+            let is_highlighted = matched_indices
+                .get(match_cursor)
+                .is_some_and(|matched_index| *matched_index == char_index);
+            if is_highlighted {
+                match_cursor += 1;
+            }
+
+            match run_highlighted {
+                Some(previous) if previous != is_highlighted => {
+                    highlighted.push(styled_span(run, span.style, previous));
+                    run = String::new();
+                    run_highlighted = Some(is_highlighted);
+                }
+                None => run_highlighted = Some(is_highlighted),
+                _ => {}
+            }
+
+            run.push(character);
+            char_index += 1;
+        }
+
+        if let Some(is_highlighted) = run_highlighted {
+            highlighted.push(styled_span(run, span.style, is_highlighted));
+        }
+    }
+
+    highlighted
+}
+
+fn styled_span(content: String, base_style: Style, is_highlighted: bool) -> Span<'static> {
+    if is_highlighted {
+        Span::styled(
+            content,
+            base_style.patch(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+            ),
+        )
+    } else {
+        Span::styled(content, base_style)
+    }
 }
 
 fn build_text_area(query: &str) -> TextArea<'static> {
@@ -4231,9 +4630,14 @@ mod tests {
     use super::ObjectSlot;
     use super::ShapeVariantInfo;
     use super::SlotBody;
+    use super::SlotFocusTarget;
     use super::SlotKind;
+    use super::UiMode;
     use cloud_terrastodon_registry::known_shapes;
     use facet::Facet;
+    use ratatui::crossterm::event::KeyCode;
+    use ratatui::crossterm::event::KeyEvent;
+    use ratatui::crossterm::event::KeyModifiers;
     use std::future::Future;
     use std::future::IntoFuture;
 
@@ -4686,6 +5090,116 @@ mod tests {
             })
             .expect("result slot should resolve");
         assert!(resolved_json.contains("\"message\":\"done\""));
+    }
+
+    #[test]
+    fn typing_starts_slot_search_and_jumps_to_matching_field() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let shape_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label == "EntraUser")
+            .expect("EntraUser should be registered");
+        app.shape_picker.open(Some(shape_index));
+        app.shape_picker.search.list_state.select(Some(shape_index));
+        app.apply_shape_selection();
+
+        let mail_index = match app.slot_by_id(1).map(|slot| &slot.body) {
+            Some(SlotBody::Struct { fields }) => fields
+                .iter()
+                .position(|field| field.info.field_name == "mail")
+                .expect("EntraUser should expose a mail field"),
+            _ => panic!("EntraUser should build as a struct"),
+        };
+
+        app.handle_pool_key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::NONE));
+        app.handle_pool_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
+
+        assert_eq!(app.mode, UiMode::SlotSearch);
+        assert_eq!(
+            app.slot_search_current_target(),
+            Some(SlotFocusTarget::FieldValue(mail_index))
+        );
+        assert_eq!(
+            app.active_row_index,
+            app.focus_row_for_slot_target(1, SlotFocusTarget::FieldValue(mail_index))
+                .expect("mail row should be focusable")
+        );
+    }
+
+    #[test]
+    fn slot_search_can_jump_to_invoke_action() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantIdResolveRequest"))
+            .expect("AzureTenantIdResolveRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.handle_pool_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE));
+        app.handle_pool_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
+
+        assert_eq!(app.mode, UiMode::SlotSearch);
+        assert_eq!(
+            app.slot_search_current_target(),
+            Some(SlotFocusTarget::Action(super::SlotAction::Invoke))
+        );
+
+        let lines = app.slot_lines(1, true, app.active_row_index);
+        assert!(lines.iter().any(|line| {
+            line.spans
+                .iter()
+                .any(|span| span.style.fg == Some(ratatui::prelude::Color::Yellow))
+        }));
+    }
+
+    #[test]
+    fn creating_a_slot_after_projection_children_selects_the_new_owned_slot() {
+        let mut app = ObjectBrowserApp::default();
+        let value = serde_json::json!([
+            { "displayName": "Ada" },
+            { "displayName": "Grace" }
+        ]);
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some("Vec<EntraUser>".to_string()),
+            body: super::SlotBody::Unset,
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            }),
+            display_cache: None,
+        });
+
+        app.move_slot_end();
+        app.activate_current_row();
+
+        assert!(
+            matches!(
+                app.current_pool_entry(),
+                Some(super::PoolEntry::RealSlot(2))
+            ),
+            "active_slot_index={}, total_slot_count={}, slots={}, entry={:?}",
+            app.active_slot_index,
+            app.total_slot_count(),
+            app.object_slots.len(),
+            app.current_pool_entry()
+        );
     }
 
     #[test]
