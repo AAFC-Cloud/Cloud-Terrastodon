@@ -1332,6 +1332,7 @@ impl ObjectBrowserApp {
             SlotAction::Clone => self.clone_slot(slot_id),
             SlotAction::Take => self.take_slot(slot_id),
             SlotAction::Invoke => self.invoke_slot(slot_id),
+            SlotAction::InvokeArbitrary => self.invoke_slot_arbitrary(slot_id),
         }
     }
 
@@ -1513,6 +1514,61 @@ impl ObjectBrowserApp {
         self.jump_to_slot(result_slot_id);
         self.status_message = format!(
             "Invoked slot {} and started result slot {} for {}.",
+            slot_id, result_slot_id, output_shape_name
+        );
+    }
+
+    fn invoke_slot_arbitrary(&mut self, slot_id: usize) {
+        let Some(shape_name) = self.slot_shape_name(slot_id).map(str::to_string) else {
+            self.status_message = "Pick a shape before invoke-arbitrary.".to_string();
+            return;
+        };
+        let Some(thing) = self.thing_for_shape_name(&shape_name) else {
+            self.status_message = format!("{shape_name} is not a registered invokable thing.");
+            return;
+        };
+        let Some(invocation) = thing.invocation else {
+            self.status_message = format!("{shape_name} is not invokable.");
+            return;
+        };
+        let output = match thing.fabricate_output_boxed() {
+            Ok(output) => output,
+            Err(error) => {
+                self.status_message =
+                    format!("Could not fabricate an output for {shape_name}: {error}");
+                return;
+            }
+        };
+        let json = match (invocation.output_serialize)(output.as_ref()) {
+            Ok(json) => json,
+            Err(error) => {
+                self.status_message =
+                    format!("Could not serialize fabricated {shape_name} output: {error}");
+                return;
+            }
+        };
+        let value = match serde_json::from_str::<Value>(&json) {
+            Ok(value) => value,
+            Err(error) => {
+                self.status_message =
+                    format!("Could not parse fabricated {shape_name} output json: {error}");
+                return;
+            }
+        };
+
+        let result_slot_id = self.allocate_slot_id();
+        let output_shape_name = describe_shape(invocation.output_shape);
+        let mut result_slot =
+            ObjectSlot::new_resolved_result(result_slot_id, output_shape_name.clone(), json, value);
+        result_slot.produced_by_slot_id = Some(slot_id);
+        self.object_slots.push(result_slot);
+        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+            slot.result_slot_ids.push(result_slot_id);
+        }
+        self.invalidate_all_slot_display_caches();
+        self.jump_to_slot(result_slot_id);
+        self.status_message = format!(
+            "Invoke-arbitrary on slot {} produced result slot {} for {}.",
             slot_id, result_slot_id, output_shape_name
         );
     }
@@ -2398,12 +2454,21 @@ impl ObjectBrowserApp {
             SlotAction::Clone,
             SlotAction::Take,
             SlotAction::Invoke,
+            SlotAction::InvokeArbitrary,
         ] {
             if action == SlotAction::Invoke
                 && !self
                     .slot_shape_name(slot_id)
                     .and_then(|shape_name| self.thing_for_shape_name(shape_name))
                     .is_some_and(|thing| thing.is_invokable())
+            {
+                continue;
+            }
+            if action == SlotAction::InvokeArbitrary
+                && !self
+                    .slot_shape_name(slot_id)
+                    .and_then(|shape_name| self.thing_for_shape_name(shape_name))
+                    .is_some_and(|thing| thing.can_fabricate_output())
             {
                 continue;
             }
@@ -2494,6 +2559,13 @@ impl ObjectBrowserApp {
             .is_some_and(|thing| thing.is_invokable())
         {
             targets.push(SlotFocusTarget::Action(SlotAction::Invoke));
+        }
+        if self
+            .slot_shape_name(slot_id)
+            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
+            .is_some_and(|thing| thing.can_fabricate_output())
+        {
+            targets.push(SlotFocusTarget::Action(SlotAction::InvokeArbitrary));
         }
 
         targets
@@ -2667,6 +2739,7 @@ impl ObjectBrowserApp {
                 SlotAction::Clone => "clone".to_string(),
                 SlotAction::Take => "take".to_string(),
                 SlotAction::Invoke => "invoke".to_string(),
+                SlotAction::InvokeArbitrary => "invoke-arbitrary".to_string(),
             };
         };
 
@@ -2682,6 +2755,7 @@ impl ObjectBrowserApp {
                 SlotKind::View(_) => "take".to_string(),
             },
             SlotAction::Invoke => "invoke".to_string(),
+            SlotAction::InvokeArbitrary => "invoke-arbitrary".to_string(),
         }
     }
     fn breadcrumbs_line(&self) -> Line<'static> {
@@ -3454,6 +3528,7 @@ enum SlotAction {
     Clone,
     Take,
     Invoke,
+    InvokeArbitrary,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SlotCompletion {
@@ -3875,6 +3950,21 @@ impl ObjectSlot {
             created_for: None,
             produced_by_slot_id: None,
             runtime_state: Some(SlotRuntimeState::Pending(pending)),
+            display_cache: None,
+        }
+    }
+
+    fn new_resolved_result(id: usize, shape_name: String, json: String, value: Value) -> Self {
+        Self {
+            id,
+            name: None,
+            kind: SlotKind::Owned,
+            shape_name: Some(shape_name),
+            body: SlotBody::Unset,
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            runtime_state: Some(SlotRuntimeState::ResolvedValue { json, value }),
             display_cache: None,
         }
     }
@@ -4762,6 +4852,7 @@ mod tests {
     use super::SlotFocusTarget;
     use super::SlotKind;
     use super::UiMode;
+    use arbitrary::Arbitrary;
     use cloud_terrastodon_registry::known_shapes;
     use facet::Facet;
     use ratatui::crossterm::event::KeyCode;
@@ -4770,7 +4861,7 @@ mod tests {
     use std::future::Future;
     use std::future::IntoFuture;
 
-    #[derive(Debug, Clone, Facet)]
+    #[derive(Debug, Clone, Arbitrary, Facet)]
     #[repr(C)]
     struct DummyInvokeOutput {
         message: String,
@@ -5263,6 +5354,39 @@ mod tests {
             })
             .expect("result slot should resolve");
         assert!(resolved_json.contains("\"message\":\"done\""));
+    }
+
+    #[test]
+    fn invoke_arbitrary_action_creates_a_resolved_result_slot() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label == "DummyInvokeRequest")
+            .expect("DummyInvokeRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.invoke_slot_arbitrary(1);
+        let result_slot_id = app
+            .slot_by_id(1)
+            .and_then(|slot| slot.result_slot_ids.first().copied())
+            .expect("invoke-arbitrary should create a result slot");
+        let resolved_value = app
+            .slot_by_id(result_slot_id)
+            .and_then(|slot| slot.runtime_state.as_ref())
+            .and_then(|runtime| match runtime {
+                super::SlotRuntimeState::ResolvedValue { value, .. } => Some(value.clone()),
+                _ => None,
+            })
+            .expect("fabricated result slot should resolve immediately");
+        assert!(resolved_value.get("message").is_some());
     }
 
     #[test]

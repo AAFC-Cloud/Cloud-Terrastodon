@@ -1,3 +1,5 @@
+use arbitrary::Arbitrary;
+use arbitrary::Unstructured;
 use std::any::Any;
 use std::any::type_name;
 use std::collections::BTreeMap;
@@ -10,9 +12,11 @@ use facet::Shape;
 use facet::Type;
 use facet::UserType;
 pub use linkme::distributed_slice;
+use rand::RngExt;
 
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;
 pub type InvokeFn = fn(Box<dyn Any + Send>) -> InvocationFuture;
+pub type FabricateFn = fn() -> eyre::Result<Box<dyn Any + Send>>;
 pub type ParseFn = fn(&str) -> eyre::Result<Box<dyn Any + Send>>;
 pub type SerializeFn = fn(&(dyn Any + Send)) -> eyre::Result<String>;
 
@@ -74,6 +78,12 @@ impl Thing {
         self.invocation.is_some()
     }
 
+    pub fn can_fabricate_output(&self) -> bool {
+        self.invocation
+            .and_then(|invocation| invocation.fabricate_output)
+            .is_some()
+    }
+
     pub fn output_shape(&self) -> Option<&'static Shape> {
         self.invocation.map(|invocation| invocation.output_shape)
     }
@@ -109,6 +119,19 @@ impl Thing {
         };
         Ok((invocation.invoke)(input))
     }
+
+    pub fn fabricate_output_boxed(&self) -> eyre::Result<Box<dyn Any + Send>> {
+        let Some(invocation) = self.invocation else {
+            eyre::bail!("{} is not invokable", describe_shape(self.shape));
+        };
+        let Some(fabricate_output) = invocation.fabricate_output else {
+            eyre::bail!(
+                "{} does not support fabricated outputs",
+                describe_shape(self.shape)
+            );
+        };
+        fabricate_output()
+    }
 }
 
 impl core::fmt::Display for Thing {
@@ -121,6 +144,7 @@ impl core::fmt::Display for Thing {
 pub struct Invocation {
     pub output_shape: &'static Shape,
     pub invoke: InvokeFn,
+    pub fabricate_output: Option<FabricateFn>,
     pub output_serialize: SerializeFn,
 }
 
@@ -133,6 +157,21 @@ impl Invocation {
         Self {
             output_shape,
             invoke,
+            fabricate_output: None,
+            output_serialize,
+        }
+    }
+
+    pub const fn new_with_fabricate(
+        output_shape: &'static Shape,
+        invoke: InvokeFn,
+        fabricate_output: FabricateFn,
+        output_serialize: SerializeFn,
+    ) -> Self {
+        Self {
+            output_shape,
+            invoke,
+            fabricate_output: Some(fabricate_output),
             output_serialize,
         }
     }
@@ -142,11 +181,12 @@ pub const fn invocation_for_result_future<T, O>(output_shape: &'static Shape) ->
 where
     T: IntoFuture<Output = eyre::Result<O>> + Any + Send + 'static,
     T::IntoFuture: Send + 'static,
-    O: facet::Facet<'static> + Any + Send + 'static,
+    O: facet::Facet<'static> + for<'a> Arbitrary<'a> + Any + Send + 'static,
 {
-    Invocation::new(
+    Invocation::new_with_fabricate(
         output_shape,
         invoke_result_future::<T, O>,
+        fabricate_boxed::<O>,
         serialize_boxed::<O>,
     )
 }
@@ -169,6 +209,25 @@ where
         )
     })?;
     Ok(facet_json::to_string(typed)?)
+}
+
+pub fn fabricate_boxed<T>() -> eyre::Result<Box<dyn Any + Send>>
+where
+    T: for<'a> Arbitrary<'a> + Any + Send + 'static,
+{
+    for byte_count in [256usize, 1024, 4096] {
+        let mut bytes = vec![0_u8; byte_count];
+        rand::rng().fill(bytes.as_mut_slice());
+        let mut unstructured = Unstructured::new(&bytes);
+        if let Ok(value) = T::arbitrary(&mut unstructured) {
+            return Ok(Box::new(value) as Box<dyn Any + Send>);
+        }
+    }
+
+    eyre::bail!(
+        "could not fabricate a plausible {} value from random bytes",
+        type_name::<T>()
+    )
 }
 
 pub fn invoke_result_future<T, O>(input: Box<dyn Any + Send>) -> InvocationFuture
@@ -365,6 +424,7 @@ fn default_value_label(field: &facet::Field) -> Option<String> {
 
 #[cfg(test)]
 mod test {
+    use arbitrary::Arbitrary;
     use facet::Facet;
 
     use super::KNOWN_THINGS;
@@ -384,7 +444,7 @@ mod test {
     #[repr(C)]
     struct DummyTenant;
 
-    #[derive(Debug, Clone, Facet)]
+    #[derive(Debug, Clone, Arbitrary, Facet)]
     #[repr(C)]
     struct DummyOutput {
         value: String,
@@ -508,6 +568,24 @@ mod test {
 
         assert_eq!(output.len(), 1);
         assert_eq!(output[0].value, "ok");
+        Ok(())
+    }
+
+    #[test]
+    pub fn invokable_thing_can_fabricate_erased_output() -> eyre::Result<()> {
+        let thing = KNOWN_THINGS
+            .iter()
+            .find(|thing| thing.shape.is_shape(DummyListRequest::SHAPE))
+            .unwrap();
+
+        assert!(thing.can_fabricate_output());
+        let output = thing.fabricate_output_boxed()?;
+        let json = (thing
+            .invocation
+            .expect("invokable thing should have invocation metadata")
+            .output_serialize)(output.as_ref())?;
+        let _output = output.downcast::<Vec<DummyOutput>>().unwrap();
+        assert!(!json.is_empty());
         Ok(())
     }
 

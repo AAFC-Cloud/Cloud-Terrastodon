@@ -1346,10 +1346,12 @@ dependencies = [
 name = "cloud_terrastodon_registry"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
  "eyre",
  "facet",
  "facet-json",
  "linkme",
+ "rand 0.10.1",
  "tokio",
 ]
 
@@ -1430,6 +1432,7 @@ dependencies = [
 name = "cloud_terrastodon_ui_ratatui"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_command",
  "cloud_terrastodon_registry",

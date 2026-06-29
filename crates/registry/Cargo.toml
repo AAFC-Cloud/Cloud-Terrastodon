@@ -12,11 +12,14 @@ categories.workspace = true
 
 [dependencies]
 eyre.workspace = true
+arbitrary.workspace = true
 facet.workspace = true
 facet-json.workspace = true
 linkme.workspace = true
+rand.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
+
 
 
