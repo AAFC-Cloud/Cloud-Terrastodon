@@ -536,26 +536,37 @@ impl ObjectBrowserApp {
                 KeyCode::Esc => self.handle_escape(),
                 KeyCode::Left => self.move_breadcrumb_left(),
                 KeyCode::Right => self.move_breadcrumb_right(),
+                KeyCode::Home => self.active_breadcrumb_index = 0,
+                KeyCode::End => {
+                    self.active_breadcrumb_index = self.breadcrumb_count().saturating_sub(1)
+                }
                 KeyCode::Down => self.pool_surface = PoolSurface::Slots,
                 KeyCode::Enter | KeyCode::Char(' ') => self.activate_current_breadcrumb(),
                 _ => {}
             },
             PoolSurface::Slots => {
                 let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-                match (ctrl, key.code) {
-                    (_, KeyCode::Char('q')) => self.should_quit = true,
-                    (_, KeyCode::Esc) => self.handle_escape(),
-                    (true, KeyCode::Left) => self.shift_slot_view_left(1),
-                    (true, KeyCode::Right) => self.shift_slot_view_right(1),
-                    (true, KeyCode::Up) => self.shift_row_view_up(1),
-                    (true, KeyCode::Down) => self.shift_row_view_down(1),
-                    (_, KeyCode::Left) => self.move_slot_left(),
-                    (_, KeyCode::Right) => self.move_slot_right(),
-                    (_, KeyCode::Up) => self.move_row_up(),
-                    (_, KeyCode::Down) => self.move_row_down(),
-                    (_, KeyCode::PageUp) => self.page_rows_up(),
-                    (_, KeyCode::PageDown) => self.page_rows_down(),
-                    (_, KeyCode::Enter | KeyCode::Char(' ')) => self.activate_current_row(),
+                let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+                match (ctrl, shift, key.code) {
+                    (_, _, KeyCode::Char('q')) => self.should_quit = true,
+                    (_, _, KeyCode::Esc) => self.handle_escape(),
+                    (true, _, KeyCode::Left) => self.shift_slot_view_left(1),
+                    (true, _, KeyCode::Right) => self.shift_slot_view_right(1),
+                    (true, _, KeyCode::Up) => self.shift_row_view_up(1),
+                    (true, _, KeyCode::Down) => self.shift_row_view_down(1),
+                    (_, true, KeyCode::Home) => self.move_slot_home(),
+                    (_, true, KeyCode::End) => self.move_slot_end(),
+                    (_, true, KeyCode::PageUp) => self.page_slots_left(),
+                    (_, true, KeyCode::PageDown) => self.page_slots_right(),
+                    (_, false, KeyCode::Home) => self.move_row_home(),
+                    (_, false, KeyCode::End) => self.move_row_end(),
+                    (_, _, KeyCode::Left) => self.move_slot_left(),
+                    (_, _, KeyCode::Right) => self.move_slot_right(),
+                    (_, _, KeyCode::Up) => self.move_row_up(),
+                    (_, _, KeyCode::Down) => self.move_row_down(),
+                    (_, false, KeyCode::PageUp) => self.page_rows_up(),
+                    (_, false, KeyCode::PageDown) => self.page_rows_down(),
+                    (_, _, KeyCode::Enter | KeyCode::Char(' ')) => self.activate_current_row(),
                     _ => {}
                 }
             }
@@ -710,6 +721,28 @@ impl ObjectBrowserApp {
         self.ensure_active_row_visible();
     }
 
+    fn move_row_home(&mut self) {
+        self.active_row_index = 0;
+        self.ensure_active_row_visible();
+    }
+
+    fn move_row_end(&mut self) {
+        self.active_row_index = self.active_focusable_rows().saturating_sub(1);
+        self.ensure_active_row_visible();
+    }
+
+    fn move_slot_home(&mut self) {
+        self.active_slot_index = 0;
+        self.clamp_active_row();
+        self.sync_selection_viewports();
+    }
+
+    fn move_slot_end(&mut self) {
+        self.active_slot_index = self.total_slot_count().saturating_sub(1);
+        self.clamp_active_row();
+        self.sync_selection_viewports();
+    }
+
     fn page_rows_up(&mut self) {
         let step = self.last_visible_row_count.saturating_sub(1).max(1);
         self.active_row_index = self.active_row_index.saturating_sub(step);
@@ -721,6 +754,21 @@ impl ObjectBrowserApp {
         let max_row = self.active_focusable_rows().saturating_sub(1);
         self.active_row_index = (self.active_row_index + step).min(max_row);
         self.ensure_active_row_visible();
+    }
+
+    fn page_slots_left(&mut self) {
+        let step = self.last_visible_slot_count.saturating_sub(1).max(1);
+        self.active_slot_index = self.active_slot_index.saturating_sub(step);
+        self.clamp_active_row();
+        self.sync_selection_viewports();
+    }
+
+    fn page_slots_right(&mut self) {
+        let step = self.last_visible_slot_count.saturating_sub(1).max(1);
+        let max_index = self.total_slot_count().saturating_sub(1);
+        self.active_slot_index = (self.active_slot_index + step).min(max_index);
+        self.clamp_active_row();
+        self.sync_selection_viewports();
     }
 
     fn shift_slot_view_left(&mut self, amount: usize) {
@@ -4327,6 +4375,57 @@ mod tests {
 
         assert_eq!(app.active_slot_index, 1);
         assert_eq!(app.slot_view_offset, 1);
+    }
+
+    #[test]
+    fn home_and_end_move_within_the_active_card() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+        app.last_visible_row_count = 2;
+
+        let shape_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantArgument"))
+            .expect("AzureTenantArgument should be registered for the UI tests");
+        app.shape_picker.open(Some(shape_index));
+        app.shape_picker.search.list_state.select(Some(shape_index));
+        app.apply_shape_selection();
+
+        app.move_row_end();
+        assert_eq!(
+            app.active_row_index,
+            app.active_focusable_rows().saturating_sub(1)
+        );
+
+        app.move_row_home();
+        assert_eq!(app.active_row_index, 0);
+    }
+
+    #[test]
+    fn shifted_home_end_and_paging_operate_horizontally() {
+        let mut app = ObjectBrowserApp::default();
+        app.last_visible_slot_count = 3;
+
+        for _ in 0..5 {
+            app.append_slot();
+        }
+
+        app.active_slot_index = 2;
+        app.page_slots_right();
+        assert_eq!(app.active_slot_index, 4);
+
+        app.page_slots_left();
+        assert_eq!(app.active_slot_index, 2);
+
+        app.move_slot_end();
+        assert_eq!(
+            app.active_slot_index,
+            app.total_slot_count().saturating_sub(1)
+        );
+
+        app.move_slot_home();
+        assert_eq!(app.active_slot_index, 0);
     }
 
     #[test]
