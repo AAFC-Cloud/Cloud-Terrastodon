@@ -65,6 +65,9 @@ pub async fn ui_main() -> Result<()> {
 struct ObjectBrowserApp {
     should_quit: bool,
     mode: UiMode,
+    pool_surface: PoolSurface,
+    active_breadcrumb_index: usize,
+    projection_stack: Vec<JsonProjectionView>,
     shape_picker: ShapePickerState,
     variant_picker: Option<VariantPickerState>,
     field_picker: Option<FieldPickerState>,
@@ -86,6 +89,9 @@ impl Default for ObjectBrowserApp {
         Self {
             should_quit: false,
             mode: UiMode::Pool,
+            pool_surface: PoolSurface::Slots,
+            active_breadcrumb_index: 0,
+            projection_stack: Vec::new(),
             shape_picker,
             variant_picker: None,
             field_picker: None,
@@ -145,7 +151,12 @@ impl ObjectBrowserApp {
                 .expect("finished join handle should resolve immediately")
             {
                 Ok(Ok(output)) => match (pending.output_serialize)(output.as_ref()) {
-                    Ok(json) => SlotRuntimeState::ResolvedValue { json },
+                    Ok(json) => match serde_json::from_str::<Value>(&json) {
+                        Ok(value) => SlotRuntimeState::ResolvedValue { json, value },
+                        Err(error) => SlotRuntimeState::Failed {
+                            message: format!("could not parse invocation result json: {error}"),
+                        },
+                    },
                     Err(error) => SlotRuntimeState::Failed {
                         message: format!("could not serialize invocation result: {error}"),
                     },
@@ -172,8 +183,11 @@ impl ObjectBrowserApp {
             };
             if let Some(slot) = self.slot_by_id_mut(*slot_id) {
                 slot.runtime_state = Some(match next_state {
-                    SlotRuntimeState::ResolvedValue { json } => {
-                        SlotRuntimeState::ResolvedValue { json: json.clone() }
+                    SlotRuntimeState::ResolvedValue { json, value } => {
+                        SlotRuntimeState::ResolvedValue {
+                            json: json.clone(),
+                            value: value.clone(),
+                        }
                     }
                     SlotRuntimeState::Failed { message } => {
                         SlotRuntimeState::Failed { message: message.clone() }
@@ -190,15 +204,17 @@ impl ObjectBrowserApp {
     fn draw(&mut self, frame: &mut Frame) {
         let vertical = Layout::vertical([
             Constraint::Length(1),
+            Constraint::Length(1),
             Constraint::Fill(1),
             Constraint::Length(1),
         ]);
-        let [title_area, body_area, status_area] = vertical.areas(frame.area());
+        let [title_area, breadcrumb_area, body_area, status_area] = vertical.areas(frame.area());
 
         let title = Line::from("Cloud Terrastodon Object Pool")
             .centered()
             .bold();
         frame.render_widget(title, title_area);
+        frame.render_widget(self.breadcrumbs_line(), breadcrumb_area);
 
         self.draw_pool(frame, body_area);
 
@@ -240,10 +256,15 @@ impl ObjectBrowserApp {
                 break;
             };
             let is_active = slot_index == self.active_slot_index;
-            if slot_index == self.pseudo_slot_index() {
-                self.draw_new_slot(frame, slot_area, is_active);
-            } else if let Some(slot) = self.object_slots.get(slot_index) {
-                self.draw_object_slot(frame, slot_area, slot.id, is_active);
+            match self.pool_entry_at(slot_index) {
+                Some(PoolEntry::NewSlot) => self.draw_new_slot(frame, slot_area, is_active),
+                Some(PoolEntry::RealSlot(slot_id)) => {
+                    self.draw_object_slot(frame, slot_area, slot_id, is_active);
+                }
+                Some(PoolEntry::Projection(projection)) => {
+                    self.draw_projection_slot(frame, slot_area, &projection, is_active);
+                }
+                None => {}
             }
         }
 
@@ -434,14 +455,24 @@ impl ObjectBrowserApp {
     }
 
     fn handle_pool_key(&mut self, key: KeyCode) {
-        match key {
-            KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
-            KeyCode::Left => self.move_slot_left(),
-            KeyCode::Right => self.move_slot_right(),
-            KeyCode::Up => self.move_row_up(),
-            KeyCode::Down => self.move_row_down(),
-            KeyCode::Enter | KeyCode::Char(' ') => self.activate_current_row(),
-            _ => {}
+        match self.pool_surface {
+            PoolSurface::Breadcrumbs => match key {
+                KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+                KeyCode::Left => self.move_breadcrumb_left(),
+                KeyCode::Right => self.move_breadcrumb_right(),
+                KeyCode::Down => self.pool_surface = PoolSurface::Slots,
+                KeyCode::Enter | KeyCode::Char(' ') => self.activate_current_breadcrumb(),
+                _ => {}
+            },
+            PoolSurface::Slots => match key {
+                KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+                KeyCode::Left => self.move_slot_left(),
+                KeyCode::Right => self.move_slot_right(),
+                KeyCode::Up => self.move_row_up(),
+                KeyCode::Down => self.move_row_down(),
+                KeyCode::Enter | KeyCode::Char(' ') => self.activate_current_row(),
+                _ => {}
+            },
         }
     }
 
@@ -536,6 +567,7 @@ impl ObjectBrowserApp {
             }
         }
     }
+
     fn move_slot_left(&mut self) {
         self.active_slot_index = self.active_slot_index.saturating_sub(1);
         self.clamp_active_row();
@@ -546,7 +578,13 @@ impl ObjectBrowserApp {
         self.active_slot_index = (self.active_slot_index + 1).min(max_index);
         self.clamp_active_row();
     }
+
     fn move_row_up(&mut self) {
+        if self.active_row_index == 0 && !self.projection_stack.is_empty() {
+            self.pool_surface = PoolSurface::Breadcrumbs;
+            self.active_breadcrumb_index = self.breadcrumb_count().saturating_sub(1);
+            return;
+        }
         self.active_row_index = self.active_row_index.saturating_sub(1);
     }
 
@@ -556,33 +594,37 @@ impl ObjectBrowserApp {
     }
 
     fn activate_current_row(&mut self) {
-        if self.active_slot_index == self.pseudo_slot_index() {
-            self.append_slot();
-            return;
-        }
-
-        let Some(slot_id) = self.current_slot_id() else {
-            return;
-        };
-        let targets = self.slot_focus_targets(slot_id);
-        let Some(target) = targets.get(self.active_row_index).copied() else {
+        let Some(entry) = self.current_pool_entry() else {
             return;
         };
 
-        match target {
-            SlotFocusTarget::Shape => self.open_shape_picker(),
-            SlotFocusTarget::ViewPointer => self.jump_to_view_owner(slot_id),
-            SlotFocusTarget::Variant => self.open_variant_picker(),
-            SlotFocusTarget::FieldType(field_index) => {
-                self.describe_field_type_actions(field_index)
+        match entry {
+            PoolEntry::NewSlot => self.append_slot(),
+            PoolEntry::Projection(projection) => {
+                self.activate_projection_slot_row(&projection, self.active_row_index);
             }
-            SlotFocusTarget::FieldValue(field_index) => self.activate_field_value(field_index),
-            SlotFocusTarget::Inlink(inlink_index) => self.activate_inlink(slot_id, inlink_index),
-            SlotFocusTarget::Result(result_index) => self.activate_result(slot_id, result_index),
-            SlotFocusTarget::Action(action) => self.activate_slot_action(slot_id, action),
+            PoolEntry::RealSlot(slot_id) => {
+                let targets = self.slot_focus_targets(slot_id);
+                let Some(target) = targets.get(self.active_row_index).copied() else {
+                    return;
+                };
+
+                match target {
+                    SlotFocusTarget::Shape => self.open_shape_picker(),
+                    SlotFocusTarget::ViewPointer => self.jump_to_view_owner(slot_id),
+                    SlotFocusTarget::Variant => self.open_variant_picker(),
+                    SlotFocusTarget::FieldType(field_index) => {
+                        self.describe_field_type_actions(field_index)
+                    }
+                    SlotFocusTarget::FieldValue(field_index) => self.activate_field_value(field_index),
+                    SlotFocusTarget::Inlink(inlink_index) => self.activate_inlink(slot_id, inlink_index),
+                    SlotFocusTarget::RuntimeValue => self.activate_runtime_value(slot_id),
+                    SlotFocusTarget::Result(result_index) => self.activate_result(slot_id, result_index),
+                    SlotFocusTarget::Action(action) => self.activate_slot_action(slot_id, action),
+                }
+            }
         }
     }
-
     fn append_slot(&mut self) {
         let slot = ObjectSlot::new(self.next_slot_id);
         self.object_slots.push(slot);
@@ -798,7 +840,7 @@ impl ObjectBrowserApp {
             slot.body = snapshot.body;
             slot.runtime_state = snapshot
                 .value_json
-                .map(|json| SlotRuntimeState::ResolvedValue { json });
+                .and_then(|json| serde_json::from_str::<Value>(&json).ok().map(|value| SlotRuntimeState::ResolvedValue { json, value }));
         }
         self.invalidate_all_slot_display_caches();
         self.jump_to_slot(slot_id);
@@ -1266,7 +1308,7 @@ impl ObjectBrowserApp {
             shape_name: data_slot.shape_name.clone(),
             body: data_slot.body.clone(),
             value_json: match &data_slot.runtime_state {
-                Some(SlotRuntimeState::ResolvedValue { json }) => Some(json.clone()),
+                Some(SlotRuntimeState::ResolvedValue { json, .. }) => Some(json.clone()),
                 _ => None,
             },
         })
@@ -1319,25 +1361,37 @@ impl ObjectBrowserApp {
         self.clamp_active_row();
     }
     fn total_slot_count(&self) -> usize {
-        self.object_slots.len() + 1
+        self.current_projection_view()
+            .map(|view| self.projection_view_slot_count(view))
+            .unwrap_or_else(|| self.object_slots.len() + 1)
     }
 
     fn pseudo_slot_index(&self) -> usize {
         self.object_slots.len()
     }
 
+    fn current_pool_entry(&self) -> Option<PoolEntry> {
+        self.pool_entry_at(self.active_slot_index)
+    }
+
     fn current_slot(&self) -> Option<&ObjectSlot> {
-        self.object_slots.get(self.active_slot_index)
+        self.current_slot_id().and_then(|slot_id| self.slot_by_id(slot_id))
     }
 
     fn current_slot_id(&self) -> Option<usize> {
-        self.current_slot().map(|slot| slot.id)
+        match self.current_pool_entry()? {
+            PoolEntry::RealSlot(slot_id) => Some(slot_id),
+            PoolEntry::NewSlot | PoolEntry::Projection(_) => None,
+        }
     }
 
     fn active_focusable_rows(&self) -> usize {
-        self.current_slot_id()
-            .map(|slot_id| self.slot_focus_targets(slot_id).len())
-            .unwrap_or(1)
+        match self.current_pool_entry() {
+            Some(PoolEntry::RealSlot(slot_id)) => self.slot_focus_targets(slot_id).len(),
+            Some(PoolEntry::NewSlot) => 1,
+            Some(PoolEntry::Projection(projection)) => self.projection_focusable_rows(&projection),
+            None => 1,
+        }
     }
 
     fn clamp_active_row(&mut self) {
@@ -1453,8 +1507,8 @@ impl ObjectBrowserApp {
             Some(SlotRuntimeState::Failed { message }) => {
                 eyre::bail!("slot {} failed: {}", slot.id, message);
             }
-            Some(SlotRuntimeState::ResolvedValue { json }) => {
-                return Ok(serde_json::from_str(json)?);
+            Some(SlotRuntimeState::ResolvedValue { value, .. }) => {
+                return Ok(value.clone());
             }
             None => {}
         }
@@ -1701,6 +1755,12 @@ impl ObjectBrowserApp {
             targets.push(SlotFocusTarget::Inlink(index));
         }
 
+        if matches!(
+            self.slot_runtime_state(slot_id),
+            Some(SlotRuntimeState::ResolvedValue { .. })
+        ) {
+            targets.push(SlotFocusTarget::RuntimeValue);
+        }
         if let Some(slot) = self.slot_by_id(slot_id) {
             for (index, _) in slot.result_slot_ids.iter().enumerate() {
                 targets.push(SlotFocusTarget::Result(index));
@@ -1744,6 +1804,8 @@ impl ObjectBrowserApp {
         let Some(slot_index) = self.slot_index_by_id(slot_id) else {
             return;
         };
+        self.projection_stack.clear();
+        self.pool_surface = PoolSurface::Slots;
         self.active_slot_index = slot_index;
         self.active_row_index = self.focus_row_for_slot_target(slot_id, target).unwrap_or(0);
     }
@@ -1856,6 +1918,301 @@ impl ObjectBrowserApp {
                 SlotKind::View(_) => "take".to_string(),
             },
             SlotAction::Invoke => "invoke".to_string(),
+        }
+    }
+    fn breadcrumbs_line(&self) -> Line<'static> {
+        let mut spans = Vec::new();
+        let labels = std::iter::once("Everything".to_string())
+            .chain(self.projection_stack.iter().map(|view| self.projection_view_label(view)))
+            .collect::<Vec<_>>();
+
+        for (index, label) in labels.iter().enumerate() {
+            if index > 0 {
+                spans.push(Span::styled(" > ", Style::default().fg(Color::DarkGray)));
+            }
+            let style = if self.pool_surface == PoolSurface::Breadcrumbs
+                && self.active_breadcrumb_index == index
+            {
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            } else if index == 0 || index + 1 < labels.len() {
+                Style::default().fg(Color::White)
+            } else {
+                Style::default().fg(Color::Yellow)
+            };
+            spans.push(Span::styled(label.clone(), style));
+        }
+
+        spans.push(Span::styled(
+            " > +Add Breadcrumb",
+            Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM),
+        ));
+        Line::from(spans)
+    }
+
+    fn breadcrumb_count(&self) -> usize {
+        1 + self.projection_stack.len()
+    }
+
+    fn move_breadcrumb_left(&mut self) {
+        self.active_breadcrumb_index = self.active_breadcrumb_index.saturating_sub(1);
+    }
+
+    fn move_breadcrumb_right(&mut self) {
+        let max_index = self.breadcrumb_count().saturating_sub(1);
+        self.active_breadcrumb_index = (self.active_breadcrumb_index + 1).min(max_index);
+    }
+
+    fn activate_current_breadcrumb(&mut self) {
+        if self.active_breadcrumb_index == 0 {
+            self.projection_stack.clear();
+            self.active_slot_index = self.active_slot_index.min(self.total_slot_count().saturating_sub(1));
+            self.active_row_index = 0;
+            self.pool_surface = PoolSurface::Slots;
+            self.status_message = "Returned to the full object pool.".to_string();
+            return;
+        }
+
+        self.projection_stack.truncate(self.active_breadcrumb_index);
+        self.active_slot_index = 0;
+        self.active_row_index = 0;
+        self.pool_surface = PoolSurface::Slots;
+        self.status_message = format!(
+            "Focused {}.",
+            self.projection_stack
+                .last()
+                .map(|view| self.projection_view_label(view))
+                .unwrap_or_else(|| "Everything".to_string())
+        );
+    }
+
+    fn current_projection_view(&self) -> Option<&JsonProjectionView> {
+        self.projection_stack.last()
+    }
+
+    fn projection_view_slot_count(&self, view: &JsonProjectionView) -> usize {
+        1 + self.projection_child_count(view)
+    }
+
+    fn projection_child_count(&self, view: &JsonProjectionView) -> usize {
+        match self.json_value_at_path(view.root_slot_id, &view.path) {
+            Some(Value::Array(items)) => items.len(),
+            _ => 0,
+        }
+    }
+
+    fn pool_entry_at(&self, slot_index: usize) -> Option<PoolEntry> {
+        if let Some(view) = self.current_projection_view() {
+            if slot_index == 0 {
+                return Some(PoolEntry::Projection(ProjectionSlot {
+                    root_slot_id: view.root_slot_id,
+                    path: view.path.clone(),
+                    role: ProjectionSlotRole::ContainerRoot,
+                }));
+            }
+
+            let child_index = slot_index - 1;
+            let Value::Array(items) = self.json_value_at_path(view.root_slot_id, &view.path)? else {
+                return None;
+            };
+            if child_index >= items.len() {
+                return None;
+            }
+            let mut path = view.path.clone();
+            path.push(JsonPathSegment::Index(child_index));
+            return Some(PoolEntry::Projection(ProjectionSlot {
+                root_slot_id: view.root_slot_id,
+                path,
+                role: ProjectionSlotRole::Child,
+            }));
+        }
+
+        if slot_index < self.object_slots.len() {
+            return self.object_slots.get(slot_index).map(|slot| PoolEntry::RealSlot(slot.id));
+        }
+        (slot_index == self.pseudo_slot_index()).then_some(PoolEntry::NewSlot)
+    }
+
+    fn projection_value<'a>(&'a self, projection: &ProjectionSlot) -> Option<&'a Value> {
+        self.json_value_at_path(projection.root_slot_id, &projection.path)
+    }
+
+    fn json_value_at_path<'a>(&'a self, root_slot_id: usize, path: &[JsonPathSegment]) -> Option<&'a Value> {
+        let data_slot_id = self.data_slot_id_for(root_slot_id).unwrap_or(root_slot_id);
+        let slot = self.slot_by_id(data_slot_id)?;
+        let SlotRuntimeState::ResolvedValue { value, .. } = slot.runtime_state.as_ref()? else {
+            return None;
+        };
+        let mut current = value;
+        for segment in path {
+            current = match (segment, current) {
+                (JsonPathSegment::Field(field_name), Value::Object(object)) => object.get(field_name)?,
+                (JsonPathSegment::Index(index), Value::Array(items)) => items.get(*index)?,
+                _ => return None,
+            };
+        }
+        Some(current)
+    }
+
+    fn projection_view_label(&self, view: &JsonProjectionView) -> String {
+        projection_label(view.root_slot_id, &view.path)
+    }
+
+    fn projection_focusable_rows(&self, projection: &ProjectionSlot) -> usize {
+        match (projection.role, self.projection_value(projection)) {
+            (_, None) => 1,
+            (ProjectionSlotRole::Child, Some(_)) => 1,
+            (ProjectionSlotRole::ContainerRoot, Some(Value::Object(object))) => 1 + object.len() * 2,
+            _ => 1,
+        }
+    }
+
+    fn activate_runtime_value(&mut self, slot_id: usize) {
+        self.activate_json_projection(slot_id, Vec::new());
+    }
+
+    fn activate_json_projection(&mut self, root_slot_id: usize, path: Vec<JsonPathSegment>) {
+        let Some(value) = self.json_value_at_path(root_slot_id, &path) else {
+            self.status_message = "That projection is no longer available.".to_string();
+            return;
+        };
+
+        if matches!(value, Value::Array(_) | Value::Object(_)) {
+            self.projection_stack.push(JsonProjectionView { root_slot_id, path });
+            self.active_slot_index = 0;
+            self.active_row_index = 0;
+            self.pool_surface = PoolSurface::Slots;
+            self.status_message = format!(
+                "Browsing {}.",
+                self.projection_stack
+                    .last()
+                    .map(|view| self.projection_view_label(view))
+                    .unwrap_or_else(|| format!("slot {}", root_slot_id))
+            );
+        } else {
+            self.status_message = format!("{}", json_value_summary(value));
+        }
+    }
+
+    fn activate_projection_slot_row(&mut self, projection: &ProjectionSlot, row_index: usize) {
+        let Some(value) = self.projection_value(projection) else {
+            self.status_message = "That projection is no longer available.".to_string();
+            return;
+        };
+
+        match projection.role {
+            ProjectionSlotRole::Child => {
+                self.activate_json_projection(projection.root_slot_id, projection.path.clone());
+            }
+            ProjectionSlotRole::ContainerRoot => match value {
+                Value::Object(object) => {
+                    if row_index == 0 {
+                        self.status_message = format!("{}", json_value_summary(value));
+                        return;
+                    }
+                    let field_offset = row_index - 1;
+                    let field_index = field_offset / 2;
+                    let is_value_row = field_offset % 2 == 1;
+                    let Some((field_name, field_value)) = object.iter().nth(field_index) else {
+                        return;
+                    };
+                    if is_value_row {
+                        let mut path = projection.path.clone();
+                        path.push(JsonPathSegment::Field(field_name.clone()));
+                        self.activate_json_projection(projection.root_slot_id, path);
+                    } else {
+                        self.status_message = format!(
+                            "{}.{} has type {}.",
+                            projection_label(projection.root_slot_id, &projection.path),
+                            field_name,
+                            json_type_label(field_value)
+                        );
+                    }
+                }
+                _ => {
+                    self.status_message = format!("{}", json_value_summary(value));
+                }
+            },
+        }
+    }
+
+    fn draw_projection_slot(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        projection: &ProjectionSlot,
+        is_active: bool,
+    ) {
+        let title = projection_label(projection.root_slot_id, &projection.path);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(format!("{} [projection]", title))
+            .border_style(slot_border_style(Color::Cyan, is_active));
+        let lines = self.projection_slot_lines(
+            projection,
+            is_active.then_some(self.active_row_index),
+        );
+        frame.render_widget(Paragraph::new(lines).block(block), area);
+    }
+
+    fn projection_slot_lines(
+        &self,
+        projection: &ProjectionSlot,
+        active_row: Option<usize>,
+    ) -> Vec<Line<'static>> {
+        let Some(value) = self.projection_value(projection) else {
+            return vec![Line::from("  unavailable")];
+        };
+
+        match projection.role {
+            ProjectionSlotRole::Child => vec![selectable_plain_line(
+                json_value_summary(value),
+                active_row == Some(0),
+            )],
+            ProjectionSlotRole::ContainerRoot => match value {
+                Value::Object(object) => {
+                    let mut lines = vec![selectable_plain_line(
+                        json_value_summary(value),
+                        active_row == Some(0),
+                    )];
+                    if !object.is_empty() {
+                        lines.push(separator_line("fields"));
+                    }
+                    for (index, (field_name, field_value)) in object.iter().enumerate() {
+                        let accent = field_group_color(index);
+                        lines.push(selectable_spans_line(
+                            vec![
+                                Span::styled(
+                                    "type ",
+                                    Style::default().fg(accent).add_modifier(Modifier::DIM),
+                                ),
+                                Span::styled(
+                                    json_type_label(field_value),
+                                    Style::default().fg(accent).add_modifier(Modifier::DIM),
+                                ),
+                            ],
+                            active_row == Some(1 + index * 2),
+                        ));
+                        lines.push(selectable_spans_line(
+                            vec![
+                                Span::styled(
+                                    format!("{}: ", field_name),
+                                    Style::default().fg(accent),
+                                ),
+                                Span::styled(
+                                    json_value_summary(field_value),
+                                    Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                                ),
+                            ],
+                            active_row == Some(2 + index * 2),
+                        ));
+                    }
+                    lines
+                }
+                _ => vec![selectable_plain_line(
+                    json_value_summary(value),
+                    active_row == Some(0),
+                )],
+            },
         }
     }
     fn variant_picker_preview_lines(&mut self) -> Option<Vec<Line<'static>>> {
@@ -2024,6 +2381,44 @@ enum UiMode {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PoolSurface {
+    Slots,
+    Breadcrumbs,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct JsonProjectionView {
+    root_slot_id: usize,
+    path: Vec<JsonPathSegment>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum JsonPathSegment {
+    Field(String),
+    Index(usize),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ProjectionSlot {
+    root_slot_id: usize,
+    path: Vec<JsonPathSegment>,
+    role: ProjectionSlotRole,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ProjectionSlotRole {
+    ContainerRoot,
+    Child,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum PoolEntry {
+    RealSlot(usize),
+    NewSlot,
+    Projection(ProjectionSlot),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SlotFocusTarget {
     Shape,
     ViewPointer,
@@ -2031,6 +2426,7 @@ enum SlotFocusTarget {
     FieldType(usize),
     FieldValue(usize),
     Inlink(usize),
+    RuntimeValue,
     Result(usize),
     Action(SlotAction),
 }
@@ -2043,7 +2439,6 @@ enum SlotAction {
     Take,
     Invoke,
 }
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SlotCompletion {
     Unset,
@@ -2371,7 +2766,7 @@ struct SlotSnapshot {
 #[derive(Debug)]
 enum SlotRuntimeState {
     Pending(PendingInvocationState),
-    ResolvedValue { json: String },
+    ResolvedValue { json: String, value: Value },
     Failed { message: String },
 }
 
@@ -2404,7 +2799,7 @@ impl ObjectSlot {
             result_slot_ids: Vec::new(),
             runtime_state: snapshot
                 .value_json
-                .map(|json| SlotRuntimeState::ResolvedValue { json }),
+                .and_then(|json| serde_json::from_str::<Value>(&json).ok().map(|value| SlotRuntimeState::ResolvedValue { json, value })),
             display_cache: None,
         }
     }
@@ -2738,19 +3133,18 @@ fn runtime_state_rows(runtime_state: &SlotRuntimeState) -> Vec<SlotDisplayRow> {
             Span::styled("failed", unset_style()),
             Span::raw(format!(": {message}")),
         ]))],
-        SlotRuntimeState::ResolvedValue { json } => {
-            let mut rows = vec![SlotDisplayRow::Static(Line::from(vec![
-                Span::raw("  "),
+        SlotRuntimeState::ResolvedValue { value, .. } => vec![focusable_spans_row(
+            SlotFocusTarget::RuntimeValue,
+            vec![
                 Span::styled(
-                    "resolved",
+                    "resolved ",
                     Style::default()
                         .fg(Color::Green)
                         .add_modifier(Modifier::BOLD),
                 ),
-            ]))];
-            rows.extend(pretty_json_lines(json).into_iter().map(SlotDisplayRow::Static));
-            rows
-        }
+                Span::raw(json_value_summary(value)),
+            ],
+        )],
     }
 }
 
@@ -3037,15 +3431,53 @@ fn separator_line(label: &str) -> Line<'static> {
     ])
 }
 
-fn pretty_json_lines(json: &str) -> Vec<Line<'static>> {
-    let pretty = serde_json::from_str::<Value>(json)
-        .and_then(|value| serde_json::to_string_pretty(&value))
-        .unwrap_or_else(|_| json.to_string());
-    pretty
-        .lines()
-        .map(|line| Line::from(format!("  {line}")))
-        .collect()
+fn projection_label(root_slot_id: usize, path: &[JsonPathSegment]) -> String {
+    let mut label = format!("slot {}", root_slot_id);
+    for segment in path {
+        match segment {
+            JsonPathSegment::Field(field_name) => {
+                label.push('.');
+                label.push_str(field_name);
+            }
+            JsonPathSegment::Index(index) => {
+                label.push('[');
+                label.push_str(&index.to_string());
+                label.push(']');
+            }
+        }
+    }
+    label
 }
+
+fn json_type_label(value: &Value) -> String {
+    match value {
+        Value::Null => "null".to_string(),
+        Value::Bool(_) => "bool".to_string(),
+        Value::Number(_) => "number".to_string(),
+        Value::String(_) => "string".to_string(),
+        Value::Array(items) => format!("array[{}]", items.len()),
+        Value::Object(object) => format!("object[{}]", object.len()),
+    }
+}
+
+fn json_value_summary(value: &Value) -> String {
+    match value {
+        Value::Null => "null".to_string(),
+        Value::Bool(boolean) => boolean.to_string(),
+        Value::Number(number) => number.to_string(),
+        Value::String(text) => {
+            let truncated = if text.chars().count() > 40 {
+                format!("{}...", text.chars().take(37).collect::<String>())
+            } else {
+                text.clone()
+            };
+            format!("\"{}\"", truncated)
+        }
+        Value::Array(items) => format!("{} entries", items.len()),
+        Value::Object(object) => format!("object with {} fields", object.len()),
+    }
+}
+
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     let vertical = Layout::vertical([
         Constraint::Percentage((100 - percent_y) / 2),
@@ -3061,7 +3493,6 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     let [_, middle, _] = horizontal.areas(center);
     middle
 }
-
 #[cfg(test)]
 mod tests {
     use super::FieldPickerChoice;
@@ -3387,11 +3818,52 @@ mod tests {
             .slot_by_id(result_slot_id)
             .and_then(|slot| slot.runtime_state.as_ref())
             .and_then(|runtime| match runtime {
-                super::SlotRuntimeState::ResolvedValue { json } => Some(json.clone()),
+                super::SlotRuntimeState::ResolvedValue { json, .. } => Some(json.clone()),
                 _ => None,
             })
             .expect("result slot should resolve");
         assert!(resolved_json.contains("\"message\":\"done\""));
     }
+
+    #[test]
+    fn resolved_array_enters_projection_view() {
+        let mut app = ObjectBrowserApp::default();
+        let value = serde_json::json!([
+            { "displayName": "Ada" },
+            { "displayName": "Grace" }
+        ]);
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some("Vec<EntraUser>".to_string()),
+            body: super::SlotBody::Unset,
+            result_slot_ids: Vec::new(),
+            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            }),
+            display_cache: None,
+        });
+        app.active_slot_index = 0;
+        app.active_row_index = 1;
+
+        app.activate_current_row();
+
+        assert_eq!(app.projection_stack.len(), 1);
+        assert_eq!(app.total_slot_count(), 3);
+        assert!(matches!(
+            app.pool_entry_at(1),
+            Some(super::PoolEntry::Projection(_))
+        ));
+    }
 }
+
+
+
+
+
+
+
+
 
