@@ -542,6 +542,11 @@ impl ObjectBrowserApp {
     }
 
     fn handle_pool_key(&mut self, key: KeyEvent) {
+        if self.mode == UiMode::SlotSearch {
+            self.handle_slot_search_key(key);
+            return;
+        }
+
         match self.pool_surface {
             PoolSurface::Breadcrumbs => match key.code {
                 KeyCode::Esc => self.handle_escape(),
@@ -600,7 +605,9 @@ impl ObjectBrowserApp {
                     return;
                 };
                 if slot_search.query.input(key) {
-                    self.refresh_slot_search();
+                    slot_search.query.cancel_selection();
+                    slot_search.query.move_cursor(CursorMove::End);
+                    self.refresh_slot_search(false);
                 }
             }
         }
@@ -738,6 +745,8 @@ impl ObjectBrowserApp {
         if !query.input(key) {
             return;
         }
+        query.cancel_selection();
+        query.move_cursor(CursorMove::End);
 
         self.slot_search = Some(SlotSearchState {
             slot_id,
@@ -746,7 +755,7 @@ impl ObjectBrowserApp {
             selected_match_index: 0,
         });
         self.mode = UiMode::SlotSearch;
-        self.refresh_slot_search();
+        self.refresh_slot_search(false);
     }
 
     fn cancel_slot_search(&mut self) {
@@ -813,21 +822,20 @@ impl ObjectBrowserApp {
         self.sync_slot_search_selection();
     }
 
-    fn refresh_slot_search(&mut self) {
+    fn refresh_slot_search(&mut self, preserve_current_selection: bool) {
         let Some((slot_id, query, preferred_target)) =
             self.slot_search.as_ref().map(|slot_search| {
                 (
                     slot_search.slot_id,
                     slot_search.query.lines().join("\n"),
-                    slot_search
-                        .filtered_matches
-                        .get(slot_search.selected_match_index)
-                        .map(|matched| matched.target)
-                        .or_else(|| {
-                            self.slot_focus_targets(slot_search.slot_id)
-                                .get(self.active_row_index)
-                                .copied()
-                        }),
+                    preserve_current_selection
+                        .then(|| {
+                            slot_search
+                                .filtered_matches
+                                .get(slot_search.selected_match_index)
+                                .map(|matched| matched.target)
+                        })
+                        .flatten(),
                 )
             })
         else {
@@ -1268,7 +1276,17 @@ impl ObjectBrowserApp {
                 .position(|choice| choice == &FieldPickerChoice::ExistingSlot { slot_id }),
             _ => choices
                 .iter()
-                .position(|choice| matches!(choice, FieldPickerChoice::CreateProducer { .. }))
+                .position(|choice| matches!(choice, FieldPickerChoice::ExistingSlot { .. }))
+                .or_else(|| {
+                    choices.iter().position(|choice| {
+                        matches!(choice, FieldPickerChoice::ExistingProducerSlot { .. })
+                    })
+                })
+                .or_else(|| {
+                    choices.iter().position(|choice| {
+                        matches!(choice, FieldPickerChoice::CreateProducer { .. })
+                    })
+                })
                 .or_else(|| {
                     choices
                         .iter()
@@ -3205,15 +3223,17 @@ impl ObjectBrowserApp {
                 SlotDisplayRow::Static(_) => None,
             })
             .collect::<Vec<_>>();
-        let labels = focusable_rows
+        let search_labels = focusable_rows
             .iter()
-            .map(|(_, spans)| spans_plain_text(spans))
+            .map(|(target, spans)| self.slot_search_label(slot_id, *target, spans))
             .collect::<Vec<_>>();
 
-        ranked_match_indices(query, &labels)
+        ranked_slot_search_indices(query, &search_labels)
             .into_iter()
-            .filter_map(|(index, matched_indices)| {
+            .filter_map(|index| {
                 let (target, spans) = focusable_rows.get(index)?.clone();
+                let matched_indices =
+                    match_indices(query, &spans_plain_text(&spans)).unwrap_or_default();
                 Some(SlotSearchMatch {
                     target,
                     spans,
@@ -3221,6 +3241,59 @@ impl ObjectBrowserApp {
                 })
             })
             .collect()
+    }
+
+    fn slot_search_label(
+        &self,
+        slot_id: usize,
+        target: SlotFocusTarget,
+        spans: &[Span<'static>],
+    ) -> String {
+        match target {
+            SlotFocusTarget::Shape => self
+                .slot_shape_name(slot_id)
+                .map(|shape_name| format!("shape {shape_name}"))
+                .unwrap_or_else(|| "shape unset".to_string()),
+            SlotFocusTarget::ViewPointer => self
+                .slot_by_id(slot_id)
+                .and_then(|slot| match &slot.kind {
+                    SlotKind::View(info) => Some(format!(
+                        "pointer {} {}",
+                        info.owner_slot_id, info.field_name
+                    )),
+                    SlotKind::Owned => None,
+                })
+                .unwrap_or_else(|| spans_plain_text(spans)),
+            SlotFocusTarget::Variant => self
+                .slot_body(slot_id)
+                .and_then(|body| match body {
+                    SlotBody::Enum {
+                        variants,
+                        selected_variant,
+                        ..
+                    } => selected_variant
+                        .and_then(|index| variants.get(index))
+                        .map(|variant| format!("variant {}", variant.info.variant_name))
+                        .or_else(|| Some("variant unset".to_string())),
+                    _ => None,
+                })
+                .unwrap_or_else(|| spans_plain_text(spans)),
+            SlotFocusTarget::FieldType(field_index) => self
+                .slot_field(slot_id, field_index)
+                .map(|field| {
+                    format!(
+                        "type {} {}",
+                        field.info.field_name, field.info.field_shape_name
+                    )
+                })
+                .unwrap_or_else(|| spans_plain_text(spans)),
+            SlotFocusTarget::FieldValue(field_index) => self
+                .slot_field(slot_id, field_index)
+                .map(|field| field.info.field_name.to_string())
+                .unwrap_or_else(|| spans_plain_text(spans)),
+            SlotFocusTarget::Action(action) => self.slot_action_label(slot_id, action),
+            _ => spans_plain_text(spans),
+        }
     }
 
     fn slot_border_style(&self, slot_id: usize, is_active: bool) -> Style {
@@ -4365,6 +4438,42 @@ fn filter_indices(query: &str, labels: &[String]) -> Vec<usize> {
         .collect()
 }
 
+fn ranked_slot_search_indices(query: &str, labels: &[String]) -> Vec<usize> {
+    if query.trim().is_empty() {
+        return (0..labels.len()).collect();
+    }
+
+    let query_lower = query.to_lowercase();
+    let mut ranked = Vec::new();
+    let mut taken = BTreeSet::new();
+
+    for (index, label) in labels.iter().enumerate() {
+        if label.to_lowercase().starts_with(&query_lower) {
+            taken.insert(index);
+            ranked.push(index);
+        }
+    }
+
+    for (index, label) in labels.iter().enumerate() {
+        if taken.contains(&index) {
+            continue;
+        }
+        if label.to_lowercase().contains(&query_lower) {
+            taken.insert(index);
+            ranked.push(index);
+        }
+    }
+
+    if ranked.is_empty() {
+        ranked_match_indices(query, labels)
+            .into_iter()
+            .map(|(index, _)| index)
+            .collect()
+    } else {
+        ranked
+    }
+}
+
 fn ranked_match_indices(query: &str, labels: &[String]) -> Vec<(usize, Vec<u32>)> {
     if query.trim().is_empty() {
         return labels
@@ -4374,22 +4483,42 @@ fn ranked_match_indices(query: &str, labels: &[String]) -> Vec<(usize, Vec<u32>)
             .collect();
     }
 
+    let query_lower = query.to_lowercase();
+    let mut taken = BTreeSet::new();
+    let mut ranked = Vec::new();
+
+    for (index, label) in labels.iter().enumerate() {
+        if label.to_lowercase().starts_with(&query_lower) {
+            taken.insert(index);
+            ranked.push((index, match_indices(query, label).unwrap_or_default()));
+        }
+    }
+
+    for (index, label) in labels.iter().enumerate() {
+        if taken.contains(&index) {
+            continue;
+        }
+        if label.to_lowercase().contains(&query_lower) {
+            taken.insert(index);
+            ranked.push((index, match_indices(query, label).unwrap_or_default()));
+        }
+    }
+
     let pattern = Pattern::parse(query, CaseMatching::Smart, Normalization::Smart);
     let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
-    let mut taken = BTreeSet::new();
-    pattern
-        .match_list(labels, &mut matcher)
-        .into_iter()
-        .filter_map(|(matched_label, _score)| {
-            let index = labels.iter().enumerate().find_map(|(index, label)| {
-                (label == matched_label && taken.insert(index)).then_some(index)
-            })?;
-            Some((
-                index,
-                match_indices(query, matched_label).unwrap_or_default(),
-            ))
-        })
-        .collect()
+    for (matched_label, _score) in pattern.match_list(labels, &mut matcher) {
+        let Some(index) = labels.iter().enumerate().find_map(|(index, label)| {
+            (label == matched_label && taken.insert(index)).then_some(index)
+        }) else {
+            continue;
+        };
+        ranked.push((
+            index,
+            match_indices(query, matched_label).unwrap_or_default(),
+        ));
+    }
+
+    ranked
 }
 
 fn match_indices(query: &str, label: &str) -> Option<Vec<u32>> {
@@ -4909,6 +5038,50 @@ mod tests {
     }
 
     #[test]
+    fn field_picker_prefers_exact_value_slots_over_request_producers() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let tenant_id_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantId"))
+            .expect("AzureTenantId should be registered");
+        app.shape_picker.open(Some(tenant_id_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(tenant_id_index));
+        app.apply_shape_selection();
+
+        app.active_slot_index = 1;
+        app.activate_current_row();
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("EntraUserListRequest"))
+            .expect("EntraUserListRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.active_row_index = 2;
+        app.activate_current_row();
+
+        let picker = app.field_picker.as_ref().expect("field picker should open");
+        let selected_choice = picker
+            .selected_choice()
+            .expect("a choice should be selected");
+        assert_eq!(
+            selected_choice,
+            FieldPickerChoice::ExistingSlot { slot_id: 1 }
+        );
+    }
+
+    #[test]
     fn deleting_a_view_slot_unsets_the_owner_field() {
         let mut app = ObjectBrowserApp::default();
         app.activate_current_row();
@@ -5120,12 +5293,64 @@ mod tests {
         assert_eq!(app.mode, UiMode::SlotSearch);
         assert_eq!(
             app.slot_search_current_target(),
-            Some(SlotFocusTarget::FieldValue(mail_index))
+            Some(SlotFocusTarget::FieldValue(mail_index)),
+            "query={:?}, labels={:?}",
+            app.slot_search
+                .as_ref()
+                .map(|search| search.query.lines().join("\\n")),
+            app.slot_search.as_ref().map(|search| search
+                .filtered_matches
+                .iter()
+                .map(|matched| matched.target)
+                .collect::<Vec<_>>())
         );
         assert_eq!(
             app.active_row_index,
             app.focus_row_for_slot_target(1, SlotFocusTarget::FieldValue(mail_index))
                 .expect("mail row should be focusable")
+        );
+    }
+
+    #[test]
+    fn typing_in_slot_search_resets_selection_to_the_top_match() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantIdResolveRequest"))
+            .expect("AzureTenantIdResolveRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.handle_pool_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE));
+        app.move_slot_search_selection(1);
+        app.handle_slot_search_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
+
+        assert_eq!(app.mode, UiMode::SlotSearch);
+        assert_eq!(
+            app.slot_search
+                .as_ref()
+                .map(|search| search.selected_match_index),
+            Some(0)
+        );
+        assert_eq!(
+            app.slot_search_current_target(),
+            Some(SlotFocusTarget::Action(super::SlotAction::Invoke)),
+            "query={:?}, labels={:?}",
+            app.slot_search
+                .as_ref()
+                .map(|search| search.query.lines().join("\\n")),
+            app.slot_search.as_ref().map(|search| search
+                .filtered_matches
+                .iter()
+                .map(|matched| matched.target)
+                .collect::<Vec<_>>())
         );
     }
 
@@ -5152,7 +5377,16 @@ mod tests {
         assert_eq!(app.mode, UiMode::SlotSearch);
         assert_eq!(
             app.slot_search_current_target(),
-            Some(SlotFocusTarget::Action(super::SlotAction::Invoke))
+            Some(SlotFocusTarget::Action(super::SlotAction::Invoke)),
+            "query={:?}, labels={:?}",
+            app.slot_search
+                .as_ref()
+                .map(|search| search.query.lines().join("\\n")),
+            app.slot_search.as_ref().map(|search| search
+                .filtered_matches
+                .iter()
+                .map(|matched| matched.target)
+                .collect::<Vec<_>>())
         );
 
         let lines = app.slot_lines(1, true, app.active_row_index);
