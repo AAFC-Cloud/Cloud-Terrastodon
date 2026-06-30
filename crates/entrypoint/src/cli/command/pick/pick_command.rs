@@ -1,8 +1,6 @@
 use crate::cli::pick::pick_fs_command::PickFsArgs;
 use crate::cli::pick::pick_stdin_command::PickStdinArgs;
 use crate::serde_json_isolation::Value;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 use jmespath::Variable;
 use jsonpath_rust::JsonPath;
@@ -10,15 +8,16 @@ use std::io::IsTerminal;
 use strum::Display;
 
 /// Pick from stdin or the filesystem.
-#[derive(Args, Debug, Clone, Default)]
+#[derive(facet::Facet, Debug, Clone, Default)]
 pub struct PickArgs {
-    #[command(flatten)]
+    #[facet(flatten)]
     pub common: PickCommonArgs,
-    #[command(subcommand)]
+    #[facet(figue::subcommand, default)]
     pub command: Option<PickCommand>,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum PickCommand {
     /// Pick from stdin
     Stdin(PickStdinArgs),
@@ -26,27 +25,28 @@ pub enum PickCommand {
     Fs(PickFsArgs),
 }
 
-#[derive(Args, Debug, Clone, Default)]
+#[derive(facet::Facet, Debug, Clone, Default)]
 pub struct PickCommonArgs {
     /// Query to be passed to the query engine, determines the display value for the choices
-    #[clap(global = true, long, short = 'q', default_value = "")]
+    #[facet(figue::named, figue::short = 'q', default = "")]
     pub query: String,
     /// Query engine to use
-    #[clap(global=true, long, short = 'e', default_value_t = Default::default())]
+    #[facet(figue::named, figue::short = 'e', default = Default::default())]
     pub query_engine: QueryEngine,
     /// Restrict to a single selected item (no multi-select)
-    #[clap(global = true, long, short = 'm')]
+    #[facet(figue::named, figue::short = 'm')]
     pub single: bool,
     /// Automatically accept if there is only one choice
-    #[clap(global = true, long, short = 'a')]
+    #[facet(figue::named, figue::short = 'a')]
     pub auto_accept: bool,
     /// Default query for the TUI
-    #[clap(global = true, long, short = 'd')]
+    #[facet(figue::named, figue::short = 'd')]
     pub default_query: Option<String>,
 }
 
-#[derive(Debug, Clone, clap::ValueEnum, Display, Default)]
+#[derive(Debug, Clone, facet::Facet, Display, Default)]
 #[strum(serialize_all = "kebab-case")]
+#[repr(u8)]
 pub enum QueryEngine {
     /// See https://crates.io/crates/jsonpath-rust for details.
     /// Example: `$..['name', 'description']`
@@ -128,7 +128,6 @@ mod test {
     use crate::cli::pick::QueryEngine;
     use crate::cli::pick::pick_command::resolve_default_pick_command;
     use crate::serde_json_isolation::json;
-    use clap::ValueEnum;
 
     #[test]
     fn query_engine_examples_work() -> eyre::Result<()> {
@@ -137,24 +136,17 @@ mod test {
             "age": 30,
             "description": "A software developer"
         });
-        for engine in QueryEngine::value_variants() {
-            let possible_value = engine.to_possible_value().unwrap();
-            let styled_help_text = possible_value.get_help().unwrap();
-            let mut found_example = false;
-            for line in styled_help_text.to_string().lines() {
-                if let Some(idx) = line.find("Example: `") {
-                    let example = &line[idx + "Example: `".len()..line.len() - 1];
-                    let result = engine.query(&example_obj, example)?;
-                    println!(
-                        "Engine: {}, Example: {}, Result: {}",
-                        engine, example, result
-                    );
-                    found_example = true;
-                }
-            }
-            if !found_example {
-                eyre::bail!("No example found for engine {}", engine);
-            }
+        let cases = [
+            (QueryEngine::JsonPath, "$..['name', 'description']"),
+            (QueryEngine::JmesPath, "[name, age]"),
+            (QueryEngine::Liquid, "{{ name }} {{ description }}"),
+        ];
+        for (engine, example) in cases {
+            let result = engine.query(&example_obj, example)?;
+            println!(
+                "Engine: {}, Example: {}, Result: {}",
+                engine, example, result
+            );
         }
         Ok(())
     }

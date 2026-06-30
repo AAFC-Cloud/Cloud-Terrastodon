@@ -1,6 +1,5 @@
 use crate::cli::azure::vm::browse::AzureVmBrowseOption;
 use crate::cli::azure::vm::publisher::AzureVmPublisherBrowseArgs;
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
@@ -12,10 +11,10 @@ use cloud_terrastodon_user_input::PickerTui;
 use strum::VariantArray;
 use tracing::info;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureVmBrowseArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 }
 

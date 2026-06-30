@@ -1,17 +1,16 @@
 use crate::cli::azure_devops::service_endpoint::list::AzureDevOpsServiceEndpointListArgs;
 use crate::cli::azure_devops::service_endpoint::show::AzureDevOpsServiceEndpointShowArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps service endpoint-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsServiceEndpointArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsServiceEndpointCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsServiceEndpointCommand {
     /// List Azure DevOps service endpoints in a project.
     List(AzureDevOpsServiceEndpointListArgs),

@@ -9,13 +9,11 @@ pub use azure_vm_publisher_list::AzureVmPublisherListArgs;
 pub use azure_vm_publisher_offer_list::AzureVmPublisherOfferListArgs;
 pub use azure_vm_publisher_offer_sku_list::AzureVmPublisherOfferSkuListArgs;
 pub use azure_vm_publisher_offer_sku_version_list::AzureVmPublisherOfferSkuVersionListArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureVmPublisherArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureVmPublisherCommand,
 }
 
@@ -25,9 +23,9 @@ impl AzureVmPublisherArgs {
     }
 }
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureVmPublisherOfferArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureVmPublisherOfferCommand,
 }
 
@@ -37,7 +35,8 @@ impl AzureVmPublisherOfferArgs {
     }
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureVmPublisherOfferCommand {
     /// List offers for a publisher.
     List(AzureVmPublisherOfferListArgs),
@@ -54,9 +53,9 @@ impl AzureVmPublisherOfferCommand {
     }
 }
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureVmPublisherOfferSkuArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureVmPublisherOfferSkuCommand,
 }
 
@@ -66,7 +65,8 @@ impl AzureVmPublisherOfferSkuArgs {
     }
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureVmPublisherOfferSkuCommand {
     /// List SKUs for a publisher's offer.
     List(AzureVmPublisherOfferSkuListArgs),
@@ -83,9 +83,9 @@ impl AzureVmPublisherOfferSkuCommand {
     }
 }
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureVmPublisherOfferSkuVersionArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureVmPublisherOfferSkuVersionCommand,
 }
 
@@ -95,7 +95,8 @@ impl AzureVmPublisherOfferSkuVersionArgs {
     }
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureVmPublisherOfferSkuVersionCommand {
     /// List versions for a publisher's offer SKU.
     List(AzureVmPublisherOfferSkuVersionListArgs),
@@ -110,7 +111,8 @@ impl AzureVmPublisherOfferSkuVersionCommand {
 }
 
 /// Manage VM publishers.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureVmPublisherCommand {
     /// List VM publishers for a subscription and location.
     List(AzureVmPublisherListArgs),

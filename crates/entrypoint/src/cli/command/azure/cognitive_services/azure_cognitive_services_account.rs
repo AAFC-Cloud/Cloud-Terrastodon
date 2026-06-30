@@ -1,14 +1,12 @@
 use super::AzureCognitiveServicesDeploymentArgs;
 use super::AzureCognitiveServicesListArgs;
 use super::AzureCognitiveServicesShowArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Manage Azure Cognitive Services accounts.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesAccountArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureCognitiveServicesAccountCommand,
 }
 
@@ -18,7 +16,8 @@ impl AzureCognitiveServicesAccountArgs {
     }
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureCognitiveServicesAccountCommand {
     /// List Azure Cognitive Services accounts.
     List(AzureCognitiveServicesListArgs),

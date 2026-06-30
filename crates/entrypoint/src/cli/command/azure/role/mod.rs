@@ -5,15 +5,14 @@ pub mod operation;
 
 pub use assignment::AzureRoleAssignmentArgs;
 pub use azure_role::AzureRoleCommand;
-use clap::Args;
 pub use definition::AzureRoleDefinitionArgs;
 use eyre::Result;
 pub use operation::AzureRoleOperationArgs;
 
 /// Manage Azure role-based access control.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureRoleArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureRoleCommand,
 }
 

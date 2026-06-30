@@ -1,18 +1,13 @@
-use clap::Args;
 use cloud_terrastodon_hcl::discover_terraform_source_dirs;
 use eyre::Result;
 use std::path::PathBuf;
 
 /// Identify and report Terraform provider issues.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct TerraformAuditArgs {
-    #[arg(default_value = ".")]
+    #[facet(figue::positional, default = PathBuf::from("."))]
     pub source_dir: PathBuf,
-    #[arg(
-        long,
-        default_value_t = false,
-        help = "Recursively audit subdirectories"
-    )]
+    #[facet(figue::named, default = false)]
     pub recursive: bool,
 }
 

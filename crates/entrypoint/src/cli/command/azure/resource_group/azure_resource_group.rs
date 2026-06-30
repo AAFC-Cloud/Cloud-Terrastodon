@@ -1,10 +1,10 @@
 use super::AzureResourceGroupBrowseArgs;
 use super::AzureResourceGroupListArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for managing Azure resource groups.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureResourceGroupCommand {
     /// List all Azure resource groups accessible to the account.
     List(AzureResourceGroupListArgs),

@@ -1,9 +1,8 @@
-use clap::Args;
 use cloud_terrastodon_gitea::discover_and_track_tenants;
 use eyre::Result;
 use std::io::Write;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantDiscoverArgs {}
 
 impl GiteaTenantDiscoverArgs {

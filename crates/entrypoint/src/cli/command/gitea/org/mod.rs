@@ -2,20 +2,19 @@ pub mod gitea_org_browse;
 pub mod gitea_org_list;
 pub mod gitea_org_show;
 
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 pub use gitea_org_browse::GiteaOrgBrowseArgs;
 pub use gitea_org_list::GiteaOrgListArgs;
 pub use gitea_org_show::GiteaOrgShowArgs;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaOrgArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: GiteaOrgCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum GiteaOrgCommand {
     /// List organizations visible from the tenant.
     List(GiteaOrgListArgs),

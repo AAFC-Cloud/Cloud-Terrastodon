@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectName;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
@@ -9,10 +8,10 @@ use eyre::Result;
 use std::io::stdout;
 
 /// List Azure DevOps work item queries for a project.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsWorkItemQueryListArgs {
     /// Project id or project name.
-    #[arg(long)]
+    #[facet(figue::named, opaque, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 }
 

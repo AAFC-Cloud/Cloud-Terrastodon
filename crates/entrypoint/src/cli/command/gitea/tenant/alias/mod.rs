@@ -2,20 +2,19 @@ pub mod gitea_tenant_alias_add;
 pub mod gitea_tenant_alias_list;
 pub mod gitea_tenant_alias_remove;
 
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 pub use gitea_tenant_alias_add::GiteaTenantAliasAddArgs;
 pub use gitea_tenant_alias_list::GiteaTenantAliasListArgs;
 pub use gitea_tenant_alias_remove::GiteaTenantAliasRemoveArgs;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantAliasArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: GiteaTenantAliasCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum GiteaTenantAliasCommand {
     /// Add one or more aliases to a tracked tenant.
     Add(GiteaTenantAliasAddArgs),

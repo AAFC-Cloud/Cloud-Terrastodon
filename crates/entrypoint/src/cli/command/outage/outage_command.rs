@@ -1,9 +1,9 @@
 use super::OutageInvestigateArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Outage investigation subcommands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum OutageCommand {
     /// Resolve a host and correlate it to Azure public IP resources.
     Investigate(OutageInvestigateArgs),

@@ -7,7 +7,8 @@ use std::str::FromStr;
 
 /// Role definition can be specified as a RoleDefinitionId (expanded form or scoped),
 /// or by its name (display name / GUID form).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(opaque, proxy = String)]
 pub enum AzureRoleDefinitionArgument<'a> {
     Id(RoleDefinitionId),
     IdRef(&'a RoleDefinitionId),
@@ -35,26 +36,25 @@ impl From<RoleDefinitionId> for AzureRoleDefinitionArgument<'_> {
         AzureRoleDefinitionArgument::Id(value)
     }
 }
+
 impl<'a> From<&'a RoleDefinitionId> for AzureRoleDefinitionArgument<'a> {
     fn from(value: &'a RoleDefinitionId) -> Self {
         AzureRoleDefinitionArgument::IdRef(value)
     }
 }
+
 impl From<RoleDefinitionName> for AzureRoleDefinitionArgument<'_> {
     fn from(value: RoleDefinitionName) -> Self {
         AzureRoleDefinitionArgument::Name(value)
     }
 }
+
 impl<'a> From<&'a RoleDefinitionName> for AzureRoleDefinitionArgument<'a> {
     fn from(value: &'a RoleDefinitionName) -> Self {
         AzureRoleDefinitionArgument::NameRef(value)
     }
 }
-impl From<String> for AzureRoleDefinitionArgument<'_> {
-    fn from(value: String) -> Self {
-        AzureRoleDefinitionArgument::RawName(value)
-    }
-}
+
 impl<'a> From<&'a str> for AzureRoleDefinitionArgument<'a> {
     fn from(value: &'a str) -> Self {
         AzureRoleDefinitionArgument::RawNameRef(value)
@@ -120,8 +120,21 @@ impl FromStr for AzureRoleDefinitionArgument<'static> {
         } else if let Ok(name) = RoleDefinitionName::try_new(s.to_string()) {
             Ok(AzureRoleDefinitionArgument::Name(name))
         } else {
-            // fallback to raw name
             Ok(AzureRoleDefinitionArgument::RawName(s.to_string()))
         }
+    }
+}
+
+impl TryFrom<String> for AzureRoleDefinitionArgument<'static> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&AzureRoleDefinitionArgument<'_>> for String {
+    fn from(value: &AzureRoleDefinitionArgument<'_>) -> Self {
+        value.to_string()
     }
 }

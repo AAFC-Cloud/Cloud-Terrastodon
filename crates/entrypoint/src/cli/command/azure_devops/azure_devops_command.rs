@@ -9,11 +9,11 @@ use crate::cli::azure_devops::service_endpoint::AzureDevOpsServiceEndpointArgs;
 use crate::cli::azure_devops::team::AzureDevOpsTeamArgs;
 use crate::cli::azure_devops::test::AzureDevOpsTestArgs;
 use crate::cli::azure_devops::work_item_query::AzureDevOpsWorkItemQueryArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps-specific commands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsCommand {
     /// Audit Azure DevOps resources for configuration issues.
     Audit(AzureDevOpsAuditArgs),

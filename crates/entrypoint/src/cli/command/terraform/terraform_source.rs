@@ -1,13 +1,11 @@
 use super::terraform_source_add_imports::TerraformSourceAddImportsArgs;
 use super::terraform_source_generate::TerraformSourceGenerateArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Manage Terraform source files.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct TerraformSourceArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: TerraformSourceCommand,
 }
 
@@ -18,12 +16,13 @@ impl TerraformSourceArgs {
 }
 
 /// Operations available under `ct tf source`.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum TerraformSourceCommand {
     /// Create Terraform import definitions for selected resources.
     Generate(TerraformSourceGenerateArgs),
     /// Add Terraform import definitions to existing source files.
-    #[command(name = "add-imports")]
+    #[facet(rename = "add-imports")]
     AddImports(TerraformSourceAddImportsArgs),
 }
 

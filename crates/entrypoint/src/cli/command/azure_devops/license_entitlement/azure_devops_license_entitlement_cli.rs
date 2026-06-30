@@ -5,18 +5,17 @@ use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntit
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserSummaryArgs;
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateArgs;
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateTuiArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps license entitlement-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsLicenseEntitlementCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsLicenseEntitlementCommand {
     /// Operations on user license entitlements.
     User(AzureDevOpsLicenseEntitlementUserArgs),
@@ -24,13 +23,14 @@ pub enum AzureDevOpsLicenseEntitlementCommand {
     Group(AzureDevOpsLicenseEntitlementGroupArgs),
 }
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsLicenseEntitlementUserCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsLicenseEntitlementUserCommand {
     /// List Azure DevOps user license entitlements.
     List(AzureDevOpsLicenseEntitlementUserListArgs),
@@ -46,13 +46,14 @@ pub enum AzureDevOpsLicenseEntitlementUserCommand {
     Revoke(AzureDevOpsLicenseEntitlementUserRevokeArgs),
 }
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementGroupArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsLicenseEntitlementGroupCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsLicenseEntitlementGroupCommand {
     /// List Azure DevOps group license entitlements.
     List(AzureDevOpsLicenseEntitlementGroupListArgs),

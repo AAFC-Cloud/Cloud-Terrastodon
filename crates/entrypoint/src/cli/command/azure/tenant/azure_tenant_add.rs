@@ -1,11 +1,10 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::add_tracked_tenant;
 use eyre::Result;
 use std::io::Write;
 
 /// Arguments for adding a tracked Azure tenant.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantAddArgs {
     /// Tenant id (GUID) to track.
     pub tenant_id: AzureTenantId,

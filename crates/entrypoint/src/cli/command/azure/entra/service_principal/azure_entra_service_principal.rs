@@ -1,11 +1,11 @@
 use super::AzureEntraSpBrowseArgs;
 use super::AzureEntraSpListArgs;
 use super::AzureEntraSpShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Service principal-related Entra (Azure AD) commands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureEntraSpCommand {
     /// List service principals.
     List(AzureEntraSpListArgs),

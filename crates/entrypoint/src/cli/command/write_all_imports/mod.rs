@@ -1,16 +1,15 @@
 use crate::noninteractive::write_imports_for_all_resource_groups;
 use crate::noninteractive::write_imports_for_all_role_assignments;
 use crate::noninteractive::write_imports_for_all_security_groups;
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use eyre::Result;
 
 /// Write Terraform import definitions for all supported resources.
-#[derive(Args, Debug, Clone, Default)]
+#[derive(facet::Facet, Debug, Clone, Default)]
 pub struct WriteAllImportsArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 }
 

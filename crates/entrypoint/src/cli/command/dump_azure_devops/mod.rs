@@ -1,9 +1,8 @@
 use crate::noninteractive::dump_azure_devops;
-use clap::Args;
 use eyre::Result;
 
 /// Dump Azure DevOps metadata to disk.
-#[derive(Args, Debug, Clone, Default)]
+#[derive(facet::Facet, Debug, Clone, Default)]
 pub struct DumpAzureDevOpsArgs;
 
 impl DumpAzureDevOpsArgs {

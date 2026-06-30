@@ -43,7 +43,6 @@ chrono = { version = "0.4.38", features = ["arbitrary"] }
 rand = "0.10.1"
 teamy-mft = "0.7.1"
 test-log = { version = "0.2.16", features = ["trace"] }
-clap = { version = "4.5.9", features = ["derive", "string"] }
 iso8601-duration = { version = "0.2.0", features = ["chrono"] }
 humantime = "2.1.0"
 directories-next = "2.0.0"

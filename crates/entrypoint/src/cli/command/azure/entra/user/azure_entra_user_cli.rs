@@ -1,11 +1,11 @@
 use super::AzureEntraUserBrowseArgs;
 use super::AzureEntraUserListArgs;
 use super::AzureEntraUserShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// User-related Entra (Azure AD) commands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureEntraUserCommand {
     /// List Entra users.
     List(AzureEntraUserListArgs),

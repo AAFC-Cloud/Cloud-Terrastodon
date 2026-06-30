@@ -1,5 +1,3 @@
-use clap::Args;
-use clap::ValueEnum;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraGroup;
@@ -27,26 +25,28 @@ use std::io::stdin;
 use std::io::stdout;
 use tracing::info;
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(facet::Facet, Clone, Debug, Default)]
+#[repr(u8)]
 pub enum OutputFormat {
+    #[default]
     Auto,
     Text,
     Json,
 }
 
 /// Show one or more Entra (Azure AD) groups by id.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraGroupShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Group identifier(s) (UUID). Use '-' to read IDs from stdin (one per line).
-    #[arg(long = "group-id")]
+    #[facet(figue::named)]
     pub group_id: Vec<String>,
 
     /// Output format
-    #[arg(long = "output", default_value = "auto")]
+    #[facet(figue::named, figue::alias = "output", default)]
     pub output_format: OutputFormat,
 }
 

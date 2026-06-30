@@ -13,18 +13,17 @@ pub use azure_tenant_forget::AzureTenantForgetArgs;
 pub use azure_tenant_list::AzureTenantListArgs;
 pub use azure_tenant_login::AzureTenantLoginArgs;
 pub use azure_tenant_show::AzureTenantShowArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Tenant-related commands for tracked tenant configuration.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureTenantCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureTenantCommand {
     /// List tracked Azure tenants.
     List(AzureTenantListArgs),

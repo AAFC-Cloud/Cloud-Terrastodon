@@ -1,7 +1,6 @@
 use super::OAuth2PermissionGrantPreset;
 use super::resolve_preset_service_principals;
 use super::split_scope_csv;
-use clap::Args;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -15,35 +14,42 @@ use eyre::Result;
 use std::io::Write;
 
 /// Update an Entra OAuth2 permission grant.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantUpdateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Grant id to update.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub id: Option<String>,
 
     /// Resolve common client/resource pairs for the current tenant.
-    #[arg(long, conflicts_with = "id")]
+    #[facet(figue::named)]
     pub preset: Option<OAuth2PermissionGrantPreset>,
 
     /// Principal user object id or user principal name. Required when using --preset instead of --id.
-    #[arg(long, conflicts_with = "id")]
+    #[facet(figue::named)]
     pub principal: Option<AzurePrincipalArgument<'static>>,
 
     /// Scopes to add to the grant.
-    #[arg(long = "add-scope", alias = "add-scopes", value_delimiter = ',')]
+    #[facet(figue::named, figue::alias = "add-scopes")]
     pub add_scope: Vec<String>,
 
     /// Scopes to remove from the grant.
-    #[arg(long = "remove-scope", alias = "remove-scopes", value_delimiter = ',')]
+    #[facet(
+        figue::named,
+        figue::alias = "remove-scopes"
+    )]
     pub remove_scope: Vec<String>,
 }
 
 impl AzureEntraOAuth2PermissionGrantUpdateArgs {
     pub async fn invoke(self) -> Result<()> {
+        if self.id.is_some() && (self.preset.is_some() || self.principal.is_some()) {
+            eyre::bail!("--id cannot be used with --preset or --principal");
+        }
+
         let tenant_id = self.tenant.resolve().await?;
         let add_scope = split_scope_csv(&self.add_scope);
         let remove_scope = split_scope_csv(&self.remove_scope);

@@ -5,7 +5,9 @@ use crate::PrincipalRef;
 use std::str::FromStr;
 
 /// Principal can be specified as an id (UUID) or a display/user principal name.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(opaque, proxy = String)]
+#[repr(u8)]
 pub enum AzurePrincipalArgument<'a> {
     Id(PrincipalId),
     IdRef(&'a PrincipalId),
@@ -116,5 +118,19 @@ impl FromStr for AzurePrincipalArgument<'static> {
             // treat as name / userPrincipalName
             Ok(AzurePrincipalArgument::Name(s.to_string()))
         }
+    }
+}
+
+impl TryFrom<String> for AzurePrincipalArgument<'static> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&AzurePrincipalArgument<'_>> for String {
+    fn from(value: &AzurePrincipalArgument<'_>) -> Self {
+        value.to_string()
     }
 }

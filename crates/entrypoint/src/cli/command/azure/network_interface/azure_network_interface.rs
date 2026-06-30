@@ -1,10 +1,10 @@
 use super::AzureNetworkInterfaceListArgs;
 use super::AzureNetworkInterfaceShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure network interfaces.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureNetworkInterfaceCommand {
     /// List Azure network interfaces.
     List(AzureNetworkInterfaceListArgs),

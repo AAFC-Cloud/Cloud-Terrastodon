@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_azure_tenant_details;
@@ -6,7 +5,7 @@ use eyre::Result;
 use std::io::Write;
 
 /// Arguments for showing a tracked Azure tenant.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantShowArgs {
     /// Tenant id (GUID) or alias to show.
     pub tenant: AzureTenantArgument<'static>,

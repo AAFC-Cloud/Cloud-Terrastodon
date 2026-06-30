@@ -1,7 +1,6 @@
 use super::OAuth2PermissionGrantPreset;
 use super::resolve_preset_service_principals;
 use super::split_scope_csv;
-use clap::Args;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -14,35 +13,39 @@ use eyre::Result;
 use std::io::Write;
 
 /// Create an Entra OAuth2 permission grant.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantCreateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Client service principal object id.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub client_id: Option<EntraServicePrincipalId>,
 
     /// Principal user object id or user principal name.
-    #[arg(long)]
+    #[facet(figue::named, opaque, proxy = String)]
     pub principal: AzurePrincipalArgument<'static>,
 
     /// Delegated scopes to grant.
-    #[arg(long = "scope", alias = "scopes", value_delimiter = ',')]
+    #[facet(figue::named, figue::alias = "scopes")]
     pub scope: Vec<String>,
 
     /// Resource service principal object id.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub resource_id: Option<EntraServicePrincipalId>,
 
     /// Resolve common client/resource pairs for the current tenant.
-    #[arg(long, conflicts_with_all = ["client_id", "resource_id"])]
+    #[facet(figue::named)]
     pub preset: Option<OAuth2PermissionGrantPreset>,
 }
 
 impl AzureEntraOAuth2PermissionGrantCreateArgs {
     pub async fn invoke(self) -> Result<()> {
+        if self.preset.is_some() && (self.client_id.is_some() || self.resource_id.is_some()) {
+            eyre::bail!("--preset cannot be used with --client-id or --resource-id");
+        }
+
         let tenant_id = self.tenant.resolve().await?;
         let (client_id, resource_id) = match self.preset {
             Some(preset) => resolve_preset_service_principals(tenant_id, preset).await?,

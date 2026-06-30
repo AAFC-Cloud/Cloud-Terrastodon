@@ -1,5 +1,3 @@
-use clap::Args;
-use clap::ValueEnum;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
@@ -12,40 +10,43 @@ use cloud_terrastodon_rest::read_optional_headers;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
-use http::Method;
+use crate::cli::scalar_args::HttpMethodCli;
 use reqwest::Url;
 
-#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(facet::Facet, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
 pub enum RestOutputFormat {
+    #[default]
     Text,
     Json,
 }
 
+
 /// Arguments for issuing raw REST calls with Cloud Terrastodon's auth helpers.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct RestArgs {
     /// The HTTP method to use for the REST call.
-    #[arg(long)]
-    pub method: Method,
+    #[facet(figue::named)]
+    pub method: HttpMethodCli,
 
     /// The REST API URL to call.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub url: String,
 
     /// Optional request body for POST/PUT requests. If begins with '@', reads from file.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub body: Option<String>,
 
     /// Optional request headers as a JSON object. If begins with '@', reads from file.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub headers: Option<String>,
 
     /// Optional tracked tenant id or alias to use when acquiring Azure access tokens.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
 
     /// Output format. `text` prints the response body only; `json` includes status and headers.
-    #[arg(long, default_value = "text")]
+    #[facet(figue::named, default)]
     pub output_format: RestOutputFormat,
 }
 
@@ -72,7 +73,7 @@ impl RestArgs {
         };
         let body = read_optional_body(self.body).await?;
         let headers = read_optional_headers(self.headers).await?;
-        let mut request = RestRequest::new(self.method, url.as_str())?;
+        let mut request = RestRequest::new(self.method.0, url.as_str())?;
         request.service = service;
         request.body = body;
         request.headers = headers;

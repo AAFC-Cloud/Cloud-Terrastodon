@@ -1,11 +1,10 @@
-use clap::Args;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use tokio::io::AsyncWriteExt;
 use tokio::io::stdout;
 
 /// Retrieve the path to a well-known application directory.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GetPathArgs {
     /// The application directory to resolve.
     pub dir: AppDir,

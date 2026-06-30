@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
@@ -9,14 +8,14 @@ use eyre::bail;
 use std::io::stdout;
 
 /// Show Azure DevOps repo details.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsRepoShowArgs {
     /// Project id or project name.
-    #[arg(long)]
+    #[facet(figue::named, opaque, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 
     /// Repository id (UUID) or repository name.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub repo: String,
 }
 

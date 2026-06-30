@@ -1,11 +1,11 @@
 use super::AzurePolicyAssignmentBrowseArgs;
 use super::AzurePolicyAssignmentListArgs;
 use super::AzurePolicyAssignmentShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for managing Azure policy assignments.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzurePolicyAssignmentCommand {
     /// List all Azure policy assignments accessible to the account.
     List(AzurePolicyAssignmentListArgs),

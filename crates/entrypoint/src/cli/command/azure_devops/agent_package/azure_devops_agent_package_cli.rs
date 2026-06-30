@@ -1,17 +1,16 @@
 use crate::cli::azure_devops::agent_package::list::AzureDevOpsAgentPackageListArgs;
 use crate::cli::azure_devops::agent_package::show_newest::AzureDevOpsAgentPackageShowNewestArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps agent package-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPackageArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsAgentPackageCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsAgentPackageCommand {
     /// List Azure DevOps agent packages.
     List(AzureDevOpsAgentPackageListArgs),

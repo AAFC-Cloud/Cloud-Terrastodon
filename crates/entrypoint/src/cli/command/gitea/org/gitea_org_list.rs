@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::fetch_all_gitea_organizations;
@@ -6,10 +5,10 @@ use eyre::Result;
 use std::io::Write;
 use tracing::info;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaOrgListArgs {
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default, opaque, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 }
 

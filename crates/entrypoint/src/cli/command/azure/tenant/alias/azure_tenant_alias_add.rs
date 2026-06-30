@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -7,14 +6,14 @@ use eyre::Result;
 use std::io::Write;
 
 /// Arguments for adding aliases to a tracked Azure tenant.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantAliasAddArgs {
     /// Tracked tenant id or Cloud Terrastodon alias.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// One or more aliases to add to the tracked tenant.
-    #[arg(required = true, num_args = 1..)]
+    #[facet(figue::positional)]
     pub aliases: Vec<AzureTenantAlias>,
 }
 

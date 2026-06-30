@@ -1,10 +1,10 @@
 use super::AzureRoleOperationBrowseArgs;
 use super::AzureRoleOperationListArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure provider operation metadata.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureRoleOperationCommand {
     /// List all Azure provider operations accessible to the account.
     List(AzureRoleOperationListArgs),

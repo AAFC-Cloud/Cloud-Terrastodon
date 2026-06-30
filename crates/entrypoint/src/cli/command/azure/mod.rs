@@ -19,13 +19,12 @@ pub mod tenant;
 pub mod vm;
 
 use crate::cli::azure::azure_command::AzureCommand;
-use clap::Args;
 use eyre::Result;
 
 /// Arguments for Azure-specific operations.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureCommand,
 }
 

@@ -1,10 +1,9 @@
-use clap::Args;
 use cloud_terrastodon_azure::list_tracked_tenants;
 use eyre::Result;
 use std::io::Write;
 
 /// Arguments for listing tracked Azure tenants.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantListArgs {}
 
 impl AzureTenantListArgs {

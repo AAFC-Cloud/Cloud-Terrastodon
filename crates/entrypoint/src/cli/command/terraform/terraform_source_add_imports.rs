@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Resource;
@@ -27,13 +26,13 @@ use tracing::info;
 use tracing::warn;
 
 /// Add Terraform import blocks for existing resource blocks.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct TerraformSourceAddImportsArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
-    #[arg(long, default_value = ".")]
+    #[facet(figue::named, default = PathBuf::from("."))]
     pub work_dir: PathBuf,
 }
 

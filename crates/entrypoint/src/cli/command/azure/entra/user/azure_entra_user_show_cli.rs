@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -9,13 +8,14 @@ use std::io::Write;
 use tracing::info;
 
 /// Show a single Entra (Azure AD) user.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraUserShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// User object id, user principal name, display name, or email address.
+    #[facet(opaque, proxy = String)]
     pub user: AzurePrincipalArgument<'static>,
 }
 

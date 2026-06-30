@@ -1,10 +1,10 @@
 use super::AzureAppServiceListArgs;
 use super::AzureAppServiceShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure App Services.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureAppServiceCommand {
     /// List Azure App Services.
     List(AzureAppServiceListArgs),

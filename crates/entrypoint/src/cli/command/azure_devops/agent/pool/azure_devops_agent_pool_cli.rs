@@ -1,18 +1,17 @@
 use crate::cli::azure_devops::agent::pool::entitlement::AzureDevOpsAgentPoolEntitlementArgs;
 use crate::cli::azure_devops::agent::pool::list::AzureDevOpsAgentPoolListArgs;
 use crate::cli::azure_devops::agent::pool::summary::AzureDevOpsAgentPoolSummaryArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps agent pool-related commands (grouping for pool subcommands).
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsAgentPoolCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsAgentPoolCommand {
     /// List Azure DevOps agent pools in the organization.
     List(AzureDevOpsAgentPoolListArgs),

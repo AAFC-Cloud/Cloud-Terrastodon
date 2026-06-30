@@ -3,18 +3,17 @@ pub mod list;
 
 use crate::cli::cache::clean_tui::CacheCleanTuiArgs;
 use crate::cli::cache::list::cache_list_cli::CacheListArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Cache-related commands
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct CacheArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: CacheCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum CacheCommand {
     /// List cache entries
     List(CacheListArgs),

@@ -1,11 +1,11 @@
 use super::AzureResourceBrowseArgs;
 use super::AzureResourceListArgs;
 use super::AzureResourceShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for managing Azure resources.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureResourceCommand {
     /// List all Azure resources accessible to the account.
     List(AzureResourceListArgs),

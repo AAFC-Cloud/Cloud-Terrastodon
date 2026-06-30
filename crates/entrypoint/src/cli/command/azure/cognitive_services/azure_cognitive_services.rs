@@ -1,9 +1,9 @@
 use super::AzureCognitiveServicesAccountArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure Cognitive Services.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureCognitiveServicesCommand {
     /// Manage Azure Cognitive Services accounts.
     Account(AzureCognitiveServicesAccountArgs),

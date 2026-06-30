@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_command::CommandBuilder;
@@ -7,7 +6,7 @@ use eyre::Result;
 use eyre::bail;
 
 /// Arguments for logging in to an Azure tenant via the Azure CLI.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantLoginArgs {
     /// Tracked tenant id or alias to log in to.
     pub tenant: AzureTenantArgument<'static>,

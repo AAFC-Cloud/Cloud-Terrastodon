@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
 use cloud_terrastodon_azure::AzureRoleDefinitionArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
@@ -17,22 +16,22 @@ use std::io::Write;
 use tracing::info;
 
 /// Create Azure role assignments.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureRoleAssignmentCreateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Principal (object id or userPrincipalName)
-    #[arg(long)]
+    #[facet(figue::named)]
     pub principal: Option<AzurePrincipalArgument<'static>>,
 
     /// Role definition (display name, GUID, or full role definition id)
-    #[arg(long = "role-definition")]
+    #[facet(figue::named)]
     pub role_definition: Option<AzureRoleDefinitionArgument<'static>>,
 
     /// Scope (resource id, subscription, resource group, etc.)
-    #[arg(long)]
+    #[facet(figue::named)]
     pub scope: Option<ScopeImpl>,
 }
 

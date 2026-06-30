@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlement;
@@ -12,23 +11,23 @@ use eyre::bail;
 use tracing::error;
 use tracing::info;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
 pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
-    #[arg(long)]
+    #[facet(figue::named)]
     pub user: Vec<AzureDevOpsUserArgument<'static>>,
 
     /// Bail if the user has a license that does not equal this field.
     /// Bail if the user has no license when this field is not Stakeholder.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub has_license: Option<AzureDevOpsLicenseType>,
 
     /// Desired license kind (e.g. "Account-Express", "Account-Advanced")
-    #[arg(long)]
+    #[facet(figue::named)]
     pub license: AzureDevOpsLicenseType,
 
     /// Don't use cached license entitlement information, fetch fresh from Azure DevOps.
-    #[arg(long, default_value_t = false)]
+    #[facet(figue::named, default = false)]
     pub no_cache: bool,
 }
 

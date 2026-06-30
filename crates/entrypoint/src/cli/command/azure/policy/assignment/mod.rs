@@ -7,13 +7,12 @@ pub use azure_policy_assignment::AzurePolicyAssignmentCommand;
 pub use azure_policy_assignment_browse::AzurePolicyAssignmentBrowseArgs;
 pub use azure_policy_assignment_list::AzurePolicyAssignmentListArgs;
 pub use azure_policy_assignment_show::AzurePolicyAssignmentShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure policy assignments.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzurePolicyAssignmentArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzurePolicyAssignmentCommand,
 }
 

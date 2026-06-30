@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsGroup;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
@@ -19,9 +18,10 @@ use tracing::info;
 use tracing::info_span;
 
 /// Azure DevOps project dump command.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectDumpArgs {
     /// Project id (UUID) or project name.
+    #[facet(opaque, proxy = String)]
     project: AzureDevOpsProjectArgument<'static>,
 }
 

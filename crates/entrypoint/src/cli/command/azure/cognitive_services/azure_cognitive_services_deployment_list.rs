@@ -1,5 +1,4 @@
-use super::CognitiveServicesAccountArgument;
-use clap::Args;
+use crate::cli::command::azure::cognitive_services::CognitiveServicesAccountArgument;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountDeployment;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountResource;
 use cloud_terrastodon_azure::AzureTenantArgument;
@@ -18,10 +17,10 @@ struct CognitiveServicesAccountDeploymentListEntry {
 }
 
 /// Arguments for listing deployments for Azure Cognitive Services accounts.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesDeploymentListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Optional Cognitive Services account resource id, resource name, or wildcard pattern.

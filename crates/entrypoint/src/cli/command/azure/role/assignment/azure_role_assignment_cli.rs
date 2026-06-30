@@ -1,12 +1,12 @@
 use super::AzureRoleAssignmentBrowseArgs;
 use super::AzureRoleAssignmentListArgs;
 use super::azure_role_assignment_create_cli::AzureRoleAssignmentCreateArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure role assignment operations.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 #[expect(clippy::large_enum_variant)]
+#[repr(u8)]
 pub enum AzureRoleAssignmentCommand {
     /// List all Azure role assignments accessible to the account.
     List(AzureRoleAssignmentListArgs),

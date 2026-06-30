@@ -7,13 +7,12 @@ pub use azure_policy_set_definition::AzurePolicySetDefinitionCommand;
 pub use azure_policy_set_definition_browse::AzurePolicySetDefinitionBrowseArgs;
 pub use azure_policy_set_definition_list::AzurePolicySetDefinitionListArgs;
 pub use azure_policy_set_definition_show::AzurePolicySetDefinitionShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure policy set definitions.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzurePolicySetDefinitionArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzurePolicySetDefinitionCommand,
 }
 

@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::RoleDefinition;
@@ -11,10 +10,10 @@ use std::io::Write;
 use tracing::info;
 
 /// Find role definitions and role assignments that satisfy an action or data action.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureRoleDefinitionFindArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Required action or data action to search for.

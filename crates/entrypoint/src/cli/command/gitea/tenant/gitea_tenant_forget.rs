@@ -1,13 +1,13 @@
-use clap::Args;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::forget_tracked_tenant;
 use eyre::Result;
 use std::io::Write;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantForgetArgs {
     /// Tracked tenant URL or alias to forget.
+    #[facet(opaque, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 }
 

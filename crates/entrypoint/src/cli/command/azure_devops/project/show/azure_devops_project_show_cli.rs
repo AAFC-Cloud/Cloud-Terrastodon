@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
@@ -8,9 +7,10 @@ use eyre::bail;
 use std::io::stdout;
 
 /// Azure DevOps project-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectShowArgs {
     /// Project id (UUID) or project name.
+    #[facet(opaque, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 }
 

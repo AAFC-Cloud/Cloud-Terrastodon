@@ -54,3 +54,17 @@ impl FromStr for GiteaOrganizationArgument<'static> {
         }
     }
 }
+
+impl TryFrom<String> for GiteaOrganizationArgument<'static> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&GiteaOrganizationArgument<'_>> for String {
+    fn from(value: &GiteaOrganizationArgument<'_>) -> Self {
+        value.to_string()
+    }
+}

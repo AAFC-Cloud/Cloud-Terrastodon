@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
@@ -9,10 +8,10 @@ use eyre::Result;
 use std::io::stdout;
 
 /// List Azure DevOps repositories in a project.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsRepoListArgs {
     /// Optional project id or project name.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub project: Option<AzureDevOpsProjectArgument<'static>>,
 }
 

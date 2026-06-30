@@ -2,18 +2,17 @@ use crate::cli::azure_devops::project::dump::AzureDevOpsProjectDumpArgs;
 use crate::cli::azure_devops::project::list::AzureDevOpsProjectListArgs;
 use crate::cli::azure_devops::project::member::AzureDevOpsProjectMemberArgs;
 use crate::cli::azure_devops::project::show::AzureDevOpsProjectShowArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps project-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsProjectCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsProjectCommand {
     /// List Azure DevOps projects in the organization.
     List(AzureDevOpsProjectListArgs),

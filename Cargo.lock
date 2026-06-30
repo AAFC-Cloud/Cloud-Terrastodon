@@ -936,7 +936,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6899ea499e3fb9305a65d5ebf6e3d2248c5fab291f300ad0a704fbe142eae31a"
 dependencies = [
  "clap_builder",
- "clap_derive",
 ]
 
 [[package]]
@@ -949,18 +948,6 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
-]
-
-[[package]]
-name = "clap_derive"
-version = "4.5.55"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a92793da1a46a5f2a02a6f4c46c6496b28c43638adea8306fcb0caa1634f24e5"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "syn 2.0.114",
 ]
 
 [[package]]
@@ -1079,7 +1066,6 @@ version = "0.36.0"
 dependencies = [
  "arbitrary",
  "chrono",
- "clap",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_hcl_types",
@@ -1118,7 +1104,6 @@ version = "0.36.0"
 dependencies = [
  "arbitrary",
  "chrono",
- "clap",
  "cloud_terrastodon_azure_resource_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_hcl_types",
@@ -1212,7 +1197,6 @@ dependencies = [
  "async-recursion",
  "base64 0.22.1",
  "chrono",
- "clap",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_command",
@@ -1256,6 +1240,7 @@ dependencies = [
  "serde_json",
  "strum 0.27.2",
  "syn 2.0.114",
+ "teamy-figue",
  "tempfile",
  "test-log",
  "tokio",
@@ -1335,9 +1320,9 @@ name = "cloud_terrastodon_pathing"
 version = "0.36.0"
 dependencies = [
  "async-trait",
- "clap",
  "directories-next",
  "eyre",
+ "facet",
  "tokio",
  "tracing",
 ]

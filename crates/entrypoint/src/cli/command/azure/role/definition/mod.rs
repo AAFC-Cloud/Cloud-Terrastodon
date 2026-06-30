@@ -7,13 +7,12 @@ pub use azure_role_definition_browse_cli::AzureRoleDefinitionBrowseArgs;
 pub use azure_role_definition_cli::AzureRoleDefinitionCommand;
 pub use azure_role_definition_find_cli::AzureRoleDefinitionFindArgs;
 pub use azure_role_definition_list_cli::AzureRoleDefinitionListArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure role definitions.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureRoleDefinitionArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureRoleDefinitionCommand,
 }
 

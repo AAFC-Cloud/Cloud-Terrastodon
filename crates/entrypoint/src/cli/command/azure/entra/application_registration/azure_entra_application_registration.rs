@@ -1,11 +1,11 @@
 use super::AzureEntraApplicationRegistrationBrowseArgs;
 use super::AzureEntraApplicationRegistrationListArgs;
 use super::AzureEntraApplicationRegistrationShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Application registration-related Entra (Azure AD) commands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureEntraApplicationRegistrationCommand {
     /// List application registrations.
     List(AzureEntraApplicationRegistrationListArgs),

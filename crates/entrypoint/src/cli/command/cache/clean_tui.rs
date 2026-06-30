@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::discover_caches;
 use cloud_terrastodon_pathing::AppDir;
@@ -6,7 +5,7 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct CacheCleanTuiArgs {}
 
 impl CacheCleanTuiArgs {

@@ -1,19 +1,22 @@
 pub mod command;
 pub mod global_args;
+pub(crate) mod scalar_args;
 
 use crate::menu::menu_loop;
-use clap::Parser;
 pub use command::*;
 pub use global_args::GlobalArgs;
 
 /// The primary entrypoint for command-line parsing.
-#[derive(Parser, Debug)]
-#[command(name = "cloud_terrastodon", about, long_about = None)]
+#[derive(facet::Facet, Debug)]
+#[facet(rename = "cloud_terrastodon")]
 pub struct Cli {
-    #[command(flatten)]
+    #[facet(flatten)]
     pub global_args: GlobalArgs,
 
-    #[command(subcommand)]
+    #[facet(flatten)]
+    pub builtins: figue::FigueBuiltins,
+
+    #[facet(figue::subcommand, default)]
     pub command: Option<CloudTerrastodonCommand>,
 }
 

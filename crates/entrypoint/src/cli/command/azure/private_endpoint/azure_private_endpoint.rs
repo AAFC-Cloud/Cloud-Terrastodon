@@ -1,10 +1,10 @@
 use super::AzurePrivateEndpointListArgs;
 use super::AzurePrivateEndpointShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure private endpoints.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzurePrivateEndpointCommand {
     /// List Azure private endpoints.
     List(AzurePrivateEndpointListArgs),

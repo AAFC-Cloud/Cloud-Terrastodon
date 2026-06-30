@@ -1,16 +1,15 @@
 use crate::cli::azure_devops::agent::pool::entitlement::list::AzureDevOpsAgentPoolEntitlementListArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps agent pool entitlement-related commands (grouping for entitlement subcommands).
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolEntitlementArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsAgentPoolEntitlementCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsAgentPoolEntitlementCommand {
     /// List agent pool entitlements (queues) in a project.
     List(AzureDevOpsAgentPoolEntitlementListArgs),

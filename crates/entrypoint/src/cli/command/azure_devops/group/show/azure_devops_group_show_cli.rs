@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
@@ -8,14 +7,14 @@ use eyre::bail;
 use std::io::stdout;
 
 /// Show Azure DevOps group details.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsGroupShowArgs {
     /// Project id or project name.
-    #[arg(long)]
+    #[facet(figue::named, opaque, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 
     /// Group identifier (display name, principal name, origin id, or descriptor).
-    #[arg(long)]
+    #[facet(figue::named)]
     pub group: String,
 }
 

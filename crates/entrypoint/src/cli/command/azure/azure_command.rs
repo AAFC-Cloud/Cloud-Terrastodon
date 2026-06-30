@@ -17,58 +17,58 @@ use super::tenant::AzureTenantArgs;
 use super::vm::AzureVmArgs;
 use crate::cli::azure::entra::AzureEntraArgs;
 use crate::cli::azure_devops::AzureDevOpsArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure-specific commands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureCommand {
     /// Manage Azure App Services.
-    #[command(alias = "app")]
+    #[facet(figue::alias = "app")]
     AppService(AzureAppServiceArgs),
     /// Audit Azure resources for configuration issues.
     Audit(AzureAuditArgs),
     /// Manage Azure application gateways.
-    #[command(alias = "agw")]
+    #[facet(figue::alias = "agw")]
     ApplicationGateway(AzureApplicationGatewayArgs),
     /// Manage Azure Cognitive Services accounts and deployments.
     CognitiveServices(AzureCognitiveServicesArgs),
     /// Find resources where resource JSON contains the given text.
     Find(AzureFindArgs),
     /// Manage Azure network interfaces.
-    #[command(alias = "nic")]
+    #[facet(figue::alias = "nic")]
     NetworkInterface(AzureNetworkInterfaceArgs),
     /// Manage Azure resource groups.
-    #[command(aliases = ["rg", "group"])]
+    #[facet(figue::alias = "rg", figue::alias = "group")]
     ResourceGroup(AzureResourceGroupArgs),
     /// Manage Azure policy resources.
     Policy(AzurePolicyArgs),
     /// Manage Azure private endpoints.
-    #[command(aliases = ["pe"])]
+    #[facet(figue::alias = "pe")]
     PrivateEndpoint(AzurePrivateEndpointArgs),
     /// Manage Azure public IP addresses.
     PublicIp(AzurePublicIpArgs),
     /// Manage Azure resource tags.
     Tag(AzureTagArgs),
     /// Manage Azure resources.
-    #[command(alias = "res")]
+    #[facet(figue::alias = "res")]
     Resource(AzureResourceArgs),
     /// Manage Azure role-based access control.
     Role(AzureRoleArgs),
     /// Manage Azure Privileged Identity Management operations.
     Pim(AzurePimArgs),
     /// Entra (Azure AD) commands.
-    #[command(alias = "ad")]
+    #[facet(figue::alias = "ad")]
     Entra(AzureEntraArgs),
     /// VM-related commands (images, publishers, sizes, etc.)
     Vm(AzureVmArgs),
     /// Manage subscriptions within the tenant.
-    #[command(alias = "sub")]
+    #[facet(figue::alias = "sub")]
     Subscription(AzureSubscriptionArgs),
     /// Manage tracked tenants for later login flows.
     Tenant(AzureTenantArgs),
     /// Azure DevOps-specific commands.
-    #[command(alias = "devops")]
+    #[facet(figue::alias = "devops")]
     DevOps(AzureDevOpsArgs),
 }
 

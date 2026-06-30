@@ -1,18 +1,17 @@
 use crate::cli::azure_devops::test::plan::list::AzureDevOpsTestPlanListArgs;
 use crate::cli::azure_devops::test::plan::show::AzureDevOpsTestPlanShowArgs;
 use crate::cli::azure_devops::test::plan::suite::AzureDevOpsTestSuiteArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps test plan-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsTestPlanArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsTestPlanCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsTestPlanCommand {
     /// List Azure DevOps test plans in a project.
     List(AzureDevOpsTestPlanListArgs),

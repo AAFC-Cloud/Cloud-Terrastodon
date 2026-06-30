@@ -2,20 +2,19 @@ pub mod gitea_repo_browse;
 pub mod gitea_repo_list;
 pub mod gitea_repo_show;
 
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 pub use gitea_repo_browse::GiteaRepoBrowseArgs;
 pub use gitea_repo_list::GiteaRepoListArgs;
 pub use gitea_repo_show::GiteaRepoShowArgs;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaRepoArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: GiteaRepoCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum GiteaRepoCommand {
     /// List repositories visible from the tenant.
     List(GiteaRepoListArgs),

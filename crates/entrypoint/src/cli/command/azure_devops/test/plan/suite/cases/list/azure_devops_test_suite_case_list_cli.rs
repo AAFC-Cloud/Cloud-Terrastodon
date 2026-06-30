@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suite_cases;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
@@ -7,18 +6,18 @@ use eyre::Result;
 use std::io::stdout;
 
 /// List Azure DevOps test cases in a suite.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsTestSuiteCaseListArgs {
     /// Project id or project name.
-    #[arg(long)]
+    #[facet(figue::named, opaque, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 
     /// Test plan id.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub plan: String,
 
     /// Suite id.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub suite: String,
 }
 

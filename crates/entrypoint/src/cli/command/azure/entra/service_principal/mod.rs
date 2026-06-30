@@ -7,13 +7,12 @@ pub use azure_entra_service_principal::AzureEntraSpCommand;
 pub use azure_entra_service_principal_browse::AzureEntraSpBrowseArgs;
 pub use azure_entra_service_principal_list::AzureEntraSpListArgs;
 pub use azure_entra_service_principal_show::AzureEntraSpShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Entra service principal subcommands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraServicePrincipalArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureEntraSpCommand,
 }
 

@@ -1,5 +1,4 @@
 use super::CognitiveServicesAccountArgument;
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
@@ -9,10 +8,10 @@ use eyre::bail;
 use std::io::Write;
 
 /// Arguments for showing a single Azure Cognitive Services account.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Cognitive Services account resource id, resource name, or wildcard pattern.

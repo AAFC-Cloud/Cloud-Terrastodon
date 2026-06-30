@@ -1,15 +1,14 @@
 use crate::noninteractive::perform_import;
 use crate::noninteractive::process_generated;
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use eyre::Result;
 
 /// Perform code-generation from existing import definitions.
-#[derive(Args, Debug, Clone, Default)]
+#[derive(facet::Facet, Debug, Clone, Default)]
 pub struct PerformCodeGenerationFromImportsArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 }
 

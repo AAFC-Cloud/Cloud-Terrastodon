@@ -3,12 +3,11 @@ pub mod publisher;
 
 use crate::cli::azure::vm::browse::AzureVmBrowseArgs;
 use crate::cli::command::azure::vm::publisher::AzureVmPublisherArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Virtual machine related subcommands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureVmCommand {
     /// Manage virtual machine publishers and images.
     Publisher(AzureVmPublisherArgs),
@@ -17,9 +16,9 @@ pub enum AzureVmCommand {
 }
 
 /// Arguments for VM commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureVmArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureVmCommand,
 }
 

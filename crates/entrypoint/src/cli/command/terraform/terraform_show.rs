@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::PrincipalCollection;
@@ -20,10 +19,10 @@ use tokio::fs;
 use tracing::info;
 
 /// Show a Terraform plan or plan JSON as a parsed `TerraformPlan`.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct TerraformShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Path to a Terraform plan (.tfplan) or a JSON plan file (.json)

@@ -15,13 +15,12 @@ pub use azure_cognitive_services_deployment_list::AzureCognitiveServicesDeployme
 pub use azure_cognitive_services_deployment_show::AzureCognitiveServicesDeploymentShowArgs;
 pub use azure_cognitive_services_list::AzureCognitiveServicesListArgs;
 pub use azure_cognitive_services_show::AzureCognitiveServicesShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure Cognitive Services accounts and deployments.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureCognitiveServicesCommand,
 }
 

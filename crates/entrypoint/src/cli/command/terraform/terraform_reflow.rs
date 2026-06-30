@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
@@ -13,60 +12,42 @@ use tracing::debug;
 use tracing::info;
 
 /// Reflow generated Terraform source files.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct TerraformReflowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
-    #[arg(
-        long,
-        default_value_t = false,
-        help = "Run full reflow, including principal lookup and principal id comment insertion"
-    )]
+    /// Run full reflow, including principal lookup and principal id comment insertion
+    #[facet(figue::named, default = false)]
     pub full: bool,
 
-    #[arg(
-        long,
-        default_value_t = false,
-        help = "Keep obsolete files in the .trash directory instead of deleting them"
-    )]
+    /// Keep obsolete files in the .trash directory instead of deleting them
+    #[facet(figue::named, default = false)]
     pub keep_trash: bool,
 
-    #[arg(
-        long,
-        num_args = 0..=1,
-        default_missing_value = "main.tf",
-        value_name = "FILENAME",
-        conflicts_with = "mixed",
-        help = "Write all reflowed HCL into a single Terraform file, defaulting to main.tf"
-    )]
-    pub single_file: Option<PathBuf>,
+    /// Write all reflowed HCL into a single Terraform file, defaulting to main.tf
+    #[facet(figue::named, figue::label = "FILENAME")]
+    pub single_file: Option<Option<PathBuf>>,
 
-    #[arg(
-        long,
-        default_value_t = false,
-        help = "Use the mixed dependency-aware layout instead of the default flat per-block layout"
-    )]
+    /// Use the mixed dependency-aware layout instead of the default flat per-block layout
+    #[facet(figue::named, default = false)]
     pub mixed: bool,
 
-    #[arg(default_value = ".")]
+    #[facet(figue::positional, default = PathBuf::from("."))]
     pub source_dir: PathBuf,
-    #[arg(
-        long,
-        default_value_t = false,
-        help = "Recursively reflow source in subdirectories"
-    )]
+    /// Recursively reflow source in subdirectories
+    #[facet(figue::named, default = false)]
     pub recursive: bool,
 }
 
 impl TerraformReflowArgs {
     pub async fn invoke(self) -> Result<()> {
+        self.validate()?;
         let hcl = discover_hcl(&self.source_dir, self.discovery_depth()).await?;
         let old_paths = hcl.keys().cloned().collect::<HashSet<_>>();
         let single_file_path = self
-            .single_file
-            .as_ref()
+            .single_file_arg()
             .map(|single_file| self.resolve_single_file_path(single_file));
 
         info!(count = hcl.len(), "Discovered HCL files for reflowing");
@@ -138,6 +119,21 @@ impl TerraformReflowArgs {
         }
     }
 
+    fn validate(&self) -> Result<()> {
+        if self.mixed && self.single_file.is_some() {
+            eyre::bail!("--mixed cannot be used with --single-file");
+        }
+        Ok(())
+    }
+
+    fn single_file_arg(&self) -> Option<&Path> {
+        match self.single_file.as_ref() {
+            Some(Some(path)) => Some(path.as_path()),
+            Some(None) => Some(Path::new("main.tf")),
+            None => None,
+        }
+    }
+
     fn resolve_single_file_path(&self, single_file: &Path) -> PathBuf {
         if single_file.is_absolute() {
             single_file.to_path_buf()
@@ -150,43 +146,48 @@ impl TerraformReflowArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::Parser;
 
-    #[derive(Parser, Debug)]
+    #[derive(facet::Facet, Debug)]
     struct ParseArgs {
-        #[command(flatten)]
+        #[facet(flatten)]
         args: TerraformReflowArgs,
+    }
+
+    fn parse_args(args: &[&str]) -> eyre::Result<TerraformReflowArgs> {
+        let parsed: ParseArgs = figue::from_slice(args)?;
+        parsed.args.validate()?;
+        Ok(parsed.args)
     }
 
     #[test]
     fn parses_single_file_flag_without_value_as_main_tf() {
-        let args = ParseArgs::parse_from(["reflow", "--single-file"]).args;
+        let args = parse_args(&["--single-file"]).unwrap();
 
-        assert_eq!(args.single_file, Some(PathBuf::from("main.tf")));
+        assert_eq!(args.single_file, Some(None));
     }
 
     #[test]
     fn parses_single_file_flag_with_value() {
-        let args = ParseArgs::parse_from(["reflow", "--single-file", "merged.tf"]).args;
+        let args = parse_args(&["--single-file", "merged.tf"]).unwrap();
 
-        assert_eq!(args.single_file, Some(PathBuf::from("merged.tf")));
+        assert_eq!(args.single_file, Some(Some(PathBuf::from("merged.tf"))));
     }
 
     #[test]
     fn parses_mixed_flag() {
-        let args = ParseArgs::parse_from(["reflow", "--mixed"]).args;
+        let args = parse_args(&["--mixed"]).unwrap();
 
         assert!(args.mixed);
     }
 
     #[test]
     fn rejects_mixed_with_single_file() {
-        assert!(ParseArgs::try_parse_from(["reflow", "--mixed", "--single-file"]).is_err());
+        assert!(parse_args(&["--mixed", "--single-file"]).is_err());
     }
 
     #[test]
     fn defaults_to_flat_layout() {
-        let args = ParseArgs::parse_from(["reflow"]).args;
+        let args = parse_args(&[]).unwrap();
 
         assert!(!args.mixed);
     }

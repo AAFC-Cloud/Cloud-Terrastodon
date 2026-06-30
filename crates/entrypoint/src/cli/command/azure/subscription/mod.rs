@@ -1,19 +1,17 @@
 pub mod azure_subscription_list;
 
 pub use azure_subscription_list::AzureSubscriptionListArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Subscription-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureSubscriptionArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureSubscriptionCommand,
 }
 
-use clap::Subcommand;
-
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureSubscriptionCommand {
     /// List Azure subscriptions.
     List(AzureSubscriptionListArgs),

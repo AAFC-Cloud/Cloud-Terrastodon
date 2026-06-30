@@ -1,17 +1,16 @@
 use crate::cli::azure_devops::work_item_query::invoke::AzureDevOpsWorkItemQueryInvokeArgs;
 use crate::cli::azure_devops::work_item_query::list::AzureDevOpsWorkItemQueryListArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps work item query-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsWorkItemQueryArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsWorkItemQueryCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsWorkItemQueryCommand {
     /// List queries in a project.
     List(AzureDevOpsWorkItemQueryListArgs),

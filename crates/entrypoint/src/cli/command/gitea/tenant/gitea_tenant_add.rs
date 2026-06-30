@@ -1,10 +1,9 @@
-use clap::Args;
 use cloud_terrastodon_gitea::GiteaInstanceUrl;
 use cloud_terrastodon_gitea::add_tracked_tenant;
 use eyre::Result;
 use std::io::Write;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantAddArgs {
     /// Gitea instance URL to track.
     pub tenant: GiteaInstanceUrl,

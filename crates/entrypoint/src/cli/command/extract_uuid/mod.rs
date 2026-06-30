@@ -1,11 +1,10 @@
-use clap::Args;
 use eyre::Result;
 use std::io::Read;
 use std::io::Write;
 use uuid::Uuid;
 
 /// Extract UUIDs from text input
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct ExtractUuidArgs {
     /// Input string or '-' to read from stdin
     pub input: String,

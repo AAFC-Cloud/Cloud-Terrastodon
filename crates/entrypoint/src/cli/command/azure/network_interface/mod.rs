@@ -5,13 +5,12 @@ pub mod azure_network_interface_show;
 pub use azure_network_interface::AzureNetworkInterfaceCommand;
 pub use azure_network_interface_list::AzureNetworkInterfaceListArgs;
 pub use azure_network_interface_show::AzureNetworkInterfaceShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure network interfaces.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureNetworkInterfaceArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureNetworkInterfaceCommand,
 }
 

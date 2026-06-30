@@ -3,11 +3,11 @@ use super::terraform_reflow::TerraformReflowArgs;
 use super::terraform_show::TerraformShowArgs;
 use super::terraform_source::TerraformSourceArgs;
 use crate::cli::terraform::terraform_apply::TerraformApplyArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Terraform-specific commands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum TerraformCommand {
     /// Identify and report Terraform provider issues.
     ///
@@ -16,7 +16,7 @@ pub enum TerraformCommand {
     /// Identify if any providers are not using the latest version.
     Audit(TerraformAuditArgs),
     /// Manage operations on generated Terraform source files.
-    #[command(alias = "src")]
+    #[facet(figue::alias = "src")]
     Source(TerraformSourceArgs),
     /// Reflow generated Terraform source files.
     Reflow(TerraformReflowArgs),

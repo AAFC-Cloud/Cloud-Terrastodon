@@ -7,13 +7,12 @@ pub use azure_entra_application_registration::AzureEntraApplicationRegistrationC
 pub use azure_entra_application_registration_browse::AzureEntraApplicationRegistrationBrowseArgs;
 pub use azure_entra_application_registration_list::AzureEntraApplicationRegistrationListArgs;
 pub use azure_entra_application_registration_show::AzureEntraApplicationRegistrationShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Entra application registration subcommands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraApplicationRegistrationArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureEntraApplicationRegistrationCommand,
 }
 

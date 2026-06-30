@@ -5,13 +5,12 @@ pub mod azure_app_service_show;
 pub use azure_app_service::AzureAppServiceCommand;
 pub use azure_app_service_list::AzureAppServiceListArgs;
 pub use azure_app_service_show::AzureAppServiceShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure App Services.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureAppServiceArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureAppServiceCommand,
 }
 

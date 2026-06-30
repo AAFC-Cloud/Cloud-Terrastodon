@@ -5,11 +5,11 @@ use super::principal::AzureEntraPrincipalArgs;
 use super::role::AzureEntraRoleArgs;
 use super::service_principal::AzureEntraServicePrincipalArgs;
 use super::user::AzureEntraUserArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Entra (Azure AD) top-level subcommands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureEntraCommand {
     /// User-related operations (list, browse).
     User(AzureEntraUserArgs),
@@ -18,15 +18,18 @@ pub enum AzureEntraCommand {
     /// Role definition and assignment operations.
     Role(AzureEntraRoleArgs),
     /// Service principal operations (list, browse).
-    #[command(alias = "sp")]
+    #[facet(figue::alias = "sp")]
     ServicePrincipal(AzureEntraServicePrincipalArgs),
     /// Application registration operations (list, show, browse).
-    #[command(aliases = ["app", "app-reg", "ar"])]
+    #[facet(figue::alias = "app", figue::alias = "app-reg", figue::alias = "ar")]
     ApplicationRegistration(AzureEntraApplicationRegistrationArgs),
     /// Group-related operations (members, etc.).
     Group(AzureEntraGroupArgs),
     /// OAuth2 delegated permission grant operations.
-    #[command(name = "oauth2-permission-grant", aliases = ["oauth2-permission-grants", "oauth2-grant"])]
+    #[facet(
+        figue::alias = "oauth2-permission-grants",
+        figue::alias = "oauth2-grant"
+    )]
     OAuth2PermissionGrant(AzureEntraOAuth2PermissionGrantArgs),
 }
 

@@ -1,10 +1,9 @@
 use crate::version::full_version;
-use clap::Args;
 use cloud_terrastodon_azure::get_default_tenant_id;
 use cloud_terrastodon_ui_egui::egui_main;
 
 /// Launch the egui-based graphical interface.
-#[derive(Args, Debug, Clone, Default)]
+#[derive(facet::Facet, Debug, Clone, Default)]
 pub struct EguiArgs;
 
 impl EguiArgs {

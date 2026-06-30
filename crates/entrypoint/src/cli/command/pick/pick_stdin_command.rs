@@ -1,15 +1,15 @@
 use crate::cli::pick::pick_command::PickCommonArgs;
 use crate::cli::pick::pick_command::write_selected_lines;
 use crate::serde_json_isolation::Value;
-use clap::Args;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Read;
 use strum::Display;
 
-#[derive(Debug, Clone, clap::ValueEnum, Display)]
+#[derive(Debug, Clone, facet::Facet, Display)]
 #[strum(serialize_all = "kebab-case")]
+#[repr(u8)]
 pub enum InputFormat {
     /// Force JSON array mode
     Json,
@@ -18,10 +18,10 @@ pub enum InputFormat {
 }
 
 /// Pick from stdin.
-#[derive(Args, Debug, Clone, Default)]
+#[derive(facet::Facet, Debug, Clone, Default)]
 pub struct PickStdinArgs {
     /// Stdin parsing mode (json | lines). Defaults to auto-detect when omitted.
-    #[clap(long, value_enum)]
+    #[facet(figue::named)]
     pub input_format: Option<InputFormat>,
 }
 

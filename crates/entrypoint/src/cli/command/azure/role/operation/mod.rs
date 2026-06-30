@@ -5,13 +5,12 @@ pub mod azure_role_operation_list_cli;
 pub use azure_role_operation_browse_cli::AzureRoleOperationBrowseArgs;
 pub use azure_role_operation_cli::AzureRoleOperationCommand;
 pub use azure_role_operation_list_cli::AzureRoleOperationListArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure provider operations.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureRoleOperationArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureRoleOperationCommand,
 }
 

@@ -1,10 +1,10 @@
 use super::AzurePublicIpListArgs;
 use super::AzurePublicIpShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure public IP addresses.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzurePublicIpCommand {
     /// List Azure public IP addresses.
     List(AzurePublicIpListArgs),

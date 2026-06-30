@@ -3,17 +3,17 @@ pub mod azure_entra_group_member_remove;
 
 pub use azure_entra_group_member_add::AzureEntraGroupMemberAddArgs;
 pub use azure_entra_group_member_remove::AzureEntraGroupMemberRemoveArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Group member operations (add/remove)
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraGroupMemberArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureEntraGroupMemberCommand,
 }
 
-#[derive(clap::Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureEntraGroupMemberCommand {
     /// Add a member to a group.
     Add(AzureEntraGroupMemberAddArgs),

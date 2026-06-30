@@ -1,18 +1,17 @@
 pub mod software_list;
 
 use crate::cli::software::software_list::SoftwareListArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Software discovery commands
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct SoftwareArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: SoftwareCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum SoftwareCommand {
     /// List known software patterns and their match counts.
     List(SoftwareListArgs),

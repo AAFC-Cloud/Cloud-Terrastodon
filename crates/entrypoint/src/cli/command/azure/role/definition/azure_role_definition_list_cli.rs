@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::RolePermissionAction;
@@ -8,17 +7,17 @@ use std::io::Write;
 use tracing::info;
 
 /// Arguments for listing Azure role definitions.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureRoleDefinitionListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Management plane actions that must be satisfied by a role definition.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub actions: Vec<RolePermissionAction>,
     /// Data plane actions that must be satisfied by a role definition.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub data_actions: Vec<RolePermissionAction>,
 }
 

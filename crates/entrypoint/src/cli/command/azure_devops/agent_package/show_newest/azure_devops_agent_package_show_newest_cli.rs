@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPackage;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_packages;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
@@ -8,7 +7,7 @@ use std::collections::HashMap;
 use std::io::stdout;
 
 /// Show the newest Azure DevOps agent package by `createdOn`, for each `platform`.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPackageShowNewestArgs {}
 
 impl AzureDevOpsAgentPackageShowNewestArgs {

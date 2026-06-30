@@ -1,4 +1,3 @@
-use clap::Args;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -13,7 +12,7 @@ use std::collections::HashSet;
 use std::net::IpAddr;
 
 /// Resolve a host name to IP addresses.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct NslookupArgs {
     /// Host name or IP address to resolve.
     pub target: String,

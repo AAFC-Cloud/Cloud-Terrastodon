@@ -1,31 +1,35 @@
 use crate::interactive::pim_activate;
 use crate::interactive::pim_activate_azurerm;
 use crate::interactive::pim_activate_entra;
-use clap::Args;
-use clap::Subcommand;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use eyre::Result;
 
 /// Arguments for activating Privileged Identity Management roles.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzurePimActivateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub target: Option<AzurePimActivateTarget>,
 }
 
 /// Target environments that can be activated via PIM.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzurePimActivateTarget {
     /// Activate Azure Resource Manager roles.
-    #[command(name = "azurerm", alias = "az")]
+    #[facet(rename = "azurerm", figue::alias = "az")]
     AzureRm,
     /// Activate Entra (formerly Azure AD) roles.
-    #[command(name = "azuread", aliases = ["entra", "aad", "ad"])]
+    #[facet(
+        rename = "azuread",
+        figue::alias = "entra",
+        figue::alias = "aad",
+        figue::alias = "ad"
+    )]
     AzureAd,
 }
 

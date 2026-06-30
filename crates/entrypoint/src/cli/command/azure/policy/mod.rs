@@ -6,8 +6,6 @@ pub use assignment::AzurePolicyAssignmentArgs;
 pub use assignment::AzurePolicyAssignmentBrowseArgs;
 pub use assignment::AzurePolicyAssignmentCommand;
 pub use assignment::AzurePolicyAssignmentListArgs;
-use clap::Args;
-use clap::Subcommand;
 pub use definition::AzurePolicyDefinitionArgs;
 pub use definition::AzurePolicyDefinitionBrowseArgs;
 pub use definition::AzurePolicyDefinitionCommand;
@@ -19,21 +17,22 @@ pub use set_definition::AzurePolicySetDefinitionCommand;
 pub use set_definition::AzurePolicySetDefinitionListArgs;
 
 /// Manage Azure policy resources.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzurePolicyArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzurePolicyCommand,
 }
 
 /// Subcommands for Azure policy operations.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzurePolicyCommand {
     /// Manage Azure policy assignments.
     Assignment(AzurePolicyAssignmentArgs),
     /// Manage Azure policy definitions.
     Definition(AzurePolicyDefinitionArgs),
     /// Manage Azure policy set definitions.
-    #[command(alias = "setdef")]
+    #[facet(figue::alias = "setdef")]
     SetDefinition(AzurePolicySetDefinitionArgs),
 }
 

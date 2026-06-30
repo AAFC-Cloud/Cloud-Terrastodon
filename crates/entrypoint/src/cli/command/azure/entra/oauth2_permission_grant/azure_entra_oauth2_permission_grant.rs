@@ -2,11 +2,11 @@ use super::AzureEntraOAuth2PermissionGrantBrowseArgs;
 use super::AzureEntraOAuth2PermissionGrantCreateArgs;
 use super::AzureEntraOAuth2PermissionGrantListArgs;
 use super::AzureEntraOAuth2PermissionGrantUpdateArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Entra OAuth2 delegated permission grants.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureEntraOAuth2PermissionGrantCommand {
     /// List delegated permission grants.
     List(AzureEntraOAuth2PermissionGrantListArgs),

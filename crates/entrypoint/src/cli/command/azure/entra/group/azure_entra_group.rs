@@ -1,11 +1,11 @@
 use super::azure_entra_group_list::AzureEntraGroupListArgs;
 use super::azure_entra_group_show::AzureEntraGroupShowArgs;
 use super::member::AzureEntraGroupMemberArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Entra group top-level subcommands.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureEntraGroupCommand {
     /// List Entra groups.
     List(AzureEntraGroupListArgs),

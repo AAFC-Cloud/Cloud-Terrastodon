@@ -1,5 +1,3 @@
-use clap::Args;
-use clap::ValueEnum;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::fetch_all_gitea_organization_repositories;
@@ -14,7 +12,8 @@ use eyre::Result;
 use std::io::Write;
 use tracing::info;
 
-#[derive(ValueEnum, Debug, Clone, Copy, Default)]
+#[derive(facet::Facet, Debug, Clone, Copy, Default)]
+#[repr(u8)]
 pub enum GiteaRepoListMethod {
     #[default]
     Combined,
@@ -25,18 +24,18 @@ pub enum GiteaRepoListMethod {
     IdRange,
 }
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaRepoListArgs {
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default, opaque, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 
     /// Enumeration method to use.
-    #[arg(long, value_enum, default_value_t)]
+    #[facet(figue::named, default)]
     pub method: GiteaRepoListMethod,
 
     /// Upper bound to use when `--method id-range` is selected.
-    #[arg(long, default_value_t = 1000)]
+    #[facet(figue::named, default = 1000)]
     pub max_repo_id: u64,
 }
 

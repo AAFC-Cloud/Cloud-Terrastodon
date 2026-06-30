@@ -9,8 +9,6 @@ pub use azure_entra_oauth2_permission_grant_browse::AzureEntraOAuth2PermissionGr
 pub use azure_entra_oauth2_permission_grant_create::AzureEntraOAuth2PermissionGrantCreateArgs;
 pub use azure_entra_oauth2_permission_grant_list::AzureEntraOAuth2PermissionGrantListArgs;
 pub use azure_entra_oauth2_permission_grant_update::AzureEntraOAuth2PermissionGrantUpdateArgs;
-use clap::Args;
-use clap::ValueEnum;
 use cloud_terrastodon_azure::EntraServicePrincipal;
 use cloud_terrastodon_azure::EntraServicePrincipalId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
@@ -22,9 +20,9 @@ const GRAPH_EXPLORER_APP_ID: &str = "de8bc8b5-d9f9-48b1-a8ad-b748da725064";
 const MICROSOFT_GRAPH_APP_ID: &str = "00000003-0000-0000-c000-000000000000";
 
 /// Entra OAuth2 permission grant subcommands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureEntraOAuth2PermissionGrantCommand,
 }
 
@@ -34,7 +32,8 @@ impl AzureEntraOAuth2PermissionGrantArgs {
     }
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy, facet::Facet)]
+#[repr(u8)]
 pub enum OAuth2PermissionGrantPreset {
     GraphExplorer,
 }

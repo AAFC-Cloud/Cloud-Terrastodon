@@ -7,13 +7,12 @@ pub use azure_entra_user_browse_cli::AzureEntraUserBrowseArgs;
 pub use azure_entra_user_cli::AzureEntraUserCommand;
 pub use azure_entra_user_list_cli::AzureEntraUserListArgs;
 pub use azure_entra_user_show_cli::AzureEntraUserShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Entra user subcommands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraUserArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureEntraUserCommand,
 }
 

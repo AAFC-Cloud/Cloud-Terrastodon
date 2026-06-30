@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
@@ -8,14 +7,14 @@ use eyre::bail;
 use std::io::stdout;
 
 /// Show Azure DevOps service endpoint details.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsServiceEndpointShowArgs {
     /// Project id or project name.
-    #[arg(long)]
+    #[facet(figue::named, opaque, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 
     /// Service endpoint id or service endpoint name.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub endpoint: String,
 }
 

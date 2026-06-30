@@ -1,9 +1,8 @@
 use crate::noninteractive::clean;
-use clap::Args;
 use eyre::Result;
 
 /// Remove generated artifacts from previous runs.
-#[derive(Args, Debug, Clone, Default)]
+#[derive(facet::Facet, Debug, Clone, Default)]
 pub struct CleanArgs;
 
 impl CleanArgs {

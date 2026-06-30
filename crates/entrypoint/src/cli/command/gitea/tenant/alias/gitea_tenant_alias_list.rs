@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::list_tracked_tenant_aliases;
@@ -6,10 +5,10 @@ use cloud_terrastodon_gitea::list_tracked_tenant_aliases_for;
 use eyre::Result;
 use std::io::Write;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantAliasListArgs {
     /// Optional tracked tenant URL or alias to filter by.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub tenant: Option<GiteaTenantArgument<'static>>,
 }
 

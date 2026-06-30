@@ -1,11 +1,11 @@
 use super::AzureRoleDefinitionBrowseArgs;
 use super::AzureRoleDefinitionFindArgs;
 use super::AzureRoleDefinitionListArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure role definition operations.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureRoleDefinitionCommand {
     /// List all Azure role definitions accessible to the account.
     List(AzureRoleDefinitionListArgs),

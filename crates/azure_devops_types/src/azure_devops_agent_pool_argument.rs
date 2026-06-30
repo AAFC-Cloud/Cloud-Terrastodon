@@ -6,7 +6,8 @@ use eyre::bail;
 use std::str::FromStr;
 
 /// The name or identifier for an [`AzureDevOpsAgentPool`]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(opaque, proxy = String)]
 pub enum AzureDevOpsAgentPoolArgument<'a> {
     Id(AzureDevOpsAgentPoolId),
     IdRef(&'a AzureDevOpsAgentPoolId),
@@ -106,5 +107,19 @@ impl FromStr for AzureDevOpsAgentPoolArgument<'static> {
         } else {
             bail!("'{s}' is not a valid Azure DevOps agent pool id or name")
         }
+    }
+}
+
+impl TryFrom<String> for AzureDevOpsAgentPoolArgument<'static> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&AzureDevOpsAgentPoolArgument<'_>> for String {
+    fn from(value: &AzureDevOpsAgentPoolArgument<'_>) -> Self {
+        value.to_string()
     }
 }

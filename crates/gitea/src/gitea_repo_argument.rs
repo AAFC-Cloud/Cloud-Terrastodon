@@ -63,3 +63,17 @@ impl FromStr for GiteaRepoArgument<'static> {
         }
     }
 }
+
+impl TryFrom<String> for GiteaRepoArgument<'static> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&GiteaRepoArgument<'_>> for String {
+    fn from(value: &GiteaRepoArgument<'_>) -> Self {
+        value.to_string()
+    }
+}

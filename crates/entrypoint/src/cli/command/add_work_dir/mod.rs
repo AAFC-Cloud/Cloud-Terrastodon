@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::WorkDirsConfig;
 use eyre::Context;
@@ -7,7 +6,7 @@ use std::fs::canonicalize;
 use std::path::PathBuf;
 
 /// Add a directory to the list of configured work directories.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AddWorkDirArgs {
     /// The directory to register as a work directory.
     pub dir: PathBuf,

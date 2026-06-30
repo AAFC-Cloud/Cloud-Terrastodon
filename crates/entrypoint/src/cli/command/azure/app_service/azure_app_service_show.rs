@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureAppServiceResource;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -10,10 +9,10 @@ use std::io::Write;
 use tracing::info;
 
 /// Arguments for showing a single Azure App Service.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureAppServiceShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// App Service resource id, resource name, hostname, private endpoint id, or inbound IP address.

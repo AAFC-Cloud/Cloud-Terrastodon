@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthResponse;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServer;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServerHealth;
@@ -35,14 +34,14 @@ use std::path::PathBuf;
 use tracing::info;
 
 /// Investigate a URL or host by resolving DNS and correlating it with Azure public IPs.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct OutageInvestigateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Directory to write JSON blobs for relevant investigation artifacts.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub output_dir: Option<PathBuf>,
 
     /// URL, host name, or IP address to investigate.

@@ -2,20 +2,19 @@ pub mod gitea_user_browse;
 pub mod gitea_user_list;
 pub mod gitea_user_show;
 
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 pub use gitea_user_browse::GiteaUserBrowseArgs;
 pub use gitea_user_list::GiteaUserListArgs;
 pub use gitea_user_show::GiteaUserShowArgs;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaUserArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: GiteaUserCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum GiteaUserCommand {
     /// List users visible from the tenant.
     List(GiteaUserListArgs),

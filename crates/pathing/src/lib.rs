@@ -1,4 +1,3 @@
-use clap::ValueEnum;
 use directories_next::ProjectDirs;
 use eyre::Context;
 use eyre::bail;
@@ -20,7 +19,8 @@ static CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRS.cache_dir().
 static DATA_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRS.data_dir().to_path_buf());
 static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRS.config_dir().to_path_buf());
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, facet::Facet)]
+#[repr(u8)]
 pub enum AppDir {
     Commands,
     Imports,
@@ -67,7 +67,16 @@ impl AppDir {
             .collect()
     }
     pub fn variants() -> &'static [AppDir] {
-        AppDir::value_variants()
+        const VARIANTS: &[AppDir] = &[
+            AppDir::Commands,
+            AppDir::Imports,
+            AppDir::Processed,
+            AppDir::Temp,
+            AppDir::Config,
+            AppDir::Tenants,
+            AppDir::WorkItems,
+        ];
+        VARIANTS
     }
 }
 

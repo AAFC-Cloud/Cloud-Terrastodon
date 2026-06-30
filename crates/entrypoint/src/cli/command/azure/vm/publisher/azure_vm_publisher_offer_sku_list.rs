@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureLocationName;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -12,28 +11,28 @@ use std::io::Write;
 use tracing::info;
 
 /// List SKUs for a publisher's offer for a subscription and location.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureVmPublisherOfferSkuListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Subscription id or name to query. If an id is provided it will be parsed, otherwise
     /// the list of subscriptions will be searched for a subscription with a matching name.
     /// Defaults to the active account subscription.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub subscription: Option<String>,
 
     /// Location to query. Defaults to `canadacentral`.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub location: Option<AzureLocationName>,
 
     /// Publisher name to query (e.g. center-for-internet-security-inc).
-    #[arg(long)]
+    #[facet(figue::named)]
     pub publisher: String,
 
     /// Offer name to query.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub offer: String,
 }
 

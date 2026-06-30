@@ -6,14 +6,13 @@ pub mod member;
 pub use azure_entra_group::AzureEntraGroupCommand;
 pub use azure_entra_group_list::AzureEntraGroupListArgs;
 pub use azure_entra_group_show::AzureEntraGroupShowArgs;
-use clap::Args;
 use eyre::Result;
 pub use member::AzureEntraGroupMemberArgs;
 
 /// Entra group subcommands
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraGroupArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureEntraGroupCommand,
 }
 

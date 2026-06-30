@@ -7,13 +7,12 @@ pub use azure_entra_role_definition::AzureEntraRoleDefinitionCommand;
 pub use azure_entra_role_definition_browse::AzureEntraRoleDefinitionBrowseArgs;
 pub use azure_entra_role_definition_find::AzureEntraRoleDefinitionFindArgs;
 pub use azure_entra_role_definition_list::AzureEntraRoleDefinitionListArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Entra role definitions.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraRoleDefinitionArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureEntraRoleDefinitionCommand,
 }
 

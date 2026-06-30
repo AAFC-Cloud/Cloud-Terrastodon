@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
@@ -14,13 +13,13 @@ use std::io::Write;
 use tracing::info;
 
 /// Arguments for listing Azure policy set definitions.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzurePolicySetDefinitionListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
     /// Filter policy set definitions to those whose name satisfies the provided Nucleo fuzzy expression
-    #[arg(long)]
+    #[facet(figue::named)]
     pub name: Option<String>,
 }
 

@@ -1,16 +1,15 @@
 use crate::cli::azure_devops::project::member::list::AzureDevOpsProjectMemberListArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps project member-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectMemberArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsProjectMemberCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsProjectMemberCommand {
     /// List users that are transitively members of the project.
     List(AzureDevOpsProjectMemberListArgs),

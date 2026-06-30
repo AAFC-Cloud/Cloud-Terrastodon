@@ -4,7 +4,8 @@ use eyre::bail;
 use std::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Default, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(opaque, proxy = String)]
 pub enum GiteaTenantArgument<'a> {
     #[default]
     Default,
@@ -77,5 +78,19 @@ impl FromStr for GiteaTenantArgument<'static> {
                 "'{s}' is not a valid default selector, tracked Gitea instance URL, or Cloud Terrastodon tenant alias"
             )
         }
+    }
+}
+
+impl TryFrom<String> for GiteaTenantArgument<'static> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&GiteaTenantArgument<'_>> for String {
+    fn from(value: &GiteaTenantArgument<'_>) -> Self {
+        value.to_string()
     }
 }

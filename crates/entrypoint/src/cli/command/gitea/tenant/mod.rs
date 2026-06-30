@@ -6,8 +6,6 @@ pub mod gitea_tenant_list;
 pub mod gitea_tenant_show;
 
 pub use alias::GiteaTenantAliasArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 pub use gitea_tenant_add::GiteaTenantAddArgs;
 pub use gitea_tenant_discover::GiteaTenantDiscoverArgs;
@@ -15,13 +13,14 @@ pub use gitea_tenant_forget::GiteaTenantForgetArgs;
 pub use gitea_tenant_list::GiteaTenantListArgs;
 pub use gitea_tenant_show::GiteaTenantShowArgs;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: GiteaTenantCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum GiteaTenantCommand {
     /// List tracked Gitea tenants.
     List(GiteaTenantListArgs),

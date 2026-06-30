@@ -3,13 +3,12 @@ pub mod azure_tag_for_cleanup;
 
 pub use azure_tag::AzureTagCommand;
 pub use azure_tag_for_cleanup::AzureTagForCleanupArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure tag operations.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTagArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureTagCommand,
 }
 

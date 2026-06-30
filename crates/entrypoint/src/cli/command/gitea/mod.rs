@@ -5,12 +5,11 @@ pub mod tenant;
 pub mod user;
 
 use crate::cli::gitea::gitea_command::GiteaCommand;
-use clap::Args;
 use eyre::Result;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: GiteaCommand,
 }
 

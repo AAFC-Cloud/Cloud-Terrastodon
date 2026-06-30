@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
@@ -12,12 +11,12 @@ use std::io::stdout;
 use tracing::info;
 
 /// List Azure DevOps agent pool entitlements (queues) in a project.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolEntitlementListArgs {
     /// Project id or project name.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub project: Option<AzureDevOpsProjectArgument<'static>>,
-    #[arg(long)]
+    #[facet(figue::named)]
     pub pool: Option<AzureDevOpsAgentPoolArgument<'static>>,
 }
 

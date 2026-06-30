@@ -1,11 +1,10 @@
-use clap::Args;
 use cloud_terrastodon_credentials::decode_jwt;
 use eyre::Result;
 use facet_value::Value;
 use std::io::Read;
 
 /// Decode a JWT and print its header and claims as JSON.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct JwtDecodeArgs {
     /// JWT string or '-' to read from stdin
     pub input: String,

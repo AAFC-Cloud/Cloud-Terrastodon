@@ -1,17 +1,16 @@
 use crate::cli::azure_devops::agent::pool::AzureDevOpsAgentPoolArgs;
 use crate::cli::azure_devops::agent_package::AzureDevOpsAgentPackageArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps agent-related commands (grouping for agent subcommands).
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsAgentCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsAgentCommand {
     /// Package-related agent commands.
     Package(AzureDevOpsAgentPackageArgs),

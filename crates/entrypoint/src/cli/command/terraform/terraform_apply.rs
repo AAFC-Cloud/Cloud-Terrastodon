@@ -1,6 +1,5 @@
 use crate::interactive::pim_activate_entra;
 use crate::menu::press_enter_to_continue;
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::RolePermissionAction;
@@ -22,13 +21,13 @@ use std::path::PathBuf;
 use tracing::debug;
 
 /// Reflow generated Terraform source files.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct TerraformApplyArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
-    #[arg(default_value = ".")]
+    #[facet(figue::positional, default = PathBuf::from("."))]
     pub source_dir: PathBuf,
 }
 

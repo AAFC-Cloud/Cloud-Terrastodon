@@ -5,13 +5,12 @@ pub mod azure_public_ip_show;
 pub use azure_public_ip::AzurePublicIpCommand;
 pub use azure_public_ip_list::AzurePublicIpListArgs;
 pub use azure_public_ip_show::AzurePublicIpShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure public IP addresses.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzurePublicIpArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzurePublicIpCommand,
 }
 

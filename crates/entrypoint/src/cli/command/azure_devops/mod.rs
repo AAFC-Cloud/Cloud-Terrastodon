@@ -13,13 +13,12 @@ pub mod test;
 pub mod work_item_query;
 
 use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;
-use clap::Args;
 use eyre::Result;
 
 /// Arguments for Azure DevOps-specific operations.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsCommand,
 }
 

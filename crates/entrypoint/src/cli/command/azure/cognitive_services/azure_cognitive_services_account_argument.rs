@@ -7,7 +7,9 @@ use eyre::bail;
 use std::str::FromStr;
 
 /// Cognitive Services account can be specified as an id, a validated name, or a wildcard pattern.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum CognitiveServicesAccountArgument<'a> {
     Id(AzureCognitiveServicesAccountResourceId),
     IdRef(&'a AzureCognitiveServicesAccountResourceId),
@@ -55,12 +57,6 @@ impl<'a> From<&'a AzureCognitiveServicesAccountResourceName>
 {
     fn from(value: &'a AzureCognitiveServicesAccountResourceName) -> Self {
         Self::NameRef(value)
-    }
-}
-
-impl From<String> for CognitiveServicesAccountArgument<'_> {
-    fn from(value: String) -> Self {
-        Self::Pattern(value)
     }
 }
 
@@ -237,5 +233,19 @@ mod tests {
                 .matches(&account)
         );
         Ok(())
+    }
+}
+
+impl TryFrom<String> for CognitiveServicesAccountArgument<'static> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&CognitiveServicesAccountArgument<'_>> for String {
+    fn from(value: &CognitiveServicesAccountArgument<'_>) -> Self {
+        value.to_string()
     }
 }

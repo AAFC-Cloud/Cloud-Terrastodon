@@ -1,9 +1,9 @@
 use super::AzureTagForCleanupArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure tag operations.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureTagCommand {
     /// Generate tag assignments for resources that should be cleaned up.
     ForCleanup(AzureTagForCleanupArgs),

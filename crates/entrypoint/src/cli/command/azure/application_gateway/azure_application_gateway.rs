@@ -1,11 +1,11 @@
 use super::AzureApplicationGatewayListArgs;
 use super::AzureApplicationGatewayShowArgs;
 use super::AzureApplicationGatewayShowBackendHealthArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Azure application gateways.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureApplicationGatewayCommand {
     /// List Azure application gateways.
     List(AzureApplicationGatewayListArgs),

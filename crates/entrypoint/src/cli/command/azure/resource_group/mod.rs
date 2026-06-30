@@ -5,13 +5,12 @@ pub mod azure_resource_group_list;
 pub use azure_resource_group::AzureResourceGroupCommand;
 pub use azure_resource_group_browse::AzureResourceGroupBrowseArgs;
 pub use azure_resource_group_list::AzureResourceGroupListArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure resource groups.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureResourceGroupArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureResourceGroupCommand,
 }
 

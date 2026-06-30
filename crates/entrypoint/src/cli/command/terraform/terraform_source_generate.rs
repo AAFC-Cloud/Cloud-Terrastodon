@@ -1,5 +1,4 @@
 use chrono::Local;
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::HclImportable;
@@ -15,13 +14,13 @@ use tempfile::Builder;
 use tracing::info;
 
 /// Create Terraform import definitions for selected resources.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct TerraformSourceGenerateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
-    #[arg(long, default_value = ".")]
+    #[facet(figue::named, default = PathBuf::from("."))]
     pub work_dir: PathBuf,
 }
 

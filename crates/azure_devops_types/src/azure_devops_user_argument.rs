@@ -5,13 +5,15 @@ use compact_str::CompactString;
 use eyre::bail;
 use std::str::FromStr;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(opaque, proxy = String)]
 pub enum AzureDevOpsUserArgument<'a> {
     Id(AzureDevOpsUserId),
     IdRef(&'a AzureDevOpsUserId),
     Email(CompactString),
     EmailRef(&'a str),
 }
+
 impl std::fmt::Display for AzureDevOpsUserArgument<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -22,16 +24,19 @@ impl std::fmt::Display for AzureDevOpsUserArgument<'_> {
         }
     }
 }
+
 impl From<AzureDevOpsUserId> for AzureDevOpsUserArgument<'_> {
     fn from(value: AzureDevOpsUserId) -> Self {
         AzureDevOpsUserArgument::Id(value)
     }
 }
+
 impl<'a> From<&'a AzureDevOpsUserId> for AzureDevOpsUserArgument<'a> {
     fn from(value: &'a AzureDevOpsUserId) -> Self {
         AzureDevOpsUserArgument::IdRef(value)
     }
 }
+
 impl<'a> From<&'a AzureDevOpsUserArgument<'a>> for AzureDevOpsUserArgument<'a> {
     fn from(value: &'a AzureDevOpsUserArgument<'a>) -> Self {
         match value {
@@ -40,7 +45,9 @@ impl<'a> From<&'a AzureDevOpsUserArgument<'a>> for AzureDevOpsUserArgument<'a> {
             AzureDevOpsUserArgument::Email(email) => {
                 AzureDevOpsUserArgument::EmailRef(email.as_str())
             }
-            AzureDevOpsUserArgument::EmailRef(email) => AzureDevOpsUserArgument::EmailRef(*email),
+            AzureDevOpsUserArgument::EmailRef(email) => {
+                AzureDevOpsUserArgument::EmailRef(*email)
+            }
         }
     }
 }
@@ -51,10 +58,11 @@ impl AzureDevOpsUserArgument<'_> {
     ) -> eyre::Result<Box<dyn Fn(&AzureDevOpsUserLicenseEntitlement) -> bool + 'a>> {
         Ok(Box::new(move |e| self.matches(&e.user)))
     }
+
     pub fn into_owned(self) -> AzureDevOpsUserArgument<'static> {
         match self {
             AzureDevOpsUserArgument::Id(id) => AzureDevOpsUserArgument::Id(id),
-            AzureDevOpsUserArgument::IdRef(id) => AzureDevOpsUserArgument::Id(id.clone()),
+            AzureDevOpsUserArgument::IdRef(id) => AzureDevOpsUserArgument::Id(*id),
             AzureDevOpsUserArgument::Email(email) => AzureDevOpsUserArgument::Email(email),
             AzureDevOpsUserArgument::EmailRef(email) => {
                 AzureDevOpsUserArgument::Email(email.into())
@@ -62,7 +70,6 @@ impl AzureDevOpsUserArgument<'_> {
         }
     }
 
-    /// Returns true if this argument matches the supplied project.
     pub fn matches(&self, user: &AzureDevOpsLicenseEntitlementUserReference) -> bool {
         match self {
             AzureDevOpsUserArgument::Id(id) => user.id == *id,
@@ -88,5 +95,19 @@ impl FromStr for AzureDevOpsUserArgument<'static> {
         } else {
             bail!("'{s}' is not a valid Azure DevOps user id or email")
         }
+    }
+}
+
+impl TryFrom<String> for AzureDevOpsUserArgument<'static> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&AzureDevOpsUserArgument<'_>> for String {
+    fn from(value: &AzureDevOpsUserArgument<'_>) -> Self {
+        value.to_string()
     }
 }

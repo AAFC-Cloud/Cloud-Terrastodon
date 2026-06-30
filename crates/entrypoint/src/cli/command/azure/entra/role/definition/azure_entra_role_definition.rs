@@ -1,11 +1,11 @@
 use super::AzureEntraRoleDefinitionBrowseArgs;
 use super::AzureEntraRoleDefinitionFindArgs;
 use super::AzureEntraRoleDefinitionListArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Entra role definition operations.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureEntraRoleDefinitionCommand {
     /// List all Entra role definitions accessible to the account.
     List(AzureEntraRoleDefinitionListArgs),

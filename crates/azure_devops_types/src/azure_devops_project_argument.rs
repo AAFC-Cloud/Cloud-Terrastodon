@@ -5,7 +5,8 @@ use eyre::bail;
 use std::str::FromStr;
 
 /// Project ID or name
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
+#[facet(opaque, proxy = String)]
 pub enum AzureDevOpsProjectArgument<'a> {
     Id(AzureDevOpsProjectId),
     IdRef(&'a AzureDevOpsProjectId),
@@ -91,5 +92,19 @@ impl FromStr for AzureDevOpsProjectArgument<'static> {
         } else {
             bail!("'{s}' is not a valid Azure DevOps project id or name")
         }
+    }
+}
+
+impl TryFrom<String> for AzureDevOpsProjectArgument<'static> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&AzureDevOpsProjectArgument<'_>> for String {
+    fn from(value: &AzureDevOpsProjectArgument<'_>) -> Self {
+        value.to_string()
     }
 }

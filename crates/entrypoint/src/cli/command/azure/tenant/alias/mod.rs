@@ -5,18 +5,17 @@ pub mod azure_tenant_alias_remove;
 pub use azure_tenant_alias_add::AzureTenantAliasAddArgs;
 pub use azure_tenant_alias_list::AzureTenantAliasListArgs;
 pub use azure_tenant_alias_remove::AzureTenantAliasRemoveArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Alias-related commands for tracked Azure tenants.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantAliasArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureTenantAliasCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureTenantAliasCommand {
     /// Add one or more aliases to a tracked tenant.
     Add(AzureTenantAliasAddArgs),

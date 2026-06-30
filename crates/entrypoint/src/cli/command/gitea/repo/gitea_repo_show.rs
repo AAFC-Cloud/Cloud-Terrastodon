@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_gitea::GiteaRepoArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
@@ -9,13 +8,14 @@ use eyre::Result;
 use eyre::bail;
 use std::io::Write;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaRepoShowArgs {
     /// Repository id, full name, or name.
+    #[facet(opaque, proxy = String)]
     pub repo: GiteaRepoArgument<'static>,
 
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default, opaque, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 }
 

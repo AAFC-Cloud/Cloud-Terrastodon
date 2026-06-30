@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolEntitlement;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolId;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
@@ -13,7 +12,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 /// Print a summary of agent pools and projects that belong to each pool.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolSummaryArgs {}
 
 impl AzureDevOpsAgentPoolSummaryArgs {

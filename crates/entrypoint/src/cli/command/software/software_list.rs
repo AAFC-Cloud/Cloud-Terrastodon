@@ -1,11 +1,10 @@
-use clap::Args;
 use cloud_terrastodon_software::list_software_counts_with_cancel;
 use eyre::Result;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct SoftwareListArgs {}
 
 impl SoftwareListArgs {

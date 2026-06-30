@@ -1,25 +1,23 @@
-use clap::Args;
 use std::path::PathBuf;
 
 /// Arguments that apply to all commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GlobalArgs {
     /// Enable debug logging, including backtraces on panics.
-    #[arg(long, global = true, default_value_t = false)]
+    #[facet(figue::named, default = false)]
     pub debug: bool,
 
     /// Log level filter directive.
-    #[arg(
-        long,
-        global = true,
-        default_value = "info",
-        value_name = "DIRECTIVE",
-        alias = "log-level"
+    #[facet(
+        figue::named,
+        default = "info",
+        figue::label = "DIRECTIVE",
+        figue::alias = "log-level"
     )]
     pub log_filter: String,
 
     /// Write structured ndjson logs to this file or directory. If a directory is provided,
     /// a filename will be generated there. If omitted, no JSON log file will be written.
-    #[arg(long, global = true, value_name = "FILE|DIR")]
+    #[facet(figue::named, figue::label = "FILE|DIR")]
     pub log_file: Option<PathBuf>,
 }

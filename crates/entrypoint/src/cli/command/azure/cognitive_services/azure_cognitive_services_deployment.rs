@@ -1,13 +1,11 @@
 use super::AzureCognitiveServicesDeploymentListArgs;
 use super::AzureCognitiveServicesDeploymentShowArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Query Azure Cognitive Services deployments.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesDeploymentArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureCognitiveServicesDeploymentCommand,
 }
 
@@ -17,7 +15,8 @@ impl AzureCognitiveServicesDeploymentArgs {
     }
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureCognitiveServicesDeploymentCommand {
     /// List deployments for a Cognitive Services account, or all accounts when omitted.
     List(AzureCognitiveServicesDeploymentListArgs),

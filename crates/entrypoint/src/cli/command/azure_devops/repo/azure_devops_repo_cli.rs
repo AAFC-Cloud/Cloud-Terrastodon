@@ -1,17 +1,16 @@
 use crate::cli::azure_devops::repo::list::AzureDevOpsRepoListArgs;
 use crate::cli::azure_devops::repo::show::AzureDevOpsRepoShowArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps repository-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsRepoArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsRepoCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsRepoCommand {
     /// List Azure DevOps repos in the project.
     List(AzureDevOpsRepoListArgs),

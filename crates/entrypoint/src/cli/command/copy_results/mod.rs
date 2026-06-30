@@ -1,11 +1,10 @@
-use clap::Args;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use std::path::Path;
 use std::path::PathBuf;
 
 /// Copy run artifacts to a destination directory.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct CopyResultsArgs {
     /// Destination directory for copying results.
     pub dest: PathBuf,

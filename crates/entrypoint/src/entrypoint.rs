@@ -7,10 +7,9 @@ use crate::git_revision::GitRevision;
 use crate::git_revision::set_git_revision;
 use crate::version::full_version;
 use crate::version::set_version;
-use clap::CommandFactory;
-use clap::FromArgMatches;
 use cloud_terrastodon_tracing::init_tracing;
 use eyre::Result;
+use figue::Driver;
 use std::str::FromStr;
 use tracing::level_filters::LevelFilter;
 
@@ -26,10 +25,16 @@ pub fn entrypoint(
 
     color_eyre::install()?;
 
-    // Parse command line arguments
-    let mut cmd = Cli::command();
-    cmd = cmd.version(full_version().to_string());
-    let cli = Cli::from_arg_matches(&cmd.get_matches())?;
+    // Parse command line arguments.
+    let cli: Cli = Driver::new(
+        figue::builder::<Cli>()
+            .expect("CLI schema should be valid")
+            .cli(|cli| cli.args_os(std::env::args_os().skip(1)).strict())
+            .help(|help| help.version(full_version().to_string()))
+            .build(),
+    )
+    .run()
+    .unwrap();
 
     // Configure backtrace-always
     if cli.global_args.debug {
@@ -44,7 +49,7 @@ pub fn entrypoint(
             false => LevelFilter::from_str(&cli.global_args.log_filter)?,
         },
         cli.global_args.log_file.as_ref(),
-        matches!(cli.command, Some(CloudTerrastodonCommand::Egui(_))),
+        matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_))),
     )?;
 
     // Configure terminal colour support

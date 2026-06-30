@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
@@ -7,7 +6,7 @@ use eyre::Result;
 use std::collections::HashMap;
 
 /// Summarize Azure DevOps user license entitlements by license type.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserSummaryArgs {}
 
 #[derive(Debug, Clone, PartialEq)]

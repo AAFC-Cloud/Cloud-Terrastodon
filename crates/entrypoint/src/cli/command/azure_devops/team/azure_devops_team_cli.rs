@@ -1,17 +1,16 @@
 use crate::cli::azure_devops::team::list::AzureDevOpsTeamListArgs;
 use crate::cli::azure_devops::team::show::AzureDevOpsTeamShowArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Azure DevOps team-related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsTeamArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureDevOpsTeamCommand,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureDevOpsTeamCommand {
     /// List Azure DevOps teams in the project.
     List(AzureDevOpsTeamListArgs),

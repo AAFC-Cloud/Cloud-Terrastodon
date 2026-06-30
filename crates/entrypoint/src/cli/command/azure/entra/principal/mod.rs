@@ -3,13 +3,12 @@ pub mod azure_entra_principal_list;
 
 pub use azure_entra_principal::AzureEntraPrincipalCommand;
 pub use azure_entra_principal_list::AzureEntraPrincipalListArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Entra principal subcommands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraPrincipalArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureEntraPrincipalCommand,
 }
 

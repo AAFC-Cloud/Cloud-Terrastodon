@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops::AzureDevOpsGroup;
 use cloud_terrastodon_azure_devops::AzureDevOpsGroupMember;
@@ -21,10 +20,10 @@ use std::io::stdout;
 use tracing::info;
 
 /// List users that are transitively members of an Azure DevOps project.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectMemberListArgs {
     /// Project id or project name.
-    #[arg(long)]
+    #[facet(figue::named, opaque, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 }
 

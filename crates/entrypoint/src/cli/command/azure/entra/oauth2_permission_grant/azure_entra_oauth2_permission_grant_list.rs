@@ -1,7 +1,6 @@
 use super::OAuth2PermissionGrantPreset;
 use super::resolve_preset_service_principals;
 use super::split_scope_csv;
-use clap::Args;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -14,30 +13,30 @@ use eyre::Result;
 use std::io::Write;
 
 /// List Entra OAuth2 permission grants.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[arg(long, default_value_t)]
+    #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Filter by client service principal object id.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub client_id: Option<EntraServicePrincipalId>,
 
     /// Filter by principal user object id or user principal name.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub principal: Option<AzurePrincipalArgument<'static>>,
 
     /// Filter by delegated scopes. Matches grants that contain all requested scopes.
-    #[arg(long = "scope", alias = "scopes", value_delimiter = ',')]
+    #[facet(figue::named, rename = "scope", figue::alias = "scopes")]
     pub scope: Vec<String>,
 
     /// Filter by resource service principal object id.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub resource_id: Option<EntraServicePrincipalId>,
 
     /// Resolve common client/resource pairs for the current tenant.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub preset: Option<OAuth2PermissionGrantPreset>,
 }
 
@@ -56,12 +55,15 @@ impl AzureEntraOAuth2PermissionGrantListArgs {
         let principal_id = match self.principal.as_ref() {
             Some(principal_argument) => {
                 let principals = fetch_all_principals(tenant_id).await?;
-                let principal = principal_argument.resolve(&principals).wrap_err_with(|| {
-                    format!(
-                        "Could not resolve principal '{}' in tenant {tenant_id}",
-                        principal_argument
-                    )
-                })?;
+                let principal = principal_argument
+                    .0
+                    .resolve(&principals)
+                    .wrap_err_with(|| {
+                        format!(
+                            "Could not resolve principal '{}' in tenant {tenant_id}",
+                            principal_argument
+                        )
+                    })?;
                 Some(
                     principal
                         .as_user()

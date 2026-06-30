@@ -33,7 +33,6 @@ use crate::management_groups::ManagementGroupId;
 use crate::service_group_id::SERVICE_GROUP_ID_PREFIX;
 use crate::slug::HasSlug;
 use crate::slug::Slug;
-use clap::ValueEnum;
 use cloud_terrastodon_azure_resource_types::ResourceType;
 use compact_str::CompactString;
 use compact_str::ToCompactString;
@@ -654,7 +653,8 @@ impl std::fmt::Display for ScopeError {
         })
     }
 }
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, ValueEnum)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, facet::Facet)]
+#[repr(u8)]
 pub enum ScopeImplKind {
     ManagementGroup,
     RoleManagementPolicyAssignment,

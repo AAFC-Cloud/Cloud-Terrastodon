@@ -1,15 +1,14 @@
 pub mod outage_command;
 pub mod outage_investigate;
 
-use clap::Args;
 use eyre::Result;
 pub use outage_command::OutageCommand;
 pub use outage_investigate::OutageInvestigateArgs;
 
 /// Investigate suspected service outages.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct OutageArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: OutageCommand,
 }
 

@@ -7,13 +7,12 @@ pub use azure_application_gateway::AzureApplicationGatewayCommand;
 pub use azure_application_gateway_list::AzureApplicationGatewayListArgs;
 pub use azure_application_gateway_show::AzureApplicationGatewayShowArgs;
 pub use azure_application_gateway_show_backend_health::AzureApplicationGatewayShowBackendHealthArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure application gateways.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureApplicationGatewayArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureApplicationGatewayCommand,
 }
 

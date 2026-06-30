@@ -5,13 +5,12 @@ pub mod azure_private_endpoint_show;
 pub use azure_private_endpoint::AzurePrivateEndpointCommand;
 pub use azure_private_endpoint_list::AzurePrivateEndpointListArgs;
 pub use azure_private_endpoint_show::AzurePrivateEndpointShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure private endpoints.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzurePrivateEndpointArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzurePrivateEndpointCommand,
 }
 

@@ -7,13 +7,12 @@ pub use azure_resource::AzureResourceCommand;
 pub use azure_resource_browse::AzureResourceBrowseArgs;
 pub use azure_resource_list::AzureResourceListArgs;
 pub use azure_resource_show::AzureResourceShowArgs;
-use clap::Args;
 use eyre::Result;
 
 /// Manage Azure resources.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureResourceArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureResourceCommand,
 }
 

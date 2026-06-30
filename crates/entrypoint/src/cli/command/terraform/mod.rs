@@ -7,14 +7,13 @@ pub mod terraform_source;
 pub mod terraform_source_add_imports;
 pub mod terraform_source_generate;
 
-use clap::Args;
 use eyre::Result;
 pub use terraform_command::TerraformCommand;
 
 /// Arguments for Terraform-specific operations.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct TerraformArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: TerraformCommand,
 }
 

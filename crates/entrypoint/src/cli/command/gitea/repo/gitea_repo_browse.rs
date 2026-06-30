@@ -1,12 +1,11 @@
 use crate::cli::gitea::repo::gitea_repo_list::GiteaRepoListArgs;
-use clap::Args;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use eyre::Result;
 use std::io::Write;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaRepoBrowseArgs {
-    #[command(flatten)]
+    #[facet(flatten)]
     pub list: GiteaRepoListArgs,
 }
 

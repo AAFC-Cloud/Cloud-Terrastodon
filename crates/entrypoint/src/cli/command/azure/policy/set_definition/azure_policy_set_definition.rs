@@ -1,11 +1,11 @@
 use super::AzurePolicySetDefinitionBrowseArgs;
 use super::AzurePolicySetDefinitionListArgs;
 use super::AzurePolicySetDefinitionShowArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for managing Azure policy set definitions.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzurePolicySetDefinitionCommand {
     /// List all Azure policy set definitions accessible to the account.
     List(AzurePolicySetDefinitionListArgs),

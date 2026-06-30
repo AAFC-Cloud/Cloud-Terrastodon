@@ -43,11 +43,11 @@ use crate::cli::rest::RestArgs;
 use crate::cli::software::SoftwareArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// All top-level commands for the cloud-terrastodon CLI.
-#[derive(Subcommand, Debug)]
+#[derive(facet::Facet, Debug)]
+#[repr(u8)]
 pub enum CloudTerrastodonCommand {
     /// Launch the Ratatui-based interface.
     Ratatui(RatatuiArgs),
@@ -78,16 +78,16 @@ pub enum CloudTerrastodonCommand {
     /// Register a directory as a working directory.
     AddWorkDir(AddWorkDirArgs),
     /// Perform Terraform-specific operations.
-    #[command(alias = "tf")]
+    #[facet(figue::alias = "tf")]
     Terraform(TerraformArgs),
     /// Perform Azure DevOps-specific operations.
-    #[command(alias = "azdo")]
+    #[facet(figue::alias = "azdo")]
     AzureDevOps(AzureDevOpsArgs),
     /// Perform Azure-specific operations.
-    #[command(alias = "az")]
+    #[facet(figue::alias = "az")]
     Azure(AzureArgs),
     /// Perform Gitea-specific operations via the `tea` CLI.
-    #[command(name = "tea", alias = "gitea")]
+    #[facet(figue::alias = "gitea")]
     Tea(GiteaArgs),
     /// Decode or inspect JWTs.
     Jwt(JwtArgs),

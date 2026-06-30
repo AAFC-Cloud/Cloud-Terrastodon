@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::forget_tracked_tenant;
@@ -7,7 +6,7 @@ use eyre::bail;
 use std::io::Write;
 
 /// Arguments for forgetting a tracked Azure tenant.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantForgetArgs {
     /// Tenant id (GUID) or alias to forget.
     pub tenant: AzureTenantArgument<'static>,

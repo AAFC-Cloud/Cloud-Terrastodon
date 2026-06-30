@@ -1,10 +1,10 @@
 use super::AzureEntraRoleAssignmentBrowseArgs;
 use super::AzureEntraRoleAssignmentListArgs;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Subcommands for Entra role assignment operations.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzureEntraRoleAssignmentCommand {
     /// List all Entra role assignments accessible to the account.
     List(AzureEntraRoleAssignmentListArgs),

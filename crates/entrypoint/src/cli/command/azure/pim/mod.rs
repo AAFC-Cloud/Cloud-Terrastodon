@@ -1,19 +1,18 @@
 pub mod azure_pim_activate;
 
 pub use azure_pim_activate::AzurePimActivateArgs;
-use clap::Args;
-use clap::Subcommand;
 use eyre::Result;
 
 /// Arguments for Azure Privileged Identity Management operations.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzurePimArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzurePimCommand,
 }
 
 /// Subcommands available under `cloud_terrastodon az pim`.
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum AzurePimCommand {
     /// Activate Azure or Entra PIM assignments.
     Activate(AzurePimActivateArgs),

@@ -1,10 +1,9 @@
-use clap::Args;
 use cloud_terrastodon_command::discover_caches;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use itertools::Itertools;
 
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct CacheListArgs {}
 
 #[derive(Debug, facet::Facet)]

@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure::EntraGroupId;
 use cloud_terrastodon_azure::PrincipalId;
 use cloud_terrastodon_azure::remove_group_member;
@@ -6,14 +5,14 @@ use eyre::Result;
 use tracing::info;
 
 /// Remove a member from an Entra (Azure AD) group.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraGroupMemberRemoveArgs {
     /// Entra group id (GUID).
-    #[arg(long = "group-id")]
+    #[facet(figue::named)]
     pub group_id: EntraGroupId,
 
     /// Principal id to remove from the group (user/service-principal/group GUID).
-    #[arg(long = "member-id")]
+    #[facet(figue::named)]
     pub member_id: PrincipalId,
 }
 

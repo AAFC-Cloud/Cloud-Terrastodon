@@ -1,4 +1,3 @@
-use clap::Args;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pools;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::to_writer_pretty;
@@ -6,10 +5,10 @@ use eyre::Result;
 use std::io::stdout;
 
 /// List Azure DevOps agent pools in the organization.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolListArgs {
     /// Include hosted pools.
-    #[arg(long)]
+    #[facet(figue::named)]
     pub all: bool,
 }
 

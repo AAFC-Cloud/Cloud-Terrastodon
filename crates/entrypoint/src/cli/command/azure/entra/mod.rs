@@ -9,7 +9,6 @@ pub mod user;
 
 pub use application_registration::AzureEntraApplicationRegistrationArgs;
 pub use azure_entra::AzureEntraCommand;
-use clap::Args;
 use eyre::Result;
 pub use group::AzureEntraGroupArgs;
 pub use oauth2_permission_grant::AzureEntraOAuth2PermissionGrantArgs;
@@ -19,9 +18,9 @@ pub use service_principal::AzureEntraServicePrincipalArgs;
 pub use user::AzureEntraUserArgs;
 
 /// Entra (Azure AD) related commands.
-#[derive(Args, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraArgs {
-    #[command(subcommand)]
+    #[facet(figue::subcommand)]
     pub command: AzureEntraCommand,
 }
 

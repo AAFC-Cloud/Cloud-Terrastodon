@@ -2,21 +2,21 @@ use crate::cli::gitea::org::GiteaOrgArgs;
 use crate::cli::gitea::repo::GiteaRepoArgs;
 use crate::cli::gitea::tenant::GiteaTenantArgs;
 use crate::cli::gitea::user::GiteaUserArgs;
-use clap::Subcommand;
 use eyre::Result;
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(facet::Facet, Debug, Clone)]
+#[repr(u8)]
 pub enum GiteaCommand {
     /// Manage tracked Gitea tenants (instances).
     Tenant(GiteaTenantArgs),
     /// Organization-related commands.
-    #[command(alias = "orgs")]
+    #[facet(figue::alias = "orgs")]
     Org(GiteaOrgArgs),
     /// User-related commands.
-    #[command(alias = "users")]
+    #[facet(figue::alias = "users")]
     User(GiteaUserArgs),
     /// Repository-related commands.
-    #[command(alias = "repos")]
+    #[facet(figue::alias = "repos")]
     Repo(GiteaRepoArgs),
 }
 
