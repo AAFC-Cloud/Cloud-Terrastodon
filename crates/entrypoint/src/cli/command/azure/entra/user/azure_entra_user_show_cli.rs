@@ -15,7 +15,6 @@ pub struct AzureEntraUserShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// User object id, user principal name, display name, or email address.
-    #[facet(opaque, proxy = String)]
     pub user: AzurePrincipalArgument<'static>,
 }
 

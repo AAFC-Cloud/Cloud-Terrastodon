@@ -9,6 +9,7 @@ use std::str::FromStr;
 /// or by its name (display name / GUID form).
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum AzureRoleDefinitionArgument<'a> {
     Id(RoleDefinitionId),
     IdRef(&'a RoleDefinitionId),

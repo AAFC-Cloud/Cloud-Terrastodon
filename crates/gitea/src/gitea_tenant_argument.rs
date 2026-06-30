@@ -6,6 +6,7 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash, facet::Facet)]
 #[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum GiteaTenantArgument<'a> {
     #[default]
     Default,

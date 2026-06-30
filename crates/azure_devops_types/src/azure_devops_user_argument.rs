@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum AzureDevOpsUserArgument<'a> {
     Id(AzureDevOpsUserId),
     IdRef(&'a AzureDevOpsUserId),
