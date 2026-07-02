@@ -2,6 +2,7 @@ pub mod software_list;
 
 use crate::cli::software::software_list::SoftwareListArgs;
 use eyre::Result;
+use teamy_cancellation::CancellationToken;
 
 /// Software discovery commands
 #[derive(facet::Facet, Debug, Clone)]
@@ -18,15 +19,15 @@ pub enum SoftwareCommand {
 }
 
 impl SoftwareArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, cancellation_token: &CancellationToken) -> Result<()> {
+        self.command.invoke(cancellation_token).await
     }
 }
 
 impl SoftwareCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, cancellation_token: &CancellationToken) -> Result<()> {
         match self {
-            Self::List(args) => args.invoke().await,
+            Self::List(args) => args.invoke(cancellation_token).await,
         }
     }
 }

@@ -44,6 +44,7 @@ use crate::cli::software::SoftwareArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
 use eyre::Result;
+use teamy_cancellation::CancellationToken;
 
 /// All top-level commands for the cloud-terrastodon CLI.
 #[derive(facet::Facet, Debug)]
@@ -100,7 +101,7 @@ pub enum CloudTerrastodonCommand {
 }
 
 impl CloudTerrastodonCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, cancellation_token: &CancellationToken) -> Result<()> {
         match self {
             CloudTerrastodonCommand::Ratatui(args) => args.invoke().await,
             CloudTerrastodonCommand::Egui(args) => args.invoke().await,
@@ -113,7 +114,7 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::Nslookup(args) => args.invoke().await,
             CloudTerrastodonCommand::Outage(args) => args.invoke().await,
             CloudTerrastodonCommand::Rest(args) => args.invoke_and_print().await,
-            CloudTerrastodonCommand::Software(args) => args.invoke().await,
+            CloudTerrastodonCommand::Software(args) => args.invoke(cancellation_token).await,
             CloudTerrastodonCommand::CopyResults(args) => args.invoke().await,
             CloudTerrastodonCommand::AddWorkDir(args) => args.invoke().await,
             CloudTerrastodonCommand::Terraform(args) => args.invoke().await,

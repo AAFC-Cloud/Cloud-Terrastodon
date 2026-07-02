@@ -12,4 +12,5 @@ categories.workspace = true
 
 [dependencies]
 eyre.workspace = true
+teamy-cancellation.workspace = true
 teamy-mft.workspace = true

@@ -1,6 +1,5 @@
 use std::ops::ControlFlow;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
+use teamy_cancellation::CancellationToken;
 use teamy_mft::query::QueryNeedle;
 use teamy_mft::query::QueryPlan;
 use teamy_mft::query::QueryRule;
@@ -24,14 +23,14 @@ pub const SOFTWARE_QUERIES: [&'static str; 5] = [
 ///
 /// Returns an error if the underlying teamy-mft query fails.
 /// Cancellation is best-effort and returns the summaries collected so far.
-pub fn list_software_counts_with_cancel(
-    cancel: Option<&AtomicBool>,
+pub fn list_software_counts(
+    cancel: &CancellationToken,
 ) -> eyre::Result<Vec<SoftwareQuerySummary>> {
-    let mut session = QuerySession::published_index_only()?;
+    let mut session = QuerySession::local()?;
     let mut rtn = Vec::with_capacity(SOFTWARE_QUERIES.len());
     for query in SOFTWARE_QUERIES {
         let mut count = 0;
-        session.visit_rows_with_cancel(
+        session.visit_rows(
             QueryPlan::single_rule(QueryRule::EqualsCaseInsensitive(QueryNeedle::new(query))),
             cancel,
             |_row| {
@@ -39,7 +38,7 @@ pub fn list_software_counts_with_cancel(
                 Ok(ControlFlow::Continue(()))
             },
         )?;
-        if cancel.is_some_and(|cancel| cancel.load(Ordering::Relaxed)) {
+        if cancel.is_cancelled() {
             break;
         }
         rtn.push(SoftwareQuerySummary {
