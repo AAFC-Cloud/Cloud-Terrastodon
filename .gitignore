@@ -11,3 +11,4 @@ cloud_terrastodon_log_*.*
 explore/
 /.codex-target/
 /target-codex*/
+/.codex-*/

@@ -85,7 +85,7 @@ impl AzureDevOpsUserArgument<'_> {
     }
 }
 
-impl FromStr for AzureDevOpsUserArgument<'static> {
+impl<'a> FromStr for AzureDevOpsUserArgument<'a> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -99,7 +99,7 @@ impl FromStr for AzureDevOpsUserArgument<'static> {
     }
 }
 
-impl TryFrom<String> for AzureDevOpsUserArgument<'static> {
+impl<'a> TryFrom<String> for AzureDevOpsUserArgument<'a> {
     type Error = eyre::Report;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {

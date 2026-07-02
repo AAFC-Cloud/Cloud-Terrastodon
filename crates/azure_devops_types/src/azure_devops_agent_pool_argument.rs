@@ -8,6 +8,7 @@ use std::str::FromStr;
 /// The name or identifier for an [`AzureDevOpsAgentPool`]
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(opaque, proxy = String)]
+#[repr(C)]
 pub enum AzureDevOpsAgentPoolArgument<'a> {
     Id(AzureDevOpsAgentPoolId),
     IdRef(&'a AzureDevOpsAgentPoolId),
@@ -96,7 +97,7 @@ impl AzureDevOpsAgentPoolArgument<'_> {
     }
 }
 
-impl FromStr for AzureDevOpsAgentPoolArgument<'static> {
+impl<'a> FromStr for AzureDevOpsAgentPoolArgument<'a> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -110,7 +111,7 @@ impl FromStr for AzureDevOpsAgentPoolArgument<'static> {
     }
 }
 
-impl TryFrom<String> for AzureDevOpsAgentPoolArgument<'static> {
+impl<'a> TryFrom<String> for AzureDevOpsAgentPoolArgument<'a> {
     type Error = eyre::Report;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {

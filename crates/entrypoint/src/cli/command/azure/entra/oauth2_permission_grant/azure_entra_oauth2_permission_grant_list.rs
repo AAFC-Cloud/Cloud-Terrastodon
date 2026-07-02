@@ -56,7 +56,6 @@ impl AzureEntraOAuth2PermissionGrantListArgs {
             Some(principal_argument) => {
                 let principals = fetch_all_principals(tenant_id).await?;
                 let principal = principal_argument
-                    .0
                     .resolve(&principals)
                     .wrap_err_with(|| {
                         format!(

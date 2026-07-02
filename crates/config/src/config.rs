@@ -116,5 +116,7 @@ fn destructured_to_value(value: Destructured) -> Value {
         Destructured::DateTime(value) => value.into(),
         Destructured::QName(value) => value.into(),
         Destructured::Uuid(value) => value.into(),
+        Destructured::Char(value) => value.into(),
+        _ => unreachable!("unknown facet-value::Destructured variant"),
     }
 }

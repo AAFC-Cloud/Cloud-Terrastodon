@@ -108,7 +108,7 @@ impl AzurePrincipalArgument<'_> {
     }
 }
 
-impl FromStr for AzurePrincipalArgument<'static> {
+impl<'a> FromStr for AzurePrincipalArgument<'a> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -121,7 +121,7 @@ impl FromStr for AzurePrincipalArgument<'static> {
     }
 }
 
-impl TryFrom<String> for AzurePrincipalArgument<'static> {
+impl<'a> TryFrom<String> for AzurePrincipalArgument<'a> {
     type Error = eyre::Report;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {

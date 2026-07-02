@@ -63,7 +63,7 @@ impl AzureTenantArgument<'_> {
     }
 }
 
-impl FromStr for AzureTenantArgument<'static> {
+impl<'a> FromStr for AzureTenantArgument<'a> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

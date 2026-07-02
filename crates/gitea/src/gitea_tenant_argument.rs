@@ -64,7 +64,7 @@ impl GiteaTenantArgument<'_> {
     }
 }
 
-impl FromStr for GiteaTenantArgument<'static> {
+impl<'a> FromStr for GiteaTenantArgument<'a> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -82,7 +82,7 @@ impl FromStr for GiteaTenantArgument<'static> {
     }
 }
 
-impl TryFrom<String> for GiteaTenantArgument<'static> {
+impl<'a> TryFrom<String> for GiteaTenantArgument<'a> {
     type Error = eyre::Report;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {

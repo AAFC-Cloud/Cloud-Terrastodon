@@ -110,7 +110,7 @@ impl CognitiveServicesAccountArgument<'_> {
     }
 }
 
-impl FromStr for CognitiveServicesAccountArgument<'static> {
+impl<'a> FromStr for CognitiveServicesAccountArgument<'a> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -236,7 +236,7 @@ mod tests {
     }
 }
 
-impl TryFrom<String> for CognitiveServicesAccountArgument<'static> {
+impl<'a> TryFrom<String> for CognitiveServicesAccountArgument<'a> {
     type Error = eyre::Report;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {

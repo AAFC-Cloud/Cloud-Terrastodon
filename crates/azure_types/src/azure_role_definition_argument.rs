@@ -112,7 +112,7 @@ impl AzureRoleDefinitionArgument<'_> {
     }
 }
 
-impl FromStr for AzureRoleDefinitionArgument<'static> {
+impl<'a> FromStr for AzureRoleDefinitionArgument<'a> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -126,7 +126,7 @@ impl FromStr for AzureRoleDefinitionArgument<'static> {
     }
 }
 
-impl TryFrom<String> for AzureRoleDefinitionArgument<'static> {
+impl<'a> TryFrom<String> for AzureRoleDefinitionArgument<'a> {
     type Error = eyre::Report;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
