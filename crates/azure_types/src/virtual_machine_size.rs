@@ -1,6 +1,7 @@
+use arbitrary::Arbitrary;
 use crate::ComputeSkuName;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct VirtualMachineSize {
     pub max_data_disk_count: usize,
@@ -16,3 +17,4 @@ pub struct VirtualMachineSize {
 
 cloud_terrastodon_registry::register_thing!(VirtualMachineSize);
 cloud_terrastodon_registry::register_arbitrary!(VirtualMachineSize);
+

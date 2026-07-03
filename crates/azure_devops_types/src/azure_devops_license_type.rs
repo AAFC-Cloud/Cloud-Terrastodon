@@ -1,6 +1,7 @@
+use arbitrary::Arbitrary;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseType {
@@ -186,3 +187,4 @@ mod license_tests {
         Ok(())
     }
 }
+

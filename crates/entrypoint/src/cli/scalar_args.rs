@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use http::Method;
 use std::ops::Deref;
 
@@ -5,6 +6,12 @@ use std::ops::Deref;
 #[facet(opaque, proxy = String)]
 pub struct HumantimeDurationCli(pub humantime::Duration);
 
+impl<'a> Arbitrary<'a> for HumantimeDurationCli {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let seconds = u64::arbitrary(u)? % 86_400;
+        Ok(Self(humantime::Duration::from(std::time::Duration::from_secs(seconds))))
+    }
+}
 impl Deref for HumantimeDurationCli {
     type Target = humantime::Duration;
 
@@ -31,6 +38,18 @@ impl From<&HumantimeDurationCli> for String {
 #[facet(opaque, proxy = String)]
 pub struct HttpMethodCli(pub Method);
 
+impl<'a> Arbitrary<'a> for HttpMethodCli {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let method = match u.int_in_range(0..=4)? {
+            0 => Method::GET,
+            1 => Method::POST,
+            2 => Method::PUT,
+            3 => Method::DELETE,
+            _ => Method::PATCH,
+        };
+        Ok(Self(method))
+    }
+}
 impl Deref for HttpMethodCli {
     type Target = Method;
 
@@ -56,3 +75,4 @@ cloud_terrastodon_registry::register_thing!(HumantimeDurationCli);
 cloud_terrastodon_registry::register_arbitrary!(HumantimeDurationCli);
 cloud_terrastodon_registry::register_thing!(HttpMethodCli);
 cloud_terrastodon_registry::register_arbitrary!(HttpMethodCli);
+

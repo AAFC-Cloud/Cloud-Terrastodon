@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use blake3::Hash;
 use compact_str::CompactString;
 use eyre::bail;
@@ -131,6 +132,19 @@ impl From<&GiteaInstanceUrl> for String {
         value.to_string()
     }
 }
+impl<'a> Arbitrary<'a> for GiteaInstanceUrl {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let mut host = String::arbitrary(u)?
+            .chars()
+            .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '-')
+            .collect::<String>();
+        if host.is_empty() {
+            host.push_str("gitea");
+        }
+        GiteaInstanceUrl::try_new(format!("https://{host}.example.com"))
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 cloud_terrastodon_registry::register_thing!(GiteaInstanceUrl);
 cloud_terrastodon_registry::register_arbitrary!(GiteaInstanceUrl);
 
@@ -164,3 +178,4 @@ mod tests {
         assert!(GiteaInstanceUrl::try_new("https://gitea.example.com/foo").is_err());
     }
 }
+

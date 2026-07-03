@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::get_azure_devops_cli_config;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheInvalidatable;
@@ -11,7 +12,7 @@ use std::pin::Pin;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct DefaultAzureDevOpsOrganizationUrlRequest;
 
 pub fn get_default_organization_url() -> DefaultAzureDevOpsOrganizationUrlRequest {
@@ -88,3 +89,4 @@ mod test {
         Ok(())
     }
 }
+

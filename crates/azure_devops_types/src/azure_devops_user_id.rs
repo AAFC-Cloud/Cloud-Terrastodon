@@ -1,8 +1,9 @@
+use arbitrary::Arbitrary;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureDevOpsUserId(Uuid);
 impl std::fmt::Display for AzureDevOpsUserId {
@@ -61,3 +62,4 @@ mod tests {
         let _project_id = id.parse::<AzureDevOpsUserId>().unwrap();
     }
 }
+

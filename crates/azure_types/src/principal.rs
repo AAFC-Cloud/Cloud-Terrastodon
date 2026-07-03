@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::EntraGroup;
 use crate::EntraServicePrincipal;
 use crate::EntraUser;
@@ -17,6 +18,15 @@ pub enum Principal {
     ServicePrincipal(Box<EntraServicePrincipal>),
 }
 
+impl<'a> Arbitrary<'a> for Principal {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(match u.int_in_range(0..=2)? {
+            0 => Self::User(Box::new(EntraUser::arbitrary(u)?)),
+            1 => Self::Group(Box::new(EntraGroup::arbitrary(u)?)),
+            _ => Self::ServicePrincipal(Box::new(EntraServicePrincipal::arbitrary(u)?)),
+        })
+    }
+}
 impl TryFrom<RawJson<'static>> for Principal {
     type Error = eyre::Error;
 
@@ -215,3 +225,4 @@ cloud_terrastodon_registry::register_from!(EntraServicePrincipal => Principal);
 cloud_terrastodon_registry::register_try_from!(Principal => EntraUser);
 cloud_terrastodon_registry::register_try_from!(Principal => EntraGroup);
 cloud_terrastodon_registry::register_try_from!(Principal => EntraServicePrincipal);
+

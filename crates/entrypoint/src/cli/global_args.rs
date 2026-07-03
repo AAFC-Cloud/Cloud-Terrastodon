@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use std::path::PathBuf;
 
 /// Arguments that apply to all commands.
@@ -21,5 +22,15 @@ pub struct GlobalArgs {
     #[facet(figue::named, figue::label = "FILE|DIR")]
     pub log_file: Option<PathBuf>,
 }
+impl<'a> Arbitrary<'a> for GlobalArgs {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            debug: bool::arbitrary(u)?,
+            log_filter: String::arbitrary(u)?,
+            log_file: Option::<String>::arbitrary(u)?.map(std::path::PathBuf::from),
+        })
+    }
+}
 cloud_terrastodon_registry::register_thing!(GlobalArgs);
 cloud_terrastodon_registry::register_arbitrary!(GlobalArgs);
+

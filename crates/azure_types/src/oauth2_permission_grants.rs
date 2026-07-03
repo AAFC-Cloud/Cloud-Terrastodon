@@ -1,10 +1,11 @@
+use arbitrary::Arbitrary;
 use crate::EntraServicePrincipalId;
 use crate::EntraUserId;
 use itertools::Itertools;
 
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
 
-#[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
 #[facet(transparent)]
 pub struct OAuth2PermissionGrantId(pub String);
 impl std::fmt::Display for OAuth2PermissionGrantId {
@@ -18,14 +19,14 @@ impl AsRef<str> for OAuth2PermissionGrantId {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum ConsentType {
     AllPrincipals,
     Principal,
 }
 
-#[derive(Debug, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionGrant {
     /// The object id (not appId) of the client service principal for the application that's authorized to act on behalf of a signed-in user when accessing an API. Required. Supports `$filter` (`eq` only).
     #[facet(rename = "clientId")]
@@ -65,3 +66,5 @@ cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrantId);
 
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrant);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrant);
+
+

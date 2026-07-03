@@ -23,8 +23,10 @@ chrono.workspace = true
 blake3.workspace = true
 tracing.workspace = true
 linkme.workspace = true
+arbitrary.workspace = true
 
 [dev-dependencies]
 test-log.workspace = true
 tempfile.workspace = true
+
 

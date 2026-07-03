@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::gitea_owner_name::validate_segment;
 use compact_str::CompactString;
 use facet::Facet;
@@ -45,5 +46,16 @@ impl FromStr for GiteaOrganizationName {
     }
 }
 
+impl<'a> Arbitrary<'a> for GiteaOrganizationName {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let mut value = String::arbitrary(u)?.replace('/', "");
+        value = value.trim().to_string();
+        if value.is_empty() {
+            value.push('x');
+        }
+        GiteaOrganizationName::try_new(value).map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 cloud_terrastodon_registry::register_thing!(GiteaOrganizationName);
 cloud_terrastodon_registry::register_arbitrary!(GiteaOrganizationName);
+

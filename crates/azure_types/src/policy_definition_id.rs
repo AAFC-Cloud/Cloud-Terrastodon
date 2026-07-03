@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScopedPolicyDefinitionId;
 use crate::PolicyDefinitionName;
@@ -39,6 +40,19 @@ pub enum PolicyDefinitionId {
     ResourceScoped(ResourceScopedPolicyDefinitionId),
 }
 crate::impl_facet_string_proxy!(PolicyDefinitionId, value => value.expanded_form());
+impl<'a> Arbitrary<'a> for PolicyDefinitionId {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(match u.int_in_range(0..=1)? {
+            0 => Self::Unscoped(UnscopedPolicyDefinitionId {
+                name: PolicyDefinitionName::arbitrary(u)?,
+            }),
+            _ => Self::SubscriptionScoped(SubscriptionScopedPolicyDefinitionId {
+                subscription_id: SubscriptionId::arbitrary(u)?,
+                name: PolicyDefinitionName::arbitrary(u)?,
+            }),
+        })
+    }
+}
 impl PolicyDefinitionId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
@@ -248,3 +262,4 @@ mod tests {
         Ok(())
     }
 }
+

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::AzureTenantAlias;
 use crate::AzureTenantId;
 use eyre::bail;
@@ -81,6 +82,15 @@ impl<'a> FromStr for AzureTenantArgument<'a> {
     }
 }
 
+impl<'a> Arbitrary<'a> for AzureTenantArgument<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(match u.int_in_range(0..=2)? {
+            0 => Self::Default,
+            1 => Self::Id(AzureTenantId::arbitrary(u)?),
+            _ => Self::Alias(AzureTenantAlias::arbitrary(u)?),
+        })
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::AzureTenantArgument;
@@ -95,3 +105,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(AzureTenantArgument<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureTenantArgument<'static>);
+

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::RolePermissionAction;
 use ordermap::OrderSet;
 use std::cmp::Ordering;
@@ -142,6 +143,16 @@ impl PartialOrd for RolePermissions {
     }
 }
 
+impl<'a> Arbitrary<'a> for RolePermissions {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self::new(
+            Vec::<RolePermissionAction>::arbitrary(u)?,
+            Vec::<RolePermissionAction>::arbitrary(u)?,
+            Vec::<RolePermissionAction>::arbitrary(u)?,
+            Vec::<RolePermissionAction>::arbitrary(u)?,
+        ))
+    }
+}
 #[cfg(test)]
 mod test {
     use super::RolePermissions;
@@ -305,3 +316,4 @@ mod test {
         Ok(())
     }
 }
+

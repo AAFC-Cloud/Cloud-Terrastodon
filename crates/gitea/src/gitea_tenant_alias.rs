@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
@@ -53,6 +54,39 @@ fn validate_tenant_alias_inner(value: &str) -> eyre::Result<()> {
     Ok(())
 }
 
+impl<'a> Arbitrary<'a> for GiteaTenantAlias {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let len = u.int_in_range(1..=64)?;
+        let mut alias = String::with_capacity(len);
+        alias.push(gitea_alias_edge_char(u)?);
+        while alias.len() + 1 < len {
+            alias.push(gitea_alias_middle_char(u)?);
+        }
+        if len > 1 {
+            alias.push(gitea_alias_edge_char(u)?);
+        }
+        GiteaTenantAlias::try_new(alias).map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
+
+fn gitea_alias_edge_char<'a>(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<char> {
+    let idx = u.int_in_range(0..=35)?;
+    Ok(match idx {
+        0..=25 => (b'a' + idx as u8) as char,
+        _ => (b'0' + (idx - 26) as u8) as char,
+    })
+}
+
+fn gitea_alias_middle_char<'a>(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<char> {
+    let idx = u.int_in_range(0..=38)?;
+    Ok(match idx {
+        0..=25 => (b'a' + idx as u8) as char,
+        26..=35 => (b'0' + (idx - 26) as u8) as char,
+        36 => '-',
+        37 => '_',
+        _ => '.',
+    })
+}
 impl Display for GiteaTenantAlias {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
@@ -80,3 +114,4 @@ impl FromStr for GiteaTenantAlias {
         Self::try_new(s)
     }
 }
+

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::RoleDefinitionId;
 use crate::RolePermissionAction;
 use crate::RolePermissions;
@@ -9,7 +10,7 @@ use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum RoleDefinitionKind {
     BuiltInRole,
@@ -31,6 +32,18 @@ pub struct RoleDefinition {
     pub kind: RoleDefinitionKind,
 }
 
+impl<'a> Arbitrary<'a> for RoleDefinition {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            id: RoleDefinitionId::arbitrary(u)?,
+            display_name: String::arbitrary(u)?,
+            description: String::arbitrary(u)?,
+            assignable_scopes: Vec::<String>::arbitrary(u)?,
+            permissions: Vec::<RolePermissions>::arbitrary(u)?,
+            kind: RoleDefinitionKind::arbitrary(u)?,
+        })
+    }
+}
 impl RoleDefinition {
     /// Aggregated PoLP score for the entire role definition.
     ///
@@ -114,3 +127,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(RoleDefinition);
 cloud_terrastodon_registry::register_arbitrary!(RoleDefinition);
+

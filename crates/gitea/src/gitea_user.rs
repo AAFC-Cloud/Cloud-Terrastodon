@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::GiteaUserId;
 use crate::GiteaUsername;
 use chrono::DateTime;
@@ -5,7 +6,7 @@ use chrono::FixedOffset;
 use facet::Facet;
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Eq, PartialEq, Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 pub struct GiteaUser {
     pub id: GiteaUserId,
     pub login: GiteaUsername,
@@ -43,3 +44,4 @@ impl Display for GiteaUser {
 
 cloud_terrastodon_registry::register_thing!(GiteaUser);
 cloud_terrastodon_registry::register_arbitrary!(GiteaUser);
+

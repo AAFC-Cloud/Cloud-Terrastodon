@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::az_account_list;
 use crate::get_default_tenant_id;
 use cloud_terrastodon_azure_types::Account;
@@ -73,7 +74,7 @@ pub trait AzureTenantArgumentExt {
 }
 
 #[must_use = "This is a future request, you must .run().await it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct AzureTenantIdResolveRequest {
     pub tenant: AzureTenantArgument<'static>,
 }
@@ -671,3 +672,4 @@ impl std::future::IntoFuture for AzureTenantIdResolveRequest {
         Box::pin(self.run())
     }
 }
+

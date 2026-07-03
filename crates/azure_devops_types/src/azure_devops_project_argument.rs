@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::AzureDevOpsProject;
 use crate::AzureDevOpsProjectId;
 use crate::AzureDevOpsProjectName;
@@ -82,6 +83,14 @@ impl AzureDevOpsProjectArgument<'_> {
     }
 }
 
+impl<'a> Arbitrary<'a> for AzureDevOpsProjectArgument<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(match u.int_in_range(0..=1)? {
+            0 => Self::Id(AzureDevOpsProjectId::arbitrary(u)?),
+            _ => Self::Name(AzureDevOpsProjectName::arbitrary(u)?),
+        })
+    }
+}
 impl<'a> FromStr for AzureDevOpsProjectArgument<'a> {
     type Err = eyre::Report;
 
@@ -109,3 +118,4 @@ impl From<&AzureDevOpsProjectArgument<'_>> for String {
         value.to_string()
     }
 }
+

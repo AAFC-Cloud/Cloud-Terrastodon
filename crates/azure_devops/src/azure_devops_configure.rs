@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -7,7 +8,7 @@ use cloud_terrastodon_command::bstr::ByteSlice;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct AzureDevOpsCliConfigRequest;
 
 pub fn get_azure_devops_cli_config() -> AzureDevOpsCliConfigRequest {
@@ -54,3 +55,4 @@ mod test {
         Ok(())
     }
 }
+

@@ -1,9 +1,10 @@
+use arbitrary::Arbitrary;
 use facet::Facet;
 use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Facet)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct GiteaRepoId(u64);
 
@@ -37,3 +38,4 @@ impl FromStr for GiteaRepoId {
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoId);
 cloud_terrastodon_registry::register_arbitrary!(GiteaRepoId);
+

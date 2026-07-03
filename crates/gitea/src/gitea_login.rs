@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::GiteaInstanceUrl;
 use facet::Facet;
 use facet_json::RawJson;
@@ -15,6 +16,18 @@ pub struct GiteaLogin {
     pub is_default: RawJson<'static>,
 }
 
+impl<'a> Arbitrary<'a> for GiteaLogin {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let is_default = bool::arbitrary(u)?;
+        Ok(Self {
+            name: String::arbitrary(u)?,
+            url: GiteaInstanceUrl::arbitrary(u)?,
+            ssh_host: Option::<String>::arbitrary(u)?,
+            user: Option::<String>::arbitrary(u)?,
+            is_default: RawJson::from_owned(is_default.to_string()),
+        })
+    }
+}
 impl GiteaLogin {
     pub fn is_default(&self) -> bool {
         is_default_flag(self.is_default.as_str())
@@ -106,3 +119,4 @@ mod tests {
         .map_err(Into::into)
     }
 }
+

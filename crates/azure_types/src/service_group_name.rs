@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::slug::Slug;
 use compact_str::CompactString;
 use eyre::bail;
@@ -84,6 +85,28 @@ impl From<ServiceGroupName> for CompactString {
     }
 }
 
+
+impl<'a> Arbitrary<'a> for ServiceGroupName {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let len = u.int_in_range(1..=64)?;
+        let mut value = String::with_capacity(len);
+        for _ in 0..len {
+            let idx = u.int_in_range(0..=67)?;
+            value.push(match idx {
+                0..=25 => (b'a' + idx as u8) as char,
+                26..=51 => (b'A' + (idx - 26) as u8) as char,
+                52..=61 => (b'0' + (idx - 52) as u8) as char,
+                62 => '-',
+                63 => '_',
+                64 => '(',
+                65 => ')',
+                66 => '.',
+                _ => '~',
+            });
+        }
+        ServiceGroupName::try_new(value).map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 fn validate_service_group_name(value: &str) -> eyre::Result<()> {
     if value.is_empty() {
         bail!("Service group name cannot be empty");
@@ -127,3 +150,4 @@ mod tests {
         Ok(())
     }
 }
+

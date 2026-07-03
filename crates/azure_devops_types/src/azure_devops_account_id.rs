@@ -1,8 +1,9 @@
+use arbitrary::Arbitrary;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureDevOpsAccountId(Uuid);
 
@@ -51,3 +52,4 @@ impl FromStr for AzureDevOpsAccountId {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAccountId);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAccountId);
+

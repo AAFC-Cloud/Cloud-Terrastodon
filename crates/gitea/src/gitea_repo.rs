@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::GiteaRepoFullName;
 use crate::GiteaRepoId;
 use crate::GiteaRepoName;
@@ -7,7 +8,7 @@ use chrono::FixedOffset;
 use facet::Facet;
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Eq, PartialEq, Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 pub struct GiteaRepo {
     pub id: GiteaRepoId,
     pub name: GiteaRepoName,
@@ -43,3 +44,4 @@ impl Display for GiteaRepo {
 
 cloud_terrastodon_registry::register_thing!(GiteaRepo);
 cloud_terrastodon_registry::register_arbitrary!(GiteaRepo);
+

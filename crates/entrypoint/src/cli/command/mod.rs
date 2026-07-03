@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 pub mod add_work_dir;
 pub mod azure;
 pub mod azure_devops;
@@ -104,6 +105,11 @@ pub enum CloudTerrastodonCommand {
     Cache(CacheArgs),
 }
 
+impl<'a> Arbitrary<'a> for CloudTerrastodonCommand {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self::Rest(RestArgs::arbitrary(u)?))
+    }
+}
 cloud_terrastodon_registry::register_thing!(CloudTerrastodonCommand);
 cloud_terrastodon_registry::register_arbitrary!(CloudTerrastodonCommand);
 impl CloudTerrastodonCommand {
@@ -134,3 +140,4 @@ impl CloudTerrastodonCommand {
         }
     }
 }
+

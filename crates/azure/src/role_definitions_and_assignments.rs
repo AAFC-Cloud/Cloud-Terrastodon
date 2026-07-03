@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::fetch_all_role_assignments;
 use crate::fetch_all_role_definitions;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -12,7 +13,7 @@ use tokio::try_join;
 ///
 /// Not to be confused with Entra role assignments and role definitions.
 #[must_use = "This is a future request, you must .await it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct RoleDefinitionsAndAssignmentsListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -68,3 +69,4 @@ mod test {
         Ok(())
     }
 }
+

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::HasPrefix;
 use crate::NameValidatable;
 use crate::ServiceGroupName;
@@ -12,7 +13,7 @@ use std::str::FromStr;
 
 pub const SERVICE_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/serviceGroups/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct ServiceGroupId {
     name: ServiceGroupName,
@@ -98,3 +99,4 @@ mod tests {
         Ok(())
     }
 }
+

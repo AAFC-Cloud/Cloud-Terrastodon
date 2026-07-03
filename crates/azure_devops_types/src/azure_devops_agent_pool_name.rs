@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use eyre::bail;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -55,5 +56,17 @@ impl FromStr for AzureDevOpsAgentPoolName {
     }
 }
 
+impl<'a> Arbitrary<'a> for AzureDevOpsAgentPoolName {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let invalid_chars = [',', '"', '/', '\\', '[', ']', ':', '|', '<', '>', '+', '=', ';', '?', '*'];
+        let mut name = String::arbitrary(u)?;
+        name.retain(|ch| !invalid_chars.contains(&ch));
+        if name.len() > 128 {
+            name.truncate(128);
+        }
+        AzureDevOpsAgentPoolName::try_new(name).map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolName);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPoolName);
+

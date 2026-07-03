@@ -36,7 +36,8 @@ ratatui = { workspace = true, optional = true }
 tui-textarea = { workspace = true, optional = true }
 base64.workspace = true
 reqwest.workspace = true
-chrono = { workspace = true } 
+chrono = { workspace = true }
+arbitrary.workspace = true 
 
 [dev-dependencies]
 test-log.workspace = true
@@ -45,5 +46,6 @@ test-log.workspace = true
 # Enables text user interface support
 tui = ["ratatui", "tui-textarea"]
 default = ["tui"]
+
 
 

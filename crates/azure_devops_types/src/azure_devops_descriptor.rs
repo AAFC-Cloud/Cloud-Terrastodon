@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::AzureDevOpsEntraUserDescriptor;
 use std::str::FromStr;
 
@@ -12,6 +13,17 @@ pub enum AzureDevOpsDescriptor {
     Other(String),
 }
 
+impl<'a> Arbitrary<'a> for AzureDevOpsDescriptor {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(match u.int_in_range(0..=4)? {
+            0 => Self::EntraUser(AzureDevOpsEntraUserDescriptor::arbitrary(u)?),
+            1 => Self::EntraGroup(format!("aadgp.{}", String::arbitrary(u)?)),
+            2 => Self::EntraServicePrincipal(format!("aadsp.{}", String::arbitrary(u)?)),
+            3 => Self::AzureDevOpsGroup(format!("vssgp.{}", String::arbitrary(u)?)),
+            _ => Self::Other(String::arbitrary(u)?),
+        })
+    }
+}
 impl std::fmt::Display for AzureDevOpsDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -117,3 +129,4 @@ mod test {
         Ok(())
     }
 }
+

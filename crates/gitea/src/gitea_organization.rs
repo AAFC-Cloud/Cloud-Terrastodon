@@ -1,9 +1,10 @@
+use arbitrary::Arbitrary;
 use crate::GiteaOrganizationId;
 use crate::GiteaOrganizationName;
 use facet::Facet;
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Eq, PartialEq, Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 pub struct GiteaOrganization {
     pub id: GiteaOrganizationId,
     pub username: GiteaOrganizationName,
@@ -35,3 +36,4 @@ impl Display for GiteaOrganization {
 
 cloud_terrastodon_registry::register_thing!(GiteaOrganization);
 cloud_terrastodon_registry::register_arbitrary!(GiteaOrganization);
+

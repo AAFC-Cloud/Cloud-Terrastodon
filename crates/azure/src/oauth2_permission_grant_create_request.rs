@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::bust_oauth2_permission_grants_cache;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ConsentType;
@@ -14,7 +15,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionGrantCreateRequest {
     pub tenant_id: AzureTenantId,
     pub resource_id: EntraServicePrincipalId,
@@ -92,3 +93,4 @@ cloud_terrastodon_registry::register_into_future!(
     OAuth2PermissionGrantCreateRequest => OAuth2PermissionGrant,
     effects = [Write]
 );
+

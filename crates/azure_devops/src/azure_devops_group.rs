@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsGroup;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -25,6 +26,15 @@ pub fn fetch_azure_devops_groups_for_project<'a>(
     }
 }
 
+#[async_trait]
+impl<'a> Arbitrary<'a> for AzureDevOpsGroupsListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            project: AzureDevOpsProjectArgument::arbitrary(u)?,
+        })
+    }
+}
 #[async_trait]
 impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsListRequest<'a> {
     type Output = Vec<AzureDevOpsGroup>;
@@ -116,3 +126,5 @@ mod test {
         Ok(())
     }
 }
+
+

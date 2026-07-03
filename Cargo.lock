@@ -996,6 +996,7 @@ dependencies = [
 name = "cloud_terrastodon_azure"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
  "blake3",
  "bstr 1.12.3",
  "chrono",
@@ -1029,6 +1030,7 @@ dependencies = [
 name = "cloud_terrastodon_azure_devops"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
  "base64 0.22.1",
  "chrono",
  "cloud_terrastodon_azure_devops_types",
@@ -1261,6 +1263,7 @@ dependencies = [
 name = "cloud_terrastodon_gitea"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
  "blake3",
  "chrono",
  "cloud_terrastodon_command",

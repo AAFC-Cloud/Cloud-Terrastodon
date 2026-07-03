@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::AzureCognitiveServicesAccountDeploymentName;
 use crate::AzureCognitiveServicesAccountResourceId;
 use crate::scopes::Scope;
@@ -8,7 +9,7 @@ use std::str::FromStr;
 
 pub const AZURE_COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENT_ID_SEGMENT: &str = "/deployments/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureCognitiveServicesAccountDeploymentId {
     pub account_id: AzureCognitiveServicesAccountResourceId,
@@ -101,3 +102,5 @@ mod test {
         Ok(())
     }
 }
+
+

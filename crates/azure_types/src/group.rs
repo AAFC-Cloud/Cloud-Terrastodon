@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::EntraGroupId;
 use chrono::DateTime;
 use chrono::Utc;
@@ -46,6 +47,71 @@ pub struct EntraGroup {
     pub unique_name: Option<String>,
     pub visibility: Option<String>,
 }
+impl<'a> Arbitrary<'a> for EntraGroup {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            classification: arbitrary_optional_raw_json(u)?,
+            created_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            creation_options: Vec::<String>::arbitrary(u)?,
+            deleted_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            description: Option::<String>::arbitrary(u)?,
+            display_name: String::arbitrary(u)?,
+            expiration_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            group_types: Vec::<String>::arbitrary(u)?,
+            id: EntraGroupId::arbitrary(u)?,
+            is_assignable_to_role: Option::<bool>::arbitrary(u)?,
+            mail: Option::<String>::arbitrary(u)?,
+            mail_enabled: Option::<bool>::arbitrary(u)?,
+            mail_nickname: Option::<String>::arbitrary(u)?,
+            membership_rule: arbitrary_optional_raw_json(u)?,
+            membership_rule_processing_state: arbitrary_optional_raw_json(u)?,
+            on_premises_domain_name: Option::<String>::arbitrary(u)?,
+            on_premises_last_sync_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            on_premises_net_bios_name: Option::<String>::arbitrary(u)?,
+            on_premises_provisioning_errors: arbitrary_raw_json_vec(u)?,
+            on_premises_sam_account_name: Option::<String>::arbitrary(u)?,
+            on_premises_security_identifier: Option::<String>::arbitrary(u)?,
+            on_premises_sync_enabled: Option::<bool>::arbitrary(u)?,
+            preferred_data_location: Option::<String>::arbitrary(u)?,
+            preferred_language: Option::<String>::arbitrary(u)?,
+            proxy_addresses: Vec::<String>::arbitrary(u)?,
+            renewed_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            resource_behavior_options: Vec::<String>::arbitrary(u)?,
+            resource_provisioning_options: Vec::<String>::arbitrary(u)?,
+            security_enabled: bool::arbitrary(u)?,
+            security_identifier: String::arbitrary(u)?,
+            service_provisioning_errors: arbitrary_raw_json_vec(u)?,
+            theme: arbitrary_optional_raw_json(u)?,
+            unique_name: Option::<String>::arbitrary(u)?,
+            visibility: Option::<String>::arbitrary(u)?,
+        })
+    }
+}
+
+fn arbitrary_optional_raw_json<'a>(
+    u: &mut arbitrary::Unstructured<'a>,
+) -> arbitrary::Result<Option<RawJson<'static>>> {
+    Option::<String>::arbitrary(u)?
+        .map(|value| {
+            facet_json::to_string(&value)
+                .map(RawJson::from_owned)
+                .map_err(|_| arbitrary::Error::IncorrectFormat)
+        })
+        .transpose()
+}
+
+fn arbitrary_raw_json_vec<'a>(
+    u: &mut arbitrary::Unstructured<'a>,
+) -> arbitrary::Result<Vec<RawJson<'static>>> {
+    Vec::<String>::arbitrary(u)?
+        .into_iter()
+        .map(|value| {
+            facet_json::to_string(&value)
+                .map(RawJson::from_owned)
+                .map_err(|_| arbitrary::Error::IncorrectFormat)
+        })
+        .collect()
+}
 impl std::fmt::Display for EntraGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.display_name)?;
@@ -84,3 +150,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EntraGroup);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroup);
+

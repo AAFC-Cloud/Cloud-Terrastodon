@@ -1,10 +1,11 @@
+use arbitrary::Arbitrary;
 use crate::EntraGroupId;
 use crate::EntraServicePrincipalId;
 use crate::EntraUserId;
 use std::hash::Hash;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, facet::Facet)]
+#[derive(Debug, Clone, Copy, Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum PrincipalId {
@@ -125,3 +126,4 @@ mod tests {
         Ok(())
     }
 }
+

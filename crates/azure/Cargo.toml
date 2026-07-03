@@ -39,10 +39,12 @@ http.workspace = true
 blake3.workspace = true
 bstr.workspace = true
 linkme.workspace = true
+arbitrary.workspace = true
 
 
 [dev-dependencies]
 test-log.workspace = true
+
 
 
 

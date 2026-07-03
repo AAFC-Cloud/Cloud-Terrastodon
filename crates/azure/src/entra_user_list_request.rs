@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
@@ -10,7 +11,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraUserListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -65,3 +66,4 @@ mod tests {
         Ok(())
     }
 }
+

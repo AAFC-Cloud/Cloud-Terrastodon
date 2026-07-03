@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
@@ -34,6 +35,13 @@ impl Deref for AzureDevOpsEntraUserDescriptor {
     }
 }
 
+impl<'a> Arbitrary<'a> for AzureDevOpsEntraUserDescriptor {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let suffix = String::arbitrary(u)?;
+        AzureDevOpsEntraUserDescriptor::try_new(format!("aad.{suffix}"))
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 cloud_terrastodon_registry::register_thing!(AzureDevOpsEntraUserDescriptor);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsEntraUserDescriptor);
 
@@ -62,3 +70,4 @@ mod test {
         Ok(())
     }
 }
+

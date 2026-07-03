@@ -1,6 +1,7 @@
+use arbitrary::Arbitrary;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Copy, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Copy, Arbitrary, facet::Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsAgentPoolId(usize);
 
@@ -26,3 +27,4 @@ impl FromStr for AzureDevOpsAgentPoolId {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolId);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPoolId);
+

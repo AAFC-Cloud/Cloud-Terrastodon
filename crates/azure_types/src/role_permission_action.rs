@@ -1,8 +1,9 @@
+use arbitrary::Arbitrary;
 use std::ops::Deref;
 use std::str::FromStr;
 use tracing::warn;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct RolePermissionAction {
     inner: String,
@@ -132,3 +133,4 @@ mod test {
         Ok(())
     }
 }
+

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::get_azure_devops_cli_config;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectName;
 use cloud_terrastodon_command::CacheInvalidatable;
@@ -7,7 +8,7 @@ use eyre::bail;
 use std::pin::Pin;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct DefaultAzureDevOpsProjectNameRequest;
 
 pub fn get_default_project_name() -> DefaultAzureDevOpsProjectNameRequest {
@@ -61,3 +62,4 @@ mod test {
         Ok(())
     }
 }
+

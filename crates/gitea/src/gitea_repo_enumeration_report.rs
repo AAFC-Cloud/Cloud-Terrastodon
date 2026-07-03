@@ -1,8 +1,9 @@
+use arbitrary::Arbitrary;
 use crate::GiteaRepoEnumerationMethod;
 use crate::GiteaRepoId;
 use facet::Facet;
 
-#[derive(Debug, Clone, Eq, PartialEq, Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 pub struct GiteaRepoEnumerationMethodReport {
     pub method: GiteaRepoEnumerationMethod,
     pub request_count: usize,
@@ -10,7 +11,7 @@ pub struct GiteaRepoEnumerationMethodReport {
     pub repo_ids: Vec<GiteaRepoId>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 pub struct GiteaRepoEnumerationComparisonReport {
     pub organizations: GiteaRepoEnumerationMethodReport,
     pub users: GiteaRepoEnumerationMethodReport,
@@ -30,3 +31,4 @@ cloud_terrastodon_registry::register_arbitrary!(GiteaRepoEnumerationComparisonRe
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationMethodReport);
 cloud_terrastodon_registry::register_arbitrary!(GiteaRepoEnumerationMethodReport);
+

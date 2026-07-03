@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::GiteaOwnerName;
 use crate::GiteaRepoName;
 use facet::Facet;
@@ -15,6 +16,12 @@ pub struct GiteaRepoFullName {
 #[facet(transparent)]
 pub struct GiteaRepoFullNameProxy(String);
 
+impl<'a> Arbitrary<'a> for GiteaRepoFullName {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        GiteaRepoFullName::try_new(GiteaOwnerName::arbitrary(u)?, GiteaRepoName::arbitrary(u)?)
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 impl GiteaRepoFullName {
     pub fn try_new(owner: GiteaOwnerName, repo_name: GiteaRepoName) -> eyre::Result<Self> {
         Ok(Self { owner, repo_name })
@@ -60,3 +67,4 @@ impl From<&GiteaRepoFullName> for GiteaRepoFullNameProxy {
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoFullName);
 cloud_terrastodon_registry::register_arbitrary!(GiteaRepoFullName);
+

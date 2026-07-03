@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::bail;
 use facet::Facet;
@@ -56,5 +57,16 @@ impl FromStr for GiteaOwnerName {
     }
 }
 
+impl<'a> Arbitrary<'a> for GiteaOwnerName {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let mut value = String::arbitrary(u)?.replace('/', "");
+        value = value.trim().to_string();
+        if value.is_empty() {
+            value.push('x');
+        }
+        GiteaOwnerName::try_new(value).map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 cloud_terrastodon_registry::register_thing!(GiteaOwnerName);
 cloud_terrastodon_registry::register_arbitrary!(GiteaOwnerName);
+

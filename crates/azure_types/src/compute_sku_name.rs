@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use std::fmt::Display;
 use std::ops::Deref;
@@ -50,6 +51,15 @@ impl From<ComputeSkuName> for CompactString {
     }
 }
 
+impl<'a> Arbitrary<'a> for ComputeSkuName {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let mut value = CompactString::arbitrary(u)?;
+        if value.is_empty() {
+            value.push('S');
+        }
+        ComputeSkuName::try_new(value).map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::ComputeSkuName;
@@ -63,3 +73,4 @@ mod tests {
         Ok(())
     }
 }
+

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 pub mod command;
 pub mod global_args;
 pub(crate) mod scalar_args;
@@ -21,6 +22,15 @@ pub struct Cli {
     pub command: Option<CloudTerrastodonCommand>,
 }
 
+impl<'a> Arbitrary<'a> for Cli {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            global_args: GlobalArgs::arbitrary(u)?,
+            builtins: figue::FigueBuiltins::default(),
+            command: Option::<CloudTerrastodonCommand>::arbitrary(u)?,
+        })
+    }
+}
 cloud_terrastodon_registry::register_thing!(Cli);
 cloud_terrastodon_registry::register_arbitrary!(Cli);
 impl Cli {
@@ -34,3 +44,4 @@ impl Cli {
         }
     }
 }
+

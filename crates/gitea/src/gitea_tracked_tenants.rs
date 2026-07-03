@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::GiteaInstanceUrl;
 use crate::GiteaTenantAlias;
 use crate::GiteaTenantArgument;
@@ -22,6 +23,14 @@ pub struct GiteaTrackedTenant {
     pub aliases: Vec<GiteaTenantAlias>,
 }
 
+impl<'a> Arbitrary<'a> for GiteaTrackedTenant {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            url: GiteaInstanceUrl::arbitrary(u)?,
+            aliases: Vec::<GiteaTenantAlias>::arbitrary(u)?,
+        })
+    }
+}
 pub fn tracked_tenants_dir() -> PathBuf {
     AppDir::Config.join("gitea").join("tenants")
 }
@@ -479,3 +488,4 @@ mod tests {
         Ok(())
     }
 }
+

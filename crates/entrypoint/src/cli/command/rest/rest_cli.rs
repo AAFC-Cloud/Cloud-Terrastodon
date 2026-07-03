@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::cli::scalar_args::HttpMethodCli;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -24,6 +25,11 @@ pub enum RestOutputFormat {
     Json,
 }
 
+impl<'a> Arbitrary<'a> for RestOutputFormat {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(if bool::arbitrary(u)? { Self::Text } else { Self::Json })
+    }
+}
 /// Arguments for issuing raw REST calls with Cloud Terrastodon's auth helpers.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct RestArgs {
@@ -52,6 +58,25 @@ pub struct RestArgs {
     pub output_format: RestOutputFormat,
 }
 
+impl<'a> Arbitrary<'a> for RestArgs {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let mut host = String::arbitrary(u)?
+            .chars()
+            .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '-')
+            .collect::<String>();
+        if host.is_empty() {
+            host.push_str("example");
+        }
+        Ok(Self {
+            method: HttpMethodCli::arbitrary(u)?,
+            url: format!("https://{host}.example.com/api"),
+            body: Option::<String>::arbitrary(u)?,
+            headers: Option::<String>::arbitrary(u)?,
+            tenant: Option::<AzureTenantArgument<'static>>::arbitrary(u)?,
+            output_format: RestOutputFormat::arbitrary(u)?,
+        })
+    }
+}
 impl RestArgs {
     pub async fn invoke(self) -> Result<SerializableRestResponse> {
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
@@ -186,3 +211,4 @@ cloud_terrastodon_registry::register_arbitrary!(RestOutputFormat);
 cloud_terrastodon_registry::register_thing!(RestArgs);
 cloud_terrastodon_registry::register_arbitrary!(RestArgs);
 cloud_terrastodon_registry::register_into_future!(RestArgs => SerializableRestResponse, effects = [Read]);
+

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::PrincipalId;
 use crate::RoleAssignmentId;
 use crate::RoleDefinitionId;
@@ -21,6 +22,16 @@ pub struct RoleAssignment {
     pub principal_id: PrincipalId,
 }
 
+impl<'a> Arbitrary<'a> for RoleAssignment {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            id: RoleAssignmentId::arbitrary(u)?,
+            scope: ScopeImpl::arbitrary(u)?,
+            role_definition_id: RoleDefinitionId::arbitrary(u)?,
+            principal_id: PrincipalId::arbitrary(u)?,
+        })
+    }
+}
 // MARK: HasScope
 impl AsScope for RoleAssignment {
     fn as_scope(&self) -> &impl Scope {
@@ -61,3 +72,4 @@ impl RoleAssignment {
 
 cloud_terrastodon_registry::register_thing!(RoleAssignment);
 cloud_terrastodon_registry::register_arbitrary!(RoleAssignment);
+

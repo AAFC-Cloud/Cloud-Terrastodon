@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::SubnetName;
 use crate::VirtualNetworkId;
 use crate::scopes::Scope;
@@ -8,7 +9,7 @@ use eyre::Context;
 use std::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct SubnetId {
     pub virtual_network_id: VirtualNetworkId,
@@ -182,3 +183,4 @@ mod tests {
         Ok(())
     }
 }
+

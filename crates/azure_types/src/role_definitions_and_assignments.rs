@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::RoleAssignment;
 use crate::RoleAssignmentId;
 use crate::RoleDefinition;
@@ -12,6 +13,20 @@ use uuid::Uuid;
 pub struct RoleDefinitionsAndAssignments {
     pub role_definitions: HashMap<RoleDefinitionId, RoleDefinition>,
     pub role_assignments: HashMap<RoleAssignmentId, RoleAssignment>,
+}
+impl<'a> Arbitrary<'a> for RoleDefinitionsAndAssignments {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            role_definitions: Vec::<RoleDefinition>::arbitrary(u)?
+                .into_iter()
+                .map(|role_definition| (role_definition.id.clone(), role_definition))
+                .collect(),
+            role_assignments: Vec::<RoleAssignment>::arbitrary(u)?
+                .into_iter()
+                .map(|role_assignment| (role_assignment.id.clone(), role_assignment))
+                .collect(),
+        })
+    }
 }
 impl RoleDefinitionsAndAssignments {
     pub fn try_new(
@@ -51,6 +66,7 @@ impl std::fmt::Debug for RoleDefinitionsAndAssignments {
             .finish()
     }
 }
+
 
 impl RoleDefinitionsAndAssignments {
     pub fn iter_role_assignments(
@@ -109,3 +125,5 @@ where
 
 cloud_terrastodon_registry::register_thing!(RoleDefinitionsAndAssignments);
 cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionsAndAssignments);
+
+

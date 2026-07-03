@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScopedRoleAssignmentId;
 use crate::PortalScopedRoleAssignmentId;
@@ -45,6 +46,22 @@ pub enum RoleAssignmentId {
     ResourceScoped(ResourceScopedRoleAssignmentId),
 }
 crate::impl_facet_string_proxy!(RoleAssignmentId, value => value.expanded_form());
+impl<'a> Arbitrary<'a> for RoleAssignmentId {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(match u.int_in_range(0..=2)? {
+            0 => Self::Unscoped(UnscopedRoleAssignmentId {
+                role_assignment_name: RoleAssignmentName::arbitrary(u)?,
+            }),
+            1 => Self::PortalScoped(PortalScopedRoleAssignmentId {
+                role_assignment_name: RoleAssignmentName::arbitrary(u)?,
+            }),
+            _ => Self::SubscriptionScoped(SubscriptionScopedRoleAssignmentId {
+                subscription_id: SubscriptionId::arbitrary(u)?,
+                role_assignment_name: RoleAssignmentName::arbitrary(u)?,
+            }),
+        })
+    }
+}
 impl RoleAssignmentId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
@@ -305,3 +322,4 @@ mod tests {
         Ok(())
     }
 }
+

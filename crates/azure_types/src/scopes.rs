@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::AzureAppServiceResourceId;
 use crate::AzureApplicationGatewayResourceId;
 use crate::AzureCognitiveServicesAccountResourceId;
@@ -722,6 +723,15 @@ pub enum ScopeImpl {
     Unknown(CompactString),
 }
 crate::impl_facet_string_proxy_serialize!(ScopeImpl, value => value.expanded_form());
+impl<'a> Arbitrary<'a> for ScopeImpl {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let mut value = CompactString::arbitrary(u)?;
+        if value.is_empty() {
+            value.push('x');
+        }
+        Ok(ScopeImpl::Unknown(value))
+    }
+}
 impl Scope for ScopeImpl {
     type Err = Infallible;
     fn expanded_form(&self) -> String {
@@ -1111,3 +1121,4 @@ mod tests {
         Ok(())
     }
 }
+

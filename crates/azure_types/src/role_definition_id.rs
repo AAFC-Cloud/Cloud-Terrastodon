@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScopedRoleDefinitionId;
 use crate::ResourceGroupId;
@@ -38,6 +39,19 @@ pub enum RoleDefinitionId {
     ResourceScoped(ResourceScopedRoleDefinitionId),
 }
 crate::impl_facet_string_proxy!(RoleDefinitionId, value => value.expanded_form());
+impl<'a> Arbitrary<'a> for RoleDefinitionId {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(match u.int_in_range(0..=1)? {
+            0 => Self::Unscoped(UnscopedRoleDefinitionId {
+                role_definition_name: RoleDefinitionName::arbitrary(u)?,
+            }),
+            _ => Self::SubscriptionScoped(SubscriptionScopedRoleDefinitionId {
+                subscription_id: SubscriptionId::arbitrary(u)?,
+                name: RoleDefinitionName::arbitrary(u)?,
+            }),
+        })
+    }
+}
 impl RoleDefinitionId {
     pub fn subscription_id(&self) -> Option<SubscriptionId> {
         match self {
@@ -205,3 +219,4 @@ mod tests {
         Ok(())
     }
 }
+
