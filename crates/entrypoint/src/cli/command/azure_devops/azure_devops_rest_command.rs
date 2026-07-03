@@ -34,6 +34,7 @@ impl AzureDevOpsRestArgs {
 mod test {
     use cloud_terrastodon_azure_devops::get_default_organization_url;
     use cloud_terrastodon_rest::RestRequest;
+    use http::Method;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -46,3 +47,4 @@ mod test {
         Ok(())
     }
 }
+

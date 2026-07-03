@@ -78,3 +78,16 @@ pub fn entrypoint(
     runtime.block_on(cli.invoke(&cancellation_token))?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cli_schema_builds() {
+        let _ = figue::builder::<Cli>()
+            .expect("CLI schema should be valid")
+            .help(|help| help.version(full_version().to_string()))
+            .build();
+    }
+}

@@ -154,7 +154,7 @@ mod tests {
     }
 
     fn parse_args(args: &[&str]) -> eyre::Result<TerraformReflowArgs> {
-        let parsed: ParseArgs = figue::from_slice(args)?;
+        let parsed: ParseArgs = figue::from_slice(args).unwrap();
         parsed.args.validate()?;
         Ok(parsed.args)
     }
@@ -192,3 +192,4 @@ mod tests {
         assert!(!args.mixed);
     }
 }
+
