@@ -261,6 +261,8 @@ impl From<AzureDevOpsProjectName> for String {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectName);
+
 #[cfg(test)]
 mod tests {
     use super::validate_azure_devops_project_name as validate;
@@ -379,3 +381,4 @@ mod tests {
         }
     }
 }
+

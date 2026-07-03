@@ -134,6 +134,8 @@ impl FromStr for VirtualMachineId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(VirtualMachineId);
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -156,3 +158,4 @@ mod test {
         Ok(())
     }
 }
+

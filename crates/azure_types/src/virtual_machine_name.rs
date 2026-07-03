@@ -145,6 +145,8 @@ impl<'a> Arbitrary<'a> for VirtualMachineName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(VirtualMachineName);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,3 +164,4 @@ mod tests {
         assert!(VirtualMachineName::try_new("!").is_err());
     }
 }
+

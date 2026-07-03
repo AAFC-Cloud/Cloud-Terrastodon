@@ -209,6 +209,8 @@ impl Scope for ResourceGroupId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(ResourceGroupId);
+
 #[cfg(test)]
 mod test {
     use super::ResourceGroupId;
@@ -261,3 +263,4 @@ mod test {
         Ok(())
     }
 }
+

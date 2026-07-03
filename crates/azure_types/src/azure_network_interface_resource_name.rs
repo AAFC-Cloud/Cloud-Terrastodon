@@ -147,6 +147,8 @@ impl<'a> Arbitrary<'a> for AzureNetworkInterfaceResourceName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureNetworkInterfaceResourceName);
+
 #[cfg(test)]
 mod test {
     use crate::AzureNetworkInterfaceResourceName;
@@ -187,3 +189,4 @@ mod test {
         Ok(())
     }
 }
+

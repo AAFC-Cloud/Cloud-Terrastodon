@@ -401,6 +401,8 @@ fn parse_alias_lines(content: &str, file: &Path) -> Vec<GiteaTenantAlias> {
     aliases
 }
 
+cloud_terrastodon_registry::register_thing!(GiteaTrackedTenant);
+
 #[cfg(test)]
 mod tests {
     use super::add_tracked_tenant_aliases_in;
@@ -476,3 +478,4 @@ mod tests {
         Ok(())
     }
 }
+

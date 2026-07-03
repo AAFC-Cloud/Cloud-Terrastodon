@@ -82,6 +82,8 @@ impl TryFrom<&str> for AzureDevOpsServiceEndpointId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpointId);
+
 #[cfg(test)]
 mod test {
     use super::AzureDevOpsServiceEndpointId;
@@ -93,3 +95,4 @@ mod test {
         Ok(())
     }
 }
+

@@ -127,6 +127,8 @@ impl Scope for StorageAccountId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(StorageAccountId);
+
 #[cfg(test)]
 mod test {
     use super::StorageAccountId;
@@ -183,3 +185,4 @@ mod test {
         Ok(())
     }
 }
+

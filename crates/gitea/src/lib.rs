@@ -77,23 +77,6 @@ pub use crate::gitea_user_id::*;
 pub use crate::gitea_user_list_request::*;
 pub use crate::gitea_user_repo_list_request::*;
 pub use crate::gitea_username::*;
-cloud_terrastodon_registry::register_thing!(GiteaInstanceUrl);
-cloud_terrastodon_registry::register_thing!(GiteaLogin);
-cloud_terrastodon_registry::register_thing!(GiteaOrganization);
-cloud_terrastodon_registry::register_thing!(GiteaOrganizationId);
-cloud_terrastodon_registry::register_thing!(GiteaOrganizationName);
-cloud_terrastodon_registry::register_thing!(GiteaOwnerName);
-cloud_terrastodon_registry::register_thing!(GiteaRepo);
-cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationComparisonReport);
-cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationMethod);
-cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationMethodReport);
-cloud_terrastodon_registry::register_thing!(GiteaRepoFullName);
-cloud_terrastodon_registry::register_thing!(GiteaRepoId);
-cloud_terrastodon_registry::register_thing!(GiteaRepoName);
-cloud_terrastodon_registry::register_thing!(GiteaTrackedTenant);
-cloud_terrastodon_registry::register_thing!(GiteaUser);
-cloud_terrastodon_registry::register_thing!(GiteaUserId);
-cloud_terrastodon_registry::register_thing!(GiteaUsername);
 
 #[cfg(test)]
 mod tests {

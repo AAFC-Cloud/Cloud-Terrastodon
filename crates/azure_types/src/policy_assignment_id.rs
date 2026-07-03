@@ -186,6 +186,8 @@ impl HasPrefix for PolicyAssignmentId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(PolicyAssignmentId);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,3 +250,4 @@ mod tests {
         Ok(())
     }
 }
+

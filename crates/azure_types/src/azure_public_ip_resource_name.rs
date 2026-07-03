@@ -142,6 +142,8 @@ impl<'a> Arbitrary<'a> for AzurePublicIpResourceName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzurePublicIpResourceName);
+
 #[cfg(test)]
 mod test {
     use crate::AzurePublicIpResourceName;
@@ -186,3 +188,4 @@ mod test {
         Ok(())
     }
 }
+

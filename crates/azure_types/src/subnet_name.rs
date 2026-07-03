@@ -189,6 +189,8 @@ impl<'a> Arbitrary<'a> for SubnetName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(SubnetName);
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -232,3 +234,4 @@ mod test {
         assert!(name.validate_slug().is_err());
     }
 }
+

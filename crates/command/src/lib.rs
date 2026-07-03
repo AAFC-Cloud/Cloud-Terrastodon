@@ -41,7 +41,6 @@ pub use crate::path_mapper::*;
 pub use crate::work::*;
 // Re-export async_trait for use in command implementations
 pub use async_trait::async_trait;
-cloud_terrastodon_registry::register_thing!(ArtifactMetadata);
 
 // TODO: add a `last_used` file to cache entries so we can
 // give the user the list of recently used cache entries to

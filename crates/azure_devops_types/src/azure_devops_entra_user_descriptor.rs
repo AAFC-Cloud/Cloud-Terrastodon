@@ -34,6 +34,8 @@ impl Deref for AzureDevOpsEntraUserDescriptor {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsEntraUserDescriptor);
+
 #[cfg(test)]
 mod test {
     use super::AzureDevOpsEntraUserDescriptor;
@@ -59,3 +61,4 @@ mod test {
         Ok(())
     }
 }
+

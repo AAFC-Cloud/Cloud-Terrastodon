@@ -70,6 +70,8 @@ impl From<ContainerRegistryRepositoryName> for CompactString {
         value.inner
     }
 }
+cloud_terrastodon_registry::register_thing!(ContainerRegistryRepositoryName);
+
 #[cfg(test)]
 mod test {
     use crate::ContainerRegistryRepositoryName;
@@ -97,3 +99,4 @@ mod test {
         Ok(())
     }
 }
+

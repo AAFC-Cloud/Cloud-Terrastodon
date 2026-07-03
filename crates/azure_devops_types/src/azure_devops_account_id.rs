@@ -48,3 +48,6 @@ impl FromStr for AzureDevOpsAccountId {
         Ok(AzureDevOpsAccountId::new(uuid))
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsAccountId);
+

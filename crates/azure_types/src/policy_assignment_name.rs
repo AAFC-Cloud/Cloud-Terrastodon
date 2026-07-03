@@ -61,6 +61,8 @@ impl From<PolicyAssignmentName> for CompactString {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(PolicyAssignmentName);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,3 +75,4 @@ mod tests {
         Ok(())
     }
 }
+

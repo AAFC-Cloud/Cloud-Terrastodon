@@ -157,6 +157,8 @@ impl<'a> Arbitrary<'a> for StorageAccountBlobContainerName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerName);
+
 #[cfg(test)]
 mod test {
     use crate::StorageAccountBlobContainerName;
@@ -229,3 +231,4 @@ mod test {
         Ok(())
     }
 }
+

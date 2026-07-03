@@ -104,3 +104,6 @@ impl Default for EguiConfig {
 impl Config for EguiConfig {
     const FILE_SLUG: &'static str = "egui_ui_state";
 }
+
+cloud_terrastodon_registry::register_thing!(EguiConfig);
+

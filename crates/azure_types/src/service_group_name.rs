@@ -104,6 +104,8 @@ fn validate_service_group_name(value: &str) -> eyre::Result<()> {
     Ok(())
 }
 
+cloud_terrastodon_registry::register_thing!(ServiceGroupName);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,3 +126,4 @@ mod tests {
         Ok(())
     }
 }
+

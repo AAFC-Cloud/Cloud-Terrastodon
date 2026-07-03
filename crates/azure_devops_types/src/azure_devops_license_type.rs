@@ -103,6 +103,8 @@ impl std::fmt::Display for AzureDevOpsLicenseType {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsLicenseType);
+
 #[cfg(test)]
 mod license_tests {
     use super::AzureDevOpsLicenseType;
@@ -183,3 +185,4 @@ mod license_tests {
         Ok(())
     }
 }
+

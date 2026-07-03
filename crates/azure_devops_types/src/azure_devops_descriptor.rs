@@ -57,6 +57,8 @@ impl From<&AzureDevOpsDescriptor> for String {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsDescriptor);
+
 #[cfg(test)]
 mod test {
     use super::AzureDevOpsDescriptor;
@@ -114,3 +116,4 @@ mod test {
         Ok(())
     }
 }
+

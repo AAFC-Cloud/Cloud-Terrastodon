@@ -23,3 +23,6 @@ impl Default for CommandsConfig {
 impl Config for CommandsConfig {
     const FILE_SLUG: &'static str = "commands";
 }
+
+cloud_terrastodon_registry::register_thing!(CommandsConfig);
+

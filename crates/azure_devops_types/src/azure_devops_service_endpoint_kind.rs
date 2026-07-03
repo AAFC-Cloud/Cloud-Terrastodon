@@ -53,6 +53,8 @@ impl FromStr for AzureDevOpsServiceEndpointKind {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpointKind);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -131,3 +133,4 @@ mod tests {
         );
     }
 }
+

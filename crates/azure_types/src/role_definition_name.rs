@@ -63,6 +63,8 @@ impl From<RoleDefinitionName> for CompactString {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(RoleDefinitionName);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,3 +78,4 @@ mod tests {
         Ok(())
     }
 }
+

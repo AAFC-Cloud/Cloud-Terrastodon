@@ -80,6 +80,8 @@ impl<'a> Arbitrary<'a> for AzureDevOpsServiceEndpointName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpointName);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,3 +117,4 @@ mod tests {
         }
     }
 }
+

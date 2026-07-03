@@ -39,3 +39,6 @@ impl TryFrom<&WorkDirsConfig> for WorkDirsConfigProxy {
 impl Config for WorkDirsConfig {
     const FILE_SLUG: &'static str = "work_dirs";
 }
+
+cloud_terrastodon_registry::register_thing!(WorkDirsConfig);
+

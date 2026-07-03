@@ -109,6 +109,8 @@ impl<T: AsRef<Uuid>> PartialEq<T> for PrincipalId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(PrincipalId);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,3 +124,4 @@ mod tests {
         Ok(())
     }
 }
+

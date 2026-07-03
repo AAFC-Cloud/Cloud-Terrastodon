@@ -47,6 +47,8 @@ impl FromStr for AzureDevOpsProjectId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectId);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -58,3 +60,4 @@ mod tests {
         let _project_id = id.parse::<AzureDevOpsProjectId>().unwrap();
     }
 }
+

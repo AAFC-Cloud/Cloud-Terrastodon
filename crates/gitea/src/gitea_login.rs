@@ -35,6 +35,8 @@ fn is_default_flag(value: &str) -> bool {
     )
 }
 
+cloud_terrastodon_registry::register_thing!(GiteaLogin);
+
 #[cfg(test)]
 mod tests {
     use super::GiteaLogin;
@@ -103,3 +105,4 @@ mod tests {
         .map_err(Into::into)
     }
 }
+

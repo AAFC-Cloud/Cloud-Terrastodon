@@ -12,3 +12,6 @@ pub struct ContainerRegistryRepositoryTag {
     pub quarantine_state: Option<String>,
     pub signed: bool,
 }
+
+cloud_terrastodon_registry::register_thing!(ContainerRegistryRepositoryTag);
+

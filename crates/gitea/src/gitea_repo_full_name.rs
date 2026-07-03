@@ -59,3 +59,6 @@ impl TryFrom<&GiteaRepoFullName> for GiteaRepoFullNameProxy {
         Ok(Self(value.to_string()))
     }
 }
+
+cloud_terrastodon_registry::register_thing!(GiteaRepoFullName);
+

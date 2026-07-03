@@ -225,6 +225,8 @@ impl HasPrefix for RoleAssignmentId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(RoleAssignmentId);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,3 +304,4 @@ mod tests {
         Ok(())
     }
 }
+

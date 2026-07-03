@@ -211,6 +211,8 @@ impl<'a> Arbitrary<'a> for ResourceGroupName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(ResourceGroupName);
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -262,3 +264,4 @@ mod test {
         Ok(())
     }
 }
+

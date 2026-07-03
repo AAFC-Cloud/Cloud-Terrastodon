@@ -142,6 +142,8 @@ impl Scope for AzureCognitiveServicesAccountResourceId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountResourceId);
+
 #[cfg(test)]
 mod test {
     use super::AzureCognitiveServicesAccountResourceId;
@@ -200,3 +202,4 @@ mod test {
         Ok(())
     }
 }
+

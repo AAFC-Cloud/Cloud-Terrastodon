@@ -34,3 +34,6 @@ impl FromStr for GiteaOrganizationId {
         Ok(Self::new(s.parse()?))
     }
 }
+
+cloud_terrastodon_registry::register_thing!(GiteaOrganizationId);
+

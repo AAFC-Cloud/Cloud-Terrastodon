@@ -147,6 +147,8 @@ impl<'a> Arbitrary<'a> for AzurePrivateEndpointResourceName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzurePrivateEndpointResourceName);
+
 #[cfg(test)]
 mod test {
     use crate::AzurePrivateEndpointResourceName;
@@ -188,3 +190,4 @@ mod test {
         Ok(())
     }
 }
+

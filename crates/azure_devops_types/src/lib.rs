@@ -85,18 +85,4 @@ pub use crate::azure_devops_user_id::*;
 pub use crate::azure_devops_user_license_entitlement::*;
 pub use crate::azure_devops_work_item_query::*;
 pub use crate::azure_devops_work_items::*;
-cloud_terrastodon_registry::register_thing!(AzureDevOpsAccountId);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolEntitlementId);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolId);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolName);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsDescriptor);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsEntraUserDescriptor);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsLicenseType);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsOrganizationUrl);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectId);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectName);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpointId);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpointKind);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpointName);
-cloud_terrastodon_registry::register_thing!(AzureDevOpsUserId);
 

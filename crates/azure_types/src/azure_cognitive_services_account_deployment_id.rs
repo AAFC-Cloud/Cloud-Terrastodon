@@ -73,6 +73,8 @@ impl FromStr for AzureCognitiveServicesAccountDeploymentId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountDeploymentId);
+
 #[cfg(test)]
 mod test {
     use super::AzureCognitiveServicesAccountDeploymentId;
@@ -98,3 +100,4 @@ mod test {
         Ok(())
     }
 }
+

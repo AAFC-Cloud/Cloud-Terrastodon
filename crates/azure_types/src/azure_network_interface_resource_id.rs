@@ -138,6 +138,8 @@ impl Scope for AzureNetworkInterfaceResourceId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureNetworkInterfaceResourceId);
+
 #[cfg(test)]
 mod test {
     use super::AzureNetworkInterfaceResourceId;
@@ -196,3 +198,4 @@ mod test {
         Ok(())
     }
 }
+

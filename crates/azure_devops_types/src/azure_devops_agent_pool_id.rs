@@ -23,3 +23,6 @@ impl FromStr for AzureDevOpsAgentPoolId {
         Ok(AzureDevOpsAgentPoolId::new(s.parse()?))
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolId);
+

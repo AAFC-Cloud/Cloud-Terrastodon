@@ -188,6 +188,8 @@ impl HasPrefix for PolicySetDefinitionId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(PolicySetDefinitionId);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,3 +230,4 @@ mod tests {
         Ok(())
     }
 }
+

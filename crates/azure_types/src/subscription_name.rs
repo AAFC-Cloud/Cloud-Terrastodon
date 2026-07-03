@@ -132,6 +132,8 @@ impl<'a> Arbitrary<'a> for SubscriptionName {
             .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
+cloud_terrastodon_registry::register_thing!(SubscriptionName);
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -197,3 +199,4 @@ mod test {
         Ok(())
     }
 }
+

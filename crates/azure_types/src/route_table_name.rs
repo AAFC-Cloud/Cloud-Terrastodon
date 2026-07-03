@@ -193,6 +193,8 @@ impl<'a> Arbitrary<'a> for RouteTableName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(RouteTableName);
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -236,3 +238,4 @@ mod test {
         assert!(name.validate_slug().is_err());
     }
 }
+

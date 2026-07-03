@@ -10,3 +10,6 @@ pub enum GiteaRepoEnumerationMethod {
     IdRange,
     Combined,
 }
+
+cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationMethod);
+

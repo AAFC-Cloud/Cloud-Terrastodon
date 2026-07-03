@@ -129,6 +129,8 @@ impl FromStr for RouteTableId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(RouteTableId);
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -175,3 +177,4 @@ mod test {
         Ok(())
     }
 }
+

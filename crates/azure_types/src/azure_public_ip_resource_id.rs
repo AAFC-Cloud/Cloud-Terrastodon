@@ -128,6 +128,8 @@ impl Scope for AzurePublicIpResourceId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzurePublicIpResourceId);
+
 #[cfg(test)]
 mod test {
     use super::AzurePublicIpResourceId;
@@ -184,3 +186,4 @@ mod test {
         Ok(())
     }
 }
+

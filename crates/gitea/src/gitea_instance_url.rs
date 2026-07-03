@@ -118,6 +118,8 @@ impl TryFrom<&str> for GiteaInstanceUrl {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(GiteaInstanceUrl);
+
 #[cfg(test)]
 mod tests {
     use super::GiteaInstanceUrl;
@@ -148,3 +150,4 @@ mod tests {
         assert!(GiteaInstanceUrl::try_new("https://gitea.example.com/foo").is_err());
     }
 }
+

@@ -44,3 +44,6 @@ impl FromStr for GiteaRepoName {
         Self::try_new(s)
     }
 }
+
+cloud_terrastodon_registry::register_thing!(GiteaRepoName);
+

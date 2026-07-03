@@ -135,6 +135,8 @@ impl<'a> Arbitrary<'a> for AzureCognitiveServicesAccountDeploymentName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountDeploymentName);
+
 #[cfg(test)]
 mod test {
     use super::AzureCognitiveServicesAccountDeploymentName;
@@ -171,3 +173,4 @@ mod test {
         Ok(())
     }
 }
+

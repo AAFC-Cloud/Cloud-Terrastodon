@@ -142,6 +142,8 @@ impl Display for SubnetId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(SubnetId);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,3 +181,4 @@ mod tests {
         Ok(())
     }
 }
+

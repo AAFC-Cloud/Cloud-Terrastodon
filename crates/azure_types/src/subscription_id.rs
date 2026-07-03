@@ -114,6 +114,8 @@ impl TryFrom<&String> for SubscriptionId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(SubscriptionId);
+
 #[cfg(test)]
 mod test {
     use super::SubscriptionId;
@@ -136,3 +138,4 @@ mod test {
         Ok(())
     }
 }
+

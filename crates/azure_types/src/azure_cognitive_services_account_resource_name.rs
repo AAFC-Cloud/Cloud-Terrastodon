@@ -138,6 +138,8 @@ impl<'a> Arbitrary<'a> for AzureCognitiveServicesAccountResourceName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountResourceName);
+
 #[cfg(test)]
 mod test {
     use super::AzureCognitiveServicesAccountResourceName;
@@ -175,3 +177,4 @@ mod test {
         Ok(())
     }
 }
+

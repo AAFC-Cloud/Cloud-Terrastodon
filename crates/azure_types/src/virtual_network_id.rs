@@ -125,6 +125,8 @@ impl FromStr for VirtualNetworkId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(VirtualNetworkId);
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -174,3 +176,4 @@ mod test {
         Ok(())
     }
 }
+

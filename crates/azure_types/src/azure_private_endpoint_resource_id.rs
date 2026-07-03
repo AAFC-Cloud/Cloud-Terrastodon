@@ -138,6 +138,8 @@ impl Scope for AzurePrivateEndpointResourceId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzurePrivateEndpointResourceId);
+
 #[cfg(test)]
 mod test {
     use super::AzurePrivateEndpointResourceId;
@@ -196,3 +198,4 @@ mod test {
         Ok(())
     }
 }
+

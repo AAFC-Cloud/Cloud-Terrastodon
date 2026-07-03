@@ -133,6 +133,8 @@ impl<'a> Arbitrary<'a> for AzureAppServiceResourceName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureAppServiceResourceName);
+
 #[cfg(test)]
 mod test {
     use crate::AzureAppServiceResourceName;
@@ -181,3 +183,4 @@ mod test {
         Ok(())
     }
 }
+

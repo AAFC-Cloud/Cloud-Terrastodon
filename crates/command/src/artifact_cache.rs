@@ -383,3 +383,6 @@ pub fn put_memory_cache_entry(cache_key: &CacheKey, fingerprint: &str, output: &
 pub fn note_cache_write_failure(error: &eyre::Error) {
     error!("Encountered problem saving cache: {:?}", error);
 }
+
+cloud_terrastodon_registry::register_thing!(ArtifactMetadata);
+

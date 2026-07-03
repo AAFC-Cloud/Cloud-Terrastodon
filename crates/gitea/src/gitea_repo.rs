@@ -40,3 +40,6 @@ impl Display for GiteaRepo {
         self.full_name.fmt(f)
     }
 }
+
+cloud_terrastodon_registry::register_thing!(GiteaRepo);
+

@@ -181,6 +181,8 @@ impl From<&AzureDevOpsOrganizationUrl> for String {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsOrganizationUrl);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -261,3 +263,4 @@ mod tests {
         Ok(())
     }
 }
+

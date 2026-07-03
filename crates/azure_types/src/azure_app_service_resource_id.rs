@@ -134,6 +134,8 @@ impl Scope for AzureAppServiceResourceId {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureAppServiceResourceId);
+
 #[cfg(test)]
 mod test {
     use super::AzureAppServiceResourceId;
@@ -192,3 +194,4 @@ mod test {
         Ok(())
     }
 }
+

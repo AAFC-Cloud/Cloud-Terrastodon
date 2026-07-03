@@ -149,6 +149,8 @@ impl<'a> Arbitrary<'a> for AzureApplicationGatewayResourceName {
     }
 }
 
+cloud_terrastodon_registry::register_thing!(AzureApplicationGatewayResourceName);
+
 #[cfg(test)]
 mod test {
     use crate::AzureApplicationGatewayResourceName;
@@ -191,3 +193,4 @@ mod test {
         Ok(())
     }
 }
+

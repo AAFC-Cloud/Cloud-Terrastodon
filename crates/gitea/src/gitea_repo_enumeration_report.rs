@@ -24,3 +24,8 @@ pub struct GiteaRepoEnumerationComparisonReport {
     pub current_user_missing_from_search: Vec<GiteaRepoId>,
     pub id_range_missing_from_search: Vec<GiteaRepoId>,
 }
+
+cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationComparisonReport);
+
+cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationMethodReport);
+

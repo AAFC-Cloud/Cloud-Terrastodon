@@ -13,3 +13,6 @@ pub struct VirtualMachineSize {
     #[facet(rename = "resourceDiskSizeInMB")]
     pub resource_disk_size_in_mb: usize,
 }
+
+cloud_terrastodon_registry::register_thing!(VirtualMachineSize);
+
