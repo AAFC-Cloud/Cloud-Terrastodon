@@ -54,6 +54,7 @@ impl FromStr for AzureDevOpsServiceEndpointKind {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpointKind);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsServiceEndpointKind);
 
 #[cfg(test)]
 mod tests {

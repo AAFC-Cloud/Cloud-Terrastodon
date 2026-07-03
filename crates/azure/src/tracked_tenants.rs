@@ -90,6 +90,7 @@ pub fn resolve_azure_tenant_id(
     AzureTenantIdResolveRequest { tenant }
 }
 cloud_terrastodon_registry::register_thing!(AzureTenantIdResolveRequest);
+cloud_terrastodon_registry::register_arbitrary!(AzureTenantIdResolveRequest);
 cloud_terrastodon_registry::register_into_future!(
     AzureTenantIdResolveRequest => AzureTenantId,
     effects = [Read]

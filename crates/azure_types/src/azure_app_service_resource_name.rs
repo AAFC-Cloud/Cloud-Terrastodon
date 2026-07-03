@@ -134,6 +134,7 @@ impl<'a> Arbitrary<'a> for AzureAppServiceResourceName {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureAppServiceResourceName);
+cloud_terrastodon_registry::register_arbitrary!(AzureAppServiceResourceName);
 
 #[cfg(test)]
 mod test {

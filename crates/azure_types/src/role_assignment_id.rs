@@ -226,6 +226,7 @@ impl HasPrefix for RoleAssignmentId {
 }
 
 cloud_terrastodon_registry::register_thing!(RoleAssignmentId);
+cloud_terrastodon_registry::register_arbitrary!(RoleAssignmentId);
 
 #[cfg(test)]
 mod tests {

@@ -7,3 +7,4 @@ pub struct EntraApplicationRegistrationId(uuid::Uuid);
 crate::impl_uuid_newtype!(EntraApplicationRegistrationId);
 
 cloud_terrastodon_registry::register_thing!(EntraApplicationRegistrationId);
+cloud_terrastodon_registry::register_arbitrary!(EntraApplicationRegistrationId);

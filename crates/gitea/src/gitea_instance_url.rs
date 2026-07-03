@@ -132,6 +132,7 @@ impl From<&GiteaInstanceUrl> for String {
     }
 }
 cloud_terrastodon_registry::register_thing!(GiteaInstanceUrl);
+cloud_terrastodon_registry::register_arbitrary!(GiteaInstanceUrl);
 
 #[cfg(test)]
 mod tests {

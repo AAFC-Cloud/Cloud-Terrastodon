@@ -148,6 +148,7 @@ impl<'a> Arbitrary<'a> for AzurePrivateEndpointResourceName {
 }
 
 cloud_terrastodon_registry::register_thing!(AzurePrivateEndpointResourceName);
+cloud_terrastodon_registry::register_arbitrary!(AzurePrivateEndpointResourceName);
 
 #[cfg(test)]
 mod test {

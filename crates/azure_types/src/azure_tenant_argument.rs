@@ -94,3 +94,4 @@ mod tests {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureTenantArgument<'static>);
+cloud_terrastodon_registry::register_arbitrary!(AzureTenantArgument<'static>);

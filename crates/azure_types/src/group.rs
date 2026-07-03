@@ -83,3 +83,4 @@ mod tests {
 }
 
 cloud_terrastodon_registry::register_thing!(EntraGroup);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroup);

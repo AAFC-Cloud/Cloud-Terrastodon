@@ -210,6 +210,7 @@ impl Scope for ResourceGroupId {
 }
 
 cloud_terrastodon_registry::register_thing!(ResourceGroupId);
+cloud_terrastodon_registry::register_arbitrary!(ResourceGroupId);
 
 #[cfg(test)]
 mod test {

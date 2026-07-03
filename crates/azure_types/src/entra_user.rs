@@ -68,3 +68,4 @@ mod tests {
 }
 
 cloud_terrastodon_registry::register_thing!(EntraUser);
+cloud_terrastodon_registry::register_arbitrary!(EntraUser);

@@ -402,6 +402,7 @@ fn parse_alias_lines(content: &str, file: &Path) -> Vec<GiteaTenantAlias> {
 }
 
 cloud_terrastodon_registry::register_thing!(GiteaTrackedTenant);
+cloud_terrastodon_registry::register_arbitrary!(GiteaTrackedTenant);
 
 #[cfg(test)]
 mod tests {

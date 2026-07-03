@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::CacheKey;
 use crate::CommandOutput;
 use bstr::BString;
@@ -39,7 +40,7 @@ fn memory_cache() -> &'static Mutex<HashMap<String, CommandOutput>> {
     MEMORY_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct ArtifactMetadata {
     pub version: u8,
     pub fingerprint: String,
@@ -385,3 +386,5 @@ pub fn note_cache_write_failure(error: &eyre::Error) {
 }
 
 cloud_terrastodon_registry::register_thing!(ArtifactMetadata);
+cloud_terrastodon_registry::register_arbitrary!(ArtifactMetadata);
+

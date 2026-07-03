@@ -110,6 +110,7 @@ impl<T: AsRef<Uuid>> PartialEq<T> for PrincipalId {
 }
 
 cloud_terrastodon_registry::register_thing!(PrincipalId);
+cloud_terrastodon_registry::register_arbitrary!(PrincipalId);
 
 #[cfg(test)]
 mod tests {

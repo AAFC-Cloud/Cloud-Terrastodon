@@ -32,8 +32,11 @@ async-trait.workspace=true
 blake3.workspace = true
 linkme.workspace = true
 
+arbitrary.workspace = true
 [dev-dependencies]
 cloud_terrastodon_user_input.workspace = true
 ratatui.workspace = true
 tracing-subscriber.workspace=true
+
+
 

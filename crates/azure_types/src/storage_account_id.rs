@@ -128,6 +128,7 @@ impl Scope for StorageAccountId {
 }
 
 cloud_terrastodon_registry::register_thing!(StorageAccountId);
+cloud_terrastodon_registry::register_arbitrary!(StorageAccountId);
 
 #[cfg(test)]
 mod test {

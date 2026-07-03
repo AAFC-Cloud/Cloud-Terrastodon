@@ -34,6 +34,7 @@ impl CacheableCommand for AzureDevOpsCliConfigRequest {
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsCliConfigRequest);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsCliConfigRequest);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsCliConfigRequest);
 cloud_terrastodon_registry::register_into_future!(
     AzureDevOpsCliConfigRequest => String,
     effects = [Read]

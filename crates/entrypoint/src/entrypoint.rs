@@ -82,11 +82,14 @@ pub fn entrypoint(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_registry::ArbitraryBytes;
     use cloud_terrastodon_registry::Function;
     use cloud_terrastodon_registry::Thing;
     use cloud_terrastodon_registry::describe_shape;
+    use cloud_terrastodon_registry::functions_from_to;
     use cloud_terrastodon_registry::known_functions;
     use cloud_terrastodon_registry::known_things;
+    use facet::Facet;
     use std::collections::BTreeMap;
 
     #[test]
@@ -135,6 +138,44 @@ mod tests {
         );
     }
 
+    #[test]
+    fn registry_lists_missing_arbitrary_companion_registrations() {
+        let mut missing = known_things()
+            .into_iter()
+            .filter(|thing| !thing.shape.is_shape(ArbitraryBytes::SHAPE))
+            .filter(|thing| {
+                functions_from_to(ArbitraryBytes::SHAPE, thing.shape)
+                    .into_iter()
+                    .next()
+                    .is_none()
+            })
+            .map(|thing| {
+                let shape_name = describe_shape(thing.shape);
+                (
+                    shape_name.clone(),
+                    format!(
+                        "{}\n  missing: arbitrary {} -> {}\n  registered: {}",
+                        shape_name,
+                        describe_shape(ArbitraryBytes::SHAPE),
+                        describe_shape(thing.shape),
+                        format_thing_registration(thing),
+                    ),
+                )
+            })
+            .collect::<Vec<_>>();
+        missing.sort_by(|left, right| left.0.cmp(&right.0));
+        let missing = missing
+            .into_iter()
+            .map(|(_, message)| message)
+            .collect::<Vec<_>>();
+
+        assert!(
+            missing.is_empty(),
+            "missing arbitrary companion registrations:\n{}",
+            missing.join("\n")
+        );
+    }
+
     fn collect_duplicates(by_key: BTreeMap<String, Vec<String>>) -> Vec<String> {
         by_key
             .into_iter()
@@ -177,3 +218,6 @@ mod tests {
         }
     }
 }
+
+
+

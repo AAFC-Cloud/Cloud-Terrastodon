@@ -194,6 +194,7 @@ impl<'a> Arbitrary<'a> for RouteTableName {
 }
 
 cloud_terrastodon_registry::register_thing!(RouteTableName);
+cloud_terrastodon_registry::register_arbitrary!(RouteTableName);
 
 #[cfg(test)]
 mod test {

@@ -187,6 +187,7 @@ impl HasPrefix for RoleDefinitionId {
 }
 
 cloud_terrastodon_registry::register_thing!(RoleDefinitionId);
+cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionId);
 
 #[cfg(test)]
 mod tests {

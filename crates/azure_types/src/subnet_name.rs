@@ -190,6 +190,7 @@ impl<'a> Arbitrary<'a> for SubnetName {
 }
 
 cloud_terrastodon_registry::register_thing!(SubnetName);
+cloud_terrastodon_registry::register_arbitrary!(SubnetName);
 
 #[cfg(test)]
 mod test {

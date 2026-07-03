@@ -143,6 +143,7 @@ impl Display for SubnetId {
 }
 
 cloud_terrastodon_registry::register_thing!(SubnetId);
+cloud_terrastodon_registry::register_arbitrary!(SubnetId);
 
 #[cfg(test)]
 mod tests {

@@ -60,3 +60,4 @@ impl RoleAssignment {
 }
 
 cloud_terrastodon_registry::register_thing!(RoleAssignment);
+cloud_terrastodon_registry::register_arbitrary!(RoleAssignment);

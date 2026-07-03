@@ -57,3 +57,4 @@ impl FromStr for GiteaOwnerName {
 }
 
 cloud_terrastodon_registry::register_thing!(GiteaOwnerName);
+cloud_terrastodon_registry::register_arbitrary!(GiteaOwnerName);

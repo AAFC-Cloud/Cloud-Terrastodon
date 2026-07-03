@@ -79,6 +79,7 @@ impl Scope for ServiceGroupId {
 }
 
 cloud_terrastodon_registry::register_thing!(ServiceGroupId);
+cloud_terrastodon_registry::register_arbitrary!(ServiceGroupId);
 
 #[cfg(test)]
 mod tests {

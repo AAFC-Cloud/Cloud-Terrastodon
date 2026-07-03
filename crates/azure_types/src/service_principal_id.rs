@@ -7,6 +7,7 @@ pub struct EntraServicePrincipalId(uuid::Uuid);
 crate::impl_uuid_newtype!(EntraServicePrincipalId);
 
 cloud_terrastodon_registry::register_thing!(EntraServicePrincipalId);
+cloud_terrastodon_registry::register_arbitrary!(EntraServicePrincipalId);
 
 #[cfg(test)]
 mod service_principal_id_facet_json_roundtrip {

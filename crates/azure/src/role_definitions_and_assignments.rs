@@ -49,6 +49,7 @@ impl IntoFuture for RoleDefinitionsAndAssignmentsListRequest {
     }
 }
 cloud_terrastodon_registry::register_thing!(RoleDefinitionsAndAssignmentsListRequest);
+cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionsAndAssignmentsListRequest);
 cloud_terrastodon_registry::register_into_future!(
     RoleDefinitionsAndAssignmentsListRequest => RoleDefinitionsAndAssignments,
     effects = [Read]

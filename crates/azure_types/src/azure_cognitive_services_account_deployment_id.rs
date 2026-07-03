@@ -74,6 +74,7 @@ impl FromStr for AzureCognitiveServicesAccountDeploymentId {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountDeploymentId);
+cloud_terrastodon_registry::register_arbitrary!(AzureCognitiveServicesAccountDeploymentId);
 
 #[cfg(test)]
 mod test {

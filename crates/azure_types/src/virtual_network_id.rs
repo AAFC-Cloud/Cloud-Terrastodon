@@ -126,6 +126,7 @@ impl FromStr for VirtualNetworkId {
 }
 
 cloud_terrastodon_registry::register_thing!(VirtualNetworkId);
+cloud_terrastodon_registry::register_arbitrary!(VirtualNetworkId);
 
 #[cfg(test)]
 mod test {

@@ -143,6 +143,7 @@ impl<'a> Arbitrary<'a> for AzurePublicIpResourceName {
 }
 
 cloud_terrastodon_registry::register_thing!(AzurePublicIpResourceName);
+cloud_terrastodon_registry::register_arbitrary!(AzurePublicIpResourceName);
 
 #[cfg(test)]
 mod test {

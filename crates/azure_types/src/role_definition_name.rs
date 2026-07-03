@@ -64,6 +64,7 @@ impl From<RoleDefinitionName> for CompactString {
 }
 
 cloud_terrastodon_registry::register_thing!(RoleDefinitionName);
+cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionName);
 
 #[cfg(test)]
 mod tests {

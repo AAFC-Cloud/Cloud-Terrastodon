@@ -146,6 +146,7 @@ impl<'a> Arbitrary<'a> for VirtualMachineName {
 }
 
 cloud_terrastodon_registry::register_thing!(VirtualMachineName);
+cloud_terrastodon_registry::register_arbitrary!(VirtualMachineName);
 
 #[cfg(test)]
 mod tests {

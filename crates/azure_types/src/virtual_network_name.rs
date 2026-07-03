@@ -194,6 +194,7 @@ impl<'a> Arbitrary<'a> for VirtualNetworkName {
 }
 
 cloud_terrastodon_registry::register_thing!(VirtualNetworkName);
+cloud_terrastodon_registry::register_arbitrary!(VirtualNetworkName);
 
 #[cfg(test)]
 mod test {

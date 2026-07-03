@@ -62,6 +62,7 @@ impl From<PolicyAssignmentName> for CompactString {
 }
 
 cloud_terrastodon_registry::register_thing!(PolicyAssignmentName);
+cloud_terrastodon_registry::register_arbitrary!(PolicyAssignmentName);
 
 #[cfg(test)]
 mod tests {

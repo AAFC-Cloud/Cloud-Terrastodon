@@ -139,6 +139,7 @@ impl Scope for AzureApplicationGatewayResourceId {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureApplicationGatewayResourceId);
+cloud_terrastodon_registry::register_arbitrary!(AzureApplicationGatewayResourceId);
 
 #[cfg(test)]
 mod test {

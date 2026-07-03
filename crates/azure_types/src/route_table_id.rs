@@ -130,6 +130,7 @@ impl FromStr for RouteTableId {
 }
 
 cloud_terrastodon_registry::register_thing!(RouteTableId);
+cloud_terrastodon_registry::register_arbitrary!(RouteTableId);
 
 #[cfg(test)]
 mod test {

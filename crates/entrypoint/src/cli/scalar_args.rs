@@ -53,4 +53,6 @@ impl From<&HttpMethodCli> for String {
     }
 }
 cloud_terrastodon_registry::register_thing!(HumantimeDurationCli);
+cloud_terrastodon_registry::register_arbitrary!(HumantimeDurationCli);
 cloud_terrastodon_registry::register_thing!(HttpMethodCli);
+cloud_terrastodon_registry::register_arbitrary!(HttpMethodCli);

@@ -104,6 +104,7 @@ impl std::fmt::Display for AzureDevOpsLicenseType {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsLicenseType);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsLicenseType);
 
 #[cfg(test)]
 mod license_tests {

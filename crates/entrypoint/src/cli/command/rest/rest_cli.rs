@@ -182,5 +182,7 @@ impl IntoFuture for RestArgs {
 }
 
 cloud_terrastodon_registry::register_thing!(RestOutputFormat);
+cloud_terrastodon_registry::register_arbitrary!(RestOutputFormat);
 cloud_terrastodon_registry::register_thing!(RestArgs);
+cloud_terrastodon_registry::register_arbitrary!(RestArgs);
 cloud_terrastodon_registry::register_into_future!(RestArgs => SerializableRestResponse, effects = [Read]);

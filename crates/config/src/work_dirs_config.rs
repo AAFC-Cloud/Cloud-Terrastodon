@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::config::Config;
 use facet::Facet;
 use ordermap::OrderSet;
@@ -9,9 +10,15 @@ pub struct WorkDirsConfig {
     pub work_dirs: OrderSet<PathBuf>,
 }
 
-#[derive(Debug, Default, Facet, Clone, PartialEq)]
+#[derive(Debug, Default, Arbitrary, Facet, Clone, PartialEq)]
 struct WorkDirsConfigProxy {
     pub work_dirs: Vec<PathBuf>,
+}
+
+impl<'a> Arbitrary<'a> for WorkDirsConfig {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(WorkDirsConfigProxy::arbitrary(u)?.into())
+    }
 }
 
 impl From<WorkDirsConfigProxy> for WorkDirsConfig {
@@ -36,3 +43,4 @@ impl Config for WorkDirsConfig {
 }
 
 cloud_terrastodon_registry::register_thing!(WorkDirsConfig);
+cloud_terrastodon_registry::register_arbitrary!(WorkDirsConfig);

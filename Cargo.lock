@@ -1132,6 +1132,7 @@ dependencies = [
 name = "cloud_terrastodon_command"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
  "async-recursion",
  "async-trait",
  "blake3",
@@ -1159,6 +1160,7 @@ dependencies = [
 name = "cloud_terrastodon_config"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
  "async-trait",
  "chrono",
  "cloud_terrastodon_pathing",

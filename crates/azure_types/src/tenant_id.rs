@@ -49,3 +49,4 @@ mod test {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureTenantId);
+cloud_terrastodon_registry::register_arbitrary!(AzureTenantId);

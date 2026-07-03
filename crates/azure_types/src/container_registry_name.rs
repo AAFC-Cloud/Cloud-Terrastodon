@@ -105,6 +105,7 @@ impl From<ContainerRegistryName> for CompactString {
 }
 
 cloud_terrastodon_registry::register_thing!(ContainerRegistryName);
+cloud_terrastodon_registry::register_arbitrary!(ContainerRegistryName);
 
 #[cfg(test)]
 mod test {

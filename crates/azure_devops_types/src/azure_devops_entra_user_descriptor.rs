@@ -35,6 +35,7 @@ impl Deref for AzureDevOpsEntraUserDescriptor {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsEntraUserDescriptor);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsEntraUserDescriptor);
 
 #[cfg(test)]
 mod test {

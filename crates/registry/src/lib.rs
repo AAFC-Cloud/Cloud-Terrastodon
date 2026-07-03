@@ -422,6 +422,18 @@ macro_rules! register_thing {
         };
     };
 }
+#[macro_export]
+macro_rules! register_arbitrary {
+    ($thing_ty:ty) => {
+        $crate::register_fn_mut!(
+            $crate::ArbitraryBytes => $thing_ty,
+            kind = $crate::FunctionKind::Constructor,
+            label = "arbitrary",
+            origin = "Arbitrary",
+            invoke = $crate::arbitrary_from_bytes::<$thing_ty>
+        );
+    };
+}
 
 #[macro_export]
 macro_rules! register_into_future {
@@ -860,3 +872,4 @@ mod test {
         Ok(())
     }
 }
+

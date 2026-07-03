@@ -105,6 +105,7 @@ pub enum CloudTerrastodonCommand {
 }
 
 cloud_terrastodon_registry::register_thing!(CloudTerrastodonCommand);
+cloud_terrastodon_registry::register_arbitrary!(CloudTerrastodonCommand);
 impl CloudTerrastodonCommand {
     pub async fn invoke(self, cancellation_token: &CancellationToken) -> Result<()> {
         match self {

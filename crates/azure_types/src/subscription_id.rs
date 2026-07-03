@@ -115,6 +115,7 @@ impl TryFrom<&String> for SubscriptionId {
 }
 
 cloud_terrastodon_registry::register_thing!(SubscriptionId);
+cloud_terrastodon_registry::register_arbitrary!(SubscriptionId);
 
 #[cfg(test)]
 mod test {

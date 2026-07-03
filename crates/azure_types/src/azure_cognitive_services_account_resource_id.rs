@@ -143,6 +143,7 @@ impl Scope for AzureCognitiveServicesAccountResourceId {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountResourceId);
+cloud_terrastodon_registry::register_arbitrary!(AzureCognitiveServicesAccountResourceId);
 
 #[cfg(test)]
 mod test {

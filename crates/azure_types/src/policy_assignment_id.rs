@@ -187,6 +187,7 @@ impl HasPrefix for PolicyAssignmentId {
 }
 
 cloud_terrastodon_registry::register_thing!(PolicyAssignmentId);
+cloud_terrastodon_registry::register_arbitrary!(PolicyAssignmentId);
 
 #[cfg(test)]
 mod tests {

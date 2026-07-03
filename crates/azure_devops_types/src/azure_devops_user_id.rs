@@ -48,6 +48,7 @@ impl FromStr for AzureDevOpsUserId {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsUserId);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsUserId);
 
 #[cfg(test)]
 mod tests {

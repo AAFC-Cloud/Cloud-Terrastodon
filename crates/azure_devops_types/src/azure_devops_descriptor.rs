@@ -58,6 +58,7 @@ impl From<&AzureDevOpsDescriptor> for String {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsDescriptor);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsDescriptor);
 
 #[cfg(test)]
 mod test {

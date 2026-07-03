@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use crate::config::Config;
 use emath::Pos2;
 use emath::Rect;
@@ -12,22 +13,28 @@ pub struct EguiConfig {
     pub open_dirs: HashMap<PathBuf, Rect>,
 }
 
-#[derive(Debug, facet::Facet, Clone, PartialEq)]
+#[derive(Debug, Arbitrary, facet::Facet, Clone, PartialEq)]
 struct EguiConfigProxy {
     pub starting_points_window: RectProxy,
     pub open_dirs: HashMap<PathBuf, RectProxy>,
 }
 
-#[derive(Debug, facet::Facet, Clone, Copy, PartialEq)]
+#[derive(Debug, Arbitrary, facet::Facet, Clone, Copy, PartialEq)]
 struct RectProxy {
     pub min: Pos2Proxy,
     pub max: Pos2Proxy,
 }
 
-#[derive(Debug, facet::Facet, Clone, Copy, PartialEq)]
+#[derive(Debug, Arbitrary, facet::Facet, Clone, Copy, PartialEq)]
 struct Pos2Proxy {
     pub x: f32,
     pub y: f32,
+}
+
+impl<'a> Arbitrary<'a> for EguiConfig {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(EguiConfigProxy::arbitrary(u)?.into())
+    }
 }
 
 impl From<&Rect> for RectProxy {
@@ -101,3 +108,4 @@ impl Config for EguiConfig {
 }
 
 cloud_terrastodon_registry::register_thing!(EguiConfig);
+cloud_terrastodon_registry::register_arbitrary!(EguiConfig);

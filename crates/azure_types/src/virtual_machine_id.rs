@@ -135,6 +135,7 @@ impl FromStr for VirtualMachineId {
 }
 
 cloud_terrastodon_registry::register_thing!(VirtualMachineId);
+cloud_terrastodon_registry::register_arbitrary!(VirtualMachineId);
 
 #[cfg(test)]
 mod test {

@@ -150,6 +150,7 @@ impl<'a> Arbitrary<'a> for AzureApplicationGatewayResourceName {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureApplicationGatewayResourceName);
+cloud_terrastodon_registry::register_arbitrary!(AzureApplicationGatewayResourceName);
 
 #[cfg(test)]
 mod test {

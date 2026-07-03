@@ -22,6 +22,7 @@ pub struct Cli {
 }
 
 cloud_terrastodon_registry::register_thing!(Cli);
+cloud_terrastodon_registry::register_arbitrary!(Cli);
 impl Cli {
     pub async fn invoke(self, cancellation_token: &CancellationToken) -> eyre::Result<()> {
         match self.command {

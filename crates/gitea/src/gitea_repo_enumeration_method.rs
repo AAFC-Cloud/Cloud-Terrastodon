@@ -12,3 +12,4 @@ pub enum GiteaRepoEnumerationMethod {
 }
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationMethod);
+cloud_terrastodon_registry::register_arbitrary!(GiteaRepoEnumerationMethod);

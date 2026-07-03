@@ -81,6 +81,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsServiceEndpointName {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpointName);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsServiceEndpointName);
 
 #[cfg(test)]
 mod tests {

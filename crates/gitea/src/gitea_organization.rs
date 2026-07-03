@@ -34,3 +34,4 @@ impl Display for GiteaOrganization {
 }
 
 cloud_terrastodon_registry::register_thing!(GiteaOrganization);
+cloud_terrastodon_registry::register_arbitrary!(GiteaOrganization);

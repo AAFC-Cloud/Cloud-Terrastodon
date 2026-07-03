@@ -133,6 +133,7 @@ impl<'a> Arbitrary<'a> for SubscriptionName {
     }
 }
 cloud_terrastodon_registry::register_thing!(SubscriptionName);
+cloud_terrastodon_registry::register_arbitrary!(SubscriptionName);
 
 #[cfg(test)]
 mod test {

@@ -44,6 +44,7 @@ impl IntoFuture for DefaultAzureDevOpsProjectNameRequest {
 }
 
 cloud_terrastodon_registry::register_thing!(DefaultAzureDevOpsProjectNameRequest);
+cloud_terrastodon_registry::register_arbitrary!(DefaultAzureDevOpsProjectNameRequest);
 cloud_terrastodon_registry::register_into_future!(
     DefaultAzureDevOpsProjectNameRequest => AzureDevOpsProjectName,
     effects = [Read]

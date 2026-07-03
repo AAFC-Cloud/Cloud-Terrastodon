@@ -262,6 +262,7 @@ impl From<AzureDevOpsProjectName> for String {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectName);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectName);
 
 #[cfg(test)]
 mod tests {

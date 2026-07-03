@@ -42,3 +42,4 @@ impl Display for GiteaRepo {
 }
 
 cloud_terrastodon_registry::register_thing!(GiteaRepo);
+cloud_terrastodon_registry::register_arbitrary!(GiteaRepo);

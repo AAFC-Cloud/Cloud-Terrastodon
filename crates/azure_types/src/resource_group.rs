@@ -114,3 +114,4 @@ mod tests {
 }
 
 cloud_terrastodon_registry::register_thing!(ResourceGroup);
+cloud_terrastodon_registry::register_arbitrary!(ResourceGroup);

@@ -105,6 +105,7 @@ fn validate_service_group_name(value: &str) -> eyre::Result<()> {
 }
 
 cloud_terrastodon_registry::register_thing!(ServiceGroupName);
+cloud_terrastodon_registry::register_arbitrary!(ServiceGroupName);
 
 #[cfg(test)]
 mod tests {

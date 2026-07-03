@@ -113,3 +113,4 @@ mod tests {
 }
 
 cloud_terrastodon_registry::register_thing!(RoleDefinition);
+cloud_terrastodon_registry::register_arbitrary!(RoleDefinition);

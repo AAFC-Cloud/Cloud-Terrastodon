@@ -1,6 +1,7 @@
+use arbitrary::Arbitrary;
 use crate::config::Config;
 
-#[derive(Debug, facet::Facet, Clone, PartialEq)]
+#[derive(Debug, Arbitrary, facet::Facet, Clone, PartialEq)]
 pub struct CommandsConfig {
     pub azure_cli: String,
     pub tofu: String,
@@ -25,3 +26,5 @@ impl Config for CommandsConfig {
 }
 
 cloud_terrastodon_registry::register_thing!(CommandsConfig);
+cloud_terrastodon_registry::register_arbitrary!(CommandsConfig);
+

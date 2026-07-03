@@ -148,6 +148,7 @@ impl<'a> Arbitrary<'a> for AzureNetworkInterfaceResourceName {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureNetworkInterfaceResourceName);
+cloud_terrastodon_registry::register_arbitrary!(AzureNetworkInterfaceResourceName);
 
 #[cfg(test)]
 mod test {

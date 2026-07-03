@@ -108,3 +108,4 @@ where
 }
 
 cloud_terrastodon_registry::register_thing!(RoleDefinitionsAndAssignments);
+cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionsAndAssignments);

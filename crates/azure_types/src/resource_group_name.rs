@@ -212,6 +212,7 @@ impl<'a> Arbitrary<'a> for ResourceGroupName {
 }
 
 cloud_terrastodon_registry::register_thing!(ResourceGroupName);
+cloud_terrastodon_registry::register_arbitrary!(ResourceGroupName);
 
 #[cfg(test)]
 mod test {

@@ -71,6 +71,7 @@ pub async fn set_default_organization_url(org: AzureDevOpsOrganizationUrl) -> ey
 }
 
 cloud_terrastodon_registry::register_thing!(DefaultAzureDevOpsOrganizationUrlRequest);
+cloud_terrastodon_registry::register_arbitrary!(DefaultAzureDevOpsOrganizationUrlRequest);
 cloud_terrastodon_registry::register_into_future!(
     DefaultAzureDevOpsOrganizationUrlRequest => AzureDevOpsOrganizationUrl,
     effects = [Read]

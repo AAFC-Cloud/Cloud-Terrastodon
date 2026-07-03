@@ -207,6 +207,7 @@ mod tests {
 }
 
 cloud_terrastodon_registry::register_thing!(Principal);
+cloud_terrastodon_registry::register_arbitrary!(Principal);
 
 cloud_terrastodon_registry::register_from!(EntraUser => Principal);
 cloud_terrastodon_registry::register_from!(EntraGroup => Principal);

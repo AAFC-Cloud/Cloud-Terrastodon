@@ -59,3 +59,4 @@ impl From<&GiteaRepoFullName> for GiteaRepoFullNameProxy {
 }
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoFullName);
+cloud_terrastodon_registry::register_arbitrary!(GiteaRepoFullName);

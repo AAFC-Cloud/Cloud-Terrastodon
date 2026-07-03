@@ -42,3 +42,4 @@ impl Display for GiteaUser {
 }
 
 cloud_terrastodon_registry::register_thing!(GiteaUser);
+cloud_terrastodon_registry::register_arbitrary!(GiteaUser);

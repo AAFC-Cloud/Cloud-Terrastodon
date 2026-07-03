@@ -22,3 +22,4 @@ pub struct GlobalArgs {
     pub log_file: Option<PathBuf>,
 }
 cloud_terrastodon_registry::register_thing!(GlobalArgs);
+cloud_terrastodon_registry::register_arbitrary!(GlobalArgs);
