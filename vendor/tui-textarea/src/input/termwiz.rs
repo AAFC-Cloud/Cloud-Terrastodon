@@ -1,7 +1,12 @@
-use super::{Input, Key};
-use termwiz::input::{
-    InputEvent, KeyCode, KeyEvent, Modifiers, MouseButtons, MouseEvent, PixelMouseEvent,
-};
+use super::Input;
+use super::Key;
+use termwiz::input::InputEvent;
+use termwiz::input::KeyCode;
+use termwiz::input::KeyEvent;
+use termwiz::input::Modifiers;
+use termwiz::input::MouseButtons;
+use termwiz::input::MouseEvent;
+use termwiz::input::PixelMouseEvent;
 
 impl From<InputEvent> for Input {
     /// Convert [`termwiz::input::InputEvent`] into [`Input`].

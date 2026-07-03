@@ -85,4 +85,3 @@ pub use crate::azure_devops_user_id::*;
 pub use crate::azure_devops_user_license_entitlement::*;
 pub use crate::azure_devops_work_item_query::*;
 pub use crate::azure_devops_work_items::*;
-

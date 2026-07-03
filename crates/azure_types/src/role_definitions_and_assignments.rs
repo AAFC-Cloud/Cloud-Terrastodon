@@ -108,4 +108,3 @@ where
 }
 
 cloud_terrastodon_registry::register_thing!(RoleDefinitionsAndAssignments);
-

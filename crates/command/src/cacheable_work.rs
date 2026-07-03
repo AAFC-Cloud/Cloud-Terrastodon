@@ -11,6 +11,9 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::path::PathBuf;
 
+type RawExtraFilesFn<Raw> = fn(&Raw) -> BTreeMap<PathBuf, BString>;
+type FailureExtraFilesFn = fn(&eyre::Report) -> BTreeMap<PathBuf, BString>;
+
 #[async_trait]
 pub trait CacheableWorkRequest: Sized + Send {
     type Raw: Facet<'static> + Send + 'static;
@@ -35,8 +38,8 @@ where
     pub cache_key: CacheKey,
     pub context: String,
     pub debug_inputs: BTreeMap<PathBuf, BString>,
-    pub extra_files: Option<fn(&Raw) -> BTreeMap<PathBuf, BString>>,
-    pub failure_extra_files: Option<fn(&eyre::Report) -> BTreeMap<PathBuf, BString>>,
+    pub extra_files: Option<RawExtraFilesFn<Raw>>,
+    pub failure_extra_files: Option<FailureExtraFilesFn>,
     pub executor_kind: String,
     pub output_type: String,
     pub execute_raw: Exec,
@@ -73,7 +76,7 @@ async fn execute_and_cache_output<Exec, ExecFuture, Raw>(
     context: &str,
     debug_inputs: &BTreeMap<PathBuf, BString>,
     metadata: &ArtifactMetadata,
-    extra_files: Option<fn(&Raw) -> BTreeMap<PathBuf, BString>>,
+    extra_files: Option<RawExtraFilesFn<Raw>>,
     execute_raw: Exec,
 ) -> Result<CommandOutput>
 where

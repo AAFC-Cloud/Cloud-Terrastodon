@@ -1,4 +1,5 @@
-use tui_textarea::{CursorMove, TextArea};
+use tui_textarea::CursorMove;
+use tui_textarea::TextArea;
 
 const BOTTOM_RIGHT: CursorMove = CursorMove::Jump(u16::MAX, u16::MAX);
 

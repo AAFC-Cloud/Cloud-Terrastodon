@@ -14,4 +14,3 @@ pub struct ContainerRegistryRepositoryTag {
 }
 
 cloud_terrastodon_registry::register_thing!(ContainerRegistryRepositoryTag);
-

@@ -1,16 +1,24 @@
 use crate::cursor::CursorMove;
 use crate::highlight::LineHighlighter;
-use crate::history::{Edit, EditKind, History};
-use crate::input::{Input, Key};
+use crate::history::Edit;
+use crate::history::EditKind;
+use crate::history::History;
+use crate::input::Input;
+use crate::input::Key;
 use crate::ratatui::layout::Alignment;
-use crate::ratatui::style::{Color, Modifier, Style};
-use crate::ratatui::widgets::{Block, Widget};
+use crate::ratatui::style::Color;
+use crate::ratatui::style::Modifier;
+use crate::ratatui::style::Style;
+use crate::ratatui::widgets::Block;
+use crate::ratatui::widgets::Widget;
 use crate::scroll::Scrolling;
 #[cfg(feature = "search")]
 use crate::search::Search;
-use crate::util::{Pos, spaces};
+use crate::util::Pos;
+use crate::util::spaces;
 use crate::widget::Viewport;
-use crate::word::{find_word_exclusive_end_forward, find_word_start_backward};
+use crate::word::find_word_exclusive_end_forward;
+use crate::word::find_word_start_backward;
 #[cfg(feature = "ratatui")]
 use ratatui::text::Line;
 use std::cmp::Ordering;

@@ -55,14 +55,12 @@ impl AzureEntraOAuth2PermissionGrantListArgs {
         let principal_id = match self.principal.as_ref() {
             Some(principal_argument) => {
                 let principals = fetch_all_principals(tenant_id).await?;
-                let principal = principal_argument
-                    .resolve(&principals)
-                    .wrap_err_with(|| {
-                        format!(
-                            "Could not resolve principal '{}' in tenant {tenant_id}",
-                            principal_argument
-                        )
-                    })?;
+                let principal = principal_argument.resolve(&principals).wrap_err_with(|| {
+                    format!(
+                        "Could not resolve principal '{}' in tenant {tenant_id}",
+                        principal_argument
+                    )
+                })?;
                 Some(
                     principal
                         .as_user()

@@ -60,4 +60,3 @@ mod tests {
         let _project_id = id.parse::<AzureDevOpsUserId>().unwrap();
     }
 }
-

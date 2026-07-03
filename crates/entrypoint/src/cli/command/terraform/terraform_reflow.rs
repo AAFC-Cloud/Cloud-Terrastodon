@@ -192,4 +192,3 @@ mod tests {
         assert!(!args.mixed);
     }
 }
-

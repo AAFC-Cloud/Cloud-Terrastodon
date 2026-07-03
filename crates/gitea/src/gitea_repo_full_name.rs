@@ -52,13 +52,10 @@ impl TryFrom<GiteaRepoFullNameProxy> for GiteaRepoFullName {
     }
 }
 
-impl TryFrom<&GiteaRepoFullName> for GiteaRepoFullNameProxy {
-    type Error = std::convert::Infallible;
-
-    fn try_from(value: &GiteaRepoFullName) -> Result<Self, Self::Error> {
-        Ok(Self(value.to_string()))
+impl From<&GiteaRepoFullName> for GiteaRepoFullNameProxy {
+    fn from(value: &GiteaRepoFullName) -> Self {
+        Self(value.to_string())
     }
 }
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoFullName);
-

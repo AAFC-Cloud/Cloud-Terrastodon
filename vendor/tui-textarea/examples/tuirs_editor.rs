@@ -1,24 +1,36 @@
 // Use `crossterm` v0.25 for `tui` backend.
+use crossterm::event::DisableMouseCapture;
+use crossterm::event::EnableMouseCapture;
+use crossterm::terminal::EnterAlternateScreen;
+use crossterm::terminal::LeaveAlternateScreen;
+use crossterm::terminal::disable_raw_mode;
+use crossterm::terminal::enable_raw_mode;
 use crossterm_025 as crossterm;
-
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
 use std::borrow::Cow;
 use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::io;
-use std::io::{BufRead, Write};
+use std::io::BufRead;
+use std::io::Write;
 use std::path::PathBuf;
 use tui::Terminal;
 use tui::backend::CrosstermBackend;
-use tui::layout::{Constraint, Direction, Layout};
-use tui::style::{Color, Modifier, Style};
-use tui::text::{Span, Spans};
-use tui::widgets::{Block, Borders, Paragraph};
-use tui_textarea::{CursorMove, Input, Key, TextArea};
+use tui::layout::Constraint;
+use tui::layout::Direction;
+use tui::layout::Layout;
+use tui::style::Color;
+use tui::style::Modifier;
+use tui::style::Style;
+use tui::text::Span;
+use tui::text::Spans;
+use tui::widgets::Block;
+use tui::widgets::Borders;
+use tui::widgets::Paragraph;
+use tui_textarea::CursorMove;
+use tui_textarea::Input;
+use tui_textarea::Key;
+use tui_textarea::TextArea;
 
 macro_rules! error {
     ($fmt: expr $(, $args:tt)*) => {{

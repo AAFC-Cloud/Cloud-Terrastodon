@@ -2,7 +2,6 @@ use bstr::BString;
 use eyre::Result;
 use facet::Facet;
 use std::collections::BTreeMap;
-use std::convert::Infallible;
 use std::io::Write;
 
 #[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
@@ -36,15 +35,13 @@ impl From<&BTreeMap<String, BString>> for BStringMapJsonProxy {
     }
 }
 
-impl TryFrom<BStringMapJsonProxy> for BTreeMap<String, BString> {
-    type Error = Infallible;
-
-    fn try_from(value: BStringMapJsonProxy) -> Result<Self, Self::Error> {
-        Ok(value
+impl From<BStringMapJsonProxy> for BTreeMap<String, BString> {
+    fn from(value: BStringMapJsonProxy) -> Self {
+        value
             .0
             .into_iter()
             .map(|(key, value)| (key, BString::from(value)))
-            .collect())
+            .collect()
     }
 }
 

@@ -1,5 +1,9 @@
-use super::{Input, Key};
-use crate::termion::event::{Event, Key as KeyEvent, MouseButton, MouseEvent};
+use super::Input;
+use super::Key;
+use crate::termion::event::Event;
+use crate::termion::event::Key as KeyEvent;
+use crate::termion::event::MouseButton;
+use crate::termion::event::MouseEvent;
 
 impl From<Event> for Input {
     /// Convert [`termion::event::Event`] into [`Input`].

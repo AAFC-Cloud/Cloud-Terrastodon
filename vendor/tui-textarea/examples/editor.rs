@@ -1,21 +1,34 @@
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
+use crossterm::event::DisableMouseCapture;
+use crossterm::event::EnableMouseCapture;
+use crossterm::terminal::EnterAlternateScreen;
+use crossterm::terminal::LeaveAlternateScreen;
+use crossterm::terminal::disable_raw_mode;
+use crossterm::terminal::enable_raw_mode;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Direction, Layout};
-use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::layout::Constraint;
+use ratatui::layout::Direction;
+use ratatui::layout::Layout;
+use ratatui::style::Color;
+use ratatui::style::Modifier;
+use ratatui::style::Style;
+use ratatui::text::Line;
+use ratatui::text::Span;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
+use ratatui::widgets::Paragraph;
 use std::borrow::Cow;
 use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::io;
-use std::io::{BufRead, Write};
+use std::io::BufRead;
+use std::io::Write;
 use std::path::PathBuf;
-use tui_textarea::{CursorMove, Input, Key, TextArea};
+use tui_textarea::CursorMove;
+use tui_textarea::Input;
+use tui_textarea::Key;
+use tui_textarea::TextArea;
 
 macro_rules! error {
     ($fmt: expr $(, $args:tt)*) => {{

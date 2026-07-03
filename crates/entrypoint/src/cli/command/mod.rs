@@ -47,6 +47,10 @@ use eyre::Result;
 use teamy_cancellation::CancellationToken;
 
 /// All top-level commands for the cloud-terrastodon CLI.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "The top-level CLI command enum prioritizes straightforward dispatch over compact size"
+)]
 #[derive(facet::Facet, Debug)]
 #[repr(u8)]
 pub enum CloudTerrastodonCommand {
@@ -129,4 +133,3 @@ impl CloudTerrastodonCommand {
         }
     }
 }
-

@@ -1,6 +1,7 @@
 #![cfg(feature = "search")]
 
-use tui_textarea::{CursorMove, TextArea};
+use tui_textarea::CursorMove;
+use tui_textarea::TextArea;
 
 #[test]
 fn search_lines_forward() {

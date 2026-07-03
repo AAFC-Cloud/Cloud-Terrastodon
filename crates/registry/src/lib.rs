@@ -1,13 +1,17 @@
-use arbitrary::{Arbitrary, Unstructured};
-use std::{
-    any::{type_name, Any},
-    collections::BTreeMap,
-    future::{Future, IntoFuture},
-    pin::Pin,
-};
-
-use facet::{Def, Facet, Shape, Type, UserType};
+use arbitrary::Arbitrary;
+use arbitrary::Unstructured;
+use facet::Def;
+use facet::Facet;
+use facet::Shape;
+use facet::Type;
+use facet::UserType;
 pub use linkme::distributed_slice;
+use std::any::Any;
+use std::any::type_name;
+use std::collections::BTreeMap;
+use std::future::Future;
+use std::future::IntoFuture;
+use std::pin::Pin;
 
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;
 pub type AsyncValueFn = fn(Box<dyn Any + Send>) -> InvocationFuture;
@@ -142,6 +146,10 @@ pub struct Function {
 }
 
 impl Function {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Registry functions are assembled from static macro metadata"
+    )]
     pub const fn async_value(
         input_shape: &'static Shape,
         output_shape: &'static Shape,
@@ -167,6 +175,10 @@ impl Function {
         }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Registry functions are assembled from static macro metadata"
+    )]
     pub const fn sync_value(
         input_shape: &'static Shape,
         output_shape: &'static Shape,
@@ -192,6 +204,10 @@ impl Function {
         }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Registry functions are assembled from static macro metadata"
+    )]
     pub const fn sync_ref(
         input_shape: &'static Shape,
         output_shape: &'static Shape,
@@ -217,6 +233,10 @@ impl Function {
         }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Registry functions are assembled from static macro metadata"
+    )]
     pub const fn sync_mut(
         input_shape: &'static Shape,
         output_shape: &'static Shape,
@@ -266,8 +286,12 @@ impl Function {
         match self.executor {
             FunctionExecutor::AsyncValue(invoke) => Ok(FunctionInvocation::Pending(invoke(input))),
             FunctionExecutor::SyncValue(invoke) => Ok(FunctionInvocation::Ready(invoke(input)?)),
-            FunctionExecutor::SyncRef(_) => eyre::bail!("{} requires ByRef", describe_function(self)),
-            FunctionExecutor::SyncMut(_) => eyre::bail!("{} requires ByMut", describe_function(self)),
+            FunctionExecutor::SyncRef(_) => {
+                eyre::bail!("{} requires ByRef", describe_function(self))
+            }
+            FunctionExecutor::SyncMut(_) => {
+                eyre::bail!("{} requires ByMut", describe_function(self))
+            }
         }
     }
 
@@ -559,7 +583,9 @@ static REGISTERED_ARBITRARY_BYTES: Thing = Thing::value(
 );
 
 pub fn known_thing_for_shape(shape: &'static Shape) -> Option<&'static Thing> {
-    KNOWN_THINGS.iter().find(|thing| thing.shape.is_shape(shape))
+    KNOWN_THINGS
+        .iter()
+        .find(|thing| thing.shape.is_shape(shape))
 }
 
 pub fn known_things() -> Vec<&'static Thing> {
@@ -582,14 +608,23 @@ pub fn known_functions() -> Vec<&'static Function> {
 }
 
 pub fn functions_from(shape: &'static Shape) -> Vec<&'static Function> {
-    KNOWN_FUNCTIONS.iter().filter(|f| f.input_shape.is_shape(shape)).collect()
+    KNOWN_FUNCTIONS
+        .iter()
+        .filter(|f| f.input_shape.is_shape(shape))
+        .collect()
 }
 
 pub fn functions_to(shape: &'static Shape) -> Vec<&'static Function> {
-    KNOWN_FUNCTIONS.iter().filter(|f| f.production_kind(shape).is_some()).collect()
+    KNOWN_FUNCTIONS
+        .iter()
+        .filter(|f| f.production_kind(shape).is_some())
+        .collect()
 }
 
-pub fn functions_from_to(input_shape: &'static Shape, output_shape: &'static Shape) -> Vec<&'static Function> {
+pub fn functions_from_to(
+    input_shape: &'static Shape,
+    output_shape: &'static Shape,
+) -> Vec<&'static Function> {
     KNOWN_FUNCTIONS
         .iter()
         .filter(|f| f.input_shape.is_shape(input_shape))
@@ -716,7 +751,8 @@ fn default_value_label(field: &facet::Field) -> Option<String> {
 mod test {
     use super::*;
     use facet::Facet;
-    use std::future::{Future, IntoFuture};
+    use std::future::Future;
+    use std::future::IntoFuture;
 
     #[derive(Debug, Clone, Copy, Facet)]
     #[repr(C)]
@@ -769,17 +805,28 @@ mod test {
 
     #[test]
     fn known_shapes_deduplicates() {
-        assert!(known_shapes().iter().any(|shape| shape.label == describe_shape(ArbitraryBytes::SHAPE)));
+        assert!(
+            known_shapes()
+                .iter()
+                .any(|shape| shape.label == describe_shape(ArbitraryBytes::SHAPE))
+        );
     }
 
     #[test]
     fn function_lookup_tracks_receivers() {
         let async_functions = functions_from_to(DummyListRequest::SHAPE, DummyOutput::SHAPE);
         assert_eq!(async_functions[0].receiver_mode, ReceiverMode::ByValue);
-        assert_eq!(async_functions[0].production_kind(DummyOutput::SHAPE), Some(ProductionKind::ListElement));
+        assert_eq!(
+            async_functions[0].production_kind(DummyOutput::SHAPE),
+            Some(ProductionKind::ListElement)
+        );
 
         let mut_functions = functions_from_to(ArbitraryBytes::SHAPE, DummyOutput::SHAPE);
-        assert!(mut_functions.iter().any(|f| f.receiver_mode == ReceiverMode::ByMut));
+        assert!(
+            mut_functions
+                .iter()
+                .any(|f| f.receiver_mode == ReceiverMode::ByMut)
+        );
     }
 
     #[tokio::test]
@@ -788,7 +835,9 @@ mod test {
             .into_iter()
             .find(|f| f.kind == FunctionKind::AsyncInvoke)
             .unwrap();
-        let output = match function.invoke_value_boxed(Box::new(DummyListRequest { tenant: DummyTenant }))? {
+        let output = match function.invoke_value_boxed(Box::new(DummyListRequest {
+            tenant: DummyTenant,
+        }))? {
             FunctionInvocation::Pending(future) => future.await?,
             FunctionInvocation::Ready(_) => panic!("expected pending"),
         };
@@ -811,13 +860,3 @@ mod test {
         Ok(())
     }
 }
-
-
-
-
-
-
-
-
-
-

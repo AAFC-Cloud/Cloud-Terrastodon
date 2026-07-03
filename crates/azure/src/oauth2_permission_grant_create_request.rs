@@ -91,5 +91,3 @@ cloud_terrastodon_registry::register_into_future!(
     OAuth2PermissionGrantCreateRequest => OAuth2PermissionGrant,
     effects = [Write]
 );
-
-

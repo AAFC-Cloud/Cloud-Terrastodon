@@ -1,7 +1,12 @@
-use super::{Input, Key};
-use crate::crossterm::event::{
-    Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
-};
+use super::Input;
+use super::Key;
+use crate::crossterm::event::Event;
+use crate::crossterm::event::KeyCode;
+use crate::crossterm::event::KeyEvent;
+use crate::crossterm::event::KeyEventKind;
+use crate::crossterm::event::KeyModifiers;
+use crate::crossterm::event::MouseEvent;
+use crate::crossterm::event::MouseEventKind;
 
 impl From<Event> for Input {
     /// Convert [`crossterm::event::Event`] into [`Input`].

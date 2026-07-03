@@ -1,6 +1,7 @@
 use crate::ratatui::style::Style;
 use crate::ratatui::text::Span;
-use crate::util::{num_digits, spaces};
+use crate::util::num_digits;
+use crate::util::spaces;
 #[cfg(feature = "ratatui")]
 use ratatui::text::Line;
 use std::borrow::Cow;

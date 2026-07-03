@@ -1,3 +1,7 @@
+#![allow(
+    clippy::negative_feature_names,
+    reason = "The crate intentionally re-exports dependencies that use established feature names like no-backend"
+)]
 //! Cloud Terrastodon meta crate.
 //!
 //! This crate provides:

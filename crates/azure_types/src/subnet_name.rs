@@ -234,4 +234,3 @@ mod test {
         assert!(name.validate_slug().is_err());
     }
 }
-

@@ -164,4 +164,3 @@ mod tests {
         assert!(VirtualMachineName::try_new("!").is_err());
     }
 }
-

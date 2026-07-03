@@ -11,7 +11,7 @@ pub struct SoftwareQuerySummary {
     pub result_count: usize,
 }
 
-pub const SOFTWARE_QUERIES: [&'static str; 5] = [
+pub const SOFTWARE_QUERIES: [&str; 5] = [
     ".git",
     "package.json",
     "package-lock.json",
@@ -23,9 +23,7 @@ pub const SOFTWARE_QUERIES: [&'static str; 5] = [
 ///
 /// Returns an error if the underlying teamy-mft query fails.
 /// Cancellation is best-effort and returns the summaries collected so far.
-pub fn list_software_counts(
-    cancel: &CancellationToken,
-) -> eyre::Result<Vec<SoftwareQuerySummary>> {
+pub fn list_software_counts(cancel: &CancellationToken) -> eyre::Result<Vec<SoftwareQuerySummary>> {
     let mut session = QuerySession::local()?;
     let mut rtn = Vec::with_capacity(SOFTWARE_QUERIES.len());
     for query in SOFTWARE_QUERIES {

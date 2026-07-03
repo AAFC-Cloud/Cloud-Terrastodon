@@ -5,6 +5,8 @@ use compact_str::CompactString;
 use eyre::bail;
 use std::str::FromStr;
 
+type AzureDevOpsUserPredicate<'a> = dyn Fn(&AzureDevOpsUserLicenseEntitlement) -> bool + 'a;
+
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
@@ -42,21 +44,17 @@ impl<'a> From<&'a AzureDevOpsUserArgument<'a>> for AzureDevOpsUserArgument<'a> {
     fn from(value: &'a AzureDevOpsUserArgument<'a>) -> Self {
         match value {
             AzureDevOpsUserArgument::Id(id) => AzureDevOpsUserArgument::Id(*id),
-            AzureDevOpsUserArgument::IdRef(id) => AzureDevOpsUserArgument::IdRef(*id),
+            AzureDevOpsUserArgument::IdRef(id) => AzureDevOpsUserArgument::IdRef(id),
             AzureDevOpsUserArgument::Email(email) => {
                 AzureDevOpsUserArgument::EmailRef(email.as_str())
             }
-            AzureDevOpsUserArgument::EmailRef(email) => {
-                AzureDevOpsUserArgument::EmailRef(*email)
-            }
+            AzureDevOpsUserArgument::EmailRef(email) => AzureDevOpsUserArgument::EmailRef(email),
         }
     }
 }
 
 impl AzureDevOpsUserArgument<'_> {
-    pub fn as_predicate<'a>(
-        &'a self,
-    ) -> eyre::Result<Box<dyn Fn(&AzureDevOpsUserLicenseEntitlement) -> bool + 'a>> {
+    pub fn as_predicate<'a>(&'a self) -> eyre::Result<Box<AzureDevOpsUserPredicate<'a>>> {
         Ok(Box::new(move |e| self.matches(&e.user)))
     }
 

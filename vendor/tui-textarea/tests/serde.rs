@@ -1,6 +1,9 @@
 #![cfg(feature = "serde")]
 
-use tui_textarea::{CursorMove, Input, Key, Scrolling};
+use tui_textarea::CursorMove;
+use tui_textarea::Input;
+use tui_textarea::Key;
+use tui_textarea::Scrolling;
 
 #[test]
 fn test_serde_key() {

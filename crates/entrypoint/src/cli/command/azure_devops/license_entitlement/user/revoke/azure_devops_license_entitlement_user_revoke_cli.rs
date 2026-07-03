@@ -118,7 +118,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             // Direct assignment - just downgrade the license
             update_azure_devops_user_license_entitlement(
                 &org_url,
-                &user_entitlement.user_id,
+                user_entitlement.user_id,
                 AzureDevOpsLicenseType::AccountStakeholder,
             )
             .await?;

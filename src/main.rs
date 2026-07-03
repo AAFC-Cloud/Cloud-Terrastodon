@@ -1,3 +1,7 @@
+#![allow(
+    clippy::negative_feature_names,
+    reason = "The crate depends on an established vendored feature named no-backend"
+)]
 #![cfg(feature = "entrypoint")]
 use cloud_terrastodon_entrypoint::BuildTimestamp;
 use cloud_terrastodon_entrypoint::GitRevision;

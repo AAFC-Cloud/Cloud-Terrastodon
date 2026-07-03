@@ -335,3 +335,6 @@ unused_result_ok = "warn"
 
 
 
+
+[workspace.lints.clippy]
+negative_feature_names = "allow"

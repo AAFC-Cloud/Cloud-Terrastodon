@@ -40,6 +40,10 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
         };
 
         #[derive(Default)]
+        #[expect(
+            clippy::large_enum_variant,
+            reason = "This local outcome enum favors readable post-processing over compact layout"
+        )]
         enum Outcome {
             NoChangeNeeded(AzureDevOpsUserArgument<'static>),
             SkippedDueToLicenseMatchFailureDueToMissingLicense(AzureDevOpsUserArgument<'static>),

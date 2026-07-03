@@ -1,7 +1,6 @@
 use eyre::Result;
-use std::io::Write;
-
 pub(crate) use serde_json::json;
+use std::io::Write;
 pub(crate) type Value = serde_json::Value;
 
 pub(crate) fn from_str<T>(input: &str) -> Result<T>

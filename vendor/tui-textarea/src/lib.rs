@@ -21,25 +21,23 @@ mod util;
 mod widget;
 mod word;
 
-#[cfg(feature = "ratatui")]
-#[allow(clippy::single_component_path_imports)]
-use ratatui;
-#[cfg(feature = "tuirs")]
-use tui as ratatui;
-
 #[cfg(feature = "crossterm")]
 #[allow(clippy::single_component_path_imports)]
 use crossterm;
 #[cfg(feature = "tuirs-crossterm")]
 use crossterm_025 as crossterm;
-
+pub use cursor::CursorMove;
+pub use input::Input;
+pub use input::Key;
+#[cfg(feature = "ratatui")]
+#[allow(clippy::single_component_path_imports)]
+use ratatui;
+pub use scroll::Scrolling;
 #[cfg(feature = "termion")]
 #[allow(clippy::single_component_path_imports)]
 use termion;
 #[cfg(feature = "tuirs-termion")]
 use termion_15 as termion;
-
-pub use cursor::CursorMove;
-pub use input::{Input, Key};
-pub use scroll::Scrolling;
 pub use textarea::TextArea;
+#[cfg(feature = "tuirs")]
+use tui as ratatui;

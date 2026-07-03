@@ -37,10 +37,7 @@ pub struct AzureEntraOAuth2PermissionGrantUpdateArgs {
     pub add_scope: Vec<String>,
 
     /// Scopes to remove from the grant.
-    #[facet(
-        figue::named,
-        figue::alias = "remove-scopes"
-    )]
+    #[facet(figue::named, figue::alias = "remove-scopes")]
     pub remove_scope: Vec<String>,
 }
 

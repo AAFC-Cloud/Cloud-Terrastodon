@@ -133,13 +133,11 @@ impl RoleManagementPolicyAssignment {
         for rule in &self.properties.effective_rules {
             if let Ok(rule) =
                 facet_json::from_str::<RoleManagementPolicyExpirationRule>(rule.as_str())
+                && rule.rule_type == "RoleManagementPolicyExpirationRule"
+                && rule.id
+                    == RoleManagementPolicyAssignmentPropertiesEffectiveRuleId::ExpirationEnduserAssignment
             {
-                if rule.rule_type == "RoleManagementPolicyExpirationRule"
-                    && rule.id
-                        == RoleManagementPolicyAssignmentPropertiesEffectiveRuleId::ExpirationEnduserAssignment
-                {
-                    return rule.maximum_duration.to_std();
-                }
+                return rule.maximum_duration.to_std();
             }
         }
         None

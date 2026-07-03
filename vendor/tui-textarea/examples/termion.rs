@@ -1,16 +1,20 @@
 use ratatui::Terminal;
 use ratatui::backend::TermionBackend;
-use ratatui::widgets::{Block, Borders};
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
 use std::error::Error;
 use std::io;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use termion::event::Event as TermEvent;
-use termion::input::{MouseTerminal, TermRead};
+use termion::input::MouseTerminal;
+use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::screen::IntoAlternateScreen;
-use tui_textarea::{Input, Key, TextArea};
+use tui_textarea::Input;
+use tui_textarea::Key;
+use tui_textarea::TextArea;
 
 enum Event {
     Term(TermEvent),

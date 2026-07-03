@@ -1,6 +1,8 @@
 use crate::widget::Viewport;
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+#[cfg(feature = "serde")]
+use serde::Serialize;
 
 /// Specify how to scroll the textarea.
 ///

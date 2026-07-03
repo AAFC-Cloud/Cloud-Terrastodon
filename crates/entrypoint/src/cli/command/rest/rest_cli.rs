@@ -1,3 +1,4 @@
+use crate::cli::scalar_args::HttpMethodCli;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
@@ -10,7 +11,6 @@ use cloud_terrastodon_rest::read_optional_headers;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
-use crate::cli::scalar_args::HttpMethodCli;
 use reqwest::Url;
 use std::future::Future;
 use std::future::IntoFuture;
@@ -23,7 +23,6 @@ pub enum RestOutputFormat {
     Text,
     Json,
 }
-
 
 /// Arguments for issuing raw REST calls with Cloud Terrastodon's auth helpers.
 #[derive(facet::Facet, Debug, Clone)]
@@ -102,9 +101,6 @@ mod test {
     use cloud_terrastodon_rest::serialize_headers;
     use facet_json::RawJson;
     use reqwest::Url;
-use std::future::Future;
-use std::future::IntoFuture;
-use std::pin::Pin;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
 
@@ -188,7 +184,3 @@ impl IntoFuture for RestArgs {
 cloud_terrastodon_registry::register_thing!(RestOutputFormat);
 cloud_terrastodon_registry::register_thing!(RestArgs);
 cloud_terrastodon_registry::register_into_future!(RestArgs => SerializableRestResponse, effects = [Read]);
-
-
-
-

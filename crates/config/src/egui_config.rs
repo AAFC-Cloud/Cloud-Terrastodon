@@ -3,7 +3,6 @@ use emath::Pos2;
 use emath::Rect;
 use emath::Vec2;
 use std::collections::HashMap;
-use std::convert::Infallible;
 use std::path::PathBuf;
 
 #[derive(Debug, facet::Facet, Clone, PartialEq)]
@@ -61,33 +60,29 @@ impl From<Pos2Proxy> for Pos2 {
     }
 }
 
-impl TryFrom<EguiConfigProxy> for EguiConfig {
-    type Error = Infallible;
-
-    fn try_from(value: EguiConfigProxy) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<EguiConfigProxy> for EguiConfig {
+    fn from(value: EguiConfigProxy) -> Self {
+        Self {
             starting_points_window: value.starting_points_window.into(),
             open_dirs: value
                 .open_dirs
                 .into_iter()
                 .map(|(path, rect)| (path, rect.into()))
                 .collect(),
-        })
+        }
     }
 }
 
-impl TryFrom<&EguiConfig> for EguiConfigProxy {
-    type Error = Infallible;
-
-    fn try_from(value: &EguiConfig) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<&EguiConfig> for EguiConfigProxy {
+    fn from(value: &EguiConfig) -> Self {
+        Self {
             starting_points_window: (&value.starting_points_window).into(),
             open_dirs: value
                 .open_dirs
                 .iter()
                 .map(|(path, rect)| (path.clone(), rect.into()))
                 .collect(),
-        })
+        }
     }
 }
 
@@ -106,4 +101,3 @@ impl Config for EguiConfig {
 }
 
 cloud_terrastodon_registry::register_thing!(EguiConfig);
-

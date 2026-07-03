@@ -313,23 +313,23 @@ impl ObjectBrowserApp {
             let marker_style = Style::default()
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::BOLD);
-            if let Some(areas) = &top_marker_areas {
-                if let Some(marker_area) = areas.get(offset).copied() {
-                    frame.render_widget(
-                        Paragraph::new(Line::from(Span::styled("vvvvv", marker_style)))
-                            .alignment(Alignment::Center),
-                        marker_area,
-                    );
-                }
+            if let Some(areas) = &top_marker_areas
+                && let Some(marker_area) = areas.get(offset).copied()
+            {
+                frame.render_widget(
+                    Paragraph::new(Line::from(Span::styled("vvvvv", marker_style)))
+                        .alignment(Alignment::Center),
+                    marker_area,
+                );
             }
-            if let Some(areas) = &bottom_marker_areas {
-                if let Some(marker_area) = areas.get(offset).copied() {
-                    frame.render_widget(
-                        Paragraph::new(Line::from(Span::styled("^^^^^", marker_style)))
-                            .alignment(Alignment::Center),
-                        marker_area,
-                    );
-                }
+            if let Some(areas) = &bottom_marker_areas
+                && let Some(marker_area) = areas.get(offset).copied()
+            {
+                frame.render_widget(
+                    Paragraph::new(Line::from(Span::styled("^^^^^", marker_style)))
+                        .alignment(Alignment::Center),
+                    marker_area,
+                );
             }
         }
 
@@ -462,7 +462,8 @@ impl ObjectBrowserApp {
             total_count,
             preview_lines,
         );
-    }    fn draw_function_picker_popup(&mut self, frame: &mut Frame) {
+    }
+    fn draw_function_picker_popup(&mut self, frame: &mut Frame) {
         let Some(preview_lines) = self.function_picker_preview_lines() else {
             return;
         };
@@ -725,7 +726,10 @@ impl ObjectBrowserApp {
             return;
         };
 
-        match function_picker.search.handle_key(key, &function_picker.labels) {
+        match function_picker
+            .search
+            .handle_key(key, &function_picker.labels)
+        {
             PickerSearchAction::None => {}
             PickerSearchAction::Cancel => {
                 self.function_picker = None;
@@ -908,16 +912,15 @@ impl ObjectBrowserApp {
     }
 
     fn sync_slot_search_selection(&mut self) {
-        if let Some(target) = self.slot_search_current_target() {
-            if let Some(slot_id) = self
+        if let Some(target) = self.slot_search_current_target()
+            && let Some(slot_id) = self
                 .slot_search
                 .as_ref()
                 .map(|slot_search| slot_search.slot_id)
-            {
-                self.active_row_index = self
-                    .focus_row_for_slot_target(slot_id, target)
-                    .unwrap_or(self.active_row_index);
-            }
+        {
+            self.active_row_index = self
+                .focus_row_for_slot_target(slot_id, target)
+                .unwrap_or(self.active_row_index);
         }
         self.ensure_active_row_visible();
         self.update_slot_search_status();
@@ -1508,10 +1511,16 @@ impl ObjectBrowserApp {
     fn invoke_slot(&mut self, slot_id: usize) {
         let functions = self.applicable_functions_for_slot(slot_id);
         match functions.as_slice() {
-            [] => self.status_message = "No registered functions are available for this slot.".to_string(),
+            [] => {
+                self.status_message =
+                    "No registered functions are available for this slot.".to_string()
+            }
             [function] => self.invoke_registered_function(slot_id, function),
             _ => {
-                let labels = functions.iter().map(|function| self.function_picker_label(function)).collect();
+                let labels = functions
+                    .iter()
+                    .map(|function| self.function_picker_label(function))
+                    .collect();
                 self.function_picker = Some(FunctionPickerState::new(slot_id, functions, labels));
                 self.mode = UiMode::FunctionPicker;
                 self.status_message = "Select a function to invoke.".to_string();
@@ -1526,7 +1535,10 @@ impl ObjectBrowserApp {
         let Some(thing) = self.thing_for_shape_name(shape_name) else {
             return Vec::new();
         };
-        let slot_is_owned = matches!(self.slot_by_id(slot_id).map(|slot| &slot.kind), Some(SlotKind::Owned));
+        let slot_is_owned = matches!(
+            self.slot_by_id(slot_id).map(|slot| &slot.kind),
+            Some(SlotKind::Owned)
+        );
         functions_from(thing.shape)
             .into_iter()
             .filter(|function| function.supports_slot_kind(slot_is_owned))
@@ -1534,9 +1546,11 @@ impl ObjectBrowserApp {
     }
 
     fn apply_function_picker_selection(&mut self) {
-        let Some((slot_id, function)) = self.function_picker.as_ref().and_then(|picker| {
-            Some((picker.source_slot_id, picker.selected_function()?))
-        }) else {
+        let Some((slot_id, function)) = self
+            .function_picker
+            .as_ref()
+            .and_then(|picker| Some((picker.source_slot_id, picker.selected_function()?)))
+        else {
             self.status_message = "No function is selected.".to_string();
             return;
         };
@@ -1571,21 +1585,31 @@ impl ObjectBrowserApp {
 
         let invocation = match function.receiver_mode {
             ReceiverMode::ByValue => function.invoke_value_boxed(input),
-            ReceiverMode::ByRef => function.invoke_ref_boxed(input.as_ref()).map(FunctionInvocation::Ready),
+            ReceiverMode::ByRef => function
+                .invoke_ref_boxed(input.as_ref())
+                .map(FunctionInvocation::Ready),
             ReceiverMode::ByMut => {
-                if !matches!(self.slot_by_id(slot_id).map(|slot| &slot.kind), Some(SlotKind::Owned)) {
+                if !matches!(
+                    self.slot_by_id(slot_id).map(|slot| &slot.kind),
+                    Some(SlotKind::Owned)
+                ) {
                     self.status_message = "Mutable functions require an owned slot.".to_string();
                     return;
                 }
                 let output = match function.invoke_mut_boxed(input.as_mut()) {
                     Ok(output) => output,
                     Err(error) => {
-                        self.status_message = format!("Could not invoke {}: {error}", describe_function(function));
+                        self.status_message =
+                            format!("Could not invoke {}: {error}", describe_function(function));
                         return;
                     }
                 };
-                if let Err(error) = self.update_slot_runtime_from_typed(slot_id, thing, input.as_ref()) {
-                    self.status_message = format!("Function updated the input but it could not be re-serialized: {error}");
+                if let Err(error) =
+                    self.update_slot_runtime_from_typed(slot_id, thing, input.as_ref())
+                {
+                    self.status_message = format!(
+                        "Function updated the input but it could not be re-serialized: {error}"
+                    );
                     return;
                 }
                 Ok(FunctionInvocation::Ready(output))
@@ -1595,7 +1619,8 @@ impl ObjectBrowserApp {
         let invocation = match invocation {
             Ok(invocation) => invocation,
             Err(error) => {
-                self.status_message = format!("Could not invoke {}: {error}", describe_function(function));
+                self.status_message =
+                    format!("Could not invoke {}: {error}", describe_function(function));
                 return;
             }
         };
@@ -1608,7 +1633,8 @@ impl ObjectBrowserApp {
                     join_handle: tokio::spawn(future),
                     output_serialize: function.output_serialize,
                 };
-                let mut result_slot = ObjectSlot::new_result(result_slot_id, output_shape_name.clone(), pending);
+                let mut result_slot =
+                    ObjectSlot::new_result(result_slot_id, output_shape_name.clone(), pending);
                 result_slot.produced_by_slot_id = Some(slot_id);
                 self.object_slots.push(result_slot);
                 if let Some(slot) = self.slot_by_id_mut(slot_id) {
@@ -1622,7 +1648,9 @@ impl ObjectBrowserApp {
                     result_slot_id
                 );
             }
-            FunctionInvocation::Ready(output) => self.finish_ready_function_output(slot_id, function, output),
+            FunctionInvocation::Ready(output) => {
+                self.finish_ready_function_output(slot_id, function, output)
+            }
         }
     }
 
@@ -1649,20 +1677,27 @@ impl ObjectBrowserApp {
         let json = match (function.output_serialize)(output.as_ref()) {
             Ok(json) => json,
             Err(error) => {
-                self.status_message = format!("Could not serialize {} output: {error}", describe_function(function));
+                self.status_message = format!(
+                    "Could not serialize {} output: {error}",
+                    describe_function(function)
+                );
                 return;
             }
         };
         let value = match serde_json::from_str::<Value>(&json) {
             Ok(value) => value,
             Err(error) => {
-                self.status_message = format!("Could not parse {} output json: {error}", describe_function(function));
+                self.status_message = format!(
+                    "Could not parse {} output json: {error}",
+                    describe_function(function)
+                );
                 return;
             }
         };
         let result_slot_id = self.allocate_slot_id();
         let output_shape_name = describe_shape(function.output_shape);
-        let mut result_slot = ObjectSlot::new_resolved_result(result_slot_id, output_shape_name.clone(), json, value);
+        let mut result_slot =
+            ObjectSlot::new_resolved_result(result_slot_id, output_shape_name.clone(), json, value);
         result_slot.produced_by_slot_id = Some(slot_id);
         self.object_slots.push(result_slot);
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
@@ -1670,7 +1705,11 @@ impl ObjectBrowserApp {
         }
         self.invalidate_all_slot_display_caches();
         self.jump_to_slot(result_slot_id);
-        self.status_message = format!("Invoked {} into result slot {}.", describe_function(function), result_slot_id);
+        self.status_message = format!(
+            "Invoked {} into result slot {}.",
+            describe_function(function),
+            result_slot_id
+        );
     }
     fn apply_shape_selection(&mut self) {
         let Some(choice) = self
@@ -1783,13 +1822,14 @@ impl ObjectBrowserApp {
             FieldPickerChoice::ExistingProducerSlot { slot_id } => {
                 self.jump_to_existing_producer_slot(slot_id, &required_shape_name)
             }
-            FieldPickerChoice::CreateProducer { input_shape_name, .. } => self
-                .create_producer_request_for_field(
-                    owner_slot_id,
-                    field_index,
-                    &input_shape_name,
-                    &required_shape_name,
-                ),
+            FieldPickerChoice::CreateProducer {
+                input_shape_name, ..
+            } => self.create_producer_request_for_field(
+                owner_slot_id,
+                field_index,
+                &input_shape_name,
+                &required_shape_name,
+            ),
             FieldPickerChoice::CreateNew => {
                 self.create_field_object(owner_slot_id, field_index, &required_shape_name)
             }
@@ -2099,15 +2139,15 @@ impl ObjectBrowserApp {
     }
 
     fn clear_owner_field_link(&mut self, owner_slot_id: usize, field_index: usize, slot_id: usize) {
-        if let Some(field) = self.slot_field_mut(owner_slot_id, field_index) {
-            if matches!(
+        if let Some(field) = self.slot_field_mut(owner_slot_id, field_index)
+            && matches!(
                 field.value_state,
                 FieldValueState::Linked {
                     slot_id: linked_slot_id,
                 } if linked_slot_id == slot_id
-            ) {
-                reset_field_value(field);
-            }
+            )
+        {
+            reset_field_value(field);
         }
         self.invalidate_all_slot_display_caches();
     }
@@ -2154,10 +2194,10 @@ impl ObjectBrowserApp {
             self.clear_links_to_slot(slot_id);
         }
         for slot in &mut self.object_slots {
-            if to_remove.contains(&slot.id) {
-                if let Some(SlotRuntimeState::Pending(pending)) = &slot.runtime_state {
-                    pending.join_handle.abort();
-                }
+            if to_remove.contains(&slot.id)
+                && let Some(SlotRuntimeState::Pending(pending)) = &slot.runtime_state
+            {
+                pending.join_handle.abort();
             }
         }
         self.object_slots
@@ -2555,7 +2595,9 @@ impl ObjectBrowserApp {
             SlotAction::Take,
             SlotAction::Invoke,
         ] {
-            if action == SlotAction::Invoke && self.applicable_functions_for_slot(slot_id).is_empty() {
+            if action == SlotAction::Invoke
+                && self.applicable_functions_for_slot(slot_id).is_empty()
+            {
                 continue;
             }
             rows.push(focusable_plain_row(
@@ -2755,7 +2797,10 @@ impl ObjectBrowserApp {
                 let thing = self.thing_for_shape_name(shape_name)?;
                 functions_from(thing.shape)
                     .into_iter()
-                    .any(|function| function.production_kind(required_thing.shape) == Some(ProductionKind::Exact))
+                    .any(|function| {
+                        function.production_kind(required_thing.shape)
+                            == Some(ProductionKind::Exact)
+                    })
                     .then_some(slot.id)
             })
             .collect()
@@ -2774,7 +2819,9 @@ impl ObjectBrowserApp {
             }
             let input_shape_name = describe_shape(function.input_shape);
             let function_label = self.function_picker_label(function);
-            if !self.has_known_shape_label(&input_shape_name) || !seen.insert(function_label.clone()) {
+            if !self.has_known_shape_label(&input_shape_name)
+                || !seen.insert(function_label.clone())
+            {
                 continue;
             }
             choices.push(FieldPickerChoice::CreateProducer {
@@ -2795,8 +2842,14 @@ impl ObjectBrowserApp {
                     required_shape_name
                 )
             }
-            FieldPickerChoice::CreateProducer { input_shape_name, function_label } => {
-                format!("+ create {} for {} via {}", input_shape_name, required_shape_name, function_label)
+            FieldPickerChoice::CreateProducer {
+                input_shape_name,
+                function_label,
+            } => {
+                format!(
+                    "+ create {} for {} via {}",
+                    input_shape_name, required_shape_name, function_label
+                )
             }
             FieldPickerChoice::CreateNew => format!("+ create new {required_shape_name}"),
         }
@@ -2812,7 +2865,8 @@ impl ObjectBrowserApp {
         };
         let shape_name = self.slot_shape_name(slot_id).unwrap_or("unset");
         format!("slot {} [{}] - {}", slot.id, kind, shape_name)
-    }    fn function_picker_label(&self, function: &Function) -> String {
+    }
+    fn function_picker_label(&self, function: &Function) -> String {
         format!(
             "{} [{} | {:?}]",
             describe_function(function),
@@ -3135,7 +3189,7 @@ impl ObjectBrowserApp {
                     .unwrap_or_else(|| format!("slot {}", root_slot_id))
             );
         } else {
-            self.status_message = format!("{}", json_value_summary(value));
+            self.status_message = json_value_summary(value).to_string();
         }
     }
 
@@ -3151,7 +3205,7 @@ impl ObjectBrowserApp {
                     self.activate_json_projection(projection.root_slot_id, projection.path.clone());
                 } else {
                     self.status_message =
-                        format!("{}", self.projection_header_label(projection, value));
+                        self.projection_header_label(projection, value).to_string();
                 }
                 return;
             }
@@ -3190,7 +3244,7 @@ impl ObjectBrowserApp {
         if projection.role == ProjectionSlotRole::Child {
             self.activate_json_projection(projection.root_slot_id, projection.path.clone());
         } else {
-            self.status_message = format!("{}", json_value_summary(value));
+            self.status_message = json_value_summary(value).to_string();
         }
     }
     fn draw_projection_slot(
@@ -3305,7 +3359,9 @@ impl ObjectBrowserApp {
             | FieldPickerChoice::ExistingProducerSlot { slot_id } => {
                 Some(self.slot_preview_lines(slot_id))
             }
-            FieldPickerChoice::CreateProducer { input_shape_name, .. } => self
+            FieldPickerChoice::CreateProducer {
+                input_shape_name, ..
+            } => self
                 .shape_choices
                 .iter()
                 .find(|shape| shape.label == input_shape_name)
@@ -3324,19 +3380,37 @@ impl ObjectBrowserApp {
             picker.selected_function()?
         };
         let mut lines = vec![Line::from(self.function_picker_label(function))];
-        lines.push(Line::from(format!("input: {}", describe_shape(function.input_shape))));
-        lines.push(Line::from(format!("output: {}", describe_shape(function.output_shape))));
+        lines.push(Line::from(format!(
+            "input: {}",
+            describe_shape(function.input_shape)
+        )));
+        lines.push(Line::from(format!(
+            "output: {}",
+            describe_shape(function.output_shape)
+        )));
         lines.push(Line::from(format!("origin: {}", function.origin)));
-        lines.push(Line::from(format!("receiver: {:?}", function.receiver_mode)));
+        lines.push(Line::from(format!(
+            "receiver: {:?}",
+            function.receiver_mode
+        )));
         if !function.effects.is_empty() {
             lines.push(Line::from(format!("effects: {:?}", function.effects)));
         }
-        if let Some(thing) = self.shape_choices.iter().find(|shape| shape.thing.shape.is_shape(function.input_shape)).map(|shape| shape.thing) {
+        if let Some(thing) = self
+            .shape_choices
+            .iter()
+            .find(|shape| shape.thing.shape.is_shape(function.input_shape))
+            .map(|shape| shape.thing)
+        {
             let dependencies = thing.input_dependencies();
             if !dependencies.is_empty() {
                 lines.push(separator_line("input dependencies"));
                 for dependency in dependencies {
-                    lines.push(Line::from(format!("  {}: {}", dependency.field_name, describe_shape(dependency.shape))));
+                    lines.push(Line::from(format!(
+                        "  {}: {}",
+                        dependency.field_name,
+                        describe_shape(dependency.shape)
+                    )));
                 }
             }
         }
@@ -3358,14 +3432,14 @@ impl ObjectBrowserApp {
 
         match action {
             LinkAction::Move => vec![
-                Line::from(format!("{slot_label}")),
+                Line::from(slot_label.to_string()),
                 Line::from(format!("will move into {field_label}.")),
                 Line::from(""),
                 Line::from("The old parent link will be cleared, leaving a hole there if needed."),
                 Line::from("This keeps the same slot card, but repoints it at the new field."),
             ],
             LinkAction::Clone => vec![
-                Line::from(format!("{slot_label}")),
+                Line::from(slot_label.to_string()),
                 Line::from(format!(
                     "will stay put and {field_label} gets a new view slot."
                 )),
@@ -3382,17 +3456,16 @@ impl ObjectBrowserApp {
         is_active: bool,
         active_row: usize,
     ) -> Vec<Line<'static>> {
-        if is_active {
-            if let Some(slot_search) = self
+        if is_active
+            && let Some(slot_search) = self
                 .slot_search
                 .as_ref()
                 .filter(|slot_search| slot_search.slot_id == slot_id)
-            {
-                return render_slot_search_matches(
-                    &slot_search.filtered_matches,
-                    slot_search.selected_match_index,
-                );
-            }
+        {
+            return render_slot_search_matches(
+                &slot_search.filtered_matches,
+                slot_search.selected_match_index,
+            );
         }
 
         let active_target = if is_active {
@@ -3953,9 +4026,16 @@ impl FunctionPickerState {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum FieldPickerChoice {
-    ExistingSlot { slot_id: usize },
-    ExistingProducerSlot { slot_id: usize },
-    CreateProducer { input_shape_name: String, function_label: String },
+    ExistingSlot {
+        slot_id: usize,
+    },
+    ExistingProducerSlot {
+        slot_id: usize,
+    },
+    CreateProducer {
+        input_shape_name: String,
+        function_label: String,
+    },
     CreateNew,
 }
 
@@ -5535,8 +5615,12 @@ mod tests {
         app.apply_shape_selection();
         if let Some(slot) = app.slot_by_id_mut(1) {
             slot.runtime_state = Some(super::SlotRuntimeState::ResolvedValue {
-                json: "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]".to_string(),
-                value: serde_json::from_str("[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]").unwrap(),
+                json: "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]"
+                    .to_string(),
+                value: serde_json::from_str(
+                    "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]",
+                )
+                .unwrap(),
             });
         }
 
@@ -5868,25 +5952,3 @@ mod tests {
         ));
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

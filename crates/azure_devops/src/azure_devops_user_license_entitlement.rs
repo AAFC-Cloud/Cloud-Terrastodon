@@ -1,3 +1,4 @@
+use crate::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlement;
@@ -6,8 +7,6 @@ use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::async_trait;
 use eyre::bail;
 use std::pin::Pin;
-
-use crate::fetch_azure_devops_user_license_entitlements;
 
 pub struct AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
@@ -29,7 +28,7 @@ pub fn fetch_azure_devops_user_license_entitlement<'a>(
 #[async_trait]
 impl<'a> CacheInvalidatable for AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     async fn invalidate(&self) -> eyre::Result<()> {
-        fetch_azure_devops_user_license_entitlements(&self.org_url)
+        fetch_azure_devops_user_license_entitlements(self.org_url)
             .invalidate()
             .await
     }
@@ -50,7 +49,7 @@ impl<'a> IntoFuture for AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let entitlements = fetch_azure_devops_user_license_entitlements(&self.org_url)
+            let entitlements = fetch_azure_devops_user_license_entitlements(self.org_url)
                 .with_invalidation(self.invalidate_cache)
                 .await?;
 

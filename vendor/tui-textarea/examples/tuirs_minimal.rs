@@ -1,15 +1,19 @@
 // Use `crossterm` v0.25 for `tui` backend.
+use crossterm::event::DisableMouseCapture;
+use crossterm::event::EnableMouseCapture;
+use crossterm::terminal::EnterAlternateScreen;
+use crossterm::terminal::LeaveAlternateScreen;
+use crossterm::terminal::disable_raw_mode;
+use crossterm::terminal::enable_raw_mode;
 use crossterm_025 as crossterm;
-
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
 use std::io;
 use tui::Terminal;
 use tui::backend::CrosstermBackend;
-use tui::widgets::{Block, Borders};
-use tui_textarea::{Input, Key, TextArea};
+use tui::widgets::Block;
+use tui::widgets::Borders;
+use tui_textarea::Input;
+use tui_textarea::Key;
+use tui_textarea::TextArea;
 
 fn main() -> io::Result<()> {
     let stdout = io::stdout();

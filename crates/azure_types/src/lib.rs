@@ -1,3 +1,7 @@
+#![allow(
+    clippy::infallible_try_from,
+    reason = "Facet proxy and string wrapper conversions intentionally keep TryFrom-compatible patterns across the crate"
+)]
 mod access_token;
 mod accounts;
 mod address_prefix;
@@ -382,6 +386,3 @@ pub use crate::virtual_network_properties::*;
 pub use cloud_terrastodon_azure_resource_types::*;
 pub use ipnetwork;
 pub use uuid;
-
-
-

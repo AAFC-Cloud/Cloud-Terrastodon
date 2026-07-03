@@ -1,3 +1,7 @@
+#![allow(
+    clippy::negative_feature_names,
+    reason = "The crate depends on an established vendored feature named no-backend"
+)]
 // Prints each Azure Resource Group name using the re-exported Azure module.
 
 use cloud_terrastodon::azure::fetch_all_resource_groups;

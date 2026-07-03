@@ -163,4 +163,3 @@ mod tests {
         assert!(GiteaInstanceUrl::try_new("https://gitea.example.com/foo").is_err());
     }
 }
-

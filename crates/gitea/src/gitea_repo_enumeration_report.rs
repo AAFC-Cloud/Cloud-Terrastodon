@@ -28,4 +28,3 @@ pub struct GiteaRepoEnumerationComparisonReport {
 cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationComparisonReport);
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationMethodReport);
-

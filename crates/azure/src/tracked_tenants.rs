@@ -670,6 +670,3 @@ impl std::future::IntoFuture for AzureTenantIdResolveRequest {
         Box::pin(self.run())
     }
 }
-
-
-

@@ -1,11 +1,13 @@
 use crate::widget::Viewport;
-use crate::word::{
-    find_word_inclusive_end_forward, find_word_start_backward, find_word_start_forward,
-};
+use crate::word::find_word_inclusive_end_forward;
+use crate::word::find_word_start_backward;
+use crate::word::find_word_start_forward;
 #[cfg(feature = "arbitrary")]
 use arbitrary::Arbitrary;
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+#[cfg(feature = "serde")]
+use serde::Serialize;
 use std::cmp;
 
 /// Specify how to move the cursor.
@@ -376,10 +378,11 @@ mod tests {
     // Separate tests for tui-rs support
     #[test]
     fn in_viewport() {
+        use crate::CursorMove;
+        use crate::TextArea;
         use crate::ratatui::buffer::Buffer;
         use crate::ratatui::layout::Rect;
         use crate::ratatui::widgets::Widget as _;
-        use crate::{CursorMove, TextArea};
 
         let mut textarea: TextArea = (0..20).map(|i| i.to_string()).collect();
         let r = Rect {

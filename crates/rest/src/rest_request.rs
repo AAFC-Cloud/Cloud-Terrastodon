@@ -356,6 +356,10 @@ fn rest_response_output(response: &SerializableRestResponse) -> Result<CommandOu
     })
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "The decode failure dump path threads contextual artifacts through one helper"
+)]
 async fn write_rest_decode_failure(
     cache_key: Option<&CacheKey>,
     context: &str,

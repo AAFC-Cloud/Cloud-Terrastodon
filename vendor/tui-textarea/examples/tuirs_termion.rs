@@ -1,19 +1,22 @@
 // Use `termion` v1.5 for `tui` backend.
-use termion_15 as termion;
-
 use std::error::Error;
 use std::io;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use termion::event::Event as TermEvent;
-use termion::input::{MouseTerminal, TermRead};
+use termion::input::MouseTerminal;
+use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
+use termion_15 as termion;
 use tui::Terminal;
 use tui::backend::TermionBackend;
-use tui::widgets::{Block, Borders};
-use tui_textarea::{Input, Key, TextArea};
+use tui::widgets::Block;
+use tui::widgets::Borders;
+use tui_textarea::Input;
+use tui_textarea::Key;
+use tui_textarea::TextArea;
 
 enum Event {
     Term(TermEvent),

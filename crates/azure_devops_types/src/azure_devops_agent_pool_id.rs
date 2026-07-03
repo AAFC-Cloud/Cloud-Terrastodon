@@ -25,4 +25,3 @@ impl FromStr for AzureDevOpsAgentPoolId {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolId);
-

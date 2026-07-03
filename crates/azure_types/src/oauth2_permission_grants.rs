@@ -63,4 +63,3 @@ impl OAuth2PermissionGrant {
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrantId);
 
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrant);
-

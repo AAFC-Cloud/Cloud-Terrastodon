@@ -25,4 +25,3 @@ impl Config for CommandsConfig {
 }
 
 cloud_terrastodon_registry::register_thing!(CommandsConfig);
-

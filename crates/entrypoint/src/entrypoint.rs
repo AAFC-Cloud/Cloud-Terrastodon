@@ -82,7 +82,11 @@ pub fn entrypoint(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloud_terrastodon_registry::{describe_shape, known_functions, known_things, Function, Thing};
+    use cloud_terrastodon_registry::Function;
+    use cloud_terrastodon_registry::Thing;
+    use cloud_terrastodon_registry::describe_shape;
+    use cloud_terrastodon_registry::known_functions;
+    use cloud_terrastodon_registry::known_things;
     use std::collections::BTreeMap;
 
     #[test]
@@ -135,9 +139,8 @@ mod tests {
         by_key
             .into_iter()
             .filter_map(|(key, registrations)| {
-                (registrations.len() > 1).then(|| {
-                    format!("{key}\n  {}", registrations.join("\n  "))
-                })
+                (registrations.len() > 1)
+                    .then(|| format!("{key}\n  {}", registrations.join("\n  ")))
             })
             .collect()
     }
@@ -174,4 +177,3 @@ mod tests {
         }
     }
 }
-

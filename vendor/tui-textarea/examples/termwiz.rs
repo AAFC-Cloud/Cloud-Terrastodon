@@ -1,11 +1,14 @@
 use ratatui::Terminal;
 use ratatui::backend::TermwizBackend;
-use ratatui::widgets::{Block, Borders};
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
 use std::error::Error;
 use std::time::Duration;
 use termwiz::input::InputEvent;
 use termwiz::terminal::Terminal as _;
-use tui_textarea::{Input, Key, TextArea};
+use tui_textarea::Input;
+use tui_textarea::Key;
+use tui_textarea::TextArea;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let backend = TermwizBackend::new()?;

@@ -22,4 +22,3 @@ mod service_principal_id_facet_json_roundtrip {
         Ok(())
     }
 }
-

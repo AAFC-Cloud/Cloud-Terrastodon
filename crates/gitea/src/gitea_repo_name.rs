@@ -46,4 +46,3 @@ impl FromStr for GiteaRepoName {
 }
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoName);
-

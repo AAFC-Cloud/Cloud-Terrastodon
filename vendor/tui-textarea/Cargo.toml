@@ -250,3 +250,6 @@ tuirs-termion = [
     "dep:termion-15",
     "tui/termion",
 ]
+
+[lints.clippy]
+negative_feature_names = "allow"

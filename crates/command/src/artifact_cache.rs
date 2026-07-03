@@ -385,4 +385,3 @@ pub fn note_cache_write_failure(error: &eyre::Error) {
 }
 
 cloud_terrastodon_registry::register_thing!(ArtifactMetadata);
-

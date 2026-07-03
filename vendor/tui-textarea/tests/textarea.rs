@@ -1,6 +1,7 @@
 use std::cmp;
 use std::fmt::Debug;
-use tui_textarea::{CursorMove, TextArea};
+use tui_textarea::CursorMove;
+use tui_textarea::TextArea;
 
 fn assert_undo_redo<T: Debug>(
     before_pos: (usize, usize),

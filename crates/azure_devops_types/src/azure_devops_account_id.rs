@@ -50,4 +50,3 @@ impl FromStr for AzureDevOpsAccountId {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAccountId);
-

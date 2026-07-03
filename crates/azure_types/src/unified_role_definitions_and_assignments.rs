@@ -92,5 +92,3 @@ where
             .filter(move |(_, rd)| rd.satisfies(required_permissions))
     }
 }
-
-

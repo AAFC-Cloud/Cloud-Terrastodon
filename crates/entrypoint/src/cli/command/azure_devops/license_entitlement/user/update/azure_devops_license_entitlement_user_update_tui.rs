@@ -44,7 +44,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
         for entitlement in chosen_entitlements {
             let resp = update_azure_devops_user_license_entitlement(
                 &org_url,
-                entitlement.user_id.clone(),
+                entitlement.user_id,
                 license.clone(),
             )
             .await?;

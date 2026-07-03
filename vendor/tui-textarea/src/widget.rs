@@ -1,13 +1,16 @@
 use crate::ratatui::buffer::Buffer;
 use crate::ratatui::layout::Rect;
-use crate::ratatui::text::{Span, Text};
-use crate::ratatui::widgets::{Paragraph, Widget};
+use crate::ratatui::text::Span;
+use crate::ratatui::text::Text;
+use crate::ratatui::widgets::Paragraph;
+use crate::ratatui::widgets::Widget;
 use crate::textarea::TextArea;
 use crate::util::num_digits;
 #[cfg(feature = "ratatui")]
 use ratatui::text::Line;
 use std::cmp;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 #[cfg(feature = "tuirs")]
 use tui::text::Spans as Line;
 

@@ -15,4 +15,3 @@ pub struct VirtualMachineSize {
 }
 
 cloud_terrastodon_registry::register_thing!(VirtualMachineSize);
-

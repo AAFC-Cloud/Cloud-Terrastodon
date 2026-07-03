@@ -1,4 +1,6 @@
-use tui_textarea::{Input, Key, TextArea};
+use tui_textarea::Input;
+use tui_textarea::Key;
+use tui_textarea::TextArea;
 
 // Sanity test for checking textarea does not crash against all combination of inputs
 #[test]
