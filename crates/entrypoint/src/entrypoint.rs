@@ -82,6 +82,8 @@ pub fn entrypoint(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_registry::{describe_shape, known_functions, known_things, Function, Thing};
+    use std::collections::BTreeMap;
 
     #[test]
     fn cli_schema_builds() {
@@ -90,4 +92,86 @@ mod tests {
             .help(|help| help.version(full_version().to_string()))
             .build();
     }
+
+    #[test]
+    fn registry_things_have_unique_shapes() {
+        let mut by_shape = BTreeMap::<String, Vec<String>>::new();
+
+        for thing in known_things() {
+            by_shape
+                .entry(describe_shape(thing.shape))
+                .or_default()
+                .push(format_thing_registration(thing));
+        }
+
+        let duplicates = collect_duplicates(by_shape);
+        assert!(
+            duplicates.is_empty(),
+            "duplicate thing registrations found:\n{}",
+            duplicates.join("\n")
+        );
+    }
+
+    #[test]
+    fn registry_functions_have_unique_signatures() {
+        let mut by_signature = BTreeMap::<String, Vec<String>>::new();
+
+        for function in known_functions() {
+            by_signature
+                .entry(function_signature(function))
+                .or_default()
+                .push(format_function_registration(function));
+        }
+
+        let duplicates = collect_duplicates(by_signature);
+        assert!(
+            duplicates.is_empty(),
+            "duplicate function registrations found:\n{}",
+            duplicates.join("\n")
+        );
+    }
+
+    fn collect_duplicates(by_key: BTreeMap<String, Vec<String>>) -> Vec<String> {
+        by_key
+            .into_iter()
+            .filter_map(|(key, registrations)| {
+                (registrations.len() > 1).then(|| {
+                    format!("{key}\n  {}", registrations.join("\n  "))
+                })
+            })
+            .collect()
+    }
+
+    fn function_signature(function: &Function) -> String {
+        format!(
+            "{} {} -> {} ({:?} | {:?} | {})",
+            function.label,
+            describe_shape(function.input_shape),
+            describe_shape(function.output_shape),
+            function.receiver_mode,
+            function.kind,
+            function.origin,
+        )
+    }
+
+    fn format_function_registration(function: &Function) -> String {
+        format!(
+            "effects: {} at {}",
+            format_effects(function.effects),
+            function.registration_site,
+        )
+    }
+
+    fn format_thing_registration(thing: &Thing) -> String {
+        format!("at {}", thing.registration_site)
+    }
+
+    fn format_effects(effects: &[cloud_terrastodon_registry::Effect]) -> String {
+        if effects.is_empty() {
+            "[]".to_string()
+        } else {
+            format!("{:?}", effects)
+        }
+    }
 }
+

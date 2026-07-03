@@ -671,5 +671,5 @@ impl std::future::IntoFuture for AzureTenantIdResolveRequest {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(AzureTenantIdResolveRequest => AzureTenantId);
+
 

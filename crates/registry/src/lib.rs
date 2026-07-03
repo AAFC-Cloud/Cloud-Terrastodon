@@ -39,16 +39,44 @@ pub struct ShapeVariantInfo {
     pub is_default: bool,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct RegistrationSite {
+    pub file: &'static str,
+    pub line: u32,
+}
+
+impl RegistrationSite {
+    pub const fn new(file: &'static str, line: u32) -> Self {
+        Self { file, line }
+    }
+}
+
+impl core::fmt::Display for RegistrationSite {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}:{}", self.file, self.line)
+    }
+}
 #[derive(Clone, Copy)]
 pub struct Thing {
     pub shape: &'static Shape,
     pub parse: ParseFn,
     pub serialize: SerializeFn,
+    pub registration_site: RegistrationSite,
 }
 
 impl Thing {
-    pub const fn value(shape: &'static Shape, parse: ParseFn, serialize: SerializeFn) -> Self {
-        Self { shape, parse, serialize }
+    pub const fn value(
+        shape: &'static Shape,
+        parse: ParseFn,
+        serialize: SerializeFn,
+        registration_site: RegistrationSite,
+    ) -> Self {
+        Self {
+            shape,
+            parse,
+            serialize,
+            registration_site,
+        }
     }
 
     pub fn input_dependencies(&self) -> Vec<InputDependency> {
@@ -110,6 +138,7 @@ pub struct Function {
     pub effects: &'static [Effect],
     pub executor: FunctionExecutor,
     pub output_serialize: SerializeFn,
+    pub registration_site: RegistrationSite,
 }
 
 impl Function {
@@ -122,6 +151,7 @@ impl Function {
         effects: &'static [Effect],
         invoke: AsyncValueFn,
         output_serialize: SerializeFn,
+        registration_site: RegistrationSite,
     ) -> Self {
         Self {
             input_shape,
@@ -133,6 +163,7 @@ impl Function {
             effects,
             executor: FunctionExecutor::AsyncValue(invoke),
             output_serialize,
+            registration_site,
         }
     }
 
@@ -145,6 +176,7 @@ impl Function {
         effects: &'static [Effect],
         invoke: SyncValueFn,
         output_serialize: SerializeFn,
+        registration_site: RegistrationSite,
     ) -> Self {
         Self {
             input_shape,
@@ -156,6 +188,7 @@ impl Function {
             effects,
             executor: FunctionExecutor::SyncValue(invoke),
             output_serialize,
+            registration_site,
         }
     }
 
@@ -168,6 +201,7 @@ impl Function {
         effects: &'static [Effect],
         invoke: SyncRefFn,
         output_serialize: SerializeFn,
+        registration_site: RegistrationSite,
     ) -> Self {
         Self {
             input_shape,
@@ -179,6 +213,7 @@ impl Function {
             effects,
             executor: FunctionExecutor::SyncRef(invoke),
             output_serialize,
+            registration_site,
         }
     }
 
@@ -191,6 +226,7 @@ impl Function {
         effects: &'static [Effect],
         invoke: SyncMutFn,
         output_serialize: SerializeFn,
+        registration_site: RegistrationSite,
     ) -> Self {
         Self {
             input_shape,
@@ -202,6 +238,7 @@ impl Function {
             effects,
             executor: FunctionExecutor::SyncMut(invoke),
             output_serialize,
+            registration_site,
         }
     }
 
@@ -356,6 +393,7 @@ macro_rules! register_thing {
                 <$thing_ty as facet::Facet<'static>>::SHAPE,
                 $crate::parse_boxed::<$thing_ty>,
                 $crate::serialize_boxed::<$thing_ty>,
+                $crate::RegistrationSite::new(file!(), line!()),
             );
         };
     };
@@ -382,6 +420,7 @@ macro_rules! register_into_future {
                 &[$($crate::Effect::$effect),*],
                 $crate::invoke_result_future::<$thing_ty, $output_ty>,
                 $crate::serialize_boxed::<$output_ty>,
+                $crate::RegistrationSite::new(file!(), line!()),
             );
         };
     };
@@ -412,6 +451,7 @@ macro_rules! register_from {
                 &[$($crate::Effect::$effect),*],
                 invoke,
                 $crate::serialize_boxed::<$output_ty>,
+                $crate::RegistrationSite::new(file!(), line!()),
             );
         };
     };
@@ -442,6 +482,7 @@ macro_rules! register_try_from {
                 &[$($crate::Effect::$effect),*],
                 invoke,
                 $crate::serialize_boxed::<$output_ty>,
+                $crate::RegistrationSite::new(file!(), line!()),
             );
         };
     };
@@ -471,6 +512,7 @@ macro_rules! register_fn_ref {
                 &[$($crate::Effect::$effect),*],
                 invoke,
                 $crate::serialize_boxed::<$output_ty>,
+                $crate::RegistrationSite::new(file!(), line!()),
             );
         };
     };
@@ -501,6 +543,7 @@ macro_rules! register_fn_mut {
                 &[$($crate::Effect::$effect),*],
                 invoke,
                 $crate::serialize_boxed::<$output_ty>,
+                $crate::RegistrationSite::new(file!(), line!()),
             );
         };
     };
@@ -516,10 +559,15 @@ static REGISTERED_ARBITRARY_BYTES: Thing = Thing::value(
     ArbitraryBytes::SHAPE,
     parse_boxed::<ArbitraryBytes>,
     serialize_boxed::<ArbitraryBytes>,
+    RegistrationSite::new(file!(), line!()),
 );
 
 pub fn known_thing_for_shape(shape: &'static Shape) -> Option<&'static Thing> {
     KNOWN_THINGS.iter().find(|thing| thing.shape.is_shape(shape))
+}
+
+pub fn known_things() -> Vec<&'static Thing> {
+    KNOWN_THINGS.iter().collect()
 }
 
 pub fn known_shapes() -> Vec<KnownShapeInfo> {
@@ -767,6 +815,10 @@ mod test {
         Ok(())
     }
 }
+
+
+
+
 
 
 
