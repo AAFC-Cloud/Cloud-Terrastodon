@@ -15,6 +15,7 @@ pub struct AzureEntraSpShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Service principal object id, app id, display name, or service principal name.
+    #[facet(figue::positional)]
     pub service_principal: String,
 }
 

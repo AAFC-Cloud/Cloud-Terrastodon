@@ -7,7 +7,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantForgetArgs {
     /// Tracked tenant URL or alias to forget.
-    #[facet(opaque, proxy = String)]
+    #[facet(figue::positional, opaque, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 }
 

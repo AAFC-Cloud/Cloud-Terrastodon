@@ -15,6 +15,7 @@ pub struct AzureResourceShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Resource id (scope) or resource name.
+    #[facet(figue::positional)]
     pub resource: String,
 }
 

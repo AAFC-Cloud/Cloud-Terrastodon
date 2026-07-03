@@ -19,6 +19,7 @@ pub struct AzureFindArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Text to search for in each resource JSON payload.
+    #[facet(figue::positional)]
     pub text: String,
 }
 

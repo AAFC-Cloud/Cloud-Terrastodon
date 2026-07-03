@@ -15,6 +15,7 @@ pub struct AzureEntraUserShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// User object id, user principal name, display name, or email address.
+    #[facet(figue::positional)]
     pub user: AzurePrincipalArgument<'static>,
 }
 

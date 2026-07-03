@@ -12,11 +12,11 @@ pub struct AzureDevOpsAuditArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// The amount of time until an Azure DevOps paid license is considered unused.
-    #[facet(figue::named, default = "2months")]
+    #[facet(figue::named, default = HumantimeDurationCli("2months".parse().unwrap()))]
     paid_license_inactivity_threshold: HumantimeDurationCli,
     /// The amount of time until an Azure DevOps "Test Plan" license is considered unused.
     /// This is more aggressive than the paid license threshold because test plan licenses are expensive.
-    #[facet(figue::named, default = "60days")]
+    #[facet(figue::named, default = HumantimeDurationCli("60days".parse().unwrap()))]
     test_license_inactivity_threshold: HumantimeDurationCli,
 }
 

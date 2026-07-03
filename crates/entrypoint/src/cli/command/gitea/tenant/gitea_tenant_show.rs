@@ -8,7 +8,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantShowArgs {
     /// Tracked tenant URL or alias to show.
-    #[facet(opaque, proxy = String)]
+    #[facet(figue::positional, opaque, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 }
 

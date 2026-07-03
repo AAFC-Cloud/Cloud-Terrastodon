@@ -15,6 +15,7 @@ pub struct AzurePolicyDefinitionShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Policy definition id, name, or display name.
+    #[facet(figue::positional)]
     pub policy_definition: String,
 }
 

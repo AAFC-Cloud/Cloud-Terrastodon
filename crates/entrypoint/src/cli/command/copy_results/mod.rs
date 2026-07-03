@@ -7,6 +7,7 @@ use std::path::PathBuf;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct CopyResultsArgs {
     /// Destination directory for copying results.
+    #[facet(figue::positional)]
     pub dest: PathBuf,
 }
 

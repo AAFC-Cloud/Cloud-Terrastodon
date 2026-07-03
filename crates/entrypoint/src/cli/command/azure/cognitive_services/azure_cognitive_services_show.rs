@@ -15,6 +15,7 @@ pub struct AzureCognitiveServicesShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Cognitive Services account resource id, resource name, or wildcard pattern.
+    #[facet(figue::positional)]
     pub account: CognitiveServicesAccountArgument<'static>,
 }
 

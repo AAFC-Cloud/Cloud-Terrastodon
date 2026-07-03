@@ -7,6 +7,7 @@ use std::io::Read;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct JwtDecodeArgs {
     /// JWT string or '-' to read from stdin
+    #[facet(figue::positional)]
     pub input: String,
 }
 

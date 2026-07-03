@@ -15,6 +15,7 @@ pub struct AzureEntraApplicationRegistrationShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Application registration object id, app id, display name, identifier URI, or unique name.
+    #[facet(figue::positional)]
     pub application_registration: String,
 }
 

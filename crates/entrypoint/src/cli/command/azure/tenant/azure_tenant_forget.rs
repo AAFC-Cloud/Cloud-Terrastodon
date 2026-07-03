@@ -9,6 +9,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantForgetArgs {
     /// Tenant id (GUID) or alias to forget.
+    #[facet(figue::positional)]
     pub tenant: AzureTenantArgument<'static>,
 }
 

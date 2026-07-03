@@ -15,6 +15,7 @@ pub struct AzureApplicationGatewayShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Application gateway resource id or resource name.
+    #[facet(figue::positional)]
     pub application_gateway: String,
 }
 

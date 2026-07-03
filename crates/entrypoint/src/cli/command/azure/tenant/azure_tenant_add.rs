@@ -7,6 +7,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantAddArgs {
     /// Tenant id (GUID) to track.
+    #[facet(figue::positional, opaque, proxy = String)]
     pub tenant_id: AzureTenantId,
 }
 

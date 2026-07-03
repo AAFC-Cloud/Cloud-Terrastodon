@@ -7,6 +7,7 @@ use tokio::io::stdout;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GetPathArgs {
     /// The application directory to resolve.
+    #[facet(figue::positional)]
     pub dir: AppDir,
 }
 

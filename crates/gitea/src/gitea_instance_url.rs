@@ -118,6 +118,19 @@ impl TryFrom<&str> for GiteaInstanceUrl {
     }
 }
 
+impl TryFrom<String> for GiteaInstanceUrl {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_new(value)
+    }
+}
+
+impl From<&GiteaInstanceUrl> for String {
+    fn from(value: &GiteaInstanceUrl) -> Self {
+        value.to_string()
+    }
+}
 cloud_terrastodon_registry::register_thing!(GiteaInstanceUrl);
 
 #[cfg(test)]

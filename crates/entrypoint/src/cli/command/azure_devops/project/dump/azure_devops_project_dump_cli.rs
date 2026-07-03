@@ -21,7 +21,7 @@ use tracing::info_span;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectDumpArgs {
     /// Project id (UUID) or project name.
-    #[facet(opaque, proxy = String)]
+    #[facet(figue::positional, opaque, proxy = String)]
     project: AzureDevOpsProjectArgument<'static>,
 }
 

@@ -10,7 +10,7 @@ pub struct GlobalArgs {
     /// Log level filter directive.
     #[facet(
         figue::named,
-        default = "info",
+        default = String::from("info"),
         figue::label = "DIRECTIVE",
         figue::alias = "log-level"
     )]

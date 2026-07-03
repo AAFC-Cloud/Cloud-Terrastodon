@@ -9,6 +9,7 @@ use std::io::stdout;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsWorkItemQueryInvokeArgs {
     /// Query id.
+    #[facet(figue::positional, opaque, proxy = String)]
     pub id: AzureDevOpsWorkItemQueryId,
 }
 

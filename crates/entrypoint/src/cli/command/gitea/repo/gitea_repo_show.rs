@@ -11,7 +11,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaRepoShowArgs {
     /// Repository id, full name, or name.
-    #[facet(opaque, proxy = String)]
+    #[facet(figue::positional, opaque, proxy = String)]
     pub repo: GiteaRepoArgument<'static>,
 
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.

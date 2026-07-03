@@ -8,11 +8,11 @@ use tracing::info;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraGroupMemberRemoveArgs {
     /// Entra group id (GUID).
-    #[facet(figue::named)]
+    #[facet(figue::named, opaque, proxy = String)]
     pub group_id: EntraGroupId,
 
     /// Principal id to remove from the group (user/service-principal/group GUID).
-    #[facet(figue::named)]
+    #[facet(figue::named, opaque, proxy = String)]
     pub member_id: PrincipalId,
 }
 

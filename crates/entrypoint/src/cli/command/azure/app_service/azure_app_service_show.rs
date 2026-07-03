@@ -16,6 +16,7 @@ pub struct AzureAppServiceShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// App Service resource id, resource name, hostname, private endpoint id, or inbound IP address.
+    #[facet(figue::positional)]
     pub app_service: String,
 }
 

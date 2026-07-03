@@ -16,6 +16,7 @@ pub struct AzurePrivateEndpointShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Private endpoint resource id, resource name, NIC id, custom NIC name, target resource id, private IP address, or FQDN.
+    #[facet(figue::positional)]
     pub private_endpoint: String,
 }
 

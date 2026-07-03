@@ -15,6 +15,7 @@ use std::net::IpAddr;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct NslookupArgs {
     /// Host name or IP address to resolve.
+    #[facet(figue::positional)]
     pub target: String,
 }
 

@@ -8,6 +8,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantShowArgs {
     /// Tenant id (GUID) or alias to show.
+    #[facet(figue::positional)]
     pub tenant: AzureTenantArgument<'static>,
 }
 

@@ -9,7 +9,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaOrgShowArgs {
     /// Organization id or name.
-    #[facet(opaque, proxy = String)]
+    #[facet(figue::positional, opaque, proxy = String)]
     pub organization: GiteaOrganizationArgument<'static>,
 
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.

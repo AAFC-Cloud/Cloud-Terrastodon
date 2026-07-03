@@ -7,6 +7,7 @@ use uuid::Uuid;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct ExtractUuidArgs {
     /// Input string or '-' to read from stdin
+    #[facet(figue::positional)]
     pub input: String,
 }
 

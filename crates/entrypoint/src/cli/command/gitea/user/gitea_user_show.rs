@@ -10,7 +10,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaUserShowArgs {
     /// User id or username.
-    #[facet(opaque, proxy = String)]
+    #[facet(figue::positional, opaque, proxy = String)]
     pub user: GiteaUserArgument<'static>,
 
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.

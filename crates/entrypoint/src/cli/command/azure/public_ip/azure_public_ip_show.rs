@@ -15,6 +15,7 @@ pub struct AzurePublicIpShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Public IP resource id, resource name, IP address, or FQDN.
+    #[facet(figue::positional)]
     pub public_ip: String,
 }
 

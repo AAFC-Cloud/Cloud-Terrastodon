@@ -45,6 +45,7 @@ pub struct OutageInvestigateArgs {
     pub output_dir: Option<PathBuf>,
 
     /// URL, host name, or IP address to investigate.
+    #[facet(figue::positional)]
     pub target: String,
 }
 

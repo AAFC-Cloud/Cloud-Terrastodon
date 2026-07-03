@@ -26,6 +26,7 @@ pub struct TerraformShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Path to a Terraform plan (.tfplan) or a JSON plan file (.json)
+    #[facet(figue::positional)]
     pub plan_file: PathBuf,
 }
 

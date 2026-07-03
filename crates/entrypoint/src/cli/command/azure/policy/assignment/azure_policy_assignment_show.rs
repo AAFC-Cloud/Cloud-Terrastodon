@@ -15,6 +15,7 @@ pub struct AzurePolicyAssignmentShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Policy assignment id, name, or display name.
+    #[facet(figue::positional)]
     pub policy_assignment: String,
 }
 

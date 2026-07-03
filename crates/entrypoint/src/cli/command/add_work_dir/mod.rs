@@ -9,6 +9,7 @@ use std::path::PathBuf;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AddWorkDirArgs {
     /// The directory to register as a work directory.
+    #[facet(figue::positional)]
     pub dir: PathBuf,
 }
 

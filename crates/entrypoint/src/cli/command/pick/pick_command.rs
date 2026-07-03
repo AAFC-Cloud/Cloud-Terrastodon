@@ -28,10 +28,10 @@ pub enum PickCommand {
 #[derive(facet::Facet, Debug, Clone, Default)]
 pub struct PickCommonArgs {
     /// Query to be passed to the query engine, determines the display value for the choices
-    #[facet(figue::named, figue::short = 'q', default = "")]
+    #[facet(figue::named, figue::short = 'q', default = String::new())]
     pub query: String,
     /// Query engine to use
-    #[facet(figue::named, figue::short = 'e', default = Default::default())]
+    #[facet(figue::named, figue::short = 'e', default = QueryEngine::default())]
     pub query_engine: QueryEngine,
     /// Restrict to a single selected item (no multi-select)
     #[facet(figue::named, figue::short = 'm')]

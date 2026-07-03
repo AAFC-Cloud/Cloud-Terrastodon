@@ -15,6 +15,7 @@ pub struct AzureNetworkInterfaceShowArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Network interface resource id, resource name, private IP address, or public IP resource id.
+    #[facet(figue::positional)]
     pub network_interface: String,
 }
 

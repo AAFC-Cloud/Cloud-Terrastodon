@@ -9,6 +9,7 @@ use eyre::bail;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureTenantLoginArgs {
     /// Tracked tenant id or alias to log in to.
+    #[facet(figue::positional)]
     pub tenant: AzureTenantArgument<'static>,
 }
 
