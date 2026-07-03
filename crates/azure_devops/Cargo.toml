@@ -20,6 +20,8 @@ cloud_terrastodon_hcl_types.workspace = true
 cloud_terrastodon_pathing.workspace = true
 cloud_terrastodon_credentials.workspace = true
 cloud_terrastodon_rest.workspace = true
+cloud_terrastodon_registry.workspace = true
+linkme.workspace = true
 eyre.workspace = true
 facet.workspace = true
 facet-json.workspace = true
@@ -43,3 +45,5 @@ test-log.workspace = true
 # Enables text user interface support
 tui = ["ratatui", "tui-textarea"]
 default = ["tui"]
+
+

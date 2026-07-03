@@ -75,6 +75,36 @@ impl From<EntraServicePrincipal> for Principal {
         Self::ServicePrincipal(Box::new(value))
     }
 }
+impl TryFrom<Principal> for EntraUser {
+    type Error = eyre::Error;
+
+    fn try_from(value: Principal) -> Result<Self, Self::Error> {
+        match value {
+            Principal::User(user) => Ok(*user),
+            other => eyre::bail!("Expected user principal, got {}", other.kind()),
+        }
+    }
+}
+impl TryFrom<Principal> for EntraGroup {
+    type Error = eyre::Error;
+
+    fn try_from(value: Principal) -> Result<Self, Self::Error> {
+        match value {
+            Principal::Group(group) => Ok(*group),
+            other => eyre::bail!("Expected group principal, got {}", other.kind()),
+        }
+    }
+}
+impl TryFrom<Principal> for EntraServicePrincipal {
+    type Error = eyre::Error;
+
+    fn try_from(value: Principal) -> Result<Self, Self::Error> {
+        match value {
+            Principal::ServicePrincipal(service_principal) => Ok(*service_principal),
+            other => eyre::bail!("Expected service principal, got {}", other.kind()),
+        }
+    }
+}
 impl AsRef<Uuid> for Principal {
     fn as_ref(&self) -> &Uuid {
         match self {
@@ -177,3 +207,10 @@ mod tests {
 }
 
 cloud_terrastodon_registry::register_thing!(Principal);
+
+cloud_terrastodon_registry::register_from!(EntraUser => Principal);
+cloud_terrastodon_registry::register_from!(EntraGroup => Principal);
+cloud_terrastodon_registry::register_from!(EntraServicePrincipal => Principal);
+cloud_terrastodon_registry::register_try_from!(Principal => EntraUser);
+cloud_terrastodon_registry::register_try_from!(Principal => EntraGroup);
+cloud_terrastodon_registry::register_try_from!(Principal => EntraServicePrincipal);

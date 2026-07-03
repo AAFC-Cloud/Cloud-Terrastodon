@@ -26,6 +26,7 @@ cloud_terrastodon_config.workspace = true
 cloud_terrastodon_zombies.workspace = true
 cloud_terrastodon_ui_egui.workspace = true
 cloud_terrastodon_ui_ratatui.workspace = true
+cloud_terrastodon_registry.workspace = true
 cloud_terrastodon_tracing.workspace = true
 cloud_terrastodon_software.workspace = true
 eyre.workspace = true
@@ -78,3 +79,4 @@ windows = { version = "0.62.2", features = [
 [dev-dependencies]
 arbitrary.workspace = true
 test-log.workspace = true
+

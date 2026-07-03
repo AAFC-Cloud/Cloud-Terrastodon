@@ -1,12 +1,17 @@
+use cloud_terrastodon_registry::Function;
+use cloud_terrastodon_registry::FunctionInvocation;
 use cloud_terrastodon_registry::KnownShapeInfo;
 use cloud_terrastodon_registry::ProductionKind;
+use cloud_terrastodon_registry::ReceiverMode;
 use cloud_terrastodon_registry::ShapeFieldInfo;
 use cloud_terrastodon_registry::ShapeVariantInfo;
+use cloud_terrastodon_registry::describe_function;
 use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry::functions_from;
+use cloud_terrastodon_registry::functions_to;
 use cloud_terrastodon_registry::known_shapes;
 use cloud_terrastodon_registry::shape_fields_for_thing;
 use cloud_terrastodon_registry::shape_variants_for_thing;
-use cloud_terrastodon_registry::things_producing;
 use crossterm::event::EventStream;
 use eyre::Result;
 use futures::FutureExt;
@@ -76,6 +81,7 @@ struct ObjectBrowserApp {
     shape_picker: ShapePickerState,
     variant_picker: Option<VariantPickerState>,
     field_picker: Option<FieldPickerState>,
+    function_picker: Option<FunctionPickerState>,
     link_action_picker: Option<LinkActionPickerState>,
     rename_slot: Option<RenameSlotState>,
     slot_search: Option<SlotSearchState>,
@@ -106,6 +112,7 @@ impl Default for ObjectBrowserApp {
             shape_picker,
             variant_picker: None,
             field_picker: None,
+            function_picker: None,
             link_action_picker: None,
             rename_slot: None,
             slot_search: None,
@@ -241,6 +248,7 @@ impl ObjectBrowserApp {
             UiMode::ShapePicker => self.draw_shape_picker_popup(frame),
             UiMode::VariantPicker => self.draw_variant_picker_popup(frame),
             UiMode::FieldPicker => self.draw_field_picker_popup(frame),
+            UiMode::FunctionPicker => self.draw_function_picker_popup(frame),
             UiMode::LinkActionPicker => self.draw_link_action_picker_popup(frame),
             UiMode::RenameSlot => self.draw_rename_slot_popup(frame),
         }
@@ -454,6 +462,27 @@ impl ObjectBrowserApp {
             total_count,
             preview_lines,
         );
+    }    fn draw_function_picker_popup(&mut self, frame: &mut Frame) {
+        let Some(preview_lines) = self.function_picker_preview_lines() else {
+            return;
+        };
+        let Some((items, total_count)) = self
+            .function_picker
+            .as_ref()
+            .map(|picker| (picker.list_items(), picker.labels.len()))
+        else {
+            return;
+        };
+        let search = &mut self.function_picker.as_mut().expect("picker exists").search;
+        draw_picker_popup(
+            frame,
+            "Pick Function",
+            "Function Preview",
+            search,
+            items,
+            total_count,
+            preview_lines,
+        );
     }
 
     fn draw_link_action_picker_popup(&mut self, frame: &mut Frame) {
@@ -536,6 +565,7 @@ impl ObjectBrowserApp {
             UiMode::ShapePicker => self.handle_shape_picker_key(*key),
             UiMode::VariantPicker => self.handle_variant_picker_key(*key),
             UiMode::FieldPicker => self.handle_field_picker_key(*key),
+            UiMode::FunctionPicker => self.handle_function_picker_key(*key),
             UiMode::LinkActionPicker => self.handle_link_action_picker_key(*key),
             UiMode::RenameSlot => self.handle_rename_slot_key(*key),
         }
@@ -686,6 +716,23 @@ impl ObjectBrowserApp {
                 self.status_message = "Object selection cancelled.".to_string();
             }
             PickerSearchAction::Submit => self.apply_field_picker_selection(),
+        }
+    }
+
+    fn handle_function_picker_key(&mut self, key: KeyEvent) {
+        let Some(function_picker) = self.function_picker.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+
+        match function_picker.search.handle_key(key, &function_picker.labels) {
+            PickerSearchAction::None => {}
+            PickerSearchAction::Cancel => {
+                self.function_picker = None;
+                self.mode = UiMode::Pool;
+                self.status_message = "Function selection cancelled.".to_string();
+            }
+            PickerSearchAction::Submit => self.apply_function_picker_selection(),
         }
     }
 
@@ -1259,11 +1306,7 @@ impl ObjectBrowserApp {
                 .into_iter()
                 .map(|slot_id| FieldPickerChoice::ExistingProducerSlot { slot_id }),
         );
-        choices.extend(
-            self.producer_request_shape_names_for(&required_shape_name)
-                .into_iter()
-                .map(|request_shape_name| FieldPickerChoice::CreateProducer { request_shape_name }),
-        );
+        choices.extend(self.producer_function_choices_for(&required_shape_name));
         choices.push(FieldPickerChoice::CreateNew);
 
         let labels = choices
@@ -1332,7 +1375,6 @@ impl ObjectBrowserApp {
             SlotAction::Clone => self.clone_slot(slot_id),
             SlotAction::Take => self.take_slot(slot_id),
             SlotAction::Invoke => self.invoke_slot(slot_id),
-            SlotAction::InvokeArbitrary => self.invoke_slot_arbitrary(slot_id),
         }
     }
 
@@ -1462,17 +1504,54 @@ impl ObjectBrowserApp {
         self.jump_to_slot(result_slot_id);
         self.status_message = format!("Jumped to result slot {}.", result_slot_id);
     }
+
     fn invoke_slot(&mut self, slot_id: usize) {
+        let functions = self.applicable_functions_for_slot(slot_id);
+        match functions.as_slice() {
+            [] => self.status_message = "No registered functions are available for this slot.".to_string(),
+            [function] => self.invoke_registered_function(slot_id, function),
+            _ => {
+                let labels = functions.iter().map(|function| self.function_picker_label(function)).collect();
+                self.function_picker = Some(FunctionPickerState::new(slot_id, functions, labels));
+                self.mode = UiMode::FunctionPicker;
+                self.status_message = "Select a function to invoke.".to_string();
+            }
+        }
+    }
+
+    fn applicable_functions_for_slot(&self, slot_id: usize) -> Vec<&'static Function> {
+        let Some(shape_name) = self.slot_shape_name(slot_id) else {
+            return Vec::new();
+        };
+        let Some(thing) = self.thing_for_shape_name(shape_name) else {
+            return Vec::new();
+        };
+        let slot_is_owned = matches!(self.slot_by_id(slot_id).map(|slot| &slot.kind), Some(SlotKind::Owned));
+        functions_from(thing.shape)
+            .into_iter()
+            .filter(|function| function.supports_slot_kind(slot_is_owned))
+            .collect()
+    }
+
+    fn apply_function_picker_selection(&mut self) {
+        let Some((slot_id, function)) = self.function_picker.as_ref().and_then(|picker| {
+            Some((picker.source_slot_id, picker.selected_function()?))
+        }) else {
+            self.status_message = "No function is selected.".to_string();
+            return;
+        };
+        self.function_picker = None;
+        self.mode = UiMode::Pool;
+        self.invoke_registered_function(slot_id, function);
+    }
+
+    fn invoke_registered_function(&mut self, slot_id: usize, function: &'static Function) {
         let Some(shape_name) = self.slot_shape_name(slot_id).map(str::to_string) else {
             self.status_message = "Pick a shape before invoking.".to_string();
             return;
         };
         let Some(thing) = self.thing_for_shape_name(&shape_name) else {
-            self.status_message = format!("{shape_name} is not a registered invokable thing.");
-            return;
-        };
-        let Some(invocation) = thing.invocation else {
-            self.status_message = format!("{shape_name} is not invokable.");
+            self.status_message = format!("{shape_name} is not a registered input shape.");
             return;
         };
         let json = match self.slot_json_string(slot_id) {
@@ -1482,84 +1561,108 @@ impl ObjectBrowserApp {
                 return;
             }
         };
-        let request = match thing.parse_boxed(&json) {
-            Ok(request) => request,
+        let mut input = match thing.parse_boxed(&json) {
+            Ok(input) => input,
             Err(error) => {
-                self.status_message = format!("Could not build {shape_name} request: {error}");
-                return;
-            }
-        };
-        let future = match thing.invoke_boxed(request) {
-            Ok(future) => future,
-            Err(error) => {
-                self.status_message = format!("Could not invoke {shape_name}: {error}");
+                self.status_message = format!("Could not build {shape_name} input: {error}");
                 return;
             }
         };
 
-        let result_slot_id = self.allocate_slot_id();
-        let output_shape_name = describe_shape(invocation.output_shape);
-        let pending = PendingInvocationState {
-            join_handle: tokio::spawn(future),
-            output_serialize: invocation.output_serialize,
+        let invocation = match function.receiver_mode {
+            ReceiverMode::ByValue => function.invoke_value_boxed(input),
+            ReceiverMode::ByRef => function.invoke_ref_boxed(input.as_ref()).map(FunctionInvocation::Ready),
+            ReceiverMode::ByMut => {
+                if !matches!(self.slot_by_id(slot_id).map(|slot| &slot.kind), Some(SlotKind::Owned)) {
+                    self.status_message = "Mutable functions require an owned slot.".to_string();
+                    return;
+                }
+                let output = match function.invoke_mut_boxed(input.as_mut()) {
+                    Ok(output) => output,
+                    Err(error) => {
+                        self.status_message = format!("Could not invoke {}: {error}", describe_function(function));
+                        return;
+                    }
+                };
+                if let Err(error) = self.update_slot_runtime_from_typed(slot_id, thing, input.as_ref()) {
+                    self.status_message = format!("Function updated the input but it could not be re-serialized: {error}");
+                    return;
+                }
+                Ok(FunctionInvocation::Ready(output))
+            }
         };
-        let mut result_slot =
-            ObjectSlot::new_result(result_slot_id, output_shape_name.clone(), pending);
-        result_slot.produced_by_slot_id = Some(slot_id);
-        self.object_slots.push(result_slot);
-        if let Some(slot) = self.slot_by_id_mut(slot_id) {
-            slot.result_slot_ids.push(result_slot_id);
+
+        let invocation = match invocation {
+            Ok(invocation) => invocation,
+            Err(error) => {
+                self.status_message = format!("Could not invoke {}: {error}", describe_function(function));
+                return;
+            }
+        };
+
+        match invocation {
+            FunctionInvocation::Pending(future) => {
+                let result_slot_id = self.allocate_slot_id();
+                let output_shape_name = describe_shape(function.output_shape);
+                let pending = PendingInvocationState {
+                    join_handle: tokio::spawn(future),
+                    output_serialize: function.output_serialize,
+                };
+                let mut result_slot = ObjectSlot::new_result(result_slot_id, output_shape_name.clone(), pending);
+                result_slot.produced_by_slot_id = Some(slot_id);
+                self.object_slots.push(result_slot);
+                if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                    slot.result_slot_ids.push(result_slot_id);
+                }
+                self.invalidate_all_slot_display_caches();
+                self.jump_to_slot(result_slot_id);
+                self.status_message = format!(
+                    "Invoked {} and started result slot {}.",
+                    describe_function(function),
+                    result_slot_id
+                );
+            }
+            FunctionInvocation::Ready(output) => self.finish_ready_function_output(slot_id, function, output),
         }
-        self.invalidate_all_slot_display_caches();
-        self.jump_to_slot(result_slot_id);
-        self.status_message = format!(
-            "Invoked slot {} and started result slot {} for {}.",
-            slot_id, result_slot_id, output_shape_name
-        );
     }
 
-    fn invoke_slot_arbitrary(&mut self, slot_id: usize) {
-        let Some(shape_name) = self.slot_shape_name(slot_id).map(str::to_string) else {
-            self.status_message = "Pick a shape before invoke-arbitrary.".to_string();
-            return;
-        };
-        let Some(thing) = self.thing_for_shape_name(&shape_name) else {
-            self.status_message = format!("{shape_name} is not a registered invokable thing.");
-            return;
-        };
-        let Some(invocation) = thing.invocation else {
-            self.status_message = format!("{shape_name} is not invokable.");
-            return;
-        };
-        let output = match thing.fabricate_output_boxed() {
-            Ok(output) => output,
-            Err(error) => {
-                self.status_message =
-                    format!("Could not fabricate an output for {shape_name}: {error}");
-                return;
-            }
-        };
-        let json = match (invocation.output_serialize)(output.as_ref()) {
+    fn update_slot_runtime_from_typed(
+        &mut self,
+        slot_id: usize,
+        thing: &'static cloud_terrastodon_registry::Thing,
+        value: &(dyn std::any::Any + Send),
+    ) -> Result<()> {
+        let json = thing.serialize_boxed(value)?;
+        let value = serde_json::from_str::<Value>(&json)?;
+        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+            slot.runtime_state = Some(SlotRuntimeState::ResolvedValue { json, value });
+        }
+        Ok(())
+    }
+
+    fn finish_ready_function_output(
+        &mut self,
+        slot_id: usize,
+        function: &'static Function,
+        output: Box<dyn std::any::Any + Send>,
+    ) {
+        let json = match (function.output_serialize)(output.as_ref()) {
             Ok(json) => json,
             Err(error) => {
-                self.status_message =
-                    format!("Could not serialize fabricated {shape_name} output: {error}");
+                self.status_message = format!("Could not serialize {} output: {error}", describe_function(function));
                 return;
             }
         };
         let value = match serde_json::from_str::<Value>(&json) {
             Ok(value) => value,
             Err(error) => {
-                self.status_message =
-                    format!("Could not parse fabricated {shape_name} output json: {error}");
+                self.status_message = format!("Could not parse {} output json: {error}", describe_function(function));
                 return;
             }
         };
-
         let result_slot_id = self.allocate_slot_id();
-        let output_shape_name = describe_shape(invocation.output_shape);
-        let mut result_slot =
-            ObjectSlot::new_resolved_result(result_slot_id, output_shape_name.clone(), json, value);
+        let output_shape_name = describe_shape(function.output_shape);
+        let mut result_slot = ObjectSlot::new_resolved_result(result_slot_id, output_shape_name.clone(), json, value);
         result_slot.produced_by_slot_id = Some(slot_id);
         self.object_slots.push(result_slot);
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
@@ -1567,10 +1670,7 @@ impl ObjectBrowserApp {
         }
         self.invalidate_all_slot_display_caches();
         self.jump_to_slot(result_slot_id);
-        self.status_message = format!(
-            "Invoke-arbitrary on slot {} produced result slot {} for {}.",
-            slot_id, result_slot_id, output_shape_name
-        );
+        self.status_message = format!("Invoked {} into result slot {}.", describe_function(function), result_slot_id);
     }
     fn apply_shape_selection(&mut self) {
         let Some(choice) = self
@@ -1683,11 +1783,11 @@ impl ObjectBrowserApp {
             FieldPickerChoice::ExistingProducerSlot { slot_id } => {
                 self.jump_to_existing_producer_slot(slot_id, &required_shape_name)
             }
-            FieldPickerChoice::CreateProducer { request_shape_name } => self
+            FieldPickerChoice::CreateProducer { input_shape_name, .. } => self
                 .create_producer_request_for_field(
                     owner_slot_id,
                     field_index,
-                    &request_shape_name,
+                    &input_shape_name,
                     &required_shape_name,
                 ),
             FieldPickerChoice::CreateNew => {
@@ -1726,7 +1826,7 @@ impl ObjectBrowserApp {
     fn jump_to_existing_producer_slot(&mut self, slot_id: usize, required_shape_name: &str) {
         self.jump_to_slot(slot_id);
         self.status_message = format!(
-            "Jumped to request slot {}. It can produce {}.",
+            "Jumped to source slot {}. It can produce {}.",
             slot_id, required_shape_name
         );
     }
@@ -1735,7 +1835,7 @@ impl ObjectBrowserApp {
         &mut self,
         owner_slot_id: usize,
         field_index: usize,
-        request_shape_name: &str,
+        input_shape_name: &str,
         required_shape_name: &str,
     ) {
         let Some(field_name) = self
@@ -1747,12 +1847,12 @@ impl ObjectBrowserApp {
         let Some(choice) = self
             .shape_choices
             .iter()
-            .find(|shape| shape.label == request_shape_name)
+            .find(|shape| shape.label == input_shape_name)
             .cloned()
         else {
             self.status_message = format!(
-                "{} is not currently registered as a constructible request shape.",
-                request_shape_name
+                "{} is not currently registered as a constructible source shape.",
+                input_shape_name
             );
             return;
         };
@@ -1772,8 +1872,8 @@ impl ObjectBrowserApp {
         self.invalidate_all_slot_display_caches();
         self.jump_to_slot_target(slot_id, focus_target);
         self.status_message = format!(
-            "Created request slot {} ({}) to produce {} for slot {}.{}.",
-            slot_id, request_shape_name, required_shape_name, owner_slot_id, field_name
+            "Created source slot {} ({}) to produce {} for slot {}.{}.",
+            slot_id, input_shape_name, required_shape_name, owner_slot_id, field_name
         );
     }
 
@@ -2454,22 +2554,8 @@ impl ObjectBrowserApp {
             SlotAction::Clone,
             SlotAction::Take,
             SlotAction::Invoke,
-            SlotAction::InvokeArbitrary,
         ] {
-            if action == SlotAction::Invoke
-                && !self
-                    .slot_shape_name(slot_id)
-                    .and_then(|shape_name| self.thing_for_shape_name(shape_name))
-                    .is_some_and(|thing| thing.is_invokable())
-            {
-                continue;
-            }
-            if action == SlotAction::InvokeArbitrary
-                && !self
-                    .slot_shape_name(slot_id)
-                    .and_then(|shape_name| self.thing_for_shape_name(shape_name))
-                    .is_some_and(|thing| thing.can_fabricate_output())
-            {
+            if action == SlotAction::Invoke && self.applicable_functions_for_slot(slot_id).is_empty() {
                 continue;
             }
             rows.push(focusable_plain_row(
@@ -2553,19 +2639,8 @@ impl ObjectBrowserApp {
             SlotFocusTarget::Action(SlotAction::Clone),
             SlotFocusTarget::Action(SlotAction::Take),
         ]);
-        if self
-            .slot_shape_name(slot_id)
-            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
-            .is_some_and(|thing| thing.is_invokable())
-        {
+        if !self.applicable_functions_for_slot(slot_id).is_empty() {
             targets.push(SlotFocusTarget::Action(SlotAction::Invoke));
-        }
-        if self
-            .slot_shape_name(slot_id)
-            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
-            .is_some_and(|thing| thing.can_fabricate_output())
-        {
-            targets.push(SlotFocusTarget::Action(SlotAction::InvokeArbitrary));
         }
 
         targets
@@ -2678,25 +2753,36 @@ impl ObjectBrowserApp {
             .filter_map(|slot| {
                 let shape_name = self.slot_shape_name(slot.id)?;
                 let thing = self.thing_for_shape_name(shape_name)?;
-                (thing.production_kind(required_thing.shape) == Some(ProductionKind::Exact))
+                functions_from(thing.shape)
+                    .into_iter()
+                    .any(|function| function.production_kind(required_thing.shape) == Some(ProductionKind::Exact))
                     .then_some(slot.id)
             })
             .collect()
     }
 
-    fn producer_request_shape_names_for(&self, required_shape_name: &str) -> Vec<String> {
+    fn producer_function_choices_for(&self, required_shape_name: &str) -> Vec<FieldPickerChoice> {
         let Some(required_thing) = self.thing_for_shape_name(required_shape_name) else {
             return Vec::new();
         };
 
-        let mut labels = BTreeSet::new();
-        for thing in things_producing(required_thing.shape) {
-            if thing.production_kind(required_thing.shape) != Some(ProductionKind::Exact) {
+        let mut seen = BTreeSet::new();
+        let mut choices = Vec::new();
+        for function in functions_to(required_thing.shape) {
+            if function.production_kind(required_thing.shape) != Some(ProductionKind::Exact) {
                 continue;
             }
-            labels.insert(describe_shape(thing.shape));
+            let input_shape_name = describe_shape(function.input_shape);
+            let function_label = self.function_picker_label(function);
+            if !self.has_known_shape_label(&input_shape_name) || !seen.insert(function_label.clone()) {
+                continue;
+            }
+            choices.push(FieldPickerChoice::CreateProducer {
+                input_shape_name,
+                function_label,
+            });
         }
-        labels.into_iter().collect()
+        choices
     }
 
     fn field_picker_label(&self, choice: &FieldPickerChoice, required_shape_name: &str) -> String {
@@ -2709,11 +2795,8 @@ impl ObjectBrowserApp {
                     required_shape_name
                 )
             }
-            FieldPickerChoice::CreateProducer { request_shape_name } => {
-                format!(
-                    "+ create request {} -> {}",
-                    request_shape_name, required_shape_name
-                )
+            FieldPickerChoice::CreateProducer { input_shape_name, function_label } => {
+                format!("+ create {} for {} via {}", input_shape_name, required_shape_name, function_label)
             }
             FieldPickerChoice::CreateNew => format!("+ create new {required_shape_name}"),
         }
@@ -2729,6 +2812,17 @@ impl ObjectBrowserApp {
         };
         let shape_name = self.slot_shape_name(slot_id).unwrap_or("unset");
         format!("slot {} [{}] - {}", slot.id, kind, shape_name)
+    }    fn function_picker_label(&self, function: &Function) -> String {
+        format!(
+            "{} [{} | {:?}]",
+            describe_function(function),
+            match function.receiver_mode {
+                ReceiverMode::ByValue => "ByValue",
+                ReceiverMode::ByRef => "ByRef",
+                ReceiverMode::ByMut => "ByMut",
+            },
+            function.kind,
+        )
     }
 
     fn slot_action_label(&self, slot_id: usize, action: SlotAction) -> String {
@@ -2739,7 +2833,6 @@ impl ObjectBrowserApp {
                 SlotAction::Clone => "clone".to_string(),
                 SlotAction::Take => "take".to_string(),
                 SlotAction::Invoke => "invoke".to_string(),
-                SlotAction::InvokeArbitrary => "invoke-arbitrary".to_string(),
             };
         };
 
@@ -2754,8 +2847,11 @@ impl ObjectBrowserApp {
                 SlotKind::Owned => "take (already owned)".to_string(),
                 SlotKind::View(_) => "take".to_string(),
             },
-            SlotAction::Invoke => "invoke".to_string(),
-            SlotAction::InvokeArbitrary => "invoke-arbitrary".to_string(),
+            SlotAction::Invoke => match self.applicable_functions_for_slot(slot_id).len() {
+                0 => "invoke".to_string(),
+                1 => "invoke".to_string(),
+                count => format!("invoke ({count} functions)"),
+            },
         }
     }
     fn breadcrumbs_line(&self) -> Line<'static> {
@@ -3209,10 +3305,10 @@ impl ObjectBrowserApp {
             | FieldPickerChoice::ExistingProducerSlot { slot_id } => {
                 Some(self.slot_preview_lines(slot_id))
             }
-            FieldPickerChoice::CreateProducer { request_shape_name } => self
+            FieldPickerChoice::CreateProducer { input_shape_name, .. } => self
                 .shape_choices
                 .iter()
-                .find(|shape| shape.label == request_shape_name)
+                .find(|shape| shape.label == input_shape_name)
                 .map(shape_preview_lines),
             FieldPickerChoice::CreateNew => self
                 .shape_choices
@@ -3220,6 +3316,31 @@ impl ObjectBrowserApp {
                 .find(|shape| shape.label == required_shape_name)
                 .map(shape_preview_lines),
         }
+    }
+
+    fn function_picker_preview_lines(&mut self) -> Option<Vec<Line<'static>>> {
+        let function = {
+            let picker = self.function_picker.as_ref()?;
+            picker.selected_function()?
+        };
+        let mut lines = vec![Line::from(self.function_picker_label(function))];
+        lines.push(Line::from(format!("input: {}", describe_shape(function.input_shape))));
+        lines.push(Line::from(format!("output: {}", describe_shape(function.output_shape))));
+        lines.push(Line::from(format!("origin: {}", function.origin)));
+        lines.push(Line::from(format!("receiver: {:?}", function.receiver_mode)));
+        if !function.effects.is_empty() {
+            lines.push(Line::from(format!("effects: {:?}", function.effects)));
+        }
+        if let Some(thing) = self.shape_choices.iter().find(|shape| shape.thing.shape.is_shape(function.input_shape)).map(|shape| shape.thing) {
+            let dependencies = thing.input_dependencies();
+            if !dependencies.is_empty() {
+                lines.push(separator_line("input dependencies"));
+                for dependency in dependencies {
+                    lines.push(Line::from(format!("  {}: {}", dependency.field_name, describe_shape(dependency.shape))));
+                }
+            }
+        }
+        Some(lines)
     }
 
     fn link_action_preview_lines(&self) -> Vec<Line<'static>> {
@@ -3464,6 +3585,7 @@ enum UiMode {
     ShapePicker,
     VariantPicker,
     FieldPicker,
+    FunctionPicker,
     LinkActionPicker,
     RenameSlot,
 }
@@ -3528,7 +3650,6 @@ enum SlotAction {
     Clone,
     Take,
     Invoke,
-    InvokeArbitrary,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SlotCompletion {
@@ -3796,11 +3917,45 @@ impl FieldPickerState {
     }
 }
 
+struct FunctionPickerState {
+    source_slot_id: usize,
+    labels: Vec<String>,
+    functions: Vec<&'static Function>,
+    search: PickerSearchState,
+}
+
+impl FunctionPickerState {
+    fn new(source_slot_id: usize, functions: Vec<&'static Function>, labels: Vec<String>) -> Self {
+        let mut search = PickerSearchState::new();
+        search.reset(&labels, Some(0));
+        Self {
+            source_slot_id,
+            labels,
+            functions,
+            search,
+        }
+    }
+
+    fn selected_function(&self) -> Option<&'static Function> {
+        let index = self.search.selected_filtered_index()?;
+        self.functions.get(index).copied()
+    }
+
+    fn list_items(&self) -> Vec<ListItem<'static>> {
+        self.search
+            .filtered_indices
+            .iter()
+            .filter_map(|index| self.labels.get(*index))
+            .map(|label| ListItem::new(label.clone()))
+            .collect()
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum FieldPickerChoice {
     ExistingSlot { slot_id: usize },
     ExistingProducerSlot { slot_id: usize },
-    CreateProducer { request_shape_name: String },
+    CreateProducer { input_shape_name: String, function_label: String },
     CreateNew,
 }
 
@@ -4410,24 +4565,11 @@ fn shape_preview_lines(choice: &KnownShapeInfo) -> Vec<Line<'static>> {
         Style::default().add_modifier(Modifier::BOLD),
     ))];
 
-    if choice.thing.is_invokable() {
-        lines.push(Line::from("invokable request"));
-        if let Some(output_shape) = choice.thing.output_shape() {
-            lines.push(Line::from(format!(
-                "produces: {}",
-                describe_shape(output_shape)
-            )));
-        }
-        let dependencies = choice.thing.input_dependencies();
-        if !dependencies.is_empty() {
-            lines.push(separator_line("input dependencies"));
-            for dependency in dependencies {
-                lines.push(Line::from(format!(
-                    "  {}: {}",
-                    dependency.field_name,
-                    describe_shape(dependency.shape)
-                )));
-            }
+    let functions = functions_from(choice.thing.shape);
+    if !functions.is_empty() {
+        lines.push(separator_line("functions"));
+        for function in functions {
+            lines.push(Line::from(format!("  {}", describe_function(function))));
         }
     }
 
@@ -4886,6 +5028,13 @@ mod tests {
 
     cloud_terrastodon_registry::register_thing!(DummyInvokeOutput);
     cloud_terrastodon_registry::register_thing!(DummyInvokeRequest => DummyInvokeOutput);
+    cloud_terrastodon_registry::register_fn_mut!(
+        cloud_terrastodon_registry::ArbitraryBytes => DummyInvokeOutput,
+        kind = cloud_terrastodon_registry::FunctionKind::Constructor,
+        label = "arbitrary",
+        origin = "Arbitrary",
+        invoke = cloud_terrastodon_registry::arbitrary_from_bytes::<DummyInvokeOutput>
+    );
     #[test]
     fn creating_a_slot_focuses_the_shape_row() {
         let mut app = ObjectBrowserApp::default();
@@ -5017,9 +5166,11 @@ mod tests {
         app.activate_current_row();
 
         let picker = app.field_picker.as_ref().expect("field picker should open");
-        assert!(picker.choices.contains(&FieldPickerChoice::CreateProducer {
-            request_shape_name: "AzureTenantIdResolveRequest".to_string(),
-        }));
+        assert!(picker.choices.iter().any(|choice| matches!(
+            choice,
+            FieldPickerChoice::CreateProducer { input_shape_name, .. }
+                if input_shape_name == "AzureTenantIdResolveRequest"
+        )));
     }
 
     #[test]
@@ -5049,8 +5200,8 @@ mod tests {
                 picker.choices.iter().position(|choice| {
                     matches!(
                         choice,
-                        FieldPickerChoice::CreateProducer { request_shape_name }
-                            if request_shape_name == "AzureTenantIdResolveRequest"
+                        FieldPickerChoice::CreateProducer { input_shape_name, .. }
+                            if input_shape_name == "AzureTenantIdResolveRequest"
                     )
                 })
             })
@@ -5066,7 +5217,7 @@ mod tests {
 
         let created_slot = app
             .slot_by_id(2)
-            .expect("selecting the producer should create a new request slot");
+            .expect("selecting the producer should create a new source slot");
         assert!(matches!(created_slot.kind, SlotKind::Owned));
         assert_eq!(
             created_slot.shape_name.as_deref(),
@@ -5373,11 +5524,26 @@ mod tests {
             .select(Some(request_index));
         app.apply_shape_selection();
 
-        app.invoke_slot_arbitrary(1);
+        let shape_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label == "ArbitraryBytes")
+            .expect("ArbitraryBytes should be registered");
+        app.shape_picker.open(Some(shape_index));
+        app.shape_picker.search.list_state.select(Some(shape_index));
+        app.apply_shape_selection();
+        if let Some(slot) = app.slot_by_id_mut(1) {
+            slot.runtime_state = Some(super::SlotRuntimeState::ResolvedValue {
+                json: "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]".to_string(),
+                value: serde_json::from_str("[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]").unwrap(),
+            });
+        }
+
+        app.invoke_slot(1);
         let result_slot_id = app
             .slot_by_id(1)
             .and_then(|slot| slot.result_slot_ids.first().copied())
-            .expect("invoke-arbitrary should create a result slot");
+            .expect("invocation should create a result slot");
         let resolved_value = app
             .slot_by_id(result_slot_id)
             .and_then(|slot| slot.runtime_state.as_ref())
@@ -5385,7 +5551,7 @@ mod tests {
                 super::SlotRuntimeState::ResolvedValue { value, .. } => Some(value.clone()),
                 _ => None,
             })
-            .expect("fabricated result slot should resolve immediately");
+            .expect("result slot should resolve immediately");
         assert!(resolved_value.get("message").is_some());
     }
 
@@ -5701,3 +5867,24 @@ mod tests {
         ));
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

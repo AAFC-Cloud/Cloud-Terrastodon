@@ -5,11 +5,13 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsGroupsListRequest<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
 }
 
@@ -18,7 +20,7 @@ pub fn fetch_azure_devops_groups_for_project<'a>(
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
 ) -> AzureDevOpsGroupsListRequest<'a> {
     AzureDevOpsGroupsListRequest {
-        org_url,
+        org_url: Cow::Borrowed(org_url),
         project: project.into(),
     }
 }
@@ -83,6 +85,12 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsListRe
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsListRequest<'a>, 'a);
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupsListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(
+    AzureDevOpsGroupsListRequest<'static> => Vec<AzureDevOpsGroup>,
+    effects = [Read]
+);
 
 #[cfg(test)]
 mod test {

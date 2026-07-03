@@ -12,6 +12,9 @@ use eyre::ContextCompat;
 use eyre::Result;
 use crate::cli::scalar_args::HttpMethodCli;
 use reqwest::Url;
+use std::future::Future;
+use std::future::IntoFuture;
+use std::pin::Pin;
 
 #[derive(facet::Facet, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]
@@ -99,6 +102,9 @@ mod test {
     use cloud_terrastodon_rest::serialize_headers;
     use facet_json::RawJson;
     use reqwest::Url;
+use std::future::Future;
+use std::future::IntoFuture;
+use std::pin::Pin;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
 
@@ -169,3 +175,20 @@ mod test {
         );
     }
 }
+
+impl IntoFuture for RestArgs {
+    type Output = Result<SerializableRestResponse>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(self.invoke())
+    }
+}
+
+cloud_terrastodon_registry::register_thing!(RestOutputFormat);
+cloud_terrastodon_registry::register_thing!(RestArgs);
+cloud_terrastodon_registry::register_into_future!(RestArgs => SerializableRestResponse, effects = [Read]);
+
+
+
+
