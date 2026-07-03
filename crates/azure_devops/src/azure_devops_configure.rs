@@ -7,6 +7,7 @@ use cloud_terrastodon_command::bstr::ByteSlice;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsCliConfigRequest;
 
 pub fn get_azure_devops_cli_config() -> AzureDevOpsCliConfigRequest {
@@ -32,6 +33,11 @@ impl CacheableCommand for AzureDevOpsCliConfigRequest {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsCliConfigRequest);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsCliConfigRequest);
+cloud_terrastodon_registry::register_into_future!(
+    AzureDevOpsCliConfigRequest => String,
+    effects = [Read]
+);
 
 #[cfg(test)]
 mod test {

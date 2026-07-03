@@ -7,6 +7,7 @@ use eyre::bail;
 use std::pin::Pin;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct DefaultAzureDevOpsProjectNameRequest;
 
 pub fn get_default_project_name() -> DefaultAzureDevOpsProjectNameRequest {
@@ -41,6 +42,12 @@ impl IntoFuture for DefaultAzureDevOpsProjectNameRequest {
         })
     }
 }
+
+cloud_terrastodon_registry::register_thing!(DefaultAzureDevOpsProjectNameRequest);
+cloud_terrastodon_registry::register_into_future!(
+    DefaultAzureDevOpsProjectNameRequest => AzureDevOpsProjectName,
+    effects = [Read]
+);
 
 #[cfg(test)]
 mod test {

@@ -8,6 +8,7 @@ use eyre::bail;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+#[derive(Debug, Clone)]
 pub struct UnifiedRoleDefinitionsAndAssignments {
     pub role_definitions: UnifiedRoleDefinitionCollection,
     pub role_assignments: HashMap<UnifiedRoleAssignmentId, UnifiedRoleAssignment>,
@@ -91,3 +92,5 @@ where
             .filter(move |(_, rd)| rd.satisfies(required_permissions))
     }
 }
+
+

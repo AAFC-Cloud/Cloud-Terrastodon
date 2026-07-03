@@ -11,6 +11,7 @@ use std::pin::Pin;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct DefaultAzureDevOpsOrganizationUrlRequest;
 
 pub fn get_default_organization_url() -> DefaultAzureDevOpsOrganizationUrlRequest {
@@ -68,6 +69,12 @@ pub async fn set_default_organization_url(org: AzureDevOpsOrganizationUrl) -> ey
     get_default_organization_url().invalidate().await?;
     Ok(())
 }
+
+cloud_terrastodon_registry::register_thing!(DefaultAzureDevOpsOrganizationUrlRequest);
+cloud_terrastodon_registry::register_into_future!(
+    DefaultAzureDevOpsOrganizationUrlRequest => AzureDevOpsOrganizationUrl,
+    effects = [Read]
+);
 
 #[cfg(test)]
 mod test {

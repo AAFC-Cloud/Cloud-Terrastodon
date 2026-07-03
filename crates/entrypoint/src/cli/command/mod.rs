@@ -100,6 +100,7 @@ pub enum CloudTerrastodonCommand {
     Cache(CacheArgs),
 }
 
+cloud_terrastodon_registry::register_thing!(CloudTerrastodonCommand);
 impl CloudTerrastodonCommand {
     pub async fn invoke(self, cancellation_token: &CancellationToken) -> Result<()> {
         match self {
@@ -128,3 +129,4 @@ impl CloudTerrastodonCommand {
         }
     }
 }
+

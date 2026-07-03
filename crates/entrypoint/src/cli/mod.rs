@@ -21,6 +21,7 @@ pub struct Cli {
     pub command: Option<CloudTerrastodonCommand>,
 }
 
+cloud_terrastodon_registry::register_thing!(Cli);
 impl Cli {
     pub async fn invoke(self, cancellation_token: &CancellationToken) -> eyre::Result<()> {
         match self.command {
@@ -32,3 +33,4 @@ impl Cli {
         }
     }
 }
+

@@ -16,6 +16,7 @@ categories.workspace = true
 cloud_terrastodon_pathing.workspace = true
 cloud_terrastodon_config.workspace = true
 cloud_terrastodon_relative_location.workspace = true
+cloud_terrastodon_registry.workspace = true
 tokio.workspace = true 
 eyre.workspace = true 
 facet.workspace = true
@@ -29,8 +30,10 @@ bstr.workspace = true
 compact_str.workspace=true
 async-trait.workspace=true
 blake3.workspace = true
+linkme.workspace = true
 
 [dev-dependencies]
 cloud_terrastodon_user_input.workspace = true
 ratatui.workspace = true
 tracing-subscriber.workspace=true
+

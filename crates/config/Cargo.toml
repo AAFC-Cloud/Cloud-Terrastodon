@@ -12,6 +12,7 @@ categories.workspace = true
 
 [dependencies]
 cloud_terrastodon_pathing = { workspace = true }
+cloud_terrastodon_registry = { workspace = true }
 eyre = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
@@ -22,3 +23,5 @@ emath = { workspace = true }
 facet = { workspace = true }
 facet-json = { workspace = true }
 facet-value = { workspace = true }
+linkme = { workspace = true }
+

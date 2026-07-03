@@ -12,6 +12,7 @@ use tokio::try_join;
 ///
 /// Not to be confused with Entra role assignments and role definitions.
 #[must_use = "This is a future request, you must .await it"]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct RoleDefinitionsAndAssignmentsListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -47,6 +48,11 @@ impl IntoFuture for RoleDefinitionsAndAssignmentsListRequest {
         })
     }
 }
+cloud_terrastodon_registry::register_thing!(RoleDefinitionsAndAssignmentsListRequest);
+cloud_terrastodon_registry::register_into_future!(
+    RoleDefinitionsAndAssignmentsListRequest => RoleDefinitionsAndAssignments,
+    effects = [Read]
+);
 
 #[cfg(test)]
 mod test {
@@ -61,3 +67,5 @@ mod test {
         Ok(())
     }
 }
+
+

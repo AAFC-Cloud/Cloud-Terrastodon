@@ -13,6 +13,7 @@ categories.workspace = true
 [dependencies]
 cloud_terrastodon_command.workspace = true
 cloud_terrastodon_pathing.workspace = true
+cloud_terrastodon_registry.workspace = true
 eyre.workspace = true
 tokio.workspace = true
 facet.workspace = true
@@ -21,7 +22,9 @@ compact_str.workspace = true
 chrono.workspace = true
 blake3.workspace = true
 tracing.workspace = true
+linkme.workspace = true
 
 [dev-dependencies]
 test-log.workspace = true
 tempfile.workspace = true
+

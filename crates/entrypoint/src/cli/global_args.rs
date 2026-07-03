@@ -21,3 +21,5 @@ pub struct GlobalArgs {
     #[facet(figue::named, figue::label = "FILE|DIR")]
     pub log_file: Option<PathBuf>,
 }
+cloud_terrastodon_registry::register_thing!(GlobalArgs);
+
