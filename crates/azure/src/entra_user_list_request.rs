@@ -49,7 +49,8 @@ impl CacheableCommand for EntraUserListRequest {
 
 cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserListRequest);
 
-cloud_terrastodon_registry::register_thing!(EntraUserListRequest => Vec<EntraUser>);
+cloud_terrastodon_registry::register_thing!(EntraUserListRequest);
+cloud_terrastodon_registry::register_into_future!(EntraUserListRequest => Vec<EntraUser>);
 
 #[cfg(test)]
 mod tests {
@@ -63,3 +64,4 @@ mod tests {
         Ok(())
     }
 }
+

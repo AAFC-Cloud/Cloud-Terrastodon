@@ -397,10 +397,6 @@ macro_rules! register_thing {
             );
         };
     };
-    ($thing_ty:ty => $output_ty:ty) => {
-        $crate::register_thing!($thing_ty);
-        $crate::register_into_future!($thing_ty => $output_ty);
-    };
 }
 
 #[macro_export]
@@ -815,6 +811,8 @@ mod test {
         Ok(())
     }
 }
+
+
 
 
 

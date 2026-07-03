@@ -5027,7 +5027,8 @@ mod tests {
     }
 
     cloud_terrastodon_registry::register_thing!(DummyInvokeOutput);
-    cloud_terrastodon_registry::register_thing!(DummyInvokeRequest => DummyInvokeOutput);
+    cloud_terrastodon_registry::register_thing!(DummyInvokeRequest);
+    cloud_terrastodon_registry::register_into_future!(DummyInvokeRequest => DummyInvokeOutput);
     cloud_terrastodon_registry::register_fn_mut!(
         cloud_terrastodon_registry::ArbitraryBytes => DummyInvokeOutput,
         kind = cloud_terrastodon_registry::FunctionKind::Constructor,
@@ -5867,6 +5868,7 @@ mod tests {
         ));
     }
 }
+
 
 
 
