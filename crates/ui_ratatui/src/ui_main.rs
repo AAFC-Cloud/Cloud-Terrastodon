@@ -86,6 +86,9 @@ struct ObjectBrowserApp {
     link_action_picker: Option<LinkActionPickerState>,
     rename_slot: Option<RenameSlotState>,
     slot_search: Option<SlotSearchState>,
+    slot_axis: SlotAxis,
+    focused_slot_fill: bool,
+    show_hotkey_help: bool,
     shape_choices: Vec<KnownShapeInfo>,
     object_slots: Vec<ObjectSlot>,
     active_slot_index: usize,
@@ -117,6 +120,9 @@ impl Default for ObjectBrowserApp {
             link_action_picker: None,
             rename_slot: None,
             slot_search: None,
+            slot_axis: SlotAxis::Horizontal,
+            focused_slot_fill: false,
+            show_hotkey_help: false,
             shape_choices,
             object_slots: Vec::new(),
             active_slot_index: 0,
@@ -135,6 +141,7 @@ impl Default for ObjectBrowserApp {
 impl ObjectBrowserApp {
     const FRAMES_PER_SECOND: f32 = 60.0;
     const MIN_SLOT_WIDTH: u16 = 34;
+    const MIN_SLOT_HEIGHT: u16 = 7;
 
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         let period = Duration::from_secs_f32(1.0 / Self::FRAMES_PER_SECOND);
@@ -253,6 +260,10 @@ impl ObjectBrowserApp {
             UiMode::LinkActionPicker => self.draw_link_action_picker_popup(frame),
             UiMode::RenameSlot => self.draw_rename_slot_popup(frame),
         }
+
+        if self.show_hotkey_help {
+            self.draw_hotkey_help_popup(frame);
+        }
     }
 
     fn draw_pool(&mut self, frame: &mut Frame, area: Rect) {
@@ -277,19 +288,24 @@ impl ObjectBrowserApp {
             return;
         }
 
-        let visible = self.visible_slot_range(cards_area.width);
+        let visible = self.visible_slot_range_for_area(cards_area);
         let constraints = vec![Constraint::Fill(1); visible.len()];
-        let slot_areas = Layout::horizontal(constraints.clone()).split(cards_area);
-        let top_marker_areas = if top_margin_area.height > 0 {
-            Some(Layout::horizontal(constraints.clone()).split(top_margin_area))
-        } else {
-            None
+        let slot_areas = match self.slot_axis {
+            SlotAxis::Horizontal => Layout::horizontal(constraints.clone()).split(cards_area),
+            SlotAxis::Vertical => Layout::vertical(constraints.clone()).split(cards_area),
         };
-        let bottom_marker_areas = if bottom_margin_area.height > 0 {
-            Some(Layout::horizontal(constraints).split(bottom_margin_area))
-        } else {
-            None
-        };
+        let top_marker_areas =
+            if self.slot_axis == SlotAxis::Horizontal && top_margin_area.height > 0 {
+                Some(Layout::horizontal(constraints.clone()).split(top_margin_area))
+            } else {
+                None
+            };
+        let bottom_marker_areas =
+            if self.slot_axis == SlotAxis::Horizontal && bottom_margin_area.height > 0 {
+                Some(Layout::horizontal(constraints).split(bottom_margin_area))
+            } else {
+                None
+            };
 
         for (offset, slot_index) in visible.clone().enumerate() {
             let Some(slot_area) = slot_areas.get(offset).copied() else {
@@ -307,7 +323,7 @@ impl ObjectBrowserApp {
                 None => {}
             }
 
-            if !is_active {
+            if !is_active || self.slot_axis != SlotAxis::Horizontal {
                 continue;
             }
 
@@ -334,7 +350,7 @@ impl ObjectBrowserApp {
             }
         }
 
-        let max_visible = self.max_visible_slots(cards_area.width);
+        let max_visible = self.max_visible_slots_for_area(cards_area);
         if self.total_slot_count() > max_visible {
             let scrollbar_area = horizontal_scrollbar_overlay_area(area);
             if scrollbar_area.width > 0 && scrollbar_area.height > 0 {
@@ -346,7 +362,6 @@ impl ObjectBrowserApp {
             }
         }
     }
-
     fn draw_object_slot(&mut self, frame: &mut Frame, area: Rect, slot_id: usize, is_active: bool) {
         let Some(title) = self.slot_by_id(slot_id).map(|slot| {
             let slot_label = slot.name.as_deref().unwrap_or("unnamed");
@@ -517,6 +532,31 @@ impl ObjectBrowserApp {
         frame.render_widget(preview, preview_area);
     }
 
+    fn draw_hotkey_help_popup(&self, frame: &mut Frame) {
+        let area = centered_rect(48, 44, frame.area());
+        frame.render_widget(Clear, area);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title("Hotkeys")
+            .border_style(Style::default().fg(Color::Cyan));
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+
+        let lines = vec![
+            Line::from("Alt+/: toggle this help"),
+            Line::from("Ctrl+T: transpose slot axis"),
+            Line::from("Alt+F: focused slot fill"),
+            Line::from("Left/Right: previous/next slot"),
+            Line::from("Up/Down: previous/next row"),
+            Line::from("PageUp/PageDown: page rows"),
+            Line::from("Shift+PageUp/PageDown: page slots"),
+            Line::from("Ctrl+Arrows: scroll viewport"),
+            Line::from("Enter/Space: activate focused row"),
+            Line::from("Type: search rows in active slot"),
+            Line::from("Esc: back / close projection / exit"),
+        ];
+        frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
+    }
     fn draw_rename_slot_popup(&mut self, frame: &mut Frame) {
         let Some(rename_slot) = self.rename_slot.as_mut() else {
             return;
@@ -560,6 +600,24 @@ impl ObjectBrowserApp {
             self.should_quit = true;
             return;
         }
+        if key.modifiers.contains(KeyModifiers::ALT) && key.code == KeyCode::Char('/') {
+            self.show_hotkey_help = !self.show_hotkey_help;
+            return;
+        }
+        if key.modifiers.contains(KeyModifiers::ALT)
+            && matches!(key.code, KeyCode::Char('f') | KeyCode::Char('F'))
+        {
+            self.show_hotkey_help = false;
+            self.toggle_focused_slot_fill();
+            return;
+        }
+        if key.modifiers.contains(KeyModifiers::CONTROL)
+            && matches!(key.code, KeyCode::Char('t') | KeyCode::Char('T'))
+        {
+            self.show_hotkey_help = false;
+            self.toggle_slot_axis();
+            return;
+        }
 
         match self.mode {
             UiMode::Pool => self.handle_pool_key(*key),
@@ -581,7 +639,10 @@ impl ObjectBrowserApp {
 
         match self.pool_surface {
             PoolSurface::Breadcrumbs => match key.code {
-                KeyCode::Esc => self.handle_escape(),
+                KeyCode::Esc => {
+                    self.show_hotkey_help = false;
+                    self.handle_escape();
+                }
                 KeyCode::Left => self.move_breadcrumb_left(),
                 KeyCode::Right => self.move_breadcrumb_right(),
                 KeyCode::Home => self.active_breadcrumb_index = 0,
@@ -596,7 +657,10 @@ impl ObjectBrowserApp {
                 let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
                 let shift = key.modifiers.contains(KeyModifiers::SHIFT);
                 match (ctrl, shift, key.code) {
-                    (_, _, KeyCode::Esc) => self.handle_escape(),
+                    (_, _, KeyCode::Esc) => {
+                        self.show_hotkey_help = false;
+                        self.handle_escape();
+                    }
                     (true, _, KeyCode::Left) => self.shift_slot_view_left(1),
                     (true, _, KeyCode::Right) => self.shift_slot_view_right(1),
                     (true, _, KeyCode::Up) => self.shift_row_view_up(1),
@@ -1069,6 +1133,25 @@ impl ObjectBrowserApp {
         let visible = self.last_visible_row_count.max(1);
         let max_start = self.active_rendered_line_count().saturating_sub(visible);
         self.row_view_offset = (self.row_view_offset + amount).min(max_start);
+    }
+
+    fn toggle_slot_axis(&mut self) {
+        self.slot_axis = match self.slot_axis {
+            SlotAxis::Horizontal => SlotAxis::Vertical,
+            SlotAxis::Vertical => SlotAxis::Horizontal,
+        };
+        self.sync_selection_viewports();
+        self.status_message = format!("Slot axis: {}.", self.slot_axis.label());
+    }
+
+    fn toggle_focused_slot_fill(&mut self) {
+        self.focused_slot_fill = !self.focused_slot_fill;
+        self.sync_selection_viewports();
+        self.status_message = if self.focused_slot_fill {
+            "Focused slot fill enabled.".to_string()
+        } else {
+            "Focused slot fill disabled.".to_string()
+        };
     }
 
     fn sync_selection_viewports(&mut self) {
@@ -2375,10 +2458,24 @@ impl ObjectBrowserApp {
         usize::from((width / Self::MIN_SLOT_WIDTH).max(1))
     }
 
-    fn visible_slot_range(&mut self, width: u16) -> Range<usize> {
+    fn max_visible_slots_for_area(&self, area: Rect) -> usize {
+        if self.focused_slot_fill {
+            return 1;
+        }
+        match self.slot_axis {
+            SlotAxis::Horizontal => self.max_visible_slots(area.width),
+            SlotAxis::Vertical => usize::from((area.height / Self::MIN_SLOT_HEIGHT).max(1)),
+        }
+    }
+
+    fn visible_slot_range_for_area(&mut self, area: Rect) -> Range<usize> {
         let total = self.total_slot_count();
-        let max_visible = self.max_visible_slots(width);
+        let max_visible = self.max_visible_slots_for_area(area);
         self.last_visible_slot_count = max_visible.max(1);
+        if self.focused_slot_fill {
+            self.slot_view_offset = self.active_slot_index.min(total.saturating_sub(1));
+            return self.slot_view_offset..(self.slot_view_offset + 1).min(total);
+        }
         if total <= max_visible {
             self.slot_view_offset = 0;
             return 0..total;
@@ -3579,10 +3676,22 @@ impl ObjectBrowserApp {
                 }
                 lines
             }
-            _ => vec![selectable_plain_line(
-                self.projection_header_label(projection, value),
-                active_row == Some(0),
-            )],
+            _ => vec![
+                selectable_plain_line(
+                    self.projection_header_label(projection, value),
+                    active_row == Some(0),
+                ),
+                separator_line("value"),
+                Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled(
+                        json_value_detail(value),
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]),
+            ],
         }
     }
     fn variant_picker_preview_lines(&mut self) -> Option<Vec<Line<'static>>> {
@@ -3912,6 +4021,21 @@ enum UiMode {
 enum PoolSurface {
     Slots,
     Breadcrumbs,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SlotAxis {
+    Horizontal,
+    Vertical,
+}
+
+impl SlotAxis {
+    fn label(self) -> &'static str {
+        match self {
+            SlotAxis::Horizontal => "horizontal",
+            SlotAxis::Vertical => "vertical",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -5302,6 +5426,12 @@ fn json_type_label(value: &Value) -> String {
     }
 }
 
+fn json_value_detail(value: &Value) -> String {
+    match value {
+        Value::String(text) => format!("\"{}\"", text),
+        _ => json_value_summary(value),
+    }
+}
 fn json_value_summary(value: &Value) -> String {
     match value {
         Value::Null => "null".to_string(),
@@ -6347,6 +6477,74 @@ mod tests {
             .join("\n");
         assert!(rendered.contains("--- entries ---"), "{rendered}");
         assert!(rendered.contains("RoleAssignment"), "{rendered}");
+    }
+    #[test]
+    fn primitive_projection_cards_show_their_value() {
+        let mut app = ObjectBrowserApp::default();
+        let value = serde_json::json!({
+            "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-a"
+        });
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some("RoleAssignment".to_string()),
+            body: super::SlotBody::Unset,
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            }),
+            display_cache: None,
+        });
+
+        let lines = app.projection_slot_lines(
+            &super::ProjectionSlot {
+                root_slot_id: 1,
+                path: vec![super::JsonPathSegment::Field("id".to_string())],
+                role: super::ProjectionSlotRole::Child,
+            },
+            None,
+        );
+        let rendered = lines
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|span| span.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("RoleAssignmentId"), "{rendered}");
+        assert!(rendered.contains("--- value ---"), "{rendered}");
+        assert!(rendered.contains("assignment-a"), "{rendered}");
+    }
+
+    #[test]
+    fn global_view_hotkeys_toggle_axis_fill_and_help() {
+        let mut app = ObjectBrowserApp::default();
+
+        app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('t'),
+            KeyModifiers::CONTROL,
+        )));
+        assert_eq!(app.slot_axis, super::SlotAxis::Vertical);
+
+        app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('f'),
+            KeyModifiers::ALT,
+        )));
+        assert!(app.focused_slot_fill);
+
+        app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('/'),
+            KeyModifiers::ALT,
+        )));
+        assert!(app.show_hotkey_help);
     }
     #[test]
     fn horizontal_navigation_only_scrolls_once_selection_reaches_the_edge() {
