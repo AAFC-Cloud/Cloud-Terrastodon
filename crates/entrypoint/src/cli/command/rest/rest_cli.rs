@@ -126,8 +126,8 @@ impl RestArgs {
 mod test {
     use super::RestService;
     use cloud_terrastodon_rest::RestResponseBody;
-    use cloud_terrastodon_rest::parse_response_body;
-    use cloud_terrastodon_rest::serialize_headers;
+    use cloud_terrastodon_rest::RestResponseHeaders;
+use cloud_terrastodon_rest::parse_response_body;
     use facet_json::RawJson;
     use reqwest::Url;
     use reqwest::header::HeaderMap;
@@ -189,7 +189,7 @@ mod test {
         headers.append("x-test", HeaderValue::from_static("b"));
         headers.append("content-type", HeaderValue::from_static("application/json"));
 
-        let serialized = serialize_headers(&headers);
+        let serialized = RestResponseHeaders::from(&headers);
         assert_eq!(
             serialized.get("x-test").unwrap(),
             &vec!["a".to_string(), "b".to_string()]
