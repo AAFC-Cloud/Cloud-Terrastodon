@@ -2427,10 +2427,10 @@ impl ObjectBrowserApp {
     }
 
     fn top_level_projection_child_count(&self, slot_id: usize) -> usize {
-        match self.json_value_at_path(slot_id, &[]) {
-            Some(Value::Array(items)) => items.len(),
-            _ => 0,
-        }
+        self.projection_child_count(&JsonProjectionView {
+            root_slot_id: slot_id,
+            path: Vec::new(),
+        })
     }
 
     fn top_level_pool_index_for_slot(&self, slot_id: usize) -> Option<usize> {
@@ -3161,10 +3161,37 @@ impl ObjectBrowserApp {
     fn projection_child_count(&self, view: &JsonProjectionView) -> usize {
         match self.json_value_at_path(view.root_slot_id, &view.path) {
             Some(Value::Array(items)) => items.len(),
+            Some(Value::Object(object))
+                if self.projection_path_is_map(view.root_slot_id, &view.path) =>
+            {
+                object.len()
+            }
             _ => 0,
         }
     }
 
+    fn projection_child_path(
+        &self,
+        root_slot_id: usize,
+        parent_path: &[JsonPathSegment],
+        child_index: usize,
+    ) -> Option<Vec<JsonPathSegment>> {
+        let mut path = parent_path.to_vec();
+        match self.json_value_at_path(root_slot_id, parent_path)? {
+            Value::Array(items) => {
+                if child_index >= items.len() {
+                    return None;
+                }
+                path.push(JsonPathSegment::Index(child_index));
+            }
+            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
+                let key = object.keys().nth(child_index)?.clone();
+                path.push(JsonPathSegment::Key(key));
+            }
+            _ => return None,
+        }
+        Some(path)
+    }
     fn pool_entry_at(&self, slot_index: usize) -> Option<PoolEntry> {
         if let Some(view) = self.current_projection_view() {
             if slot_index == 0 {
@@ -3176,15 +3203,7 @@ impl ObjectBrowserApp {
             }
 
             let child_index = slot_index - 1;
-            let Value::Array(items) = self.json_value_at_path(view.root_slot_id, &view.path)?
-            else {
-                return None;
-            };
-            if child_index >= items.len() {
-                return None;
-            }
-            let mut path = view.path.clone();
-            path.push(JsonPathSegment::Index(child_index));
+            let path = self.projection_child_path(view.root_slot_id, &view.path, child_index)?;
             return Some(PoolEntry::Projection(ProjectionSlot {
                 root_slot_id: view.root_slot_id,
                 path,
@@ -3201,9 +3220,10 @@ impl ObjectBrowserApp {
 
             let child_count = self.top_level_projection_child_count(slot.id);
             if remaining < child_count {
+                let path = self.projection_child_path(slot.id, &[], remaining)?;
                 return Some(PoolEntry::Projection(ProjectionSlot {
                     root_slot_id: slot.id,
-                    path: vec![JsonPathSegment::Index(remaining)],
+                    path,
                     role: ProjectionSlotRole::Child,
                 }));
             }
@@ -3233,6 +3253,7 @@ impl ObjectBrowserApp {
                     object.get(field_name)?
                 }
                 (JsonPathSegment::Index(index), Value::Array(items)) => items.get(*index)?,
+                (JsonPathSegment::Key(key), Value::Object(object)) => object.get(key)?,
                 _ => return None,
             };
         }
@@ -3257,11 +3278,18 @@ impl ObjectBrowserApp {
                 JsonPathSegment::Index(_) => {
                     shape_name = list_element_shape_name(&shape_name)?;
                 }
+                JsonPathSegment::Key(_) => {
+                    shape_name = map_value_shape_name(&shape_name)?;
+                }
             }
         }
         Some(shape_name)
     }
 
+    fn projection_path_is_map(&self, root_slot_id: usize, path: &[JsonPathSegment]) -> bool {
+        self.projection_shape_name_at_path(root_slot_id, path)
+            .is_some_and(|shape_name| map_value_shape_name(&shape_name).is_some())
+    }
     fn projected_field_shape_name(
         &self,
         parent_shape_name: &str,
@@ -3286,6 +3314,16 @@ impl ObjectBrowserApp {
             .unwrap_or_else(|| json_type_label(field_value))
     }
 
+    fn projection_map_entry_type_label(
+        &self,
+        root_slot_id: usize,
+        path: &[JsonPathSegment],
+        entry_value: &Value,
+    ) -> String {
+        self.projection_shape_name_at_path(root_slot_id, path)
+            .and_then(|shape_name| map_value_shape_name(&shape_name))
+            .unwrap_or_else(|| json_type_label(entry_value))
+    }
     fn projection_header_label(&self, projection: &ProjectionSlot, value: &Value) -> String {
         self.projection_shape_name_at_path(projection.root_slot_id, &projection.path)
             .unwrap_or_else(|| json_value_summary(value))
@@ -3339,6 +3377,36 @@ impl ObjectBrowserApp {
                 } else {
                     self.status_message =
                         self.projection_header_label(projection, value).to_string();
+                }
+                return;
+            }
+
+            if self.projection_path_is_map(projection.root_slot_id, &projection.path) {
+                let entry_offset = row_index - 1;
+                let entry_index = entry_offset / 2;
+                let is_value_row = entry_offset % 2 == 1;
+                let Some((entry_key, entry_value)) = object
+                    .iter()
+                    .nth(entry_index)
+                    .map(|(entry_key, entry_value)| (entry_key.clone(), entry_value.clone()))
+                else {
+                    return;
+                };
+
+                if is_value_row {
+                    let mut path = projection.path.clone();
+                    path.push(JsonPathSegment::Key(entry_key));
+                    self.activate_json_projection(projection.root_slot_id, path);
+                } else {
+                    self.status_message = format!(
+                        "{}[{entry_key}] has type {}.",
+                        projection_label(projection.root_slot_id, &projection.path),
+                        self.projection_map_entry_type_label(
+                            projection.root_slot_id,
+                            &projection.path,
+                            &entry_value,
+                        )
+                    );
                 }
                 return;
             }
@@ -3430,17 +3498,31 @@ impl ObjectBrowserApp {
                     self.projection_header_label(projection, value),
                     active_row == Some(0),
                 )];
+                let object_is_map =
+                    self.projection_path_is_map(projection.root_slot_id, &projection.path);
                 if !object.is_empty() {
-                    lines.push(separator_line("fields"));
+                    lines.push(separator_line(if object_is_map {
+                        "entries"
+                    } else {
+                        "fields"
+                    }));
                 }
                 for (index, (field_name, field_value)) in object.iter().enumerate() {
                     let accent = field_group_color(index);
-                    let field_type_label = self.projection_field_type_label(
-                        projection.root_slot_id,
-                        &projection.path,
-                        field_name,
-                        field_value,
-                    );
+                    let field_type_label = if object_is_map {
+                        self.projection_map_entry_type_label(
+                            projection.root_slot_id,
+                            &projection.path,
+                            field_value,
+                        )
+                    } else {
+                        self.projection_field_type_label(
+                            projection.root_slot_id,
+                            &projection.path,
+                            field_name,
+                            field_value,
+                        )
+                    };
                     lines.push(selectable_spans_line(
                         vec![
                             Span::styled(
@@ -3812,6 +3894,7 @@ struct JsonProjectionView {
 enum JsonPathSegment {
     Field(String),
     Index(usize),
+    Key(String),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -5136,6 +5219,11 @@ fn projection_label(root_slot_id: usize, path: &[JsonPathSegment]) -> String {
                 label.push_str(&index.to_string());
                 label.push(']');
             }
+            JsonPathSegment::Key(key) => {
+                label.push('[');
+                label.push_str(key);
+                label.push(']');
+            }
         }
     }
     label
@@ -5148,6 +5236,31 @@ fn list_element_shape_name(shape_name: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+fn map_value_shape_name(shape_name: &str) -> Option<String> {
+    let inner = shape_name
+        .strip_prefix("HashMap<")
+        .and_then(|rest| rest.strip_suffix('>'))?;
+    split_top_level_generic_args(inner).and_then(|args| args.get(1).cloned())
+}
+
+fn split_top_level_generic_args(input: &str) -> Option<Vec<String>> {
+    let mut args = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    for (index, character) in input.char_indices() {
+        match character {
+            '<' => depth = depth.saturating_add(1),
+            '>' => depth = depth.checked_sub(1)?,
+            ',' if depth == 0 => {
+                args.push(input[start..index].trim().to_string());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    args.push(input[start..].trim().to_string());
+    Some(args)
+}
 fn json_type_label(value: &Value) -> String {
     match value {
         Value::Null => "null".to_string(),
@@ -6107,6 +6220,98 @@ mod tests {
         );
     }
 
+    #[test]
+    fn resolved_hashmap_fields_expand_into_entry_projection_cards() {
+        let mut app = ObjectBrowserApp::default();
+        let shape_name = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "RoleDefinitionsAndAssignments")
+            .map(|shape| shape.label.clone())
+            .expect("RoleDefinitionsAndAssignments should be registered");
+        let value = serde_json::json!({
+            "role_assignments": {
+                "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-a": {
+                    "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-a",
+                    "principal_id": "principal-a",
+                    "role_definition_id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleDefinitions/definition-a",
+                    "scope": "/subscriptions/sub-1"
+                }
+            },
+            "role_definitions": {
+                "/subscriptions/sub-1/providers/Microsoft.Authorization/roleDefinitions/definition-a": {
+                    "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleDefinitions/definition-a",
+                    "name": "Reader"
+                }
+            }
+        });
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some(shape_name),
+            body: super::SlotBody::Unset,
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            }),
+            display_cache: None,
+        });
+
+        app.activate_runtime_value(1);
+        assert_eq!(app.projection_stack.len(), 1);
+        assert_eq!(app.total_slot_count(), 1);
+
+        let root_projection = super::ProjectionSlot {
+            root_slot_id: 1,
+            path: Vec::new(),
+            role: super::ProjectionSlotRole::ContainerRoot,
+        };
+        app.activate_projection_slot_row(&root_projection, 2);
+
+        let map_view = app
+            .projection_stack
+            .last()
+            .expect("role_assignments projection should open");
+        assert_eq!(
+            app.projection_shape_name_at_path(map_view.root_slot_id, &map_view.path)
+                .as_deref(),
+            Some("HashMap<RoleAssignmentId, RoleAssignment>")
+        );
+        assert_eq!(app.total_slot_count(), 2);
+        assert!(matches!(
+            app.pool_entry_at(1),
+            Some(super::PoolEntry::Projection(super::ProjectionSlot {
+                path,
+                role: super::ProjectionSlotRole::Child,
+                ..
+            })) if matches!(path.last(), Some(super::JsonPathSegment::Key(key)) if key.contains("assignment-a"))
+        ));
+
+        let lines = app.projection_slot_lines(
+            &super::ProjectionSlot {
+                root_slot_id: map_view.root_slot_id,
+                path: map_view.path.clone(),
+                role: super::ProjectionSlotRole::ContainerRoot,
+            },
+            None,
+        );
+        let rendered = lines
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|span| span.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(rendered.contains("--- entries ---"), "{rendered}");
+        assert!(rendered.contains("RoleAssignment"), "{rendered}");
+    }
     #[test]
     fn horizontal_navigation_only_scrolls_once_selection_reaches_the_edge() {
         let mut app = ObjectBrowserApp::default();
