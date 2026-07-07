@@ -124,8 +124,7 @@ mod test {
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
-        let x =
-            facet_json::from_str::<super::LastAccessedDate>(r#""0001-01-01T00:00:00+00:00""#)?;
+        let x = facet_json::from_str::<super::LastAccessedDate>(r#""0001-01-01T00:00:00+00:00""#)?;
         assert_eq!(
             x,
             azure_devops_user_license_entitlement::LastAccessedDate::Never
@@ -135,8 +134,7 @@ mod test {
 
     #[test]
     pub fn it_works2() -> eyre::Result<()> {
-        let x =
-            facet_json::from_str::<super::LastAccessedDate>(r#""2023-10-05T12:34:56+00:00""#)?;
+        let x = facet_json::from_str::<super::LastAccessedDate>(r#""2023-10-05T12:34:56+00:00""#)?;
         assert_eq!(
             x,
             azure_devops_user_license_entitlement::LastAccessedDate::Some(

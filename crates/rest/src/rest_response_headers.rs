@@ -1,11 +1,9 @@
-use std::{
-    collections::BTreeMap,
-    ops::{Deref, DerefMut},
-    time::Duration,
-};
-
 use arbitrary::Arbitrary;
 use http::HeaderMap;
+use std::collections::BTreeMap;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::time::Duration;
 
 #[derive(Debug, PartialEq, facet::Facet, Default, Clone, Arbitrary)]
 #[facet(transparent)]
@@ -34,7 +32,7 @@ impl RestResponseHeaders {
             }
         })
     }
-    
+
     pub fn resource_graph_quota_remaining(&self) -> Option<u64> {
         self.header("x-ms-user-quota-remaining")
             .and_then(|value| value.parse::<u64>().ok())
@@ -115,9 +113,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use http::{HeaderMap, HeaderValue};
-
-    use crate::{RestResponseBody, RestResponseHeaders, SerializableRestResponse};
+    use crate::RestResponseBody;
+    use crate::RestResponseHeaders;
+    use crate::SerializableRestResponse;
+    use http::HeaderMap;
+    use http::HeaderValue;
 
     #[test]
     fn looks_up_headers_case_insensitively() {

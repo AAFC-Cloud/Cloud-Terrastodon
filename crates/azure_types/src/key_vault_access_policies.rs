@@ -1,10 +1,9 @@
-use arbitrary::Arbitrary;
-
 use crate::KeyVaultAccessPolicyCertificatePrivilege;
 use crate::KeyVaultAccessPolicyKeyPrivilege;
 use crate::KeyVaultAccessPolicySecretPrivilege;
 use crate::PrincipalId;
 use crate::tenant_id::AzureTenantId;
+use arbitrary::Arbitrary;
 
 #[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]

@@ -41,7 +41,6 @@ pub enum PimEntraRoleSettingsRule {
     AttributeConditionRule(ArbitraryJson),
 }
 
-
 #[derive(Debug, PartialEq, Eq, facet::Facet, Arbitrary)]
 pub struct PimEntraRoleSettingsRuleProxy {
     #[facet(rename = "ruleIdentifier")]

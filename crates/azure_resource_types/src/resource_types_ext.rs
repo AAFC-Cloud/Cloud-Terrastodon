@@ -25,9 +25,8 @@ impl From<&ResourceType> for String {
     }
 }
 
-impl TryFrom<String> for ResourceType {
-    type Error = <ResourceType as std::str::FromStr>::Err;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
+impl From<String> for ResourceType {
+    fn from(value: String) -> Self {
+        value.parse().expect("ResourceType::from_str is infallible")
     }
 }

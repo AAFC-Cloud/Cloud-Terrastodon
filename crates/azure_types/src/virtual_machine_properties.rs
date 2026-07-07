@@ -1,4 +1,5 @@
-use crate::{ArbitraryJson, iso8601_duration::IsoDuration};
+use crate::ArbitraryJson;
+use crate::iso8601_duration::IsoDuration;
 use arbitrary::Arbitrary;
 use uuid::Uuid;
 

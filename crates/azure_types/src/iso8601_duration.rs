@@ -1,8 +1,9 @@
 // TODO: fork iso8601_duration crate to support Facet and Arbitrary features, replace `nom` dependency with manual parsing or `winnow`
 
-use std::{ops::Deref, str::FromStr};
 use arbitrary::Arbitrary;
 use facet::Facet;
+use std::ops::Deref;
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Clone, Facet)]
 #[facet(default, opaque, proxy = IsoDurationProxy)]
@@ -36,7 +37,9 @@ impl Arbitrary<'_> for IsoDuration {
         // Parse; fall back to zero seconds on any parse error
         match iso8601_duration::Duration::parse(&s) {
             Ok(d) => Ok(IsoDuration(d)),
-            Err(_) => Ok(IsoDuration(iso8601_duration::Duration::parse("PT0S").unwrap())),
+            Err(_) => Ok(IsoDuration(
+                iso8601_duration::Duration::parse("PT0S").unwrap(),
+            )),
         }
     }
 }
@@ -50,7 +53,9 @@ impl From<std::time::Duration> for IsoDuration {
         let hours = (total_hours % 24) as f32;
         let days = (total_hours / 24) as f32;
 
-        IsoDuration(iso8601_duration::Duration::new(0.0, 0.0, days, hours, minutes, seconds))
+        IsoDuration(iso8601_duration::Duration::new(
+            0.0, 0.0, days, hours, minutes, seconds,
+        ))
     }
 }
 impl FromStr for IsoDuration {

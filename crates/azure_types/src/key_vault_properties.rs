@@ -36,10 +36,10 @@ pub struct KeyVaultSku {
 #[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct NetworkAcls {
-    pub virtual_network_rules: ArbitraryJson,// TODO: Vec<VirtualNetworkRule>
-    pub ip_rules: ArbitraryJson,// TODO: Vec<IpRule>
-    pub default_action: ArbitraryJson,// TODO: enum DefaultAction (Allow / Deny)
-    pub bypass: ArbitraryJson,// TODO: enum Bypass (AzureServices / None)
+    pub virtual_network_rules: ArbitraryJson, // TODO: Vec<VirtualNetworkRule>
+    pub ip_rules: ArbitraryJson,              // TODO: Vec<IpRule>
+    pub default_action: ArbitraryJson,        // TODO: enum DefaultAction (Allow / Deny)
+    pub bypass: ArbitraryJson,                // TODO: enum Bypass (AzureServices / None)
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Arbitrary, facet::Facet)]

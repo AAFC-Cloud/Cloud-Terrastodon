@@ -127,7 +127,7 @@ mod test {
     use super::RestService;
     use cloud_terrastodon_rest::RestResponseBody;
     use cloud_terrastodon_rest::RestResponseHeaders;
-use cloud_terrastodon_rest::parse_response_body;
+    use cloud_terrastodon_rest::parse_response_body;
     use facet_json::RawJson;
     use reqwest::Url;
     use reqwest::header::HeaderMap;

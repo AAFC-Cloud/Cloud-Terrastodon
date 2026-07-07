@@ -165,7 +165,9 @@ mod test {
 
         assert_eq!(
             authorization,
-            AzureDevOpsServiceEndpointAuthorization::Other(RawJson::from_owned(json.to_string()).into())
+            AzureDevOpsServiceEndpointAuthorization::Other(
+                RawJson::from_owned(json.to_string()).into()
+            )
         );
         Ok(())
     }
@@ -178,7 +180,9 @@ mod test {
 
         assert_eq!(
             authorization,
-            AzureDevOpsServiceEndpointAuthorization::Other(RawJson::from_owned(json.to_string()).into())
+            AzureDevOpsServiceEndpointAuthorization::Other(
+                RawJson::from_owned(json.to_string()).into()
+            )
         );
         Ok(())
     }
