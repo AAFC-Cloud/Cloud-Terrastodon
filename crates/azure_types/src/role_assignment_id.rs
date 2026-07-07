@@ -302,6 +302,56 @@ mod tests {
     }
 
     #[test]
+    fn hashmap_keys_use_string_proxy_serialization() -> Result<()> {
+        use std::collections::HashMap;
+
+        let first = RoleAssignmentId::Unscoped(UnscopedRoleAssignmentId {
+            role_assignment_name: RoleAssignmentName::new(uuid::uuid!(
+                "00000000-0000-0000-0000-000000000001"
+            )),
+        });
+        let second = RoleAssignmentId::Unscoped(UnscopedRoleAssignmentId {
+            role_assignment_name: RoleAssignmentName::new(uuid::uuid!(
+                "00000000-0000-0000-0000-000000000002"
+            )),
+        });
+        assert_ne!(first.expanded_form(), second.expanded_form());
+        assert_eq!(
+            facet_json::to_string(&first)?,
+            facet_json::to_string(&first.expanded_form())?
+        );
+
+        let mut lookup = HashMap::new();
+        lookup.insert(first.clone(), "first");
+        lookup.insert(second.clone(), "second");
+        assert_eq!(lookup.len(), 2);
+
+        let standalone_json = facet_json::to_string(&first)?;
+        let json = facet_json::to_string(&lookup)?;
+        let pretty_json = facet_json::to_string_pretty(&lookup)?;
+        println!("standalone RoleAssignmentId JSON:\n{standalone_json}");
+        println!("HashMap<RoleAssignmentId, &str> JSON:\n{pretty_json}");
+
+        let first_key_json = facet_json::to_string(&first.expanded_form())?;
+        let second_key_json = facet_json::to_string(&second.expanded_form())?;
+        assert!(
+            json.contains(&first_key_json),
+            "map-key JSON should use the first expanded id as an object key: {json}"
+        );
+        assert!(
+            json.contains(&second_key_json),
+            "map-key JSON should use the second expanded id as an object key: {json}"
+        );
+        assert_eq!(
+            json.matches("\"⟨RoleAssignmentId⟩\"").count(),
+            0,
+            "map-key JSON should not use the facet placeholder as a map key: {json}"
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn parses_service_group_scope() -> Result<()> {
         let service_group_id =
             ServiceGroupId::from_name(ServiceGroupName::try_new("MyServiceGroup")?);

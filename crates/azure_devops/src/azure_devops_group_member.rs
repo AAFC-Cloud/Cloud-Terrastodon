@@ -8,30 +8,11 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
 use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
-use eyre::Context;
 use facet_json::RawJson;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::str::FromStr;
-
-// https://github.com/facet-rs/facet/issues/2341
-fn parse_group_members_by_descriptor(
-    members_by_descriptor: HashMap<String, AzureDevOpsGroupMember>,
-) -> eyre::Result<HashMap<AzureDevOpsDescriptor, AzureDevOpsGroupMember>> {
-    members_by_descriptor
-        .into_iter()
-        .map(|(descriptor, member)| {
-            Ok((
-                AzureDevOpsDescriptor::from_str(&descriptor).wrap_err_with(|| {
-                    format!("parsing Azure DevOps descriptor map key {descriptor:?}")
-                })?,
-                member,
-            ))
-        })
-        .collect()
-}
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsGroupMembersListRequest<'a> {
@@ -94,7 +75,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             "json",
         ]);
         cmd.cache(self.cache_key());
-        cmd.run_with_mapper(parse_group_members_by_descriptor).await
+        cmd.run().await
     }
 }
 
@@ -210,7 +191,7 @@ mod test {
     use std::str::FromStr;
 
     #[test]
-    pub fn parses_group_members_with_descriptor_map_keys() -> eyre::Result<()> {
+    pub fn parses_group_members_with_typed_descriptor_map_keys() -> eyre::Result<()> {
         let json = r#"{
             "aad.user": {
                 "description": null,
@@ -227,11 +208,10 @@ mod test {
             }
         }"#;
 
-        let members_by_descriptor =
-            facet_json::from_str::<HashMap<String, AzureDevOpsGroupMember>>(json)?;
-        let members = super::parse_group_members_by_descriptor(members_by_descriptor)?;
+        let members =
+            facet_json::from_str::<HashMap<AzureDevOpsDescriptor, AzureDevOpsGroupMember>>(json)?;
 
-        let descriptor = AzureDevOpsDescriptor::from_str("aad.user")?;
+        let descriptor: AzureDevOpsDescriptor = "aad.user".parse()?;
         let member = members
             .get(&descriptor)
             .ok_or_else(|| eyre::eyre!("missing parsed descriptor key"))?;
