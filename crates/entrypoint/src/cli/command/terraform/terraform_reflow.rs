@@ -15,7 +15,7 @@ use tracing::info;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct TerraformReflowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
+    #[facet(figue::named, default = AzureTenantArgument::Default)]
     pub tenant: AzureTenantArgument<'static>,
 
     /// Run full reflow, including principal lookup and principal id comment insertion
