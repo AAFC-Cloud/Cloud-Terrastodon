@@ -55,7 +55,9 @@ use ratatui::widgets::Widget;
 use ratatui::widgets::Wrap;
 use serde_json::Map;
 use serde_json::Value;
+use std::cell::RefCell;
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::ops::Range;
 use std::time::Duration;
 use std::time::Instant;
@@ -93,6 +95,7 @@ struct ObjectBrowserApp {
     slot_height: u16,
     shape_choices: Vec<KnownShapeInfo>,
     object_slots: Vec<ObjectSlot>,
+    projection_cache: RefCell<ProjectionCache>,
     active_slot_index: usize,
     active_row_index: usize,
     slot_view_offset: usize,
@@ -129,6 +132,7 @@ impl Default for ObjectBrowserApp {
             slot_height: Self::MIN_SLOT_HEIGHT,
             shape_choices,
             object_slots: Vec::new(),
+            projection_cache: RefCell::new(ProjectionCache::default()),
             active_slot_index: 0,
             active_row_index: 0,
             slot_view_offset: 0,
@@ -1326,7 +1330,7 @@ impl ObjectBrowserApp {
     fn projection_rendered_line_count(&self, projection: &ProjectionSlot) -> usize {
         match self.projection_value(projection) {
             Some(Value::Object(object)) if !object.is_empty() => 2 + object.len() * 2,
-            Some(_) => 1,
+            Some(_) => 3,
             None => 1,
         }
     }
@@ -2906,6 +2910,7 @@ impl ObjectBrowserApp {
         for slot in &mut self.object_slots {
             slot.display_cache = None;
         }
+        self.projection_cache.borrow_mut().clear();
     }
     fn slot_focus_targets(&self, slot_id: usize) -> Vec<SlotFocusTarget> {
         let mut targets = Vec::new();
@@ -3334,8 +3339,7 @@ impl ObjectBrowserApp {
     }
 
     fn projection_child_count(&self, view: &JsonProjectionView) -> usize {
-        self.projection_descendant_paths(view.root_slot_id, &view.path)
-            .len()
+        self.projection_descendant_count(view.root_slot_id, &view.path)
     }
 
     fn projection_child_path(
@@ -3344,57 +3348,154 @@ impl ObjectBrowserApp {
         parent_path: &[JsonPathSegment],
         child_index: usize,
     ) -> Option<Vec<JsonPathSegment>> {
-        self.projection_descendant_paths(root_slot_id, parent_path)
-            .get(child_index)
-            .cloned()
+        self.projection_descendant_path_at(root_slot_id, parent_path, child_index)
     }
 
+    #[cfg(test)]
     fn projection_descendant_paths(
         &self,
         root_slot_id: usize,
         parent_path: &[JsonPathSegment],
     ) -> Vec<Vec<JsonPathSegment>> {
-        let mut paths = Vec::new();
-        self.collect_projection_descendant_paths(root_slot_id, parent_path, &mut paths);
+        let descendant_count = self.projection_descendant_count(root_slot_id, parent_path);
+        let mut paths = Vec::with_capacity(descendant_count);
+        for child_index in 0..descendant_count {
+            let Some(path) =
+                self.projection_descendant_path_at(root_slot_id, parent_path, child_index)
+            else {
+                break;
+            };
+            paths.push(path);
+        }
         paths
     }
 
-    fn collect_projection_descendant_paths(
+    fn projection_descendant_count(
         &self,
         root_slot_id: usize,
         parent_path: &[JsonPathSegment],
-        paths: &mut Vec<Vec<JsonPathSegment>>,
-    ) {
+    ) -> usize {
+        let cache_key = ProjectionCacheKey::new(root_slot_id, parent_path);
+        if let Some(cached_count) = self
+            .projection_cache
+            .borrow()
+            .descendant_counts
+            .get(&cache_key)
+            .copied()
+        {
+            return cached_count;
+        }
+
         let Some(value) = self.json_value_at_path(root_slot_id, parent_path) else {
-            return;
+            return 0;
         };
+
+        let descendant_count = match value {
+            Value::Array(items) => {
+                let mut descendant_count = 0;
+                for index in 0..items.len() {
+                    let path =
+                        append_json_path_segment(parent_path, JsonPathSegment::Index(index));
+                    descendant_count += 1 + self.projection_descendant_count(root_slot_id, &path);
+                }
+                descendant_count
+            }
+            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
+                let mut descendant_count = 0;
+                for key in object.keys() {
+                    let path =
+                        append_json_path_segment(parent_path, JsonPathSegment::Key(key.clone()));
+                    descendant_count += 1 + self.projection_descendant_count(root_slot_id, &path);
+                }
+                descendant_count
+            }
+            Value::Object(object) => {
+                let mut descendant_count = 0;
+                for field_name in object.keys() {
+                    let path = append_json_path_segment(
+                        parent_path,
+                        JsonPathSegment::Field(field_name.clone()),
+                    );
+                    descendant_count += 1 + self.projection_descendant_count(root_slot_id, &path);
+                }
+                descendant_count
+            }
+            _ => 0,
+        };
+
+        self.projection_cache
+            .borrow_mut()
+            .descendant_counts
+            .insert(cache_key, descendant_count);
+        descendant_count
+    }
+
+    fn projection_descendant_path_at(
+        &self,
+        root_slot_id: usize,
+        parent_path: &[JsonPathSegment],
+        child_index: usize,
+    ) -> Option<Vec<JsonPathSegment>> {
+        let value = self.json_value_at_path(root_slot_id, parent_path)?;
 
         match value {
             Value::Array(items) => {
+                let mut remaining = child_index;
                 for index in 0..items.len() {
-                    let mut path = parent_path.to_vec();
-                    path.push(JsonPathSegment::Index(index));
-                    paths.push(path.clone());
-                    self.collect_projection_descendant_paths(root_slot_id, &path, paths);
+                    let path =
+                        append_json_path_segment(parent_path, JsonPathSegment::Index(index));
+                    if remaining == 0 {
+                        return Some(path);
+                    }
+                    remaining -= 1;
+
+                    let descendant_count = self.projection_descendant_count(root_slot_id, &path);
+                    if remaining < descendant_count {
+                        return self.projection_descendant_path_at(root_slot_id, &path, remaining);
+                    }
+                    remaining = remaining.saturating_sub(descendant_count);
                 }
+                None
             }
             Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
+                let mut remaining = child_index;
                 for key in object.keys() {
-                    let mut path = parent_path.to_vec();
-                    path.push(JsonPathSegment::Key(key.clone()));
-                    paths.push(path.clone());
-                    self.collect_projection_descendant_paths(root_slot_id, &path, paths);
+                    let path =
+                        append_json_path_segment(parent_path, JsonPathSegment::Key(key.clone()));
+                    if remaining == 0 {
+                        return Some(path);
+                    }
+                    remaining -= 1;
+
+                    let descendant_count = self.projection_descendant_count(root_slot_id, &path);
+                    if remaining < descendant_count {
+                        return self.projection_descendant_path_at(root_slot_id, &path, remaining);
+                    }
+                    remaining = remaining.saturating_sub(descendant_count);
                 }
+                None
             }
             Value::Object(object) => {
+                let mut remaining = child_index;
                 for field_name in object.keys() {
-                    let mut path = parent_path.to_vec();
-                    path.push(JsonPathSegment::Field(field_name.clone()));
-                    paths.push(path.clone());
-                    self.collect_projection_descendant_paths(root_slot_id, &path, paths);
+                    let path = append_json_path_segment(
+                        parent_path,
+                        JsonPathSegment::Field(field_name.clone()),
+                    );
+                    if remaining == 0 {
+                        return Some(path);
+                    }
+                    remaining -= 1;
+
+                    let descendant_count = self.projection_descendant_count(root_slot_id, &path);
+                    if remaining < descendant_count {
+                        return self.projection_descendant_path_at(root_slot_id, &path, remaining);
+                    }
+                    remaining = remaining.saturating_sub(descendant_count);
                 }
+                None
             }
-            _ => {}
+            _ => None,
         }
     }
     fn pool_entry_at(&self, slot_index: usize) -> Option<PoolEntry> {
@@ -3672,26 +3773,47 @@ impl ObjectBrowserApp {
             self.ensure_active_row_visible();
         }
         let scroll_offset = if is_active { self.row_view_offset } else { 0 };
-        let lines =
-            self.projection_slot_lines(projection, is_active.then_some(self.active_row_index));
-        let paragraph = Paragraph::new(lines.clone())
-            .block(block)
-            .scroll((scroll_offset.min(u16::MAX as usize) as u16, 0));
+        let rendered_line_count = self.projection_rendered_line_count(projection);
+        let visible_line_count = usize::from(inner.height).max(1);
+        let lines = self.projection_slot_lines_window(
+            projection,
+            is_active.then_some(self.active_row_index),
+            scroll_offset..scroll_offset.saturating_add(visible_line_count),
+        );
+        let paragraph = Paragraph::new(lines.clone()).block(block);
         frame.render_widget(paragraph, area);
 
-        if is_active && usize::from(inner.height) > 0 && lines.len() > usize::from(inner.height) {
+        if is_active
+            && usize::from(inner.height) > 0
+            && rendered_line_count > usize::from(inner.height)
+        {
             let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-            let mut scrollbar_state = ScrollbarState::new(lines.len())
+            let mut scrollbar_state = ScrollbarState::new(rendered_line_count)
                 .position(scroll_offset)
                 .viewport_content_length(usize::from(inner.height));
             frame.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
         }
     }
 
+    #[cfg(test)]
     fn projection_slot_lines(
         &self,
         projection: &ProjectionSlot,
         active_row: Option<usize>,
+    ) -> Vec<Line<'static>> {
+        let rendered_line_count = self.projection_rendered_line_count(projection);
+        self.projection_slot_lines_window(
+            projection,
+            active_row,
+            0..rendered_line_count.max(1),
+        )
+    }
+
+    fn projection_slot_lines_window(
+        &self,
+        projection: &ProjectionSlot,
+        active_row: Option<usize>,
+        line_range: Range<usize>,
     ) -> Vec<Line<'static>> {
         let Some(value) = self.projection_value(projection) else {
             return vec![Line::from("  unavailable")];
@@ -3699,20 +3821,49 @@ impl ObjectBrowserApp {
 
         match value {
             Value::Object(object) => {
-                let mut lines = vec![selectable_plain_line(
-                    self.projection_header_label(projection, value),
-                    active_row == Some(0),
-                )];
                 let object_is_map =
                     self.projection_path_is_map(projection.root_slot_id, &projection.path);
-                if !object.is_empty() {
+                let total_line_count = if object.is_empty() {
+                    1
+                } else {
+                    2 + object.len() * 2
+                };
+                let line_start = line_range.start.min(total_line_count);
+                let line_end = line_range.end.min(total_line_count);
+                if line_start >= line_end {
+                    return Vec::new();
+                }
+
+                let mut lines = Vec::with_capacity(line_end.saturating_sub(line_start));
+                if line_start == 0 {
+                    lines.push(selectable_plain_line(
+                        self.projection_header_label(projection, value),
+                        active_row == Some(0),
+                    ));
+                }
+
+                if !object.is_empty() && line_start <= 1 && line_end > 1 {
                     lines.push(separator_line(if object_is_map {
                         "entries"
                     } else {
                         "fields"
                     }));
                 }
-                for (index, (field_name, field_value)) in object.iter().enumerate() {
+
+                if object.is_empty() || line_end <= 2 {
+                    return lines;
+                }
+
+                let entry_line_start = line_start.max(2);
+                let first_entry_index = (entry_line_start - 2) / 2;
+                let last_entry_index = (line_end - 2).div_ceil(2).min(object.len());
+
+                for (index, (field_name, field_value)) in object
+                    .iter()
+                    .enumerate()
+                    .skip(first_entry_index)
+                    .take(last_entry_index.saturating_sub(first_entry_index))
+                {
                     let accent = field_group_color(index);
                     let field_type_label = if object_is_map {
                         self.projection_map_entry_type_label(
@@ -3728,48 +3879,74 @@ impl ObjectBrowserApp {
                             field_value,
                         )
                     };
-                    lines.push(selectable_spans_line(
-                        vec![
-                            Span::styled(
-                                "type ",
-                                Style::default().fg(accent).add_modifier(Modifier::DIM),
-                            ),
-                            Span::styled(
-                                field_type_label,
-                                Style::default().fg(accent).add_modifier(Modifier::DIM),
-                            ),
-                        ],
-                        active_row == Some(1 + index * 2),
-                    ));
-                    lines.push(selectable_spans_line(
-                        vec![
-                            Span::styled(format!("{}: ", field_name), Style::default().fg(accent)),
-                            Span::styled(
-                                json_value_summary(field_value),
-                                Style::default().fg(accent).add_modifier(Modifier::BOLD),
-                            ),
-                        ],
-                        active_row == Some(2 + index * 2),
-                    ));
+
+                    let type_line_index = 1 + index * 2;
+                    if line_start <= type_line_index && line_end > type_line_index {
+                        lines.push(selectable_spans_line(
+                            vec![
+                                Span::styled(
+                                    "type ",
+                                    Style::default().fg(accent).add_modifier(Modifier::DIM),
+                                ),
+                                Span::styled(
+                                    field_type_label,
+                                    Style::default().fg(accent).add_modifier(Modifier::DIM),
+                                ),
+                            ],
+                            active_row == Some(type_line_index),
+                        ));
+                    }
+
+                    let value_line_index = 2 + index * 2;
+                    if line_start <= value_line_index && line_end > value_line_index {
+                        lines.push(selectable_spans_line(
+                            vec![
+                                Span::styled(
+                                    format!("{}: ", field_name),
+                                    Style::default().fg(accent),
+                                ),
+                                Span::styled(
+                                    json_value_summary(field_value),
+                                    Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                                ),
+                            ],
+                            active_row == Some(value_line_index),
+                        ));
+                    }
                 }
                 lines
             }
-            _ => vec![
-                selectable_plain_line(
-                    self.projection_header_label(projection, value),
-                    active_row == Some(0),
-                ),
-                separator_line("value"),
-                Line::from(vec![
-                    Span::raw("  "),
-                    Span::styled(
-                        json_value_detail(value),
-                        Style::default()
-                            .fg(Color::Green)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                ]),
-            ],
+            _ => {
+                let total_line_count = 3;
+                let line_start = line_range.start.min(total_line_count);
+                let line_end = line_range.end.min(total_line_count);
+                if line_start >= line_end {
+                    return Vec::new();
+                }
+
+                let mut lines = Vec::with_capacity(line_end.saturating_sub(line_start));
+                if line_start == 0 {
+                    lines.push(selectable_plain_line(
+                        self.projection_header_label(projection, value),
+                        active_row == Some(0),
+                    ));
+                }
+                if line_start <= 1 && line_end > 1 {
+                    lines.push(separator_line("value"));
+                }
+                if line_start <= 2 && line_end > 2 {
+                    lines.push(Line::from(vec![
+                        Span::raw("  "),
+                        Span::styled(
+                            json_value_detail(value),
+                            Style::default()
+                                .fg(Color::Green)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ]));
+                }
+                lines
+            }
         }
     }
     fn variant_picker_preview_lines(&mut self) -> Option<Vec<Line<'static>>> {
@@ -4122,11 +4299,37 @@ struct JsonProjectionView {
     path: Vec<JsonPathSegment>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 enum JsonPathSegment {
     Field(String),
     Index(usize),
     Key(String),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct ProjectionCacheKey {
+    root_slot_id: usize,
+    path: Vec<JsonPathSegment>,
+}
+
+impl ProjectionCacheKey {
+    fn new(root_slot_id: usize, path: &[JsonPathSegment]) -> Self {
+        Self {
+            root_slot_id,
+            path: path.to_vec(),
+        }
+    }
+}
+
+#[derive(Default)]
+struct ProjectionCache {
+    descendant_counts: HashMap<ProjectionCacheKey, usize>,
+}
+
+impl ProjectionCache {
+    fn clear(&mut self) {
+        self.descendant_counts.clear();
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -5451,6 +5654,15 @@ fn resize_dimension(current: u16, minimum: u16, step: u16, direction: isize) -> 
         current.saturating_add(step).max(minimum)
     }
 }
+fn append_json_path_segment(
+    parent_path: &[JsonPathSegment],
+    segment: JsonPathSegment,
+) -> Vec<JsonPathSegment> {
+    let mut path = parent_path.to_vec();
+    path.push(segment);
+    path
+}
+
 fn projection_label(root_slot_id: usize, path: &[JsonPathSegment]) -> String {
     let mut label = format!("slot {}", root_slot_id);
     for segment in path {
