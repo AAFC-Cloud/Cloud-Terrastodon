@@ -70,7 +70,7 @@ mod tests {
         };
 
         let generated_enum = quote! {
-            #[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+            #[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, arbitrary::Arbitrary)]
             #[facet(proxy = String)]
             #[repr(C)]
             #[allow(non_camel_case_types)]
@@ -124,27 +124,11 @@ mod tests {
                 }
             }
         };
-        let impl_facet_string_proxy = quote! {
-            impl From<&ResourceType> for String {
-                fn from(value: &ResourceType) -> Self {
-                    value.as_ref().to_string()
-                }
-            }
-
-            impl TryFrom<String> for ResourceType {
-                type Error = <ResourceType as std::str::FromStr>::Err;
-
-                fn try_from(value: String) -> Result<Self, Self::Error> {
-                    value.parse()
-                }
-            }
-        };
 
         let all_together = quote! {
             #generated_enum
             #impl_fromstr
             #impl_asrefstr
-            #impl_facet_string_proxy
         };
 
         // Format the generated code using prettyplease

@@ -21,6 +21,7 @@ use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::slug::HasSlug;
+use arbitrary::Arbitrary;
 use eyre::Result;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -28,7 +29,7 @@ use uuid::Uuid;
 pub const ROLE_ELIGIBILITY_SCHEDULE_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/roleEligibilitySchedules/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, Arbitrary)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum RoleEligibilityScheduleId {

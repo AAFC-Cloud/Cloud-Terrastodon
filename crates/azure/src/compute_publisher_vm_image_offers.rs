@@ -8,6 +8,7 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputePublisherImageOfferListRequest {
     pub subscription_id: SubscriptionId,
     pub location: AzureLocationName,
@@ -91,3 +92,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ComputePublisherImageOfferListRequest);
+cloud_terrastodon_registry::register_arbitrary!(ComputePublisherImageOfferListRequest);
+cloud_terrastodon_registry::register_into_future!(ComputePublisherImageOfferListRequest => Vec<ComputePublisherVmImageOfferId>);

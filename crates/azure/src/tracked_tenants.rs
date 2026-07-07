@@ -1,6 +1,6 @@
-use arbitrary::Arbitrary;
 use crate::az_account_list;
 use crate::get_default_tenant_id;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::Account;
 use cloud_terrastodon_azure_types::AzureTenantAlias;
 use cloud_terrastodon_azure_types::AzureTenantArgument;
@@ -101,10 +101,8 @@ impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
     async fn resolve(&self) -> eyre::Result<AzureTenantId> {
         match self {
             AzureTenantArgument::Default => get_default_tenant_id().await,
-            AzureTenantArgument::Id(id) => resolve_tracked_tenant_id(*id).await,
-            AzureTenantArgument::IdRef(id) => resolve_tracked_tenant_id(**id).await,
+            AzureTenantArgument::Id(id) => resolve_tracked_tenant_id(*id.as_ref()).await,
             AzureTenantArgument::Alias(alias) => alias.resolve().await,
-            AzureTenantArgument::AliasRef(alias) => alias.resolve().await,
         }
     }
 }
@@ -672,4 +670,3 @@ impl std::future::IntoFuture for AzureTenantIdResolveRequest {
         Box::pin(self.run())
     }
 }
-

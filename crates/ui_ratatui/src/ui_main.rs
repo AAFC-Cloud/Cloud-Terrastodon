@@ -1,3 +1,4 @@
+use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::FunctionInvocation;
 use cloud_terrastodon_registry::KnownShapeInfo;
@@ -1378,6 +1379,7 @@ impl ObjectBrowserApp {
             SlotAction::Clone => self.clone_slot(slot_id),
             SlotAction::Take => self.take_slot(slot_id),
             SlotAction::Invoke => self.invoke_slot(slot_id),
+            SlotAction::InvokeArbitrary => self.invoke_arbitrary_slot(slot_id),
         }
     }
 
@@ -1521,9 +1523,37 @@ impl ObjectBrowserApp {
                     .iter()
                     .map(|function| self.function_picker_label(function))
                     .collect();
-                self.function_picker = Some(FunctionPickerState::new(slot_id, functions, labels));
+                self.function_picker = Some(FunctionPickerState::new(
+                    FunctionPickerTarget::InvokeSlot(slot_id),
+                    functions,
+                    labels,
+                ));
                 self.mode = UiMode::FunctionPicker;
                 self.status_message = "Select a function to invoke.".to_string();
+            }
+        }
+    }
+
+    fn invoke_arbitrary_slot(&mut self, slot_id: usize) {
+        let functions = self.applicable_arbitrary_functions_for_slot(slot_id);
+        match functions.as_slice() {
+            [] => {
+                self.status_message =
+                    "No fake response generators are available for this slot.".to_string()
+            }
+            [function] => self.invoke_arbitrary_registered_function(slot_id, function),
+            _ => {
+                let labels = functions
+                    .iter()
+                    .map(|function| self.function_picker_label(function))
+                    .collect();
+                self.function_picker = Some(FunctionPickerState::new(
+                    FunctionPickerTarget::InvokeArbitrarySlot(slot_id),
+                    functions,
+                    labels,
+                ));
+                self.mode = UiMode::FunctionPicker;
+                self.status_message = "Select a request to fake-invoke.".to_string();
             }
         }
     }
@@ -1545,18 +1575,47 @@ impl ObjectBrowserApp {
             .collect()
     }
 
+    fn applicable_arbitrary_functions_for_slot(&self, slot_id: usize) -> Vec<&'static Function> {
+        let Some(shape_name) = self.slot_shape_name(slot_id) else {
+            return Vec::new();
+        };
+        let Some(thing) = self.thing_for_shape_name(shape_name) else {
+            return Vec::new();
+        };
+        let slot_is_owned = matches!(
+            self.slot_by_id(slot_id).map(|slot| &slot.kind),
+            Some(SlotKind::Owned)
+        );
+        functions_from(thing.shape)
+            .into_iter()
+            .filter(|function| function.supports_slot_kind(slot_is_owned))
+            .filter(|function| {
+                functions_to(function.output_shape)
+                    .into_iter()
+                    .any(|candidate| describe_shape(candidate.input_shape) == "ArbitraryBytes")
+            })
+            .collect()
+    }
+
     fn apply_function_picker_selection(&mut self) {
-        let Some((slot_id, function)) = self
+        let Some((target, function)) = self
             .function_picker
             .as_ref()
-            .and_then(|picker| Some((picker.source_slot_id, picker.selected_function()?)))
+            .and_then(|picker| Some((picker.target, picker.selected_function()?)))
         else {
             self.status_message = "No function is selected.".to_string();
             return;
         };
         self.function_picker = None;
         self.mode = UiMode::Pool;
-        self.invoke_registered_function(slot_id, function);
+        match target {
+            FunctionPickerTarget::InvokeSlot(slot_id) => {
+                self.invoke_registered_function(slot_id, function)
+            }
+            FunctionPickerTarget::InvokeArbitrarySlot(slot_id) => {
+                self.invoke_arbitrary_registered_function(slot_id, function)
+            }
+        }
     }
 
     fn invoke_registered_function(&mut self, slot_id: usize, function: &'static Function) {
@@ -1709,6 +1768,46 @@ impl ObjectBrowserApp {
             "Invoked {} into result slot {}.",
             describe_function(function),
             result_slot_id
+        );
+    }
+
+    fn invoke_arbitrary_registered_function(
+        &mut self,
+        slot_id: usize,
+        function: &'static Function,
+    ) {
+        let constructors = functions_to(function.output_shape)
+            .into_iter()
+            .filter(|candidate| describe_shape(candidate.input_shape) == "ArbitraryBytes")
+            .collect::<Vec<_>>();
+        let Some(constructor) = constructors.first().copied() else {
+            self.status_message = format!(
+                "No fake response generator is registered for {}.",
+                describe_shape(function.output_shape)
+            );
+            return;
+        };
+
+        let mut input: Box<dyn std::any::Any + Send> = Box::new(ArbitraryBytes::new(vec![0; 4096]));
+        let FunctionInvocation::Ready(output) = (match constructor.invoke_mut_boxed(input.as_mut())
+        {
+            Ok(output) => FunctionInvocation::Ready(output),
+            Err(error) => {
+                self.status_message = format!(
+                    "Could not fake-invoke {}: {error}",
+                    describe_function(function)
+                );
+                return;
+            }
+        }) else {
+            unreachable!("arbitrary constructors are synchronous")
+        };
+
+        self.finish_ready_function_output(slot_id, constructor, output);
+        self.status_message = format!(
+            "Fake-invoked {} into a {} result.",
+            describe_function(function),
+            describe_shape(function.output_shape)
         );
     }
     fn apply_shape_selection(&mut self) {
@@ -2594,9 +2693,17 @@ impl ObjectBrowserApp {
             SlotAction::Clone,
             SlotAction::Take,
             SlotAction::Invoke,
+            SlotAction::InvokeArbitrary,
         ] {
             if action == SlotAction::Invoke
                 && self.applicable_functions_for_slot(slot_id).is_empty()
+            {
+                continue;
+            }
+            if action == SlotAction::InvokeArbitrary
+                && self
+                    .applicable_arbitrary_functions_for_slot(slot_id)
+                    .is_empty()
             {
                 continue;
             }
@@ -2683,6 +2790,12 @@ impl ObjectBrowserApp {
         ]);
         if !self.applicable_functions_for_slot(slot_id).is_empty() {
             targets.push(SlotFocusTarget::Action(SlotAction::Invoke));
+        }
+        if !self
+            .applicable_arbitrary_functions_for_slot(slot_id)
+            .is_empty()
+        {
+            targets.push(SlotFocusTarget::Action(SlotAction::InvokeArbitrary));
         }
 
         targets
@@ -2887,6 +3000,7 @@ impl ObjectBrowserApp {
                 SlotAction::Clone => "clone".to_string(),
                 SlotAction::Take => "take".to_string(),
                 SlotAction::Invoke => "invoke".to_string(),
+                SlotAction::InvokeArbitrary => "invoke arbitrary".to_string(),
             };
         };
 
@@ -2906,6 +3020,13 @@ impl ObjectBrowserApp {
                 1 => "invoke".to_string(),
                 count => format!("invoke ({count} functions)"),
             },
+            SlotAction::InvokeArbitrary => {
+                match self.applicable_arbitrary_functions_for_slot(slot_id).len() {
+                    0 => "invoke arbitrary".to_string(),
+                    1 => "invoke arbitrary".to_string(),
+                    count => format!("invoke arbitrary ({count} functions)"),
+                }
+            }
         }
     }
     fn breadcrumbs_line(&self) -> Line<'static> {
@@ -3723,6 +3844,7 @@ enum SlotAction {
     Clone,
     Take,
     Invoke,
+    InvokeArbitrary,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SlotCompletion {
@@ -3990,19 +4112,29 @@ impl FieldPickerState {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FunctionPickerTarget {
+    InvokeSlot(usize),
+    InvokeArbitrarySlot(usize),
+}
+
 struct FunctionPickerState {
-    source_slot_id: usize,
+    target: FunctionPickerTarget,
     labels: Vec<String>,
     functions: Vec<&'static Function>,
     search: PickerSearchState,
 }
 
 impl FunctionPickerState {
-    fn new(source_slot_id: usize, functions: Vec<&'static Function>, labels: Vec<String>) -> Self {
+    fn new(
+        target: FunctionPickerTarget,
+        functions: Vec<&'static Function>,
+        labels: Vec<String>,
+    ) -> Self {
         let mut search = PickerSearchState::new();
         search.reset(&labels, Some(0));
         Self {
-            source_slot_id,
+            target,
             labels,
             functions,
             search,
@@ -5075,6 +5207,7 @@ mod tests {
     use super::SlotKind;
     use super::UiMode;
     use arbitrary::Arbitrary;
+    use cloud_terrastodon_registry::describe_shape;
     use cloud_terrastodon_registry::known_shapes;
     use facet::Facet;
     use ratatui::crossterm::event::KeyCode;
@@ -5563,7 +5696,12 @@ mod tests {
             .select(Some(request_index));
         app.apply_shape_selection();
 
-        app.invoke_slot(1);
+        let dummy_function = app
+            .applicable_functions_for_slot(1)
+            .into_iter()
+            .find(|function| describe_shape(function.output_shape) == "DummyInvokeOutput")
+            .expect("DummyInvokeOutput constructor should be available");
+        app.invoke_registered_function(1, dummy_function);
         let result_slot_id = app
             .slot_by_id(1)
             .and_then(|slot| slot.result_slot_ids.first().copied())
@@ -5624,7 +5762,12 @@ mod tests {
             });
         }
 
-        app.invoke_slot(1);
+        let dummy_function = app
+            .applicable_functions_for_slot(1)
+            .into_iter()
+            .find(|function| describe_shape(function.output_shape) == "DummyInvokeOutput")
+            .expect("DummyInvokeOutput constructor should be available");
+        app.invoke_registered_function(1, dummy_function);
         let result_slot_id = app
             .slot_by_id(1)
             .and_then(|slot| slot.result_slot_ids.first().copied())
@@ -5638,6 +5781,94 @@ mod tests {
             })
             .expect("result slot should resolve immediately");
         assert!(resolved_value.get("message").is_some());
+    }
+
+    #[test]
+    fn request_slots_show_invoke_arbitrary_action_when_fake_results_are_registered() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let tenant_request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantIdResolveRequest"))
+            .expect("AzureTenantIdResolveRequest should be registered");
+        app.shape_picker.open(Some(tenant_request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(tenant_request_index));
+        app.apply_shape_selection();
+
+        assert!(
+            app.slot_focus_targets(1)
+                .contains(&SlotFocusTarget::Action(super::SlotAction::InvokeArbitrary))
+        );
+        assert_eq!(
+            app.slot_action_label(1, super::SlotAction::InvokeArbitrary),
+            "invoke arbitrary"
+        );
+
+        app.activate_current_row();
+        let user_request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("EntraUserListRequest"))
+            .expect("EntraUserListRequest should be registered");
+        app.shape_picker.open(Some(user_request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(user_request_index));
+        app.apply_shape_selection();
+
+        assert!(
+            app.slot_focus_targets(1)
+                .contains(&SlotFocusTarget::Action(super::SlotAction::InvokeArbitrary))
+        );
+        assert_eq!(
+            app.slot_action_label(1, super::SlotAction::InvokeArbitrary),
+            "invoke arbitrary"
+        );
+    }
+
+    #[test]
+    fn invoke_arbitrary_action_creates_a_fake_result_for_registered_requests() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("EntraUserListRequest"))
+            .expect("EntraUserListRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.activate_slot_action(1, super::SlotAction::InvokeArbitrary);
+
+        let result_slot_id = app
+            .slot_by_id(1)
+            .and_then(|slot| slot.result_slot_ids.first().copied())
+            .unwrap_or_else(|| {
+                panic!(
+                    "fake invocation should create a result slot: {}",
+                    app.status_message
+                )
+            });
+        let resolved_value = app
+            .slot_by_id(result_slot_id)
+            .and_then(|slot| slot.runtime_state.as_ref())
+            .and_then(|runtime| match runtime {
+                super::SlotRuntimeState::ResolvedValue { value, .. } => Some(value.clone()),
+                _ => None,
+            })
+            .expect("fake result slot should resolve immediately");
+        assert!(resolved_value.is_array());
     }
 
     #[test]

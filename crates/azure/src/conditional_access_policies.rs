@@ -8,6 +8,7 @@ use eyre::Result;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ConditionalAccessPolicyListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -162,3 +163,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ConditionalAccessPolicyListRequest);
+cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessPolicyListRequest);
+cloud_terrastodon_registry::register_into_future!(ConditionalAccessPolicyListRequest => Vec<ConditionalAccessPolicy>);

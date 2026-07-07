@@ -124,8 +124,8 @@ struct RoleManagementPolicyExpirationRule {
     #[facet(rename = "ruleType")]
     rule_type: String,
     id: RoleManagementPolicyAssignmentPropertiesEffectiveRuleId,
-    #[facet(rename = "maximumDuration", opaque, proxy = crate::IsoDurationProxy)]
-    maximum_duration: iso8601_duration::Duration,
+    #[facet(rename = "maximumDuration")]
+    maximum_duration: crate::iso8601_duration::Duration,
 }
 
 impl RoleManagementPolicyAssignment {

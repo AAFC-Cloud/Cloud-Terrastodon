@@ -38,4 +38,3 @@ impl FromStr for GiteaOrganizationId {
 
 cloud_terrastodon_registry::register_thing!(GiteaOrganizationId);
 cloud_terrastodon_registry::register_arbitrary!(GiteaOrganizationId);
-

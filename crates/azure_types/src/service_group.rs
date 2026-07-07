@@ -1,11 +1,12 @@
+use crate::ArbitraryJson;
 use crate::ServiceGroupId;
 use crate::ServiceGroupName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use facet_json::RawJson;
+use arbitrary::Arbitrary;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct ServiceGroup {
     pub id: ServiceGroupId,
     pub name: ServiceGroupName,
@@ -30,7 +31,7 @@ impl std::fmt::Display for ServiceGroup {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Default, Arbitrary, facet::Facet)]
 pub struct ServiceGroupProperties {
     #[facet(rename = "provisioningState")]
     pub provisioning_state: Option<String>,
@@ -38,10 +39,10 @@ pub struct ServiceGroupProperties {
     pub display_name: Option<String>,
     pub parent: Option<ServiceGroupParent>,
     #[facet(flatten)]
-    pub additional_properties: HashMap<String, RawJson<'static>>,
+    pub additional_properties: HashMap<String, ArbitraryJson>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Default, Arbitrary, facet::Facet)]
 pub struct ServiceGroupParent {
     #[facet(rename = "resourceId")]
     pub resource_id: Option<String>,
@@ -67,7 +68,7 @@ mod tests {
             Some("/providers/Microsoft.Management/serviceGroups/parent")
         );
         assert!(props.additional_properties.contains_key("custom"));
-        assert_eq!(props.additional_properties["custom"].as_str(), "42");
+        assert_eq!(props.additional_properties["custom"].as_ref(), "42");
 
         let reparsed: ServiceGroupProperties =
             facet_json::from_str(&facet_json::to_string(&props)?)?;
@@ -91,3 +92,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ServiceGroup);
+cloud_terrastodon_registry::register_arbitrary!(ServiceGroup);
+cloud_terrastodon_registry::register_arbitrary!(Vec<ServiceGroup>);

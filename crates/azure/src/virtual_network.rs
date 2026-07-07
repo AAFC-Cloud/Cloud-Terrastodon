@@ -8,6 +8,7 @@ use indoc::indoc;
 use std::path::PathBuf;
 use tracing::info;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct VirtualNetworkListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -71,3 +72,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(VirtualNetworkListRequest);
+cloud_terrastodon_registry::register_arbitrary!(VirtualNetworkListRequest);
+cloud_terrastodon_registry::register_into_future!(VirtualNetworkListRequest => Vec<VirtualNetwork>);

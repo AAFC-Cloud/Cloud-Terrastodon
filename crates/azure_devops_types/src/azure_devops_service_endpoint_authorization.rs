@@ -1,3 +1,5 @@
+use arbitrary::Arbitrary;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraServicePrincipalId;
 use cloud_terrastodon_azure_types::OptionalNonEmptyStringProxy;
@@ -7,7 +9,7 @@ use eyre::Context;
 use facet_json::RawJson;
 use std::collections::HashMap;
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet, Arbitrary)]
 // https://github.com/facet-rs/facet/issues/2342
 #[facet(opaque, proxy = RawJson<'static>)]
 #[repr(C)]
@@ -17,7 +19,7 @@ pub enum AzureDevOpsServiceEndpointAuthorization {
     WorkloadIdentityFederation(AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation),
     /// For stuff like Azure Container Registry authorization
     ManagedServiceIdentity(AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity),
-    Other(RawJson<'static>),
+    Other(ArbitraryJson),
 }
 impl AzureDevOpsServiceEndpointAuthorization {
     pub fn service_principal_id(&self) -> Option<&EntraServicePrincipalId> {
@@ -61,7 +63,7 @@ impl TryFrom<RawJson<'static>> for AzureDevOpsServiceEndpointAuthorization {
             "ManagedServiceIdentity" => Ok(Self::ManagedServiceIdentity(facet_json::from_str(
                 parameters.as_str(),
             )?)),
-            _ => Ok(Self::Other(value)),
+            _ => Ok(Self::Other(value.into())),
         }
     }
 }
@@ -87,7 +89,7 @@ impl TryFrom<&AzureDevOpsServiceEndpointAuthorization> for RawJson<'static> {
                 "ManagedServiceIdentity",
                 RawJson::from_owned(facet_json::to_string(parameters)?),
             ),
-            AzureDevOpsServiceEndpointAuthorization::Other(raw) => return Ok(raw.clone()),
+            AzureDevOpsServiceEndpointAuthorization::Other(raw) => return Ok(raw.clone().into()),
         };
 
         let mut object = HashMap::new();
@@ -100,9 +102,7 @@ impl TryFrom<&AzureDevOpsServiceEndpointAuthorization> for RawJson<'static> {
     }
 }
 
-// ============
-
-#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, arbitrary::Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointAuthorizationServicePrincipal {
     pub authentication_type:
@@ -113,25 +113,21 @@ pub struct AzureDevOpsServiceEndpointAuthorizationServicePrincipal {
     pub tenant_id: AzureTenantId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, arbitrary::Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointAuthorizationServicePrincipalAuthenticationType {
     #[facet(rename = "spnKey")]
     SpnKey,
 }
 
-// ============
-
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, arbitrary::Arbitrary, facet::Facet)]
 pub struct AzureDevOpsServiceEndpointAuthorizationUsernamePassword {
     pub username: CompactString,
     #[facet(flatten)]
     pub extra: HashMap<CompactString, CompactString>,
 }
 
-// ============
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, arbitrary::Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
     pub scope: Option<ScopeImpl>,
@@ -145,9 +141,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
     pub workload_identity_federation_issuer_type: Option<CompactString>,
 }
 
-// ============
-
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, arbitrary::Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity {
     #[facet(rename = "tenantId", alias = "tenantid")]
@@ -171,7 +165,7 @@ mod test {
 
         assert_eq!(
             authorization,
-            AzureDevOpsServiceEndpointAuthorization::Other(RawJson::from_owned(json.to_string()))
+            AzureDevOpsServiceEndpointAuthorization::Other(RawJson::from_owned(json.to_string()).into())
         );
         Ok(())
     }
@@ -184,7 +178,7 @@ mod test {
 
         assert_eq!(
             authorization,
-            AzureDevOpsServiceEndpointAuthorization::Other(RawJson::from_owned(json.to_string()))
+            AzureDevOpsServiceEndpointAuthorization::Other(RawJson::from_owned(json.to_string()).into())
         );
         Ok(())
     }

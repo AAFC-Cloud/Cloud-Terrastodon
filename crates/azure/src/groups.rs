@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct GroupListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -60,3 +61,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(GroupListRequest);
+cloud_terrastodon_registry::register_arbitrary!(GroupListRequest);
+cloud_terrastodon_registry::register_into_future!(GroupListRequest => Vec<EntraGroup>);

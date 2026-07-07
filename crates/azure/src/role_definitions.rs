@@ -12,6 +12,7 @@ use tracing::debug;
 ///
 /// Not to be confused with Entra role definitions.
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct RoleDefinitionListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -86,3 +87,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(RoleDefinitionListRequest);
+cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionListRequest);
+cloud_terrastodon_registry::register_into_future!(RoleDefinitionListRequest => Vec<RoleDefinition>);

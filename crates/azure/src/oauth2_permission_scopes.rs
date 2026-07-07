@@ -6,6 +6,7 @@ use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 use tracing::info;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionScopesListRequest {
     pub service_principal_id: EntraServicePrincipalId,
 }
@@ -78,3 +79,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(OAuth2PermissionScopesListRequest);
+cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionScopesListRequest);
+cloud_terrastodon_registry::register_into_future!(OAuth2PermissionScopesListRequest => Vec<OAuth2PermissionScope>);

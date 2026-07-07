@@ -115,3 +115,5 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(ResourceGroup);
 cloud_terrastodon_registry::register_arbitrary!(ResourceGroup);
+
+cloud_terrastodon_registry::register_arbitrary!(Vec<ResourceGroup>);

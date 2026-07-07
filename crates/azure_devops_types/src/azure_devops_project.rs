@@ -1,5 +1,6 @@
 use crate::AzureDevOpsProjectId;
 use crate::AzureDevOpsProjectName;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
@@ -8,22 +9,23 @@ use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum AzureDevOpsProjectState {
     #[facet(rename = "wellFormed")]
     WellFormed,
 }
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum AzureDevOpsProjectVisibility {
     #[facet(rename = "private")]
     Private,
+    /// This variant has not been confirmed to actually exist
     #[facet(rename = "public")]
-    Public, // just assuming this exists
+    Public,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsProject {
     pub abbreviation: Option<String>,
@@ -50,3 +52,11 @@ impl From<AzureDevOpsProject> for HclImportBlock {
         }
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectState);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectState);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectVisibility);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectVisibility);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsProject);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProject);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsProject>);

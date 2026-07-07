@@ -84,6 +84,7 @@ mod tests {
     use super::*;
     use cloud_terrastodon_registry::ArbitraryBytes;
     use cloud_terrastodon_registry::Function;
+    use cloud_terrastodon_registry::FunctionKind;
     use cloud_terrastodon_registry::Thing;
     use cloud_terrastodon_registry::describe_shape;
     use cloud_terrastodon_registry::functions_from_to;
@@ -138,6 +139,46 @@ mod tests {
         );
     }
 
+    #[test]
+    fn async_request_outputs_have_fake_response_generators() {
+        let mut missing = known_functions()
+            .into_iter()
+            .filter(|function| function.kind == FunctionKind::AsyncInvoke)
+            .filter(|function| {
+                !known_functions()
+                    .into_iter()
+                    .filter(|candidate| candidate.kind == FunctionKind::Constructor)
+                    .any(|candidate| {
+                        describe_shape(candidate.input_shape) == describe_shape(ArbitraryBytes::SHAPE)
+                            && candidate.production_kind(function.output_shape).is_some()
+                    })
+            })
+            .map(|function| {
+                let output_shape = describe_shape(function.output_shape);
+                (
+                    output_shape.clone(),
+                    format!(
+                        "{}\n  missing fake response generator for async output {}\n  async request: {} at {}",
+                        output_shape,
+                        output_shape,
+                        function_signature(function),
+                        function.registration_site,
+                    ),
+                )
+            })
+            .collect::<Vec<_>>();
+        missing.sort_by(|left, right| left.0.cmp(&right.0));
+        let missing = missing
+            .into_iter()
+            .map(|(_, message)| message)
+            .collect::<Vec<_>>();
+
+        assert!(
+            missing.is_empty(),
+            "missing fake response generators for async request outputs:\n{}",
+            missing.join("\n")
+        );
+    }
     #[test]
     fn registry_lists_missing_arbitrary_companion_registrations() {
         let mut missing = known_things()
@@ -218,6 +259,3 @@ mod tests {
         }
     }
 }
-
-
-

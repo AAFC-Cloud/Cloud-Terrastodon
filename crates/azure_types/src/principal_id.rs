@@ -1,7 +1,7 @@
-use arbitrary::Arbitrary;
 use crate::EntraGroupId;
 use crate::EntraServicePrincipalId;
 use crate::EntraUserId;
+use arbitrary::Arbitrary;
 use std::hash::Hash;
 use uuid::Uuid;
 
@@ -126,4 +126,3 @@ mod tests {
         Ok(())
     }
 }
-

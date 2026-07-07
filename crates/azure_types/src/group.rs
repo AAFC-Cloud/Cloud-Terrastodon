@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::EntraGroupId;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_hcl_types::AzureAdResourceBlockKind;
@@ -150,4 +150,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EntraGroup);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroup);
-
+cloud_terrastodon_registry::register_arbitrary!(Vec<EntraGroup>);

@@ -1,12 +1,13 @@
+use arbitrary::Arbitrary;
 use uuid::Uuid;
 
-#[derive(Debug, Hash, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Hash, Eq, PartialEq, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum OAuth2PermissionScopeKind {
     Admin,
     User,
 }
-#[derive(Debug, Hash, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Hash, Eq, PartialEq, Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionScope {
     #[facet(rename = "adminConsentDescription")]
     pub admin_consent_description: String,
@@ -25,3 +26,9 @@ pub struct OAuth2PermissionScope {
     #[facet(rename = "value")]
     pub value: String,
 }
+
+cloud_terrastodon_registry::register_thing!(OAuth2PermissionScopeKind);
+cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionScopeKind);
+cloud_terrastodon_registry::register_thing!(OAuth2PermissionScope);
+cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionScope);
+cloud_terrastodon_registry::register_arbitrary!(Vec<OAuth2PermissionScope>);

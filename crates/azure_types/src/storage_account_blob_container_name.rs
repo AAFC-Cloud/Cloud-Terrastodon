@@ -159,6 +159,9 @@ impl<'a> Arbitrary<'a> for StorageAccountBlobContainerName {
 
 cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerName);
 cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerName);
+cloud_terrastodon_registry::register_arbitrary!(
+    std::collections::HashSet<StorageAccountBlobContainerName>
+);
 
 #[cfg(test)]
 mod test {

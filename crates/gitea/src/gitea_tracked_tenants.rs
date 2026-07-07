@@ -1,9 +1,9 @@
-use arbitrary::Arbitrary;
 use crate::GiteaInstanceUrl;
 use crate::GiteaTenantAlias;
 use crate::GiteaTenantArgument;
 use crate::default_tenant::get_default_gitea_instance_url;
 use crate::list_gitea_logins;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::ContextCompat;
@@ -88,10 +88,8 @@ impl GiteaTenantArgumentExt for GiteaTenantArgument<'_> {
     async fn resolve(&self) -> eyre::Result<GiteaInstanceUrl> {
         match self {
             GiteaTenantArgument::Default => get_default_gitea_instance_url().await,
-            GiteaTenantArgument::Url(url) => resolve_tracked_tenant_url(url).await,
-            GiteaTenantArgument::UrlRef(url) => resolve_tracked_tenant_url(url).await,
+            GiteaTenantArgument::Url(url) => resolve_tracked_tenant_url(url.as_ref()).await,
             GiteaTenantArgument::Alias(alias) => alias.resolve().await,
-            GiteaTenantArgument::AliasRef(alias) => alias.resolve().await,
         }
     }
 }
@@ -488,4 +486,3 @@ mod tests {
         Ok(())
     }
 }
-

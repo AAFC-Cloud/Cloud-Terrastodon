@@ -1,6 +1,6 @@
-use arbitrary::Arbitrary;
 use crate::EntraServicePrincipalId;
 use crate::EntraUserId;
+use arbitrary::Arbitrary;
 use itertools::Itertools;
 
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
@@ -67,4 +67,4 @@ cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrantId);
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrant);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrant);
 
-
+cloud_terrastodon_registry::register_arbitrary!(Vec<OAuth2PermissionGrant>);

@@ -215,3 +215,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ComputePublisherVmImageOfferSkuId);
+cloud_terrastodon_registry::register_arbitrary!(ComputePublisherVmImageOfferSkuId);
+cloud_terrastodon_registry::register_arbitrary!(Vec<ComputePublisherVmImageOfferSkuId>);

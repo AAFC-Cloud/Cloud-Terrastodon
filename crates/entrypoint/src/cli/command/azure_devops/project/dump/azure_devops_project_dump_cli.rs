@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsGroup;
+use cloud_terrastodon_azure_devops::AzureDevOpsGroupMembersV2Response;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsTeam;
@@ -11,7 +12,6 @@ use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
-use facet_json::RawJson;
 use std::io::stdout;
 use tracing::Instrument;
 use tracing::info;
@@ -30,7 +30,7 @@ struct AzureDevOpsProjectDumpPayload {
     project: AzureDevOpsProject,
     teams: Vec<AzureDevOpsTeam>,
     groups: Vec<AzureDevOpsGroup>,
-    group_members: Vec<RawJson<'static>>,
+    group_members: Vec<AzureDevOpsGroupMembersV2Response>,
 }
 
 impl AzureDevOpsProjectDumpArgs {

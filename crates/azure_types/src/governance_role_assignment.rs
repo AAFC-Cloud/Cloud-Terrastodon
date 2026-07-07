@@ -1,31 +1,32 @@
 /// See the following:
 /// - https://graph.microsoft.com/v1.0/$metadata
 /// - https://graph.microsoft.com/beta/$metadata
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use uuid::Uuid;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum GovernanceRoleAssignmentMemberType {
     Group,
     Direct,
 }
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum GovernanceRoleAssignmentStatus {
     Provisioned,
     Accepted,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum GovernanceRoleAssignmentState {
     Active,
     Eligible,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 pub struct GovernanceRoleAssignment {
     pub id: String,
     #[facet(rename = "linkedEligibleRoleAssignmentId", default)]
@@ -44,3 +45,7 @@ pub struct GovernanceRoleAssignment {
     #[facet(rename = "assignmentState")]
     pub assignment_state: GovernanceRoleAssignmentState,
 }
+
+cloud_terrastodon_registry::register_thing!(GovernanceRoleAssignment);
+cloud_terrastodon_registry::register_arbitrary!(GovernanceRoleAssignment);
+cloud_terrastodon_registry::register_arbitrary!(Vec<GovernanceRoleAssignment>);

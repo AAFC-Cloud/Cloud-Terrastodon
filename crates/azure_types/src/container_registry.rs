@@ -1,27 +1,28 @@
+use crate::ArbitraryJson;
 use crate::ContainerRegistryId;
 use crate::ContainerRegistryName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use facet_json::RawJson;
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 pub struct ContainerRegistrySKU {
     name: String,
     tier: String,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 pub struct ContainerRegistry {
     pub id: ContainerRegistryId,
     pub name: ContainerRegistryName,
     pub location: String,
     pub sku: ContainerRegistrySKU,
-    pub properties: RawJson<'static>,
+    pub properties: ArbitraryJson,
 }
 
 impl AsScope for ContainerRegistry {
@@ -53,3 +54,7 @@ impl From<ContainerRegistry> for HclImportBlock {
         }
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ContainerRegistry);
+cloud_terrastodon_registry::register_arbitrary!(ContainerRegistry);
+cloud_terrastodon_registry::register_arbitrary!(Vec<ContainerRegistry>);

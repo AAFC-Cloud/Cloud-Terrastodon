@@ -114,4 +114,3 @@ impl FromStr for GiteaTenantAlias {
         Self::try_new(s)
     }
 }
-

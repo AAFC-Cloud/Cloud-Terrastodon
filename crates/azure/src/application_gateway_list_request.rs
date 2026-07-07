@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ApplicationGatewayListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -75,3 +76,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ApplicationGatewayListRequest);
+cloud_terrastodon_registry::register_arbitrary!(ApplicationGatewayListRequest);
+cloud_terrastodon_registry::register_into_future!(ApplicationGatewayListRequest => Vec<AzureApplicationGatewayResource>);

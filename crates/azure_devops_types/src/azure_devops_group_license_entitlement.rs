@@ -1,28 +1,29 @@
 use crate::AzureDevOpsDescriptor;
 use crate::AzureDevOpsLicenseRule;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use facet_json::RawJson;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupLicenseEntitlement {
-    pub extension_rules: Vec<RawJson<'static>>,
+    pub extension_rules: Vec<ArbitraryJson>,
     pub group: AzureDevOpsGroupLicenseEntitlementGroupReference,
     pub id: Uuid,
     pub last_executed: DateTime<Utc>,
     pub license_rule: AzureDevOpsLicenseRule,
-    pub members: Option<RawJson<'static>>,
-    pub project_entitlements: Vec<RawJson<'static>>,
+    pub members: Option<ArbitraryJson>,
+    pub project_entitlements: Vec<ArbitraryJson>,
     pub status: String,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupLicenseEntitlementGroupReference {
     #[facet(rename = "_links")]
-    pub links: RawJson<'static>,
+    pub links: ArbitraryJson,
     pub description: String,
     pub descriptor: AzureDevOpsDescriptor,
     pub display_name: String,
@@ -34,3 +35,7 @@ pub struct AzureDevOpsGroupLicenseEntitlementGroupReference {
     pub subject_kind: String,
     pub url: String,
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupLicenseEntitlement);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupLicenseEntitlement);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsGroupLicenseEntitlement>);

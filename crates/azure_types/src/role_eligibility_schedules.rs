@@ -3,30 +3,30 @@ use crate::RoleDefinitionKind;
 use crate::RoleEligibilityScheduleId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
-use crate::scopes::ScopeImpl;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use uuid::Uuid;
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 #[repr(C)]
 pub enum RoleEligibilityScheduleMemberType {
     Group,
     Direct,
 }
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 #[repr(C)]
 pub enum RoleEligibilitySchedulePrincipalType {
     Group,
     User,
 }
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 #[repr(C)]
 pub enum RoleEligibilityScheduleStatus {
     Provisioned,
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 pub struct RoleEligibilityScheduleExpandedPropertiesPrincipal {
     #[facet(rename = "displayName")]
     pub display_name: String,
@@ -34,7 +34,7 @@ pub struct RoleEligibilityScheduleExpandedPropertiesPrincipal {
     #[facet(rename = "type")]
     pub kind: RoleEligibilitySchedulePrincipalType,
 }
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 pub struct RoleEligibilityScheduleExpandedPropertiesRoleDefinition {
     #[facet(rename = "displayName")]
     pub display_name: String,
@@ -42,7 +42,7 @@ pub struct RoleEligibilityScheduleExpandedPropertiesRoleDefinition {
     #[facet(rename = "type")]
     pub kind: RoleDefinitionKind,
 }
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 pub struct RoleEligibilityScheduleExpandedPropertiesScope {
     #[facet(rename = "displayName")]
     pub display_name: String,
@@ -51,7 +51,7 @@ pub struct RoleEligibilityScheduleExpandedPropertiesScope {
     pub kind: String,
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 pub struct RoleEligibilityScheduleExpandedProperties {
     pub principal: RoleEligibilityScheduleExpandedPropertiesPrincipal,
     #[facet(rename = "roleDefinition")]
@@ -59,7 +59,7 @@ pub struct RoleEligibilityScheduleExpandedProperties {
     pub scope: RoleEligibilityScheduleExpandedPropertiesScope,
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 pub struct RoleEligibilityScheduleProperties {
     #[facet(rename = "createdOn")]
     pub created_on: DateTime<Utc>,
@@ -76,7 +76,7 @@ pub struct RoleEligibilityScheduleProperties {
     #[facet(rename = "roleEligibilityScheduleRequestId")]
     pub role_eligibility_schedule_request_id: String,
     #[facet(rename = "scope")]
-    pub scope: ScopeImpl,
+    pub scope: crate::scopes::ScopeImpl,
     #[facet(rename = "startDateTime")]
     pub start_date_time: DateTime<Utc>,
     #[facet(rename = "status")]
@@ -85,12 +85,13 @@ pub struct RoleEligibilityScheduleProperties {
     pub updated_on: DateTime<Utc>,
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 pub struct RoleEligibilitySchedule {
     pub id: RoleEligibilityScheduleId,
     pub name: Uuid,
     pub properties: RoleEligibilityScheduleProperties,
 }
+
 impl RoleEligibilitySchedule {
     pub fn get_type() -> &'static str {
         "Microsoft.Authorization/roleEligibilitySchedules"
@@ -122,3 +123,7 @@ impl std::fmt::Display for RoleEligibilitySchedule {
         ))
     }
 }
+
+cloud_terrastodon_registry::register_thing!(RoleEligibilitySchedule);
+cloud_terrastodon_registry::register_arbitrary!(RoleEligibilitySchedule);
+cloud_terrastodon_registry::register_arbitrary!(Vec<RoleEligibilitySchedule>);

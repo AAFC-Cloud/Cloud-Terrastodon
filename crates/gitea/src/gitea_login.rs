@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::GiteaInstanceUrl;
+use arbitrary::Arbitrary;
 use facet::Facet;
 use facet_json::RawJson;
 
@@ -28,6 +28,7 @@ impl<'a> Arbitrary<'a> for GiteaLogin {
         })
     }
 }
+
 impl GiteaLogin {
     pub fn is_default(&self) -> bool {
         is_default_flag(self.is_default.as_str())
@@ -50,6 +51,7 @@ fn is_default_flag(value: &str) -> bool {
 
 cloud_terrastodon_registry::register_thing!(GiteaLogin);
 cloud_terrastodon_registry::register_arbitrary!(GiteaLogin);
+cloud_terrastodon_registry::register_arbitrary!(Vec<GiteaLogin>);
 
 #[cfg(test)]
 mod tests {
@@ -119,4 +121,3 @@ mod tests {
         .map_err(Into::into)
     }
 }
-

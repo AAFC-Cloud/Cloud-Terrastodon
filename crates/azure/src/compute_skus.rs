@@ -7,6 +7,7 @@ use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 use tracing::debug;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputeSkuListRequest {
     pub subscription_id: SubscriptionId,
 }
@@ -84,3 +85,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ComputeSkuListRequest);
+cloud_terrastodon_registry::register_arbitrary!(ComputeSkuListRequest);
+cloud_terrastodon_registry::register_into_future!(ComputeSkuListRequest => Vec<ComputeSku>);

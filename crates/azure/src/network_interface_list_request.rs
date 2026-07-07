@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct NetworkInterfaceListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -75,3 +76,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(NetworkInterfaceListRequest);
+cloud_terrastodon_registry::register_arbitrary!(NetworkInterfaceListRequest);
+cloud_terrastodon_registry::register_into_future!(NetworkInterfaceListRequest => Vec<AzureNetworkInterfaceResource>);

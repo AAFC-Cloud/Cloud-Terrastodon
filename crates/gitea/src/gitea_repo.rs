@@ -1,8 +1,8 @@
-use arbitrary::Arbitrary;
 use crate::GiteaRepoFullName;
 use crate::GiteaRepoId;
 use crate::GiteaRepoName;
 use crate::GiteaUser;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::FixedOffset;
 use facet::Facet;
@@ -44,4 +44,4 @@ impl Display for GiteaRepo {
 
 cloud_terrastodon_registry::register_thing!(GiteaRepo);
 cloud_terrastodon_registry::register_arbitrary!(GiteaRepo);
-
+cloud_terrastodon_registry::register_arbitrary!(Vec<GiteaRepo>);

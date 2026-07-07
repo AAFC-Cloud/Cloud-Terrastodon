@@ -9,6 +9,7 @@ use eyre::ensure;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct AzureTenantDetailsRequest(pub AzureTenantId);
 
 pub fn fetch_azure_tenant_details(tenant_id: AzureTenantId) -> AzureTenantDetailsRequest {
@@ -65,3 +66,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureTenantDetailsRequest);
+cloud_terrastodon_registry::register_arbitrary!(AzureTenantDetailsRequest);
+cloud_terrastodon_registry::register_into_future!(AzureTenantDetailsRequest => MicrosoftGraphOrganization);

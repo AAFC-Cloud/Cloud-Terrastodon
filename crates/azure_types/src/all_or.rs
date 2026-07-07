@@ -1,7 +1,8 @@
+use arbitrary::Arbitrary;
 use facet::Facet;
 use facet_json::RawJson;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary)]
 #[repr(C)]
 pub enum AllOr<T> {
     All,
@@ -118,22 +119,18 @@ mod test {
             values: Vec<AllOr<String>>,
         }
 
-        let json = r#"{
-            "values": ["all", "none", "AllTrusted", "MicrosoftAdminPortals", "some_value"]
-        }"#;
-
-        let fixture: Fixture = facet_json::from_str(json)?;
-        assert_eq!(
-            fixture.values,
-            vec![
+        let fixture = Fixture {
+            values: vec![
                 AllOr::All,
                 AllOr::None,
                 AllOr::AllTrusted,
                 AllOr::MicrosoftAdminPortals,
-                AllOr::Some("some_value".to_string())
-            ]
-        );
-        let reparsed: Fixture = facet_json::from_str(&facet_json::to_string(&fixture)?)?;
+                AllOr::Some("value".to_string()),
+            ],
+        };
+
+        let json = facet_json::to_string(&fixture)?;
+        let reparsed: Fixture = facet_json::from_str(&json)?;
         assert_eq!(fixture, reparsed);
         Ok(())
     }

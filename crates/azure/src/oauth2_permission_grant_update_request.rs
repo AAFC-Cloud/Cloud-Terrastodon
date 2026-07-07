@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionGrantUpdateRequest {
     pub tenant_id: AzureTenantId,
     pub id: OAuth2PermissionGrantId,
@@ -72,3 +73,7 @@ impl CacheableCommand for OAuth2PermissionGrantUpdateRequest {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantUpdateRequest);
+
+cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrantUpdateRequest);
+cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrantUpdateRequest);
+cloud_terrastodon_registry::register_into_future!(OAuth2PermissionGrantUpdateRequest => ());

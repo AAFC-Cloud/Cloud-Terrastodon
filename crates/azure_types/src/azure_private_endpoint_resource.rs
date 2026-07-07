@@ -1,3 +1,4 @@
+use crate::ArbitraryJson;
 use crate::AzureLocationName;
 use crate::AzureNetworkInterfaceResourceId;
 use crate::AzureNetworkInterfaceResourceName;
@@ -5,11 +6,11 @@ use crate::AzurePrivateEndpointResourceId;
 use crate::AzurePrivateEndpointResourceName;
 use crate::AzureTenantId;
 use crate::SubnetId;
-use facet_json::RawJson;
+use arbitrary::Arbitrary;
 use std::collections::HashMap;
 use std::net::IpAddr;
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePrivateEndpointResource {
     pub id: AzurePrivateEndpointResourceId,
@@ -21,7 +22,7 @@ pub struct AzurePrivateEndpointResource {
     pub properties: AzurePrivateEndpointResourceProperties,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePrivateEndpointResourceProperties {
     #[facet(default)]
@@ -29,7 +30,7 @@ pub struct AzurePrivateEndpointResourceProperties {
     #[facet(default)]
     pub resource_guid: Option<String>,
     #[facet(default)]
-    pub ip_configurations: Vec<RawJson<'static>>,
+    pub ip_configurations: Vec<ArbitraryJson>,
     #[facet(default)]
     pub network_interfaces: Vec<AzurePrivateEndpointNetworkInterfaceReference>,
     #[facet(default)]
@@ -51,17 +52,17 @@ pub struct AzurePrivateEndpointResourceProperties {
     pub ip_version_type: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct AzurePrivateEndpointNetworkInterfaceReference {
     pub id: AzureNetworkInterfaceResourceId,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct AzurePrivateEndpointSubnetReference {
     pub id: SubnetId,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct AzurePrivateEndpointPrivateLinkServiceConnection {
     pub name: String,
     pub id: String,
@@ -72,7 +73,7 @@ pub struct AzurePrivateEndpointPrivateLinkServiceConnection {
     pub properties: AzurePrivateEndpointPrivateLinkServiceConnectionProperties,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePrivateEndpointPrivateLinkServiceConnectionProperties {
     #[facet(default)]
@@ -86,7 +87,7 @@ pub struct AzurePrivateEndpointPrivateLinkServiceConnectionProperties {
     pub group_ids: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePrivateEndpointPrivateLinkServiceConnectionState {
     #[facet(default)]
@@ -97,7 +98,7 @@ pub struct AzurePrivateEndpointPrivateLinkServiceConnectionState {
     pub actions_required: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePrivateEndpointCustomDnsConfig {
     #[facet(default, opaque, proxy = crate::IpAddrVecProxy)]
@@ -142,3 +143,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzurePrivateEndpointResource);
+cloud_terrastodon_registry::register_arbitrary!(AzurePrivateEndpointResource);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzurePrivateEndpointResource>);

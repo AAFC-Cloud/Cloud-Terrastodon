@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct RouteTableListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -72,3 +73,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(RouteTableListRequest);
+cloud_terrastodon_registry::register_arbitrary!(RouteTableListRequest);
+cloud_terrastodon_registry::register_into_future!(RouteTableListRequest => Vec<RouteTable>);

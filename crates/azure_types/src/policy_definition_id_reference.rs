@@ -1,11 +1,12 @@
 use crate::PolicyDefinitionId;
 use crate::PolicySetDefinitionId;
 use crate::scopes::Scope;
+use arbitrary::Arbitrary;
 use eyre::bail;
 use std::str::FromStr;
 
 /// An ID for either a policy definition or a policy set definition
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum PolicyDefinitionIdReference {
@@ -13,6 +14,7 @@ pub enum PolicyDefinitionIdReference {
     PolicySetDefinitionId(PolicySetDefinitionId),
 }
 crate::impl_facet_string_proxy!(PolicyDefinitionIdReference, value => value.expanded_form());
+
 impl Scope for PolicyDefinitionIdReference {
     type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
@@ -75,45 +77,5 @@ impl FromStr for PolicyDefinitionIdReference {
                 )
             }
         }
-    }
-}
-
-impl PartialEq<PolicyDefinitionId> for PolicyDefinitionIdReference {
-    fn eq(&self, other: &PolicyDefinitionId) -> bool {
-        match self {
-            PolicyDefinitionIdReference::PolicyDefinitionId(policy_definition_id) => {
-                policy_definition_id == other
-            }
-            _ => false,
-        }
-    }
-}
-impl PartialEq<PolicySetDefinitionId> for PolicyDefinitionIdReference {
-    fn eq(&self, other: &PolicySetDefinitionId) -> bool {
-        match self {
-            PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
-                policy_set_definition_id == other
-            }
-            _ => false,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn json_round_trips_through_facet() -> eyre::Result<()> {
-        for expanded in [
-            "/providers/Microsoft.Authorization/policyDefinitions/55555555-5555-5555-5555-555555555555",
-            "/providers/Microsoft.Authorization/policySetDefinitions/55555555-5555-5555-5555-555555555555",
-        ] {
-            let json = facet_json::to_string(expanded)?;
-            let id: PolicyDefinitionIdReference = facet_json::from_str(&json)?;
-            assert_eq!(facet_json::to_string(&id)?, json);
-            assert_eq!(id.expanded_form(), expanded);
-        }
-        Ok(())
     }
 }

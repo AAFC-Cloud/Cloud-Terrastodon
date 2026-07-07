@@ -8,6 +8,7 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct GroupMemberAddRequest {
     pub group_id: EntraGroupId,
     pub member_id: PrincipalId,
@@ -61,3 +62,7 @@ impl CacheableCommand for GroupMemberAddRequest {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(GroupMemberAddRequest);
+
+cloud_terrastodon_registry::register_thing!(GroupMemberAddRequest);
+cloud_terrastodon_registry::register_arbitrary!(GroupMemberAddRequest);
+cloud_terrastodon_registry::register_into_future!(GroupMemberAddRequest => ());

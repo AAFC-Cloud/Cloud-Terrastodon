@@ -1,22 +1,23 @@
+use crate::ArbitraryJson;
 use crate::StorageAccountId;
 use crate::StorageAccountName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use facet_json::RawJson;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 pub struct StorageAccountSKU {
     name: String,
     tier: String,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum StorageAccountKind {
     BlockBlobStorage,
@@ -25,14 +26,14 @@ pub enum StorageAccountKind {
     StorageV2,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 pub struct StorageAccount {
     pub id: StorageAccountId,
     pub name: StorageAccountName,
     pub kind: StorageAccountKind,
     pub location: String,
     pub sku: StorageAccountSKU,
-    pub properties: RawJson<'static>,
+    pub properties: ArbitraryJson,
     #[facet(default)]
     pub tags: HashMap<String, String>,
 }
@@ -102,3 +103,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(StorageAccount);
+cloud_terrastodon_registry::register_arbitrary!(StorageAccount);
+cloud_terrastodon_registry::register_arbitrary!(Vec<StorageAccount>);

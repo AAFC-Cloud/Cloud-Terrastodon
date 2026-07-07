@@ -1,6 +1,7 @@
 use crate::AddressPrefix;
+use arbitrary::Arbitrary;
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct RouteTableProperties {
     #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<Route>)]
@@ -13,7 +14,7 @@ pub struct RouteTableProperties {
     pub disable_bgp_route_propagation: Option<bool>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct Route {
     pub id: String,
@@ -24,7 +25,7 @@ pub struct Route {
     pub properties: RouteProperties,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct RouteProperties {
     pub address_prefix: AddressPrefix,
@@ -34,7 +35,7 @@ pub struct RouteProperties {
     pub has_bgp_override: Option<bool>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum NextHopType {
     #[facet(rename = "VirtualNetworkGateway")]
@@ -49,7 +50,7 @@ pub enum NextHopType {
     None,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct SubnetReference {
     #[facet(default)]
     pub id: Option<String>,

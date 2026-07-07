@@ -1,12 +1,13 @@
 use crate::RolePermissionAction;
 use crate::UnifiedRoleDefinitionId;
+use arbitrary::Arbitrary;
 use std::collections::HashMap;
 use tracing::warn;
 
 /// An Entra role definition.
 ///
 /// Not to be confused with an Azure RBAC role definition.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct UnifiedRoleDefinition {
     // pub allowed_principal_types: Value, // is present in $metadata but the API isn't giving it :P
@@ -69,12 +70,12 @@ impl UnifiedRoleDefinition {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 pub struct UnifiedRoleDefinitionIdReference {
     pub id: UnifiedRoleDefinitionId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct UnifiedRolePermission {
     pub condition: Option<String>,
@@ -155,3 +156,6 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(UnifiedRoleDefinition);
+cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinition);

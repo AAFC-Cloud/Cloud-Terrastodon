@@ -1,7 +1,6 @@
 use crate::PrincipalId;
 use crate::RoleDefinitionId;
 use crate::RoleEligibilityScheduleId;
-use crate::to_iso8601;
 use chrono::DateTime;
 use chrono::Utc;
 use std::time::Duration;
@@ -19,7 +18,6 @@ impl RoleAssignmentScheduleRequest {
         justification: String,
         duration: Duration,
     ) -> Self {
-        let duration = to_iso8601(duration);
         Self {
             properties: RoleAssignmentScheduleRequestProperties {
                 principal_id,
@@ -29,7 +27,7 @@ impl RoleAssignmentScheduleRequest {
                 justification,
                 schedule_info: RoleAssignmentScheduleRequestPropertiesScheduleInfo {
                     start_date_time: None,
-                    expiration: RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration::AfterDuration { duration },
+                    expiration: RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration::AfterDuration { duration: duration.into() },
                 },
                 ticket_info: RoleAssignmentScheduleRequestPropertiesTicketInfo {
                     ticket_number: "".to_string(),
@@ -96,8 +94,8 @@ pub enum RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration {
         end_date_time: DateTime<Utc>,
     },
     AfterDuration {
-        #[facet(rename = "Duration", opaque, proxy = crate::IsoDurationProxy)]
-        duration: iso8601_duration::Duration,
+        #[facet(rename = "Duration")]
+        duration: crate::iso8601_duration::Duration,
     },
     NoExpiration,
 }

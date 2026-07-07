@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::slug::Slug;
+use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::bail;
 use std::hash::Hash;
@@ -85,7 +85,6 @@ impl From<ServiceGroupName> for CompactString {
     }
 }
 
-
 impl<'a> Arbitrary<'a> for ServiceGroupName {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let len = u.int_in_range(1..=64)?;
@@ -150,4 +149,3 @@ mod tests {
         Ok(())
     }
 }
-

@@ -1,10 +1,10 @@
-use arbitrary::Arbitrary;
 use crate::SubnetName;
 use crate::VirtualNetworkId;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::TryFromVirtualNetworkScoped;
 use crate::slug::Slug;
+use arbitrary::Arbitrary;
 use eyre::Context;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -183,4 +183,3 @@ mod tests {
         Ok(())
     }
 }
-

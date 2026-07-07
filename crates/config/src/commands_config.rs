@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::config::Config;
+use arbitrary::Arbitrary;
 
 #[derive(Debug, Arbitrary, facet::Facet, Clone, PartialEq)]
 pub struct CommandsConfig {
@@ -27,4 +27,3 @@ impl Config for CommandsConfig {
 
 cloud_terrastodon_registry::register_thing!(CommandsConfig);
 cloud_terrastodon_registry::register_arbitrary!(CommandsConfig);
-

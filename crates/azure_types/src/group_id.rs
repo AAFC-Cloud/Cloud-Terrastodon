@@ -8,4 +8,3 @@ crate::impl_uuid_newtype!(EntraGroupId);
 
 cloud_terrastodon_registry::register_thing!(EntraGroupId);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupId);
-

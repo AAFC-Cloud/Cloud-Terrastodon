@@ -8,7 +8,7 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use std::time::Duration;
 
-#[derive(Debug)]
+#[derive(Debug, arbitrary::Arbitrary, facet::Facet)]
 pub struct GroupMemberRemoveRequest {
     pub group_id: EntraGroupId,
     pub member_id: PrincipalId,
@@ -62,3 +62,7 @@ impl CacheableCommand for GroupMemberRemoveRequest {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(GroupMemberRemoveRequest);
+
+cloud_terrastodon_registry::register_thing!(GroupMemberRemoveRequest);
+cloud_terrastodon_registry::register_arbitrary!(GroupMemberRemoveRequest);
+cloud_terrastodon_registry::register_into_future!(GroupMemberRemoveRequest => ());

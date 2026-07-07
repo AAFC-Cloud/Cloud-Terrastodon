@@ -1,6 +1,8 @@
+use arbitrary::Arbitrary;
+
 use crate::key_vault_access_policy_all_privilege::KeyVaultAccessPolicyAllPrivilege;
 
-#[derive(Debug, PartialEq, Clone, Copy, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Copy, facet::Facet, Arbitrary)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum KeyVaultAccessPolicySecretPrivilege {
@@ -59,7 +61,7 @@ impl std::str::FromStr for KeyVaultAccessPolicySecretPrivilege {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Copy, facet::Facet, Arbitrary)]
 #[repr(C)]
 pub enum KeyVaultAccessPolicySecretManagementOperation {
     Get,
@@ -84,7 +86,7 @@ impl KeyVaultAccessPolicySecretManagementOperation {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Copy, facet::Facet, Arbitrary)]
 #[repr(C)]
 pub enum KeyVaultAccessPolicyPrivilegedSecretOperation {
     Purge,

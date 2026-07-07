@@ -1,40 +1,36 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountResource;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountResourceId;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountResourceName;
 use cloud_terrastodon_azure::Scope;
 use eyre::Result;
 use eyre::bail;
+use std::borrow::Cow;
 use std::str::FromStr;
 
 /// Cognitive Services account can be specified as an id, a validated name, or a wildcard pattern.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum CognitiveServicesAccountArgument<'a> {
-    Id(AzureCognitiveServicesAccountResourceId),
-    IdRef(&'a AzureCognitiveServicesAccountResourceId),
-    Name(AzureCognitiveServicesAccountResourceName),
-    NameRef(&'a AzureCognitiveServicesAccountResourceName),
-    Pattern(String),
-    PatternRef(&'a str),
+    Id(Cow<'a, AzureCognitiveServicesAccountResourceId>),
+    Name(Cow<'a, AzureCognitiveServicesAccountResourceName>),
+    Pattern(Cow<'a, str>),
 }
 
 impl std::fmt::Display for CognitiveServicesAccountArgument<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CognitiveServicesAccountArgument::Id(id) => write!(f, "{}", id.expanded_form()),
-            CognitiveServicesAccountArgument::IdRef(id) => write!(f, "{}", id.expanded_form()),
             CognitiveServicesAccountArgument::Name(name) => name.fmt(f),
-            CognitiveServicesAccountArgument::NameRef(name) => name.fmt(f),
             CognitiveServicesAccountArgument::Pattern(pattern) => pattern.fmt(f),
-            CognitiveServicesAccountArgument::PatternRef(pattern) => pattern.fmt(f),
         }
     }
 }
 
 impl From<AzureCognitiveServicesAccountResourceId> for CognitiveServicesAccountArgument<'_> {
     fn from(value: AzureCognitiveServicesAccountResourceId) -> Self {
-        Self::Id(value)
+        Self::Id(Cow::Owned(value))
     }
 }
 
@@ -42,13 +38,13 @@ impl<'a> From<&'a AzureCognitiveServicesAccountResourceId>
     for CognitiveServicesAccountArgument<'a>
 {
     fn from(value: &'a AzureCognitiveServicesAccountResourceId) -> Self {
-        Self::IdRef(value)
+        Self::Id(Cow::Borrowed(value))
     }
 }
 
 impl From<AzureCognitiveServicesAccountResourceName> for CognitiveServicesAccountArgument<'_> {
     fn from(value: AzureCognitiveServicesAccountResourceName) -> Self {
-        Self::Name(value)
+        Self::Name(Cow::Owned(value))
     }
 }
 
@@ -56,55 +52,41 @@ impl<'a> From<&'a AzureCognitiveServicesAccountResourceName>
     for CognitiveServicesAccountArgument<'a>
 {
     fn from(value: &'a AzureCognitiveServicesAccountResourceName) -> Self {
-        Self::NameRef(value)
+        Self::Name(Cow::Borrowed(value))
     }
 }
 
 impl<'a> From<&'a str> for CognitiveServicesAccountArgument<'a> {
     fn from(value: &'a str) -> Self {
-        Self::PatternRef(value)
+        Self::Pattern(Cow::Borrowed(value))
     }
 }
 
 impl CognitiveServicesAccountArgument<'_> {
     pub fn into_owned(self) -> CognitiveServicesAccountArgument<'static> {
         match self {
-            CognitiveServicesAccountArgument::Id(id) => CognitiveServicesAccountArgument::Id(id),
-            CognitiveServicesAccountArgument::IdRef(id) => {
-                CognitiveServicesAccountArgument::Id(id.clone())
+            CognitiveServicesAccountArgument::Id(id) => {
+                CognitiveServicesAccountArgument::Id(Cow::Owned(id.into_owned()))
             }
             CognitiveServicesAccountArgument::Name(name) => {
-                CognitiveServicesAccountArgument::Name(name)
-            }
-            CognitiveServicesAccountArgument::NameRef(name) => {
-                CognitiveServicesAccountArgument::Name(name.clone())
+                CognitiveServicesAccountArgument::Name(Cow::Owned(name.into_owned()))
             }
             CognitiveServicesAccountArgument::Pattern(pattern) => {
-                CognitiveServicesAccountArgument::Pattern(pattern)
-            }
-            CognitiveServicesAccountArgument::PatternRef(pattern) => {
-                CognitiveServicesAccountArgument::Pattern(pattern.to_string())
+                CognitiveServicesAccountArgument::Pattern(Cow::Owned(pattern.into_owned()))
             }
         }
     }
 
     pub fn matches(&self, account: &AzureCognitiveServicesAccountResource) -> bool {
         match self {
-            CognitiveServicesAccountArgument::Id(id) => account.id == *id,
-            CognitiveServicesAccountArgument::IdRef(id) => account.id == **id,
-            CognitiveServicesAccountArgument::Name(name) => {
-                account.name.as_str().eq_ignore_ascii_case(name.as_str())
-            }
-            CognitiveServicesAccountArgument::NameRef(name) => {
-                account.name.as_str().eq_ignore_ascii_case(name.as_str())
-            }
+            CognitiveServicesAccountArgument::Id(id) => &account.id == id.as_ref(),
+            CognitiveServicesAccountArgument::Name(name) => account
+                .name
+                .as_str()
+                .eq_ignore_ascii_case(name.as_ref().as_str()),
             CognitiveServicesAccountArgument::Pattern(pattern) => {
-                wildcard_matches(pattern, &account.id.expanded_form())
-                    || wildcard_matches(pattern, account.name.as_str())
-            }
-            CognitiveServicesAccountArgument::PatternRef(pattern) => {
-                wildcard_matches(pattern, &account.id.expanded_form())
-                    || wildcard_matches(pattern, account.name.as_str())
+                wildcard_matches(pattern.as_ref(), &account.id.expanded_form())
+                    || wildcard_matches(pattern.as_ref(), account.name.as_str())
             }
         }
     }
@@ -116,12 +98,14 @@ impl<'a> FromStr for CognitiveServicesAccountArgument<'a> {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let value = s.trim();
         if value.contains('*') {
-            return Ok(CognitiveServicesAccountArgument::Pattern(value.to_string()));
+            return Ok(CognitiveServicesAccountArgument::Pattern(Cow::Owned(
+                value.to_string(),
+            )));
         }
         if let Ok(id) = value.parse::<AzureCognitiveServicesAccountResourceId>() {
-            Ok(CognitiveServicesAccountArgument::Id(id))
+            Ok(CognitiveServicesAccountArgument::Id(Cow::Owned(id)))
         } else if let Ok(name) = value.parse::<AzureCognitiveServicesAccountResourceName>() {
-            Ok(CognitiveServicesAccountArgument::Name(name))
+            Ok(CognitiveServicesAccountArgument::Name(Cow::Owned(name)))
         } else {
             bail!(
                 "'{value}' is not a valid Cognitive Services account id, name, or wildcard pattern"

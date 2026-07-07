@@ -8,6 +8,7 @@ use eyre::Result;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct PolicySetDefinitionListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -74,3 +75,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(PolicySetDefinitionListRequest);
+cloud_terrastodon_registry::register_arbitrary!(PolicySetDefinitionListRequest);
+cloud_terrastodon_registry::register_into_future!(PolicySetDefinitionListRequest => Vec<PolicySetDefinition>);

@@ -7,6 +7,7 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputePublishersListRequest {
     pub subscription_id: SubscriptionId,
     pub location: AzureLocationName,
@@ -77,3 +78,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ComputePublishersListRequest);
+cloud_terrastodon_registry::register_arbitrary!(ComputePublishersListRequest);
+cloud_terrastodon_registry::register_into_future!(ComputePublishersListRequest => Vec<ComputePublisherId>);

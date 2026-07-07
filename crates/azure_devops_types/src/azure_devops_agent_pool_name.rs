@@ -58,7 +58,9 @@ impl FromStr for AzureDevOpsAgentPoolName {
 
 impl<'a> Arbitrary<'a> for AzureDevOpsAgentPoolName {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        let invalid_chars = [',', '"', '/', '\\', '[', ']', ':', '|', '<', '>', '+', '=', ';', '?', '*'];
+        let invalid_chars = [
+            ',', '"', '/', '\\', '[', ']', ':', '|', '<', '>', '+', '=', ';', '?', '*',
+        ];
         let mut name = String::arbitrary(u)?;
         name.retain(|ch| !invalid_chars.contains(&ch));
         if name.len() > 128 {
@@ -69,4 +71,3 @@ impl<'a> Arbitrary<'a> for AzureDevOpsAgentPoolName {
 }
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolName);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPoolName);
-

@@ -15,6 +15,7 @@ use tokio::try_join;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct PrincipalListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -67,3 +68,6 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(PrincipalListRequest);
+cloud_terrastodon_registry::register_arbitrary!(PrincipalListRequest);

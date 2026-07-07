@@ -72,3 +72,7 @@ impl std::fmt::Display for EntraApplicationRegistration {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(EntraApplicationRegistration);
+cloud_terrastodon_registry::register_arbitrary!(EntraApplicationRegistration);
+cloud_terrastodon_registry::register_arbitrary!(Vec<EntraApplicationRegistration>);

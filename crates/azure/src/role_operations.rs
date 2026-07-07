@@ -11,6 +11,7 @@ use tracing::debug;
 const PROVIDER_OPERATIONS_API_VERSION: &str = "2022-04-01";
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct RoleOperationListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -93,3 +94,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(RoleOperationListRequest);
+cloud_terrastodon_registry::register_arbitrary!(RoleOperationListRequest);
+cloud_terrastodon_registry::register_into_future!(RoleOperationListRequest => Vec<AzureProviderOperationsMetadata>);

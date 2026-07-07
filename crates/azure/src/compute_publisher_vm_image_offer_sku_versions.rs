@@ -10,6 +10,7 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputePublisherImageOfferSkuVersionListRequest {
     pub subscription_id: SubscriptionId,
     pub location: AzureLocationName,
@@ -110,3 +111,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ComputePublisherImageOfferSkuVersionListRequest);
+cloud_terrastodon_registry::register_arbitrary!(ComputePublisherImageOfferSkuVersionListRequest);
+cloud_terrastodon_registry::register_into_future!(ComputePublisherImageOfferSkuVersionListRequest => Vec<ComputePublisherVmImageOfferSkuVersionId>);

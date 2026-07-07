@@ -1,4 +1,3 @@
-use arbitrary::Arbitrary;
 use crate::HasPrefix;
 use crate::NameValidatable;
 use crate::ServiceGroupName;
@@ -7,6 +6,7 @@ use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::slug::Slug;
 use crate::strip_prefix_case_insensitive;
+use arbitrary::Arbitrary;
 use eyre::Result;
 use std::hash::Hash;
 use std::str::FromStr;
@@ -99,4 +99,3 @@ mod tests {
         Ok(())
     }
 }
-

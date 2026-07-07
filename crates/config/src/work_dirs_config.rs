@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::config::Config;
+use arbitrary::Arbitrary;
 use facet::Facet;
 use ordermap::OrderSet;
 use std::path::PathBuf;

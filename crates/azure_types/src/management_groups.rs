@@ -8,6 +8,7 @@ use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::strip_prefix_case_insensitive;
+use arbitrary::Arbitrary;
 use eyre::Result;
 use std::hash::Hash;
 use std::str::FromStr;
@@ -77,7 +78,12 @@ impl Scope for ManagementGroupId {
     }
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+impl<'a> Arbitrary<'a> for ManagementGroupId {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self::from_name(&format!("mg{}", u32::arbitrary(u)?)))
+    }
+}
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct ManagementGroup {
     pub display_name: String,
     pub id: ManagementGroupId,
@@ -143,3 +149,9 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ManagementGroupId);
+cloud_terrastodon_registry::register_arbitrary!(ManagementGroupId);
+cloud_terrastodon_registry::register_thing!(ManagementGroup);
+cloud_terrastodon_registry::register_arbitrary!(ManagementGroup);
+cloud_terrastodon_registry::register_arbitrary!(Vec<ManagementGroup>);

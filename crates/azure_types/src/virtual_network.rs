@@ -2,9 +2,10 @@ use crate::ResourceGroupId;
 use crate::VirtualNetworkId;
 use crate::VirtualNetworkName;
 use crate::VirtualNetworkProperties;
+use arbitrary::Arbitrary;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct VirtualNetwork {
     pub id: VirtualNetworkId,
     pub name: VirtualNetworkName,
@@ -15,8 +16,11 @@ pub struct VirtualNetwork {
 }
 
 impl VirtualNetwork {
-    // Helper to get the ResourceGroupId from the VirtualNetworkId
     pub fn resource_group_id(&self) -> &ResourceGroupId {
         &self.id.resource_group_id
     }
 }
+
+cloud_terrastodon_registry::register_thing!(VirtualNetwork);
+cloud_terrastodon_registry::register_arbitrary!(VirtualNetwork);
+cloud_terrastodon_registry::register_arbitrary!(Vec<VirtualNetwork>);

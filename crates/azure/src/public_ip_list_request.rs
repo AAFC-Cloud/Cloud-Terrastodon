@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct PublicIpListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -71,3 +72,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(PublicIpListRequest);
+cloud_terrastodon_registry::register_arbitrary!(PublicIpListRequest);
+cloud_terrastodon_registry::register_into_future!(PublicIpListRequest => Vec<AzurePublicIpResource>);

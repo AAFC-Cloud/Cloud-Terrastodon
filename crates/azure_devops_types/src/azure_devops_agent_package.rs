@@ -1,14 +1,15 @@
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 pub struct AzureDevOpsAgentPackageVersion {
     pub major: u32,
     pub minor: u32,
     pub patch: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPackage {
     pub created_on: DateTime<Utc>,
@@ -21,6 +22,12 @@ pub struct AzureDevOpsAgentPackage {
     pub r#type: String,
     pub version: AzureDevOpsAgentPackageVersion,
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPackageVersion);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPackageVersion);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPackage);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPackage);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsAgentPackage>);
 
 #[cfg(test)]
 mod test {

@@ -1,11 +1,12 @@
+use crate::ArbitraryJson;
 use crate::KeyVaultAccessPolicy;
 use crate::tenant_id::AzureTenantId;
-use facet_json::RawJson;
+use arbitrary::Arbitrary;
 use std::convert::Infallible;
 
 /// Selected Key Vault properties as returned by Azure. Some complex nested collections remain
 /// as raw JSON until modeled (see TODOs).
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct KeyVaultProperties {
     pub network_acls: Option<NetworkAcls>,
@@ -16,32 +17,32 @@ pub struct KeyVaultProperties {
     pub enabled_for_disk_encryption: Option<bool>,
     pub enable_soft_delete: Option<bool>,
     pub enable_rbac_authorization: Option<bool>,
-    pub vault_uri: String, // URL string
+    pub vault_uri: String,
     pub access_policies: Vec<KeyVaultAccessPolicy>,
     pub soft_delete_retention_in_days: Option<u32>,
     pub enabled_for_template_deployment: Option<bool>,
     pub enable_purge_protection: Option<bool>,
     /// Private endpoint connections (raw). TODO: Vec<PrivateEndpointConnection>
-    pub private_endpoint_connections: Option<RawJson<'static>>,
+    pub private_endpoint_connections: Option<ArbitraryJson>,
     pub sku: KeyVaultSku,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 pub struct KeyVaultSku {
     pub name: String,
     pub family: String,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct NetworkAcls {
-    pub virtual_network_rules: RawJson<'static>, // TODO: Vec<VirtualNetworkRule>
-    pub ip_rules: RawJson<'static>,              // TODO: Vec<IpRule>
-    pub default_action: RawJson<'static>,        // TODO: enum DefaultAction (Allow / Deny)
-    pub bypass: RawJson<'static>,                // TODO: enum Bypass (AzureServices / None)
+    pub virtual_network_rules: ArbitraryJson,// TODO: Vec<VirtualNetworkRule>
+    pub ip_rules: ArbitraryJson,// TODO: Vec<IpRule>
+    pub default_action: ArbitraryJson,// TODO: enum DefaultAction (Allow / Deny)
+    pub bypass: ArbitraryJson,// TODO: enum Bypass (AzureServices / None)
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum ProvisioningState {
@@ -85,7 +86,7 @@ impl From<&ProvisioningState> for String {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum PublicNetworkAccess {

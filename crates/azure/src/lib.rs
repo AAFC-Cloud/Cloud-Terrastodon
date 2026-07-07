@@ -183,3 +183,5 @@ pub use crate::virtual_machine_skus::*;
 pub use crate::virtual_machines::*;
 pub use crate::virtual_network::*;
 pub use cloud_terrastodon_azure_types::*;
+
+cloud_terrastodon_registry::register_arbitrary!(());

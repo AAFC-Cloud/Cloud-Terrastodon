@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::RolePermissionAction;
+use arbitrary::Arbitrary;
 use ordermap::OrderSet;
 use std::cmp::Ordering;
 
@@ -316,4 +316,3 @@ mod test {
         Ok(())
     }
 }
-

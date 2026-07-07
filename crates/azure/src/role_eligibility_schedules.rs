@@ -5,6 +5,7 @@ use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use std::path::PathBuf;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct MyEntraRoleEligibilityScheduleListRequest;
 
 pub fn fetch_my_role_eligibility_schedules() -> MyEntraRoleEligibilityScheduleListRequest {
@@ -60,3 +61,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(MyEntraRoleEligibilityScheduleListRequest);
+cloud_terrastodon_registry::register_arbitrary!(MyEntraRoleEligibilityScheduleListRequest);
+cloud_terrastodon_registry::register_into_future!(MyEntraRoleEligibilityScheduleListRequest => Vec<RoleEligibilitySchedule>);

@@ -16,6 +16,7 @@ use tracing::info;
 const COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENTS_API_VERSION: &str = "2025-06-01";
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct CognitiveServicesAccountDeploymentListRequest {
     pub tenant_id: AzureTenantId,
     pub account_id: AzureCognitiveServicesAccountResourceId,
@@ -128,3 +129,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(CognitiveServicesAccountDeploymentListRequest);
+cloud_terrastodon_registry::register_arbitrary!(CognitiveServicesAccountDeploymentListRequest);
+cloud_terrastodon_registry::register_into_future!(CognitiveServicesAccountDeploymentListRequest => Vec<AzureCognitiveServicesAccountDeployment>);

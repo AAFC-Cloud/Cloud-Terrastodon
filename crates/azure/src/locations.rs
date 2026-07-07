@@ -6,6 +6,7 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct LocationListRequest {
     pub subscription_id: SubscriptionId,
 }
@@ -70,3 +71,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(LocationListRequest);
+cloud_terrastodon_registry::register_arbitrary!(LocationListRequest);
+cloud_terrastodon_registry::register_into_future!(LocationListRequest => Vec<AzureLocation>);

@@ -12,6 +12,7 @@ use tracing::debug;
 ///
 /// Not to be confused with Entra role assignments.
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct RoleAssignmentListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -78,3 +79,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(RoleAssignmentListRequest);
+cloud_terrastodon_registry::register_arbitrary!(RoleAssignmentListRequest);
+cloud_terrastodon_registry::register_into_future!(RoleAssignmentListRequest => Vec<RoleAssignment>);

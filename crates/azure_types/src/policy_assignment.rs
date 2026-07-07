@@ -1,3 +1,4 @@
+use crate::ArbitraryJson;
 use crate::AzureLocationName;
 use crate::AzurePolicyDefinitionParametersSupplied;
 use crate::PolicyAssignmentId;
@@ -7,6 +8,7 @@ use crate::PrincipalId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
@@ -16,24 +18,23 @@ use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use compact_str::CompactString;
 use facet::Facet;
-use facet_json::RawJson;
 
-#[derive(Debug, PartialEq, Eq, Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 pub struct PolicyAssignment {
     pub id: PolicyAssignmentId,
     pub name: PolicyAssignmentName,
     pub location: AzureLocationName,
-    pub identity: Option<RawJson<'static>>,
+    pub identity: Option<ArbitraryJson>,
     pub properties: PolicyAssignmentProperties,
 }
 
-#[derive(Debug, PartialEq, Eq, Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentProperties {
     pub policy_definition_id: PolicyDefinitionIdReference,
-    pub non_compliance_messages: Option<Vec<RawJson<'static>>>,
+    pub non_compliance_messages: Option<Vec<ArbitraryJson>>,
     pub definition_version: CompactString,
-    pub resource_selectors: Option<Vec<RawJson<'static>>>,
+    pub resource_selectors: Option<Vec<ArbitraryJson>>,
     pub enforcement_mode: PolicyAssignmentEnforcementMode,
     pub display_name: Option<CompactString>,
     pub description: Option<CompactString>,
@@ -43,25 +44,25 @@ pub struct PolicyAssignmentProperties {
     pub scope: ScopeImpl,
 }
 
-#[derive(Debug, PartialEq, Eq, Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[repr(C)]
 pub enum PolicyAssignmentEnforcementMode {
     Default,
     DoNotEnforce,
 }
 
-#[derive(Debug, PartialEq, Eq, Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentMetadata {
     pub created_on: DateTime<Utc>,
     pub created_by: PrincipalId,
     pub assigned_by: Option<CompactString>,
-    pub parameter_scopes: Option<RawJson<'static>>,
+    pub parameter_scopes: Option<ArbitraryJson>,
     pub updated_by: Option<PrincipalId>,
     pub updated_on: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, PartialEq, Eq, Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentNonComplianceMessage {
     pub policy_definition_reference_id: CompactString,
@@ -106,3 +107,7 @@ impl From<PolicyAssignment> for HclImportBlock {
         }
     }
 }
+
+cloud_terrastodon_registry::register_thing!(PolicyAssignment);
+cloud_terrastodon_registry::register_arbitrary!(PolicyAssignment);
+cloud_terrastodon_registry::register_arbitrary!(Vec<PolicyAssignment>);

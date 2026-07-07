@@ -1,9 +1,9 @@
-use arbitrary::Arbitrary;
 use crate::RoleDefinitionId;
 use crate::RolePermissionAction;
 use crate::RolePermissions;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -128,3 +128,4 @@ mod tests {
 cloud_terrastodon_registry::register_thing!(RoleDefinition);
 cloud_terrastodon_registry::register_arbitrary!(RoleDefinition);
 
+cloud_terrastodon_registry::register_arbitrary!(Vec<RoleDefinition>);

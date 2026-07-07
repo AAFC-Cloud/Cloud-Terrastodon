@@ -1,6 +1,7 @@
+use arbitrary::Arbitrary;
 use std::convert::Infallible;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct UnifiedRoleAssignmentId(String);
 crate::impl_facet_string_proxy!(UnifiedRoleAssignmentId, value => value.to_string());
@@ -46,3 +47,6 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(UnifiedRoleAssignmentId);
+cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleAssignmentId);

@@ -11,6 +11,7 @@ use eyre::Result;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct KeyVaultListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -76,3 +77,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(KeyVaultListRequest);
+cloud_terrastodon_registry::register_arbitrary!(KeyVaultListRequest);
+cloud_terrastodon_registry::register_into_future!(KeyVaultListRequest => Vec<KeyVault>);

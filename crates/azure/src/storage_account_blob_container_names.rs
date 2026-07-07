@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_azure_types::StorageAccountBlobContainerName;
 use cloud_terrastodon_azure_types::StorageAccountId;
@@ -6,18 +7,30 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
 /// This can fail due to network rules on the storage account
+#[derive(facet::Facet)]
 pub struct StorageAccountBlobContainerNamesListRequest<'a> {
-    pub storage_account_id: &'a StorageAccountId,
+    pub storage_account_id: Cow<'a, StorageAccountId>,
 }
 
-pub fn fetch_storage_account_blob_container_names<'a>(
-    storage_account_id: &'a StorageAccountId,
-) -> StorageAccountBlobContainerNamesListRequest<'a> {
-    StorageAccountBlobContainerNamesListRequest { storage_account_id }
+pub fn fetch_storage_account_blob_container_names(
+    storage_account_id: &StorageAccountId,
+) -> StorageAccountBlobContainerNamesListRequest<'_> {
+    StorageAccountBlobContainerNamesListRequest {
+        storage_account_id: Cow::Borrowed(storage_account_id),
+    }
+}
+
+impl<'a> Arbitrary<'a> for StorageAccountBlobContainerNamesListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            storage_account_id: Cow::Owned(StorageAccountId::arbitrary(u)?),
+        })
+    }
 }
 
 #[async_trait]
@@ -63,7 +76,10 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(StorageAccountBlobContainerNamesListRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(
+    StorageAccountBlobContainerNamesListRequest<'a>,
+    'a
+);
 
 #[cfg(test)]
 mod test {
@@ -89,3 +105,9 @@ mod test {
         bail!("Failed to get any blob containers D:")
     }
 }
+
+cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerNamesListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(
+    StorageAccountBlobContainerNamesListRequest<'static>
+);
+cloud_terrastodon_registry::register_into_future!(StorageAccountBlobContainerNamesListRequest<'static> => HashSet<StorageAccountBlobContainerName>);

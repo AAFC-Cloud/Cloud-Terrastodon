@@ -2,6 +2,7 @@ use crate::RestOutputFormat;
 use crate::RestResponseBody;
 use crate::RestResponseBodyProxy;
 use crate::parse_response_body;
+use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
@@ -11,7 +12,7 @@ use reqwest::header::HeaderMap;
 use std::collections::BTreeMap;
 use std::io::Write;
 
-#[derive(Clone, Debug, PartialEq, facet::Facet)]
+#[derive(Arbitrary, Clone, Debug, PartialEq, facet::Facet)]
 pub struct SerializableRestResponse {
     pub status: u16,
     pub ok: bool,
@@ -219,3 +220,6 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(SerializableRestResponse);
+cloud_terrastodon_registry::register_arbitrary!(SerializableRestResponse);

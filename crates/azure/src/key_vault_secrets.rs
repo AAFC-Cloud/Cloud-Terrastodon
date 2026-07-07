@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::KeyVaultId;
 use cloud_terrastodon_azure_types::KeyVaultSecret;
 use cloud_terrastodon_command::CacheKey;
@@ -5,14 +6,26 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
+#[derive(facet::Facet)]
 pub struct KeyVaultSecretsListRequest<'a> {
-    pub key_vault_id: &'a KeyVaultId,
+    pub key_vault_id: Cow<'a, KeyVaultId>,
 }
 
 pub fn fetch_key_vault_secrets<'a>(key_vault_id: &'a KeyVaultId) -> KeyVaultSecretsListRequest<'a> {
-    KeyVaultSecretsListRequest { key_vault_id }
+    KeyVaultSecretsListRequest {
+        key_vault_id: Cow::Borrowed(key_vault_id),
+    }
+}
+
+impl<'a> Arbitrary<'a> for KeyVaultSecretsListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            key_vault_id: Cow::Owned(KeyVaultId::arbitrary(u)?),
+        })
+    }
 }
 
 #[async_trait]
@@ -74,3 +87,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(KeyVaultSecretsListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(KeyVaultSecretsListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(KeyVaultSecretsListRequest<'static> => Vec<KeyVaultSecret>);

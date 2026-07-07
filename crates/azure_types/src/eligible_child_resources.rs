@@ -1,8 +1,9 @@
 use crate::scopes::ScopeImpl;
+use arbitrary::Arbitrary;
 use std::fmt;
 
 // TODO: this should be converted to an enum to prevent states where `kind` doesn't match `id`
-#[derive(Debug, facet::Facet, PartialEq)]
+#[derive(Debug, Arbitrary, facet::Facet, PartialEq)]
 pub struct EligibleChildResource {
     pub name: String,
     #[facet(rename = "type")]
@@ -15,7 +16,7 @@ impl std::fmt::Display for EligibleChildResource {
     }
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum EligibleChildResourceKind {
@@ -135,3 +136,9 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(EligibleChildResourceKind);
+cloud_terrastodon_registry::register_arbitrary!(EligibleChildResourceKind);
+cloud_terrastodon_registry::register_thing!(EligibleChildResource);
+cloud_terrastodon_registry::register_arbitrary!(EligibleChildResource);
+cloud_terrastodon_registry::register_arbitrary!(Vec<EligibleChildResource>);

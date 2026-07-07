@@ -1,6 +1,6 @@
-use arbitrary::Arbitrary;
 use crate::GiteaOwnerName;
 use crate::GiteaRepoName;
+use arbitrary::Arbitrary;
 use facet::Facet;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -67,4 +67,3 @@ impl From<&GiteaRepoFullName> for GiteaRepoFullNameProxy {
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoFullName);
 cloud_terrastodon_registry::register_arbitrary!(GiteaRepoFullName);
-

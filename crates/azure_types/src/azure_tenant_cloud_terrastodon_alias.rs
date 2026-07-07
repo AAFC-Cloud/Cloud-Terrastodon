@@ -169,4 +169,3 @@ mod tests {
         assert!(AzureTenantAlias::try_new("prod west").is_err());
     }
 }
-

@@ -1,1 +1,1 @@
-pub type AzureDevOpsServiceEndpointData = facet_json::RawJson<'static>;
+pub type AzureDevOpsServiceEndpointData = cloud_terrastodon_azure_types::ArbitraryJson;

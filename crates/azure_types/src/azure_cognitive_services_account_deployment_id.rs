@@ -1,7 +1,7 @@
-use arbitrary::Arbitrary;
 use crate::AzureCognitiveServicesAccountDeploymentName;
 use crate::AzureCognitiveServicesAccountResourceId;
 use crate::scopes::Scope;
+use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
@@ -102,5 +102,3 @@ mod test {
         Ok(())
     }
 }
-
-

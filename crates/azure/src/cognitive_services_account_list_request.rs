@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct CognitiveServicesAccountListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -77,3 +78,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(CognitiveServicesAccountListRequest);
+cloud_terrastodon_registry::register_arbitrary!(CognitiveServicesAccountListRequest);
+cloud_terrastodon_registry::register_into_future!(CognitiveServicesAccountListRequest => Vec<AzureCognitiveServicesAccountResource>);

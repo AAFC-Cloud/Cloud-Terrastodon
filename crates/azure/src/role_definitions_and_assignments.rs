@@ -1,6 +1,6 @@
-use arbitrary::Arbitrary;
 use crate::fetch_all_role_assignments;
 use crate::fetch_all_role_definitions;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::RoleDefinitionsAndAssignments;
 use cloud_terrastodon_command::CacheInvalidatable;
@@ -69,4 +69,3 @@ mod test {
         Ok(())
     }
 }
-

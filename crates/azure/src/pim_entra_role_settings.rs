@@ -8,6 +8,7 @@ use eyre::Result;
 use eyre::bail;
 use std::path::PathBuf;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct EntraPimRoleSettingsRequest {
     pub tenant_id: AzureTenantId,
     pub role_definition_id: Uuid,
@@ -95,3 +96,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(EntraPimRoleSettingsRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraPimRoleSettingsRequest);
+cloud_terrastodon_registry::register_into_future!(EntraPimRoleSettingsRequest => PimEntraRoleSettings);

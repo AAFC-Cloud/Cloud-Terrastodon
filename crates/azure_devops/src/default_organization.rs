@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::get_azure_devops_cli_config;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CommandBuilder;
@@ -89,4 +89,3 @@ mod test {
         Ok(())
     }
 }
-

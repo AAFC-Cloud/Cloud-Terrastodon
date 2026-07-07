@@ -9,7 +9,9 @@ pub struct HumantimeDurationCli(pub humantime::Duration);
 impl<'a> Arbitrary<'a> for HumantimeDurationCli {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let seconds = u64::arbitrary(u)? % 86_400;
-        Ok(Self(humantime::Duration::from(std::time::Duration::from_secs(seconds))))
+        Ok(Self(humantime::Duration::from(
+            std::time::Duration::from_secs(seconds),
+        )))
     }
 }
 impl Deref for HumantimeDurationCli {
@@ -75,4 +77,3 @@ cloud_terrastodon_registry::register_thing!(HumantimeDurationCli);
 cloud_terrastodon_registry::register_arbitrary!(HumantimeDurationCli);
 cloud_terrastodon_registry::register_thing!(HttpMethodCli);
 cloud_terrastodon_registry::register_arbitrary!(HttpMethodCli);
-

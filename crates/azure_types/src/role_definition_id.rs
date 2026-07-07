@@ -1,4 +1,3 @@
-use arbitrary::Arbitrary;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScopedRoleDefinitionId;
 use crate::ResourceGroupId;
@@ -22,6 +21,7 @@ use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::slug::HasSlug;
+use arbitrary::Arbitrary;
 use eyre::Result;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -219,4 +219,3 @@ mod tests {
         Ok(())
     }
 }
-

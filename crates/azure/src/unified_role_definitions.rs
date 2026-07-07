@@ -9,6 +9,7 @@ use std::path::PathBuf;
 /// Fetch all Entra role assignments.
 ///
 /// Not to be confused with Azure RBAC role assignments.
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct UnifiedRoleDefinitionListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -67,3 +68,6 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(UnifiedRoleDefinitionListRequest);
+cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinitionListRequest);

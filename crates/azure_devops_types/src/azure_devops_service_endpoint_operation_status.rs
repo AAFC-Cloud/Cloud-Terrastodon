@@ -1,18 +1,19 @@
+use arbitrary::Arbitrary;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_azure_types::OptionalNonEmptyStringProxy;
-use facet_json::RawJson;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointOperationStatus {
-    pub error_code: Option<RawJson<'static>>,
+    pub error_code: Option<ArbitraryJson>,
     #[facet(proxy = OptionalNonEmptyStringProxy)]
     pub severity: Option<AzureDevOpsServiceEndpointOperationStatusSeverity>,
     pub state: AzureDevOpsServiceEndpointOperationStatusState,
     pub status_message: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointOperationStatusSeverity {
     Warning,
@@ -39,7 +40,7 @@ impl std::fmt::Display for AzureDevOpsServiceEndpointOperationStatusSeverity {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointOperationStatusState {
     Failed,

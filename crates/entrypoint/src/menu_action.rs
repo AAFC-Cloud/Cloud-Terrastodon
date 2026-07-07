@@ -47,7 +47,6 @@ use crate::noninteractive::process_generated;
 use crate::noninteractive::write_imports_for_all_resource_groups;
 use crate::noninteractive::write_imports_for_all_role_assignments;
 use crate::noninteractive::write_imports_for_all_security_groups;
-use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::evaluate_policy_assignment_compliance;
 use cloud_terrastodon_azure::remediate_policy_assignment;
@@ -196,7 +195,7 @@ impl MenuAction {
             MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu(tenant_id).await?,
             MenuAction::BrowseResourceGroups => {
                 AzureResourceGroupBrowseArgs {
-                    tenant: AzureTenantArgument::Id(tenant_id),
+                    tenant: tenant_id.into(),
                 }
                 .invoke()
                 .await?

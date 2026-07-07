@@ -1,8 +1,9 @@
 use crate::ManagementGroupId;
+use arbitrary::Arbitrary;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 #[facet(transparent)]
 pub struct ManagementGroupAncestorsChain(Vec<ManagementGroupAncestorsChainEntry>);
 impl Deref for ManagementGroupAncestorsChain {
@@ -17,7 +18,7 @@ impl DerefMut for ManagementGroupAncestorsChain {
     }
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct ManagementGroupAncestorsChainEntry {
     pub name: String,
     #[facet(rename = "displayName")]
@@ -28,3 +29,6 @@ impl ManagementGroupAncestorsChainEntry {
         ManagementGroupId::from_name(&self.name)
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ManagementGroupAncestorsChain);
+cloud_terrastodon_registry::register_arbitrary!(ManagementGroupAncestorsChain);

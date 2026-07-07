@@ -1,8 +1,8 @@
-use arbitrary::Arbitrary;
 use crate::EntraGroup;
 use crate::EntraServicePrincipal;
 use crate::EntraUser;
 use crate::PrincipalId;
+use arbitrary::Arbitrary;
 use facet_json::RawJson;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -218,6 +218,7 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(Principal);
 cloud_terrastodon_registry::register_arbitrary!(Principal);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Principal>);
 
 cloud_terrastodon_registry::register_from!(EntraUser => Principal);
 cloud_terrastodon_registry::register_from!(EntraGroup => Principal);
@@ -225,4 +226,3 @@ cloud_terrastodon_registry::register_from!(EntraServicePrincipal => Principal);
 cloud_terrastodon_registry::register_try_from!(Principal => EntraUser);
 cloud_terrastodon_registry::register_try_from!(Principal => EntraGroup);
 cloud_terrastodon_registry::register_try_from!(Principal => EntraServicePrincipal);
-

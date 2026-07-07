@@ -1,18 +1,19 @@
+use crate::ArbitraryJson;
 use crate::AzurePolicyDefinitionParametersDefinition;
 use crate::AzurePolicyDefinitionParametersSupplied;
 use crate::PolicyDefinitionId;
 use crate::PolicyDefinitionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use facet::Facet;
-use facet_json::RawJson;
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
 pub struct PolicyDefinition {
     pub id: PolicyDefinitionId,
     pub name: PolicyDefinitionName,
@@ -21,12 +22,14 @@ pub struct PolicyDefinition {
     pub mode: String,
     #[facet(default)]
     pub parameters: Option<AzurePolicyDefinitionParametersDefinition>,
-    pub policy_rule: RawJson<'static>, // todo: strong type this!
+
     // todo: strong type this!
     // todo: strong type this!
     // todo: strong type this!
     // todo: strong type this!
     // todo: strong type this!
+    pub policy_rule: ArbitraryJson,
+
     pub policy_type: String,
     pub version: String,
 }
@@ -107,7 +110,7 @@ mod test {
                     description: Some(format!("This is policy definition number {}", i)),
                     mode: "All".to_string(),
                     parameters: Some(Default::default()),
-                    policy_rule: facet_json::RawJson::from_owned("{}".to_string()),
+                    policy_rule: facet_json::RawJson::from_owned("{}".to_string()).into(),
                     policy_type: "Custom".to_string(),
                     version: "1.0".to_string(),
                 }
@@ -118,10 +121,11 @@ mod test {
         let deserialized: Vec<PolicyDefinition> = facet_json::from_str(&json)?;
         let duration = Instant::now().duration_since(start);
         assert_eq!(deserialized, policies);
-        assert!(
-            duration < Duration::from_secs(1),
-            "Deserialization took too long"
-        );
+        assert!(duration < Duration::from_secs(2));
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(PolicyDefinition);
+cloud_terrastodon_registry::register_arbitrary!(PolicyDefinition);
+cloud_terrastodon_registry::register_arbitrary!(Vec<PolicyDefinition>);

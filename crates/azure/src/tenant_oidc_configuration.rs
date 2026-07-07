@@ -8,6 +8,7 @@ use eyre::Result;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct TenantLicenseListRequest;
 
 pub fn fetch_all_tenant_licenses() -> TenantLicenseListRequest {
@@ -98,3 +99,5 @@ mod test {
         Ok(())
     }
 }
+
+

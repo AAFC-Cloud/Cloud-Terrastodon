@@ -8,6 +8,7 @@ use std::future::IntoFuture;
 use std::pin::Pin;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 pub struct DefaultGiteaInstanceUrlRequest;
 
 pub fn get_default_gitea_instance_url() -> DefaultGiteaInstanceUrlRequest {
@@ -50,3 +51,10 @@ impl IntoFuture for DefaultGiteaInstanceUrlRequest {
         })
     }
 }
+
+cloud_terrastodon_registry::register_thing!(DefaultGiteaInstanceUrlRequest);
+cloud_terrastodon_registry::register_arbitrary!(DefaultGiteaInstanceUrlRequest);
+cloud_terrastodon_registry::register_into_future!(
+    DefaultGiteaInstanceUrlRequest => GiteaInstanceUrl,
+    effects = [Read]
+);

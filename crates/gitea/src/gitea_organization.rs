@@ -1,6 +1,6 @@
-use arbitrary::Arbitrary;
 use crate::GiteaOrganizationId;
 use crate::GiteaOrganizationName;
+use arbitrary::Arbitrary;
 use facet::Facet;
 use std::fmt::Display;
 
@@ -36,4 +36,4 @@ impl Display for GiteaOrganization {
 
 cloud_terrastodon_registry::register_thing!(GiteaOrganization);
 cloud_terrastodon_registry::register_arbitrary!(GiteaOrganization);
-
+cloud_terrastodon_registry::register_arbitrary!(Vec<GiteaOrganization>);

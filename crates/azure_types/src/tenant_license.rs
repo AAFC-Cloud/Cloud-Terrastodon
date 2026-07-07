@@ -2,7 +2,7 @@ use crate::SubscriptionId;
 use crate::tenant_id::AzureTenantId;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 pub struct TenantLicenseCollection(pub Vec<TenantLicense>);
 impl TenantLicenseCollection {
     pub fn has_aad_premium_p2(&self) -> bool {
@@ -14,7 +14,7 @@ impl TenantLicenseCollection {
     }
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct TenantLicense {
     pub account_id: AzureTenantId,
@@ -31,14 +31,14 @@ pub struct TenantLicense {
     pub subscription_ids: Vec<SubscriptionId>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum TenantLicenseAppliesTo {
     User,
     Company,
 }
 
-#[derive(Debug, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, arbitrary::Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum TenantLicenseCapabilityStatus {
     Enabled,
@@ -46,7 +46,7 @@ pub enum TenantLicenseCapabilityStatus {
     Suspended,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct TenantLicensePrepaidUnits {
     pub enabled: u32,
@@ -55,7 +55,7 @@ pub struct TenantLicensePrepaidUnits {
     pub warning: u32,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct TenantLicenseServicePlan {
     pub applies_to: TenantLicenseAppliesTo,
@@ -65,7 +65,7 @@ pub struct TenantLicenseServicePlan {
     pub service_plan_name: String,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum TenantLicenseServicePlanProvisioningStatus {
     Success,

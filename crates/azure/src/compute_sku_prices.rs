@@ -8,6 +8,7 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputeSkuPricesRequest {
     pub location: AzureLocationName,
     pub sku: ComputeSkuName,
@@ -88,3 +89,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ComputeSkuPricesRequest);
+cloud_terrastodon_registry::register_arbitrary!(ComputeSkuPricesRequest);
+cloud_terrastodon_registry::register_into_future!(ComputeSkuPricesRequest => Vec<Price>);

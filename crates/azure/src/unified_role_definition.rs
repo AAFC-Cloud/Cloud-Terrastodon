@@ -7,6 +7,7 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 
 /// Fetch an individual Entra role assignment
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct UnifiedRoleDefinitionRequest {
     pub tenant_id: AzureTenantId,
     pub role_definition_id: UnifiedRoleDefinitionId,
@@ -112,3 +113,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(UnifiedRoleDefinitionRequest);
+cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinitionRequest);
+cloud_terrastodon_registry::register_into_future!(UnifiedRoleDefinitionRequest => UnifiedRoleDefinition);

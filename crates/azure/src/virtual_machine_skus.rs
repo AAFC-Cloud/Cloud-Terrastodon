@@ -6,6 +6,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct VirtualMachineSkuRequest {
     pub subscription_id: SubscriptionId,
 }
@@ -32,3 +33,7 @@ impl CacheableCommand for VirtualMachineSkuRequest {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(VirtualMachineSkuRequest);
+
+cloud_terrastodon_registry::register_thing!(VirtualMachineSkuRequest);
+cloud_terrastodon_registry::register_arbitrary!(VirtualMachineSkuRequest);
+cloud_terrastodon_registry::register_into_future!(VirtualMachineSkuRequest => Vec<ComputeSku>);

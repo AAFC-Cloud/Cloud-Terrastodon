@@ -12,7 +12,7 @@ use tokio::try_join;
 ///
 /// Not to be confused with Azure RBAC role assignments and role definitions.
 #[must_use = "This is a future request, you must .await it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 pub struct UnifiedRoleDefinitionsAndAssignmentsListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -80,3 +80,6 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(UnifiedRoleDefinitionsAndAssignmentsListRequest);
+cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinitionsAndAssignmentsListRequest);

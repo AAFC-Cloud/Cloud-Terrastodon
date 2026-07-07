@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::MicrosoftGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_command::CacheKey;
@@ -52,6 +52,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserListRequest);
 
 cloud_terrastodon_registry::register_thing!(EntraUserListRequest);
 cloud_terrastodon_registry::register_arbitrary!(EntraUserListRequest);
+cloud_terrastodon_registry::register_arbitrary!(Vec<EntraUser>);
 cloud_terrastodon_registry::register_into_future!(EntraUserListRequest => Vec<EntraUser>);
 
 #[cfg(test)]
@@ -66,4 +67,3 @@ mod tests {
         Ok(())
     }
 }
-

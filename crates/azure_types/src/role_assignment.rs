@@ -1,10 +1,10 @@
-use arbitrary::Arbitrary;
 use crate::PrincipalId;
 use crate::RoleAssignmentId;
 use crate::RoleDefinitionId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -73,3 +73,4 @@ impl RoleAssignment {
 cloud_terrastodon_registry::register_thing!(RoleAssignment);
 cloud_terrastodon_registry::register_arbitrary!(RoleAssignment);
 
+cloud_terrastodon_registry::register_arbitrary!(Vec<RoleAssignment>);

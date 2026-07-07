@@ -1088,6 +1088,7 @@ dependencies = [
 name = "cloud_terrastodon_azure_resource_types"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
  "cloud_terrastodon_command",
  "eyre",
  "facet",
@@ -1363,10 +1364,12 @@ dependencies = [
 name = "cloud_terrastodon_rest"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
  "bstr 1.12.3",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_credentials",
+ "cloud_terrastodon_registry",
  "cloud_terrastodon_relative_location",
  "eyre",
  "facet",
@@ -1374,6 +1377,7 @@ dependencies = [
  "facet-value",
  "http",
  "humantime",
+ "linkme",
  "reqwest",
  "tokio",
  "tracing",

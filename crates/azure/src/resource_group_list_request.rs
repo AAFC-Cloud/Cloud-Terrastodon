@@ -9,6 +9,7 @@ use indoc::indoc;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ResourceGroupListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -107,3 +108,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ResourceGroupListRequest);
+cloud_terrastodon_registry::register_arbitrary!(ResourceGroupListRequest);
+cloud_terrastodon_registry::register_into_future!(ResourceGroupListRequest => Vec<ResourceGroup>);

@@ -1,9 +1,10 @@
 use super::azure_devops_test_plan::AzureDevOpsTestPlanIdentityRef;
 use super::azure_devops_test_plan::AzureDevOpsTestPlanShallowReference;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTestSuite {
     pub area_uri: Option<String>,
@@ -32,3 +33,7 @@ pub struct AzureDevOpsTestSuite {
     pub text: Option<String>,
     pub url: Option<String>,
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsTestSuite);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTestSuite);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsTestSuite>);

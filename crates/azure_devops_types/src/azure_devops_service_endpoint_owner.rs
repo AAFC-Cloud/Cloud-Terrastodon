@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+use arbitrary::Arbitrary;
+
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointOwner {
     Library,

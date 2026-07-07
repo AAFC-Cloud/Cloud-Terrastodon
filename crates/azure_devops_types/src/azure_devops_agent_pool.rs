@@ -1,10 +1,11 @@
 use crate::AzureDevOpsAgentPoolId;
 use crate::AzureDevOpsAgentPoolName;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use facet_json::RawJson;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPool {
     pub agent_cloud_id: Option<usize>,
@@ -17,7 +18,8 @@ pub struct AzureDevOpsAgentPool {
     pub is_hosted: bool,
     pub is_legacy: bool,
     pub name: AzureDevOpsAgentPoolName,
-    pub options: String, // comma separated, weird
+    /// Comma separated, weird
+    pub options: String,
     pub owner: AzureDevOpsAgentPoolOwner,
     pub pool_type: String,
     pub scope: String,
@@ -25,11 +27,11 @@ pub struct AzureDevOpsAgentPool {
     pub target_size: Option<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPoolCreatedBy {
     #[facet(rename = "_links")]
-    pub links: RawJson<'static>,
+    pub links: ArbitraryJson,
     pub descriptor: String,
     pub display_name: String,
     pub id: String,
@@ -37,11 +39,11 @@ pub struct AzureDevOpsAgentPoolCreatedBy {
     pub unique_name: String,
     pub url: String,
 }
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPoolOwner {
     #[facet(rename = "_links")]
-    pub links: RawJson<'static>,
+    pub links: ArbitraryJson,
     pub descriptor: String,
     pub display_name: String,
     pub id: String,
@@ -49,3 +51,7 @@ pub struct AzureDevOpsAgentPoolOwner {
     pub unique_name: String,
     pub url: String,
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPool);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPool);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsAgentPool>);

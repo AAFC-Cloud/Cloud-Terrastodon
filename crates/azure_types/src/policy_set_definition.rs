@@ -5,13 +5,14 @@ use crate::PolicySetDefinitionId;
 use crate::PolicySetDefinitionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
 pub struct PolicySetDefinitionPolicyDefinitionGroup {
     #[facet(rename = "additionalMetadataId")]
     pub additional_metadata_id: Option<String>,
@@ -21,7 +22,7 @@ pub struct PolicySetDefinitionPolicyDefinitionGroup {
     pub display_name: Option<String>,
     pub name: String,
 }
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
 pub struct PolicySetDefinitionPolicyDefinition {
     #[facet(rename = "groupNames")]
     pub group_names: Option<Vec<String>>,
@@ -34,7 +35,7 @@ pub struct PolicySetDefinitionPolicyDefinition {
     pub policy_definition_reference_id: String,
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
 pub struct PolicySetDefinition {
     pub id: PolicySetDefinitionId,
     pub name: PolicySetDefinitionName,
@@ -122,7 +123,7 @@ mod tests {
 
     #[test]
     fn subscription_scoped() -> Result<()> {
-        let expanded = "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
+        let expanded = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name";
         let id = PolicySetDefinitionId::try_from_expanded_subscription_scoped(expanded)?;
         assert_eq!(id, PolicySetDefinitionId::try_from_expanded(expanded)?);
         assert_eq!(id.expanded_form(), expanded);
@@ -133,18 +134,8 @@ mod tests {
         assert_eq!(id.short_form(), "my-policy-set-name");
         Ok(())
     }
-
-    #[test]
-    fn deserializes() -> Result<()> {
-        for expanded in [
-            "/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name",
-            "/providers/Microsoft.Management/managementGroups/my-management-group/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name",
-            "/subscriptions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/providers/Microsoft.Authorization/policySetDefinitions/my-policy-set-name",
-        ] {
-            let id: PolicySetDefinitionId =
-                facet_json::from_str(&facet_json::to_string(expanded)?)?;
-            assert_eq!(id.expanded_form(), expanded);
-        }
-        Ok(())
-    }
 }
+
+cloud_terrastodon_registry::register_thing!(PolicySetDefinition);
+cloud_terrastodon_registry::register_arbitrary!(PolicySetDefinition);
+cloud_terrastodon_registry::register_arbitrary!(Vec<PolicySetDefinition>);

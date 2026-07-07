@@ -281,45 +281,6 @@ impl From<&Vec<Ipv4Network>> for Ipv4NetworkVecProxy {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Facet)]
-#[facet(transparent)]
-pub struct IsoDurationProxy(String);
-
-impl TryFrom<IsoDurationProxy> for iso8601_duration::Duration {
-    type Error = String;
-
-    fn try_from(value: IsoDurationProxy) -> Result<Self, Self::Error> {
-        value.0.parse().map_err(|err| format!("{err:?}"))
-    }
-}
-
-impl From<&iso8601_duration::Duration> for IsoDurationProxy {
-    fn from(value: &iso8601_duration::Duration) -> Self {
-        Self(value.to_string())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Facet)]
-#[facet(transparent)]
-pub struct OptionalIsoDurationProxy(Option<IsoDurationProxy>);
-
-impl TryFrom<OptionalIsoDurationProxy> for Option<iso8601_duration::Duration> {
-    type Error = String;
-
-    fn try_from(value: OptionalIsoDurationProxy) -> Result<Self, Self::Error> {
-        value
-            .0
-            .map(iso8601_duration::Duration::try_from)
-            .transpose()
-    }
-}
-
-impl From<&Option<iso8601_duration::Duration>> for OptionalIsoDurationProxy {
-    fn from(value: &Option<iso8601_duration::Duration>) -> Self {
-        Self(value.as_ref().map(IsoDurationProxy::from))
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct RolePermissionActionSetProxy(Vec<RolePermissionAction>);

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -9,7 +10,9 @@ use cloud_terrastodon_credentials::create_azure_devops_rest_client;
 use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
 use eyre::Context;
 use facet_json::RawJson;
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -30,16 +33,29 @@ fn parse_group_members_by_descriptor(
         .collect()
 }
 
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsGroupMembersListRequest<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
-    pub group_id: &'a AzureDevOpsDescriptor,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    pub group_id: Cow<'a, AzureDevOpsDescriptor>,
 }
 
 pub fn fetch_azure_devops_group_members<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     group_id: &'a AzureDevOpsDescriptor,
 ) -> AzureDevOpsGroupMembersListRequest<'a> {
-    AzureDevOpsGroupMembersListRequest { org_url, group_id }
+    AzureDevOpsGroupMembersListRequest {
+        org_url: Cow::Borrowed(org_url),
+        group_id: Cow::Borrowed(group_id),
+    }
+}
+
+impl<'a> Arbitrary<'a> for AzureDevOpsGroupMembersListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            group_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
+        })
+    }
 }
 
 #[async_trait]
@@ -84,21 +100,52 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersListRequest<'a>, 'a);
 
+#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[facet(transparent)]
+pub struct AzureDevOpsGroupMembersV2Response(pub RawJson<'static>);
+
+impl<'a> Arbitrary<'a> for AzureDevOpsGroupMembersV2Response {
+    fn arbitrary(_u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self(RawJson::from_owned("{}".to_string())))
+    }
+}
+
+impl Deref for AzureDevOpsGroupMembersV2Response {
+    type Target = RawJson<'static>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsGroupMembersV2Request<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
-    pub group_id: &'a AzureDevOpsDescriptor,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    pub group_id: Cow<'a, AzureDevOpsDescriptor>,
 }
 
 pub fn fetch_azure_devops_group_members_v2<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     group_id: &'a AzureDevOpsDescriptor,
 ) -> AzureDevOpsGroupMembersV2Request<'a> {
-    AzureDevOpsGroupMembersV2Request { org_url, group_id }
+    AzureDevOpsGroupMembersV2Request {
+        org_url: Cow::Borrowed(org_url),
+        group_id: Cow::Borrowed(group_id),
+    }
+}
+
+impl<'a> Arbitrary<'a> for AzureDevOpsGroupMembersV2Request<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            group_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
+        })
+    }
 }
 
 #[async_trait]
 impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembersV2Request<'a> {
-    type Output = RawJson<'static>;
+    type Output = AzureDevOpsGroupMembersV2Response;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
@@ -113,7 +160,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let organization = &self.org_url.organization_name;
-        let subject_descriptor = self.group_id;
+        let subject_descriptor = self.group_id.as_ref();
         let url = format!(
             "https://vssps.dev.azure.com/{organization}/_apis/graph/Memberships/{subject_descriptor}?api-version=7.1-preview.1&direction=down",
             organization = organization,
@@ -124,11 +171,28 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
         )
         .await?;
         let resp = client.get(url).send().await?;
-        Ok(RawJson::from_owned(resp.text().await?))
+        Ok(AzureDevOpsGroupMembersV2Response(RawJson::from_owned(
+            resp.text().await?,
+        )))
     }
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersV2Request<'a>, 'a);
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupMembersListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupMembersListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(
+    AzureDevOpsGroupMembersListRequest<'static> => HashMap<AzureDevOpsDescriptor, AzureDevOpsGroupMember>,
+    effects = [Read]
+);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupMembersV2Response);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupMembersV2Response);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupMembersV2Request<'static>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupMembersV2Request<'static>);
+cloud_terrastodon_registry::register_into_future!(
+    AzureDevOpsGroupMembersV2Request<'static> => AzureDevOpsGroupMembersV2Response,
+    effects = [Read]
+);
 
 #[cfg(test)]
 mod test {

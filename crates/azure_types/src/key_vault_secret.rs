@@ -1,10 +1,11 @@
+use crate::ArbitraryJson;
 use crate::KeyVaultSecretId;
 use crate::KeyVaultSecretName;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use facet_json::RawJson;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct KeyVaultSecretAttributes {
     pub created: DateTime<Utc>,
@@ -18,7 +19,7 @@ pub struct KeyVaultSecretAttributes {
     pub updated: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct KeyVaultSecret {
     pub attributes: KeyVaultSecretAttributes,
@@ -29,7 +30,7 @@ pub struct KeyVaultSecret {
     pub managed: Option<bool>,
     pub name: KeyVaultSecretName,
     #[facet(default)]
-    pub tags: Option<RawJson<'static>>, // map but keep flexible
+    pub tags: Option<ArbitraryJson>,
 }
 
 #[cfg(test)]
@@ -59,3 +60,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(KeyVaultSecret);
+cloud_terrastodon_registry::register_arbitrary!(KeyVaultSecret);
+cloud_terrastodon_registry::register_arbitrary!(Vec<KeyVaultSecret>);

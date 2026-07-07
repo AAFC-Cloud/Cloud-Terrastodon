@@ -1,3 +1,4 @@
+use crate::EntraGroupId;
 use crate::Principal;
 use crate::PrincipalId;
 use std::collections::HashMap;
@@ -30,10 +31,5 @@ impl DerefMut for PrincipalCollection {
         &mut self.0
     }
 }
-impl std::fmt::Debug for PrincipalCollection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PrincipalCollection")
-            .field("principal_count", &self.0.len())
-            .finish()
-    }
-}
+
+cloud_terrastodon_registry::register_arbitrary!(std::collections::HashMap<EntraGroupId, Vec<Principal>>);

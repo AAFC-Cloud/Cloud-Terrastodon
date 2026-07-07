@@ -3,6 +3,7 @@ use crate::KeyVaultName;
 use crate::KeyVaultProperties;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -10,7 +11,7 @@ use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
 pub struct KeyVault {
     pub id: KeyVaultId,
     pub name: KeyVaultName,
@@ -85,3 +86,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(KeyVault);
+cloud_terrastodon_registry::register_arbitrary!(KeyVault);
+cloud_terrastodon_registry::register_arbitrary!(Vec<KeyVault>);

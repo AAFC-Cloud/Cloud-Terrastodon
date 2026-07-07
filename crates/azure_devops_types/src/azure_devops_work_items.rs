@@ -1,8 +1,9 @@
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 
 /// The result type of a query.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 #[repr(C)]
 pub enum QueryResultType {
@@ -11,7 +12,7 @@ pub enum QueryResultType {
 }
 
 /// The type of query.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 #[repr(C)]
 pub enum QueryType {
@@ -21,7 +22,7 @@ pub enum QueryType {
 }
 
 /// Reference to a field in a work item.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct WorkItemFieldReference {
     /// The reference name of the field.
@@ -33,7 +34,7 @@ pub struct WorkItemFieldReference {
 }
 
 /// Contains reference to a work item.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 pub struct WorkItemReference {
     /// Work item ID.
     pub id: i32,
@@ -42,7 +43,7 @@ pub struct WorkItemReference {
 }
 
 /// A sort column.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct WorkItemQuerySortColumn {
     /// The direction to sort by.
@@ -52,7 +53,7 @@ pub struct WorkItemQuerySortColumn {
 }
 
 /// A link between two work items.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct WorkItemLink {
     /// The type of link (optional).
@@ -68,7 +69,7 @@ pub struct WorkItemLink {
 /// The result of a work item query.
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-id?view=azure-devops-rest-7.1
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1&tabs=HTTP#workitemqueryresult
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct WorkItemQueryResult {
     /// The date the query was run in the context of.
@@ -86,3 +87,7 @@ pub struct WorkItemQueryResult {
     /// The work items returned by the query.
     pub work_items: Vec<WorkItemReference>,
 }
+
+cloud_terrastodon_registry::register_thing!(WorkItemQueryResult);
+cloud_terrastodon_registry::register_arbitrary!(WorkItemQueryResult);
+cloud_terrastodon_registry::register_arbitrary!(Option<WorkItemQueryResult>);

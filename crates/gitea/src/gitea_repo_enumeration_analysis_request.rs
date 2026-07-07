@@ -11,15 +11,18 @@ use crate::fetch_all_gitea_user_repositories;
 use crate::fetch_all_gitea_users;
 use crate::fetch_current_user_gitea_repositories;
 use crate::fetch_gitea_repositories_by_id_range;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct GiteaRepoEnumerationAnalysisRequest<'a> {
-    pub tenant: &'a GiteaInstanceUrl,
+    pub tenant: Cow<'a, GiteaInstanceUrl>,
     pub max_repo_id: u64,
 }
 
@@ -28,8 +31,17 @@ pub fn analyze_gitea_repo_enumeration<'a>(
     max_repo_id: u64,
 ) -> GiteaRepoEnumerationAnalysisRequest<'a> {
     GiteaRepoEnumerationAnalysisRequest {
-        tenant,
+        tenant: Cow::Borrowed(tenant),
         max_repo_id,
+    }
+}
+
+impl<'a> Arbitrary<'a> for GiteaRepoEnumerationAnalysisRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
+            max_repo_id: u64::arbitrary(u)?,
+        })
     }
 }
 
@@ -48,27 +60,29 @@ impl<'a> CacheableCommand for GiteaRepoEnumerationAnalysisRequest<'a> {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let organizations = fetch_all_gitea_organizations(self.tenant).await?;
+        let tenant = self.tenant;
+        let organizations = fetch_all_gitea_organizations(tenant.as_ref()).await?;
         let mut org_repositories = Vec::new();
         for organization in &organizations {
             org_repositories.extend(
-                fetch_all_gitea_organization_repositories(self.tenant, &organization.username)
+                fetch_all_gitea_organization_repositories(tenant.as_ref(), &organization.username)
                     .await?,
             );
         }
 
-        let users = fetch_all_gitea_users(self.tenant).await?;
+        let users = fetch_all_gitea_users(tenant.as_ref()).await?;
         let mut user_repositories = Vec::new();
         for user in &users {
             user_repositories
-                .extend(fetch_all_gitea_user_repositories(self.tenant, &user.login).await?);
+                .extend(fetch_all_gitea_user_repositories(tenant.as_ref(), &user.login).await?);
         }
 
-        let current_user_repositories = fetch_current_user_gitea_repositories(self.tenant).await?;
-        let search_repositories = fetch_all_gitea_repositories_via_search(self.tenant).await?;
+        let current_user_repositories =
+            fetch_current_user_gitea_repositories(tenant.as_ref()).await?;
+        let search_repositories = fetch_all_gitea_repositories_via_search(tenant.as_ref()).await?;
         let id_range_repositories =
-            fetch_gitea_repositories_by_id_range(self.tenant, 1, self.max_repo_id).await?;
-        let combined_repositories = fetch_all_gitea_repositories(self.tenant).await?;
+            fetch_gitea_repositories_by_id_range(tenant.as_ref(), 1, self.max_repo_id).await?;
+        let combined_repositories = fetch_all_gitea_repositories(tenant.as_ref()).await?;
 
         let organizations_report = method_report(
             GiteaRepoEnumerationMethod::Organizations,
@@ -162,4 +176,11 @@ fn difference(left: &[GiteaRepoId], right: &[GiteaRepoId]) -> Vec<GiteaRepoId> {
 cloud_terrastodon_command::impl_cacheable_into_future!(
     GiteaRepoEnumerationAnalysisRequest<'a>,
     'a
+);
+
+cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationAnalysisRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(GiteaRepoEnumerationAnalysisRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(
+    GiteaRepoEnumerationAnalysisRequest<'static> => GiteaRepoEnumerationComparisonReport,
+    effects = [Read]
 );

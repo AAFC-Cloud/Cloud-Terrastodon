@@ -1,12 +1,13 @@
+use crate::ArbitraryJson;
 use crate::AzureLocationName;
 use crate::AzurePublicIpResourceId;
 use crate::AzurePublicIpResourceName;
 use crate::AzureTenantId;
-use facet_json::RawJson;
+use arbitrary::Arbitrary;
 use std::collections::HashMap;
 use std::net::IpAddr;
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePublicIpResource {
     pub id: AzurePublicIpResourceId,
@@ -20,13 +21,13 @@ pub struct AzurePublicIpResource {
     pub properties: AzurePublicIpResourceProperties,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct AzurePublicIpSku {
     pub name: String,
     pub tier: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePublicIpResourceProperties {
     #[facet(default)]
@@ -44,14 +45,14 @@ pub struct AzurePublicIpResourceProperties {
     #[facet(default)]
     pub dns_settings: Option<AzurePublicIpDnsSettings>,
     #[facet(default)]
-    pub ip_tags: Vec<RawJson<'static>>,
+    pub ip_tags: Vec<ArbitraryJson>,
     #[facet(default)]
     pub ip_configuration: Option<AzurePublicIpConfigurationReference>,
     #[facet(default)]
     pub ddos_settings: Option<AzurePublicIpDdosSettings>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePublicIpDnsSettings {
     #[facet(default)]
@@ -60,14 +61,18 @@ pub struct AzurePublicIpDnsSettings {
     pub fqdn: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct AzurePublicIpConfigurationReference {
     pub id: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePublicIpDdosSettings {
     #[facet(default)]
     pub protection_mode: Option<String>,
 }
+
+cloud_terrastodon_registry::register_thing!(AzurePublicIpResource);
+cloud_terrastodon_registry::register_arbitrary!(AzurePublicIpResource);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzurePublicIpResource>);

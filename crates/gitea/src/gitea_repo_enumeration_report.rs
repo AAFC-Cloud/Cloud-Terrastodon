@@ -1,6 +1,6 @@
-use arbitrary::Arbitrary;
 use crate::GiteaRepoEnumerationMethod;
 use crate::GiteaRepoId;
+use arbitrary::Arbitrary;
 use facet::Facet;
 
 #[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
@@ -31,4 +31,3 @@ cloud_terrastodon_registry::register_arbitrary!(GiteaRepoEnumerationComparisonRe
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationMethodReport);
 cloud_terrastodon_registry::register_arbitrary!(GiteaRepoEnumerationMethodReport);
-

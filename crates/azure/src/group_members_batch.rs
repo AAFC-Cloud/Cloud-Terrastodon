@@ -11,6 +11,7 @@ use eyre::Context;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct GroupMembersListBatchRequest {
     pub group_ids: Vec<EntraGroupId>,
     pub tenant_id: AzureTenantId,
@@ -94,3 +95,7 @@ impl CacheableCommand for GroupMembersListBatchRequest {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(GroupMembersListBatchRequest);
+
+cloud_terrastodon_registry::register_thing!(GroupMembersListBatchRequest);
+cloud_terrastodon_registry::register_arbitrary!(GroupMembersListBatchRequest);
+cloud_terrastodon_registry::register_into_future!(GroupMembersListBatchRequest => HashMap<EntraGroupId, Vec<Principal>>);

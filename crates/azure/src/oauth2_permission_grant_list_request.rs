@@ -5,6 +5,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionGrantListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -35,3 +36,7 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantListRequest);
+
+cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrantListRequest);
+cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrantListRequest);
+cloud_terrastodon_registry::register_into_future!(OAuth2PermissionGrantListRequest => Vec<OAuth2PermissionGrant>);

@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::gitea_owner_name::validate_segment;
+use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use facet::Facet;
 use std::fmt::Display;
@@ -58,4 +58,3 @@ impl<'a> Arbitrary<'a> for GiteaOrganizationName {
 }
 cloud_terrastodon_registry::register_thing!(GiteaOrganizationName);
 cloud_terrastodon_registry::register_arbitrary!(GiteaOrganizationName);
-

@@ -1,6 +1,6 @@
-use arbitrary::Arbitrary;
 use crate::CacheKey;
 use crate::CommandOutput;
+use arbitrary::Arbitrary;
 use bstr::BString;
 use bstr::ByteSlice;
 use chrono::DateTime;
@@ -387,4 +387,3 @@ pub fn note_cache_write_failure(error: &eyre::Error) {
 
 cloud_terrastodon_registry::register_thing!(ArtifactMetadata);
 cloud_terrastodon_registry::register_arbitrary!(ArtifactMetadata);
-

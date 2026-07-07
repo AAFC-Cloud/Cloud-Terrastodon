@@ -1,6 +1,7 @@
 use crate::location::AzureLocationName;
+use arbitrary::Arbitrary;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureLocation {
     #[facet(default)]
@@ -10,14 +11,14 @@ pub struct AzureLocation {
     pub display_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureLocationAvailabilityZoneMapping {
     pub logical_zone: String,
     pub physical_zone: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[repr(C)]
 #[facet(tag = "regionType")]
 pub enum AzureLocationMetadata {
@@ -39,7 +40,7 @@ pub enum AzureLocationMetadata {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 pub struct AzureLocationPairedRegion {
     pub id: String,
     pub name: AzureLocationName,
@@ -75,3 +76,9 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureLocationMetadata);
+cloud_terrastodon_registry::register_arbitrary!(AzureLocationMetadata);
+cloud_terrastodon_registry::register_thing!(AzureLocation);
+cloud_terrastodon_registry::register_arbitrary!(AzureLocation);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureLocation>);

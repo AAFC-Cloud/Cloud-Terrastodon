@@ -22,9 +22,10 @@ impl GiteaUserShowArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant = self.tenant.resolve().await?;
         let user = match &self.user {
-            GiteaUserArgument::Username(username) => fetch_gitea_user(&tenant, username).await?,
-            GiteaUserArgument::UsernameRef(username) => fetch_gitea_user(&tenant, username).await?,
-            GiteaUserArgument::Id(_) | GiteaUserArgument::IdRef(_) => {
+            GiteaUserArgument::Username(username) => {
+                fetch_gitea_user(&tenant, username.as_ref()).await?
+            }
+            GiteaUserArgument::Id(_) => {
                 let users = fetch_all_gitea_users(&tenant).await?;
                 let matches = users
                     .into_iter()

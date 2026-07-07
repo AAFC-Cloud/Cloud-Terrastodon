@@ -33,4 +33,3 @@ impl<'a> Arbitrary<'a> for GlobalArgs {
 }
 cloud_terrastodon_registry::register_thing!(GlobalArgs);
 cloud_terrastodon_registry::register_arbitrary!(GlobalArgs);
-

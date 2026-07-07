@@ -2,84 +2,80 @@ use crate::AzureDevOpsAgentPool;
 use crate::AzureDevOpsAgentPoolEntitlement;
 use crate::AzureDevOpsAgentPoolId;
 use crate::AzureDevOpsAgentPoolName;
+use arbitrary::Arbitrary;
 use eyre::bail;
+use std::borrow::Cow;
 use std::str::FromStr;
 
 /// The name or identifier for an [`AzureDevOpsAgentPool`]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsAgentPoolArgument<'a> {
-    Id(AzureDevOpsAgentPoolId),
-    IdRef(&'a AzureDevOpsAgentPoolId),
-    Name(AzureDevOpsAgentPoolName),
-    NameRef(&'a AzureDevOpsAgentPoolName),
+    Id(Cow<'a, AzureDevOpsAgentPoolId>),
+    Name(Cow<'a, AzureDevOpsAgentPoolName>),
 }
 impl std::fmt::Display for AzureDevOpsAgentPoolArgument<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AzureDevOpsAgentPoolArgument::Id(id) => id.fmt(f),
-            AzureDevOpsAgentPoolArgument::IdRef(id) => id.fmt(f),
             AzureDevOpsAgentPoolArgument::Name(name) => name.fmt(f),
-            AzureDevOpsAgentPoolArgument::NameRef(name) => name.fmt(f),
         }
     }
 }
 impl From<AzureDevOpsAgentPoolId> for AzureDevOpsAgentPoolArgument<'_> {
     fn from(value: AzureDevOpsAgentPoolId) -> Self {
-        AzureDevOpsAgentPoolArgument::Id(value)
+        AzureDevOpsAgentPoolArgument::Id(Cow::Owned(value))
     }
 }
 impl<'a> From<&'a AzureDevOpsAgentPoolId> for AzureDevOpsAgentPoolArgument<'a> {
     fn from(value: &'a AzureDevOpsAgentPoolId) -> Self {
-        AzureDevOpsAgentPoolArgument::IdRef(value)
+        AzureDevOpsAgentPoolArgument::Id(Cow::Borrowed(value))
     }
 }
 impl From<AzureDevOpsAgentPool> for AzureDevOpsAgentPoolArgument<'_> {
     fn from(value: AzureDevOpsAgentPool) -> Self {
-        AzureDevOpsAgentPoolArgument::Id(value.id)
+        AzureDevOpsAgentPoolArgument::Id(Cow::Owned(value.id))
     }
 }
 impl<'a> From<&'a AzureDevOpsAgentPool> for AzureDevOpsAgentPoolArgument<'a> {
     fn from(value: &'a AzureDevOpsAgentPool) -> Self {
-        AzureDevOpsAgentPoolArgument::IdRef(&value.id)
+        AzureDevOpsAgentPoolArgument::Id(Cow::Borrowed(&value.id))
     }
 }
 impl From<AzureDevOpsAgentPoolName> for AzureDevOpsAgentPoolArgument<'_> {
     fn from(value: AzureDevOpsAgentPoolName) -> Self {
-        AzureDevOpsAgentPoolArgument::Name(value)
+        AzureDevOpsAgentPoolArgument::Name(Cow::Owned(value))
     }
 }
 impl<'a> From<&'a AzureDevOpsAgentPoolName> for AzureDevOpsAgentPoolArgument<'a> {
     fn from(value: &'a AzureDevOpsAgentPoolName) -> Self {
-        AzureDevOpsAgentPoolArgument::NameRef(value)
+        AzureDevOpsAgentPoolArgument::Name(Cow::Borrowed(value))
     }
 }
 
 impl AzureDevOpsAgentPoolArgument<'_> {
     pub fn into_owned(self) -> AzureDevOpsAgentPoolArgument<'static> {
         match self {
-            AzureDevOpsAgentPoolArgument::Id(id) => AzureDevOpsAgentPoolArgument::Id(id),
-            AzureDevOpsAgentPoolArgument::IdRef(id) => AzureDevOpsAgentPoolArgument::Id(*id),
-            AzureDevOpsAgentPoolArgument::Name(name) => AzureDevOpsAgentPoolArgument::Name(name),
-            AzureDevOpsAgentPoolArgument::NameRef(name) => {
-                AzureDevOpsAgentPoolArgument::Name(name.clone())
+            AzureDevOpsAgentPoolArgument::Id(id) => {
+                AzureDevOpsAgentPoolArgument::Id(Cow::Owned(id.into_owned()))
+            }
+            AzureDevOpsAgentPoolArgument::Name(name) => {
+                AzureDevOpsAgentPoolArgument::Name(Cow::Owned(name.into_owned()))
             }
         }
     }
 
     pub fn as_id(&self) -> Option<&AzureDevOpsAgentPoolId> {
         match self {
-            AzureDevOpsAgentPoolArgument::Id(id) => Some(id),
-            AzureDevOpsAgentPoolArgument::IdRef(id) => Some(id),
+            AzureDevOpsAgentPoolArgument::Id(id) => Some(id.as_ref()),
             _ => None,
         }
     }
 
     pub fn as_name(&self) -> Option<&AzureDevOpsAgentPoolName> {
         match self {
-            AzureDevOpsAgentPoolArgument::Name(name) => Some(name),
-            AzureDevOpsAgentPoolArgument::NameRef(name) => Some(name),
+            AzureDevOpsAgentPoolArgument::Name(name) => Some(name.as_ref()),
             _ => None,
         }
     }
@@ -102,9 +98,9 @@ impl<'a> FromStr for AzureDevOpsAgentPoolArgument<'a> {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(id) = s.parse::<AzureDevOpsAgentPoolId>() {
-            Ok(AzureDevOpsAgentPoolArgument::Id(id))
+            Ok(AzureDevOpsAgentPoolArgument::Id(Cow::Owned(id)))
         } else if let Ok(name) = AzureDevOpsAgentPoolName::try_new(s) {
-            Ok(AzureDevOpsAgentPoolArgument::Name(name))
+            Ok(AzureDevOpsAgentPoolArgument::Name(Cow::Owned(name)))
         } else {
             bail!("'{s}' is not a valid Azure DevOps agent pool id or name")
         }

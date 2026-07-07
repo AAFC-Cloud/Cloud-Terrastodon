@@ -24,18 +24,12 @@ impl GiteaRepoShowArgs {
         let tenant = self.tenant.resolve().await?;
         let repository = match &self.repo {
             GiteaRepoArgument::Id(repo_id) => {
-                fetch_gitea_repository_by_id(&tenant, *repo_id).await?
-            }
-            GiteaRepoArgument::IdRef(repo_id) => {
-                fetch_gitea_repository_by_id(&tenant, **repo_id).await?
+                fetch_gitea_repository_by_id(&tenant, *repo_id.as_ref()).await?
             }
             GiteaRepoArgument::FullName(full_name) => {
-                fetch_gitea_repository(&tenant, full_name).await?
+                fetch_gitea_repository(&tenant, full_name.as_ref()).await?
             }
-            GiteaRepoArgument::FullNameRef(full_name) => {
-                fetch_gitea_repository(&tenant, full_name).await?
-            }
-            GiteaRepoArgument::Name(_) | GiteaRepoArgument::NameRef(_) => {
+            GiteaRepoArgument::Name(_) => {
                 let repositories = fetch_all_gitea_repositories(&tenant).await?;
                 let matches = repositories
                     .into_iter()

@@ -10,6 +10,7 @@ use tracing::debug;
 /// Fetches Entra role assignments.
 ///
 /// Not to be confused with Azure RBAC role assignments.
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct UnifiedRoleAssignmentListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -58,3 +59,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(UnifiedRoleAssignmentListRequest);
+cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleAssignmentListRequest);
+cloud_terrastodon_registry::register_into_future!(UnifiedRoleAssignmentListRequest => Vec<UnifiedRoleAssignment>);

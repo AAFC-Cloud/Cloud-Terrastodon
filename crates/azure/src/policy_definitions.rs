@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct PolicyDefinitionListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -81,3 +82,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(PolicyDefinitionListRequest);
+cloud_terrastodon_registry::register_arbitrary!(PolicyDefinitionListRequest);
+cloud_terrastodon_registry::register_into_future!(PolicyDefinitionListRequest => Vec<PolicyDefinition>);

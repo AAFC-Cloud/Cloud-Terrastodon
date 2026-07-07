@@ -86,3 +86,7 @@ pub struct ServicePrincipalKeyCredential {
     pub display_name: Option<String>,
     pub has_extended_value: Option<bool>,
 }
+
+cloud_terrastodon_registry::register_thing!(EntraServicePrincipal);
+cloud_terrastodon_registry::register_arbitrary!(EntraServicePrincipal);
+cloud_terrastodon_registry::register_arbitrary!(Vec<EntraServicePrincipal>);

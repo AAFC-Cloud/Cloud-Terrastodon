@@ -7,6 +7,7 @@ use crate::ScopeImplKind;
 use crate::scopes::HasPrefix;
 use crate::scopes::TryFromResourceScoped;
 use crate::slug::HasSlug;
+use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::Result;
 use facet_json::RawJson;
@@ -16,7 +17,7 @@ use std::str::FromStr;
 /// This is the ID for an ill-defined resource that is specifically the child of a resource group.
 /// Some things are children of things that are children of resource groups, which this would not apply to.
 /// At some point, this should be replaced with ScopeImpl or something in the fields where this type is used.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, Arbitrary)]
 #[facet(opaque, json::proxy = String)]
 pub struct ResourceId {
     pub resource_group_id: ResourceGroupId,
@@ -105,6 +106,19 @@ impl ResourcePropertyValue {
     }
 }
 
+impl<'a> Arbitrary<'a> for ResourcePropertyValue {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let string = String::arbitrary(u)?;
+        let raw = RawJson::from_owned(
+            facet_json::to_string(&string).map_err(|_| arbitrary::Error::IncorrectFormat)?,
+        );
+        Ok(Self {
+            raw,
+            string: Some(string),
+        })
+    }
+}
+
 impl From<RawJson<'static>> for ResourcePropertyValue {
     fn from(raw: RawJson<'static>) -> Self {
         let string = facet_json::from_str::<String>(raw.as_str()).ok();
@@ -133,6 +147,26 @@ pub struct Resource {
     )]
     pub properties: HashMap<String, ResourcePropertyValue>,
 }
+
+impl<'a> Arbitrary<'a> for Resource {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let name = String::arbitrary(u)?;
+        let mut properties = HashMap::new();
+        properties.insert(
+            "displayName".to_string(),
+            ResourcePropertyValue::from(RawJson::from_owned(
+                facet_json::to_string(&name).map_err(|_| arbitrary::Error::IncorrectFormat)?,
+            )),
+        );
+        Ok(Self {
+            id: ScopeImpl::arbitrary(u)?,
+            kind: ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
+            name,
+            tags: HashMap::arbitrary(u)?,
+            properties,
+        })
+    }
+}
 impl AsScope for Resource {
     fn as_scope(&self) -> &impl Scope {
         &self.id
@@ -155,6 +189,10 @@ impl std::fmt::Display for Resource {
         }
     }
 }
+
+cloud_terrastodon_registry::register_thing!(Resource);
+cloud_terrastodon_registry::register_arbitrary!(Resource);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Resource>);
 
 #[cfg(test)]
 mod test {

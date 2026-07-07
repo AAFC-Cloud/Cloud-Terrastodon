@@ -1,14 +1,16 @@
+use crate::ArbitraryJson;
+use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::bail;
 use facet_json::RawJson;
 use std::time::Duration;
 use uuid::Uuid;
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 pub struct PimEntraRoleSettings {
     id: Uuid,
     #[facet(rename = "roleDefinitionId")]
-    role_definition_id: Uuid,
+    role_definition_id: Uuid, // TODO: can we use EntraRoleDefinitionId here?
     #[facet(rename = "userMemberSettings")]
     user_member_settings: Vec<PimEntraRoleSettingsRule>,
 }
@@ -26,24 +28,25 @@ impl PimEntraRoleSettings {
     }
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 #[facet(opaque, proxy = PimEntraRoleSettingsRuleProxy)]
 #[repr(C)]
 pub enum PimEntraRoleSettingsRule {
     ExpirationRule(ExpirationRuleSetting),
-    MfaRule(RawJson<'static>),
-    JustificationRule(RawJson<'static>),
-    ApprovalRule(RawJson<'static>),
-    TicketingRule(RawJson<'static>),
-    AcrsRule(RawJson<'static>),
-    AttributeConditionRule(RawJson<'static>),
+    MfaRule(ArbitraryJson),
+    JustificationRule(ArbitraryJson),
+    ApprovalRule(ArbitraryJson),
+    TicketingRule(ArbitraryJson),
+    AcrsRule(ArbitraryJson),
+    AttributeConditionRule(ArbitraryJson),
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+
+#[derive(Debug, PartialEq, Eq, facet::Facet, Arbitrary)]
 pub struct PimEntraRoleSettingsRuleProxy {
     #[facet(rename = "ruleIdentifier")]
     rule_identifier: String,
-    setting: RawJson<'static>,
+    setting: ArbitraryJson,
 }
 
 impl TryFrom<PimEntraRoleSettingsRuleProxy> for PimEntraRoleSettingsRule {
@@ -75,7 +78,7 @@ impl TryFrom<&PimEntraRoleSettingsRule> for PimEntraRoleSettingsRuleProxy {
         let (rule_identifier, setting) = match value {
             PimEntraRoleSettingsRule::ExpirationRule(setting) => (
                 "ExpirationRule",
-                RawJson::from_owned(facet_json::to_string(setting)?),
+                RawJson::from_owned(facet_json::to_string(setting)?).into(),
             ),
             PimEntraRoleSettingsRule::MfaRule(setting) => ("MfaRule", setting.clone()),
             PimEntraRoleSettingsRule::JustificationRule(setting) => {
@@ -95,13 +98,16 @@ impl TryFrom<&PimEntraRoleSettingsRule> for PimEntraRoleSettingsRuleProxy {
     }
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
 pub struct ExpirationRuleSetting {
     #[facet(rename = "maximumGrantPeriodInMinutes")]
     maximum_grant_period_in_minutes: u32,
     #[facet(rename = "permanentAssignment")]
     permanent_assignment: bool,
 }
+
+cloud_terrastodon_registry::register_thing!(PimEntraRoleSettings);
+cloud_terrastodon_registry::register_arbitrary!(PimEntraRoleSettings);
 
 #[cfg(test)]
 mod tests {

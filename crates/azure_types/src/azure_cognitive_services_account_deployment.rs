@@ -1,8 +1,9 @@
 use crate::AzureCognitiveServicesAccountDeploymentId;
 use crate::AzureCognitiveServicesAccountDeploymentName;
+use arbitrary::Arbitrary;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountDeployment {
     pub id: AzureCognitiveServicesAccountDeploymentId,
@@ -20,7 +21,7 @@ pub struct AzureCognitiveServicesAccountDeployment {
     pub tags: HashMap<String, String>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountDeploymentSku {
     pub name: String,
@@ -34,7 +35,7 @@ pub struct AzureCognitiveServicesAccountDeploymentSku {
     pub size: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountDeploymentProperties {
     #[facet(default)]
@@ -65,7 +66,7 @@ pub struct AzureCognitiveServicesAccountDeploymentProperties {
     pub rate_limits: Vec<AzureCognitiveServicesAccountDeploymentRateLimit>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct AzureCognitiveServicesAccountDeploymentModel {
     #[facet(default)]
     pub format: Option<String>,
@@ -81,7 +82,7 @@ pub struct AzureCognitiveServicesAccountDeploymentModel {
     pub source_account: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountDeploymentRateLimit {
     #[facet(default)]
@@ -92,7 +93,7 @@ pub struct AzureCognitiveServicesAccountDeploymentRateLimit {
     pub count: Option<u64>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesSystemData {
     #[facet(default)]
@@ -109,7 +110,7 @@ pub struct AzureCognitiveServicesSystemData {
     pub last_modified_at: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct AzureCognitiveServicesAccountDeploymentListResult {
     #[facet(
         default,
@@ -118,3 +119,7 @@ pub struct AzureCognitiveServicesAccountDeploymentListResult {
     )]
     pub value: Vec<AzureCognitiveServicesAccountDeployment>,
 }
+
+cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountDeployment);
+cloud_terrastodon_registry::register_arbitrary!(AzureCognitiveServicesAccountDeployment);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureCognitiveServicesAccountDeployment>);

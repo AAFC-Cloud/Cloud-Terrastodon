@@ -1,4 +1,5 @@
 use crate::AzureDevOpsProjectId;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -8,7 +9,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureDevOpsTeamId(Uuid);
 impl std::fmt::Display for AzureDevOpsTeamId {
@@ -54,7 +55,7 @@ impl FromStr for AzureDevOpsTeamId {
     }
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTeam {
     pub description: String,
@@ -78,3 +79,9 @@ impl From<AzureDevOpsTeam> for HclImportBlock {
         }
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsTeamId);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTeamId);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsTeam);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTeam);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsTeam>);

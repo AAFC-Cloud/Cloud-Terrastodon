@@ -10,6 +10,7 @@ use std::time::Duration;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct SecurityGroupListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -59,3 +60,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(SecurityGroupListRequest);
+cloud_terrastodon_registry::register_arbitrary!(SecurityGroupListRequest);
+cloud_terrastodon_registry::register_into_future!(SecurityGroupListRequest => Vec<EntraGroup>);

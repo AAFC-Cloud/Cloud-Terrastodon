@@ -26,12 +26,11 @@ pub fn fetch_azure_devops_groups_for_project<'a>(
     }
 }
 
-#[async_trait]
 impl<'a> Arbitrary<'a> for AzureDevOpsGroupsListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
-            project: AzureDevOpsProjectArgument::arbitrary(u)?,
+            project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
         })
     }
 }
@@ -126,5 +125,3 @@ mod test {
         Ok(())
     }
 }
-
-

@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::AzureDevOpsEntraUserDescriptor;
+use arbitrary::Arbitrary;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
@@ -129,4 +129,3 @@ mod test {
         Ok(())
     }
 }
-

@@ -2,11 +2,12 @@ use crate::PrincipalId;
 use crate::UnifiedRoleAssignmentId;
 use crate::UnifiedRoleDefinitionId;
 use crate::tenant_id::AzureTenantId;
+use arbitrary::Arbitrary;
 
 /// An Entra role assignment.
 ///
 /// Not to be confused with an Azure RBAC role assignment.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct UnifiedRoleAssignment {
     pub directory_scope_id: String,
@@ -42,3 +43,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(UnifiedRoleAssignment);
+cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleAssignment);
+cloud_terrastodon_registry::register_arbitrary!(Vec<UnifiedRoleAssignment>);

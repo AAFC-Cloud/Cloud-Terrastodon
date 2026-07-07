@@ -188,3 +188,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ComputePublisherVmImageOfferId);
+cloud_terrastodon_registry::register_arbitrary!(ComputePublisherVmImageOfferId);
+cloud_terrastodon_registry::register_arbitrary!(Vec<ComputePublisherVmImageOfferId>);

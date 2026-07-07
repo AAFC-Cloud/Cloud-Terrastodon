@@ -187,4 +187,3 @@ mod license_tests {
         Ok(())
     }
 }
-

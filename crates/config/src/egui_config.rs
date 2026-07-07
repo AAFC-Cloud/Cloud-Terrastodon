@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::config::Config;
+use arbitrary::Arbitrary;
 use emath::Pos2;
 use emath::Rect;
 use emath::Vec2;

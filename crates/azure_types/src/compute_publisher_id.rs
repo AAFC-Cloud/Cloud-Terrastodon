@@ -152,3 +152,7 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ComputePublisherId);
+cloud_terrastodon_registry::register_arbitrary!(ComputePublisherId);
+cloud_terrastodon_registry::register_arbitrary!(Vec<ComputePublisherId>);

@@ -1,6 +1,7 @@
 use crate::RolePermissionAction;
+use arbitrary::Arbitrary;
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationsMetadata {
     pub display_name: Option<String>,
@@ -56,7 +57,7 @@ impl AzureProviderOperationsMetadata {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationResourceType {
     pub name: String,
@@ -64,7 +65,7 @@ pub struct AzureProviderOperationResourceType {
     pub operations: Vec<AzureProviderOperation>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperation {
     pub name: RolePermissionAction,
@@ -75,14 +76,14 @@ pub struct AzureProviderOperation {
     pub is_data_action: bool,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationProperties {
     #[facet(alias = "ServiceSpecification")]
     pub service_specification: Option<AzureProviderOperationServiceSpecification>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationServiceSpecification {
     #[facet(alias = "LegacyMetricSpecifications")]
@@ -93,7 +94,7 @@ pub struct AzureProviderOperationServiceSpecification {
     pub log_specifications: Option<Vec<AzureProviderOperationLogSpecification>>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationMetricSpecification {
     pub aggregation_type: String,
@@ -125,7 +126,7 @@ pub struct AzureProviderOperationMetricSpecification {
     pub supports_instance_level_aggregation: Option<bool>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationAvailabilitySpecification {
     #[facet(alias = "BlobDuration")]
@@ -136,7 +137,7 @@ pub struct AzureProviderOperationAvailabilitySpecification {
     pub time_grain: Option<String>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationDimensionSpecification {
     #[facet(alias = "DisplayName")]
@@ -157,14 +158,14 @@ pub struct AzureProviderOperationDimensionSpecification {
     pub to_be_exported_to_shoebox: Option<bool>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationDimensionDefaultValue {
     #[facet(alias = "Value")]
     pub value: String,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureProviderOperationLogSpecification {
     #[facet(alias = "BlobDuration")]
@@ -181,7 +182,7 @@ pub struct AzureProviderOperationLogSpecification {
     pub display_name: String,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct AzureRoleOperation {
     pub provider_name: String,
     pub provider_display_name: Option<String>,
@@ -377,3 +378,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureProviderOperationsMetadata);
+cloud_terrastodon_registry::register_arbitrary!(AzureProviderOperationsMetadata);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureProviderOperationsMetadata>);

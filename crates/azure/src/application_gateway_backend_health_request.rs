@@ -24,6 +24,7 @@ const MAX_POLL_ATTEMPTS: usize = 10;
 
 /// <https://learn.microsoft.com/en-us/rest/api/application-gateway/application-gateways/backend-health?view=rest-application-gateway-2025-05-01&tabs=HTTP>
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct AzureApplicationGatewayResourceBackendHealthRequest {
     pub tenant_id: AzureTenantId,
     pub application_gateway_id: AzureApplicationGatewayResourceId,
@@ -283,3 +284,9 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureApplicationGatewayResourceBackendHealthRequest);
+cloud_terrastodon_registry::register_arbitrary!(
+    AzureApplicationGatewayResourceBackendHealthRequest
+);
+cloud_terrastodon_registry::register_into_future!(AzureApplicationGatewayResourceBackendHealthRequest => AzureApplicationGatewayResourceBackendHealthResponse);

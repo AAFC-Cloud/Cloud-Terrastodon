@@ -1,8 +1,9 @@
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use facet_json::RawJson;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTestPlan {
     pub area: Option<AzureDevOpsTestPlanShallowReference>,
@@ -29,18 +30,18 @@ pub struct AzureDevOpsTestPlan {
     pub client_url: Option<String>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct AzureDevOpsTestPlanShallowReference {
     pub id: Option<String>,
     pub name: Option<String>,
     pub url: Option<String>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTestPlanIdentityRef {
     #[facet(rename = "_links")]
-    pub links: Option<RawJson<'static>>,
+    pub links: Option<ArbitraryJson>,
     pub descriptor: Option<String>,
     pub directory_alias: Option<String>,
     pub display_name: Option<String>,
@@ -55,15 +56,19 @@ pub struct AzureDevOpsTestPlanIdentityRef {
     pub url: Option<String>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTestPlanReleaseEnvironmentDefinitionReference {
     pub definition_id: Option<u32>,
     pub environment_definition_id: Option<u32>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTestPlanTestOutcomeSettings {
     pub sync_outcome_across_suites: Option<bool>,
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsTestPlan);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTestPlan);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsTestPlan>);

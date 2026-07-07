@@ -1,10 +1,12 @@
 use crate::ConditionalAccessNamedLocationId;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use compact_str::CompactString;
 use ipnetwork::Ipv4Network;
+use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[repr(C)]
 #[facet(tag = "@odata.type")]
 pub enum ConditionalAccessNamedLocation {
@@ -40,7 +42,7 @@ impl ConditionalAccessNamedLocation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessIpNamedLocation {
     pub id: ConditionalAccessNamedLocationId,
@@ -63,7 +65,17 @@ pub struct CidrHolder {
     pub cidr_address: Ipv4Network,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+impl<'a> Arbitrary<'a> for CidrHolder {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let third = u.int_in_range(0..=255u8)?;
+        let cidr = format!("10.0.{third}.0/24");
+        let cidr_address =
+            Ipv4Network::from_str(&cidr).map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        Ok(Self { cidr_address })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessCountryNamedLocation {
     pub id: ConditionalAccessNamedLocationId,
@@ -79,3 +91,7 @@ pub struct ConditionalAccessCountryNamedLocation {
     pub include_unknown_countries_and_regions: bool,
     pub country_lookup_method: CompactString,
 }
+
+cloud_terrastodon_registry::register_thing!(ConditionalAccessNamedLocation);
+cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessNamedLocation);
+cloud_terrastodon_registry::register_arbitrary!(Vec<ConditionalAccessNamedLocation>);

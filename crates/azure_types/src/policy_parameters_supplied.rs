@@ -1,8 +1,9 @@
-use facet_json::RawJson;
+use crate::ArbitraryJson;
+use arbitrary::Arbitrary;
 use std::collections::HashMap;
 use std::ops::Deref;
 
-#[derive(Debug, Eq, PartialEq, Default, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Default, Arbitrary, facet::Facet)]
 #[facet(transparent)]
 pub struct AzurePolicyDefinitionParametersSupplied(
     pub HashMap<String, AzurePolicyDefinitionParametersSuppliedValue>,
@@ -16,18 +17,19 @@ impl Deref for AzurePolicyDefinitionParametersSupplied {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Arbitrary, facet::Facet)]
 pub struct AzurePolicyDefinitionParametersSuppliedValue {
-    pub value: RawJson<'static>,
+    pub value: ArbitraryJson,
 }
 
 impl From<&str> for AzurePolicyDefinitionParametersSuppliedValue {
     fn from(value: &str) -> Self {
         AzurePolicyDefinitionParametersSuppliedValue {
-            value: RawJson::from_owned(
+            value: facet_json::RawJson::from_owned(
                 facet_json::to_string(value)
                     .expect("serializing a string policy parameter should not fail"),
-            ),
+            )
+            .into(),
         }
     }
 }

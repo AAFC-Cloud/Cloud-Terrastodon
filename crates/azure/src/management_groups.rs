@@ -31,6 +31,7 @@ pub async fn fetch_root_management_group(tenant_id: AzureTenantId) -> Result<Man
 }
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ManagementGroupListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -91,3 +92,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(ManagementGroupListRequest);
+cloud_terrastodon_registry::register_arbitrary!(ManagementGroupListRequest);
+cloud_terrastodon_registry::register_into_future!(ManagementGroupListRequest => Vec<ManagementGroup>);

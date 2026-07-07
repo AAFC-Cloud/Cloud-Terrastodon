@@ -1,4 +1,3 @@
-use arbitrary::Arbitrary;
 use crate::AzureAppServiceResourceId;
 use crate::AzureApplicationGatewayResourceId;
 use crate::AzureCognitiveServicesAccountResourceId;
@@ -34,6 +33,7 @@ use crate::management_groups::ManagementGroupId;
 use crate::service_group_id::SERVICE_GROUP_ID_PREFIX;
 use crate::slug::HasSlug;
 use crate::slug::Slug;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_resource_types::ResourceType;
 use compact_str::CompactString;
 use compact_str::ToCompactString;
@@ -1121,4 +1121,3 @@ mod tests {
         Ok(())
     }
 }
-

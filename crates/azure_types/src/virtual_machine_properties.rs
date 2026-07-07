@@ -1,7 +1,8 @@
-use facet_json::RawJson;
+use crate::ArbitraryJson;
+use arbitrary::Arbitrary;
 use uuid::Uuid;
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct VirtualMachineProperties {
     pub availability_set: Option<VirtualMachinePropertiesAvailabilitySet>,
@@ -10,8 +11,7 @@ pub struct VirtualMachineProperties {
     pub time_created: String,
     pub network_profile: NetworkProfile,
     pub storage_profile: StorageProfile,
-    #[facet(default, opaque, proxy = crate::OptionalIsoDurationProxy)]
-    pub extensions_time_budget: Option<iso8601_duration::Duration>,
+    pub extensions_time_budget: Option<crate::iso8601_duration::Duration>,
     pub hardware_profile: HardwareProfile,
     pub license_type: Option<String>,
     pub security_profile: Option<SecurityProfile>,
@@ -21,41 +21,40 @@ pub struct VirtualMachineProperties {
     pub vm_id: Uuid,
     pub additional_capabilities: Option<AdditionalCapabilities>,
 }
-
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct VirtualMachinePropertiesAvailabilitySet {
     pub id: String,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct NetworkProfile {
     pub network_interfaces: Vec<NetworkInterfaceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct NetworkInterfaceReference {
     pub properties: Option<NetworkInterfacePropertiesReference>,
     pub id: String,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct NetworkInterfacePropertiesReference {
     pub delete_option: Option<NetworkInterfacePropertiesDeleteOption>,
     pub primary: Option<bool>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[repr(C)]
 pub enum NetworkInterfacePropertiesDeleteOption {
     Delete,
     Detach,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct StorageProfile {
     pub image_reference: Option<StorageProfileImageReference>,
@@ -65,7 +64,7 @@ pub struct StorageProfile {
     pub os_disk: OsDisk,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum StorageProfileDiskControllerType {
@@ -98,7 +97,7 @@ impl From<&StorageProfileDiskControllerType> for String {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(untagged)]
 #[repr(C)]
 pub enum StorageProfileImageReference {
@@ -106,7 +105,7 @@ pub enum StorageProfileImageReference {
     ById(StorageProfileImageReferenceById),
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct StorageProfileImageReferenceByPublisher {
     exact_version: String,
@@ -116,14 +115,14 @@ pub struct StorageProfileImageReferenceByPublisher {
     version: String,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct StorageProfileImageReferenceById {
     exact_version: Option<String>,
     id: String,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct OsDisk {
     pub name: String,
@@ -137,7 +136,7 @@ pub struct OsDisk {
     pub write_accelerator_enabled: Option<bool>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct DataDisk {
     pub caching: String,
@@ -153,28 +152,28 @@ pub struct DataDisk {
     pub write_accelerator_enabled: Option<bool>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[repr(C)]
 pub enum OsDiskDeleteOption {
     Delete,
     Detach,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct ManagedDiskReference {
     pub id: String,
     pub storage_account_type: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct HardwareProfile {
     pub vm_size: String,
     pub vm_size_properties: Option<HardwareProfileVmSizeProperties>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 pub struct HardwareProfileVmSizeProperties {
     #[facet(rename = "vCPUsAvailable")]
     pub v_cpus_available: usize,
@@ -182,53 +181,53 @@ pub struct HardwareProfileVmSizeProperties {
     pub v_cpus_per_core: usize,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct SecurityProfile {
     pub security_type: String,
     pub uefi_settings: UefiSettings,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct UefiSettings {
     pub secure_boot_enabled: bool,
     pub v_tpm_enabled: bool,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct OsProfile {
     pub computer_name: Option<String>,
     pub require_guest_provision_signal: Option<bool>,
     pub allow_extension_operations: Option<bool>,
     pub admin_username: Option<String>,
-    pub secrets: Option<RawJson<'static>>,
-    pub linux_configuration: Option<RawJson<'static>>,
-    pub windows_configuration: Option<RawJson<'static>>,
+    pub secrets: Option<ArbitraryJson>,
+    pub linux_configuration: Option<ArbitraryJson>,
+    pub windows_configuration: Option<ArbitraryJson>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct DiagnosticsProfile {
     pub boot_diagnostics: BootDiagnostics,
     pub storage_uri: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct BootDiagnostics {
     pub enabled: bool,
     pub storage_uri: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct ExtendedProperties {
     pub instance_view: InstanceView,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct InstanceView {
     pub computer_name: Option<String>,
@@ -238,7 +237,7 @@ pub struct InstanceView {
     pub power_state: PowerState,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct PowerState {
     pub display_status: String,
@@ -246,7 +245,7 @@ pub struct PowerState {
     pub code: String,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AdditionalCapabilities {
     pub hibernation_enabled: bool,

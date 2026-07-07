@@ -1,5 +1,5 @@
-use arbitrary::Arbitrary;
 use crate::cli::scalar_args::HttpMethodCli;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
@@ -27,7 +27,11 @@ pub enum RestOutputFormat {
 
 impl<'a> Arbitrary<'a> for RestOutputFormat {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(if bool::arbitrary(u)? { Self::Text } else { Self::Json })
+        Ok(if bool::arbitrary(u)? {
+            Self::Text
+        } else {
+            Self::Json
+        })
     }
 }
 /// Arguments for issuing raw REST calls with Cloud Terrastodon's auth helpers.
@@ -211,4 +215,3 @@ cloud_terrastodon_registry::register_arbitrary!(RestOutputFormat);
 cloud_terrastodon_registry::register_thing!(RestArgs);
 cloud_terrastodon_registry::register_arbitrary!(RestArgs);
 cloud_terrastodon_registry::register_into_future!(RestArgs => SerializableRestResponse, effects = [Read]);
-

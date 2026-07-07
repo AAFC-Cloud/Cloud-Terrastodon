@@ -1,4 +1,5 @@
 use crate::GiteaLogin;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct GiteaLoginsListRequest;
 
 pub fn list_gitea_logins() -> GiteaLoginsListRequest {
@@ -34,3 +36,10 @@ impl CacheableCommand for GiteaLoginsListRequest {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(GiteaLoginsListRequest);
+
+cloud_terrastodon_registry::register_thing!(GiteaLoginsListRequest);
+cloud_terrastodon_registry::register_arbitrary!(GiteaLoginsListRequest);
+cloud_terrastodon_registry::register_into_future!(
+    GiteaLoginsListRequest => Vec<GiteaLogin>,
+    effects = [Read]
+);

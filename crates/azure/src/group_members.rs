@@ -9,6 +9,7 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use tracing::debug;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct GroupMembersListRequest {
     pub group_id: EntraGroupId,
     pub tenant_id: AzureTenantId,
@@ -101,3 +102,7 @@ mod tests {
         bail!("Failed to ensure group member fetching worked after {tries} tries")
     }
 }
+
+cloud_terrastodon_registry::register_thing!(GroupMembersListRequest);
+cloud_terrastodon_registry::register_arbitrary!(GroupMembersListRequest);
+cloud_terrastodon_registry::register_into_future!(GroupMembersListRequest => Vec<Principal>);

@@ -51,6 +51,7 @@ pub async fn fetch_eligible_child_resources(
 }
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct EligibleChildResourceListRequest {
     tenant_id: AzureTenantId,
 }
@@ -218,3 +219,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(EligibleChildResourceListRequest);
+cloud_terrastodon_registry::register_arbitrary!(EligibleChildResourceListRequest);
+cloud_terrastodon_registry::register_into_future!(EligibleChildResourceListRequest => Vec<EligibleChildResource>);

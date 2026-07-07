@@ -1,7 +1,8 @@
-use arbitrary::Arbitrary;
 use crate::AzureTenantAlias;
 use crate::AzureTenantId;
+use arbitrary::Arbitrary;
 use eyre::bail;
+use std::borrow::Cow;
 use std::str::FromStr;
 
 /// Tenant can be specified as the default tenant, a tenant id, or a Cloud Terrastodon tenant alias.
@@ -10,10 +11,8 @@ use std::str::FromStr;
 pub enum AzureTenantArgument<'a> {
     #[default]
     Default,
-    Id(AzureTenantId),
-    IdRef(&'a AzureTenantId),
-    Alias(AzureTenantAlias),
-    AliasRef(&'a AzureTenantAlias),
+    Id(Cow<'a, AzureTenantId>),
+    Alias(Cow<'a, AzureTenantAlias>),
 }
 
 impl std::fmt::Display for AzureTenantArgument<'_> {
@@ -21,34 +20,32 @@ impl std::fmt::Display for AzureTenantArgument<'_> {
         match self {
             AzureTenantArgument::Default => f.write_str("default"),
             AzureTenantArgument::Id(id) => id.fmt(f),
-            AzureTenantArgument::IdRef(id) => id.fmt(f),
             AzureTenantArgument::Alias(alias) => alias.fmt(f),
-            AzureTenantArgument::AliasRef(alias) => alias.fmt(f),
         }
     }
 }
 
 impl From<AzureTenantId> for AzureTenantArgument<'_> {
     fn from(value: AzureTenantId) -> Self {
-        AzureTenantArgument::Id(value)
+        AzureTenantArgument::Id(Cow::Owned(value))
     }
 }
 
 impl<'a> From<&'a AzureTenantId> for AzureTenantArgument<'a> {
     fn from(value: &'a AzureTenantId) -> Self {
-        AzureTenantArgument::IdRef(value)
+        AzureTenantArgument::Id(Cow::Borrowed(value))
     }
 }
 
 impl From<AzureTenantAlias> for AzureTenantArgument<'_> {
     fn from(value: AzureTenantAlias) -> Self {
-        AzureTenantArgument::Alias(value)
+        AzureTenantArgument::Alias(Cow::Owned(value))
     }
 }
 
 impl<'a> From<&'a AzureTenantAlias> for AzureTenantArgument<'a> {
     fn from(value: &'a AzureTenantAlias) -> Self {
-        AzureTenantArgument::AliasRef(value)
+        AzureTenantArgument::Alias(Cow::Borrowed(value))
     }
 }
 
@@ -56,10 +53,10 @@ impl AzureTenantArgument<'_> {
     pub fn into_owned(self) -> AzureTenantArgument<'static> {
         match self {
             AzureTenantArgument::Default => AzureTenantArgument::Default,
-            AzureTenantArgument::Id(id) => AzureTenantArgument::Id(id),
-            AzureTenantArgument::IdRef(id) => AzureTenantArgument::Id(*id),
-            AzureTenantArgument::Alias(alias) => AzureTenantArgument::Alias(alias),
-            AzureTenantArgument::AliasRef(alias) => AzureTenantArgument::Alias(alias.clone()),
+            AzureTenantArgument::Id(id) => AzureTenantArgument::Id(Cow::Owned(id.into_owned())),
+            AzureTenantArgument::Alias(alias) => {
+                AzureTenantArgument::Alias(Cow::Owned(alias.into_owned()))
+            }
         }
     }
 }
@@ -71,9 +68,9 @@ impl<'a> FromStr for AzureTenantArgument<'a> {
         if s.eq_ignore_ascii_case("default") {
             Ok(AzureTenantArgument::Default)
         } else if let Ok(id) = s.parse::<AzureTenantId>() {
-            Ok(AzureTenantArgument::Id(id))
+            Ok(AzureTenantArgument::Id(Cow::Owned(id)))
         } else if let Ok(alias) = AzureTenantAlias::try_new(s) {
-            Ok(AzureTenantArgument::Alias(alias))
+            Ok(AzureTenantArgument::Alias(Cow::Owned(alias)))
         } else {
             bail!(
                 "'{s}' is not a valid default tenant selector, Azure tenant id, or Cloud Terrastodon tenant alias"
@@ -86,8 +83,8 @@ impl<'a> Arbitrary<'a> for AzureTenantArgument<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(match u.int_in_range(0..=2)? {
             0 => Self::Default,
-            1 => Self::Id(AzureTenantId::arbitrary(u)?),
-            _ => Self::Alias(AzureTenantAlias::arbitrary(u)?),
+            1 => Self::Id(Cow::Owned(AzureTenantId::arbitrary(u)?)),
+            _ => Self::Alias(Cow::Owned(AzureTenantAlias::arbitrary(u)?)),
         })
     }
 }
@@ -105,4 +102,3 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(AzureTenantArgument<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureTenantArgument<'static>);
-

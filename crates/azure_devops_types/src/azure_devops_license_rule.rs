@@ -1,7 +1,8 @@
 use crate::AzureDevOpsLicenseType;
+use arbitrary::Arbitrary;
 use std::str::FromStr;
 
-#[derive(Clone, Debug, facet::Facet)]
+#[derive(Clone, Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsLicenseRule {
     pub licensing_source: AzureDevOpsLicenseRuleSource,
@@ -14,7 +15,7 @@ pub struct AzureDevOpsLicenseRule {
     pub assignment_source: AzureDevOpsLicenseRuleAssignmentSource,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleSource {
@@ -23,7 +24,7 @@ pub enum AzureDevOpsLicenseRuleSource {
     Other(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleMsdnLicenseType {
@@ -32,7 +33,7 @@ pub enum AzureDevOpsLicenseRuleMsdnLicenseType {
     Other(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleGitHubLicenseType {
@@ -40,7 +41,7 @@ pub enum AzureDevOpsLicenseRuleGitHubLicenseType {
     Other(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleStatus {
@@ -48,7 +49,7 @@ pub enum AzureDevOpsLicenseRuleStatus {
     Other(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleAssignmentSource {
@@ -147,6 +148,9 @@ impl_string_backed_enum!(
     }
 );
 
+cloud_terrastodon_registry::register_thing!(AzureDevOpsLicenseRule);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsLicenseRule);
+
 #[cfg(test)]
 mod test {
     use crate::AzureDevOpsLicenseRule;
@@ -171,58 +175,3 @@ mod test {
         Ok(())
     }
 }
-
-/*
-[
-  {
-    "licensingSource": "account",
-    "accountLicenseType": "express",
-    "msdnLicenseType": "none",
-    "gitHubLicenseType": "none",
-    "licenseDisplayName": "Basic",
-    "status": "active",
-    "statusMessage": "",
-    "assignmentSource": "unknown"
-  },
-  {
-    "licensingSource": "account",
-    "accountLicenseType": "stakeholder",
-    "msdnLicenseType": "none",
-    "gitHubLicenseType": "none",
-    "licenseDisplayName": "Stakeholder",
-    "status": "active",
-    "statusMessage": "",
-    "assignmentSource": "unknown"
-  },
-  {
-    "licensingSource": "account",
-    "accountLicenseType": "advanced",
-    "msdnLicenseType": "none",
-    "gitHubLicenseType": "none",
-    "licenseDisplayName": "Basic + Test Plans",
-    "status": "active",
-    "statusMessage": "",
-    "assignmentSource": "unknown"
-  },
-  {
-    "licensingSource": "msdn",
-    "accountLicenseType": "none",
-    "msdnLicenseType": "eligible",
-    "gitHubLicenseType": "none",
-    "licenseDisplayName": "Visual Studio Subscriber",
-    "status": "active",
-    "statusMessage": "",
-    "assignmentSource": "unknown"
-  },
-  {
-    "licensingSource": "account",
-    "accountLicenseType": "stakeholder",
-    "msdnLicenseType": "none",
-    "gitHubLicenseType": "none",
-    "licenseDisplayName": "Stakeholder",
-    "status": "active",
-    "statusMessage": "",
-    "assignmentSource": "unknown"
-  }
-]
-*/

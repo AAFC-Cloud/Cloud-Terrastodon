@@ -9,6 +9,7 @@ use http::Method;
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionGrantRemoveRequest {
     pub tenant_id: AzureTenantId,
     pub id: OAuth2PermissionGrantId,
@@ -56,3 +57,7 @@ impl CacheableCommand for OAuth2PermissionGrantRemoveRequest {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantRemoveRequest);
+
+cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrantRemoveRequest);
+cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrantRemoveRequest);
+cloud_terrastodon_registry::register_into_future!(OAuth2PermissionGrantRemoveRequest => ());

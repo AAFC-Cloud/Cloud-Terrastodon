@@ -1,6 +1,6 @@
-use arbitrary::Arbitrary;
 use crate::GiteaUserId;
 use crate::GiteaUsername;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::FixedOffset;
 use facet::Facet;
@@ -44,4 +44,4 @@ impl Display for GiteaUser {
 
 cloud_terrastodon_registry::register_thing!(GiteaUser);
 cloud_terrastodon_registry::register_arbitrary!(GiteaUser);
-
+cloud_terrastodon_registry::register_arbitrary!(Vec<GiteaUser>);

@@ -19,8 +19,7 @@ impl AzureDevOpsWorkItemQueryListArgs {
     pub async fn invoke(self) -> Result<()> {
         let org_url = get_default_organization_url().await?;
         let project_name: AzureDevOpsProjectName = match self.project {
-            AzureDevOpsProjectArgument::Name(n) => n,
-            AzureDevOpsProjectArgument::NameRef(n) => n.clone(),
+            AzureDevOpsProjectArgument::Name(n) => n.into_owned(),
             _ => {
                 let projects = fetch_all_azure_devops_projects(&org_url).await?;
                 if let Some(project) = projects.into_iter().find(|p| self.project.matches(p)) {

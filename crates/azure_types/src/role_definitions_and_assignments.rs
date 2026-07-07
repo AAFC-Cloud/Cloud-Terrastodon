@@ -1,10 +1,10 @@
-use arbitrary::Arbitrary;
 use crate::RoleAssignment;
 use crate::RoleAssignmentId;
 use crate::RoleDefinition;
 use crate::RoleDefinitionId;
 use crate::RolePermissionAction;
 use crate::Scope;
+use arbitrary::Arbitrary;
 use eyre::bail;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -67,7 +67,6 @@ impl std::fmt::Debug for RoleDefinitionsAndAssignments {
     }
 }
 
-
 impl RoleDefinitionsAndAssignments {
     pub fn iter_role_assignments(
         &self,
@@ -125,5 +124,3 @@ where
 
 cloud_terrastodon_registry::register_thing!(RoleDefinitionsAndAssignments);
 cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionsAndAssignments);
-
-

@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct VirtualMachineListRequest {
     pub tenant_id: AzureTenantId,
 }
@@ -70,3 +71,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(VirtualMachineListRequest);
+cloud_terrastodon_registry::register_arbitrary!(VirtualMachineListRequest);
+cloud_terrastodon_registry::register_into_future!(VirtualMachineListRequest => Vec<VirtualMachine>);

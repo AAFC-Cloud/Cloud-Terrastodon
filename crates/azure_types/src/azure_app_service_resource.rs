@@ -264,3 +264,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureAppServiceResource);
+cloud_terrastodon_registry::register_arbitrary!(AzureAppServiceResource);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureAppServiceResource>);

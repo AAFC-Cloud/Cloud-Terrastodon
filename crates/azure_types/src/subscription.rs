@@ -4,12 +4,13 @@ use crate::SubscriptionId;
 use crate::SubscriptionName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_hcl_types::HclProviderBlock;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct Subscription {
     pub id: SubscriptionId,
     pub name: SubscriptionName,
@@ -59,3 +60,7 @@ impl From<Subscription> for HclProviderBlock {
         value.into_provider_block()
     }
 }
+
+cloud_terrastodon_registry::register_thing!(Subscription);
+cloud_terrastodon_registry::register_arbitrary!(Subscription);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Subscription>);

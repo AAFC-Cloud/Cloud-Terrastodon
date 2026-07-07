@@ -1,7 +1,6 @@
 use crate::AzureTenantId;
 use crate::GovernanceRoleAssignment;
 use crate::PrincipalId;
-use crate::to_iso8601;
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -45,8 +44,7 @@ pub enum RoleAssignmentRequestKind {
 pub struct RoleAssignmentRequestSchedule {
     #[facet(rename = "type")]
     pub kind: RoleAssignmentRequestScheduleKind,
-    #[facet(opaque, proxy = crate::IsoDurationProxy)]
-    pub duration: iso8601_duration::Duration,
+    pub duration: crate::iso8601_duration::Duration,
 }
 
 #[derive(Debug, Clone, facet::Facet)]
@@ -74,7 +72,7 @@ impl RoleAssignmentRequest {
             ticket_system: "".to_string(),
             schedule: RoleAssignmentRequestSchedule {
                 kind: RoleAssignmentRequestScheduleKind::Once,
-                duration: to_iso8601(duration),
+                duration: duration.into(),
             },
             linked_eligible_role_assignment_id: role_assignment.id.clone(),
         }

@@ -2,88 +2,79 @@ use crate::Principal;
 use crate::PrincipalCollection;
 use crate::PrincipalId;
 use crate::PrincipalRef;
+use arbitrary::Arbitrary;
+use std::borrow::Cow;
 use std::str::FromStr;
 
 /// Principal can be specified as an id (UUID) or a display/user principal name.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum AzurePrincipalArgument<'a> {
-    Id(PrincipalId),
-    IdRef(&'a PrincipalId),
-    Name(String),
-    NameRef(&'a str),
-    Principal(Principal),
-    PrincipalRef(&'a Principal),
+    Id(Cow<'a, PrincipalId>),
+    Name(Cow<'a, str>),
+    Principal(Cow<'a, Principal>),
 }
 
 impl std::fmt::Display for AzurePrincipalArgument<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AzurePrincipalArgument::Id(id) => id.fmt(f),
-            AzurePrincipalArgument::IdRef(id) => id.fmt(f),
             AzurePrincipalArgument::Name(s) => s.fmt(f),
-            AzurePrincipalArgument::NameRef(s) => s.fmt(f),
             AzurePrincipalArgument::Principal(p) => p.fmt(f),
-            AzurePrincipalArgument::PrincipalRef(p) => p.fmt(f),
         }
     }
 }
 
 impl From<PrincipalId> for AzurePrincipalArgument<'_> {
     fn from(value: PrincipalId) -> Self {
-        AzurePrincipalArgument::Id(value)
+        AzurePrincipalArgument::Id(Cow::Owned(value))
     }
 }
 impl<'a> From<&'a PrincipalId> for AzurePrincipalArgument<'a> {
     fn from(value: &'a PrincipalId) -> Self {
-        AzurePrincipalArgument::IdRef(value)
+        AzurePrincipalArgument::Id(Cow::Borrowed(value))
     }
 }
 impl From<Principal> for AzurePrincipalArgument<'_> {
     fn from(value: Principal) -> Self {
-        AzurePrincipalArgument::Principal(value)
+        AzurePrincipalArgument::Principal(Cow::Owned(value))
     }
 }
 impl<'a> From<&'a Principal> for AzurePrincipalArgument<'a> {
     fn from(value: &'a Principal) -> Self {
-        AzurePrincipalArgument::PrincipalRef(value)
+        AzurePrincipalArgument::Principal(Cow::Borrowed(value))
     }
 }
 impl<'a> From<&'a str> for AzurePrincipalArgument<'a> {
     fn from(value: &'a str) -> Self {
-        AzurePrincipalArgument::NameRef(value)
+        AzurePrincipalArgument::Name(Cow::Borrowed(value))
     }
 }
 
 impl AzurePrincipalArgument<'_> {
     pub fn as_id(&self) -> Option<&PrincipalId> {
         match self {
-            AzurePrincipalArgument::Id(id) => Some(id),
-            AzurePrincipalArgument::IdRef(id) => Some(id),
-            AzurePrincipalArgument::Name(..)
-            | AzurePrincipalArgument::NameRef(..)
-            | AzurePrincipalArgument::Principal(..)
-            | AzurePrincipalArgument::PrincipalRef(..) => None,
+            AzurePrincipalArgument::Id(id) => Some(id.as_ref()),
+            AzurePrincipalArgument::Name(..) | AzurePrincipalArgument::Principal(..) => None,
         }
     }
 
     pub fn into_owned(self) -> AzurePrincipalArgument<'static> {
         match self {
-            AzurePrincipalArgument::Id(id) => AzurePrincipalArgument::Id(id),
-            AzurePrincipalArgument::IdRef(id) => AzurePrincipalArgument::Id(*id),
-            AzurePrincipalArgument::Name(name) => AzurePrincipalArgument::Name(name),
-            AzurePrincipalArgument::NameRef(name) => AzurePrincipalArgument::Name(name.to_string()),
-            AzurePrincipalArgument::Principal(p) => AzurePrincipalArgument::Principal(p),
-            AzurePrincipalArgument::PrincipalRef(p) => AzurePrincipalArgument::Principal(p.clone()),
+            AzurePrincipalArgument::Id(id) => {
+                AzurePrincipalArgument::Id(Cow::Owned(id.into_owned()))
+            }
+            AzurePrincipalArgument::Name(name) => {
+                AzurePrincipalArgument::Name(Cow::Owned(name.into_owned()))
+            }
+            AzurePrincipalArgument::Principal(p) => {
+                AzurePrincipalArgument::Principal(Cow::Owned(p.into_owned()))
+            }
         }
     }
 
     pub fn resolve<'a>(&self, principals: &'a PrincipalCollection) -> Option<&'a Principal> {
-        // if let Some(id) = self.as_id() {
-        //     return principals.get(id);
-        // }
-
         principals
             .values()
             .find(|principal| self.matches(*principal))
@@ -92,18 +83,12 @@ impl AzurePrincipalArgument<'_> {
     pub fn matches<'a>(&self, principal: impl Into<PrincipalRef<'a>>) -> bool {
         let principal = principal.into();
         match self {
-            AzurePrincipalArgument::Id(id) => principal.id() == id,
-            AzurePrincipalArgument::IdRef(id) => principal.id() == *id,
+            AzurePrincipalArgument::Id(id) => principal.id() == *id.as_ref(),
             AzurePrincipalArgument::Name(name) => {
-                principal.display_name().eq_ignore_ascii_case(name.as_str())
-                    || principal.name().eq_ignore_ascii_case(name.as_str())
+                principal.display_name().eq_ignore_ascii_case(name.as_ref())
+                    || principal.name().eq_ignore_ascii_case(name.as_ref())
             }
-            AzurePrincipalArgument::NameRef(name) => {
-                principal.display_name().eq_ignore_ascii_case(name)
-                    || principal.name().eq_ignore_ascii_case(name)
-            }
-            AzurePrincipalArgument::Principal(p) => p.as_ref() == principal.as_ref(),
-            AzurePrincipalArgument::PrincipalRef(p) => p.as_ref() == principal.as_ref(),
+            AzurePrincipalArgument::Principal(p) => p.id() == principal.id(),
         }
     }
 }
@@ -113,10 +98,10 @@ impl<'a> FromStr for AzurePrincipalArgument<'a> {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(id) = s.parse::<PrincipalId>() {
-            Ok(AzurePrincipalArgument::Id(id))
+            Ok(AzurePrincipalArgument::Id(Cow::Owned(id)))
         } else {
             // treat as name / userPrincipalName
-            Ok(AzurePrincipalArgument::Name(s.to_string()))
+            Ok(AzurePrincipalArgument::Name(Cow::Owned(s.to_string())))
         }
     }
 }

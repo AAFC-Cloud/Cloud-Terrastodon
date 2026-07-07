@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use facet_json::RawJson;
 
 #[derive(Clone, Debug)]
@@ -23,6 +24,12 @@ impl PartialEq for RestResponseBody {
                     == facet_json::from_str::<facet_value::Value>(b.as_str()).ok()
             }
         }
+    }
+}
+
+impl<'a> Arbitrary<'a> for RestResponseBody {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self::Text(String::arbitrary(u)?))
     }
 }
 

@@ -8,6 +8,7 @@ use eyre::Result;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct PimEntraRoleDefinitionListRequest {
     tenant_id: AzureTenantId,
 }
@@ -72,3 +73,7 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_thing!(PimEntraRoleDefinitionListRequest);
+cloud_terrastodon_registry::register_arbitrary!(PimEntraRoleDefinitionListRequest);
+cloud_terrastodon_registry::register_into_future!(PimEntraRoleDefinitionListRequest => Vec<PimEntraRoleDefinition>);

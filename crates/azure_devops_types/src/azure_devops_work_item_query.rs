@@ -1,12 +1,13 @@
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use facet_json::RawJson;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use std::collections::VecDeque;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureDevOpsWorkItemQueryId(Uuid);
 impl std::fmt::Display for AzureDevOpsWorkItemQueryId {
@@ -51,15 +52,15 @@ impl FromStr for AzureDevOpsWorkItemQueryId {
     }
 }
 /// Also known as: QueryHierarchyItem
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsWorkItemQuery {
     #[facet(rename = "_links")]
-    pub links: RawJson<'static>,
+    pub links: ArbitraryJson,
     #[facet(recursive_type)]
     #[facet(default)]
     pub children: Vec<AzureDevOpsWorkItemQuery>,
-    pub created_by: Option<RawJson<'static>>,
+    pub created_by: Option<ArbitraryJson>,
     pub created_date: DateTime<Utc>,
     #[facet(default)]
     pub has_children: bool,
@@ -67,7 +68,7 @@ pub struct AzureDevOpsWorkItemQuery {
     #[facet(default)]
     pub is_folder: bool,
     pub is_public: bool,
-    pub last_modified_by: RawJson<'static>,
+    pub last_modified_by: ArbitraryJson,
     pub last_modified_date: DateTime<Utc>,
     pub name: String,
     pub path: String,
@@ -107,3 +108,9 @@ impl AzureDevOpsWorkItemQuery {
         rtn
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemQueryId);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemQueryId);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemQuery);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemQuery);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsWorkItemQuery>);

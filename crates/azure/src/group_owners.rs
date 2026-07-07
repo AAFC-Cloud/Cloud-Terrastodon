@@ -8,6 +8,7 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use tracing::debug;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct GroupOwnersListRequest {
     pub group_id: EntraGroupId,
     pub tenant_id: AzureTenantId,
@@ -80,3 +81,7 @@ mod tests {
         bail!("Failed to ensure group owner fetching worked after {tries} tries")
     }
 }
+
+cloud_terrastodon_registry::register_thing!(GroupOwnersListRequest);
+cloud_terrastodon_registry::register_arbitrary!(GroupOwnersListRequest);
+cloud_terrastodon_registry::register_into_future!(GroupOwnersListRequest => Vec<Principal>);
