@@ -1310,8 +1310,13 @@ impl ObjectBrowserApp {
                 .into_iter()
                 .map(|slot_id| FieldPickerChoice::ExistingProducerSlot { slot_id }),
         );
-        choices.extend(self.producer_function_choices_for(&required_shape_name));
+        let (arbitrary_producer_choices, regular_producer_choices): (Vec<_>, Vec<_>) = self
+            .producer_function_choices_for(&required_shape_name)
+            .into_iter()
+            .partition(field_picker_choice_is_arbitrary_producer);
+        choices.extend(regular_producer_choices);
         choices.push(FieldPickerChoice::CreateNew);
+        choices.extend(arbitrary_producer_choices);
 
         let labels = choices
             .iter()
@@ -1332,12 +1337,19 @@ impl ObjectBrowserApp {
                 .or_else(|| {
                     choices.iter().position(|choice| {
                         matches!(choice, FieldPickerChoice::CreateProducer { .. })
+                            && !field_picker_choice_is_arbitrary_producer(choice)
                     })
                 })
                 .or_else(|| {
                     choices
                         .iter()
                         .position(|choice| choice == &FieldPickerChoice::CreateNew)
+                })
+                .or_else(|| {
+                    choices.iter().position(|choice| {
+                        matches!(choice, FieldPickerChoice::CreateProducer { .. })
+                            && field_picker_choice_is_arbitrary_producer(choice)
+                    })
                 }),
         };
 
@@ -4171,6 +4183,16 @@ enum FieldPickerChoice {
     CreateNew,
 }
 
+fn field_picker_choice_is_arbitrary_producer(choice: &FieldPickerChoice) -> bool {
+    matches!(
+        choice,
+        FieldPickerChoice::CreateProducer {
+            input_shape_name,
+            ..
+        } if input_shape_name == "ArbitraryBytes"
+    )
+}
+
 struct RenameSlotState {
     slot_id: usize,
     textarea: TextArea<'static>,
@@ -5385,6 +5407,49 @@ mod tests {
             FieldPickerChoice::CreateProducer { input_shape_name, .. }
                 if input_shape_name == "AzureTenantIdResolveRequest"
         )));
+    }
+
+    #[test]
+    fn field_picker_lists_arbitrary_producers_after_create_new() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantIdResolveRequest"))
+            .expect("AzureTenantIdResolveRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        app.active_row_index = 2;
+        app.activate_current_row();
+
+        let picker = app.field_picker.as_ref().expect("field picker should open");
+        let create_new_index = picker
+            .choices
+            .iter()
+            .position(|choice| choice == &FieldPickerChoice::CreateNew)
+            .expect("create-new choice should be present");
+        let arbitrary_index = picker
+            .choices
+            .iter()
+            .position(super::field_picker_choice_is_arbitrary_producer)
+            .expect("arbitrary producer choice should be present");
+
+        assert!(
+            create_new_index < arbitrary_index,
+            "choices were {:?}",
+            picker.labels
+        );
+        assert!(super::field_picker_choice_is_arbitrary_producer(
+            picker.choices.last().expect("last choice should exist")
+        ));
+        assert_eq!(picker.selected_choice(), Some(FieldPickerChoice::CreateNew));
     }
 
     #[test]
