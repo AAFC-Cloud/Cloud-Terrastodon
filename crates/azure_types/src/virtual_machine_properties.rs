@@ -1,4 +1,4 @@
-use crate::ArbitraryJson;
+use crate::{ArbitraryJson, iso8601_duration::IsoDuration};
 use arbitrary::Arbitrary;
 use uuid::Uuid;
 
@@ -11,7 +11,7 @@ pub struct VirtualMachineProperties {
     pub time_created: String,
     pub network_profile: NetworkProfile,
     pub storage_profile: StorageProfile,
-    pub extensions_time_budget: Option<crate::iso8601_duration::Duration>,
+    pub extensions_time_budget: Option<IsoDuration>,
     pub hardware_profile: HardwareProfile,
     pub license_type: Option<String>,
     pub security_profile: Option<SecurityProfile>,

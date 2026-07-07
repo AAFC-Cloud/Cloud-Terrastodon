@@ -1,9 +1,9 @@
 use crate::RoleManagementPolicyAssignmentId;
+use crate::iso8601_duration::IsoDuration;
 use eyre::Result;
 use facet_json::RawJson;
 use std::collections::HashMap;
 use std::fmt;
-use std::time::Duration;
 
 #[derive(Debug, PartialEq, facet::Facet)]
 #[facet(proxy = String)]
@@ -125,11 +125,11 @@ struct RoleManagementPolicyExpirationRule {
     rule_type: String,
     id: RoleManagementPolicyAssignmentPropertiesEffectiveRuleId,
     #[facet(rename = "maximumDuration")]
-    maximum_duration: crate::iso8601_duration::Duration,
+    maximum_duration: IsoDuration,
 }
 
 impl RoleManagementPolicyAssignment {
-    pub fn get_maximum_activation_duration(&self) -> Option<Duration> {
+    pub fn get_maximum_activation_duration(&self) -> Option<IsoDuration> {
         for rule in &self.properties.effective_rules {
             if let Ok(rule) =
                 facet_json::from_str::<RoleManagementPolicyExpirationRule>(rule.as_str())
@@ -137,7 +137,7 @@ impl RoleManagementPolicyAssignment {
                 && rule.id
                     == RoleManagementPolicyAssignmentPropertiesEffectiveRuleId::ExpirationEnduserAssignment
             {
-                return rule.maximum_duration.to_std();
+                return Some(rule.maximum_duration);
             }
         }
         None

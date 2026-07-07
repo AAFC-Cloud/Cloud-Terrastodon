@@ -203,7 +203,7 @@ pub async fn pim_activate_azurerm(tenant_id: AzureTenantId) -> Result<()> {
                 .with_invalidation(invalidate)
                 .await?;
                 for policy in policies {
-                    if let Some(duration) = policy.get_maximum_activation_duration()
+                    if let Some(duration) = policy.get_maximum_activation_duration().and_then(|d| d.to_std())
                         && duration < maximum_duration
                     {
                         maximum_duration = duration;

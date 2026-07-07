@@ -1,6 +1,7 @@
 use crate::PrincipalId;
 use crate::RoleDefinitionId;
 use crate::RoleEligibilityScheduleId;
+use crate::iso8601_duration::IsoDuration;
 use chrono::DateTime;
 use chrono::Utc;
 use std::time::Duration;
@@ -95,7 +96,7 @@ pub enum RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration {
     },
     AfterDuration {
         #[facet(rename = "Duration")]
-        duration: crate::iso8601_duration::Duration,
+        duration: IsoDuration,
     },
     NoExpiration,
 }
