@@ -25,9 +25,9 @@ pub struct RoleDefinition {
     pub id: RoleDefinitionId,
     pub display_name: String,
     pub description: String,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub assignable_scopes: Vec<String>,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<RolePermissions>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<RolePermissions>)]
     pub permissions: Vec<RolePermissions>,
     pub kind: RoleDefinitionKind,
 }
