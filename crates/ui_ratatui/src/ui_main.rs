@@ -89,6 +89,8 @@ struct ObjectBrowserApp {
     slot_axis: SlotAxis,
     focused_slot_fill: bool,
     show_hotkey_help: bool,
+    slot_width: u16,
+    slot_height: u16,
     shape_choices: Vec<KnownShapeInfo>,
     object_slots: Vec<ObjectSlot>,
     active_slot_index: usize,
@@ -123,6 +125,8 @@ impl Default for ObjectBrowserApp {
             slot_axis: SlotAxis::Horizontal,
             focused_slot_fill: false,
             show_hotkey_help: false,
+            slot_width: Self::MIN_SLOT_WIDTH,
+            slot_height: Self::MIN_SLOT_HEIGHT,
             shape_choices,
             object_slots: Vec::new(),
             active_slot_index: 0,
@@ -290,9 +294,20 @@ impl ObjectBrowserApp {
 
         let visible = self.visible_slot_range_for_area(cards_area);
         let constraints = vec![Constraint::Fill(1); visible.len()];
+        let [left_marker_column, slot_layout_area, right_marker_column] =
+            if self.slot_axis == SlotAxis::Vertical && cards_area.width >= 8 {
+                Layout::horizontal([
+                    Constraint::Length(2),
+                    Constraint::Fill(1),
+                    Constraint::Length(2),
+                ])
+                .areas(cards_area)
+            } else {
+                [Rect::default(), cards_area, Rect::default()]
+            };
         let slot_areas = match self.slot_axis {
-            SlotAxis::Horizontal => Layout::horizontal(constraints.clone()).split(cards_area),
-            SlotAxis::Vertical => Layout::vertical(constraints.clone()).split(cards_area),
+            SlotAxis::Horizontal => Layout::horizontal(constraints.clone()).split(slot_layout_area),
+            SlotAxis::Vertical => Layout::vertical(constraints.clone()).split(slot_layout_area),
         };
         let top_marker_areas =
             if self.slot_axis == SlotAxis::Horizontal && top_margin_area.height > 0 {
@@ -302,7 +317,19 @@ impl ObjectBrowserApp {
             };
         let bottom_marker_areas =
             if self.slot_axis == SlotAxis::Horizontal && bottom_margin_area.height > 0 {
-                Some(Layout::horizontal(constraints).split(bottom_margin_area))
+                Some(Layout::horizontal(constraints.clone()).split(bottom_margin_area))
+            } else {
+                None
+            };
+        let left_marker_areas =
+            if self.slot_axis == SlotAxis::Vertical && left_marker_column.width > 0 {
+                Some(Layout::vertical(constraints.clone()).split(left_marker_column))
+            } else {
+                None
+            };
+        let right_marker_areas =
+            if self.slot_axis == SlotAxis::Vertical && right_marker_column.width > 0 {
+                Some(Layout::vertical(constraints).split(right_marker_column))
             } else {
                 None
             };
@@ -323,30 +350,52 @@ impl ObjectBrowserApp {
                 None => {}
             }
 
-            if !is_active || self.slot_axis != SlotAxis::Horizontal {
+            if !is_active {
                 continue;
             }
 
             let marker_style = Style::default()
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::BOLD);
-            if let Some(areas) = &top_marker_areas
-                && let Some(marker_area) = areas.get(offset).copied()
-            {
-                frame.render_widget(
-                    Paragraph::new(Line::from(Span::styled("vvvvv", marker_style)))
-                        .alignment(Alignment::Center),
-                    marker_area,
-                );
-            }
-            if let Some(areas) = &bottom_marker_areas
-                && let Some(marker_area) = areas.get(offset).copied()
-            {
-                frame.render_widget(
-                    Paragraph::new(Line::from(Span::styled("^^^^^", marker_style)))
-                        .alignment(Alignment::Center),
-                    marker_area,
-                );
+            match self.slot_axis {
+                SlotAxis::Horizontal => {
+                    if let Some(areas) = &top_marker_areas
+                        && let Some(marker_area) = areas.get(offset).copied()
+                    {
+                        frame.render_widget(
+                            Paragraph::new(Line::from(Span::styled("vvvvv", marker_style)))
+                                .alignment(Alignment::Center),
+                            marker_area,
+                        );
+                    }
+                    if let Some(areas) = &bottom_marker_areas
+                        && let Some(marker_area) = areas.get(offset).copied()
+                    {
+                        frame.render_widget(
+                            Paragraph::new(Line::from(Span::styled("^^^^^", marker_style)))
+                                .alignment(Alignment::Center),
+                            marker_area,
+                        );
+                    }
+                }
+                SlotAxis::Vertical => {
+                    if let Some(areas) = &left_marker_areas
+                        && let Some(marker_area) = areas.get(offset).copied()
+                    {
+                        frame.render_widget(
+                            vertical_marker_paragraph(">", marker_area.height, marker_style),
+                            marker_area,
+                        );
+                    }
+                    if let Some(areas) = &right_marker_areas
+                        && let Some(marker_area) = areas.get(offset).copied()
+                    {
+                        frame.render_widget(
+                            vertical_marker_paragraph("<", marker_area.height, marker_style),
+                            marker_area,
+                        );
+                    }
+                }
             }
         }
 
@@ -546,6 +595,7 @@ impl ObjectBrowserApp {
             Line::from("Alt+/: toggle this help"),
             Line::from("Ctrl+T: transpose slot axis"),
             Line::from("Alt+F: focused slot fill"),
+            Line::from("Alt++/Alt+-: resize slots"),
             Line::from("Left/Right: previous/next slot"),
             Line::from("Up/Down: previous/next row"),
             Line::from("PageUp/PageDown: page rows"),
@@ -602,6 +652,18 @@ impl ObjectBrowserApp {
         }
         if key.modifiers.contains(KeyModifiers::ALT) && key.code == KeyCode::Char('/') {
             self.show_hotkey_help = !self.show_hotkey_help;
+            return;
+        }
+        if key.modifiers.contains(KeyModifiers::ALT) && key.code == KeyCode::Char('-') {
+            self.show_hotkey_help = false;
+            self.resize_slots(-1);
+            return;
+        }
+        if key.modifiers.contains(KeyModifiers::ALT)
+            && matches!(key.code, KeyCode::Char('+') | KeyCode::Char('='))
+        {
+            self.show_hotkey_help = false;
+            self.resize_slots(1);
             return;
         }
         if key.modifiers.contains(KeyModifiers::ALT)
@@ -1152,6 +1214,22 @@ impl ObjectBrowserApp {
         } else {
             "Focused slot fill disabled.".to_string()
         };
+    }
+
+    fn resize_slots(&mut self, direction: isize) {
+        match self.slot_axis {
+            SlotAxis::Horizontal => {
+                self.slot_width =
+                    resize_dimension(self.slot_width, Self::MIN_SLOT_WIDTH, 8, direction);
+                self.status_message = format!("Slot width: {}.", self.slot_width);
+            }
+            SlotAxis::Vertical => {
+                self.slot_height =
+                    resize_dimension(self.slot_height, Self::MIN_SLOT_HEIGHT, 2, direction);
+                self.status_message = format!("Slot height: {}.", self.slot_height);
+            }
+        }
+        self.sync_selection_viewports();
     }
 
     fn sync_selection_viewports(&mut self) {
@@ -2455,7 +2533,7 @@ impl ObjectBrowserApp {
     }
 
     fn max_visible_slots(&self, width: u16) -> usize {
-        usize::from((width / Self::MIN_SLOT_WIDTH).max(1))
+        usize::from((width / self.slot_width.max(1)).max(1))
     }
 
     fn max_visible_slots_for_area(&self, area: Rect) -> usize {
@@ -2464,7 +2542,7 @@ impl ObjectBrowserApp {
         }
         match self.slot_axis {
             SlotAxis::Horizontal => self.max_visible_slots(area.width),
-            SlotAxis::Vertical => usize::from((area.height / Self::MIN_SLOT_HEIGHT).max(1)),
+            SlotAxis::Vertical => usize::from((area.height / self.slot_height.max(1)).max(1)),
         }
     }
 
@@ -5338,6 +5416,12 @@ fn selectable_spans_line(spans: Vec<Span<'static>>, focused: bool) -> Line<'stat
     Line::from(line_spans)
 }
 
+fn vertical_marker_paragraph(marker: &str, height: u16, style: Style) -> Paragraph<'static> {
+    let lines = (0..height.max(1))
+        .map(|_| Line::from(Span::styled(marker.to_string(), style)))
+        .collect::<Vec<_>>();
+    Paragraph::new(lines).alignment(Alignment::Center)
+}
 fn focus_prefix(focused: bool) -> Span<'static> {
     if focused {
         Span::styled(
@@ -5360,6 +5444,13 @@ fn separator_line(label: &str) -> Line<'static> {
     ])
 }
 
+fn resize_dimension(current: u16, minimum: u16, step: u16, direction: isize) -> u16 {
+    if direction < 0 {
+        current.saturating_sub(step).max(minimum)
+    } else {
+        current.saturating_add(step).max(minimum)
+    }
+}
 fn projection_label(root_slot_id: usize, path: &[JsonPathSegment]) -> String {
     let mut label = format!("slot {}", root_slot_id);
     for segment in path {
@@ -6533,6 +6624,18 @@ mod tests {
             KeyModifiers::CONTROL,
         )));
         assert_eq!(app.slot_axis, super::SlotAxis::Vertical);
+
+        let original_height = app.slot_height;
+        app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('+'),
+            KeyModifiers::ALT,
+        )));
+        assert!(app.slot_height > original_height);
+        app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('-'),
+            KeyModifiers::ALT,
+        )));
+        assert_eq!(app.slot_height, original_height);
 
         app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
             KeyCode::Char('f'),
