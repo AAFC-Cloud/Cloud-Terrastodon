@@ -3159,15 +3159,8 @@ impl ObjectBrowserApp {
     }
 
     fn projection_child_count(&self, view: &JsonProjectionView) -> usize {
-        match self.json_value_at_path(view.root_slot_id, &view.path) {
-            Some(Value::Array(items)) => items.len(),
-            Some(Value::Object(object))
-                if self.projection_path_is_map(view.root_slot_id, &view.path) =>
-            {
-                object.len()
-            }
-            _ => 0,
-        }
+        self.projection_descendant_paths(view.root_slot_id, &view.path)
+            .len()
     }
 
     fn projection_child_path(
@@ -3176,21 +3169,58 @@ impl ObjectBrowserApp {
         parent_path: &[JsonPathSegment],
         child_index: usize,
     ) -> Option<Vec<JsonPathSegment>> {
-        let mut path = parent_path.to_vec();
-        match self.json_value_at_path(root_slot_id, parent_path)? {
+        self.projection_descendant_paths(root_slot_id, parent_path)
+            .get(child_index)
+            .cloned()
+    }
+
+    fn projection_descendant_paths(
+        &self,
+        root_slot_id: usize,
+        parent_path: &[JsonPathSegment],
+    ) -> Vec<Vec<JsonPathSegment>> {
+        let mut paths = Vec::new();
+        self.collect_projection_descendant_paths(root_slot_id, parent_path, &mut paths);
+        paths
+    }
+
+    fn collect_projection_descendant_paths(
+        &self,
+        root_slot_id: usize,
+        parent_path: &[JsonPathSegment],
+        paths: &mut Vec<Vec<JsonPathSegment>>,
+    ) {
+        let Some(value) = self.json_value_at_path(root_slot_id, parent_path) else {
+            return;
+        };
+
+        match value {
             Value::Array(items) => {
-                if child_index >= items.len() {
-                    return None;
+                for index in 0..items.len() {
+                    let mut path = parent_path.to_vec();
+                    path.push(JsonPathSegment::Index(index));
+                    paths.push(path.clone());
+                    self.collect_projection_descendant_paths(root_slot_id, &path, paths);
                 }
-                path.push(JsonPathSegment::Index(child_index));
             }
             Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
-                let key = object.keys().nth(child_index)?.clone();
-                path.push(JsonPathSegment::Key(key));
+                for key in object.keys() {
+                    let mut path = parent_path.to_vec();
+                    path.push(JsonPathSegment::Key(key.clone()));
+                    paths.push(path.clone());
+                    self.collect_projection_descendant_paths(root_slot_id, &path, paths);
+                }
             }
-            _ => return None,
+            Value::Object(object) => {
+                for field_name in object.keys() {
+                    let mut path = parent_path.to_vec();
+                    path.push(JsonPathSegment::Field(field_name.clone()));
+                    paths.push(path.clone());
+                    self.collect_projection_descendant_paths(root_slot_id, &path, paths);
+                }
+            }
+            _ => {}
         }
-        Some(path)
     }
     fn pool_entry_at(&self, slot_index: usize) -> Option<PoolEntry> {
         if let Some(view) = self.current_projection_view() {
@@ -6236,6 +6266,12 @@ mod tests {
                     "principal_id": "principal-a",
                     "role_definition_id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleDefinitions/definition-a",
                     "scope": "/subscriptions/sub-1"
+                },
+                "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-b": {
+                    "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-b",
+                    "principal_id": "principal-b",
+                    "role_definition_id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleDefinitions/definition-a",
+                    "scope": "/subscriptions/sub-1/resourceGroups/rg-a"
                 }
             },
             "role_definitions": {
@@ -6263,7 +6299,7 @@ mod tests {
 
         app.activate_runtime_value(1);
         assert_eq!(app.projection_stack.len(), 1);
-        assert_eq!(app.total_slot_count(), 1);
+        assert_eq!(app.total_slot_count(), 16);
 
         let root_projection = super::ProjectionSlot {
             root_slot_id: 1,
@@ -6281,14 +6317,14 @@ mod tests {
                 .as_deref(),
             Some("HashMap<RoleAssignmentId, RoleAssignment>")
         );
-        assert_eq!(app.total_slot_count(), 2);
-        assert!(matches!(
-            app.pool_entry_at(1),
-            Some(super::PoolEntry::Projection(super::ProjectionSlot {
-                path,
-                role: super::ProjectionSlotRole::Child,
-                ..
-            })) if matches!(path.last(), Some(super::JsonPathSegment::Key(key)) if key.contains("assignment-a"))
+        assert_eq!(app.total_slot_count(), 11);
+        let descendant_paths =
+            app.projection_descendant_paths(map_view.root_slot_id, &map_view.path);
+        assert!(descendant_paths.iter().any(
+            |path| matches!(path.last(), Some(super::JsonPathSegment::Key(key)) if key.contains("assignment-a"))
+        ));
+        assert!(descendant_paths.iter().any(
+            |path| matches!(path.last(), Some(super::JsonPathSegment::Key(key)) if key.contains("assignment-b"))
         ));
 
         let lines = app.projection_slot_lines(
@@ -6446,10 +6482,19 @@ mod tests {
         app.activate_current_row();
 
         assert_eq!(app.projection_stack.len(), 1);
-        assert_eq!(app.total_slot_count(), 3);
+        assert_eq!(app.total_slot_count(), 5);
         assert!(matches!(
             app.pool_entry_at(1),
             Some(super::PoolEntry::Projection(_))
+        ));
+        assert!(matches!(
+            app.pool_entry_at(2),
+            Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
+                if matches!(
+                    path.as_slice(),
+                    [super::JsonPathSegment::Index(0), super::JsonPathSegment::Field(field_name)]
+                        if field_name == "displayName"
+                )
         ));
     }
 }
