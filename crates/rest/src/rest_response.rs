@@ -1,6 +1,7 @@
 use crate::RestOutputFormat;
 use crate::RestResponseBody;
 use crate::RestResponseBodyProxy;
+use crate::RestResponseHeaders;
 use crate::parse_response_body;
 use arbitrary::Arbitrary;
 use eyre::Result;
@@ -9,7 +10,6 @@ use eyre::bail;
 use facet_json::RawJson;
 use reqwest::Response;
 use reqwest::header::HeaderMap;
-use std::collections::BTreeMap;
 use std::io::Write;
 
 #[derive(Arbitrary, Clone, Debug, PartialEq, facet::Facet)]
@@ -17,7 +17,7 @@ pub struct SerializableRestResponse {
     pub status: u16,
     pub ok: bool,
     pub reason_phrase: Option<String>,
-    pub headers: BTreeMap<String, Vec<String>>,
+    pub headers: RestResponseHeaders,
     #[facet(opaque, proxy = RestResponseBodyProxy)]
     pub body: RestResponseBody,
 }
@@ -28,7 +28,7 @@ impl SerializableRestResponse {
             status: status.as_u16(),
             ok: status.is_success(),
             reason_phrase: status.canonical_reason().map(str::to_owned),
-            headers: serialize_headers(headers),
+            headers: RestResponseHeaders::from(headers),
             body: parse_response_body(content),
         }
     }
@@ -85,23 +85,9 @@ impl SerializableRestResponse {
     }
 }
 
-pub fn serialize_headers(headers: &HeaderMap) -> BTreeMap<String, Vec<String>> {
-    let mut serialized = BTreeMap::<String, Vec<String>>::new();
-    for (name, value) in headers {
-        let value = value
-            .to_str()
-            .map(str::to_owned)
-            .unwrap_or_else(|_| String::from_utf8_lossy(value.as_bytes()).into_owned());
-        serialized.entry(name.to_string()).or_default().push(value);
-    }
-    serialized
-}
-
 #[cfg(test)]
 mod tests {
     use super::SerializableRestResponse;
-    use super::serialize_headers;
-    use crate::RestResponseBody;
     use http::StatusCode;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
@@ -109,42 +95,6 @@ mod tests {
     fn pretty_json(input: &str) -> String {
         facet_json::to_string_pretty(&facet_json::from_str::<facet_value::Value>(input).unwrap())
             .unwrap()
-    }
-
-    #[test]
-    fn looks_up_headers_case_insensitively() {
-        let response = SerializableRestResponse {
-            status: 202,
-            ok: true,
-            reason_phrase: Some("Accepted".to_string()),
-            headers: std::collections::BTreeMap::from([(
-                String::from("Location"),
-                vec![String::from("https://example.test/poll")],
-            )]),
-            body: RestResponseBody::Text(String::new()),
-        };
-        assert_eq!(
-            response.header("location"),
-            Some("https://example.test/poll")
-        );
-    }
-
-    #[test]
-    fn serializes_repeated_headers() {
-        let mut headers = HeaderMap::new();
-        headers.append("x-test", HeaderValue::from_static("a"));
-        headers.append("x-test", HeaderValue::from_static("b"));
-        headers.append("content-type", HeaderValue::from_static("application/json"));
-
-        let serialized = serialize_headers(&headers);
-        assert_eq!(
-            serialized.get("x-test").unwrap(),
-            &vec!["a".to_string(), "b".to_string()]
-        );
-        assert_eq!(
-            serialized.get("content-type").unwrap(),
-            &vec!["application/json".to_string()]
-        );
     }
 
     #[test]

@@ -290,8 +290,8 @@ async fn wait_for_resource_graph_rate_limit_window() {
 
 async fn note_resource_graph_rate_limit(response: &SerializableRestResponse) {
     let should_block = response.status == http::StatusCode::TOO_MANY_REQUESTS.as_u16()
-        || resource_graph_quota_remaining(response) == Some(0);
-    let Some(delay) = resource_graph_retry_delay(response) else {
+        || response.headers.resource_graph_quota_remaining() == Some(0);
+    let Some(delay) = response.headers.retry_after() else {
         return;
     };
 
@@ -308,7 +308,7 @@ async fn note_resource_graph_rate_limit(response: &SerializableRestResponse) {
     if should_update {
         state.blocked_until = Some(blocked_until);
         warn!(
-            remaining_quota = ?resource_graph_quota_remaining(response),
+            remaining_quota = ?response.headers.resource_graph_quota_remaining(),
             reset_in = %humantime::format_duration(delay),
             status = response.status,
             "Updated shared Resource Graph rate limit window"
@@ -377,7 +377,7 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
         note_resource_graph_rate_limit(&response).await;
 
         let is_throttled = response.status == http::StatusCode::TOO_MANY_REQUESTS.as_u16()
-            || resource_graph_quota_remaining(&response) == Some(0);
+            || response.headers.resource_graph_quota_remaining() == Some(0);
         if is_throttled && retries < RESOURCE_GRAPH_MAX_THROTTLE_RETRIES {
             retries += 1;
             if let Some(cache_key) = cache_key {
@@ -386,8 +386,7 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
             warn!(
                 attempt = retries,
                 max_attempts = RESOURCE_GRAPH_MAX_THROTTLE_RETRIES,
-                reset_in = ?resource_graph_retry_delay(&response)
-                    .map(|delay| humantime::format_duration(delay).to_string()),
+                reset_in = ?response.headers.retry_after().map(|delay| humantime::format_duration(delay).to_string()),
                 "Retrying throttled Resource Graph request"
             );
             continue;
@@ -414,36 +413,6 @@ fn resource_graph_failure_extra_files(error: &eyre::Report) -> BTreeMap<PathBuf,
         );
     }
     files
-}
-
-fn resource_graph_quota_remaining(response: &SerializableRestResponse) -> Option<u64> {
-    response
-        .header("x-ms-user-quota-remaining")
-        .and_then(|value| value.parse::<u64>().ok())
-}
-
-fn resource_graph_retry_delay(response: &SerializableRestResponse) -> Option<Duration> {
-    response
-        .header("x-ms-user-quota-resets-after")
-        .and_then(parse_hms_duration)
-        .or_else(|| response.header("retry-after").and_then(parse_retry_after))
-}
-
-fn parse_hms_duration(value: &str) -> Option<Duration> {
-    let mut parts = value.split(':');
-    let hours = parts.next()?.parse::<u64>().ok()?;
-    let minutes = parts.next()?.parse::<u64>().ok()?;
-    let seconds = parts.next()?.parse::<u64>().ok()?;
-    if parts.next().is_some() {
-        return None;
-    }
-    Some(Duration::from_secs(
-        hours * 60 * 60 + minutes * 60 + seconds,
-    ))
-}
-
-fn parse_retry_after(value: &str) -> Option<Duration> {
-    value.parse::<u64>().ok().map(Duration::from_secs)
 }
 
 fn format_rest_error_body(body: &RestResponseBody) -> String {
@@ -489,16 +458,6 @@ resourcecontainers
     }
 
     #[test]
-    fn parses_quota_reset_duration() {
-        assert_eq!(parse_hms_duration("00:00:05"), Some(Duration::from_secs(5)));
-        assert_eq!(
-            parse_hms_duration("01:02:03"),
-            Some(Duration::from_secs(3_723))
-        );
-        assert_eq!(parse_hms_duration("5"), None);
-    }
-
-    #[test]
     fn reads_resource_graph_quota_headers() {
         let mut headers = HeaderMap::new();
         headers.insert("x-ms-user-quota-remaining", HeaderValue::from_static("0"));
@@ -512,11 +471,8 @@ resourcecontainers
             &headers,
             "{}".to_string(),
         );
-        assert_eq!(resource_graph_quota_remaining(&response), Some(0));
-        assert_eq!(
-            resource_graph_retry_delay(&response),
-            Some(Duration::from_secs(5))
-        );
+        assert_eq!(response.headers.resource_graph_quota_remaining(), Some(0));
+        assert_eq!(response.headers.retry_after(), Some(Duration::from_secs(5)));
     }
 
     #[test]

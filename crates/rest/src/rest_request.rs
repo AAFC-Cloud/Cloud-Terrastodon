@@ -300,12 +300,13 @@ impl RestRequest {
         F: FnOnce(T) -> Result<T> + Send + 'static,
     {
         self.receive_raw_with_decoder_from(
-            |response| {
+            move |response| {
                 if !response.ok {
                     bail!(
-                        "REST call failed with status {}: {}",
+                        "REST call failed with status {}: {}\nCalled from {}",
                         response.status,
-                        response.reason_phrase.as_deref().unwrap_or("Unknown error")
+                        response.reason_phrase.as_deref().unwrap_or("Unknown error"),
+                        caller
                     );
                 }
                 let parsed = facet_json::from_str::<T>(response.into_json_body()?.as_str())

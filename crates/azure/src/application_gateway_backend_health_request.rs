@@ -193,9 +193,9 @@ mod tests {
     use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceId;
     use cloud_terrastodon_azure_types::Scope;
     use cloud_terrastodon_rest::RestResponseBody;
+    use cloud_terrastodon_rest::RestResponseHeaders;
     use cloud_terrastodon_rest::SerializableRestResponse;
     use facet_json::RawJson;
-    use std::collections::BTreeMap;
 
     #[test]
     fn builds_backend_health_url() -> eyre::Result<()> {
@@ -218,7 +218,7 @@ mod tests {
             status: 202,
             ok: true,
             reason_phrase: Some("Accepted".to_string()),
-            headers: BTreeMap::from([(
+            headers: RestResponseHeaders::from([(
                 String::from("Location"),
                 vec![String::from("https://example.test/poll")],
             )]),
@@ -236,7 +236,7 @@ mod tests {
             status: 200,
             ok: true,
             reason_phrase: Some("OK".to_string()),
-            headers: BTreeMap::new(),
+            headers: RestResponseHeaders::default(),
             body: RestResponseBody::Json(RawJson::from_owned(
                 r#"{
                     "backendAddressPools": [
