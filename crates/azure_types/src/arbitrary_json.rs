@@ -2,7 +2,7 @@ use arbitrary::Arbitrary;
 use facet_json::RawJson;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
-#[facet(transparent)]
+#[facet(opaque, proxy = RawJson<'static>)]
 pub struct ArbitraryJson(RawJson<'static>);
 
 impl ArbitraryJson {
