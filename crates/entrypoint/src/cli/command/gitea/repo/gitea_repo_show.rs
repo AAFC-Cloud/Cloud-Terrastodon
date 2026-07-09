@@ -11,11 +11,11 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaRepoShowArgs {
     /// Repository id, full name, or name.
-    #[facet(figue::positional, opaque, proxy = String)]
+    #[facet(figue::positional, proxy = String)]
     pub repo: GiteaRepoArgument<'static>,
 
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
-    #[facet(figue::named, default, opaque, proxy = String)]
+    #[facet(figue::named, default, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 }
 

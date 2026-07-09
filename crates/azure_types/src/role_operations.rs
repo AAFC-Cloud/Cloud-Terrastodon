@@ -107,11 +107,11 @@ pub struct AzureProviderOperationMetricSpecification {
     pub display_name: String,
     pub display_description: Option<String>,
     pub unit: String,
-    #[facet(default, opaque, proxy = crate::OptionalBoolOrStringProxy)]
+    #[facet(default, proxy = crate::OptionalBoolOrStringProxy)]
     pub enable_regional_mdm_account: Option<bool>,
     #[facet(alias = "LockAggregationType")]
     pub lock_aggregation_type: Option<String>,
-    #[facet(default, opaque, proxy = crate::OptionalBoolOrStringProxy)]
+    #[facet(default, proxy = crate::OptionalBoolOrStringProxy)]
     pub fill_gap_with_zero: Option<bool>,
     pub internal_metric_name: Option<String>,
     pub is_dimension_required: Option<bool>,

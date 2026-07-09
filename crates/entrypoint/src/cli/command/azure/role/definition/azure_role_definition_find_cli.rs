@@ -17,7 +17,7 @@ pub struct AzureRoleDefinitionFindArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Required action or data action to search for.
-    #[facet(figue::positional, opaque, proxy = String)]
+    #[facet(figue::positional, proxy = String)]
     pub action: RolePermissionAction,
 }
 

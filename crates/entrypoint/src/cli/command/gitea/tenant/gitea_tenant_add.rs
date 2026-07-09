@@ -6,7 +6,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantAddArgs {
     /// Gitea instance URL to track.
-    #[facet(figue::positional, opaque, proxy = String)]
+    #[facet(figue::positional, proxy = String)]
     pub tenant: GiteaInstanceUrl,
 }
 

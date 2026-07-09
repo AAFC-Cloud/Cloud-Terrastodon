@@ -22,7 +22,7 @@ pub enum AzurePolicyDefinitionPolicyRuleEffect {
 }
 
 #[derive(Debug, PartialEq, Eq, facet::Facet)]
-#[facet(opaque, proxy = RawJson<'static>)]
+#[facet(proxy = RawJson<'static>)]
 #[repr(C)]
 pub enum AzurePolicyDefinitionPolicyRuleIfBlock {
     AllOf(AzurePolicyDefinitionPolicyRuleIfBlockAllOf),

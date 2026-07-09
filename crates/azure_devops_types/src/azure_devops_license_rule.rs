@@ -16,7 +16,7 @@ pub struct AzureDevOpsLicenseRule {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleSource {
     Account,
@@ -25,7 +25,7 @@ pub enum AzureDevOpsLicenseRuleSource {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleMsdnLicenseType {
     None,
@@ -34,7 +34,7 @@ pub enum AzureDevOpsLicenseRuleMsdnLicenseType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleGitHubLicenseType {
     None,
@@ -42,7 +42,7 @@ pub enum AzureDevOpsLicenseRuleGitHubLicenseType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleStatus {
     Active,
@@ -50,7 +50,7 @@ pub enum AzureDevOpsLicenseRuleStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleAssignmentSource {
     Unknown,

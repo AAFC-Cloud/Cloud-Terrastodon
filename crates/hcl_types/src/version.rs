@@ -125,7 +125,7 @@ impl ProviderVersionConstraint {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 pub struct SemVer {
     pub major: u64,
     pub minor: Option<u64>,

@@ -1,7 +1,9 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use facet_json::RawJson;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Facet)]
+#[repr(C)]
 pub enum RestResponseBody {
     Json(RawJson<'static>),
     Text(String),

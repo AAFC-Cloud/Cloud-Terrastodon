@@ -8,7 +8,7 @@ use std::io::Write;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantAliasRemoveArgs {
     /// Tracked tenant URL or alias.
-    #[facet(figue::named, opaque, proxy = String)]
+    #[facet(figue::named, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 
     /// One or more aliases to remove.

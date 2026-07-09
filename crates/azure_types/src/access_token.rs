@@ -9,7 +9,7 @@ pub struct AzureAccessToken<T> {
     #[facet(rename = "accessToken")]
     #[facet(sensitive)]
     pub access_token: T,
-    #[facet(opaque, proxy = crate::LocalDateTimeEpochSecondsProxy)]
+    #[facet(proxy = crate::LocalDateTimeEpochSecondsProxy)]
     pub expires_on: DateTime<Local>,
     pub subscription: Option<SubscriptionId>,
     pub tenant: AzureTenantId,

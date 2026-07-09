@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 /// Principal can be specified as an id (UUID) or a display/user principal name.
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzurePrincipalArgument<'a> {
     Id(Cow<'a, PrincipalId>),

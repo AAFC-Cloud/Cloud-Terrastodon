@@ -8,11 +8,11 @@ use tracing::info;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraGroupMemberAddArgs {
     /// Entra group id (GUID).
-    #[facet(figue::named, opaque, proxy = String)]
+    #[facet(figue::named, proxy = String)]
     pub group_id: EntraGroupId,
 
     /// Principal id to add to the group (user/service-principal/group GUID).
-    #[facet(figue::named, opaque, proxy = String)]
+    #[facet(figue::named, proxy = String)]
     pub member_id: PrincipalId,
 }
 

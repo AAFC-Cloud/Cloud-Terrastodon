@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 /// Cognitive Services account can be specified as an id, a validated name, or a wildcard pattern.
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum CognitiveServicesAccountArgument<'a> {
     Id(Cow<'a, AzureCognitiveServicesAccountResourceId>),

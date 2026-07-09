@@ -44,7 +44,7 @@ pub struct BatchRequestEntry<T> {
 
 #[derive(Debug, Clone, facet::Facet)]
 struct BatchRequestEntryUpstream<T> {
-    #[facet(rename = "httpMethod", opaque, proxy = HttpMethodProxy)]
+    #[facet(opaque, rename = "httpMethod", proxy = HttpMethodProxy)]
     pub http_method: Method,
     pub name: Uuid,
     pub url: String,

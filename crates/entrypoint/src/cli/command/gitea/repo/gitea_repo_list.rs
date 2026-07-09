@@ -27,7 +27,7 @@ pub enum GiteaRepoListMethod {
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaRepoListArgs {
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
-    #[facet(figue::named, default, opaque, proxy = String)]
+    #[facet(figue::named, default, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 
     /// Enumeration method to use.

@@ -23,7 +23,7 @@ use tracing::info;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectMemberListArgs {
     /// Project id or project name.
-    #[facet(figue::named, opaque, proxy = String)]
+    #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 }
 

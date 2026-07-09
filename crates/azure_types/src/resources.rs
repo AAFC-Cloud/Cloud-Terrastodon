@@ -18,7 +18,7 @@ use std::str::FromStr;
 /// Some things are children of things that are children of resource groups, which this would not apply to.
 /// At some point, this should be replaced with ScopeImpl or something in the fields where this type is used.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, Arbitrary)]
-#[facet(opaque, json::proxy = String)]
+#[facet(json::proxy = String)]
 pub struct ResourceId {
     pub resource_group_id: ResourceGroupId,
     pub resource_type: ResourceType,
@@ -94,7 +94,7 @@ impl FromStr for ResourceId {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
-#[facet(opaque, proxy = RawJson<'static>)]
+#[facet(proxy = RawJson<'static>)]
 pub struct ResourcePropertyValue {
     raw: RawJson<'static>,
     string: Option<String>,

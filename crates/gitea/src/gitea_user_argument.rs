@@ -3,11 +3,13 @@ use crate::GiteaUserId;
 use crate::GiteaUsername;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Arbitrary)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
+#[repr(C)]
 pub enum GiteaUserArgument<'a> {
     Id(Cow<'a, GiteaUserId>),
     Username(Cow<'a, GiteaUsername>),

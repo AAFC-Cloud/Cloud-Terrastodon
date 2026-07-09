@@ -19,7 +19,7 @@ use tracing::info;
 /// Demote a user to Stakeholder license level, including removing the user from any groups involved in transitive license assignment.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
-    #[facet(figue::named, opaque, proxy = String)]
+    #[facet(figue::named, proxy = String)]
     pub user: AzureDevOpsUserArgument<'static>,
 
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.

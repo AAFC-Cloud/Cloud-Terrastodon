@@ -4,11 +4,13 @@ use crate::GiteaRepoId;
 use crate::GiteaRepoName;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Arbitrary)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
+#[repr(C)]
 pub enum GiteaRepoArgument<'a> {
     Id(Cow<'a, GiteaRepoId>),
     FullName(Cow<'a, GiteaRepoFullName>),

@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Eq, PartialEq, Clone, facet::Facet, Arbitrary)]
 // https://github.com/facet-rs/facet/issues/2342
-#[facet(opaque, proxy = RawJson<'static>)]
+#[facet(proxy = RawJson<'static>)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointAuthorization {
     ServicePrincipal(AzureDevOpsServiceEndpointAuthorizationServicePrincipal),

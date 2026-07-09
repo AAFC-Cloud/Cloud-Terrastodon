@@ -58,7 +58,7 @@ pub struct AzureDevOpsUserLicenseEntitlement {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, facet::Facet, Arbitrary)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum LastAccessedDate {
     Some(DateTime<Utc>),

@@ -10,7 +10,7 @@ use std::str::FromStr;
 /// Role definition can be specified as a RoleDefinitionId (expanded form or scoped),
 /// or by its name (display name / GUID form).
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureRoleDefinitionArgument<'a> {
     Id(Cow<'a, RoleDefinitionId>),

@@ -9,7 +9,7 @@ use std::str::FromStr;
 type AzureDevOpsUserPredicate<'a> = dyn Fn(&AzureDevOpsUserLicenseEntitlement) -> bool + 'a;
 
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsUserArgument<'a> {
     Id(Cow<'a, AzureDevOpsUserId>),

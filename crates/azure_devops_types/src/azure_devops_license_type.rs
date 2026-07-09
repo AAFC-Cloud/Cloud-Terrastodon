@@ -2,7 +2,7 @@ use arbitrary::Arbitrary;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseType {
     /// Express means "Basic" in the UI

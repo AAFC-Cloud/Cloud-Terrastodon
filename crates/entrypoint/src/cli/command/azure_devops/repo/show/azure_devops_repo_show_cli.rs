@@ -11,7 +11,7 @@ use std::io::stdout;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsRepoShowArgs {
     /// Project id or project name.
-    #[facet(figue::named, opaque, proxy = String)]
+    #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 
     /// Repository id (UUID) or repository name.

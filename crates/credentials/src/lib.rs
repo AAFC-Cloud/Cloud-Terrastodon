@@ -26,7 +26,7 @@
 //!
 //! > Set the `AZURE_DEVOPS_EXT_PAT` environment variable and run CLI commands without using az devops login.
 //!
-//! I've had problems with an opaque rate limit where running 20 concurrent requests bricks the API, but running az devops login which asked for a PAT fixed it?
+//! I've had problems with an  rate limit where running 20 concurrent requests bricks the API, but running az devops login which asked for a PAT fixed it?
 //!
 //! idk what to think.
 

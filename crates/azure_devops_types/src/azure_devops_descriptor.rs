@@ -3,7 +3,7 @@ use arbitrary::Arbitrary;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsDescriptor {
     EntraUser(AzureDevOpsEntraUserDescriptor),

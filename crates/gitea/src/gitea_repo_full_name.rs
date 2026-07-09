@@ -6,7 +6,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Facet)]
-#[facet(opaque, proxy = GiteaRepoFullNameProxy)]
+#[facet(proxy = GiteaRepoFullNameProxy)]
 pub struct GiteaRepoFullName {
     pub owner: GiteaOwnerName,
     pub repo_name: GiteaRepoName,

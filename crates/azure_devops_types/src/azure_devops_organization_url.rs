@@ -10,7 +10,7 @@ use std::str::FromStr;
 /// modern dev.azure.com format or the legacy visualstudio.com format.
 /// Does NOT contain a trailing slash when expanded.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 pub struct AzureDevOpsOrganizationUrl {
     pub base_url: CompactString,
     pub organization_name: AzureDevOpsOrganizationName,

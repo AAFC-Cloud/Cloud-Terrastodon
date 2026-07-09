@@ -3,7 +3,7 @@ use compact_str::CompactString;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointKind {
     AWS,

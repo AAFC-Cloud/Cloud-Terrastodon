@@ -10,7 +10,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Eq, PartialEq, strum::EnumDiscriminants, facet::Facet)]
 #[strum_discriminants(name(PrincipalKind))]
 #[strum_discriminants(derive(strum::Display))]
-#[facet(opaque, proxy = RawJson<'static>)]
+#[facet(proxy = RawJson<'static>)]
 #[repr(C)]
 pub enum Principal {
     User(Box<EntraUser>),

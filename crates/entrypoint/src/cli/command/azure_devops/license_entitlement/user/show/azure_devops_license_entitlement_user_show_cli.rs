@@ -8,7 +8,7 @@ use std::io::stdout;
 /// Show a single Azure DevOps user license entitlement by user id.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserShowArgs {
-    #[facet(figue::named, opaque, proxy = String)]
+    #[facet(figue::named, proxy = String)]
     pub user: AzureDevOpsUserArgument<'static>,
 }
 

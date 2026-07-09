@@ -115,9 +115,9 @@ pub struct AzureAppServiceResourceProperties {
     pub host_names: Vec<String>,
     #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub enabled_host_names: Vec<String>,
-    #[facet(default, opaque, proxy = crate::OptionalIpAddrProxy)]
+    #[facet(default, proxy = crate::OptionalIpAddrProxy)]
     pub inbound_ip_address: Option<IpAddr>,
-    #[facet(default, opaque, proxy = crate::OptionalIpAddrProxy)]
+    #[facet(default, proxy = crate::OptionalIpAddrProxy)]
     pub inbound_ipv6_address: Option<IpAddr>,
     #[facet(default)]
     pub outbound_ip_addresses: Option<String>,
@@ -169,7 +169,7 @@ pub struct AzureAppServicePrivateEndpointConnectionProperties {
         Option<AzureAppServicePrivateLinkServiceConnectionState>,
     #[facet(default)]
     pub private_endpoint: Option<AzureAppServiceResourceReference>,
-    #[facet(default, opaque, proxy = crate::IpAddrVecDefaultNullProxy)]
+    #[facet(default, proxy = crate::IpAddrVecDefaultNullProxy)]
     pub ip_addresses: Vec<IpAddr>,
     #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub group_ids: Vec<String>,

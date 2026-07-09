@@ -113,7 +113,7 @@ pub struct AzureCognitiveServicesSystemData {
 pub struct AzureCognitiveServicesAccountDeploymentListResult {
     #[facet(
         default,
-        opaque,
+        
         proxy = crate::VecDefaultNullProxy<AzureCognitiveServicesAccountDeployment>
     )]
     pub value: Vec<AzureCognitiveServicesAccountDeployment>,

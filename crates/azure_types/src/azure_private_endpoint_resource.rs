@@ -100,7 +100,7 @@ pub struct AzurePrivateEndpointPrivateLinkServiceConnectionState {
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePrivateEndpointCustomDnsConfig {
-    #[facet(default, opaque, proxy = crate::IpAddrVecProxy)]
+    #[facet(default, proxy = crate::IpAddrVecProxy)]
     pub ip_addresses: Vec<IpAddr>,
     #[facet(default)]
     pub fqdn: Option<String>,

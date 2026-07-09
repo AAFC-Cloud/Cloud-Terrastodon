@@ -18,7 +18,7 @@ pub struct SerializableRestResponse {
     pub ok: bool,
     pub reason_phrase: Option<String>,
     pub headers: RestResponseHeaders,
-    #[facet(opaque, proxy = RestResponseBodyProxy)]
+    #[facet(proxy = RestResponseBodyProxy)]
     pub body: RestResponseBody,
 }
 

@@ -8,7 +8,7 @@ use tracing::info;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaUserListArgs {
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
-    #[facet(figue::named, default, opaque, proxy = String)]
+    #[facet(figue::named, default, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
 }
 

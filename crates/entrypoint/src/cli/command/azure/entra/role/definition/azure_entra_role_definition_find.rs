@@ -16,7 +16,7 @@ pub struct AzureEntraRoleDefinitionFindArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// Required Entra directory action to search for.
-    #[facet(figue::positional, opaque, proxy = String)]
+    #[facet(figue::positional, proxy = String)]
     pub action: RolePermissionAction,
 }
 

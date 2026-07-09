@@ -5,8 +5,9 @@ use ordermap::OrderSet;
 use std::path::PathBuf;
 
 #[derive(Debug, Default, Facet, Clone, PartialEq)]
-#[facet(opaque, proxy = WorkDirsConfigProxy)]
+#[facet(proxy = WorkDirsConfigProxy)]
 pub struct WorkDirsConfig {
+    #[facet(opaque)]
     pub work_dirs: OrderSet<PathBuf>,
 }
 

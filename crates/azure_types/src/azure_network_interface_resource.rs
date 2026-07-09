@@ -79,7 +79,7 @@ pub struct AzureNetworkInterfaceIpConfiguration {
 pub struct AzureNetworkInterfaceIpConfigurationProperties {
     #[facet(default)]
     pub provisioning_state: Option<String>,
-    #[facet(rename = "privateIPAddress", default, opaque, proxy = crate::OptionalIpAddrProxy)]
+    #[facet(rename = "privateIPAddress", default, proxy = crate::OptionalIpAddrProxy)]
     pub private_ip_address: Option<IpAddr>,
     #[facet(rename = "privateIPAllocationMethod", default)]
     pub private_ip_allocation_method: Option<String>,

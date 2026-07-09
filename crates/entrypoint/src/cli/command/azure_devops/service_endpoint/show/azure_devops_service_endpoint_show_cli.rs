@@ -10,7 +10,7 @@ use std::io::stdout;
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsServiceEndpointShowArgs {
     /// Project id or project name.
-    #[facet(figue::named, opaque, proxy = String)]
+    #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
 
     /// Service endpoint id or service endpoint name.

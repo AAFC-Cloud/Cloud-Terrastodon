@@ -3,11 +3,13 @@ use crate::GiteaOrganizationId;
 use crate::GiteaOrganizationName;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Arbitrary)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
+#[repr(C)]
 pub enum GiteaOrganizationArgument<'a> {
     Id(Cow<'a, GiteaOrganizationId>),
     Name(Cow<'a, GiteaOrganizationName>),

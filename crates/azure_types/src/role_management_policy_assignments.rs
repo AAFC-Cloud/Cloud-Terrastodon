@@ -105,7 +105,7 @@ pub struct RoleManagementPolicyAssignmentProperties {
     pub effective_rules: Vec<RawJson<'static>>,
     #[facet(
         rename = "policyAssignmentProperties",
-        opaque,
+        
         proxy = crate::HashMapDefaultNullProxy<RawJson<'static>>
     )]
     pub policy_assignment_properties: HashMap<String, RawJson<'static>>,

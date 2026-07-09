@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 /// Project ID or name
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsProjectArgument<'a> {
     Id(Cow<'a, AzureDevOpsProjectId>),

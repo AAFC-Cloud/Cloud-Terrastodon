@@ -3,7 +3,7 @@ use http::Method;
 use std::ops::Deref;
 
 #[derive(facet::Facet, Debug, Clone)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String, opaque)]
 pub struct HumantimeDurationCli(pub humantime::Duration);
 
 impl<'a> Arbitrary<'a> for HumantimeDurationCli {
@@ -37,7 +37,7 @@ impl From<&HumantimeDurationCli> for String {
 }
 
 #[derive(facet::Facet, Debug, Clone, PartialEq, Eq)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String, opaque)]
 pub struct HttpMethodCli(pub Method);
 
 impl<'a> Arbitrary<'a> for HttpMethodCli {

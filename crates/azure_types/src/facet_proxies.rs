@@ -86,7 +86,7 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Facet)]
-#[facet(opaque, proxy = RawJson<'static>)]
+#[facet(proxy = RawJson<'static>)]
 pub struct OptionalBoolOrStringProxy(Option<bool>);
 
 impl TryFrom<RawJson<'static>> for OptionalBoolOrStringProxy {

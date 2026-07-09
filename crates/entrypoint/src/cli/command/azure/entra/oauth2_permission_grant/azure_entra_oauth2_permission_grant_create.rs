@@ -24,7 +24,7 @@ pub struct AzureEntraOAuth2PermissionGrantCreateArgs {
     pub client_id: Option<EntraServicePrincipalId>,
 
     /// Principal user object id or user principal name.
-    #[facet(figue::named, opaque, proxy = String)]
+    #[facet(figue::named, proxy = String)]
     pub principal: AzurePrincipalArgument<'static>,
 
     /// Delegated scopes to grant.

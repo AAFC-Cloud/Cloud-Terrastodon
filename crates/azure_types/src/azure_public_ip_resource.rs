@@ -34,7 +34,7 @@ pub struct AzurePublicIpResourceProperties {
     pub provisioning_state: Option<String>,
     #[facet(default)]
     pub resource_guid: Option<String>,
-    #[facet(default, opaque, proxy = crate::OptionalIpAddrProxy)]
+    #[facet(default, proxy = crate::OptionalIpAddrProxy)]
     pub ip_address: Option<IpAddr>,
     #[facet(default)]
     pub public_ip_address_version: Option<String>,

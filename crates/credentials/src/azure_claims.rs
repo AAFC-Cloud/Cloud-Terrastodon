@@ -13,13 +13,13 @@ pub struct AzureClaims {
     #[facet(rename = "iss")]
     pub issuer: String,
     #[facet(rename = "iat")]
-    #[facet(opaque, proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
+    #[facet(proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
     pub issued_at: DateTime<Local>,
     #[facet(rename = "nbf")]
-    #[facet(opaque, proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
+    #[facet(proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
     pub not_before: DateTime<Local>,
     #[facet(rename = "exp")]
-    #[facet(opaque, proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
+    #[facet(proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
     pub expires: DateTime<Local>,
     #[facet(rename = "acr")]
     pub authentication_context_class: String,
