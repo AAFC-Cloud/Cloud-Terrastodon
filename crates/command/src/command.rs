@@ -84,7 +84,6 @@ struct ProcessFingerprint {
     env: BTreeMap<String, String>,
     run_dir: Option<String>,
     stdin_content: Option<String>,
-    #[facet(opaque, proxy = crate::BStringMapJsonProxy)]
     debug_inputs: BTreeMap<String, BString>,
 }
 

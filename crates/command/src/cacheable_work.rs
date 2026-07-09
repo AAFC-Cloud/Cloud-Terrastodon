@@ -50,7 +50,6 @@ where
 struct WorkFingerprint<'a> {
     cache_path: String,
     context: &'a str,
-    #[facet(opaque, proxy = crate::BStringMapJsonProxy)]
     debug_inputs: BTreeMap<String, BString>,
 }
 

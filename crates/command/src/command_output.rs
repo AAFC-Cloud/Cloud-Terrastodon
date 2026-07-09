@@ -17,9 +17,7 @@ use std::process::Output;
 
 #[derive(Debug, Clone, facet::Facet, Eq, PartialEq)]
 pub struct CommandOutput {
-    #[facet(opaque, proxy = crate::BStringJsonProxy)]
     pub stdout: BString,
-    #[facet(opaque, proxy = crate::BStringJsonProxy)]
     pub stderr: BString,
     pub status: i32,
 }

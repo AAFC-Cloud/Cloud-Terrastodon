@@ -1,49 +1,6 @@
-use bstr::BString;
 use eyre::Result;
 use facet::Facet;
-use std::collections::BTreeMap;
 use std::io::Write;
-
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
-#[facet(transparent)]
-pub struct BStringJsonProxy(Vec<u8>);
-
-impl From<BStringJsonProxy> for BString {
-    fn from(value: BStringJsonProxy) -> Self {
-        BString::from(value.0)
-    }
-}
-
-impl From<&BString> for BStringJsonProxy {
-    fn from(value: &BString) -> Self {
-        Self(value.as_slice().to_vec())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
-#[facet(transparent)]
-pub struct BStringMapJsonProxy(BTreeMap<String, BStringJsonProxy>);
-
-impl From<&BTreeMap<String, BString>> for BStringMapJsonProxy {
-    fn from(value: &BTreeMap<String, BString>) -> Self {
-        Self(
-            value
-                .iter()
-                .map(|(key, value)| (key.clone(), BStringJsonProxy::from(value)))
-                .collect(),
-        )
-    }
-}
-
-impl From<BStringMapJsonProxy> for BTreeMap<String, BString> {
-    fn from(value: BStringMapJsonProxy) -> Self {
-        value
-            .0
-            .into_iter()
-            .map(|(key, value)| (key, BString::from(value)))
-            .collect()
-    }
-}
 
 pub fn from_slice<T>(input: &[u8]) -> Result<T>
 where
