@@ -1,4 +1,5 @@
-use crate::{RolePermissionAction, RolePermissionActionSet};
+use crate::RolePermissionAction;
+use crate::RolePermissionActionSet;
 use arbitrary::Arbitrary;
 use std::cmp::Ordering;
 

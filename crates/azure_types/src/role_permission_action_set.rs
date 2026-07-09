@@ -1,7 +1,8 @@
 use crate::RolePermissionAction;
 use arbitrary::Arbitrary;
 use indexmap::IndexSet;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, facet::Facet, Arbitrary)]
 #[facet(transparent)]

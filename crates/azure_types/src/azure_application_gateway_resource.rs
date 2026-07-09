@@ -54,7 +54,7 @@ pub struct AzureApplicationGatewayResourceProperties {
     pub operational_state: Option<String>,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<
                 AzureApplicationGatewayGatewayIpConfigurationProperties,
@@ -66,7 +66,7 @@ pub struct AzureApplicationGatewayResourceProperties {
     >,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<AzureApplicationGatewaySslCertificateProperties>,
         >
@@ -75,7 +75,7 @@ pub struct AzureApplicationGatewayResourceProperties {
         Vec<AzureApplicationGatewaySubResource<AzureApplicationGatewaySslCertificateProperties>>,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<
                 AzureApplicationGatewayTrustedRootCertificateProperties,
@@ -91,7 +91,7 @@ pub struct AzureApplicationGatewayResourceProperties {
     pub ssl_profiles: Vec<ArbitraryJson>,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<
                 AzureApplicationGatewayFrontendIpConfigurationProperties,
@@ -105,7 +105,7 @@ pub struct AzureApplicationGatewayResourceProperties {
     >,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<AzureApplicationGatewayFrontendPortProperties>,
         >
@@ -114,7 +114,7 @@ pub struct AzureApplicationGatewayResourceProperties {
         Vec<AzureApplicationGatewaySubResource<AzureApplicationGatewayFrontendPortProperties>>,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<AzureApplicationGatewayBackendAddressPoolProperties>,
         >
@@ -126,7 +126,7 @@ pub struct AzureApplicationGatewayResourceProperties {
     pub load_distribution_policies: Vec<ArbitraryJson>,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<AzureApplicationGatewayBackendHttpSettingsProperties>,
         >
@@ -138,7 +138,7 @@ pub struct AzureApplicationGatewayResourceProperties {
     pub backend_settings_collection: Vec<ArbitraryJson>,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<AzureApplicationGatewayHttpListenerProperties>,
         >
@@ -151,7 +151,7 @@ pub struct AzureApplicationGatewayResourceProperties {
     pub url_path_maps: Vec<ArbitraryJson>,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<
                 AzureApplicationGatewayRequestRoutingRuleProperties,
@@ -165,7 +165,7 @@ pub struct AzureApplicationGatewayResourceProperties {
     pub routing_rules: Vec<ArbitraryJson>,
     #[facet(
         default,
-        
+
         proxy = crate::VecDefaultNullProxy<
             AzureApplicationGatewaySubResource<AzureApplicationGatewayProbeProperties>,
         >
