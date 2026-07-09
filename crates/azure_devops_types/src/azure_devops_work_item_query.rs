@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Arbitrary, facet::Facet)]
 #[facet(json::proxy = String)]
+#[facet(transparent)]
 pub struct AzureDevOpsWorkItemQueryId(Uuid);
 impl std::fmt::Display for AzureDevOpsWorkItemQueryId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
