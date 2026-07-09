@@ -21,3 +21,15 @@ So, when modifying `facet`, we:
 - Cloud Terrastodon update pinned `facet` git revision
 - `teamy-mft` repo update pinned `facet` git revision
 - Cloud Terrastodon update pinned `teamy-mft` git revision
+
+Additionally, the `facet` repo has broken git hooks.
+We must use `--no-verify` when committing and pushing.
+
+Once we have a feature branch we have verified as working with Cloud Terrastodon, we have the option to contribute upstream:
+1. Create an issue that clearly describes the failure mode, including sample code and sample output
+2. Create a pull request that cites the issue, including before and after outputs.
+
+When submitting commentary like issues, pull requests, and comments to GitHub, use the `gh` cli.
+A temporary markdown file must be created for the user to review the content of the submission before you are allowed to publish.
+
+Submissions must include a disclaimer that content was written with LLM assistance, including the name and precise version of the LLM.
