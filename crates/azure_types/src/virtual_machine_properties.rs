@@ -66,7 +66,7 @@ pub struct StorageProfile {
 }
 
 #[derive(Debug, PartialEq, Clone, facet::Facet, Arbitrary)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum StorageProfileDiskControllerType {
     SCSI,

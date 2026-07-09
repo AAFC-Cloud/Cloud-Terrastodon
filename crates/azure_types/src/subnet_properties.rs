@@ -10,8 +10,7 @@ pub struct SubnetProperties {
     #[facet(
         rename = "addressPrefixes",
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<AddressPrefix>
+                proxy = crate::VecDefaultNullProxy<AddressPrefix>
     )]
     pub address_prefixes: Vec<AddressPrefix>,
 
@@ -30,22 +29,20 @@ pub struct SubnetProperties {
     #[facet(rename = "provisioningState", default)]
     pub provisioning_state: Option<String>, // todo: make enum
 
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<Delegation>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<Delegation>)]
     pub delegations: Vec<Delegation>,
 
     #[facet(
         rename = "serviceEndpoints",
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<ServiceEndpoint>
+                proxy = crate::VecDefaultNullProxy<ServiceEndpoint>
     )]
     pub service_endpoints: Vec<ServiceEndpoint>,
 
     #[facet(
         rename = "serviceEndpointPolicies",
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<ServiceEndpointPolicyReference>
+                proxy = crate::VecDefaultNullProxy<ServiceEndpointPolicyReference>
     )]
     pub service_endpoint_policies: Vec<ServiceEndpointPolicyReference>,
 
@@ -73,14 +70,14 @@ pub struct Delegation {
 pub struct DelegationProperties {
     #[facet(rename = "serviceName")]
     pub service_name: String,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub actions: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct ServiceEndpoint {
     pub service: String,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub locations: Vec<String>,
 }
 

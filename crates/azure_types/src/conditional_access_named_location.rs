@@ -54,7 +54,7 @@ pub struct ConditionalAccessIpNamedLocation {
     #[facet(default)]
     pub deleted_date_time: Option<DateTime<Utc>>,
     pub is_trusted: bool,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<CidrHolder>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<CidrHolder>)]
     pub ip_ranges: Vec<CidrHolder>,
 }
 

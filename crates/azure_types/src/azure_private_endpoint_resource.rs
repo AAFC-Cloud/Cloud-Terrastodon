@@ -42,8 +42,7 @@ pub struct AzurePrivateEndpointResourceProperties {
     pub private_link_service_connections: Vec<AzurePrivateEndpointPrivateLinkServiceConnection>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::OptionalNonEmptyStringProxy
+                proxy = crate::OptionalNonEmptyStringProxy
     )]
     pub custom_network_interface_name: Option<AzureNetworkInterfaceResourceName>,
     #[facet(default)]

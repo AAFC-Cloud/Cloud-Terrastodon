@@ -13,9 +13,9 @@ pub struct AzureNetworkInterfaceResource {
     pub tenant_id: AzureTenantId,
     pub name: AzureNetworkInterfaceResourceName,
     pub location: AzureLocationName,
-    #[facet(default, opaque, proxy = crate::OptionalNonEmptyStringProxy)]
+    #[facet(default, proxy = crate::OptionalNonEmptyStringProxy)]
     pub managed_by: Option<String>,
-    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
+    #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: AzureNetworkInterfaceResourceProperties,
 }
@@ -43,8 +43,7 @@ pub struct AzureNetworkInterfaceResourceProperties {
     pub dns_settings: Option<AzureNetworkInterfaceDnsSettings>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceIpConfiguration>
+                proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceIpConfiguration>
     )]
     pub ip_configurations: Vec<AzureNetworkInterfaceIpConfiguration>,
 }
@@ -52,9 +51,9 @@ pub struct AzureNetworkInterfaceResourceProperties {
 #[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureNetworkInterfaceDnsSettings {
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub dns_servers: Vec<String>,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub applied_dns_servers: Vec<String>,
     #[facet(default)]
     pub internal_dns_name_label: Option<String>,
@@ -94,26 +93,22 @@ pub struct AzureNetworkInterfaceIpConfigurationProperties {
     pub subnet: Option<AzureNetworkInterfaceResourceReference>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
+                proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
     )]
     pub application_gateway_backend_address_pools: Vec<AzureNetworkInterfaceResourceReference>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
+                proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
     )]
     pub load_balancer_backend_address_pools: Vec<AzureNetworkInterfaceResourceReference>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
+                proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
     )]
     pub load_balancer_inbound_nat_rules: Vec<AzureNetworkInterfaceResourceReference>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
+                proxy = crate::VecDefaultNullProxy<AzureNetworkInterfaceResourceReference>
     )]
     pub application_security_groups: Vec<AzureNetworkInterfaceResourceReference>,
 }

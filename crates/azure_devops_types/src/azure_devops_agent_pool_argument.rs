@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 /// The name or identifier for an [`AzureDevOpsAgentPool`]
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsAgentPoolArgument<'a> {
     Id(Cow<'a, AzureDevOpsAgentPoolId>),

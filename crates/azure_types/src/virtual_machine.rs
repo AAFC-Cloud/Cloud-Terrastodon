@@ -9,7 +9,7 @@ pub struct VirtualMachine {
     pub id: VirtualMachineId,
     pub name: VirtualMachineName,
     pub location: Option<String>,
-    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
+    #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: VirtualMachineProperties,
 }

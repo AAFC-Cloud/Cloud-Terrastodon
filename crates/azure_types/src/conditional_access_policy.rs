@@ -54,9 +54,9 @@ pub struct ConditionalAccessPolicyConditions {
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsApplications {
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub include_applications: Vec<AllOr<String>>, // commonly a Uuid, but may be a literal like "Office365"
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub exclude_applications: Vec<AllOr<String>>, // commonly a Uuid, but may be a literal like "Office365"
     pub include_user_actions: Vec<ArbitraryJson>,
     pub include_authentication_context_class_references: Vec<ArbitraryJson>,
@@ -66,17 +66,17 @@ pub struct ConditionalAccessPolicyConditionsApplications {
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsUsers {
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub include_users: Vec<AllOr<EntraUserId>>,
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub exclude_users: Vec<AllOr<EntraUserId>>,
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub include_groups: Vec<AllOr<EntraGroupId>>,
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub exclude_groups: Vec<AllOr<EntraGroupId>>,
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub include_roles: Vec<AllOr<Uuid>>, // TODO: dedicated type for entra role definition IDs
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub exclude_roles: Vec<AllOr<Uuid>>, // TODO: dedicated type for entra role definition IDs
     pub include_guests_or_external_users: Option<ArbitraryJson>,
     pub exclude_guests_or_external_users: Option<ArbitraryJson>,
@@ -85,9 +85,9 @@ pub struct ConditionalAccessPolicyConditionsUsers {
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsLocations {
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub include_locations: Vec<AllOr<ConditionalAccessNamedLocationId>>,
-    #[facet(opaque, proxy = crate::AllOrVecProxy)]
+    #[facet(proxy = crate::AllOrVecProxy)]
     pub exclude_locations: Vec<AllOr<ConditionalAccessNamedLocationId>>,
 }
 

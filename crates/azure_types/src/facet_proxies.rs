@@ -5,7 +5,6 @@ use cloud_terrastodon_azure_resource_types::ResourceType;
 use facet::Facet;
 use facet_json::RawJson;
 use ipnetwork::Ipv4Network;
-use ordermap::OrderSet;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -285,14 +284,14 @@ impl From<&Vec<Ipv4Network>> for Ipv4NetworkVecProxy {
 #[facet(transparent)]
 pub struct RolePermissionActionSetProxy(Vec<RolePermissionAction>);
 
-impl From<RolePermissionActionSetProxy> for OrderSet<RolePermissionAction> {
+impl From<RolePermissionActionSetProxy> for crate::RolePermissionActionSet {
     fn from(value: RolePermissionActionSetProxy) -> Self {
         value.0.into_iter().collect()
     }
 }
 
-impl From<&OrderSet<RolePermissionAction>> for RolePermissionActionSetProxy {
-    fn from(value: &OrderSet<RolePermissionAction>) -> Self {
+impl From<&crate::RolePermissionActionSet> for RolePermissionActionSetProxy {
+    fn from(value: &crate::RolePermissionActionSet) -> Self {
         Self(value.iter().cloned().collect())
     }
 }

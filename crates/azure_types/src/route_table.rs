@@ -9,7 +9,7 @@ pub struct RouteTable {
     pub id: RouteTableId,
     pub name: String, // This is the name from Azure, distinct from RouteTableName in ID
     pub location: String,
-    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
+    #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: RouteTableProperties,
 }

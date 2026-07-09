@@ -10,7 +10,7 @@ pub struct VirtualNetwork {
     pub id: VirtualNetworkId,
     pub name: VirtualNetworkName,
     pub location: String,
-    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
+    #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: VirtualNetworkProperties,
 }

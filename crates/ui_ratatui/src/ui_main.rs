@@ -11,6 +11,9 @@ use cloud_terrastodon_registry::describe_shape;
 use cloud_terrastodon_registry::functions_from;
 use cloud_terrastodon_registry::functions_to;
 use cloud_terrastodon_registry::known_shapes;
+use cloud_terrastodon_registry::map_value_shape as registry_map_value_shape;
+use cloud_terrastodon_registry::sequence_element_shape;
+use cloud_terrastodon_registry::shape_field_shape;
 use cloud_terrastodon_registry::shape_fields_for_thing;
 use cloud_terrastodon_registry::shape_variants_for_thing;
 use crossterm::event::EventStream;
@@ -3575,37 +3578,38 @@ impl ObjectBrowserApp {
         root_slot_id: usize,
         path: &[JsonPathSegment],
     ) -> Option<String> {
-        let mut shape_name = self.slot_shape_name(root_slot_id)?.to_string();
+        let mut current_shape = self
+            .slot_shape_name(root_slot_id)
+            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
+            .map(|thing| thing.shape)?;
+
         for segment in path {
-            match segment {
-                JsonPathSegment::Field(field_name) => {
-                    shape_name = self.projected_field_shape_name(&shape_name, field_name)?;
-                }
-                JsonPathSegment::Index(_) => {
-                    shape_name = list_element_shape_name(&shape_name)?;
-                }
-                JsonPathSegment::Key(_) => {
-                    shape_name = map_value_shape_name(&shape_name)?;
-                }
-            }
+            current_shape = match segment {
+                JsonPathSegment::Field(field_name) => shape_field_shape(current_shape, field_name)?,
+                JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
+                JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
+            };
         }
-        Some(shape_name)
+
+        Some(describe_shape(current_shape))
     }
 
     fn projection_path_is_map(&self, root_slot_id: usize, path: &[JsonPathSegment]) -> bool {
-        self.projection_shape_name_at_path(root_slot_id, path)
-            .is_some_and(|shape_name| map_value_shape_name(&shape_name).is_some())
-    }
-    fn projected_field_shape_name(
-        &self,
-        parent_shape_name: &str,
-        field_name: &str,
-    ) -> Option<String> {
-        let thing = self.thing_for_shape_name(parent_shape_name)?;
-        shape_fields_for_thing(thing)
-            .into_iter()
-            .find(|field| field.field_name == field_name)
-            .map(|field| field.field_shape_name)
+        self.slot_shape_name(root_slot_id)
+            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
+            .map(|thing| thing.shape)
+            .and_then(|mut current_shape| {
+                for segment in path {
+                    current_shape = match segment {
+                        JsonPathSegment::Field(field_name) => shape_field_shape(current_shape, field_name)?,
+                        JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
+                        JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
+                    };
+                }
+                Some(current_shape)
+            })
+            .and_then(registry_map_value_shape)
+            .is_some()
     }
 
     fn projection_field_type_label(
@@ -3615,8 +3619,22 @@ impl ObjectBrowserApp {
         field_name: &str,
         field_value: &Value,
     ) -> String {
-        self.projection_shape_name_at_path(root_slot_id, path)
-            .and_then(|shape_name| self.projected_field_shape_name(&shape_name, field_name))
+        self.slot_shape_name(root_slot_id)
+            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
+            .map(|thing| thing.shape)
+            .and_then(|mut current_shape| {
+                for segment in path {
+                    current_shape = match segment {
+                        JsonPathSegment::Field(segment_field_name) => {
+                            shape_field_shape(current_shape, segment_field_name)?
+                        }
+                        JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
+                        JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
+                    };
+                }
+                shape_field_shape(current_shape, field_name)
+            })
+            .map(describe_shape)
             .unwrap_or_else(|| json_type_label(field_value))
     }
 
@@ -3626,8 +3644,20 @@ impl ObjectBrowserApp {
         path: &[JsonPathSegment],
         entry_value: &Value,
     ) -> String {
-        self.projection_shape_name_at_path(root_slot_id, path)
-            .and_then(|shape_name| map_value_shape_name(&shape_name))
+        self.slot_shape_name(root_slot_id)
+            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
+            .map(|thing| thing.shape)
+            .and_then(|mut current_shape| {
+                for segment in path {
+                    current_shape = match segment {
+                        JsonPathSegment::Field(field_name) => shape_field_shape(current_shape, field_name)?,
+                        JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
+                        JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
+                    };
+                }
+                registry_map_value_shape(current_shape)
+            })
+            .map(describe_shape)
             .unwrap_or_else(|| json_type_label(entry_value))
     }
     fn projection_header_label(&self, projection: &ProjectionSlot, value: &Value) -> String {
@@ -5686,38 +5716,9 @@ fn projection_label(root_slot_id: usize, path: &[JsonPathSegment]) -> String {
     label
 }
 
-fn list_element_shape_name(shape_name: &str) -> Option<String> {
-    shape_name
-        .strip_prefix("List<")
-        .and_then(|rest| rest.strip_suffix('>'))
-        .map(str::to_string)
-}
 
-fn map_value_shape_name(shape_name: &str) -> Option<String> {
-    let inner = shape_name
-        .strip_prefix("HashMap<")
-        .and_then(|rest| rest.strip_suffix('>'))?;
-    split_top_level_generic_args(inner).and_then(|args| args.get(1).cloned())
-}
 
-fn split_top_level_generic_args(input: &str) -> Option<Vec<String>> {
-    let mut args = Vec::new();
-    let mut depth = 0usize;
-    let mut start = 0usize;
-    for (index, character) in input.char_indices() {
-        match character {
-            '<' => depth = depth.saturating_add(1),
-            '>' => depth = depth.checked_sub(1)?,
-            ',' if depth == 0 => {
-                args.push(input[start..index].trim().to_string());
-                start = index + character.len_utf8();
-            }
-            _ => {}
-        }
-    }
-    args.push(input[start..].trim().to_string());
-    Some(args)
-}
+
 fn json_type_label(value: &Value) -> String {
     match value {
         Value::Null => "null".to_string(),
@@ -6781,8 +6782,89 @@ mod tests {
         assert!(rendered.contains("--- entries ---"), "{rendered}");
         assert!(rendered.contains("RoleAssignment"), "{rendered}");
     }
+
+    #[test]
+    fn role_permission_action_projection_preserves_element_shape() {
+        let mut app = ObjectBrowserApp::default();
+        let value = serde_json::json!({
+            "description": "Can perform read and write-level data plane operations for Storage Accounts and Key Vaults.",
+            "display_name": "Storage and Key Vault Operator",
+            "permissions": [
+                {
+                    "actions": [
+                        "Microsoft.Storage/storageAccounts/blobServices/read",
+                        "Microsoft.Storage/storageAccounts/blobServices/generateUserDelegationKey/action"
+                    ],
+                    "not_actions": [],
+                    "data_actions": [],
+                    "not_data_actions": []
+                }
+            ],
+            "assignable_scopes": ["/subscriptions/sub-1"],
+            "id": "/providers/Microsoft.Authorization/roleDefinitions/00430a36-0657-0ac7-76d9-33e2a4f9e656",
+            "kind": "BuiltInRole"
+        });
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some("RoleDefinition".to_string()),
+            body: super::SlotBody::Unset,
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            }),
+            display_cache: None,
+        });
+
+        let description_path = vec![super::JsonPathSegment::Field("description".to_string())];
+        assert_eq!(
+            app.projection_shape_name_at_path(1, &description_path).as_deref(),
+            Some("String")
+        );
+
+        let action_path = vec![
+            super::JsonPathSegment::Field("permissions".to_string()),
+            super::JsonPathSegment::Index(0),
+            super::JsonPathSegment::Field("actions".to_string()),
+            super::JsonPathSegment::Index(1),
+        ];
+        assert_eq!(
+            app.projection_shape_name_at_path(1, &action_path).as_deref(),
+            Some("RolePermissionAction")
+        );
+
+        let lines = app.projection_slot_lines(
+            &super::ProjectionSlot {
+                root_slot_id: 1,
+                path: action_path,
+                role: super::ProjectionSlotRole::Child,
+            },
+            None,
+        );
+        let rendered = lines
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|span| span.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("RolePermissionAction"), "{rendered}");
+        assert!(
+            rendered.contains("generateUserDelegationKey/action"),
+            "{rendered}"
+        );
+    }
     #[test]
     fn primitive_projection_cards_show_their_value() {
+
         let mut app = ObjectBrowserApp::default();
         let value = serde_json::json!({
             "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-a"

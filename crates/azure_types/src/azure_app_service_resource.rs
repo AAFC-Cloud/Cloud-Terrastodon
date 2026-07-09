@@ -14,16 +14,16 @@ pub struct AzureAppServiceResource {
     pub id: AzureAppServiceResourceId,
     pub tenant_id: AzureTenantId,
     pub name: AzureAppServiceResourceName,
-    #[facet(default, opaque, proxy = AzureAppServiceResourceKindListProxy)]
+    #[facet(default, proxy = AzureAppServiceResourceKindListProxy)]
     pub kind: Vec<AzureAppServiceResourceKind>,
     pub location: AzureLocationName,
-    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
+    #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     pub properties: AzureAppServiceResourceProperties,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureAppServiceResourceKind {
     WorkflowApp,
@@ -111,9 +111,9 @@ pub struct AzureAppServiceResourceProperties {
     pub public_network_access: Option<String>,
     #[facet(default)]
     pub default_host_name: Option<String>,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub host_names: Vec<String>,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub enabled_host_names: Vec<String>,
     #[facet(default, opaque, proxy = crate::OptionalIpAddrProxy)]
     pub inbound_ip_address: Option<IpAddr>,
@@ -137,8 +137,7 @@ pub struct AzureAppServiceResourceProperties {
     pub virtual_network_subnet_id: Option<String>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<AzureAppServicePrivateEndpointConnection>
+                proxy = crate::VecDefaultNullProxy<AzureAppServicePrivateEndpointConnection>
     )]
     pub private_endpoint_connections: Vec<AzureAppServicePrivateEndpointConnection>,
     #[facet(default)]
@@ -172,7 +171,7 @@ pub struct AzureAppServicePrivateEndpointConnectionProperties {
     pub private_endpoint: Option<AzureAppServiceResourceReference>,
     #[facet(default, opaque, proxy = crate::IpAddrVecDefaultNullProxy)]
     pub ip_addresses: Vec<IpAddr>,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<String>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub group_ids: Vec<String>,
     #[arbitrary(default)]
     #[facet(flatten)]

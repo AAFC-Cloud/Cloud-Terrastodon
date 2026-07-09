@@ -4,9 +4,9 @@ use arbitrary::Arbitrary;
 #[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct RouteTableProperties {
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<Route>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<Route>)]
     pub routes: Vec<Route>,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<SubnetReference>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<SubnetReference>)]
     pub subnets: Vec<SubnetReference>,
     pub resource_guid: String,
     pub provisioning_state: String,

@@ -2,7 +2,7 @@ use arbitrary::Arbitrary;
 use facet::Facet;
 use facet_json::RawJson;
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum AllOr<T> {
     All,
@@ -115,7 +115,7 @@ mod test {
     fn json_matches_serde_through_proxy_field() -> eyre::Result<()> {
         #[derive(Debug, PartialEq, facet::Facet)]
         struct Fixture {
-            #[facet(opaque, proxy = crate::AllOrVecProxy)]
+            #[facet(proxy = crate::AllOrVecProxy)]
             values: Vec<AllOr<String>>,
         }
 

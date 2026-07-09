@@ -1,7 +1,7 @@
 use crate::AddressPrefix;
 
 #[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
-#[facet(opaque, proxy = AddressPrefixesProxy)]
+#[facet(proxy = AddressPrefixesProxy)]
 pub struct AddressPrefixes {
     pub address_prefixes: Vec<AddressPrefix>,
 }
@@ -13,7 +13,6 @@ pub struct AddressPrefixesProxy {
     #[facet(
         rename = "addressPrefixes",
         default,
-        opaque,
         proxy = crate::VecDefaultNullProxy<AddressPrefix>
     )]
     multiple: Vec<AddressPrefix>,

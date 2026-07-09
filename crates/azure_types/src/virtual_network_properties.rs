@@ -9,12 +9,11 @@ use ipnetwork::Ipv4Network;
 #[facet(rename_all = "camelCase")]
 pub struct VirtualNetworkProperties {
     pub address_space: VirtualNetworkAddressSpace,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<Subnet>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<Subnet>)]
     pub subnets: Vec<Subnet>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<VirtualNetworkPeering>
+                proxy = crate::VecDefaultNullProxy<VirtualNetworkPeering>
     )]
     pub virtual_network_peerings: Vec<VirtualNetworkPeering>,
     pub resource_guid: String,

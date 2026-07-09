@@ -80,7 +80,7 @@ pub struct UnifiedRoleDefinitionIdReference {
 pub struct UnifiedRolePermission {
     pub condition: Option<String>,
     pub allowed_resource_actions: Vec<RolePermissionAction>,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<RolePermissionAction>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<RolePermissionAction>)]
     pub excluded_resource_actions: Vec<RolePermissionAction>,
 }
 

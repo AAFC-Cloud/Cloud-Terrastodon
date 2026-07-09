@@ -135,15 +135,14 @@ impl From<&ResourcePropertyValue> for RawJson<'static> {
 #[derive(Debug, Eq, PartialEq, facet::Facet)]
 pub struct Resource {
     pub id: ScopeImpl,
-    #[facet(opaque, proxy = crate::ResourceTypeProxy)]
+    #[facet(proxy = crate::ResourceTypeProxy)]
     pub kind: ResourceType,
     pub name: String,
-    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
+    #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::HashMapDefaultNullProxy<ResourcePropertyValue>
+                proxy = crate::HashMapDefaultNullProxy<ResourcePropertyValue>
     )]
     pub properties: HashMap<String, ResourcePropertyValue>,
 }

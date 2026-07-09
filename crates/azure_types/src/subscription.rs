@@ -16,7 +16,7 @@ pub struct Subscription {
     pub name: SubscriptionName,
     pub tenant_id: AzureTenantId,
     pub management_group_ancestors_chain: ManagementGroupAncestorsChain,
-    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
+    #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
 }
 

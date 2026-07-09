@@ -15,14 +15,13 @@ pub struct KeyVaultAccessPolicy {
 
 #[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 pub struct KeyVaultAccessPolicyPermissions {
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<KeyVaultAccessPolicyKeyPrivilege>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<KeyVaultAccessPolicyKeyPrivilege>)]
     pub keys: Vec<KeyVaultAccessPolicyKeyPrivilege>,
-    #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<KeyVaultAccessPolicySecretPrivilege>)]
+    #[facet(default, proxy = crate::VecDefaultNullProxy<KeyVaultAccessPolicySecretPrivilege>)]
     pub secrets: Vec<KeyVaultAccessPolicySecretPrivilege>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<KeyVaultAccessPolicyCertificatePrivilege>
+                proxy = crate::VecDefaultNullProxy<KeyVaultAccessPolicyCertificatePrivilege>
     )]
     pub certificates: Vec<KeyVaultAccessPolicyCertificatePrivilege>,
 }

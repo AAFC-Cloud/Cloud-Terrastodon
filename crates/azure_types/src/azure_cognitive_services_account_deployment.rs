@@ -17,7 +17,7 @@ pub struct AzureCognitiveServicesAccountDeployment {
     pub system_data: Option<AzureCognitiveServicesSystemData>,
     #[facet(default)]
     pub etag: Option<String>,
-    #[facet(default, opaque, proxy = crate::StringMapDefaultNullProxy)]
+    #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
 }
 
@@ -60,8 +60,7 @@ pub struct AzureCognitiveServicesAccountDeploymentProperties {
     pub capabilities: Option<HashMap<String, String>>,
     #[facet(
         default,
-        opaque,
-        proxy = crate::VecDefaultNullProxy<AzureCognitiveServicesAccountDeploymentRateLimit>
+                proxy = crate::VecDefaultNullProxy<AzureCognitiveServicesAccountDeploymentRateLimit>
     )]
     pub rate_limits: Vec<AzureCognitiveServicesAccountDeploymentRateLimit>,
 }

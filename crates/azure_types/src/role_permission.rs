@@ -1,38 +1,63 @@
 use crate::RolePermissionAction;
 use arbitrary::Arbitrary;
-use ordermap::OrderSet;
 use std::cmp::Ordering;
+
+#[derive(Debug, Default, PartialEq, Eq, Clone, Hash, facet::Facet)]
+#[facet(transparent, proxy = crate::RolePermissionActionSetProxy)]
+pub struct RolePermissionActionSet(Vec<RolePermissionAction>);
+
+impl RolePermissionActionSet {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, RolePermissionAction> {
+        self.0.iter()
+    }
+}
+
+impl FromIterator<RolePermissionAction> for RolePermissionActionSet {
+    fn from_iter<T: IntoIterator<Item = RolePermissionAction>>(iter: T) -> Self {
+        let mut items = Vec::new();
+        for action in iter {
+            if !items.contains(&action) {
+                items.push(action);
+            }
+        }
+        Self(items)
+    }
+}
+
+impl<'a> IntoIterator for &'a RolePermissionActionSet {
+    type Item = &'a RolePermissionAction;
+    type IntoIter = std::slice::Iter<'a, RolePermissionAction>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a> Arbitrary<'a> for RolePermissionActionSet {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Vec::<RolePermissionAction>::arbitrary(u)?.into_iter().collect())
+    }
+}
 
 /// See also: `az provider operation list`
 #[derive(Debug, PartialEq, Eq, Clone, Hash, facet::Facet)]
 pub struct RolePermissions {
-    #[facet(
-        alias = "Actions",
-        opaque,
-        proxy = crate::RolePermissionActionSetProxy
-    )]
-    pub actions: OrderSet<RolePermissionAction>,
-    #[facet(
-        alias = "NotActions",
-        rename = "notActions",
-        opaque,
-        proxy = crate::RolePermissionActionSetProxy
-    )]
-    pub not_actions: OrderSet<RolePermissionAction>,
-    #[facet(
-        alias = "DataActions",
-        rename = "dataActions",
-        opaque,
-        proxy = crate::RolePermissionActionSetProxy
-    )]
-    pub data_actions: OrderSet<RolePermissionAction>,
-    #[facet(
-        alias = "NotDataActions",
-        rename = "notDataActions",
-        opaque,
-        proxy = crate::RolePermissionActionSetProxy
-    )]
-    pub not_data_actions: OrderSet<RolePermissionAction>,
+    #[facet(alias = "Actions")]
+    pub actions: RolePermissionActionSet,
+    #[facet(alias = "NotActions", rename = "notActions")]
+    pub not_actions: RolePermissionActionSet,
+    #[facet(alias = "DataActions", rename = "dataActions")]
+    pub data_actions: RolePermissionActionSet,
+    #[facet(alias = "NotDataActions", rename = "notDataActions")]
+    pub not_data_actions: RolePermissionActionSet,
 }
 
 impl RolePermissions {
@@ -204,7 +229,6 @@ mod test {
     }
     #[test]
     pub fn denies_not_actions() -> eyre::Result<()> {
-        // User asks for read & write, but write is explicitly denied.
         let perm = RolePermissions::new(
             [
                 RolePermissionAction::new("Microsoft.Storage/accounts/read/action"),
@@ -257,7 +281,6 @@ mod test {
             [],
             [],
         );
-        // Requests read + write but role only grants read.
         assert!(!perm.satisfies(
             &[
                 RolePermissionAction::new("Microsoft.Storage/accounts/read/action",),

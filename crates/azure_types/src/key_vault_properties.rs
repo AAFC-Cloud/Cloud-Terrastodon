@@ -43,7 +43,7 @@ pub struct NetworkAcls {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum ProvisioningState {
     Succeeded,
@@ -87,7 +87,7 @@ impl From<&ProvisioningState> for String {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Arbitrary, facet::Facet)]
-#[facet(opaque, proxy = String)]
+#[facet(proxy = String)]
 #[repr(C)]
 pub enum PublicNetworkAccess {
     Enabled,

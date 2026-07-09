@@ -29,7 +29,7 @@ impl PimEntraRoleSettings {
 }
 
 #[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
-#[facet(opaque, proxy = PimEntraRoleSettingsRuleProxy)]
+#[facet(proxy = PimEntraRoleSettingsRuleProxy)]
 #[repr(C)]
 pub enum PimEntraRoleSettingsRule {
     ExpirationRule(ExpirationRuleSetting),
