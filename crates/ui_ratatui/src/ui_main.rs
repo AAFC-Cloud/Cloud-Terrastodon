@@ -3397,8 +3397,7 @@ impl ObjectBrowserApp {
             Value::Array(items) => {
                 let mut descendant_count = 0;
                 for index in 0..items.len() {
-                    let path =
-                        append_json_path_segment(parent_path, JsonPathSegment::Index(index));
+                    let path = append_json_path_segment(parent_path, JsonPathSegment::Index(index));
                     descendant_count += 1 + self.projection_descendant_count(root_slot_id, &path);
                 }
                 descendant_count
@@ -3445,8 +3444,7 @@ impl ObjectBrowserApp {
             Value::Array(items) => {
                 let mut remaining = child_index;
                 for index in 0..items.len() {
-                    let path =
-                        append_json_path_segment(parent_path, JsonPathSegment::Index(index));
+                    let path = append_json_path_segment(parent_path, JsonPathSegment::Index(index));
                     if remaining == 0 {
                         return Some(path);
                     }
@@ -3601,7 +3599,9 @@ impl ObjectBrowserApp {
             .and_then(|mut current_shape| {
                 for segment in path {
                     current_shape = match segment {
-                        JsonPathSegment::Field(field_name) => shape_field_shape(current_shape, field_name)?,
+                        JsonPathSegment::Field(field_name) => {
+                            shape_field_shape(current_shape, field_name)?
+                        }
                         JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
                         JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
                     };
@@ -3650,7 +3650,9 @@ impl ObjectBrowserApp {
             .and_then(|mut current_shape| {
                 for segment in path {
                     current_shape = match segment {
-                        JsonPathSegment::Field(field_name) => shape_field_shape(current_shape, field_name)?,
+                        JsonPathSegment::Field(field_name) => {
+                            shape_field_shape(current_shape, field_name)?
+                        }
                         JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
                         JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
                     };
@@ -3832,11 +3834,7 @@ impl ObjectBrowserApp {
         active_row: Option<usize>,
     ) -> Vec<Line<'static>> {
         let rendered_line_count = self.projection_rendered_line_count(projection);
-        self.projection_slot_lines_window(
-            projection,
-            active_row,
-            0..rendered_line_count.max(1),
-        )
+        self.projection_slot_lines_window(projection, active_row, 0..rendered_line_count.max(1))
     }
 
     fn projection_slot_lines_window(
@@ -5716,9 +5714,6 @@ fn projection_label(root_slot_id: usize, path: &[JsonPathSegment]) -> String {
     label
 }
 
-
-
-
 fn json_type_label(value: &Value) -> String {
     match value {
         Value::Null => "null".to_string(),
@@ -6822,7 +6817,8 @@ mod tests {
 
         let description_path = vec![super::JsonPathSegment::Field("description".to_string())];
         assert_eq!(
-            app.projection_shape_name_at_path(1, &description_path).as_deref(),
+            app.projection_shape_name_at_path(1, &description_path)
+                .as_deref(),
             Some("String")
         );
 
@@ -6833,7 +6829,8 @@ mod tests {
             super::JsonPathSegment::Index(1),
         ];
         assert_eq!(
-            app.projection_shape_name_at_path(1, &action_path).as_deref(),
+            app.projection_shape_name_at_path(1, &action_path)
+                .as_deref(),
             Some("RolePermissionAction")
         );
 
@@ -6864,7 +6861,6 @@ mod tests {
     }
     #[test]
     fn primitive_projection_cards_show_their_value() {
-
         let mut app = ObjectBrowserApp::default();
         let value = serde_json::json!({
             "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-a"

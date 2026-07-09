@@ -1,49 +1,39 @@
 use crate::RolePermissionAction;
 use arbitrary::Arbitrary;
-use std::cmp::Ordering;
+use indexmap::IndexSet;
+use std::{
+    cmp::Ordering,
+    ops::{Deref, DerefMut},
+};
+#[derive(Debug, Default, PartialEq, Eq, Clone, facet::Facet, Arbitrary)]
+#[facet(transparent)]
+pub struct RolePermissionActionSet(IndexSet<RolePermissionAction>);
+impl Deref for RolePermissionActionSet {
+    type Target = IndexSet<RolePermissionAction>;
 
-#[derive(Debug, Default, PartialEq, Eq, Clone, Hash, facet::Facet)]
-#[facet(transparent, proxy = crate::RolePermissionActionSetProxy)]
-pub struct RolePermissionActionSet(Vec<RolePermissionAction>);
-
-impl RolePermissionActionSet {
-    pub fn len(&self) -> usize {
-        self.0.len()
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+}
+impl DerefMut for RolePermissionActionSet {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, RolePermissionAction> {
-        self.0.iter()
+}
+impl std::hash::Hash for RolePermissionActionSet {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // sort then hash rather than use the indexset iteration order which depends on insertion order
+        let mut sorted_actions: Vec<_> = self.0.iter().collect();
+        sorted_actions.sort();
+        for action in sorted_actions {
+            action.hash(state);
+        }
     }
 }
 
 impl FromIterator<RolePermissionAction> for RolePermissionActionSet {
     fn from_iter<T: IntoIterator<Item = RolePermissionAction>>(iter: T) -> Self {
-        let mut items = Vec::new();
-        for action in iter {
-            if !items.contains(&action) {
-                items.push(action);
-            }
-        }
-        Self(items)
-    }
-}
-
-impl<'a> IntoIterator for &'a RolePermissionActionSet {
-    type Item = &'a RolePermissionAction;
-    type IntoIter = std::slice::Iter<'a, RolePermissionAction>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
-
-impl<'a> Arbitrary<'a> for RolePermissionActionSet {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Vec::<RolePermissionAction>::arbitrary(u)?.into_iter().collect())
+        Self(iter.into_iter().collect())
     }
 }
 
@@ -84,7 +74,7 @@ impl RolePermissions {
             actions.into_iter().map(RolePermissions::action_cost).sum()
         }
 
-        bag_cost(&self.actions) + bag_cost(&self.data_actions)
+        bag_cost(self.actions.iter()) + bag_cost(self.data_actions.iter())
     }
 
     fn action_cost(action: &RolePermissionAction) -> u64 {
@@ -114,14 +104,14 @@ impl RolePermissions {
         actions: &[RolePermissionAction],
         data_actions: &[RolePermissionAction],
     ) -> bool {
-        for not_action in &self.not_actions {
+        for not_action in self.not_actions.iter() {
             for action in actions {
                 if not_action.satisfies(action) {
                     return false;
                 }
             }
         }
-        for not_data_action in &self.not_data_actions {
+        for not_data_action in self.not_data_actions.iter() {
             for data_action in data_actions {
                 if not_data_action.satisfies(data_action) {
                     return false;
@@ -130,7 +120,7 @@ impl RolePermissions {
         }
         for action in actions {
             let mut satisfied = false;
-            for self_action in &self.actions {
+            for self_action in self.actions.iter() {
                 if self_action.satisfies(action) {
                     satisfied = true;
                     break;
@@ -142,7 +132,7 @@ impl RolePermissions {
         }
         for data_action in data_actions {
             let mut satisfied = false;
-            for self_data_action in &self.data_actions {
+            for self_data_action in self.data_actions.iter() {
                 if self_data_action.satisfies(data_action) {
                     satisfied = true;
                     break;
@@ -337,5 +327,32 @@ mod test {
         let perm = RolePermissions::new([], [], [], []);
         assert!(perm.satisfies(&[], &[]));
         Ok(())
+    }
+}
+
+impl IntoIterator for RolePermissionActionSet {
+    type Item = RolePermissionAction;
+    type IntoIter = indexmap::set::IntoIter<RolePermissionAction>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a RolePermissionActionSet {
+    type Item = &'a RolePermissionAction;
+    type IntoIter = indexmap::set::Iter<'a, RolePermissionAction>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut RolePermissionActionSet {
+    type Item = &'a RolePermissionAction;
+    type IntoIter = indexmap::set::Iter<'a, RolePermissionAction>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }

@@ -1,4 +1,3 @@
-use crate::RolePermissionAction;
 use chrono::DateTime;
 use chrono::Local;
 use cloud_terrastodon_azure_resource_types::ResourceType;
@@ -277,21 +276,5 @@ impl TryFrom<Ipv4NetworkVecProxy> for Vec<Ipv4Network> {
 impl From<&Vec<Ipv4Network>> for Ipv4NetworkVecProxy {
     fn from(value: &Vec<Ipv4Network>) -> Self {
         Self(value.iter().map(Ipv4NetworkProxy::from).collect())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Facet)]
-#[facet(transparent)]
-pub struct RolePermissionActionSetProxy(Vec<RolePermissionAction>);
-
-impl From<RolePermissionActionSetProxy> for crate::RolePermissionActionSet {
-    fn from(value: RolePermissionActionSetProxy) -> Self {
-        value.0.into_iter().collect()
-    }
-}
-
-impl From<&crate::RolePermissionActionSet> for RolePermissionActionSetProxy {
-    fn from(value: &crate::RolePermissionActionSet) -> Self {
-        Self(value.iter().cloned().collect())
     }
 }

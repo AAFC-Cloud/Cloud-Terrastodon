@@ -3,7 +3,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use tracing::warn;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Arbitrary, facet::Facet, Ord, PartialOrd)]
 #[facet(json::proxy = String)]
 pub struct RolePermissionAction {
     inner: String,
