@@ -20,7 +20,9 @@ use eyre::Result;
 use futures::FutureExt;
 use futures::StreamExt;
 use nucleo::Matcher;
+use nucleo::Nucleo;
 use nucleo::Utf32Str;
+use nucleo::Utf32String;
 use nucleo::pattern::CaseMatching;
 use nucleo::pattern::Normalization;
 use nucleo::pattern::Pattern;
@@ -63,6 +65,7 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ops::Range;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use tokio::task::JoinHandle;
@@ -91,6 +94,8 @@ struct ObjectBrowserApp {
     active_breadcrumb_index: usize,
     projection_stack: Vec<JsonProjectionView>,
     breadcrumb_filters: Vec<BreadcrumbFilter>,
+    tabs: Vec<BrowserTabState>,
+    active_tab_index: usize,
     recent_escape_presses: Vec<Instant>,
     shape_picker: ShapePickerState,
     variant_picker: Option<VariantPickerState>,
@@ -147,6 +152,8 @@ impl Default for ObjectBrowserApp {
             active_breadcrumb_index: 0,
             projection_stack: Vec::new(),
             breadcrumb_filters: Vec::new(),
+            tabs: vec![BrowserTabState::default()],
+            active_tab_index: 0,
             recent_escape_presses: Vec::new(),
             shape_picker,
             variant_picker: None,
@@ -278,7 +285,7 @@ impl ObjectBrowserApp {
         ]);
         let [title_area, breadcrumb_area, body_area, status_area] = vertical.areas(frame.area());
 
-        let title = Line::from("Cloud Terrastodon Object Pool")
+        let title = Line::from(format!("Tab {}", self.active_tab_index + 1))
             .centered()
             .bold();
         frame.render_widget(title, title_area);
@@ -443,8 +450,8 @@ impl ObjectBrowserApp {
             if scrollbar_area.width > 0 && scrollbar_area.height > 0 {
                 let scrollbar = Scrollbar::new(ScrollbarOrientation::HorizontalBottom);
                 let mut scrollbar_state = ScrollbarState::new(self.total_slot_count())
-                    .position(visible.start)
-                    .viewport_content_length(max_visible);
+                    .position(self.slot_view_offset)
+                    .viewport_content_length(visible.len());
                 frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
             }
         }
@@ -736,6 +743,7 @@ impl ObjectBrowserApp {
         let Some(picker) = self.value_filter_choice_picker.as_mut() else {
             return;
         };
+        picker.refresh_worker();
         let items = picker
             .search
             .filtered_indices
@@ -826,6 +834,7 @@ impl ObjectBrowserApp {
             Line::from("Up/Down: previous/next row"),
             Line::from("PageUp/PageDown: page rows"),
             Line::from("Shift+PageUp/PageDown: page slots"),
+            Line::from("Shift+[/Shift+]: previous/next tab"),
             Line::from("Shift+;: add filter breadcrumb"),
             Line::from("Ctrl+Arrows: scroll viewport"),
             Line::from("Enter/Space: activate focused row"),
@@ -875,6 +884,20 @@ impl ObjectBrowserApp {
         }
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
             self.should_quit = true;
+            return;
+        }
+        if self.mode == UiMode::Pool
+            && key.modifiers.contains(KeyModifiers::SHIFT)
+            && matches!(key.code, KeyCode::Char('[') | KeyCode::Char('{'))
+        {
+            self.switch_tab_previous();
+            return;
+        }
+        if self.mode == UiMode::Pool
+            && key.modifiers.contains(KeyModifiers::SHIFT)
+            && matches!(key.code, KeyCode::Char(']') | KeyCode::Char('}'))
+        {
+            self.switch_tab_next();
             return;
         }
         if key.modifiers.contains(KeyModifiers::ALT) && key.code == KeyCode::Char('/') {
@@ -953,6 +976,7 @@ impl ObjectBrowserApp {
                 KeyCode::End => {
                     self.active_breadcrumb_index = self.breadcrumb_count().saturating_sub(1)
                 }
+                KeyCode::Delete | KeyCode::Backspace => self.delete_current_breadcrumb(),
                 KeyCode::Down => self.pool_surface = PoolSurface::Slots,
                 KeyCode::Enter | KeyCode::Char(' ') => self.activate_current_breadcrumb(),
                 _ => {}
@@ -987,6 +1011,67 @@ impl ObjectBrowserApp {
                 }
             }
         }
+    }
+
+    fn current_tab_state(&self) -> BrowserTabState {
+        BrowserTabState {
+            projection_stack: self.projection_stack.clone(),
+            breadcrumb_filters: self.breadcrumb_filters.clone(),
+            pool_surface: self.pool_surface,
+            active_breadcrumb_index: self.active_breadcrumb_index,
+            active_slot_index: self.active_slot_index,
+            active_row_index: self.active_row_index,
+            slot_view_offset: self.slot_view_offset,
+            row_view_offset: self.row_view_offset,
+        }
+    }
+
+    fn save_current_tab(&mut self) {
+        let state = self.current_tab_state();
+        if let Some(tab) = self.tabs.get_mut(self.active_tab_index) {
+            *tab = state;
+        }
+    }
+
+    fn load_active_tab(&mut self) {
+        let Some(tab) = self.tabs.get(self.active_tab_index).cloned() else {
+            return;
+        };
+        self.projection_stack = tab.projection_stack;
+        self.breadcrumb_filters = tab.breadcrumb_filters;
+        self.pool_surface = tab.pool_surface;
+        self.active_breadcrumb_index = tab
+            .active_breadcrumb_index
+            .min(self.breadcrumb_count().saturating_sub(1));
+        self.active_slot_index = tab.active_slot_index;
+        self.active_row_index = tab.active_row_index;
+        self.slot_view_offset = tab.slot_view_offset;
+        self.row_view_offset = tab.row_view_offset;
+        self.projection_cache.borrow_mut().clear();
+        self.active_slot_index = self
+            .active_slot_index
+            .min(self.total_slot_count().saturating_sub(1));
+        self.clamp_active_row();
+        self.sync_selection_viewports();
+        self.status_message = format!("Switched to Tab {}.", self.active_tab_index + 1);
+    }
+
+    fn switch_tab_previous(&mut self) {
+        if self.active_tab_index == 0 {
+            return;
+        }
+        self.save_current_tab();
+        self.active_tab_index -= 1;
+        self.load_active_tab();
+    }
+
+    fn switch_tab_next(&mut self) {
+        self.save_current_tab();
+        if self.active_tab_index + 1 == self.tabs.len() {
+            self.tabs.push(BrowserTabState::default());
+        }
+        self.active_tab_index += 1;
+        self.load_active_tab();
     }
 
     fn handle_slot_search_key(&mut self, key: KeyEvent) {
@@ -1160,6 +1245,12 @@ impl ObjectBrowserApp {
             return;
         }
         if key.code == KeyCode::Enter {
+            if let Some(picker) = self.partition_picker.as_mut()
+                && picker.included_indices.is_empty()
+                && let Some(index) = picker.current_index()
+            {
+                picker.included_indices.insert(index);
+            }
             self.apply_partition_picker_selection();
             return;
         }
@@ -1282,6 +1373,8 @@ impl ObjectBrowserApp {
             }
             KeyCode::Up => editor.active_row = editor.active_row.saturating_sub(1),
             KeyCode::Down => editor.active_row = (editor.active_row + 1).min(5),
+            KeyCode::Home | KeyCode::PageUp => editor.active_row = 0,
+            KeyCode::End | KeyCode::PageDown => editor.active_row = 5,
             KeyCode::Left | KeyCode::Right if editor.active_row == 2 => {
                 editor.draft.operator = match editor.draft.operator {
                     ValueFilterOperator::Equals => ValueFilterOperator::NotEquals,
@@ -1334,7 +1427,7 @@ impl ObjectBrowserApp {
             self.mode = UiMode::ValueFilterEditor;
             return;
         };
-        match picker.search.handle_key(key, &picker.labels) {
+        match picker.handle_key(key) {
             PickerSearchAction::None => {}
             PickerSearchAction::Cancel => {
                 self.value_filter_choice_picker = None;
@@ -4371,6 +4464,31 @@ impl ObjectBrowserApp {
         self.active_breadcrumb_index = (self.active_breadcrumb_index + 1).min(max_index);
     }
 
+    fn delete_current_breadcrumb(&mut self) {
+        let index = self.active_breadcrumb_index;
+        if index == 0 || index + 1 == self.breadcrumb_count() {
+            return;
+        }
+        let projection_end = self.projection_stack.len();
+        if index <= projection_end {
+            self.projection_stack.truncate(index.saturating_sub(1));
+            self.breadcrumb_filters.clear();
+        } else {
+            let filter_index = index - projection_end - 1;
+            if filter_index < self.breadcrumb_filters.len() {
+                self.breadcrumb_filters.remove(filter_index);
+            }
+        }
+        self.projection_cache.borrow_mut().clear();
+        self.active_breadcrumb_index = index
+            .saturating_sub(1)
+            .min(self.breadcrumb_count().saturating_sub(1));
+        self.active_slot_index = 0;
+        self.active_row_index = 0;
+        self.sync_selection_viewports();
+        self.status_message = "Breadcrumb removed.".to_string();
+    }
+
     fn activate_current_breadcrumb(&mut self) {
         let filter_start = self.projection_stack.len() + 1;
         let add_index = filter_start + self.breadcrumb_filters.len();
@@ -4936,6 +5054,37 @@ impl ObjectBrowserApp {
     }
 
     fn filtered_projection_descendant_path_at(
+        &self,
+        root_slot_id: usize,
+        parent_path: &[JsonPathSegment],
+        child_index: usize,
+    ) -> Option<Vec<JsonPathSegment>> {
+        let cache_key = FilteredPathCacheKey {
+            parent: ProjectionCacheKey::new(root_slot_id, parent_path),
+            child_index,
+        };
+        if let Some(path) = self
+            .projection_cache
+            .borrow()
+            .filtered_paths
+            .get(&cache_key)
+            .cloned()
+        {
+            return Some(path);
+        }
+        let path = self.filtered_projection_descendant_path_at_uncached(
+            root_slot_id,
+            parent_path,
+            child_index,
+        )?;
+        self.projection_cache
+            .borrow_mut()
+            .filtered_paths
+            .insert(cache_key, path.clone());
+        Some(path)
+    }
+
+    fn filtered_projection_descendant_path_at_uncached(
         &self,
         root_slot_id: usize,
         parent_path: &[JsonPathSegment],
@@ -6307,6 +6456,33 @@ struct JsonProjectionView {
     path: Vec<JsonPathSegment>,
 }
 
+#[derive(Clone, Debug)]
+struct BrowserTabState {
+    projection_stack: Vec<JsonProjectionView>,
+    breadcrumb_filters: Vec<BreadcrumbFilter>,
+    pool_surface: PoolSurface,
+    active_breadcrumb_index: usize,
+    active_slot_index: usize,
+    active_row_index: usize,
+    slot_view_offset: usize,
+    row_view_offset: usize,
+}
+
+impl Default for BrowserTabState {
+    fn default() -> Self {
+        Self {
+            projection_stack: Vec::new(),
+            breadcrumb_filters: Vec::new(),
+            pool_surface: PoolSurface::Slots,
+            active_breadcrumb_index: 0,
+            active_slot_index: 0,
+            active_row_index: 0,
+            slot_view_offset: 0,
+            row_view_offset: 0,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ShapeFilterView {
     included_shapes: BTreeSet<String>,
@@ -6371,6 +6547,7 @@ struct ProjectionCache {
     filtered_descendant_counts: HashMap<ProjectionCacheKey, usize>,
     filter_shape_relations: HashMap<String, (bool, bool)>,
     value_filter_match_roots: HashMap<ValueFilterCacheKey, HashSet<Vec<JsonPathSegment>>>,
+    filtered_paths: HashMap<FilteredPathCacheKey, Vec<JsonPathSegment>>,
 }
 
 impl ProjectionCache {
@@ -6379,6 +6556,7 @@ impl ProjectionCache {
         self.filtered_descendant_counts.clear();
         self.filter_shape_relations.clear();
         self.value_filter_match_roots.clear();
+        self.filtered_paths.clear();
     }
 }
 
@@ -6386,6 +6564,12 @@ impl ProjectionCache {
 struct ValueFilterCacheKey {
     root_slot_id: usize,
     filter: ValueFilterView,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct FilteredPathCacheKey {
+    parent: ProjectionCacheKey,
+    child_index: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -6552,11 +6736,22 @@ impl PickerSearchState {
                 return PickerSearchAction::None;
             }
             KeyCode::PageUp => {
-                self.preview_scroll = self.preview_scroll.saturating_sub(8);
+                if !self.filtered_indices.is_empty() {
+                    let position = self.list_state.selected().unwrap_or(0).saturating_sub(10);
+                    self.list_state.select(Some(position));
+                }
                 return PickerSearchAction::None;
             }
             KeyCode::PageDown => {
-                self.preview_scroll = self.preview_scroll.saturating_add(8);
+                if !self.filtered_indices.is_empty() {
+                    let position = self
+                        .list_state
+                        .selected()
+                        .unwrap_or(0)
+                        .saturating_add(10)
+                        .min(self.filtered_indices.len().saturating_sub(1));
+                    self.list_state.select(Some(position));
+                }
                 return PickerSearchAction::None;
             }
             _ => {}
@@ -6993,17 +7188,120 @@ struct ValueFilterChoicePickerState {
     target: ValueFilterChoiceTarget,
     labels: Vec<String>,
     search: PickerSearchState,
+    worker: Option<Nucleo<usize>>,
 }
 
 impl ValueFilterChoicePickerState {
+    const ASYNC_THRESHOLD: usize = 5_000;
+    const MAX_VISIBLE_MATCHES: usize = 2_048;
+
     fn new(target: ValueFilterChoiceTarget, labels: Vec<String>) -> Self {
         let mut search = PickerSearchState::new();
         search.reset(&labels, Some(0));
+        let worker = (labels.len() >= Self::ASYNC_THRESHOLD).then(|| {
+            let mut worker = Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
+            let injector = worker.injector();
+            for index in 0..labels.len() {
+                injector.push(index, |index, columns: &mut [Utf32String]| {
+                    columns[0] = labels[*index].as_str().into();
+                });
+            }
+            worker
+                .pattern
+                .reparse(0, "", CaseMatching::Smart, Normalization::Smart, false);
+            worker.tick(0);
+            worker
+        });
+        if worker.is_some() {
+            search.filtered_indices = (0..labels.len().min(Self::MAX_VISIBLE_MATCHES)).collect();
+            search.list_state.select(Some(0));
+        }
         Self {
             target,
             labels,
             search,
+            worker,
         }
+    }
+
+    fn refresh_worker(&mut self) {
+        let Some(worker) = self.worker.as_mut() else {
+            return;
+        };
+        let status = worker.tick(1);
+        if !status.changed && status.running {
+            return;
+        }
+        let snapshot = worker.snapshot();
+        self.search.filtered_indices = snapshot
+            .matched_items(
+                0..snapshot
+                    .matched_item_count()
+                    .min(Self::MAX_VISIBLE_MATCHES as u32),
+            )
+            .map(|item| *item.data)
+            .collect();
+        self.search.select_preferred(None);
+    }
+
+    fn handle_key(&mut self, key: KeyEvent) -> PickerSearchAction {
+        if self.worker.is_none() {
+            return self.search.handle_key(key, &self.labels);
+        }
+        match key.code {
+            KeyCode::Esc => return PickerSearchAction::Cancel,
+            KeyCode::Enter => return PickerSearchAction::Submit,
+            KeyCode::Up => self.search.list_state.select_previous(),
+            KeyCode::Down => self.search.list_state.select_next(),
+            KeyCode::Home if !self.search.filtered_indices.is_empty() => {
+                self.search.list_state.select(Some(0));
+            }
+            KeyCode::End if !self.search.filtered_indices.is_empty() => {
+                self.search
+                    .list_state
+                    .select(Some(self.search.filtered_indices.len().saturating_sub(1)));
+            }
+            KeyCode::PageUp if !self.search.filtered_indices.is_empty() => {
+                let position = self
+                    .search
+                    .list_state
+                    .selected()
+                    .unwrap_or(0)
+                    .saturating_sub(10);
+                self.search.list_state.select(Some(position));
+            }
+            KeyCode::PageDown if !self.search.filtered_indices.is_empty() => {
+                let position = self
+                    .search
+                    .list_state
+                    .selected()
+                    .unwrap_or(0)
+                    .saturating_add(10)
+                    .min(self.search.filtered_indices.len().saturating_sub(1));
+                self.search.list_state.select(Some(position));
+            }
+            _ => {
+                let previous_query = self.search.query.lines().concat();
+                if self.search.query.input(key) {
+                    let query = self.search.query.lines().concat();
+                    if query != previous_query {
+                        let append = query.starts_with(&previous_query);
+                        if let Some(worker) = self.worker.as_mut() {
+                            worker.pattern.reparse(
+                                0,
+                                &query,
+                                CaseMatching::Smart,
+                                Normalization::Smart,
+                                append,
+                            );
+                            worker.tick(0);
+                        }
+                        self.search.list_state.select(Some(0));
+                    }
+                }
+            }
+        }
+        PickerSearchAction::None
     }
 }
 
@@ -9031,6 +9329,155 @@ mod tests {
     }
 
     #[test]
+    fn empty_shape_filter_submission_includes_the_active_item() {
+        let mut app = ObjectBrowserApp::default();
+        app.partition_picker = Some(super::PartitionPickerState::new(
+            super::PartitionPickerTarget::ShapeFilter { edit_index: None },
+            vec!["A".to_string(), "B".to_string()],
+        ));
+        app.mode = UiMode::PartitionPicker;
+
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+        assert!(matches!(
+            app.breadcrumb_filters.as_slice(),
+            [super::BreadcrumbFilter::Shape(filter)]
+                if filter.included_shapes == BTreeSet::from(["A".to_string()])
+        ));
+    }
+
+    #[test]
+    fn delete_removes_the_selected_filter_breadcrumb() {
+        let mut app = ObjectBrowserApp::default();
+        app.breadcrumb_filters = vec![
+            super::BreadcrumbFilter::Shape(super::ShapeFilterView {
+                included_shapes: BTreeSet::from(["A".to_string()]),
+            }),
+            super::BreadcrumbFilter::Shape(super::ShapeFilterView {
+                included_shapes: BTreeSet::from(["B".to_string()]),
+            }),
+        ];
+        app.pool_surface = super::PoolSurface::Breadcrumbs;
+        app.active_breadcrumb_index = 1;
+
+        app.handle_pool_key(KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE));
+
+        assert_eq!(app.breadcrumb_filters.len(), 1);
+        assert!(matches!(
+            app.breadcrumb_filters.first(),
+            Some(super::BreadcrumbFilter::Shape(filter))
+                if filter.included_shapes.contains("B")
+        ));
+    }
+
+    #[test]
+    fn tabs_preserve_navigation_and_filters() {
+        let mut app = ObjectBrowserApp::default();
+        app.breadcrumb_filters = vec![super::BreadcrumbFilter::Shape(super::ShapeFilterView {
+            included_shapes: BTreeSet::from(["RoleAssignment".to_string()]),
+        })];
+        app.pool_surface = super::PoolSurface::Breadcrumbs;
+        app.active_breadcrumb_index = 1;
+
+        app.handle_event(&Event::Key(KeyEvent::new(
+            KeyCode::Char('}'),
+            KeyModifiers::SHIFT,
+        )));
+
+        assert_eq!(app.active_tab_index, 1);
+        assert_eq!(app.tabs.len(), 2);
+        assert!(app.breadcrumb_filters.is_empty());
+        assert_eq!(app.breadcrumb_count(), 2);
+
+        app.handle_event(&Event::Key(KeyEvent::new(
+            KeyCode::Char('{'),
+            KeyModifiers::SHIFT,
+        )));
+        assert_eq!(app.active_tab_index, 0);
+        assert_eq!(app.breadcrumb_filters.len(), 1);
+
+        app.handle_event(&Event::Key(KeyEvent::new(
+            KeyCode::Char('}'),
+            KeyModifiers::SHIFT,
+        )));
+        assert_eq!(app.active_tab_index, 1);
+        assert_eq!(app.tabs.len(), 2);
+        assert!(app.breadcrumb_filters.is_empty());
+    }
+
+    #[test]
+    fn value_filter_editor_supports_page_and_edge_navigation() {
+        let mut app = ObjectBrowserApp::default();
+        app.open_value_filter_editor(
+            None,
+            super::ValueFilterView {
+                field_shape: "*".to_string(),
+                field_name: "*".to_string(),
+                operator: super::ValueFilterOperator::Equals,
+                value: String::new(),
+            },
+        );
+
+        app.handle_value_filter_editor_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+        assert_eq!(
+            app.value_filter_editor.as_ref().expect("editor").active_row,
+            5
+        );
+        app.handle_value_filter_editor_key(KeyEvent::new(KeyCode::Home, KeyModifiers::NONE));
+        assert_eq!(
+            app.value_filter_editor.as_ref().expect("editor").active_row,
+            0
+        );
+        app.handle_value_filter_editor_key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
+        assert_eq!(
+            app.value_filter_editor.as_ref().expect("editor").active_row,
+            5
+        );
+        app.handle_value_filter_editor_key(KeyEvent::new(KeyCode::PageUp, KeyModifiers::NONE));
+        assert_eq!(
+            app.value_filter_editor.as_ref().expect("editor").active_row,
+            0
+        );
+    }
+
+    #[test]
+    fn large_value_choice_picker_uses_the_nucleo_worker() {
+        let labels = (0..6_000)
+            .map(|index| format!("value-{index:04}"))
+            .collect::<Vec<_>>();
+        let mut picker = super::ValueFilterChoicePickerState::new(
+            super::ValueFilterChoiceTarget::ExistingValue,
+            labels,
+        );
+        assert!(picker.worker.is_some());
+        assert!(
+            picker.search.filtered_indices.len()
+                <= super::ValueFilterChoicePickerState::MAX_VISIBLE_MATCHES
+        );
+
+        for character in "value-5999".chars() {
+            picker.handle_key(KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE));
+        }
+        for _ in 0..20 {
+            picker.refresh_worker();
+            if picker
+                .search
+                .selected_filtered_index()
+                .is_some_and(|index| picker.labels[index] == "value-5999")
+            {
+                break;
+            }
+        }
+        assert!(
+            picker
+                .search
+                .filtered_indices
+                .iter()
+                .any(|index| picker.labels[*index] == "value-5999")
+        );
+    }
+
+    #[test]
     fn shape_filter_breadcrumbs_are_additive_and_editable() {
         let mut app = ObjectBrowserApp::default();
         let shape = app
@@ -9185,6 +9632,19 @@ mod tests {
                     super::JsonPathSegment::Field("displayName".to_string())
                 ]
         )));
+        for index in 0..app.total_slot_count() {
+            let _ = app.pool_entry_at(index);
+        }
+        let cached_path_count = app.projection_cache.borrow().filtered_paths.len();
+        assert!(cached_path_count > 0);
+        for index in 0..app.total_slot_count() {
+            let _ = app.pool_entry_at(index);
+        }
+        assert_eq!(
+            app.projection_cache.borrow().filtered_paths.len(),
+            cached_path_count,
+            "revisiting visible filtered slots should reuse indexed paths"
+        );
     }
 
     #[test]
