@@ -671,9 +671,11 @@ impl ObjectBrowserApp {
                 .iter()
                 .map(|index| {
                     let on_side = picker.included_indices.contains(index) == included_side;
-                    let label = on_side
-                        .then(|| picker.labels[*index].clone())
-                        .unwrap_or_default();
+                    let label = if on_side {
+                        picker.labels[*index].clone()
+                    } else {
+                        Default::default()
+                    };
                     let style = if picker.selected_indices.contains(index) {
                         Style::default().bg(Color::Blue).fg(Color::Yellow)
                     } else {
@@ -788,9 +790,11 @@ impl ObjectBrowserApp {
         .into_iter()
         .enumerate()
         .map(|(index, label)| {
-            let style = (index == editor.active_row)
-                .then_some(Style::default().bg(Color::Blue).fg(Color::Yellow))
-                .unwrap_or_default();
+            let style = if index == editor.active_row {
+                Style::default().bg(Color::Blue).fg(Color::Yellow)
+            } else {
+                Default::default()
+            };
             ListItem::new(label).style(style)
         })
         .collect::<Vec<_>>();
@@ -2990,12 +2994,9 @@ impl ObjectBrowserApp {
         input_shape_name: &str,
         required_shape_name: &str,
     ) -> Option<usize> {
-        let Some(field_name) = self
+        let field_name = self
             .slot_field(owner_slot_id, field_index)
-            .map(|field| field.info.field_name)
-        else {
-            return None;
-        };
+            .map(|field| field.info.field_name)?;
         let Some(choice) = self
             .shape_choices
             .iter()
@@ -5820,7 +5821,7 @@ impl ObjectBrowserApp {
         }
         let scroll_offset = if is_active { self.row_view_offset } else { 0 };
         let active_search = is_active
-            .then(|| self.projection_search.as_ref())
+            .then_some(self.projection_search.as_ref())
             .flatten()
             .filter(|search| search.projection == *projection);
         let rendered_line_count = active_search
