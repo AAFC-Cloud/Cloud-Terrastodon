@@ -41,7 +41,7 @@ hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["v4", "arbitrary"] }
 chrono = { version = "0.4.38", features = ["arbitrary"] }
 rand = "0.10.1"
-teamy-mft = { git = "https://github.com/TeamDman/teamy-mft.git", rev = "82a91286bd94398b4f2ef81438719c62af139d30" }
+teamy-mft = { git = "https://github.com/TeamDman/teamy-mft.git", rev = "6940d38" }
 teamy-cancellation = "0.2.0"
 test-log = { version = "0.2.16", features = ["trace"] }
 iso8601-duration = { version = "0.2.0", features = ["chrono"] }
@@ -88,12 +88,12 @@ eframe = { version = "0.33.0", features = ["persistence"] }
 egui_extras = { version = "0.33.0", features = ["default", "image"] }
 egui-toast = "0.19.1"
 egui_tiles = "0.14.1"
-facet = { git = "https://github.com/TeamDman/facet.git", rev = "585826b51ae771950970849e616e28c6c7207f45", package = "facet", features = ["uuid", "compact_str", "chrono", "net", "indexmap", "bstr"] }
-facet-csv = { git = "https://github.com/TeamDman/facet.git", rev = "585826b51ae771950970849e616e28c6c7207f45", package = "facet-csv" }
-facet-json = { git = "https://github.com/TeamDman/facet.git", rev = "585826b51ae771950970849e616e28c6c7207f45", package = "facet-json" }
-facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "585826b51ae771950970849e616e28c6c7207f45", package = "facet-pretty" }
-facet-value = { git = "https://github.com/TeamDman/facet.git", rev = "585826b51ae771950970849e616e28c6c7207f45", package = "facet-value" }
-figue = { git = "https://github.com/TeamDman/facet.git", rev = "585826b51ae771950970849e616e28c6c7207f45", package = "figue", features = ["arbitrary"] }
+facet = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet", features = ["uuid", "compact_str", "chrono", "net", "indexmap", "bstr"] }
+facet-csv = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet-csv" }
+facet-json = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet-json" }
+facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet-pretty" }
+facet-value = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet-value" }
+figue = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "figue", features = ["arbitrary"] }
 linkme = { version = "0.3.36" }
 
 [workspace.dependencies.cloud_terrastodon_pathing]
