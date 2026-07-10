@@ -1,9 +1,9 @@
 use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
-use facet_json::RawJson;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -38,13 +38,13 @@ pub struct AzureDevOpsGroupsForMemberResponse {
     pub count: usize,
     pub value: Vec<AzureDevOpsGroupsForMemberResponseEntry>,
 }
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupsForMemberResponseEntry {
     pub container_descriptor: AzureDevOpsDescriptor,
     pub member_descriptor: AzureDevOpsDescriptor,
     #[facet(rename = "_links")]
-    pub links: RawJson<'static>,
+    pub links: ArbitraryJson,
 }
 
 #[async_trait]
@@ -81,6 +81,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMem
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsForMemberRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupsForMemberRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupsForMemberRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsGroupsForMemberResponseEntry>);
 cloud_terrastodon_registry::register_into_future!(AzureDevOpsGroupsForMemberRequest<'static> => Vec<AzureDevOpsGroupsForMemberResponseEntry>, effects = [Read]);
 
 #[cfg(test)]
