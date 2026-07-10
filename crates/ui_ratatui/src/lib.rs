@@ -1,3 +1,4 @@
+mod projection_shapes;
 pub mod role_assignment_picker_app;
 mod ui_main;
 

@@ -11,10 +11,8 @@ use cloud_terrastodon_registry::describe_function;
 use cloud_terrastodon_registry::describe_shape;
 use cloud_terrastodon_registry::functions_from;
 use cloud_terrastodon_registry::functions_to;
+use cloud_terrastodon_registry::known_functions;
 use cloud_terrastodon_registry::known_shapes;
-use cloud_terrastodon_registry::map_value_shape as registry_map_value_shape;
-use cloud_terrastodon_registry::sequence_element_shape;
-use cloud_terrastodon_registry::shape_field_shape;
 use cloud_terrastodon_registry::shape_fields_for_thing;
 use cloud_terrastodon_registry::shape_variants_for_thing;
 use crossterm::event::EventStream;
@@ -63,6 +61,7 @@ use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::ops::Range;
 use std::time::Duration;
 use std::time::Instant;
@@ -70,6 +69,12 @@ use tokio::task::JoinHandle;
 use tracing::info;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
+
+use crate::projection_shapes::projection_field_shape as shape_field_shape;
+use crate::projection_shapes::projection_fields;
+use crate::projection_shapes::projection_map_value_shape as registry_map_value_shape;
+use crate::projection_shapes::projection_sequence_element_shape as sequence_element_shape;
+use crate::projection_shapes::projection_shape_names;
 
 pub async fn ui_main() -> Result<()> {
     info!("Starting object browser");
@@ -85,6 +90,7 @@ struct ObjectBrowserApp {
     pool_surface: PoolSurface,
     active_breadcrumb_index: usize,
     projection_stack: Vec<JsonProjectionView>,
+    breadcrumb_filters: Vec<BreadcrumbFilter>,
     recent_escape_presses: Vec<Instant>,
     shape_picker: ShapePickerState,
     variant_picker: Option<VariantPickerState>,
@@ -92,14 +98,20 @@ struct ObjectBrowserApp {
     arbitrary_source_picker: Option<ArbitrarySourcePickerState>,
     function_picker: Option<FunctionPickerState>,
     link_action_picker: Option<LinkActionPickerState>,
+    partition_picker: Option<PartitionPickerState>,
+    filter_kind_picker: Option<FilterKindPickerState>,
+    value_filter_editor: Option<ValueFilterEditorState>,
+    value_filter_choice_picker: Option<ValueFilterChoicePickerState>,
     rename_slot: Option<RenameSlotState>,
     slot_search: Option<SlotSearchState>,
+    projection_search: Option<ProjectionSlotSearchState>,
     slot_axis: SlotAxis,
     focused_slot_fill: bool,
     show_hotkey_help: bool,
     slot_width: u16,
     slot_height: u16,
     shape_choices: Vec<KnownShapeInfo>,
+    reflected_shapes: HashMap<String, &'static facet::Shape>,
     object_slots: Vec<ObjectSlot>,
     projection_cache: RefCell<ProjectionCache>,
     active_slot_index: usize,
@@ -116,6 +128,17 @@ impl Default for ObjectBrowserApp {
     fn default() -> Self {
         let shape_choices = known_shapes();
         let shape_picker = ShapePickerState::new(&shape_choices);
+        let mut reflected_shapes = shape_choices
+            .iter()
+            .map(|choice| (choice.label.clone(), choice.thing.shape))
+            .collect::<HashMap<_, _>>();
+        for function in known_functions() {
+            for shape in [function.input_shape, function.output_shape] {
+                reflected_shapes
+                    .entry(describe_shape(shape))
+                    .or_insert(shape);
+            }
+        }
 
         Self {
             should_quit: false,
@@ -123,6 +146,7 @@ impl Default for ObjectBrowserApp {
             pool_surface: PoolSurface::Slots,
             active_breadcrumb_index: 0,
             projection_stack: Vec::new(),
+            breadcrumb_filters: Vec::new(),
             recent_escape_presses: Vec::new(),
             shape_picker,
             variant_picker: None,
@@ -130,14 +154,20 @@ impl Default for ObjectBrowserApp {
             arbitrary_source_picker: None,
             function_picker: None,
             link_action_picker: None,
+            partition_picker: None,
+            filter_kind_picker: None,
+            value_filter_editor: None,
+            value_filter_choice_picker: None,
             rename_slot: None,
             slot_search: None,
+            projection_search: None,
             slot_axis: SlotAxis::Horizontal,
             focused_slot_fill: false,
             show_hotkey_help: false,
             slot_width: Self::MIN_SLOT_WIDTH,
             slot_height: Self::MIN_SLOT_HEIGHT,
             shape_choices,
+            reflected_shapes,
             object_slots: Vec::new(),
             projection_cache: RefCell::new(ProjectionCache::default()),
             active_slot_index: 0,
@@ -174,11 +204,12 @@ impl ObjectBrowserApp {
     }
 
     fn advance_pending_invocations(&mut self) {
-        let mut updates = Vec::new();
+        let mut changed = false;
+        let mut latest_status = None;
         for slot_index in 0..self.object_slots.len() {
             let is_finished = matches!(
-                self.object_slots.get(slot_index).and_then(|slot| slot.runtime_state.as_ref()),
-                Some(SlotRuntimeState::Pending(pending)) if pending.join_handle.is_finished()
+                self.object_slots.get(slot_index).map(|slot| &slot.value_state),
+                Some(SlotValueState::Pending(pending)) if pending.join_handle.is_finished()
             );
             if !is_finished {
                 continue;
@@ -187,8 +218,11 @@ impl ObjectBrowserApp {
             let Some(slot) = self.object_slots.get_mut(slot_index) else {
                 continue;
             };
-            let Some(SlotRuntimeState::Pending(pending)) = slot.runtime_state.take() else {
-                continue;
+            let SlotValueState::Pending(pending) = std::mem::replace(
+                &mut slot.value_state,
+                SlotValueState::Building(SlotBody::Unset),
+            ) else {
+                unreachable!("finished-state check guarantees a pending slot")
             };
 
             let next_state = match pending
@@ -198,52 +232,40 @@ impl ObjectBrowserApp {
             {
                 Ok(Ok(output)) => match (pending.output_serialize)(output.as_ref()) {
                     Ok(json) => match serde_json::from_str::<Value>(&json) {
-                        Ok(value) => SlotRuntimeState::ResolvedValue { json, value },
-                        Err(error) => SlotRuntimeState::Failed {
+                        Ok(value) => SlotValueState::ResolvedValue { json, value },
+                        Err(error) => SlotValueState::Failed {
                             message: format!("could not parse invocation result json: {error}"),
                         },
                     },
-                    Err(error) => SlotRuntimeState::Failed {
+                    Err(error) => SlotValueState::Failed {
                         message: format!("could not serialize invocation result: {error}"),
                     },
                 },
-                Ok(Err(error)) => SlotRuntimeState::Failed {
+                Ok(Err(error)) => SlotValueState::Failed {
                     message: error.to_string(),
                 },
-                Err(error) => SlotRuntimeState::Failed {
+                Err(error) => SlotValueState::Failed {
                     message: format!("task join failed: {error}"),
                 },
             };
-            updates.push((slot.id, next_state));
-        }
-
-        for (slot_id, next_state) in &updates {
-            let status_message = match next_state {
-                SlotRuntimeState::ResolvedValue { .. } => {
-                    format!("Result slot {slot_id} resolved.")
+            latest_status = Some(match &next_state {
+                SlotValueState::ResolvedValue { .. } => {
+                    format!("Result slot {} resolved.", slot.id)
                 }
-                SlotRuntimeState::Failed { message } => {
-                    format!("Result slot {slot_id} failed: {message}")
+                SlotValueState::Failed { message } => {
+                    format!("Result slot {} failed: {message}", slot.id)
                 }
-                SlotRuntimeState::Pending(_) => continue,
-            };
-            if let Some(slot) = self.slot_by_id_mut(*slot_id) {
-                slot.runtime_state = Some(match next_state {
-                    SlotRuntimeState::ResolvedValue { json, value } => {
-                        SlotRuntimeState::ResolvedValue {
-                            json: json.clone(),
-                            value: value.clone(),
-                        }
-                    }
-                    SlotRuntimeState::Failed { message } => SlotRuntimeState::Failed {
-                        message: message.clone(),
-                    },
-                    SlotRuntimeState::Pending(_) => continue,
-                });
-            }
-            self.status_message = status_message;
+                SlotValueState::Building(_) | SlotValueState::Pending(_) => {
+                    unreachable!("a completed invocation only resolves or fails")
+                }
+            });
+            slot.value_state = next_state;
+            changed = true;
         }
-        if !updates.is_empty() {
+        if let Some(status) = latest_status {
+            self.status_message = status;
+        }
+        if changed {
             self.invalidate_all_slot_display_caches();
         }
     }
@@ -274,6 +296,10 @@ impl ObjectBrowserApp {
             UiMode::ArbitrarySourcePicker => self.draw_arbitrary_source_picker_popup(frame),
             UiMode::FunctionPicker => self.draw_function_picker_popup(frame),
             UiMode::LinkActionPicker => self.draw_link_action_picker_popup(frame),
+            UiMode::PartitionPicker => self.draw_partition_picker_popup(frame),
+            UiMode::FilterKindPicker => self.draw_filter_kind_picker_popup(frame),
+            UiMode::ValueFilterEditor => self.draw_value_filter_editor_popup(frame),
+            UiMode::ValueFilterChoicePicker => self.draw_value_filter_choice_picker_popup(frame),
             UiMode::RenameSlot => self.draw_rename_slot_popup(frame),
         }
 
@@ -614,6 +640,173 @@ impl ObjectBrowserApp {
         );
     }
 
+    fn draw_partition_picker_popup(&mut self, frame: &mut Frame) {
+        let Some(picker) = self.partition_picker.as_mut() else {
+            return;
+        };
+        let area = centered_rect(88, 82, frame.area());
+        frame.render_widget(Clear, area);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title("Filter Shapes")
+            .border_style(Style::default().fg(Color::Cyan));
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        let [lists_area, search_area] =
+            Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(inner);
+        let [left_area, right_area] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(lists_area);
+
+        let build_items = |included_side: bool| {
+            picker
+                .search
+                .filtered_indices
+                .iter()
+                .map(|index| {
+                    let on_side = picker.included_indices.contains(index) == included_side;
+                    let label = on_side
+                        .then(|| picker.labels[*index].clone())
+                        .unwrap_or_default();
+                    let style = if picker.selected_indices.contains(index) {
+                        Style::default().bg(Color::Blue).fg(Color::Yellow)
+                    } else {
+                        Style::default()
+                    };
+                    ListItem::new(label).style(style)
+                })
+                .collect::<Vec<_>>()
+        };
+        let mut left_state = ListState::default();
+        left_state.select(picker.search.list_state.selected());
+        let mut right_state = ListState::default();
+        right_state.select(picker.search.list_state.selected());
+        frame.render_stateful_widget(
+            List::new(build_items(false)).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Available (Left)"),
+            ),
+            left_area,
+            &mut left_state,
+        );
+        frame.render_stateful_widget(
+            List::new(build_items(true)).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Included (Right)"),
+            ),
+            right_area,
+            &mut right_state,
+        );
+        picker
+            .search
+            .query
+            .set_block(Block::default().borders(Borders::ALL).title("Search"));
+        picker.search.query.render(search_area, frame.buffer_mut());
+    }
+
+    fn draw_filter_kind_picker_popup(&mut self, frame: &mut Frame) {
+        let Some(picker) = self.filter_kind_picker.as_mut() else {
+            return;
+        };
+        let items = picker
+            .search
+            .filtered_indices
+            .iter()
+            .filter_map(|index| picker.labels.get(*index))
+            .cloned()
+            .map(ListItem::new)
+            .collect();
+        draw_picker_popup(
+            frame,
+            "Add Breadcrumb",
+            "Filter",
+            &mut picker.search,
+            items,
+            picker.labels.len(),
+            vec![
+                Line::from("filter shape: include selected projected shapes"),
+                Line::from("filter value: match shape/name/value metadata"),
+            ],
+        );
+    }
+
+    fn draw_value_filter_choice_picker_popup(&mut self, frame: &mut Frame) {
+        let Some(picker) = self.value_filter_choice_picker.as_mut() else {
+            return;
+        };
+        let items = picker
+            .search
+            .filtered_indices
+            .iter()
+            .filter_map(|index| picker.labels.get(*index))
+            .cloned()
+            .map(ListItem::new)
+            .collect();
+        draw_picker_popup(
+            frame,
+            "Choose Value Filter Property",
+            "Selection",
+            &mut picker.search,
+            items,
+            picker.labels.len(),
+            vec![Line::from("Enter: choose | Esc: return to editor")],
+        );
+    }
+
+    fn draw_value_filter_editor_popup(&mut self, frame: &mut Frame) {
+        let Some(editor) = self.value_filter_editor.as_ref() else {
+            return;
+        };
+        let literal = editor
+            .literal_input
+            .lines()
+            .first()
+            .map(String::as_str)
+            .unwrap_or("");
+        let shown_value = if literal.is_empty() {
+            editor.draft.value.as_str()
+        } else {
+            literal
+        };
+        let rows = [
+            format!("field shape: {}", editor.draft.field_shape),
+            format!("field name: {}", editor.draft.field_name),
+            format!("operator: {}", editor.draft.operator.label()),
+            format!("value source: {}", editor.source.label()),
+            format!("value: {shown_value}"),
+            "save filter".to_string(),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(index, label)| {
+            let style = (index == editor.active_row)
+                .then_some(Style::default().bg(Color::Blue).fg(Color::Yellow))
+                .unwrap_or_default();
+            ListItem::new(label).style(style)
+        })
+        .collect::<Vec<_>>();
+        let area = centered_rect(72, 58, frame.area());
+        frame.render_widget(Clear, area);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title("Filter Value")
+            .border_style(Style::default().fg(Color::Cyan));
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        let [form_area, hint_area] =
+            Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(inner);
+        frame.render_widget(List::new(rows), form_area);
+        frame.render_widget(
+            Paragraph::new(
+                "Up/Down: field | Enter: choose/save | Left/Right: operator/source | Type: literal value | Esc: cancel",
+            )
+            .wrap(Wrap { trim: true }),
+            hint_area,
+        );
+    }
+
     fn draw_hotkey_help_popup(&self, frame: &mut Frame) {
         let area = centered_rect(48, 44, frame.area());
         frame.render_widget(Clear, area);
@@ -633,6 +826,7 @@ impl ObjectBrowserApp {
             Line::from("Up/Down: previous/next row"),
             Line::from("PageUp/PageDown: page rows"),
             Line::from("Shift+PageUp/PageDown: page slots"),
+            Line::from("Shift+;: add filter breadcrumb"),
             Line::from("Ctrl+Arrows: scroll viewport"),
             Line::from("Enter/Space: activate focused row"),
             Line::from("Type: search rows in active slot"),
@@ -713,6 +907,16 @@ impl ObjectBrowserApp {
             self.toggle_slot_axis();
             return;
         }
+        if self.mode == UiMode::Pool
+            && key.modifiers.contains(KeyModifiers::SHIFT)
+            && matches!(key.code, KeyCode::Char(';') | KeyCode::Char(':'))
+        {
+            self.pool_surface = PoolSurface::Breadcrumbs;
+            self.active_breadcrumb_index = self.breadcrumb_count().saturating_sub(1);
+            self.status_message =
+                "Add breadcrumb selected; press Enter to choose a filter.".to_string();
+            return;
+        }
 
         match self.mode {
             UiMode::Pool => self.handle_pool_key(*key),
@@ -723,6 +927,10 @@ impl ObjectBrowserApp {
             UiMode::ArbitrarySourcePicker => self.handle_arbitrary_source_picker_key(*key),
             UiMode::FunctionPicker => self.handle_function_picker_key(*key),
             UiMode::LinkActionPicker => self.handle_link_action_picker_key(*key),
+            UiMode::PartitionPicker => self.handle_partition_picker_key(*key),
+            UiMode::FilterKindPicker => self.handle_filter_kind_picker_key(*key),
+            UiMode::ValueFilterEditor => self.handle_value_filter_editor_key(*key),
+            UiMode::ValueFilterChoicePicker => self.handle_value_filter_choice_picker_key(*key),
             UiMode::RenameSlot => self.handle_rename_slot_key(*key),
         }
     }
@@ -792,21 +1000,27 @@ impl ObjectBrowserApp {
             KeyCode::PageUp => self.page_slot_search(-1),
             KeyCode::PageDown => self.page_slot_search(1),
             _ => {
-                let Some(slot_search) = self.slot_search.as_mut() else {
+                if let Some(slot_search) = self.slot_search.as_mut() {
+                    if slot_search.query.input(key) {
+                        slot_search.query.cancel_selection();
+                        slot_search.query.move_cursor(CursorMove::End);
+                        self.refresh_slot_search(false);
+                    }
+                } else if let Some(projection_search) = self.projection_search.as_mut() {
+                    if projection_search.query.input(key) {
+                        projection_search.query.cancel_selection();
+                        projection_search.query.move_cursor(CursorMove::End);
+                        self.refresh_projection_search();
+                    }
+                } else {
                     self.mode = UiMode::Pool;
-                    return;
-                };
-                if slot_search.query.input(key) {
-                    slot_search.query.cancel_selection();
-                    slot_search.query.move_cursor(CursorMove::End);
-                    self.refresh_slot_search(false);
                 }
             }
         }
     }
 
     fn handle_escape(&mut self) {
-        if !self.projection_stack.is_empty() {
+        if !self.projection_stack.is_empty() || !self.breadcrumb_filters.is_empty() {
             self.pop_projection_breadcrumb();
             return;
         }
@@ -938,6 +1152,231 @@ impl ObjectBrowserApp {
         }
     }
 
+    fn handle_partition_picker_key(&mut self, key: KeyEvent) {
+        if key.code == KeyCode::Esc {
+            self.partition_picker = None;
+            self.mode = UiMode::Pool;
+            self.status_message = "Breadcrumb filter cancelled.".to_string();
+            return;
+        }
+        if key.code == KeyCode::Enter {
+            self.apply_partition_picker_selection();
+            return;
+        }
+        let Some(picker) = self.partition_picker.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+        if key.modifiers.contains(KeyModifiers::CONTROL)
+            && matches!(key.code, KeyCode::Char('a') | KeyCode::Char('A'))
+        {
+            picker.select_all_filtered();
+            return;
+        }
+        match key.code {
+            KeyCode::Left => picker.move_selected(false),
+            KeyCode::Right => picker.move_selected(true),
+            KeyCode::Tab | KeyCode::BackTab => picker.toggle_selected(),
+            KeyCode::Up
+            | KeyCode::Down
+            | KeyCode::Home
+            | KeyCode::End
+            | KeyCode::PageUp
+            | KeyCode::PageDown => {
+                match key.code {
+                    KeyCode::Up => picker.search.list_state.select_previous(),
+                    KeyCode::Down => picker.search.list_state.select_next(),
+                    KeyCode::Home if !picker.search.filtered_indices.is_empty() => {
+                        picker.search.list_state.select(Some(0));
+                    }
+                    KeyCode::End if !picker.search.filtered_indices.is_empty() => {
+                        picker
+                            .search
+                            .list_state
+                            .select(Some(picker.search.filtered_indices.len().saturating_sub(1)));
+                    }
+                    KeyCode::PageUp if !picker.search.filtered_indices.is_empty() => {
+                        let position = picker
+                            .search
+                            .list_state
+                            .selected()
+                            .unwrap_or(0)
+                            .saturating_sub(10);
+                        picker.search.list_state.select(Some(position));
+                    }
+                    KeyCode::PageDown if !picker.search.filtered_indices.is_empty() => {
+                        let position = picker
+                            .search
+                            .list_state
+                            .selected()
+                            .unwrap_or(0)
+                            .saturating_add(10)
+                            .min(picker.search.filtered_indices.len().saturating_sub(1));
+                        picker.search.list_state.select(Some(position));
+                    }
+                    _ => {}
+                }
+                if key.modifiers.contains(KeyModifiers::SHIFT) {
+                    picker.extend_selection_to_current();
+                } else {
+                    picker.reset_selection_to_current();
+                }
+            }
+            _ => {
+                let previous_query = picker.search.query.lines().join("\n");
+                if picker.search.query.input(key) {
+                    picker.search.query.cancel_selection();
+                    picker.search.query.move_cursor(CursorMove::End);
+                    let query = picker.search.query.lines().join("\n");
+                    if query != previous_query {
+                        picker.search.filtered_indices = filter_indices(&query, &picker.labels);
+                        picker.search.select_preferred(None);
+                        picker.search.preview_scroll = 0;
+                        picker.reset_selection_to_current();
+                    }
+                }
+            }
+        }
+    }
+
+    fn handle_filter_kind_picker_key(&mut self, key: KeyEvent) {
+        let Some(picker) = self.filter_kind_picker.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+        match picker.search.handle_key(key, &picker.labels) {
+            PickerSearchAction::None => {}
+            PickerSearchAction::Cancel => {
+                self.filter_kind_picker = None;
+                self.mode = UiMode::Pool;
+            }
+            PickerSearchAction::Submit => {
+                let selected = picker.search.selected_filtered_index();
+                self.filter_kind_picker = None;
+                match selected {
+                    Some(0) => self.open_shape_filter_picker(None),
+                    Some(1) => self.open_value_filter_editor(
+                        None,
+                        ValueFilterView {
+                            field_shape: "*".to_string(),
+                            field_name: "*".to_string(),
+                            operator: ValueFilterOperator::Equals,
+                            value: String::new(),
+                        },
+                    ),
+                    _ => self.mode = UiMode::Pool,
+                }
+            }
+        }
+    }
+
+    fn handle_value_filter_editor_key(&mut self, key: KeyEvent) {
+        let Some(editor) = self.value_filter_editor.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+        match key.code {
+            KeyCode::Esc => {
+                self.value_filter_editor = None;
+                self.mode = UiMode::Pool;
+            }
+            KeyCode::Up => editor.active_row = editor.active_row.saturating_sub(1),
+            KeyCode::Down => editor.active_row = (editor.active_row + 1).min(5),
+            KeyCode::Left | KeyCode::Right if editor.active_row == 2 => {
+                editor.draft.operator = match editor.draft.operator {
+                    ValueFilterOperator::Equals => ValueFilterOperator::NotEquals,
+                    ValueFilterOperator::NotEquals => ValueFilterOperator::Contains,
+                    ValueFilterOperator::Contains => ValueFilterOperator::Equals,
+                };
+            }
+            KeyCode::Left | KeyCode::Right if editor.active_row == 3 => {
+                editor.source = match editor.source {
+                    ValueFilterSource::Existing => ValueFilterSource::Literal,
+                    ValueFilterSource::Literal => ValueFilterSource::Existing,
+                };
+            }
+            KeyCode::Enter => {
+                let row = editor.active_row;
+                let source = editor.source;
+                match row {
+                    0 => self.open_value_filter_choice(ValueFilterChoiceTarget::FieldShape),
+                    1 => self.open_value_filter_choice(ValueFilterChoiceTarget::FieldName),
+                    2 => self.open_value_filter_choice(ValueFilterChoiceTarget::Operator),
+                    3 => {
+                        if let Some(editor) = self.value_filter_editor.as_mut() {
+                            editor.source = match editor.source {
+                                ValueFilterSource::Existing => ValueFilterSource::Literal,
+                                ValueFilterSource::Literal => ValueFilterSource::Existing,
+                            };
+                        }
+                    }
+                    4 if source == ValueFilterSource::Existing => {
+                        self.open_value_filter_choice(ValueFilterChoiceTarget::ExistingValue)
+                    }
+                    4 => {
+                        if let Some(editor) = self.value_filter_editor.as_mut() {
+                            editor.active_row = 5;
+                        }
+                    }
+                    5 => self.apply_value_filter_editor(),
+                    _ => {}
+                }
+            }
+            _ if editor.active_row == 4 && editor.source == ValueFilterSource::Literal => {
+                editor.literal_input.input(key);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_value_filter_choice_picker_key(&mut self, key: KeyEvent) {
+        let Some(picker) = self.value_filter_choice_picker.as_mut() else {
+            self.mode = UiMode::ValueFilterEditor;
+            return;
+        };
+        match picker.search.handle_key(key, &picker.labels) {
+            PickerSearchAction::None => {}
+            PickerSearchAction::Cancel => {
+                self.value_filter_choice_picker = None;
+                self.mode = UiMode::ValueFilterEditor;
+            }
+            PickerSearchAction::Submit => {
+                let target = picker.target;
+                let selected = picker
+                    .search
+                    .selected_filtered_index()
+                    .and_then(|index| picker.labels.get(index))
+                    .cloned();
+                self.value_filter_choice_picker = None;
+                self.mode = UiMode::ValueFilterEditor;
+                let Some(selected) = selected else {
+                    return;
+                };
+                let Some(editor) = self.value_filter_editor.as_mut() else {
+                    return;
+                };
+                match target {
+                    ValueFilterChoiceTarget::FieldShape => {
+                        editor.draft.field_shape = selected;
+                        editor.draft.field_name = "*".to_string();
+                    }
+                    ValueFilterChoiceTarget::FieldName => editor.draft.field_name = selected,
+                    ValueFilterChoiceTarget::Operator => {
+                        editor.draft.operator = match selected.as_str() {
+                            "not equals" => ValueFilterOperator::NotEquals,
+                            "contains" => ValueFilterOperator::Contains,
+                            _ => ValueFilterOperator::Equals,
+                        }
+                    }
+                    ValueFilterChoiceTarget::ExistingValue => {
+                        editor.draft.value = selected.clone();
+                        editor.literal_input = build_text_area(&selected);
+                    }
+                }
+            }
+        }
+    }
+
     fn handle_rename_slot_key(&mut self, key: KeyEvent) {
         let Some(rename_slot) = self.rename_slot.as_mut() else {
             self.mode = UiMode::Pool;
@@ -965,10 +1404,6 @@ impl ObjectBrowserApp {
     }
 
     fn start_slot_search(&mut self, key: KeyEvent) {
-        let Some(slot_id) = self.current_slot_id() else {
-            return;
-        };
-
         let mut query = build_text_area("");
         if !query.input(key) {
             return;
@@ -976,25 +1411,43 @@ impl ObjectBrowserApp {
         query.cancel_selection();
         query.move_cursor(CursorMove::End);
 
-        self.slot_search = Some(SlotSearchState {
-            slot_id,
-            query,
-            filtered_matches: Vec::new(),
-            selected_match_index: 0,
-        });
-        self.mode = UiMode::SlotSearch;
-        self.refresh_slot_search(false);
+        match self.current_pool_entry() {
+            Some(PoolEntry::RealSlot(slot_id)) => {
+                self.slot_search = Some(SlotSearchState {
+                    slot_id,
+                    query,
+                    filtered_matches: Vec::new(),
+                    selected_match_index: 0,
+                });
+                self.mode = UiMode::SlotSearch;
+                self.refresh_slot_search(false);
+            }
+            Some(PoolEntry::Projection(projection)) => {
+                self.projection_search = Some(ProjectionSlotSearchState {
+                    projection,
+                    query,
+                    filtered_matches: Vec::new(),
+                    selected_match_index: 0,
+                });
+                self.mode = UiMode::SlotSearch;
+                self.refresh_projection_search();
+            }
+            Some(PoolEntry::NewSlot) | None => {}
+        }
     }
 
     fn cancel_slot_search(&mut self) {
         self.slot_search = None;
+        self.projection_search = None;
         self.mode = UiMode::Pool;
         self.status_message = "Row search cancelled.".to_string();
     }
 
     fn submit_slot_search(&mut self) {
-        let has_match = self.slot_search_current_target().is_some();
+        let has_match = self.slot_search_current_target().is_some()
+            || self.projection_search_current_row().is_some();
         self.slot_search = None;
+        self.projection_search = None;
         self.mode = UiMode::Pool;
         if has_match {
             self.activate_current_row();
@@ -1004,6 +1457,19 @@ impl ObjectBrowserApp {
     }
 
     fn move_slot_search_selection(&mut self, direction: isize) {
+        if self.slot_search.is_none() {
+            let Some(search) = self.projection_search.as_mut() else {
+                return;
+            };
+            if search.filtered_matches.is_empty() {
+                return;
+            }
+            let max_index = search.filtered_matches.len().saturating_sub(1) as isize;
+            search.selected_match_index =
+                (search.selected_match_index as isize + direction).clamp(0, max_index) as usize;
+            self.sync_slot_search_selection();
+            return;
+        }
         let Some(slot_search) = self.slot_search.as_mut() else {
             return;
         };
@@ -1019,6 +1485,21 @@ impl ObjectBrowserApp {
     }
 
     fn move_slot_search_to_edge(&mut self, to_start: bool) {
+        if self.slot_search.is_none() {
+            let Some(search) = self.projection_search.as_mut() else {
+                return;
+            };
+            if search.filtered_matches.is_empty() {
+                return;
+            }
+            search.selected_match_index = if to_start {
+                0
+            } else {
+                search.filtered_matches.len().saturating_sub(1)
+            };
+            self.sync_slot_search_selection();
+            return;
+        }
         let Some(slot_search) = self.slot_search.as_mut() else {
             return;
         };
@@ -1035,6 +1516,20 @@ impl ObjectBrowserApp {
     }
 
     fn page_slot_search(&mut self, direction: isize) {
+        if self.slot_search.is_none() {
+            let step = self.last_visible_row_count.saturating_sub(1).max(1) as isize;
+            let Some(search) = self.projection_search.as_mut() else {
+                return;
+            };
+            if search.filtered_matches.is_empty() {
+                return;
+            }
+            let max_index = search.filtered_matches.len().saturating_sub(1) as isize;
+            search.selected_match_index = (search.selected_match_index as isize + direction * step)
+                .clamp(0, max_index) as usize;
+            self.sync_slot_search_selection();
+            return;
+        }
         let Some(slot_search) = self.slot_search.as_mut() else {
             return;
         };
@@ -1088,6 +1583,22 @@ impl ObjectBrowserApp {
         self.sync_slot_search_selection();
     }
 
+    fn refresh_projection_search(&mut self) {
+        let Some((projection, query)) = self
+            .projection_search
+            .as_ref()
+            .map(|search| (search.projection.clone(), search.query.lines().concat()))
+        else {
+            return;
+        };
+        let filtered_matches = self.projection_search_matches(&projection, &query);
+        if let Some(search) = self.projection_search.as_mut() {
+            search.filtered_matches = filtered_matches;
+            search.selected_match_index = 0;
+        }
+        self.sync_slot_search_selection();
+    }
+
     fn sync_slot_search_selection(&mut self) {
         if let Some(target) = self.slot_search_current_target()
             && let Some(slot_id) = self
@@ -1098,6 +1609,8 @@ impl ObjectBrowserApp {
             self.active_row_index = self
                 .focus_row_for_slot_target(slot_id, target)
                 .unwrap_or(self.active_row_index);
+        } else if let Some(row_index) = self.projection_search_current_row() {
+            self.active_row_index = row_index;
         }
         self.ensure_active_row_visible();
         self.update_slot_search_status();
@@ -1111,7 +1624,31 @@ impl ObjectBrowserApp {
             .map(|matched| matched.target)
     }
 
+    fn projection_search_current_row(&self) -> Option<usize> {
+        let search = self.projection_search.as_ref()?;
+        search
+            .filtered_matches
+            .get(search.selected_match_index)
+            .map(|matched| matched.row_index)
+    }
+
     fn update_slot_search_status(&mut self) {
+        if let Some(search) = self.projection_search.as_ref() {
+            let query = search.query.lines().concat();
+            let match_count = search.filtered_matches.len();
+            self.status_message = format!(
+                "Search {}: {} ({} match{}) | Up/Down/PgUp/PgDn: navigate | Enter: activate | Esc: cancel",
+                projection_label(search.projection.root_slot_id, &search.projection.path),
+                if query.is_empty() {
+                    "<empty>"
+                } else {
+                    query.as_str()
+                },
+                match_count,
+                if match_count == 1 { "" } else { "es" },
+            );
+            return;
+        }
         let Some(slot_search) = self.slot_search.as_ref() else {
             return;
         };
@@ -1162,6 +1699,7 @@ impl ObjectBrowserApp {
             self.active_breadcrumb_index = self
                 .projection_stack
                 .len()
+                .saturating_add(self.breadcrumb_filters.len())
                 .min(self.breadcrumb_count().saturating_sub(1));
             return;
         }
@@ -1328,9 +1866,12 @@ impl ObjectBrowserApp {
                 .filter(|slot_search| slot_search.slot_id == slot_id)
                 .map(|slot_search| slot_search.filtered_matches.len().max(1))
                 .unwrap_or_else(|| self.slot_display_rows(slot_id).len()),
-            Some(PoolEntry::Projection(projection)) => {
-                self.projection_rendered_line_count(&projection)
-            }
+            Some(PoolEntry::Projection(projection)) => self
+                .projection_search
+                .as_ref()
+                .filter(|search| search.projection == projection)
+                .map(|search| search.filtered_matches.len().max(1))
+                .unwrap_or_else(|| self.projection_rendered_line_count(&projection)),
             Some(PoolEntry::NewSlot) | None => 1,
         }
     }
@@ -1351,9 +1892,12 @@ impl ObjectBrowserApp {
                 }
                 self.slot_line_index_for_row(slot_id, self.active_row_index)
             }
-            Some(PoolEntry::Projection(projection)) => {
-                self.projection_line_index(&projection, self.active_row_index)
-            }
+            Some(PoolEntry::Projection(projection)) => self
+                .projection_search
+                .as_ref()
+                .filter(|search| search.projection == projection)
+                .map(|search| search.selected_match_index)
+                .unwrap_or_else(|| self.projection_line_index(&projection, self.active_row_index)),
             Some(PoolEntry::NewSlot) | None => 0,
         }
     }
@@ -1527,6 +2071,14 @@ impl ObjectBrowserApp {
             .partition(field_picker_choice_is_arbitrary_producer);
         choices.extend(regular_producer_choices);
         choices.push(FieldPickerChoice::CreateNew);
+        if let Some(thing) = self.thing_for_shape_name(&required_shape_name) {
+            choices.extend(shape_variants_for_thing(thing).into_iter().enumerate().map(
+                |(variant_index, variant)| FieldPickerChoice::CreateNewVariant {
+                    variant_index,
+                    variant_name: variant.variant_name.to_string(),
+                },
+            ));
+        }
         choices.extend(arbitrary_producer_choices);
 
         let labels = choices
@@ -1682,12 +2234,12 @@ impl ObjectBrowserApp {
             slot.name = snapshot.name;
             slot.kind = SlotKind::Owned;
             slot.shape_name = snapshot.shape_name;
-            slot.body = snapshot.body;
-            slot.runtime_state = snapshot.value_json.and_then(|json| {
-                serde_json::from_str::<Value>(&json)
-                    .ok()
-                    .map(|value| SlotRuntimeState::ResolvedValue { json, value })
-            });
+            slot.value_state = match snapshot.value_state {
+                SlotSnapshotValueState::Building(body) => SlotValueState::Building(body),
+                SlotSnapshotValueState::ResolvedValue { json, value } => {
+                    SlotValueState::ResolvedValue { json, value }
+                }
+            };
         }
         self.invalidate_all_slot_display_caches();
         self.jump_to_slot(slot_id);
@@ -1919,11 +2471,15 @@ impl ObjectBrowserApp {
                     ObjectSlot::new_result(result_slot_id, output_shape_name.clone(), pending);
                 result_slot.produced_by_slot_id = Some(slot_id);
                 self.object_slots.push(result_slot);
-                if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                let result_index = self.slot_by_id_mut(slot_id).map(|slot| {
+                    let result_index = slot.result_slot_ids.len();
                     slot.result_slot_ids.push(result_slot_id);
-                }
+                    result_index
+                });
                 self.invalidate_all_slot_display_caches();
-                self.jump_to_slot(result_slot_id);
+                if let Some(result_index) = result_index {
+                    self.jump_to_slot_target(slot_id, SlotFocusTarget::Result(result_index));
+                }
                 self.status_message = format!(
                     "Invoked {} and started result slot {}.",
                     describe_function(function),
@@ -1945,7 +2501,7 @@ impl ObjectBrowserApp {
         let json = thing.serialize_boxed(value)?;
         let value = serde_json::from_str::<Value>(&json)?;
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
-            slot.runtime_state = Some(SlotRuntimeState::ResolvedValue { json, value });
+            slot.value_state = SlotValueState::ResolvedValue { json, value };
         }
         Ok(())
     }
@@ -1982,11 +2538,15 @@ impl ObjectBrowserApp {
             ObjectSlot::new_resolved_result(result_slot_id, output_shape_name.clone(), json, value);
         result_slot.produced_by_slot_id = Some(slot_id);
         self.object_slots.push(result_slot);
-        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+        let result_index = self.slot_by_id_mut(slot_id).map(|slot| {
+            let result_index = slot.result_slot_ids.len();
             slot.result_slot_ids.push(result_slot_id);
-        }
+            result_index
+        });
         self.invalidate_all_slot_display_caches();
-        self.jump_to_slot(result_slot_id);
+        if let Some(result_index) = result_index {
+            self.jump_to_slot_target(slot_id, SlotFocusTarget::Result(result_index));
+        }
         self.status_message = format!(
             "Invoked {} into result slot {}.",
             describe_function(function),
@@ -2161,15 +2721,43 @@ impl ObjectBrowserApp {
             }
             FieldPickerChoice::CreateProducer {
                 input_shape_name, ..
-            } => self.create_producer_request_for_field(
+            } => {
+                self.create_producer_request_for_field(
+                    owner_slot_id,
+                    field_index,
+                    &input_shape_name,
+                    &required_shape_name,
+                );
+            }
+            FieldPickerChoice::InvokeDefaultProducer {
+                input_shape_name,
+                function_label,
+            } => self.invoke_default_producer_for_field(
                 owner_slot_id,
                 field_index,
                 &input_shape_name,
                 &required_shape_name,
+                &function_label,
+            ),
+            FieldPickerChoice::InvokeArbitraryProducer {
+                input_shape_name,
+                function_label,
+            } => self.invoke_arbitrary_producer_for_field(
+                owner_slot_id,
+                field_index,
+                &input_shape_name,
+                &required_shape_name,
+                &function_label,
             ),
             FieldPickerChoice::CreateNew => {
-                self.create_field_object(owner_slot_id, field_index, &required_shape_name)
+                self.create_field_object(owner_slot_id, field_index, &required_shape_name, None)
             }
+            FieldPickerChoice::CreateNewVariant { variant_index, .. } => self.create_field_object(
+                owner_slot_id,
+                field_index,
+                &required_shape_name,
+                Some(variant_index),
+            ),
         }
     }
 
@@ -2191,15 +2779,18 @@ impl ObjectBrowserApp {
         self.arbitrary_source_picker = None;
         self.mode = UiMode::Pool;
 
-        let source_slot_id = match choice {
-            ArbitrarySourceChoice::ExistingSlot { slot_id } => slot_id,
+        let (source_slot_id, created_new) = match choice {
+            ArbitrarySourceChoice::ExistingSlot { slot_id } => (slot_id, false),
             ArbitrarySourceChoice::CreateNew => {
                 let Some(slot_id) = self.create_random_arbitrary_bytes_slot() else {
                     return;
                 };
-                slot_id
+                (slot_id, true)
             }
         };
+        if created_new {
+            self.record_production_link(request_slot_id, source_slot_id);
+        }
         let result_count = self
             .slot_by_id(source_slot_id)
             .map(|slot| slot.result_slot_ids.len())
@@ -2217,6 +2808,18 @@ impl ObjectBrowserApp {
                 describe_function(request_function)
             );
         }
+    }
+
+    fn record_production_link(&mut self, producer_slot_id: usize, result_slot_id: usize) {
+        if let Some(result_slot) = self.slot_by_id_mut(result_slot_id) {
+            result_slot.produced_by_slot_id = Some(producer_slot_id);
+        }
+        if let Some(producer_slot) = self.slot_by_id_mut(producer_slot_id)
+            && !producer_slot.result_slot_ids.contains(&result_slot_id)
+        {
+            producer_slot.result_slot_ids.push(result_slot_id);
+        }
+        self.invalidate_all_slot_display_caches();
     }
 
     fn create_random_arbitrary_bytes_slot(&mut self) -> Option<usize> {
@@ -2246,7 +2849,7 @@ impl ObjectBrowserApp {
         let slot_id = self.allocate_slot_id();
         let mut slot = ObjectSlot::new(slot_id);
         slot.apply_shape_choice(&choice);
-        slot.runtime_state = Some(SlotRuntimeState::ResolvedValue { json, value });
+        slot.value_state = SlotValueState::ResolvedValue { json, value };
         self.object_slots.push(slot);
         self.invalidate_all_slot_display_caches();
         Some(slot_id)
@@ -2294,12 +2897,12 @@ impl ObjectBrowserApp {
         field_index: usize,
         input_shape_name: &str,
         required_shape_name: &str,
-    ) {
+    ) -> Option<usize> {
         let Some(field_name) = self
             .slot_field(owner_slot_id, field_index)
             .map(|field| field.info.field_name)
         else {
-            return;
+            return None;
         };
         let Some(choice) = self
             .shape_choices
@@ -2311,7 +2914,7 @@ impl ObjectBrowserApp {
                 "{} is not currently registered as a constructible source shape.",
                 input_shape_name
             );
-            return;
+            return None;
         };
 
         let slot_id = self.allocate_slot_id();
@@ -2332,6 +2935,132 @@ impl ObjectBrowserApp {
             "Created source slot {} ({}) to produce {} for slot {}.{}.",
             slot_id, input_shape_name, required_shape_name, owner_slot_id, field_name
         );
+        Some(slot_id)
+    }
+
+    fn producer_function_for_choice(
+        &self,
+        input_shape_name: &str,
+        required_shape_name: &str,
+        function_label: &str,
+    ) -> Option<&'static Function> {
+        let input_thing = self.thing_for_shape_name(input_shape_name)?;
+        let required_thing = self.thing_for_shape_name(required_shape_name)?;
+        functions_from(input_thing.shape)
+            .into_iter()
+            .find(|function| {
+                function.production_kind(required_thing.shape) == Some(ProductionKind::Exact)
+                    && self.function_picker_label(function) == function_label
+            })
+    }
+
+    fn invoke_default_producer_for_field(
+        &mut self,
+        owner_slot_id: usize,
+        field_index: usize,
+        input_shape_name: &str,
+        required_shape_name: &str,
+        function_label: &str,
+    ) {
+        let Some(function) = self.producer_function_for_choice(
+            input_shape_name,
+            required_shape_name,
+            function_label,
+        ) else {
+            self.status_message = "The selected producer function is no longer registered.".into();
+            return;
+        };
+        let value = match self.default_json_for_shape(input_shape_name) {
+            Ok(value) => value,
+            Err(error) => {
+                self.status_message =
+                    format!("Could not build default {input_shape_name}: {error}");
+                return;
+            }
+        };
+        let json = match serde_json::to_string(&value) {
+            Ok(json) => json,
+            Err(error) => {
+                self.status_message =
+                    format!("Could not serialize default {input_shape_name}: {error}");
+                return;
+            }
+        };
+        let Some(slot_id) = self.create_producer_request_for_field(
+            owner_slot_id,
+            field_index,
+            input_shape_name,
+            required_shape_name,
+        ) else {
+            return;
+        };
+        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+            slot.value_state = SlotValueState::ResolvedValue { json, value };
+        }
+        self.invalidate_all_slot_display_caches();
+        self.invoke_registered_function(slot_id, function);
+    }
+
+    fn invoke_arbitrary_producer_for_field(
+        &mut self,
+        owner_slot_id: usize,
+        field_index: usize,
+        input_shape_name: &str,
+        required_shape_name: &str,
+        function_label: &str,
+    ) {
+        let Some(function) = self.producer_function_for_choice(
+            input_shape_name,
+            required_shape_name,
+            function_label,
+        ) else {
+            self.status_message = "The selected producer function is no longer registered.".into();
+            return;
+        };
+        let Some(slot_id) = self.create_producer_request_for_field(
+            owner_slot_id,
+            field_index,
+            input_shape_name,
+            required_shape_name,
+        ) else {
+            return;
+        };
+        self.invoke_arbitrary_registered_function(slot_id, function);
+    }
+
+    fn default_json_for_shape(&self, shape_name: &str) -> Result<Value> {
+        let thing = self
+            .thing_for_shape_name(shape_name)
+            .ok_or_else(|| eyre::eyre!("{shape_name} is not registered"))?;
+        let variants = shape_variants_for_thing(thing);
+        if !variants.is_empty() {
+            let variant = variants
+                .iter()
+                .find(|variant| variant.is_default)
+                .ok_or_else(|| eyre::eyre!("{shape_name} has no Default variant"))?;
+            if !variant.payload_fields.is_empty() {
+                eyre::bail!("{}::Default requires a payload", shape_name);
+            }
+            return Ok(Value::String(variant.variant_name.to_string()));
+        }
+
+        let fields = shape_fields_for_thing(thing);
+        if fields.is_empty() {
+            eyre::bail!("{shape_name} has no reflected default construction");
+        }
+        let mut object = Map::new();
+        for field in fields {
+            let value = if reflected_field_default_is_materializable(&field) {
+                self.default_json_value(
+                    &field.field_shape_name,
+                    field.default_value_label.as_deref(),
+                )?
+            } else {
+                self.default_json_for_shape(&field.field_shape_name)?
+            };
+            object.insert(field.field_name.to_string(), value);
+        }
+        Ok(Value::Object(object))
     }
 
     fn create_field_object(
@@ -2339,6 +3068,7 @@ impl ObjectBrowserApp {
         owner_slot_id: usize,
         field_index: usize,
         required_shape_name: &str,
+        selected_variant: Option<usize>,
     ) {
         let Some(field_name) = self
             .slot_field(owner_slot_id, field_index)
@@ -2363,6 +3093,13 @@ impl ObjectBrowserApp {
 
         let mut slot = ObjectSlot::new(slot_id);
         slot.apply_shape_choice(&choice);
+        if let Some(variant_index) = selected_variant
+            && slot.select_variant(variant_index).is_none()
+        {
+            self.status_message =
+                format!("Could not select variant {variant_index} for {required_shape_name}.");
+            return;
+        }
         let focus_target = slot.default_focus_target();
         slot.kind = SlotKind::View(ViewInfo {
             source_slot_id: slot_id,
@@ -2463,6 +3200,14 @@ impl ObjectBrowserApp {
             return;
         };
         let Some(field) = self.slot_field(owner_slot_id, field_index).cloned() else {
+            let Some(field) = self
+                .materialized_fields(owner_slot_id)
+                .get(field_index)
+                .cloned()
+            else {
+                return;
+            };
+            self.activate_json_projection(owner_slot_id, field.projection_path);
             return;
         };
 
@@ -2516,13 +3261,19 @@ impl ObjectBrowserApp {
         let Some(slot_id) = self.current_slot_id() else {
             return;
         };
-        let Some(field) = self.slot_field(slot_id, field_index) else {
-            return;
-        };
+        let field_info = self
+            .slot_field(slot_id, field_index)
+            .map(|field| field.info.clone())
+            .or_else(|| {
+                self.materialized_fields(slot_id)
+                    .get(field_index)
+                    .map(|field| field.info.clone())
+            });
+        let Some(field_info) = field_info else { return };
 
         self.status_message = format!(
             "{} has type {}. Type-scoped actions like browsing matching objects or producers are the next interaction to add.",
-            field.info.field_name, field.info.field_shape_name
+            field_info.field_name, field_info.field_shape_name
         );
     }
     fn set_field_link(&mut self, owner_slot_id: usize, field_index: usize, linked_slot_id: usize) {
@@ -2536,7 +3287,10 @@ impl ObjectBrowserApp {
 
     fn clear_links_to_slot(&mut self, slot_id: usize) {
         for slot in &mut self.object_slots {
-            match &mut slot.body {
+            let SlotValueState::Building(body) = &mut slot.value_state else {
+                continue;
+            };
+            match body {
                 SlotBody::Unset => {}
                 SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => {
                     for field in fields {
@@ -2572,20 +3326,20 @@ impl ObjectBrowserApp {
     fn slot_snapshot(&self, slot_id: usize) -> Option<SlotSnapshot> {
         let data_slot = self.slot_by_id(self.data_slot_id_for(slot_id)?)?;
         let display_slot = self.slot_by_id(slot_id)?;
-        if matches!(
-            data_slot.runtime_state,
-            Some(SlotRuntimeState::Pending(_)) | Some(SlotRuntimeState::Failed { .. })
-        ) {
-            return None;
-        }
+        let value_state = match &data_slot.value_state {
+            SlotValueState::Building(body) => SlotSnapshotValueState::Building(body.clone()),
+            SlotValueState::ResolvedValue { json, value } => {
+                SlotSnapshotValueState::ResolvedValue {
+                    json: json.clone(),
+                    value: value.clone(),
+                }
+            }
+            SlotValueState::Pending(_) | SlotValueState::Failed { .. } => return None,
+        };
         Some(SlotSnapshot {
             name: display_slot.name.clone().or_else(|| data_slot.name.clone()),
             shape_name: data_slot.shape_name.clone(),
-            body: data_slot.body.clone(),
-            value_json: match &data_slot.runtime_state {
-                Some(SlotRuntimeState::ResolvedValue { json, .. }) => Some(json.clone()),
-                _ => None,
-            },
+            value_state,
         })
     }
     fn remove_slots_cascade(&mut self, initial_slot_id: usize) {
@@ -2612,7 +3366,7 @@ impl ObjectBrowserApp {
         }
         for slot in &mut self.object_slots {
             if to_remove.contains(&slot.id)
-                && let Some(SlotRuntimeState::Pending(pending)) = &slot.runtime_state
+                && let SlotValueState::Pending(pending) = &slot.value_state
             {
                 pending.join_handle.abort();
             }
@@ -2637,6 +3391,28 @@ impl ObjectBrowserApp {
         self.sync_selection_viewports();
     }
     fn total_slot_count(&self) -> usize {
+        if let Some(view) = self.current_projection_view()
+            && !self.breadcrumb_filters.is_empty()
+        {
+            return usize::from(
+                self.projection_path_matches_shape_filter(view.root_slot_id, &view.path),
+            ) + self.filtered_projection_descendant_count(view.root_slot_id, &view.path);
+        }
+        if !self.breadcrumb_filters.is_empty() {
+            return self
+                .object_slots
+                .iter()
+                .map(|slot| {
+                    usize::from(self.real_slot_matches_shape_filter(slot.id))
+                        + self.filtered_projection_descendant_count(slot.id, &[])
+                })
+                .sum::<usize>()
+                + 1;
+        }
+        self.unfiltered_total_slot_count()
+    }
+
+    fn unfiltered_total_slot_count(&self) -> usize {
         self.current_projection_view()
             .map(|view| self.projection_view_slot_count(view))
             .unwrap_or_else(|| {
@@ -2738,7 +3514,44 @@ impl ObjectBrowserApp {
 
     fn slot_body(&self, slot_id: usize) -> Option<&SlotBody> {
         self.slot_by_id(self.data_slot_id_for(slot_id)?)
-            .map(|slot| &slot.body)
+            .and_then(ObjectSlot::building_body)
+    }
+
+    fn materialized_fields(&self, slot_id: usize) -> Vec<MaterializedFieldState> {
+        let Some(data_slot) = self.slot_by_id(self.data_slot_id_for(slot_id).unwrap_or(slot_id))
+        else {
+            return Vec::new();
+        };
+        let SlotValueState::ResolvedValue { value, .. } = &data_slot.value_state else {
+            return Vec::new();
+        };
+        let Some(shape_name) = data_slot.shape_name.as_deref() else {
+            return Vec::new();
+        };
+        let Some(thing) = self.thing_for_shape_name(shape_name) else {
+            return Vec::new();
+        };
+        let fields = shape_fields_for_thing(thing);
+        let transparent_value =
+            (thing.shape.is_transparent() && fields.len() == 1).then_some(value);
+
+        fields
+            .into_iter()
+            .filter_map(|info| {
+                let (value, projection_path) = match value {
+                    Value::Object(object) => (
+                        object.get(info.field_name)?.clone(),
+                        vec![JsonPathSegment::Field(info.field_name.to_string())],
+                    ),
+                    _ => (transparent_value?.clone(), Vec::new()),
+                };
+                Some(MaterializedFieldState {
+                    info,
+                    value,
+                    projection_path,
+                })
+            })
+            .collect()
     }
 
     fn slot_shape_name(&self, slot_id: usize) -> Option<&str> {
@@ -2754,6 +3567,11 @@ impl ObjectBrowserApp {
     }
 
     fn top_level_pool_index_for_slot(&self, slot_id: usize) -> Option<usize> {
+        if !self.breadcrumb_filters.is_empty() {
+            return (0..self.total_slot_count()).find(|index| {
+                matches!(self.pool_entry_at(*index), Some(PoolEntry::RealSlot(id)) if id == slot_id)
+            });
+        }
         let mut slot_index = 0;
         for slot in &self.object_slots {
             if slot.id == slot_id {
@@ -2795,6 +3613,10 @@ impl ObjectBrowserApp {
             .map(|shape| shape.thing)
     }
 
+    fn shape_for_shape_name(&self, shape_name: &str) -> Option<&'static facet::Shape> {
+        self.reflected_shapes.get(shape_name).copied()
+    }
+
     fn slot_json_string(&self, slot_id: usize) -> Result<String> {
         let value = self.slot_json_value(slot_id)?;
         Ok(serde_json::to_string(&value)?)
@@ -2808,20 +3630,23 @@ impl ObjectBrowserApp {
             .slot_by_id(data_slot_id)
             .ok_or_else(|| eyre::eyre!("slot {data_slot_id} is missing"))?;
 
-        match &slot.runtime_state {
-            Some(SlotRuntimeState::Pending(_)) => {
+        match &slot.value_state {
+            SlotValueState::Pending(_) => {
                 eyre::bail!("slot {} is still pending", slot.id);
             }
-            Some(SlotRuntimeState::Failed { message }) => {
+            SlotValueState::Failed { message } => {
                 eyre::bail!("slot {} failed: {}", slot.id, message);
             }
-            Some(SlotRuntimeState::ResolvedValue { value, .. }) => {
+            SlotValueState::ResolvedValue { value, .. } => {
                 return Ok(value.clone());
             }
-            None => {}
+            SlotValueState::Building(_) => {}
         }
 
-        match &slot.body {
+        let SlotValueState::Building(body) = &slot.value_state else {
+            unreachable!("non-building states returned above")
+        };
+        match body {
             SlotBody::Unset => eyre::bail!("slot {} is still unset", slot.id),
             SlotBody::Struct { fields } => {
                 let mut object = Map::new();
@@ -2965,8 +3790,15 @@ impl ObjectBrowserApp {
             ])));
         }
 
+        let materialized_fields = self.materialized_fields(slot_id);
         match self.slot_body(slot_id) {
-            Some(SlotBody::Unset) | None => {}
+            Some(SlotBody::Unset) => {}
+            None => {
+                if !materialized_fields.is_empty() {
+                    rows.push(SlotDisplayRow::Static(separator_line("fields")));
+                    rows.extend(materialized_field_rows(&materialized_fields));
+                }
+            }
             Some(SlotBody::Struct { fields }) => {
                 if !fields.is_empty() {
                     rows.push(SlotDisplayRow::Static(separator_line("fields")));
@@ -3109,6 +3941,11 @@ impl ObjectBrowserApp {
                     }
                 }
             }
+        } else {
+            for index in 0..self.materialized_fields(slot_id).len() {
+                targets.push(SlotFocusTarget::FieldType(index));
+                targets.push(SlotFocusTarget::FieldValue(index));
+            }
         }
 
         if self
@@ -3139,7 +3976,7 @@ impl ObjectBrowserApp {
 
         if matches!(
             self.slot_runtime_state(slot_id),
-            Some(SlotRuntimeState::ResolvedValue { .. })
+            Some(SlotValueState::ResolvedValue { .. })
         ) {
             targets.push(SlotFocusTarget::RuntimeValue);
         }
@@ -3218,7 +4055,10 @@ impl ObjectBrowserApp {
     fn slot_inlinks(&self, slot_id: usize) -> Vec<SlotInlink> {
         let mut inlinks = Vec::new();
         for slot in &self.object_slots {
-            let fields = match &slot.body {
+            let Some(body) = slot.building_body() else {
+                continue;
+            };
+            let fields = match body {
                 SlotBody::Unset => continue,
                 SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => fields,
             };
@@ -3300,11 +4140,63 @@ impl ObjectBrowserApp {
                 continue;
             }
             choices.push(FieldPickerChoice::CreateProducer {
-                input_shape_name,
-                function_label,
+                input_shape_name: input_shape_name.clone(),
+                function_label: function_label.clone(),
             });
+            if function.kind == FunctionKind::AsyncInvoke {
+                if self.shape_supports_default(&input_shape_name) {
+                    choices.push(FieldPickerChoice::InvokeDefaultProducer {
+                        input_shape_name: input_shape_name.clone(),
+                        function_label: function_label.clone(),
+                    });
+                }
+                if functions_to(function.output_shape)
+                    .into_iter()
+                    .any(|candidate| describe_shape(candidate.input_shape) == "ArbitraryBytes")
+                {
+                    choices.push(FieldPickerChoice::InvokeArbitraryProducer {
+                        input_shape_name,
+                        function_label,
+                    });
+                }
+            }
         }
         choices
+    }
+
+    fn shape_supports_default(&self, shape_name: &str) -> bool {
+        self.shape_supports_default_inner(shape_name, &mut BTreeSet::new())
+    }
+
+    fn shape_supports_default_inner(
+        &self,
+        shape_name: &str,
+        visiting: &mut BTreeSet<String>,
+    ) -> bool {
+        if !visiting.insert(shape_name.to_string()) {
+            return false;
+        }
+        let result = self.thing_for_shape_name(shape_name).is_some_and(|thing| {
+            let variants = shape_variants_for_thing(thing);
+            if !variants.is_empty() {
+                return variants.iter().any(|variant| {
+                    variant.is_default
+                        && variant.payload_fields.iter().all(|field| {
+                            reflected_field_default_is_materializable(field)
+                                || self
+                                    .shape_supports_default_inner(&field.field_shape_name, visiting)
+                        })
+                });
+            }
+            let fields = shape_fields_for_thing(thing);
+            !fields.is_empty()
+                && fields.iter().all(|field| {
+                    reflected_field_default_is_materializable(field)
+                        || self.shape_supports_default_inner(&field.field_shape_name, visiting)
+                })
+        });
+        visiting.remove(shape_name);
+        result
     }
 
     fn field_picker_label(&self, choice: &FieldPickerChoice, required_shape_name: &str) -> String {
@@ -3326,7 +4218,25 @@ impl ObjectBrowserApp {
                     input_shape_name, required_shape_name, function_label
                 )
             }
-            FieldPickerChoice::CreateNew => format!("+ create new {required_shape_name}"),
+            FieldPickerChoice::CreateNew => {
+                let is_enum = self
+                    .thing_for_shape_name(required_shape_name)
+                    .is_some_and(|thing| !shape_variants_for_thing(thing).is_empty());
+                if is_enum {
+                    format!("+ create {required_shape_name} with variant unset")
+                } else {
+                    format!("+ create new {required_shape_name}")
+                }
+            }
+            FieldPickerChoice::InvokeDefaultProducer {
+                input_shape_name, ..
+            } => format!("+ invoke default {input_shape_name} for {required_shape_name}"),
+            FieldPickerChoice::InvokeArbitraryProducer {
+                input_shape_name, ..
+            } => format!("+ invoke arbitrary {input_shape_name} for {required_shape_name}"),
+            FieldPickerChoice::CreateNewVariant { variant_name, .. } => {
+                format!("+ create {required_shape_name}::{variant_name}")
+            }
         }
     }
 
@@ -3399,6 +4309,18 @@ impl ObjectBrowserApp {
                     .iter()
                     .map(|view| self.projection_view_label(view)),
             )
+            .chain(self.breadcrumb_filters.iter().map(|filter| match filter {
+                BreadcrumbFilter::Shape(filter) => {
+                    format!("shapes ({})", filter.included_shapes.len())
+                }
+                BreadcrumbFilter::Value(filter) => format!(
+                    "value {}.{} {} {}",
+                    filter.field_shape,
+                    filter.field_name,
+                    filter.operator.label(),
+                    filter.value
+                ),
+            }))
             .collect::<Vec<_>>();
         let add_index = labels.len();
 
@@ -3437,7 +4359,7 @@ impl ObjectBrowserApp {
     }
 
     fn breadcrumb_count(&self) -> usize {
-        2 + self.projection_stack.len()
+        2 + self.projection_stack.len() + self.breadcrumb_filters.len()
     }
 
     fn move_breadcrumb_left(&mut self) {
@@ -3450,16 +4372,17 @@ impl ObjectBrowserApp {
     }
 
     fn activate_current_breadcrumb(&mut self) {
-        let add_index = self.projection_stack.len() + 1;
+        let filter_start = self.projection_stack.len() + 1;
+        let add_index = filter_start + self.breadcrumb_filters.len();
         if self.active_breadcrumb_index == add_index {
-            self.pool_surface = PoolSurface::Slots;
-            self.status_message =
-                "Shape-filter breadcrumbs are the next breadcrumb feature to wire up.".to_string();
+            self.open_filter_kind_picker();
             return;
         }
 
         if self.active_breadcrumb_index == 0 {
             self.projection_stack.clear();
+            self.breadcrumb_filters.clear();
+            self.projection_cache.borrow_mut().clear();
             self.active_slot_index = self
                 .active_slot_index
                 .min(self.total_slot_count().saturating_sub(1));
@@ -3470,7 +4393,22 @@ impl ObjectBrowserApp {
             return;
         }
 
+        if self.active_breadcrumb_index >= filter_start {
+            let filter_index = self.active_breadcrumb_index - filter_start;
+            match self.breadcrumb_filters.get(filter_index) {
+                Some(BreadcrumbFilter::Shape(_)) => {
+                    self.open_shape_filter_picker(Some(filter_index));
+                }
+                Some(BreadcrumbFilter::Value(filter)) => {
+                    self.open_value_filter_editor(Some(filter_index), filter.clone());
+                }
+                None => {}
+            }
+            return;
+        }
         self.projection_stack.truncate(self.active_breadcrumb_index);
+        self.breadcrumb_filters.clear();
+        self.projection_cache.borrow_mut().clear();
         self.active_slot_index = 0;
         self.active_row_index = 0;
         self.pool_surface = PoolSurface::Slots;
@@ -3485,6 +4423,20 @@ impl ObjectBrowserApp {
     }
 
     fn pop_projection_breadcrumb(&mut self) {
+        if let Some(filter) = self.breadcrumb_filters.pop() {
+            self.projection_cache.borrow_mut().clear();
+            self.pool_surface = PoolSurface::Slots;
+            self.active_breadcrumb_index =
+                self.projection_stack.len() + self.breadcrumb_filters.len();
+            self.active_slot_index = 0;
+            self.active_row_index = 0;
+            self.sync_selection_viewports();
+            self.status_message = match filter {
+                BreadcrumbFilter::Shape(_) => "Closed shape filter.".to_string(),
+                BreadcrumbFilter::Value(_) => "Closed value filter.".to_string(),
+            };
+            return;
+        }
         let popped = self.projection_stack.pop();
         self.pool_surface = PoolSurface::Slots;
         self.active_breadcrumb_index = self
@@ -3502,6 +4454,297 @@ impl ObjectBrowserApp {
 
     fn current_projection_view(&self) -> Option<&JsonProjectionView> {
         self.projection_stack.last()
+    }
+
+    fn open_filter_kind_picker(&mut self) {
+        self.filter_kind_picker = Some(FilterKindPickerState::new());
+        self.mode = UiMode::FilterKindPicker;
+        self.status_message = "Choose the kind of breadcrumb filter.".to_string();
+    }
+
+    fn open_value_filter_editor(&mut self, edit_index: Option<usize>, filter: ValueFilterView) {
+        self.value_filter_editor = Some(ValueFilterEditorState::new(edit_index, filter));
+        self.mode = UiMode::ValueFilterEditor;
+        self.status_message = "Configure the value filter, then save it.".to_string();
+    }
+
+    fn available_projection_fields(&self) -> BTreeSet<(String, String)> {
+        let mut fields = BTreeSet::new();
+        if let Some(view) = self.current_projection_view() {
+            if let Some(mut shape) = self
+                .slot_shape_name(view.root_slot_id)
+                .and_then(|shape_name| self.shape_for_shape_name(shape_name))
+            {
+                for segment in &view.path {
+                    let Some(next) = (match segment {
+                        JsonPathSegment::Field(name) => shape_field_shape(shape, name),
+                        JsonPathSegment::Index(_) => sequence_element_shape(shape),
+                        JsonPathSegment::Key(_) => registry_map_value_shape(shape),
+                    }) else {
+                        return fields;
+                    };
+                    shape = next;
+                }
+                fields.extend(projection_fields(shape));
+            }
+        } else {
+            for slot in &self.object_slots {
+                if let Some(shape) = self
+                    .slot_shape_name(slot.id)
+                    .and_then(|shape_name| self.shape_for_shape_name(shape_name))
+                {
+                    fields.extend(projection_fields(shape));
+                }
+            }
+        }
+        fields
+    }
+
+    fn open_value_filter_choice(&mut self, target: ValueFilterChoiceTarget) {
+        let Some(editor) = self.value_filter_editor.as_ref() else {
+            return;
+        };
+        let labels = match target {
+            ValueFilterChoiceTarget::FieldShape => {
+                let mut labels = self
+                    .available_projection_fields()
+                    .into_iter()
+                    .map(|(shape, _)| shape)
+                    .collect::<BTreeSet<_>>();
+                labels.insert("*".to_string());
+                labels.into_iter().collect()
+            }
+            ValueFilterChoiceTarget::FieldName => {
+                let selected_shape = editor.draft.field_shape.clone();
+                let mut labels = self
+                    .available_projection_fields()
+                    .into_iter()
+                    .filter_map(|(shape, name)| {
+                        (selected_shape == "*" || selected_shape == shape).then_some(name)
+                    })
+                    .collect::<BTreeSet<_>>();
+                labels.insert("*".to_string());
+                labels.into_iter().collect()
+            }
+            ValueFilterChoiceTarget::Operator => vec![
+                "equals".to_string(),
+                "not equals".to_string(),
+                "contains".to_string(),
+            ],
+            ValueFilterChoiceTarget::ExistingValue => self
+                .existing_value_filter_choices(&editor.draft.field_shape, &editor.draft.field_name),
+        };
+        if labels.is_empty() {
+            self.status_message = "No matching existing values were found.".to_string();
+            return;
+        }
+        self.value_filter_choice_picker = Some(ValueFilterChoicePickerState::new(target, labels));
+        self.mode = UiMode::ValueFilterChoicePicker;
+    }
+
+    fn existing_value_filter_choices(&self, field_shape: &str, field_name: &str) -> Vec<String> {
+        let mut values = BTreeSet::new();
+        if let Some(view) = self.current_projection_view() {
+            if let Some(value) = self.json_value_at_path(view.root_slot_id, &view.path) {
+                self.collect_existing_filter_values(
+                    view.root_slot_id,
+                    &view.path,
+                    value,
+                    field_shape,
+                    field_name,
+                    &mut values,
+                );
+            }
+        } else {
+            for slot in &self.object_slots {
+                if let Some(value) = self.json_value_at_path(slot.id, &[]) {
+                    self.collect_existing_filter_values(
+                        slot.id,
+                        &[],
+                        value,
+                        field_shape,
+                        field_name,
+                        &mut values,
+                    );
+                }
+            }
+        }
+        values.into_iter().collect()
+    }
+
+    fn collect_existing_filter_values(
+        &self,
+        root_slot_id: usize,
+        path: &[JsonPathSegment],
+        value: &Value,
+        field_shape: &str,
+        field_name: &str,
+        values: &mut BTreeSet<String>,
+    ) {
+        let shape_matches = field_shape == "*"
+            || self
+                .projection_shape_name_at_path(root_slot_id, path)
+                .is_some_and(|shape| shape == field_shape);
+        let name_matches = field_name == "*"
+            || path.last().is_some_and(|segment| match segment {
+                JsonPathSegment::Field(name) | JsonPathSegment::Key(name) => name == field_name,
+                JsonPathSegment::Index(_) => false,
+            });
+        if shape_matches && name_matches && !matches!(value, Value::Array(_) | Value::Object(_)) {
+            values.insert(match value {
+                Value::String(value) => value.clone(),
+                _ => value.to_string(),
+            });
+        }
+        match value {
+            Value::Array(items) => {
+                for (index, child) in items.iter().enumerate() {
+                    let child_path = append_json_path_segment(path, JsonPathSegment::Index(index));
+                    self.collect_existing_filter_values(
+                        root_slot_id,
+                        &child_path,
+                        child,
+                        field_shape,
+                        field_name,
+                        values,
+                    );
+                }
+            }
+            Value::Object(object) => {
+                let is_map = self.projection_path_is_map(root_slot_id, path);
+                for (name, child) in object {
+                    let segment = if is_map {
+                        JsonPathSegment::Key(name.clone())
+                    } else {
+                        JsonPathSegment::Field(name.clone())
+                    };
+                    let child_path = append_json_path_segment(path, segment);
+                    self.collect_existing_filter_values(
+                        root_slot_id,
+                        &child_path,
+                        child,
+                        field_shape,
+                        field_name,
+                        values,
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn apply_value_filter_editor(&mut self) {
+        let Some(mut editor) = self.value_filter_editor.take() else {
+            return;
+        };
+        if editor.source == ValueFilterSource::Literal {
+            editor.draft.value = editor
+                .literal_input
+                .lines()
+                .first()
+                .cloned()
+                .unwrap_or_default();
+        }
+        let filter = BreadcrumbFilter::Value(editor.draft);
+        if let Some(index) = editor.edit_index {
+            if let Some(existing) = self.breadcrumb_filters.get_mut(index) {
+                *existing = filter;
+            }
+        } else {
+            self.breadcrumb_filters.push(filter);
+        }
+        self.projection_cache.borrow_mut().clear();
+        self.mode = UiMode::Pool;
+        self.pool_surface = PoolSurface::Breadcrumbs;
+        self.active_breadcrumb_index = self.projection_stack.len() + self.breadcrumb_filters.len();
+        self.active_slot_index = 0;
+        self.active_row_index = 0;
+        self.sync_selection_viewports();
+        self.status_message = format!(
+            "Value filter applied; {} entries visible.",
+            self.total_slot_count()
+        );
+    }
+
+    fn open_shape_filter_picker(&mut self, edit_index: Option<usize>) {
+        let mut labels = BTreeSet::new();
+        if let Some(view) = self.current_projection_view() {
+            labels.extend(self.projection_shape_names_at_path(view.root_slot_id, &view.path));
+        } else {
+            for slot in &self.object_slots {
+                if let Some(shape) = self
+                    .slot_shape_name(slot.id)
+                    .and_then(|shape_name| self.shape_for_shape_name(shape_name))
+                {
+                    labels.extend(projection_shape_names(shape));
+                }
+            }
+        }
+        for (index, filter) in self.breadcrumb_filters.iter().enumerate() {
+            if Some(index) == edit_index {
+                continue;
+            }
+            if let BreadcrumbFilter::Shape(filter) = filter {
+                labels.retain(|label| filter.included_shapes.contains(label));
+            }
+        }
+        let labels = labels.into_iter().collect::<Vec<_>>();
+        if labels.is_empty() {
+            self.status_message = "The current view has no shapes to filter.".to_string();
+            return;
+        }
+        let included = edit_index
+            .and_then(|index| self.breadcrumb_filters.get(index))
+            .and_then(|filter| match filter {
+                BreadcrumbFilter::Shape(filter) => Some(filter.included_shapes.clone()),
+                BreadcrumbFilter::Value(_) => None,
+            })
+            .unwrap_or_default();
+        self.partition_picker = Some(PartitionPickerState::with_included_labels(
+            PartitionPickerTarget::ShapeFilter { edit_index },
+            labels,
+            &included,
+        ));
+        self.mode = UiMode::PartitionPicker;
+        self.pool_surface = PoolSurface::Slots;
+        self.status_message = "Move shapes to Included and press Enter.".to_string();
+    }
+
+    fn apply_partition_picker_selection(&mut self) {
+        let Some(picker) = self.partition_picker.take() else {
+            return;
+        };
+        let focused_filter_index = match picker.target {
+            PartitionPickerTarget::ShapeFilter { edit_index } => {
+                let filter = BreadcrumbFilter::Shape(ShapeFilterView {
+                    included_shapes: picker.included_labels(),
+                });
+                if let Some(index) = edit_index {
+                    if let Some(existing) = self.breadcrumb_filters.get_mut(index) {
+                        *existing = filter;
+                    }
+                    Some(index)
+                } else {
+                    self.breadcrumb_filters.push(filter);
+                    self.breadcrumb_filters.len().checked_sub(1)
+                }
+            }
+        };
+        self.projection_cache.borrow_mut().clear();
+        self.mode = UiMode::Pool;
+        self.pool_surface = PoolSurface::Breadcrumbs;
+        self.active_breadcrumb_index = self.projection_stack.len()
+            + 1
+            + focused_filter_index.unwrap_or(self.breadcrumb_filters.len());
+        self.active_slot_index = 0;
+        self.active_row_index = 0;
+        self.slot_view_offset = 0;
+        self.row_view_offset = 0;
+        self.sync_selection_viewports();
+        self.status_message = format!(
+            "Shape filter applied; {} entries visible.",
+            self.total_slot_count()
+        );
     }
 
     fn projection_view_slot_count(&self, view: &JsonProjectionView) -> usize {
@@ -3599,6 +4842,184 @@ impl ObjectBrowserApp {
         descendant_count
     }
 
+    fn filtered_projection_descendant_count(
+        &self,
+        root_slot_id: usize,
+        parent_path: &[JsonPathSegment],
+    ) -> usize {
+        if self.breadcrumb_filters.is_empty() {
+            return self.projection_descendant_count(root_slot_id, parent_path);
+        }
+        let cache_key = ProjectionCacheKey::new(root_slot_id, parent_path);
+        if let Some(cached_count) = self
+            .projection_cache
+            .borrow()
+            .filtered_descendant_counts
+            .get(&cache_key)
+            .copied()
+        {
+            return cached_count;
+        }
+        if !self.projection_filter_relation(root_slot_id, parent_path).1 {
+            self.projection_cache
+                .borrow_mut()
+                .filtered_descendant_counts
+                .insert(cache_key, 0);
+            return 0;
+        }
+
+        let Some(value) = self.json_value_at_path(root_slot_id, parent_path) else {
+            return 0;
+        };
+        let descendant_count = match value {
+            Value::Array(items) => {
+                let sample_path = append_json_path_segment(parent_path, JsonPathSegment::Index(0));
+                let (child_matches, child_has_matches_below) =
+                    self.projection_filter_relation(root_slot_id, &sample_path);
+                if !child_has_matches_below && !self.has_value_filters() {
+                    items.len() * usize::from(child_matches)
+                } else {
+                    (0..items.len())
+                        .map(|index| {
+                            let path = append_json_path_segment(
+                                parent_path,
+                                JsonPathSegment::Index(index),
+                            );
+                            usize::from(
+                                self.projection_path_matches_shape_filter(root_slot_id, &path),
+                            ) + self.filtered_projection_descendant_count(root_slot_id, &path)
+                        })
+                        .sum()
+                }
+            }
+            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
+                let sample_path =
+                    append_json_path_segment(parent_path, JsonPathSegment::Key(String::new()));
+                let (child_matches, child_has_matches_below) =
+                    self.projection_filter_relation(root_slot_id, &sample_path);
+                if !child_has_matches_below && !self.has_value_filters() {
+                    object.len() * usize::from(child_matches)
+                } else {
+                    object
+                        .keys()
+                        .map(|key| {
+                            let path = append_json_path_segment(
+                                parent_path,
+                                JsonPathSegment::Key(key.clone()),
+                            );
+                            usize::from(
+                                self.projection_path_matches_shape_filter(root_slot_id, &path),
+                            ) + self.filtered_projection_descendant_count(root_slot_id, &path)
+                        })
+                        .sum()
+                }
+            }
+            Value::Object(object) => object
+                .keys()
+                .map(|field_name| {
+                    let path = append_json_path_segment(
+                        parent_path,
+                        JsonPathSegment::Field(field_name.clone()),
+                    );
+                    usize::from(self.projection_path_matches_shape_filter(root_slot_id, &path))
+                        + self.filtered_projection_descendant_count(root_slot_id, &path)
+                })
+                .sum(),
+            _ => 0,
+        };
+
+        self.projection_cache
+            .borrow_mut()
+            .filtered_descendant_counts
+            .insert(cache_key, descendant_count);
+        descendant_count
+    }
+
+    fn filtered_projection_descendant_path_at(
+        &self,
+        root_slot_id: usize,
+        parent_path: &[JsonPathSegment],
+        child_index: usize,
+    ) -> Option<Vec<JsonPathSegment>> {
+        let value = self.json_value_at_path(root_slot_id, parent_path)?;
+        let mut remaining = child_index;
+
+        match value {
+            Value::Array(items) => {
+                let sample_path = append_json_path_segment(parent_path, JsonPathSegment::Index(0));
+                let (child_matches, child_has_matches_below) =
+                    self.projection_filter_relation(root_slot_id, &sample_path);
+                if !child_has_matches_below && !self.has_value_filters() {
+                    return (child_matches && remaining < items.len()).then(|| {
+                        append_json_path_segment(parent_path, JsonPathSegment::Index(remaining))
+                    });
+                }
+            }
+            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
+                let sample_path =
+                    append_json_path_segment(parent_path, JsonPathSegment::Key(String::new()));
+                let (child_matches, child_has_matches_below) =
+                    self.projection_filter_relation(root_slot_id, &sample_path);
+                if !child_has_matches_below && !self.has_value_filters() {
+                    let key = child_matches.then(|| object.keys().nth(remaining).cloned())??;
+                    return Some(append_json_path_segment(
+                        parent_path,
+                        JsonPathSegment::Key(key),
+                    ));
+                }
+            }
+            _ => {}
+        }
+
+        let mut visit_child = |path: Vec<JsonPathSegment>| {
+            if self.projection_path_matches_shape_filter(root_slot_id, &path) {
+                if remaining == 0 {
+                    return Some(path);
+                }
+                remaining -= 1;
+            }
+            let descendant_count = self.filtered_projection_descendant_count(root_slot_id, &path);
+            if remaining < descendant_count {
+                return self.filtered_projection_descendant_path_at(root_slot_id, &path, remaining);
+            }
+            remaining = remaining.saturating_sub(descendant_count);
+            None
+        };
+
+        match value {
+            Value::Array(items) => {
+                for index in 0..items.len() {
+                    let path = append_json_path_segment(parent_path, JsonPathSegment::Index(index));
+                    if let Some(path) = visit_child(path) {
+                        return Some(path);
+                    }
+                }
+            }
+            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
+                for key in object.keys() {
+                    let path =
+                        append_json_path_segment(parent_path, JsonPathSegment::Key(key.clone()));
+                    if let Some(path) = visit_child(path) {
+                        return Some(path);
+                    }
+                }
+            }
+            Value::Object(object) => {
+                for field_name in object.keys() {
+                    let path = append_json_path_segment(
+                        parent_path,
+                        JsonPathSegment::Field(field_name.clone()),
+                    );
+                    if let Some(path) = visit_child(path) {
+                        return Some(path);
+                    }
+                }
+            }
+            _ => {}
+        }
+        None
+    }
+
     fn projection_descendant_path_at(
         &self,
         root_slot_id: usize,
@@ -3667,6 +5088,262 @@ impl ObjectBrowserApp {
         }
     }
     fn pool_entry_at(&self, slot_index: usize) -> Option<PoolEntry> {
+        if self.breadcrumb_filters.is_empty() {
+            return self.pool_entry_at_unfiltered(slot_index);
+        }
+        let mut remaining = slot_index;
+        if let Some(view) = self.current_projection_view() {
+            if self.projection_path_matches_shape_filter(view.root_slot_id, &view.path) {
+                if remaining == 0 {
+                    return Some(PoolEntry::Projection(ProjectionSlot {
+                        root_slot_id: view.root_slot_id,
+                        path: view.path.clone(),
+                        role: ProjectionSlotRole::ContainerRoot,
+                    }));
+                }
+                remaining -= 1;
+            }
+            let path = self.filtered_projection_descendant_path_at(
+                view.root_slot_id,
+                &view.path,
+                remaining,
+            )?;
+            return Some(PoolEntry::Projection(ProjectionSlot {
+                root_slot_id: view.root_slot_id,
+                path,
+                role: ProjectionSlotRole::Child,
+            }));
+        }
+
+        for slot in &self.object_slots {
+            if self.real_slot_matches_shape_filter(slot.id) {
+                if remaining == 0 {
+                    return Some(PoolEntry::RealSlot(slot.id));
+                }
+                remaining -= 1;
+            }
+            let descendant_count = self.filtered_projection_descendant_count(slot.id, &[]);
+            if remaining < descendant_count {
+                let path = self.filtered_projection_descendant_path_at(slot.id, &[], remaining)?;
+                return Some(PoolEntry::Projection(ProjectionSlot {
+                    root_slot_id: slot.id,
+                    path,
+                    role: ProjectionSlotRole::Child,
+                }));
+            }
+            remaining = remaining.saturating_sub(descendant_count);
+        }
+
+        (remaining == 0).then_some(PoolEntry::NewSlot)
+    }
+
+    fn real_slot_matches_shape_filter(&self, slot_id: usize) -> bool {
+        let shape_name = self.slot_shape_name(slot_id);
+        self.breadcrumb_filters.iter().all(|filter| match filter {
+            BreadcrumbFilter::Shape(filter) => {
+                shape_name.is_some_and(|shape| filter.included_shapes.contains(shape))
+            }
+            BreadcrumbFilter::Value(filter) => self.value_filter_path_matches(slot_id, &[], filter),
+        })
+    }
+
+    fn projection_path_matches_shape_filter(
+        &self,
+        root_slot_id: usize,
+        path: &[JsonPathSegment],
+    ) -> bool {
+        let shape_name = self.projection_shape_name_at_path(root_slot_id, path);
+        self.breadcrumb_filters.iter().all(|filter| match filter {
+            BreadcrumbFilter::Shape(filter) => shape_name
+                .as_ref()
+                .is_some_and(|shape| filter.included_shapes.contains(shape)),
+            BreadcrumbFilter::Value(filter) => {
+                self.value_filter_path_matches(root_slot_id, path, filter)
+            }
+        })
+    }
+
+    fn projection_filter_relation(
+        &self,
+        root_slot_id: usize,
+        path: &[JsonPathSegment],
+    ) -> (bool, bool) {
+        let shape_filters = self
+            .breadcrumb_filters
+            .iter()
+            .filter_map(|filter| match filter {
+                BreadcrumbFilter::Shape(filter) => Some(filter),
+                BreadcrumbFilter::Value(_) => None,
+            });
+        let shape_filters = shape_filters.collect::<Vec<_>>();
+        if shape_filters.is_empty() {
+            return (true, true);
+        }
+        let Some(shape_name) = self.projection_shape_name_at_path(root_slot_id, path) else {
+            return (false, false);
+        };
+        if let Some(relation) = self
+            .projection_cache
+            .borrow()
+            .filter_shape_relations
+            .get(&shape_name)
+            .copied()
+        {
+            return relation;
+        }
+        let mut reachable_shapes = self.projection_shape_names_at_path(root_slot_id, path);
+        reachable_shapes.remove(&shape_name);
+        let relation = (
+            shape_filters
+                .iter()
+                .all(|filter| filter.included_shapes.contains(&shape_name)),
+            reachable_shapes.iter().any(|shape| {
+                shape_filters
+                    .iter()
+                    .all(|filter| filter.included_shapes.contains(shape))
+            }),
+        );
+        self.projection_cache
+            .borrow_mut()
+            .filter_shape_relations
+            .insert(shape_name, relation);
+        relation
+    }
+
+    fn has_value_filters(&self) -> bool {
+        self.breadcrumb_filters
+            .iter()
+            .any(|filter| matches!(filter, BreadcrumbFilter::Value(_)))
+    }
+
+    fn value_filter_matches(
+        &self,
+        filter: &ValueFilterView,
+        shape_name: Option<&str>,
+        field_name: Option<&str>,
+        value: Option<&Value>,
+    ) -> bool {
+        if filter.field_shape != "*" && shape_name.is_none_or(|shape| shape != filter.field_shape) {
+            return false;
+        }
+        if filter.field_name != "*" && field_name.is_none_or(|name| name != filter.field_name) {
+            return false;
+        }
+        let Some(value) = value else {
+            return false;
+        };
+        let candidate = match value {
+            Value::String(value) => value.clone(),
+            _ => value.to_string(),
+        };
+        match filter.operator {
+            ValueFilterOperator::Equals => candidate == filter.value,
+            ValueFilterOperator::NotEquals => candidate != filter.value,
+            ValueFilterOperator::Contains => candidate.contains(&filter.value),
+        }
+    }
+
+    fn value_filter_path_matches(
+        &self,
+        root_slot_id: usize,
+        path: &[JsonPathSegment],
+        filter: &ValueFilterView,
+    ) -> bool {
+        let cache_key = ValueFilterCacheKey {
+            root_slot_id,
+            filter: filter.clone(),
+        };
+        if !self
+            .projection_cache
+            .borrow()
+            .value_filter_match_roots
+            .contains_key(&cache_key)
+        {
+            let mut match_roots = HashSet::new();
+            if let Some(value) = self.json_value_at_path(root_slot_id, &[]) {
+                self.collect_value_filter_match_roots(
+                    root_slot_id,
+                    &[],
+                    value,
+                    filter,
+                    &mut match_roots,
+                );
+            }
+            self.projection_cache
+                .borrow_mut()
+                .value_filter_match_roots
+                .insert(cache_key.clone(), match_roots);
+        }
+        let cache = self.projection_cache.borrow();
+        let Some(match_roots) = cache.value_filter_match_roots.get(&cache_key) else {
+            return false;
+        };
+        (0..=path.len()).any(|prefix_len| match_roots.contains(&path[..prefix_len]))
+    }
+
+    fn collect_value_filter_match_roots(
+        &self,
+        root_slot_id: usize,
+        path: &[JsonPathSegment],
+        value: &Value,
+        filter: &ValueFilterView,
+        match_roots: &mut HashSet<Vec<JsonPathSegment>>,
+    ) {
+        match value {
+            Value::Array(items) => {
+                for (index, child) in items.iter().enumerate() {
+                    let child_path = append_json_path_segment(path, JsonPathSegment::Index(index));
+                    self.collect_value_filter_match_roots(
+                        root_slot_id,
+                        &child_path,
+                        child,
+                        filter,
+                        match_roots,
+                    );
+                }
+            }
+            Value::Object(object) => {
+                let is_map = self.projection_path_is_map(root_slot_id, path);
+                if !is_map {
+                    let object_matches = object.iter().any(|(field_name, field_value)| {
+                        let field_path = append_json_path_segment(
+                            path,
+                            JsonPathSegment::Field(field_name.clone()),
+                        );
+                        let shape_name =
+                            self.projection_shape_name_at_path(root_slot_id, &field_path);
+                        self.value_filter_matches(
+                            filter,
+                            shape_name.as_deref(),
+                            Some(field_name),
+                            Some(field_value),
+                        )
+                    });
+                    if object_matches {
+                        match_roots.insert(path.to_vec());
+                    }
+                }
+                for (name, child) in object {
+                    let segment = if is_map {
+                        JsonPathSegment::Key(name.clone())
+                    } else {
+                        JsonPathSegment::Field(name.clone())
+                    };
+                    let child_path = append_json_path_segment(path, segment);
+                    self.collect_value_filter_match_roots(
+                        root_slot_id,
+                        &child_path,
+                        child,
+                        filter,
+                        match_roots,
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn pool_entry_at_unfiltered(&self, slot_index: usize) -> Option<PoolEntry> {
         if let Some(view) = self.current_projection_view() {
             if slot_index == 0 {
                 return Some(PoolEntry::Projection(ProjectionSlot {
@@ -3717,7 +5394,7 @@ impl ObjectBrowserApp {
     ) -> Option<&'a Value> {
         let data_slot_id = self.data_slot_id_for(root_slot_id).unwrap_or(root_slot_id);
         let slot = self.slot_by_id(data_slot_id)?;
-        let SlotRuntimeState::ResolvedValue { value, .. } = slot.runtime_state.as_ref()? else {
+        let SlotValueState::ResolvedValue { value, .. } = &slot.value_state else {
             return None;
         };
         let mut current = value;
@@ -3745,8 +5422,7 @@ impl ObjectBrowserApp {
     ) -> Option<String> {
         let mut current_shape = self
             .slot_shape_name(root_slot_id)
-            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
-            .map(|thing| thing.shape)?;
+            .and_then(|shape_name| self.shape_for_shape_name(shape_name))?;
 
         for segment in path {
             current_shape = match segment {
@@ -3759,10 +5435,33 @@ impl ObjectBrowserApp {
         Some(describe_shape(current_shape))
     }
 
+    fn projection_shape_names_at_path(
+        &self,
+        root_slot_id: usize,
+        path: &[JsonPathSegment],
+    ) -> BTreeSet<String> {
+        let Some(mut current_shape) = self
+            .slot_shape_name(root_slot_id)
+            .and_then(|shape_name| self.shape_for_shape_name(shape_name))
+        else {
+            return BTreeSet::new();
+        };
+        for segment in path {
+            let Some(next_shape) = (match segment {
+                JsonPathSegment::Field(field_name) => shape_field_shape(current_shape, field_name),
+                JsonPathSegment::Index(_) => sequence_element_shape(current_shape),
+                JsonPathSegment::Key(_) => registry_map_value_shape(current_shape),
+            }) else {
+                return BTreeSet::new();
+            };
+            current_shape = next_shape;
+        }
+        projection_shape_names(current_shape)
+    }
+
     fn projection_path_is_map(&self, root_slot_id: usize, path: &[JsonPathSegment]) -> bool {
         self.slot_shape_name(root_slot_id)
-            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
-            .map(|thing| thing.shape)
+            .and_then(|shape_name| self.shape_for_shape_name(shape_name))
             .and_then(|mut current_shape| {
                 for segment in path {
                     current_shape = match segment {
@@ -3787,8 +5486,7 @@ impl ObjectBrowserApp {
         field_value: &Value,
     ) -> String {
         self.slot_shape_name(root_slot_id)
-            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
-            .map(|thing| thing.shape)
+            .and_then(|shape_name| self.shape_for_shape_name(shape_name))
             .and_then(|mut current_shape| {
                 for segment in path {
                     current_shape = match segment {
@@ -3812,8 +5510,7 @@ impl ObjectBrowserApp {
         entry_value: &Value,
     ) -> String {
         self.slot_shape_name(root_slot_id)
-            .and_then(|shape_name| self.thing_for_shape_name(shape_name))
-            .map(|thing| thing.shape)
+            .and_then(|shape_name| self.shape_for_shape_name(shape_name))
             .and_then(|mut current_shape| {
                 for segment in path {
                     current_shape = match segment {
@@ -3851,6 +5548,8 @@ impl ObjectBrowserApp {
         };
 
         if matches!(value, Value::Array(_) | Value::Object(_)) {
+            self.breadcrumb_filters.clear();
+            self.projection_cache.borrow_mut().clear();
             self.projection_stack
                 .push(JsonProjectionView { root_slot_id, path });
             self.active_slot_index = 0;
@@ -3972,13 +5671,27 @@ impl ObjectBrowserApp {
             self.ensure_active_row_visible();
         }
         let scroll_offset = if is_active { self.row_view_offset } else { 0 };
-        let rendered_line_count = self.projection_rendered_line_count(projection);
+        let active_search = is_active
+            .then(|| self.projection_search.as_ref())
+            .flatten()
+            .filter(|search| search.projection == *projection);
+        let rendered_line_count = active_search
+            .map(|search| search.filtered_matches.len().max(1))
+            .unwrap_or_else(|| self.projection_rendered_line_count(projection));
         let visible_line_count = usize::from(inner.height).max(1);
-        let lines = self.projection_slot_lines_window(
-            projection,
-            is_active.then_some(self.active_row_index),
-            scroll_offset..scroll_offset.saturating_add(visible_line_count),
-        );
+        let lines = if let Some(search) = active_search {
+            render_projection_search_matches(&search.filtered_matches, search.selected_match_index)
+                .into_iter()
+                .skip(scroll_offset)
+                .take(visible_line_count)
+                .collect()
+        } else {
+            self.projection_slot_lines_window(
+                projection,
+                is_active.then_some(self.active_row_index),
+                scroll_offset..scroll_offset.saturating_add(visible_line_count),
+            )
+        };
         let paragraph = Paragraph::new(lines.clone()).block(block);
         frame.render_widget(paragraph, area);
 
@@ -4170,11 +5883,25 @@ impl ObjectBrowserApp {
                 .iter()
                 .find(|shape| shape.label == input_shape_name)
                 .map(shape_preview_lines),
+            FieldPickerChoice::InvokeDefaultProducer {
+                input_shape_name, ..
+            }
+            | FieldPickerChoice::InvokeArbitraryProducer {
+                input_shape_name, ..
+            } => self
+                .shape_choices
+                .iter()
+                .find(|shape| shape.label == input_shape_name)
+                .map(shape_preview_lines),
             FieldPickerChoice::CreateNew => self
                 .shape_choices
                 .iter()
                 .find(|shape| shape.label == required_shape_name)
                 .map(shape_preview_lines),
+            FieldPickerChoice::CreateNewVariant { variant_index, .. } => self
+                .thing_for_shape_name(&required_shape_name)
+                .and_then(|thing| shape_variants_for_thing(thing).get(variant_index).cloned())
+                .map(|variant| variant_preview_lines(&required_shape_name, &variant)),
         }
     }
 
@@ -4331,6 +6058,68 @@ impl ObjectBrowserApp {
             .collect()
     }
 
+    fn projection_search_matches(
+        &self,
+        projection: &ProjectionSlot,
+        query: &str,
+    ) -> Vec<ProjectionSearchMatch> {
+        let Some(value) = self.projection_value(projection) else {
+            return Vec::new();
+        };
+        let mut rows = vec![(
+            0,
+            vec![Span::raw(format!(
+                "{} {}",
+                self.projection_header_label(projection, value),
+                json_value_summary(value)
+            ))],
+        )];
+        if let Value::Object(object) = value {
+            let is_map = self.projection_path_is_map(projection.root_slot_id, &projection.path);
+            for (index, (name, field_value)) in object.iter().enumerate() {
+                let type_label = if is_map {
+                    self.projection_map_entry_type_label(
+                        projection.root_slot_id,
+                        &projection.path,
+                        field_value,
+                    )
+                } else {
+                    self.projection_field_type_label(
+                        projection.root_slot_id,
+                        &projection.path,
+                        name,
+                        field_value,
+                    )
+                };
+                rows.push((1 + index * 2, vec![Span::raw(format!("type {type_label}"))]));
+                rows.push((
+                    2 + index * 2,
+                    vec![Span::raw(format!(
+                        "{name}: {}",
+                        json_value_summary(field_value)
+                    ))],
+                ));
+            }
+        }
+        let labels = rows
+            .iter()
+            .map(|(_, spans)| spans_plain_text(spans))
+            .collect::<Vec<_>>();
+        ranked_slot_search_indices(query, &labels)
+            .into_iter()
+            .filter_map(|index| {
+                let (row_index, spans) = rows.get(index)?.clone();
+                let matched_indices =
+                    match_indices(query, &spans_plain_text(&spans)).unwrap_or_default();
+                Some(ProjectionSearchMatch {
+                    row_index,
+                    spans,
+                    matched_indices,
+                })
+            })
+            .collect()
+    }
+
     fn slot_search_label(
         &self,
         slot_id: usize,
@@ -4387,9 +6176,10 @@ impl ObjectBrowserApp {
     fn slot_border_style(&self, slot_id: usize, is_active: bool) -> Style {
         if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
             let color = match runtime_state {
-                SlotRuntimeState::Pending(_) => Color::Yellow,
-                SlotRuntimeState::ResolvedValue { .. } => Color::Green,
-                SlotRuntimeState::Failed { .. } => Color::Red,
+                SlotValueState::Pending(_) => Color::Yellow,
+                SlotValueState::ResolvedValue { .. } => Color::Green,
+                SlotValueState::Failed { .. } => Color::Red,
+                SlotValueState::Building(_) => unreachable!("builders are filtered out"),
             };
             return slot_border_style(color, is_active);
         }
@@ -4411,9 +6201,10 @@ impl ObjectBrowserApp {
     fn slot_completion(&self, slot_id: usize) -> SlotCompletion {
         if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
             return match runtime_state {
-                SlotRuntimeState::Pending(_) => SlotCompletion::Partial,
-                SlotRuntimeState::ResolvedValue { .. } => SlotCompletion::Complete,
-                SlotRuntimeState::Failed { .. } => SlotCompletion::Unset,
+                SlotValueState::Pending(_) => SlotCompletion::Partial,
+                SlotValueState::ResolvedValue { .. } => SlotCompletion::Complete,
+                SlotValueState::Failed { .. } => SlotCompletion::Unset,
+                SlotValueState::Building(_) => unreachable!("builders are filtered out"),
             };
         }
         let Some(shape_name) = self.slot_shape_name(slot_id) else {
@@ -4450,10 +6241,11 @@ impl ObjectBrowserApp {
         }
     }
 
-    fn slot_runtime_state(&self, slot_id: usize) -> Option<&SlotRuntimeState> {
+    fn slot_runtime_state(&self, slot_id: usize) -> Option<&SlotValueState> {
         let data_slot_id = self.data_slot_id_for(slot_id)?;
         self.slot_by_id(data_slot_id)
-            .and_then(|slot| slot.runtime_state.as_ref())
+            .map(|slot| &slot.value_state)
+            .filter(|state| !matches!(state, SlotValueState::Building(_)))
     }
 
     fn result_slot_label(&self, slot_id: usize) -> String {
@@ -4461,11 +6253,11 @@ impl ObjectBrowserApp {
             return format!("slot {slot_id}");
         };
         let shape_name = slot.shape_name.as_deref().unwrap_or("unset");
-        let status = match slot.runtime_state.as_ref() {
-            Some(SlotRuntimeState::Pending(_)) => "pending",
-            Some(SlotRuntimeState::ResolvedValue { .. }) => "resolved",
-            Some(SlotRuntimeState::Failed { .. }) => "failed",
-            None => "ready",
+        let status = match &slot.value_state {
+            SlotValueState::Pending(_) => "pending",
+            SlotValueState::ResolvedValue { .. } => "resolved",
+            SlotValueState::Failed { .. } => "failed",
+            SlotValueState::Building(_) => "ready",
         };
         format!("slot {} [{}] - {}", slot.id, status, shape_name)
     }
@@ -4481,6 +6273,10 @@ enum UiMode {
     ArbitrarySourcePicker,
     FunctionPicker,
     LinkActionPicker,
+    PartitionPicker,
+    FilterKindPicker,
+    ValueFilterEditor,
+    ValueFilterChoicePicker,
     RenameSlot,
 }
 
@@ -4511,6 +6307,42 @@ struct JsonProjectionView {
     path: Vec<JsonPathSegment>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ShapeFilterView {
+    included_shapes: BTreeSet<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum BreadcrumbFilter {
+    Shape(ShapeFilterView),
+    Value(ValueFilterView),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct ValueFilterView {
+    field_shape: String,
+    field_name: String,
+    operator: ValueFilterOperator,
+    value: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+enum ValueFilterOperator {
+    Equals,
+    NotEquals,
+    Contains,
+}
+
+impl ValueFilterOperator {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Equals => "equals",
+            Self::NotEquals => "not equals",
+            Self::Contains => "contains",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 enum JsonPathSegment {
     Field(String),
@@ -4536,12 +6368,24 @@ impl ProjectionCacheKey {
 #[derive(Default)]
 struct ProjectionCache {
     descendant_counts: HashMap<ProjectionCacheKey, usize>,
+    filtered_descendant_counts: HashMap<ProjectionCacheKey, usize>,
+    filter_shape_relations: HashMap<String, (bool, bool)>,
+    value_filter_match_roots: HashMap<ValueFilterCacheKey, HashSet<Vec<JsonPathSegment>>>,
 }
 
 impl ProjectionCache {
     fn clear(&mut self) {
         self.descendant_counts.clear();
+        self.filtered_descendant_counts.clear();
+        self.filter_shape_relations.clear();
+        self.value_filter_match_roots.clear();
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct ValueFilterCacheKey {
+    root_slot_id: usize,
+    filter: ValueFilterView,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -4610,6 +6454,13 @@ struct SlotInlink {
 }
 
 #[derive(Clone, Debug)]
+struct MaterializedFieldState {
+    info: ShapeFieldInfo,
+    value: Value,
+    projection_path: Vec<JsonPathSegment>,
+}
+
+#[derive(Clone, Debug)]
 struct SlotSearchMatch {
     target: SlotFocusTarget,
     spans: Vec<Span<'static>>,
@@ -4620,6 +6471,20 @@ struct SlotSearchState {
     slot_id: usize,
     query: TextArea<'static>,
     filtered_matches: Vec<SlotSearchMatch>,
+    selected_match_index: usize,
+}
+
+#[derive(Clone, Debug)]
+struct ProjectionSearchMatch {
+    row_index: usize,
+    spans: Vec<Span<'static>>,
+    matched_indices: Vec<u32>,
+}
+
+struct ProjectionSlotSearchState {
+    projection: ProjectionSlot,
+    query: TextArea<'static>,
+    filtered_matches: Vec<ProjectionSearchMatch>,
     selected_match_index: usize,
 }
 
@@ -4697,12 +6562,14 @@ impl PickerSearchState {
             _ => {}
         }
 
-        let previous_selection = self.selected_filtered_index();
+        let previous_query = self.query.lines().join("\n");
         if self.query.input(key) {
             let query = self.query.lines().join("\n");
-            self.filtered_indices = filter_indices(&query, labels);
-            self.select_preferred(previous_selection);
-            self.preview_scroll = 0;
+            if query != previous_query {
+                self.filtered_indices = filter_indices(&query, labels);
+                self.select_preferred(None);
+                self.preview_scroll = 0;
+            }
         }
 
         PickerSearchAction::None
@@ -4960,7 +6827,19 @@ enum FieldPickerChoice {
         input_shape_name: String,
         function_label: String,
     },
+    InvokeDefaultProducer {
+        input_shape_name: String,
+        function_label: String,
+    },
+    InvokeArbitraryProducer {
+        input_shape_name: String,
+        function_label: String,
+    },
     CreateNew,
+    CreateNewVariant {
+        variant_index: usize,
+        variant_name: String,
+    },
 }
 
 fn field_picker_choice_is_arbitrary_producer(choice: &FieldPickerChoice) -> bool {
@@ -4971,6 +6850,14 @@ fn field_picker_choice_is_arbitrary_producer(choice: &FieldPickerChoice) -> bool
             ..
         } if input_shape_name == "ArbitraryBytes"
     )
+}
+
+fn reflected_field_default_is_materializable(field: &ShapeFieldInfo) -> bool {
+    field.has_default
+        && field
+            .default_value_label
+            .as_deref()
+            .is_some_and(|label| label != "<default>")
 }
 
 struct RenameSlotState {
@@ -5039,6 +6926,200 @@ enum LinkAction {
     Clone,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PartitionPickerTarget {
+    ShapeFilter { edit_index: Option<usize> },
+}
+
+struct FilterKindPickerState {
+    labels: Vec<String>,
+    search: PickerSearchState,
+}
+
+impl FilterKindPickerState {
+    fn new() -> Self {
+        let labels = vec!["filter shape".to_string(), "filter value".to_string()];
+        let mut search = PickerSearchState::new();
+        search.reset(&labels, Some(0));
+        Self { labels, search }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ValueFilterSource {
+    Existing,
+    Literal,
+}
+
+impl ValueFilterSource {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Existing => "choose from existing",
+            Self::Literal => "literal",
+        }
+    }
+}
+
+struct ValueFilterEditorState {
+    edit_index: Option<usize>,
+    draft: ValueFilterView,
+    source: ValueFilterSource,
+    active_row: usize,
+    literal_input: TextArea<'static>,
+}
+
+impl ValueFilterEditorState {
+    fn new(edit_index: Option<usize>, draft: ValueFilterView) -> Self {
+        let literal_input = build_text_area(&draft.value);
+        Self {
+            edit_index,
+            draft,
+            source: ValueFilterSource::Existing,
+            active_row: 0,
+            literal_input,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ValueFilterChoiceTarget {
+    FieldShape,
+    FieldName,
+    Operator,
+    ExistingValue,
+}
+
+struct ValueFilterChoicePickerState {
+    target: ValueFilterChoiceTarget,
+    labels: Vec<String>,
+    search: PickerSearchState,
+}
+
+impl ValueFilterChoicePickerState {
+    fn new(target: ValueFilterChoiceTarget, labels: Vec<String>) -> Self {
+        let mut search = PickerSearchState::new();
+        search.reset(&labels, Some(0));
+        Self {
+            target,
+            labels,
+            search,
+        }
+    }
+}
+
+struct PartitionPickerState {
+    target: PartitionPickerTarget,
+    labels: Vec<String>,
+    included_indices: BTreeSet<usize>,
+    selected_indices: BTreeSet<usize>,
+    range_anchor: Option<usize>,
+    search: PickerSearchState,
+}
+
+impl PartitionPickerState {
+    fn new(target: PartitionPickerTarget, labels: Vec<String>) -> Self {
+        let mut search = PickerSearchState::new();
+        search.reset(&labels, Some(0));
+        let selected_indices = search.selected_filtered_index().into_iter().collect();
+        Self {
+            target,
+            labels,
+            included_indices: BTreeSet::new(),
+            selected_indices,
+            range_anchor: search.selected_filtered_index(),
+            search,
+        }
+    }
+
+    fn with_included_labels(
+        target: PartitionPickerTarget,
+        labels: Vec<String>,
+        included_labels: &BTreeSet<String>,
+    ) -> Self {
+        let mut picker = Self::new(target, labels);
+        picker.included_indices = picker
+            .labels
+            .iter()
+            .enumerate()
+            .filter_map(|(index, label)| included_labels.contains(label).then_some(index))
+            .collect();
+        picker
+    }
+
+    fn current_index(&self) -> Option<usize> {
+        self.search.selected_filtered_index()
+    }
+
+    fn reset_selection_to_current(&mut self) {
+        self.selected_indices.clear();
+        if let Some(index) = self.current_index() {
+            self.selected_indices.insert(index);
+            self.range_anchor = Some(index);
+        }
+    }
+
+    fn extend_selection_to_current(&mut self) {
+        let Some(anchor) = self.range_anchor else {
+            self.reset_selection_to_current();
+            return;
+        };
+        let Some(current) = self.current_index() else {
+            return;
+        };
+        let Some(anchor_position) = self
+            .search
+            .filtered_indices
+            .iter()
+            .position(|index| *index == anchor)
+        else {
+            self.reset_selection_to_current();
+            return;
+        };
+        let Some(current_position) = self
+            .search
+            .filtered_indices
+            .iter()
+            .position(|index| *index == current)
+        else {
+            return;
+        };
+        let start = anchor_position.min(current_position);
+        let end = anchor_position.max(current_position);
+        self.selected_indices = self.search.filtered_indices[start..=end]
+            .iter()
+            .copied()
+            .collect();
+    }
+
+    fn move_selected(&mut self, include: bool) {
+        for index in &self.selected_indices {
+            if include {
+                self.included_indices.insert(*index);
+            } else {
+                self.included_indices.remove(index);
+            }
+        }
+    }
+
+    fn toggle_selected(&mut self) {
+        let include = self
+            .current_index()
+            .is_some_and(|index| !self.included_indices.contains(&index));
+        self.move_selected(include);
+    }
+
+    fn select_all_filtered(&mut self) {
+        self.selected_indices = self.search.filtered_indices.iter().copied().collect();
+    }
+
+    fn included_labels(&self) -> BTreeSet<String> {
+        self.included_indices
+            .iter()
+            .filter_map(|index| self.labels.get(*index).cloned())
+            .collect()
+    }
+}
+
 #[derive(Clone, Debug)]
 enum SlotDisplayRow {
     Static(Line<'static>),
@@ -5051,12 +7132,18 @@ enum SlotDisplayRow {
 struct SlotSnapshot {
     name: Option<String>,
     shape_name: Option<String>,
-    body: SlotBody,
-    value_json: Option<String>,
+    value_state: SlotSnapshotValueState,
+}
+
+#[derive(Clone, Debug)]
+enum SlotSnapshotValueState {
+    Building(SlotBody),
+    ResolvedValue { json: String, value: Value },
 }
 
 #[derive(Debug)]
-enum SlotRuntimeState {
+enum SlotValueState {
+    Building(SlotBody),
     Pending(PendingInvocationState),
     ResolvedValue { json: String, value: Value },
     Failed { message: String },
@@ -5074,11 +7161,10 @@ struct ObjectSlot {
     name: Option<String>,
     kind: SlotKind,
     shape_name: Option<String>,
-    body: SlotBody,
+    value_state: SlotValueState,
     result_slot_ids: Vec<usize>,
     created_for: Option<SlotCreatedFor>,
     produced_by_slot_id: Option<usize>,
-    runtime_state: Option<SlotRuntimeState>,
     display_cache: Option<Vec<SlotDisplayRow>>,
 }
 
@@ -5089,15 +7175,15 @@ impl ObjectSlot {
             name: snapshot.name,
             kind: SlotKind::Owned,
             shape_name: snapshot.shape_name,
-            body: snapshot.body,
+            value_state: match snapshot.value_state {
+                SlotSnapshotValueState::Building(body) => SlotValueState::Building(body),
+                SlotSnapshotValueState::ResolvedValue { json, value } => {
+                    SlotValueState::ResolvedValue { json, value }
+                }
+            },
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: snapshot.value_json.and_then(|json| {
-                serde_json::from_str::<Value>(&json)
-                    .ok()
-                    .map(|value| SlotRuntimeState::ResolvedValue { json, value })
-            }),
             display_cache: None,
         }
     }
@@ -5108,11 +7194,10 @@ impl ObjectSlot {
             name: None,
             kind: SlotKind::Owned,
             shape_name: None,
-            body: SlotBody::Unset,
+            value_state: SlotValueState::Building(SlotBody::Unset),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: None,
             display_cache: None,
         }
     }
@@ -5123,11 +7208,10 @@ impl ObjectSlot {
             name: None,
             kind: SlotKind::Owned,
             shape_name: Some(shape_name),
-            body: SlotBody::Unset,
+            value_state: SlotValueState::Pending(pending),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: Some(SlotRuntimeState::Pending(pending)),
             display_cache: None,
         }
     }
@@ -5138,11 +7222,10 @@ impl ObjectSlot {
             name: None,
             kind: SlotKind::Owned,
             shape_name: Some(shape_name),
-            body: SlotBody::Unset,
+            value_state: SlotValueState::ResolvedValue { json, value },
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: Some(SlotRuntimeState::ResolvedValue { json, value }),
             display_cache: None,
         }
     }
@@ -5164,11 +7247,10 @@ impl ObjectSlot {
                 field_name,
             }),
             shape_name: None,
-            body: SlotBody::Unset,
+            value_state: SlotValueState::Building(SlotBody::Unset),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: None,
             display_cache: None,
         }
     }
@@ -5181,11 +7263,11 @@ impl ObjectSlot {
             .map(ObjectVariantState::new)
             .collect::<Vec<_>>();
         if !variants.is_empty() {
-            self.body = SlotBody::Enum {
+            self.value_state = SlotValueState::Building(SlotBody::Enum {
                 variants,
                 selected_variant: None,
                 fields: Vec::new(),
-            };
+            });
             return;
         }
 
@@ -5193,7 +7275,21 @@ impl ObjectSlot {
             .into_iter()
             .map(ObjectFieldState::new)
             .collect::<Vec<_>>();
-        self.body = SlotBody::Struct { fields };
+        self.value_state = SlotValueState::Building(SlotBody::Struct { fields });
+    }
+
+    fn building_body(&self) -> Option<&SlotBody> {
+        match &self.value_state {
+            SlotValueState::Building(body) => Some(body),
+            _ => None,
+        }
+    }
+
+    fn building_body_mut(&mut self) -> Option<&mut SlotBody> {
+        match &mut self.value_state {
+            SlotValueState::Building(body) => Some(body),
+            _ => None,
+        }
     }
 
     fn variant_picker_seed(&self) -> Option<(String, Vec<ShapeVariantInfo>, Option<usize>)> {
@@ -5202,7 +7298,7 @@ impl ObjectSlot {
             variants,
             selected_variant,
             ..
-        } = &self.body
+        } = self.building_body()?
         else {
             return None;
         };
@@ -5222,7 +7318,7 @@ impl ObjectSlot {
             variants,
             selected_variant,
             fields,
-        } = &mut self.body
+        } = self.building_body_mut()?
         else {
             return None;
         };
@@ -5238,7 +7334,10 @@ impl ObjectSlot {
     }
 
     fn default_focus_target(&self) -> SlotFocusTarget {
-        match &self.body {
+        let Some(body) = self.building_body() else {
+            return SlotFocusTarget::RuntimeValue;
+        };
+        match body {
             SlotBody::Unset => SlotFocusTarget::Shape,
             SlotBody::Struct { fields } if fields.is_empty() => SlotFocusTarget::Shape,
             SlotBody::Struct { .. } => SlotFocusTarget::FieldValue(0),
@@ -5252,14 +7351,14 @@ impl ObjectSlot {
     }
 
     fn field(&self, field_index: usize) -> Option<&ObjectFieldState> {
-        match &self.body {
+        match self.building_body()? {
             SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => fields.get(field_index),
             SlotBody::Unset => None,
         }
     }
 
     fn field_mut(&mut self, field_index: usize) -> Option<&mut ObjectFieldState> {
-        match &mut self.body {
+        match self.building_body_mut()? {
             SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => {
                 fields.get_mut(field_index)
             }
@@ -5390,6 +7489,40 @@ fn field_rows(fields: &[ObjectFieldState]) -> Vec<SlotDisplayRow> {
     rows
 }
 
+fn materialized_field_rows(fields: &[MaterializedFieldState]) -> Vec<SlotDisplayRow> {
+    let mut rows = Vec::with_capacity(fields.len() * 2);
+    for (index, field) in fields.iter().enumerate() {
+        let accent = field_group_color(index);
+        rows.push(focusable_spans_row(
+            SlotFocusTarget::FieldType(index),
+            vec![
+                Span::styled(
+                    "type ",
+                    Style::default().fg(accent).add_modifier(Modifier::DIM),
+                ),
+                Span::styled(
+                    field.info.field_shape_name.clone(),
+                    Style::default().fg(accent).add_modifier(Modifier::DIM),
+                ),
+            ],
+        ));
+        rows.push(focusable_spans_row(
+            SlotFocusTarget::FieldValue(index),
+            vec![
+                Span::styled(
+                    format!("{}: ", field.info.field_name),
+                    Style::default().fg(accent),
+                ),
+                Span::styled(
+                    json_value_summary(&field.value),
+                    Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                ),
+            ],
+        ));
+    }
+    rows
+}
+
 fn shape_row(shape_name: Option<&str>) -> SlotDisplayRow {
     match shape_name {
         Some(shape_name) => focusable_plain_row(SlotFocusTarget::Shape, shape_name.to_string()),
@@ -5438,19 +7571,19 @@ fn variant_row(variants: &[ObjectVariantState], selected_variant: Option<usize>)
     focusable_spans_row(SlotFocusTarget::Variant, spans)
 }
 
-fn runtime_state_rows(runtime_state: &SlotRuntimeState) -> Vec<SlotDisplayRow> {
+fn runtime_state_rows(runtime_state: &SlotValueState) -> Vec<SlotDisplayRow> {
     match runtime_state {
-        SlotRuntimeState::Pending(_) => {
+        SlotValueState::Pending(_) => {
             vec![SlotDisplayRow::Static(Line::from(
                 "  pending invocation...",
             ))]
         }
-        SlotRuntimeState::Failed { message } => vec![SlotDisplayRow::Static(Line::from(vec![
+        SlotValueState::Failed { message } => vec![SlotDisplayRow::Static(Line::from(vec![
             Span::raw("  "),
             Span::styled("failed", unset_style()),
             Span::raw(format!(": {message}")),
         ]))],
-        SlotRuntimeState::ResolvedValue { value, .. } => vec![focusable_spans_row(
+        SlotValueState::ResolvedValue { value, .. } => vec![focusable_spans_row(
             SlotFocusTarget::RuntimeValue,
             vec![
                 Span::styled(
@@ -5462,6 +7595,7 @@ fn runtime_state_rows(runtime_state: &SlotRuntimeState) -> Vec<SlotDisplayRow> {
                 Span::raw(json_value_summary(value)),
             ],
         )],
+        SlotValueState::Building(_) => Vec::new(),
     }
 }
 
@@ -5500,6 +7634,30 @@ fn render_slot_search_matches(
         ))];
     }
 
+    matches
+        .iter()
+        .enumerate()
+        .map(|(index, matched)| {
+            selectable_spans_line(
+                highlight_matched_spans(&matched.spans, &matched.matched_indices),
+                index == selected_match_index,
+            )
+        })
+        .collect()
+}
+
+fn render_projection_search_matches(
+    matches: &[ProjectionSearchMatch],
+    selected_match_index: usize,
+) -> Vec<Line<'static>> {
+    if matches.is_empty() {
+        return vec![Line::from(Span::styled(
+            "  no matches",
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::DIM),
+        ))];
+    }
     matches
         .iter()
         .enumerate()
@@ -6047,9 +8205,11 @@ mod tests {
     use cloud_terrastodon_registry::describe_shape;
     use cloud_terrastodon_registry::known_shapes;
     use facet::Facet;
+    use ratatui::crossterm::event::Event;
     use ratatui::crossterm::event::KeyCode;
     use ratatui::crossterm::event::KeyEvent;
     use ratatui::crossterm::event::KeyModifiers;
+    use std::collections::BTreeSet;
     use std::future::Future;
     use std::future::IntoFuture;
 
@@ -6123,7 +8283,10 @@ mod tests {
         app.apply_shape_selection();
 
         assert_eq!(app.active_row_index, 1);
-        assert!(matches!(app.object_slots[0].body, SlotBody::Enum { .. }));
+        assert!(matches!(
+            app.object_slots[0].value_state,
+            super::SlotValueState::Building(SlotBody::Enum { .. })
+        ));
     }
 
     #[test]
@@ -6194,6 +8357,46 @@ mod tests {
                 .contains(&FieldPickerChoice::ExistingSlot { slot_id: 1 })
         );
         assert!(picker.choices.contains(&FieldPickerChoice::CreateNew));
+        for variant_name in ["Default", "Id", "Alias"] {
+            assert!(picker.choices.iter().any(|choice| matches!(
+                choice,
+                FieldPickerChoice::CreateNewVariant {
+                    variant_name: candidate,
+                    ..
+                } if candidate == variant_name
+            )));
+        }
+
+        let default_choice_index = picker
+            .choices
+            .iter()
+            .position(|choice| {
+                matches!(
+                    choice,
+                    FieldPickerChoice::CreateNewVariant { variant_name, .. }
+                        if variant_name == "Default"
+                )
+            })
+            .expect("Default variant choice should be present");
+        app.field_picker
+            .as_mut()
+            .expect("field picker should remain open")
+            .search
+            .list_state
+            .select(Some(default_choice_index));
+        app.apply_field_picker_selection();
+
+        let linked_slot_id = match app.slot_field(2, 0).map(|field| field.value_state) {
+            Some(super::FieldValueState::Linked { slot_id }) => slot_id,
+            other => panic!("expected linked Default variant, got {other:?}"),
+        };
+        let (_, variants, selected_variant) = app
+            .slot_variant_picker_seed(linked_slot_id)
+            .expect("linked AzureTenantArgument should retain enum state");
+        assert_eq!(
+            selected_variant.map(|index| variants[index].variant_name),
+            Some("Default")
+        );
     }
 
     #[test]
@@ -6222,6 +8425,47 @@ mod tests {
             FieldPickerChoice::CreateProducer { input_shape_name, .. }
                 if input_shape_name == "AzureTenantIdResolveRequest"
         )));
+        assert!(picker.choices.iter().any(|choice| matches!(
+            choice,
+            FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. }
+                if input_shape_name == "AzureTenantIdResolveRequest"
+        )));
+        assert!(picker.choices.iter().any(|choice| matches!(
+            choice,
+            FieldPickerChoice::InvokeArbitraryProducer { input_shape_name, .. }
+                if input_shape_name == "AzureTenantIdResolveRequest"
+        )));
+        assert_eq!(
+            app.default_json_for_shape("AzureTenantIdResolveRequest")
+                .expect("the request should support reflected default construction"),
+            serde_json::json!({ "tenant": "Default" })
+        );
+
+        let arbitrary_request_choice = picker
+            .choices
+            .iter()
+            .position(|choice| {
+                matches!(
+                    choice,
+                    FieldPickerChoice::InvokeArbitraryProducer { input_shape_name, .. }
+                        if input_shape_name == "AzureTenantIdResolveRequest"
+                )
+            })
+            .expect("arbitrary request shortcut should be selectable");
+        app.field_picker
+            .as_mut()
+            .expect("field picker should remain open")
+            .search
+            .list_state
+            .select(Some(arbitrary_request_choice));
+        app.apply_field_picker_selection();
+        assert_eq!(app.mode, UiMode::ArbitrarySourcePicker);
+        assert!(app.object_slots.iter().any(|slot| {
+            slot.shape_name.as_deref() == Some("AzureTenantIdResolveRequest")
+                && slot.created_for.is_some_and(|created_for| {
+                    created_for.owner_slot_id == 1 && created_for.field_index == 0
+                })
+        }));
     }
 
     #[test]
@@ -6265,6 +8509,57 @@ mod tests {
             picker.choices.last().expect("last choice should exist")
         ));
         assert_eq!(picker.selected_choice(), Some(FieldPickerChoice::CreateNew));
+    }
+
+    #[test]
+    fn materialized_request_cards_render_reflected_fields_without_a_builder() {
+        let mut app = ObjectBrowserApp::default();
+        let shape = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "AzureTenantIdResolveRequest")
+            .cloned()
+            .expect("AzureTenantIdResolveRequest should be registered");
+        let value = serde_json::json!({ "tenant": "Default" });
+        let mut slot = ObjectSlot::new(1);
+        slot.apply_shape_choice(&shape);
+        slot.value_state = super::SlotValueState::ResolvedValue {
+            json: serde_json::to_string(&value).expect("json"),
+            value,
+        };
+        app.object_slots.push(slot);
+
+        assert!(app.slot_body(1).is_none());
+        let fields = app.materialized_fields(1);
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].info.field_name, "tenant");
+        assert_eq!(fields[0].value, serde_json::json!("Default"));
+        assert!(
+            app.slot_focus_targets(1)
+                .contains(&SlotFocusTarget::FieldValue(0))
+        );
+
+        let rendered = app
+            .slot_display_rows(1)
+            .iter()
+            .filter_map(|row| match row {
+                super::SlotDisplayRow::Static(line) => Some(
+                    line.spans
+                        .iter()
+                        .map(|span| span.content.as_ref())
+                        .collect::<String>(),
+                ),
+                super::SlotDisplayRow::Focusable { spans, .. } => Some(
+                    spans
+                        .iter()
+                        .map(|span| span.content.as_ref())
+                        .collect::<String>(),
+                ),
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(rendered.contains("--- fields ---"), "{rendered}");
+        assert!(rendered.contains("tenant: \"Default\""), "{rendered}");
     }
 
     #[test]
@@ -6571,6 +8866,328 @@ mod tests {
     }
 
     #[test]
+    fn picker_search_selects_the_top_match_after_each_query_edit() {
+        let labels = vec!["alpha".to_string(), "beta alpha".to_string()];
+        let mut search = super::PickerSearchState::new();
+        search.reset(&labels, Some(1));
+        assert_eq!(search.selected_filtered_index(), Some(1));
+
+        search.handle_key(
+            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE),
+            &labels,
+        );
+
+        assert_eq!(search.filtered_indices, vec![0, 1]);
+        assert_eq!(search.list_state.selected(), Some(0));
+        assert_eq!(search.selected_filtered_index(), Some(0));
+
+        let mut picker = super::PartitionPickerState::new(
+            super::PartitionPickerTarget::ShapeFilter { edit_index: None },
+            labels,
+        );
+        picker.search.list_state.select(Some(1));
+        picker.reset_selection_to_current();
+        let mut app = ObjectBrowserApp {
+            partition_picker: Some(picker),
+            mode: UiMode::PartitionPicker,
+            ..ObjectBrowserApp::default()
+        };
+
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
+
+        let picker = app
+            .partition_picker
+            .as_ref()
+            .expect("partition picker should remain open");
+        assert_eq!(picker.search.list_state.selected(), Some(0));
+        assert_eq!(picker.selected_indices, BTreeSet::from([0]));
+    }
+
+    #[test]
+    fn shift_semicolon_selects_add_then_shape_filter_can_be_confirmed() {
+        let mut app = ObjectBrowserApp::default();
+        for (id, shape_name) in [
+            (1, "AzureTenantArgument"),
+            (2, "AzureTenantIdResolveRequest"),
+        ] {
+            let shape = app
+                .shape_choices
+                .iter()
+                .find(|shape| shape.label == shape_name)
+                .cloned()
+                .expect("shape should be registered");
+            let mut slot = ObjectSlot::new(id);
+            slot.apply_shape_choice(&shape);
+            app.object_slots.push(slot);
+        }
+
+        app.handle_event(&Event::Key(KeyEvent::new(
+            KeyCode::Char(':'),
+            KeyModifiers::SHIFT,
+        )));
+        assert_eq!(app.mode, UiMode::Pool);
+        assert_eq!(app.pool_surface, super::PoolSurface::Breadcrumbs);
+        assert_eq!(
+            app.active_breadcrumb_index,
+            app.breadcrumb_count().saturating_sub(1)
+        );
+        app.handle_pool_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert_eq!(app.mode, UiMode::FilterKindPicker);
+        app.handle_filter_kind_picker_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert_eq!(app.mode, UiMode::PartitionPicker);
+        let request_index = app
+            .partition_picker
+            .as_ref()
+            .expect("partition picker should open")
+            .labels
+            .iter()
+            .position(|label| label == "AzureTenantIdResolveRequest")
+            .expect("request shape should be listed");
+        let picker = app.partition_picker.as_mut().expect("picker");
+        picker.search.list_state.select(Some(request_index));
+        picker.reset_selection_to_current();
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+        assert_eq!(app.mode, UiMode::Pool);
+        assert_eq!(
+            app.breadcrumb_filters
+                .first()
+                .and_then(|filter| match filter {
+                    super::BreadcrumbFilter::Shape(filter) => {
+                        Some(filter.included_shapes.clone())
+                    }
+                    super::BreadcrumbFilter::Value(_) => None,
+                }),
+            Some(BTreeSet::from(["AzureTenantIdResolveRequest".to_string()]))
+        );
+        assert_eq!(app.total_slot_count(), 2, "matching slot plus +New Slot");
+        assert_eq!(app.pool_entry_at(0), Some(super::PoolEntry::RealSlot(2)));
+        assert_eq!(app.pool_entry_at(1), Some(super::PoolEntry::NewSlot));
+    }
+
+    #[test]
+    fn partition_picker_supports_range_and_bulk_selection() {
+        let mut app = ObjectBrowserApp::default();
+        app.partition_picker = Some(super::PartitionPickerState::new(
+            super::PartitionPickerTarget::ShapeFilter { edit_index: None },
+            vec!["A".into(), "B".into(), "C".into()],
+        ));
+        app.mode = UiMode::PartitionPicker;
+
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::Down, KeyModifiers::SHIFT));
+        let picker = app.partition_picker.as_ref().expect("picker");
+        assert_eq!(picker.selected_indices, BTreeSet::from([1, 2]));
+
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+        assert_eq!(
+            app.partition_picker
+                .as_ref()
+                .expect("picker")
+                .included_indices,
+            BTreeSet::from([1, 2])
+        );
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+        assert_eq!(
+            app.partition_picker
+                .as_ref()
+                .expect("picker")
+                .selected_indices,
+            BTreeSet::from([0, 1, 2])
+        );
+    }
+
+    #[test]
+    fn partition_picker_supports_page_navigation() {
+        let mut app = ObjectBrowserApp::default();
+        app.partition_picker = Some(super::PartitionPickerState::new(
+            super::PartitionPickerTarget::ShapeFilter { edit_index: None },
+            (0..25).map(|index| format!("Shape {index}")).collect(),
+        ));
+        app.mode = UiMode::PartitionPicker;
+
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+        assert_eq!(
+            app.partition_picker
+                .as_ref()
+                .expect("picker")
+                .current_index(),
+            Some(10)
+        );
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+        assert_eq!(
+            app.partition_picker
+                .as_ref()
+                .expect("picker")
+                .current_index(),
+            Some(24)
+        );
+        app.handle_partition_picker_key(KeyEvent::new(KeyCode::PageUp, KeyModifiers::SHIFT));
+        let picker = app.partition_picker.as_ref().expect("picker");
+        assert_eq!(picker.current_index(), Some(14));
+        assert_eq!(picker.selected_indices, (14..=24).collect::<BTreeSet<_>>());
+    }
+
+    #[test]
+    fn shape_filter_breadcrumbs_are_additive_and_editable() {
+        let mut app = ObjectBrowserApp::default();
+        let shape = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "RoleAssignment")
+            .cloned()
+            .expect("RoleAssignment should be registered");
+        let mut slot = ObjectSlot::new(1);
+        slot.apply_shape_choice(&shape);
+        app.object_slots.push(slot);
+        app.breadcrumb_filters = vec![super::BreadcrumbFilter::Shape(super::ShapeFilterView {
+            included_shapes: BTreeSet::from(["RoleAssignment".to_string()]),
+        })];
+        app.open_shape_filter_picker(None);
+        let picker = app.partition_picker.as_mut().expect("new shape filter");
+        let role_assignment_index = picker
+            .labels
+            .iter()
+            .position(|label| label == "RoleAssignment")
+            .expect("RoleAssignment should be available");
+        picker.search.list_state.select(Some(role_assignment_index));
+        picker.reset_selection_to_current();
+        picker.move_selected(true);
+        app.apply_partition_picker_selection();
+        assert_eq!(app.breadcrumb_filters.len(), 2);
+
+        app.pool_surface = super::PoolSurface::Breadcrumbs;
+        app.active_breadcrumb_index = app.projection_stack.len() + 1;
+
+        app.activate_current_breadcrumb();
+
+        assert_eq!(app.mode, UiMode::PartitionPicker);
+        let picker = app.partition_picker.as_ref().expect("shape editor");
+        assert_eq!(
+            picker.target,
+            super::PartitionPickerTarget::ShapeFilter {
+                edit_index: Some(0)
+            }
+        );
+        let role_assignment_index = picker
+            .labels
+            .iter()
+            .position(|label| label == "RoleAssignment")
+            .expect("selected shape should remain available while editing");
+        assert!(picker.included_indices.contains(&role_assignment_index));
+        assert_eq!(app.breadcrumb_filters.len(), 2);
+    }
+
+    #[test]
+    fn add_breadcrumb_can_open_the_value_filter_editor() {
+        let mut app = ObjectBrowserApp::default();
+        app.pool_surface = super::PoolSurface::Breadcrumbs;
+        app.active_breadcrumb_index = app.breadcrumb_count().saturating_sub(1);
+
+        app.activate_current_breadcrumb();
+        assert_eq!(app.mode, UiMode::FilterKindPicker);
+        app.handle_filter_kind_picker_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        app.handle_filter_kind_picker_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+        assert_eq!(app.mode, UiMode::ValueFilterEditor);
+        let editor = app.value_filter_editor.as_ref().expect("value editor");
+        assert_eq!(editor.draft.field_shape, "*");
+        assert_eq!(editor.draft.field_name, "*");
+        assert_eq!(editor.source, super::ValueFilterSource::Existing);
+    }
+
+    #[test]
+    fn value_filter_picklists_resolve_function_output_list_shapes() {
+        let mut app = ObjectBrowserApp::default();
+        let value = serde_json::json!([
+            {
+                "displayName": "Ada",
+                "userPrincipalName": "ada@example.com"
+            },
+            {
+                "displayName": "Dominic",
+                "userPrincipalName": "dominic.phillips@agr.gc.ca"
+            }
+        ]);
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some("List<EntraUser>".to_string()),
+            value_state: super::SlotValueState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            },
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            display_cache: None,
+        });
+        app.activate_runtime_value(1);
+        app.open_value_filter_editor(
+            None,
+            super::ValueFilterView {
+                field_shape: "*".to_string(),
+                field_name: "*".to_string(),
+                operator: super::ValueFilterOperator::Equals,
+                value: String::new(),
+            },
+        );
+
+        app.open_value_filter_choice(super::ValueFilterChoiceTarget::FieldShape);
+        let shape_picker = app
+            .value_filter_choice_picker
+            .as_ref()
+            .expect("field shape picker");
+        assert!(
+            shape_picker.labels.iter().any(|label| label != "*"),
+            "{:?}",
+            shape_picker.labels
+        );
+
+        app.value_filter_choice_picker = None;
+        app.mode = UiMode::ValueFilterEditor;
+        app.open_value_filter_choice(super::ValueFilterChoiceTarget::FieldName);
+        let name_picker = app
+            .value_filter_choice_picker
+            .as_ref()
+            .expect("field name picker");
+        assert!(
+            name_picker.labels.iter().any(|label| label != "*"),
+            "{:?}",
+            name_picker.labels
+        );
+
+        app.value_filter_choice_picker = None;
+        app.value_filter_editor = None;
+        app.mode = UiMode::Pool;
+        app.breadcrumb_filters = vec![super::BreadcrumbFilter::Value(super::ValueFilterView {
+            field_shape: "*".to_string(),
+            field_name: "userPrincipalName".to_string(),
+            operator: super::ValueFilterOperator::Equals,
+            value: "dominic.phillips@agr.gc.ca".to_string(),
+        })];
+        app.projection_cache.borrow_mut().clear();
+
+        assert_eq!(app.total_slot_count(), 3);
+        assert!(matches!(
+            app.pool_entry_at(0),
+            Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
+                if path == vec![super::JsonPathSegment::Index(1)]
+        ));
+        assert!((0..app.total_slot_count()).any(|index| matches!(
+            app.pool_entry_at(index),
+            Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
+                if path == vec![
+                    super::JsonPathSegment::Index(1),
+                    super::JsonPathSegment::Field("displayName".to_string())
+                ]
+        )));
+    }
+
+    #[test]
     fn rename_action_updates_the_slot_name() {
         let mut app = ObjectBrowserApp::default();
         app.activate_current_row();
@@ -6614,10 +9231,14 @@ mod tests {
             .slot_by_id(1)
             .and_then(|slot| slot.result_slot_ids.first().copied())
             .expect("invocation should create a result slot");
+        assert_eq!(app.current_slot_id(), Some(1));
+        assert_eq!(
+            app.slot_focus_targets(1).get(app.active_row_index),
+            Some(&SlotFocusTarget::Result(0))
+        );
         assert!(matches!(
-            app.slot_by_id(result_slot_id)
-                .and_then(|slot| slot.runtime_state.as_ref()),
-            Some(super::SlotRuntimeState::Pending(_))
+            app.slot_by_id(result_slot_id).map(|slot| &slot.value_state),
+            Some(super::SlotValueState::Pending(_))
         ));
 
         tokio::task::yield_now().await;
@@ -6625,9 +9246,8 @@ mod tests {
 
         let resolved_json = app
             .slot_by_id(result_slot_id)
-            .and_then(|slot| slot.runtime_state.as_ref())
-            .and_then(|runtime| match runtime {
-                super::SlotRuntimeState::ResolvedValue { json, .. } => Some(json.clone()),
+            .and_then(|slot| match &slot.value_state {
+                super::SlotValueState::ResolvedValue { json, .. } => Some(json.clone()),
                 _ => None,
             })
             .expect("result slot should resolve");
@@ -6660,14 +9280,14 @@ mod tests {
         app.shape_picker.search.list_state.select(Some(shape_index));
         app.apply_shape_selection();
         if let Some(slot) = app.slot_by_id_mut(1) {
-            slot.runtime_state = Some(super::SlotRuntimeState::ResolvedValue {
+            slot.value_state = super::SlotValueState::ResolvedValue {
                 json: "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]"
                     .to_string(),
                 value: serde_json::from_str(
                     "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]",
                 )
                 .unwrap(),
-            });
+            };
         }
 
         let dummy_function = app
@@ -6680,11 +9300,15 @@ mod tests {
             .slot_by_id(1)
             .and_then(|slot| slot.result_slot_ids.first().copied())
             .expect("invocation should create a result slot");
+        assert_eq!(app.current_slot_id(), Some(1));
+        assert_eq!(
+            app.slot_focus_targets(1).get(app.active_row_index),
+            Some(&SlotFocusTarget::Result(0))
+        );
         let resolved_value = app
             .slot_by_id(result_slot_id)
-            .and_then(|slot| slot.runtime_state.as_ref())
-            .and_then(|runtime| match runtime {
-                super::SlotRuntimeState::ResolvedValue { value, .. } => Some(value.clone()),
+            .and_then(|slot| match &slot.value_state {
+                super::SlotValueState::ResolvedValue { value, .. } => Some(value.clone()),
                 _ => None,
             })
             .expect("result slot should resolve immediately");
@@ -6776,6 +9400,19 @@ mod tests {
             .iter()
             .find(|slot| slot.shape_name.as_deref() == Some("ArbitraryBytes"))
             .expect("the shortcut should create an explicit ArbitraryBytes slot");
+        let arbitrary_slot_id = arbitrary_slot.id;
+        assert!(matches!(
+            arbitrary_slot.value_state,
+            super::SlotValueState::ResolvedValue { .. }
+        ));
+        assert!(
+            app.slot_body(arbitrary_slot_id).is_none(),
+            "a materialized slot must not retain builder state"
+        );
+        let materialized_fields = app.materialized_fields(arbitrary_slot_id);
+        assert_eq!(materialized_fields.len(), 1);
+        assert_eq!(materialized_fields[0].info.field_name, "0");
+        assert!(materialized_fields[0].value.is_array());
         let result_slot_id = arbitrary_slot
             .result_slot_ids
             .first()
@@ -6791,17 +9428,21 @@ mod tests {
                 .and_then(|slot| slot.produced_by_slot_id),
             Some(arbitrary_slot.id)
         );
-        assert!(
+        assert_eq!(
+            arbitrary_slot.produced_by_slot_id,
+            Some(1),
+            "the generated ArbitraryBytes slot should link back to its request"
+        );
+        assert_eq!(
             app.slot_by_id(1)
-                .and_then(|slot| slot.result_slot_ids.first().copied())
-                .is_none(),
-            "the request selects the output shape but does not produce the arbitrary value"
+                .and_then(|slot| slot.result_slot_ids.first().copied()),
+            Some(arbitrary_slot.id),
+            "the request should link forward to its generated ArbitraryBytes slot"
         );
         let resolved_value = app
             .slot_by_id(result_slot_id)
-            .and_then(|slot| slot.runtime_state.as_ref())
-            .and_then(|runtime| match runtime {
-                super::SlotRuntimeState::ResolvedValue { value, .. } => Some(value.clone()),
+            .and_then(|slot| match &slot.value_state {
+                super::SlotValueState::ResolvedValue { value, .. } => Some(value.clone()),
                 _ => None,
             })
             .expect("fake result slot should resolve immediately");
@@ -6869,8 +9510,8 @@ mod tests {
         app.shape_picker.search.list_state.select(Some(shape_index));
         app.apply_shape_selection();
 
-        let mail_index = match app.slot_by_id(1).map(|slot| &slot.body) {
-            Some(SlotBody::Struct { fields }) => fields
+        let mail_index = match app.slot_by_id(1).map(|slot| &slot.value_state) {
+            Some(super::SlotValueState::Building(SlotBody::Struct { fields })) => fields
                 .iter()
                 .position(|field| field.info.field_name == "mail")
                 .expect("EntraUser should expose a mail field"),
@@ -6999,14 +9640,13 @@ mod tests {
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
-            body: super::SlotBody::Unset,
+            value_state: super::SlotValueState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            },
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            }),
             display_cache: None,
         });
 
@@ -7062,14 +9702,13 @@ mod tests {
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some(shape_name),
-            body: super::SlotBody::Unset,
+            value_state: super::SlotValueState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            },
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            }),
             display_cache: None,
         });
 
@@ -7151,14 +9790,13 @@ mod tests {
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("RoleDefinition".to_string()),
-            body: super::SlotBody::Unset,
+            value_state: super::SlotValueState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            },
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            }),
             display_cache: None,
         });
 
@@ -7217,14 +9855,13 @@ mod tests {
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("RoleAssignment".to_string()),
-            body: super::SlotBody::Unset,
+            value_state: super::SlotValueState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            },
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            }),
             display_cache: None,
         });
 
@@ -7353,7 +9990,7 @@ mod tests {
     }
 
     #[test]
-    fn shifted_home_end_and_paging_operate_horizontally() {
+    fn shifted_home_end_and_page_keys_navigate_across_slots() {
         let mut app = ObjectBrowserApp::default();
         app.last_visible_slot_count = 3;
 
@@ -7362,19 +9999,19 @@ mod tests {
         }
 
         app.active_slot_index = 2;
-        app.page_slots_right();
+        app.handle_pool_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::SHIFT));
         assert_eq!(app.active_slot_index, 4);
 
-        app.page_slots_left();
+        app.handle_pool_key(KeyEvent::new(KeyCode::PageUp, KeyModifiers::SHIFT));
         assert_eq!(app.active_slot_index, 2);
 
-        app.move_slot_end();
+        app.handle_pool_key(KeyEvent::new(KeyCode::End, KeyModifiers::SHIFT));
         assert_eq!(
             app.active_slot_index,
             app.total_slot_count().saturating_sub(1)
         );
 
-        app.move_slot_home();
+        app.handle_pool_key(KeyEvent::new(KeyCode::Home, KeyModifiers::SHIFT));
         assert_eq!(app.active_slot_index, 0);
     }
 
@@ -7404,14 +10041,13 @@ mod tests {
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
-            body: super::SlotBody::Unset,
+            value_state: super::SlotValueState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            },
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
-            runtime_state: Some(super::SlotRuntimeState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            }),
             display_cache: None,
         });
         app.active_slot_index = 0;
@@ -7433,6 +10069,156 @@ mod tests {
                     [super::JsonPathSegment::Index(0), super::JsonPathSegment::Field(field_name)]
                         if field_name == "displayName"
                 )
+        ));
+    }
+
+    #[test]
+    fn projected_slots_support_type_search_and_value_filters() {
+        let mut app = ObjectBrowserApp::default();
+        let principal_id = "11111111-2222-4333-8444-555555555555";
+        let value = serde_json::json!({
+            "id": "/providers/Microsoft.Authorization/roleAssignments/a",
+            "scope": "/subscriptions/s",
+            "role_definition_id": "/providers/Microsoft.Authorization/roleDefinitions/r",
+            "principal_id": principal_id,
+        });
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some("RoleAssignment".to_string()),
+            value_state: super::SlotValueState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            },
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            display_cache: None,
+        });
+        app.activate_runtime_value(1);
+
+        app.start_slot_search(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE));
+
+        assert_eq!(app.mode, UiMode::SlotSearch);
+        let search = app
+            .projection_search
+            .as_ref()
+            .expect("projection search should start");
+        assert!(!search.filtered_matches.is_empty());
+        assert!(search.filtered_matches.iter().any(|matched| {
+            super::spans_plain_text(&matched.spans)
+                .to_lowercase()
+                .contains("principal")
+        }));
+
+        app.cancel_slot_search();
+        app.breadcrumb_filters = vec![super::BreadcrumbFilter::Value(super::ValueFilterView {
+            field_shape: "PrincipalId".to_string(),
+            field_name: "*".to_string(),
+            operator: super::ValueFilterOperator::Equals,
+            value: principal_id.to_string(),
+        })];
+        app.projection_cache.borrow_mut().clear();
+
+        assert_eq!(app.total_slot_count(), 5);
+        assert!(matches!(
+            app.pool_entry_at(0),
+            Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
+                if path.is_empty()
+        ));
+        assert!((0..app.total_slot_count()).any(|index| matches!(
+            app.pool_entry_at(index),
+            Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
+                if path == vec![super::JsonPathSegment::Field("principal_id".to_string())]
+        )));
+        assert_eq!(
+            app.existing_value_filter_choices("PrincipalId", "*"),
+            vec![principal_id.to_string()]
+        );
+    }
+
+    #[test]
+    fn shape_filter_discovery_and_indexing_stay_virtual_for_large_projections() {
+        let mut app = ObjectBrowserApp::default();
+        let root_shape_name = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "RoleDefinitionsAndAssignments")
+            .map(|shape| shape.label.clone())
+            .expect("the role collection shape should be registered");
+        let role_assignments = (0..10_000)
+            .map(|index| {
+                (
+                    format!("assignment-{index:05}"),
+                    serde_json::json!({ "id": format!("assignment-{index:05}") }),
+                )
+            })
+            .collect::<serde_json::Map<_, _>>();
+        let value = serde_json::json!({
+            "role_assignments": role_assignments,
+            "role_definitions": {},
+        });
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some(root_shape_name),
+            value_state: super::SlotValueState::ResolvedValue {
+                json: serde_json::to_string(&value).expect("json"),
+                value,
+            },
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            display_cache: None,
+        });
+        app.activate_runtime_value(1);
+        app.projection_cache.borrow_mut().clear();
+
+        app.open_shape_filter_picker(None);
+
+        let picker = app
+            .partition_picker
+            .as_ref()
+            .expect("shape filter picker should open");
+        assert!(picker.labels.iter().any(|label| label == "RoleAssignment"));
+        assert!(
+            !picker
+                .labels
+                .iter()
+                .any(|label| label.starts_with("AzureApplicationGateway")),
+            "string-proxied IDs must not expose unrelated enum internals: {:?}",
+            picker.labels
+        );
+        assert!(
+            app.projection_cache.borrow().descendant_counts.is_empty(),
+            "shape discovery should inspect Facet shapes, not flatten values"
+        );
+
+        app.partition_picker = None;
+        app.mode = UiMode::Pool;
+        app.breadcrumb_filters = vec![super::BreadcrumbFilter::Shape(super::ShapeFilterView {
+            included_shapes: BTreeSet::from(["RoleAssignment".to_string()]),
+        })];
+        app.projection_cache.borrow_mut().clear();
+
+        assert_eq!(app.total_slot_count(), 10_000);
+        assert!(
+            app.projection_cache
+                .borrow()
+                .filtered_descendant_counts
+                .len()
+                <= 4,
+            "a homogeneous map should cache containers, not all 10,000 entries"
+        );
+        assert!(matches!(
+            app.pool_entry_at(9_999),
+            Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
+                if path == vec![
+                    super::JsonPathSegment::Field("role_assignments".to_string()),
+                    super::JsonPathSegment::Key("assignment-09999".to_string()),
+                ]
         ));
     }
 }

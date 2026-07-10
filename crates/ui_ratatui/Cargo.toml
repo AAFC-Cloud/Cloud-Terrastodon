@@ -19,6 +19,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 crossterm = { workspace = true }
 futures = { workspace = true }
+facet = { workspace = true }
 serde_json = { workspace = true }
 rand = { workspace = true }
 rustc-hash = { workspace = true }
@@ -31,6 +32,5 @@ cloud_terrastodon_registry = { workspace = true }
 [dev-dependencies]
 arbitrary = { workspace = true }
 color-eyre = { workspace = true }
-facet = { workspace = true }
 linkme = { workspace = true }
 
