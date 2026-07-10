@@ -1447,6 +1447,7 @@ dependencies = [
  "itertools 0.14.0",
  "linkme",
  "nucleo",
+ "rand 0.10.2",
  "ratatui",
  "rustc-hash 2.1.1",
  "serde_json",

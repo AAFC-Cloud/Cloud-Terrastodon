@@ -1,6 +1,7 @@
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::FunctionInvocation;
+use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::KnownShapeInfo;
 use cloud_terrastodon_registry::ProductionKind;
 use cloud_terrastodon_registry::ReceiverMode;
@@ -25,6 +26,7 @@ use nucleo::Utf32Str;
 use nucleo::pattern::CaseMatching;
 use nucleo::pattern::Normalization;
 use nucleo::pattern::Pattern;
+use rand::RngExt;
 use ratatui::DefaultTerminal;
 use ratatui::Frame;
 use ratatui::crossterm::event::Event;
@@ -87,6 +89,7 @@ struct ObjectBrowserApp {
     shape_picker: ShapePickerState,
     variant_picker: Option<VariantPickerState>,
     field_picker: Option<FieldPickerState>,
+    arbitrary_source_picker: Option<ArbitrarySourcePickerState>,
     function_picker: Option<FunctionPickerState>,
     link_action_picker: Option<LinkActionPickerState>,
     rename_slot: Option<RenameSlotState>,
@@ -124,6 +127,7 @@ impl Default for ObjectBrowserApp {
             shape_picker,
             variant_picker: None,
             field_picker: None,
+            arbitrary_source_picker: None,
             function_picker: None,
             link_action_picker: None,
             rename_slot: None,
@@ -267,6 +271,7 @@ impl ObjectBrowserApp {
             UiMode::ShapePicker => self.draw_shape_picker_popup(frame),
             UiMode::VariantPicker => self.draw_variant_picker_popup(frame),
             UiMode::FieldPicker => self.draw_field_picker_popup(frame),
+            UiMode::ArbitrarySourcePicker => self.draw_arbitrary_source_picker_popup(frame),
             UiMode::FunctionPicker => self.draw_function_picker_popup(frame),
             UiMode::LinkActionPicker => self.draw_link_action_picker_popup(frame),
             UiMode::RenameSlot => self.draw_rename_slot_popup(frame),
@@ -535,6 +540,32 @@ impl ObjectBrowserApp {
             preview_lines,
         );
     }
+    fn draw_arbitrary_source_picker_popup(&mut self, frame: &mut Frame) {
+        let Some(preview_lines) = self.arbitrary_source_picker_preview_lines() else {
+            return;
+        };
+        let Some((items, total_count)) = self
+            .arbitrary_source_picker
+            .as_ref()
+            .map(|picker| (picker.list_items(), picker.labels.len()))
+        else {
+            return;
+        };
+        let search = &mut self
+            .arbitrary_source_picker
+            .as_mut()
+            .expect("picker exists")
+            .search;
+        draw_picker_popup(
+            frame,
+            "Pick Object",
+            "Object Preview",
+            search,
+            items,
+            total_count,
+            preview_lines,
+        );
+    }
     fn draw_function_picker_popup(&mut self, frame: &mut Frame) {
         let Some(preview_lines) = self.function_picker_preview_lines() else {
             return;
@@ -559,33 +590,28 @@ impl ObjectBrowserApp {
     }
 
     fn draw_link_action_picker_popup(&mut self, frame: &mut Frame) {
-        let Some(link_action_picker) = self.link_action_picker.as_mut() else {
+        let preview_lines = self.link_action_preview_lines();
+        let Some((items, total_count)) = self
+            .link_action_picker
+            .as_ref()
+            .map(|picker| (picker.list_items(), picker.labels.len()))
+        else {
             return;
         };
-
-        let area = centered_rect(58, 42, frame.area());
-        frame.render_widget(Clear, area);
-
-        let popup_block = Block::default()
-            .borders(Borders::ALL)
-            .title("Move or Clone")
-            .border_style(Style::default().fg(Color::Cyan));
-        let inner = popup_block.inner(area);
-        frame.render_widget(popup_block, area);
-
-        let [list_area, preview_area] =
-            Layout::horizontal([Constraint::Percentage(35), Constraint::Percentage(65)])
-                .areas(inner);
-
-        let list = List::new(link_action_picker.list_items())
-            .block(Block::default().borders(Borders::ALL).title("Action"))
-            .highlight_style(Style::default().bg(Color::Blue).fg(Color::Yellow));
-        frame.render_stateful_widget(list, list_area, &mut link_action_picker.list_state);
-
-        let preview = Paragraph::new(Text::from(self.link_action_preview_lines()))
-            .block(Block::default().borders(Borders::ALL).title("Consequence"))
-            .wrap(Wrap { trim: false });
-        frame.render_widget(preview, preview_area);
+        let search = &mut self
+            .link_action_picker
+            .as_mut()
+            .expect("picker exists")
+            .search;
+        draw_picker_popup(
+            frame,
+            "Move or Clone",
+            "Consequence",
+            search,
+            items,
+            total_count,
+            preview_lines,
+        );
     }
 
     fn draw_hotkey_help_popup(&self, frame: &mut Frame) {
@@ -694,6 +720,7 @@ impl ObjectBrowserApp {
             UiMode::ShapePicker => self.handle_shape_picker_key(*key),
             UiMode::VariantPicker => self.handle_variant_picker_key(*key),
             UiMode::FieldPicker => self.handle_field_picker_key(*key),
+            UiMode::ArbitrarySourcePicker => self.handle_arbitrary_source_picker_key(*key),
             UiMode::FunctionPicker => self.handle_function_picker_key(*key),
             UiMode::LinkActionPicker => self.handle_link_action_picker_key(*key),
             UiMode::RenameSlot => self.handle_rename_slot_key(*key),
@@ -854,6 +881,23 @@ impl ObjectBrowserApp {
         }
     }
 
+    fn handle_arbitrary_source_picker_key(&mut self, key: KeyEvent) {
+        let Some(picker) = self.arbitrary_source_picker.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+
+        match picker.search.handle_key(key, &picker.labels) {
+            PickerSearchAction::None => {}
+            PickerSearchAction::Cancel => {
+                self.arbitrary_source_picker = None;
+                self.mode = UiMode::Pool;
+                self.status_message = "ArbitraryBytes selection cancelled.".to_string();
+            }
+            PickerSearchAction::Submit => self.apply_arbitrary_source_picker_selection(),
+        }
+    }
+
     fn handle_function_picker_key(&mut self, key: KeyEvent) {
         let Some(function_picker) = self.function_picker.as_mut() else {
             self.mode = UiMode::Pool;
@@ -880,18 +924,17 @@ impl ObjectBrowserApp {
             return;
         };
 
-        match key.code {
-            KeyCode::Esc => {
+        match link_action_picker
+            .search
+            .handle_key(key, &link_action_picker.labels)
+        {
+            PickerSearchAction::None => {}
+            PickerSearchAction::Cancel => {
                 self.link_action_picker = None;
                 self.mode = UiMode::Pool;
                 self.status_message = "Move/clone selection cancelled.".to_string();
             }
-            KeyCode::Up => link_action_picker.list_state.select_previous(),
-            KeyCode::Down => link_action_picker.list_state.select_next(),
-            KeyCode::Home => link_action_picker.list_state.select(Some(0)),
-            KeyCode::End => link_action_picker.list_state.select(Some(1)),
-            KeyCode::Enter => self.apply_link_action_selection(),
-            _ => {}
+            PickerSearchAction::Submit => self.apply_link_action_selection(),
         }
     }
 
@@ -1968,26 +2011,41 @@ impl ObjectBrowserApp {
             return;
         };
 
-        let mut input: Box<dyn std::any::Any + Send> = Box::new(ArbitraryBytes::new(vec![0; 4096]));
-        let FunctionInvocation::Ready(output) = (match constructor.invoke_mut_boxed(input.as_mut())
-        {
-            Ok(output) => FunctionInvocation::Ready(output),
-            Err(error) => {
-                self.status_message = format!(
-                    "Could not fake-invoke {}: {error}",
-                    describe_function(function)
-                );
-                return;
-            }
-        }) else {
-            unreachable!("arbitrary constructors are synchronous")
-        };
-
-        self.finish_ready_function_output(slot_id, constructor, output);
+        let choices = self
+            .object_slots
+            .iter()
+            .filter(|slot| slot.id != slot_id)
+            .filter(|slot| self.slot_shape_name(slot.id) == Some("ArbitraryBytes"))
+            .filter(|slot| {
+                let is_owned = matches!(slot.kind, SlotKind::Owned);
+                constructor.supports_slot_kind(is_owned)
+            })
+            .map(|slot| ArbitrarySourceChoice::ExistingSlot { slot_id: slot.id })
+            .chain(std::iter::once(ArbitrarySourceChoice::CreateNew))
+            .collect::<Vec<_>>();
+        let output_shape_name = describe_shape(function.output_shape);
+        let labels = choices
+            .iter()
+            .map(|choice| match choice {
+                ArbitrarySourceChoice::ExistingSlot { slot_id } => format!(
+                    "{} [produces {}]",
+                    self.slot_picker_label(*slot_id),
+                    output_shape_name
+                ),
+                ArbitrarySourceChoice::CreateNew => "+ create new ArbitraryBytes".to_string(),
+            })
+            .collect();
+        self.arbitrary_source_picker = Some(ArbitrarySourcePickerState::new(
+            slot_id,
+            function,
+            constructor,
+            choices,
+            labels,
+        ));
+        self.mode = UiMode::ArbitrarySourcePicker;
         self.status_message = format!(
-            "Fake-invoked {} into a {} result.",
-            describe_function(function),
-            describe_shape(function.output_shape)
+            "Choose the ArbitraryBytes source for {}.",
+            output_shape_name
         );
     }
     fn apply_shape_selection(&mut self) {
@@ -2115,17 +2173,97 @@ impl ObjectBrowserApp {
         }
     }
 
+    fn apply_arbitrary_source_picker_selection(&mut self) {
+        let Some((request_slot_id, request_function, constructor, choice)) =
+            self.arbitrary_source_picker.as_ref().and_then(|picker| {
+                Some((
+                    picker.request_slot_id,
+                    picker.request_function,
+                    picker.constructor,
+                    picker.selected_choice()?,
+                ))
+            })
+        else {
+            self.status_message = "No ArbitraryBytes source is selected.".to_string();
+            return;
+        };
+
+        self.arbitrary_source_picker = None;
+        self.mode = UiMode::Pool;
+
+        let source_slot_id = match choice {
+            ArbitrarySourceChoice::ExistingSlot { slot_id } => slot_id,
+            ArbitrarySourceChoice::CreateNew => {
+                let Some(slot_id) = self.create_random_arbitrary_bytes_slot() else {
+                    return;
+                };
+                slot_id
+            }
+        };
+        let result_count = self
+            .slot_by_id(source_slot_id)
+            .map(|slot| slot.result_slot_ids.len())
+            .unwrap_or(0);
+        self.invoke_registered_function(source_slot_id, constructor);
+        let invocation_succeeded = self
+            .slot_by_id(source_slot_id)
+            .is_some_and(|slot| slot.result_slot_ids.len() > result_count);
+        if invocation_succeeded {
+            self.status_message = format!(
+                "Used ArbitraryBytes slot {} to produce {} selected from request slot {} ({}).",
+                source_slot_id,
+                describe_shape(request_function.output_shape),
+                request_slot_id,
+                describe_function(request_function)
+            );
+        }
+    }
+
+    fn create_random_arbitrary_bytes_slot(&mut self) -> Option<usize> {
+        let choice = self
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "ArbitraryBytes")
+            .cloned()?;
+        let mut raw = vec![0_u8; 4096];
+        rand::rng().fill(raw.as_mut_slice());
+        let arbitrary_bytes = ArbitraryBytes::new(raw);
+        let json = match choice.thing.serialize_boxed(&arbitrary_bytes) {
+            Ok(json) => json,
+            Err(error) => {
+                self.status_message = format!("Could not serialize new ArbitraryBytes: {error}");
+                return None;
+            }
+        };
+        let value = match serde_json::from_str(&json) {
+            Ok(value) => value,
+            Err(error) => {
+                self.status_message = format!("Could not parse new ArbitraryBytes JSON: {error}");
+                return None;
+            }
+        };
+
+        let slot_id = self.allocate_slot_id();
+        let mut slot = ObjectSlot::new(slot_id);
+        slot.apply_shape_choice(&choice);
+        slot.runtime_state = Some(SlotRuntimeState::ResolvedValue { json, value });
+        self.object_slots.push(slot);
+        self.invalidate_all_slot_display_caches();
+        Some(slot_id)
+    }
+
     fn apply_link_action_selection(&mut self) {
         let Some((owner_slot_id, field_index, selected_slot_id, action)) =
-            self.link_action_picker.as_ref().map(|picker| {
-                (
+            self.link_action_picker.as_ref().and_then(|picker| {
+                Some((
                     picker.owner_slot_id,
                     picker.field_index,
                     picker.selected_slot_id,
-                    picker.selected_action(),
-                )
+                    picker.selected_action()?,
+                ))
             })
         else {
+            self.status_message = "No move/clone action is selected.".to_string();
             return;
         };
 
@@ -2274,7 +2412,7 @@ impl ObjectBrowserApp {
             });
         }
         self.set_field_link(owner_slot_id, field_index, selected_slot_id);
-        self.jump_to_slot(selected_slot_id);
+        self.jump_to_slot_target(owner_slot_id, SlotFocusTarget::FieldValue(field_index));
         self.status_message = format!(
             "Moved slot {} into slot {}.{}.",
             selected_slot_id, owner_slot_id, field_name
@@ -2313,7 +2451,7 @@ impl ObjectBrowserApp {
         ));
         self.set_field_link(owner_slot_id, field_index, slot_id);
         self.invalidate_all_slot_display_caches();
-        self.jump_to_slot(slot_id);
+        self.jump_to_slot_target(owner_slot_id, SlotFocusTarget::FieldValue(field_index));
         self.status_message = format!(
             "Cloned slot {} into slot {}.{} as view slot {}.",
             selected_slot_id, owner_slot_id, field_name, slot_id
@@ -2813,7 +2951,19 @@ impl ObjectBrowserApp {
             ));
         }
 
+        rows.push(SlotDisplayRow::Static(separator_line("shape")));
         rows.push(shape_row(self.slot_shape_name(slot_id)));
+        for output_shape_name in self.request_output_shape_names(slot_id) {
+            rows.push(SlotDisplayRow::Static(Line::from(vec![
+                Span::styled(
+                    "produces ",
+                    Style::default()
+                        .fg(Color::DarkGray)
+                        .add_modifier(Modifier::DIM),
+                ),
+                Span::styled(output_shape_name, Style::default().fg(Color::Cyan)),
+            ])));
+        }
 
         match self.slot_body(slot_id) {
             Some(SlotBody::Unset) | None => {}
@@ -2914,6 +3064,23 @@ impl ObjectBrowserApp {
             slot.display_cache = None;
         }
         self.projection_cache.borrow_mut().clear();
+    }
+
+    fn request_output_shape_names(&self, slot_id: usize) -> Vec<String> {
+        let Some(shape_name) = self.slot_shape_name(slot_id) else {
+            return Vec::new();
+        };
+        let Some(thing) = self.thing_for_shape_name(shape_name) else {
+            return Vec::new();
+        };
+
+        functions_from(thing.shape)
+            .into_iter()
+            .filter(|function| function.kind == FunctionKind::AsyncInvoke)
+            .map(|function| describe_shape(function.output_shape))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
     }
     fn slot_focus_targets(&self, slot_id: usize) -> Vec<SlotFocusTarget> {
         let mut targets = Vec::new();
@@ -4011,6 +4178,20 @@ impl ObjectBrowserApp {
         }
     }
 
+    fn arbitrary_source_picker_preview_lines(&mut self) -> Option<Vec<Line<'static>>> {
+        let choice = self.arbitrary_source_picker.as_ref()?.selected_choice()?;
+        match choice {
+            ArbitrarySourceChoice::ExistingSlot { slot_id } => {
+                Some(self.slot_preview_lines(slot_id))
+            }
+            ArbitrarySourceChoice::CreateNew => self
+                .shape_choices
+                .iter()
+                .find(|shape| shape.label == "ArbitraryBytes")
+                .map(shape_preview_lines),
+        }
+    }
+
     fn function_picker_preview_lines(&mut self) -> Option<Vec<Line<'static>>> {
         let function = {
             let picker = self.function_picker.as_ref()?;
@@ -4058,7 +4239,9 @@ impl ObjectBrowserApp {
         let Some(picker) = self.link_action_picker.as_ref() else {
             return Vec::new();
         };
-        let action = picker.selected_action();
+        let Some(action) = picker.selected_action() else {
+            return vec![Line::from("No matching action.")];
+        };
         let slot_label = self.slot_picker_label(picker.selected_slot_id);
         let field_label = self
             .slot_field(picker.owner_slot_id, picker.field_index)
@@ -4295,6 +4478,7 @@ enum UiMode {
     ShapePicker,
     VariantPicker,
     FieldPicker,
+    ArbitrarySourcePicker,
     FunctionPicker,
     LinkActionPicker,
     RenameSlot,
@@ -4634,6 +4818,56 @@ struct FieldPickerState {
     search: PickerSearchState,
 }
 
+struct ArbitrarySourcePickerState {
+    request_slot_id: usize,
+    request_function: &'static Function,
+    constructor: &'static Function,
+    labels: Vec<String>,
+    choices: Vec<ArbitrarySourceChoice>,
+    search: PickerSearchState,
+}
+
+impl ArbitrarySourcePickerState {
+    fn new(
+        request_slot_id: usize,
+        request_function: &'static Function,
+        constructor: &'static Function,
+        choices: Vec<ArbitrarySourceChoice>,
+        labels: Vec<String>,
+    ) -> Self {
+        let mut search = PickerSearchState::new();
+        search.reset(&labels, Some(0));
+        Self {
+            request_slot_id,
+            request_function,
+            constructor,
+            labels,
+            choices,
+            search,
+        }
+    }
+
+    fn selected_choice(&self) -> Option<ArbitrarySourceChoice> {
+        let index = self.search.selected_filtered_index()?;
+        self.choices.get(index).copied()
+    }
+
+    fn list_items(&self) -> Vec<ListItem<'static>> {
+        self.search
+            .filtered_indices
+            .iter()
+            .filter_map(|index| self.labels.get(*index))
+            .map(|label| ListItem::new(label.clone()))
+            .collect()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ArbitrarySourceChoice {
+    ExistingSlot { slot_id: usize },
+    CreateNew,
+}
+
 impl FieldPickerState {
     fn new(
         owner_slot_id: usize,
@@ -4763,30 +4997,39 @@ struct LinkActionPickerState {
     owner_slot_id: usize,
     field_index: usize,
     selected_slot_id: usize,
-    list_state: ListState,
+    labels: Vec<String>,
+    actions: Vec<LinkAction>,
+    search: PickerSearchState,
 }
 
 impl LinkActionPickerState {
     fn new(owner_slot_id: usize, field_index: usize, selected_slot_id: usize) -> Self {
-        let mut list_state = ListState::default();
-        list_state.select(Some(0));
+        let labels = vec!["Move".to_string(), "Clone".to_string()];
+        let actions = vec![LinkAction::Move, LinkAction::Clone];
+        let mut search = PickerSearchState::new();
+        search.reset(&labels, Some(0));
         Self {
             owner_slot_id,
             field_index,
             selected_slot_id,
-            list_state,
+            labels,
+            actions,
+            search,
         }
     }
 
-    fn selected_action(&self) -> LinkAction {
-        match self.list_state.selected().unwrap_or(0) {
-            1 => LinkAction::Clone,
-            _ => LinkAction::Move,
-        }
+    fn selected_action(&self) -> Option<LinkAction> {
+        let index = self.search.selected_filtered_index()?;
+        self.actions.get(index).copied()
     }
 
     fn list_items(&self) -> Vec<ListItem<'static>> {
-        vec![ListItem::new("Move"), ListItem::new("Clone")]
+        self.search
+            .filtered_indices
+            .iter()
+            .filter_map(|index| self.labels.get(*index))
+            .map(|label| ListItem::new(label.clone()))
+            .collect()
     }
 }
 
@@ -6206,6 +6449,12 @@ mod tests {
         app.apply_shape_selection();
 
         app.clone_slot_into_field(2, 0, 1);
+        assert_eq!(app.current_slot_id(), Some(2));
+        assert_eq!(
+            app.active_row_index,
+            app.focus_row_for_slot_target(2, SlotFocusTarget::FieldValue(0))
+                .expect("the request field should remain focused after cloning")
+        );
         app.delete_slot(3);
 
         assert!(app.slot_by_id(3).is_none());
@@ -6297,6 +6546,28 @@ mod tests {
         app.apply_link_action_selection();
 
         assert!(matches!(app.object_slots[0].kind, SlotKind::View(_)));
+        assert_eq!(app.current_slot_id(), Some(2));
+        assert_eq!(
+            app.active_row_index,
+            app.focus_row_for_slot_target(2, SlotFocusTarget::FieldValue(0))
+                .expect("the request field should remain focused after moving")
+        );
+    }
+
+    #[test]
+    fn move_or_clone_picker_supports_fuzzy_search() {
+        let mut app = ObjectBrowserApp::default();
+        app.open_link_action_picker(2, 0, 1);
+
+        app.handle_link_action_picker_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
+        app.handle_link_action_picker_key(KeyEvent::new(KeyCode::Char('l'), KeyModifiers::NONE));
+
+        let picker = app
+            .link_action_picker
+            .as_ref()
+            .expect("the move/clone picker should remain open");
+        assert_eq!(picker.search.filtered_indices, vec![1]);
+        assert_eq!(picker.selected_action(), Some(super::LinkAction::Clone));
     }
 
     #[test]
@@ -6445,6 +6716,10 @@ mod tests {
             app.slot_action_label(1, super::SlotAction::InvokeArbitrary),
             "invoke arbitrary"
         );
+        assert_eq!(
+            app.request_output_shape_names(1),
+            vec!["AzureTenantId".to_string()]
+        );
 
         app.activate_current_row();
         let user_request_index = app
@@ -6477,8 +6752,8 @@ mod tests {
         let request_index = app
             .shape_choices
             .iter()
-            .position(|shape| shape.label.contains("EntraUserListRequest"))
-            .expect("EntraUserListRequest should be registered");
+            .position(|shape| shape.label.contains("AzureTenantIdResolveRequest"))
+            .expect("AzureTenantIdResolveRequest should be registered");
         app.shape_picker.open(Some(request_index));
         app.shape_picker
             .search
@@ -6487,16 +6762,41 @@ mod tests {
         app.apply_shape_selection();
 
         app.activate_slot_action(1, super::SlotAction::InvokeArbitrary);
+        assert_eq!(app.mode, UiMode::ArbitrarySourcePicker);
+        assert!(matches!(
+            app.arbitrary_source_picker
+                .as_ref()
+                .and_then(|picker| picker.selected_choice()),
+            Some(super::ArbitrarySourceChoice::CreateNew)
+        ));
+        app.apply_arbitrary_source_picker_selection();
 
-        let result_slot_id = app
-            .slot_by_id(1)
-            .and_then(|slot| slot.result_slot_ids.first().copied())
+        let arbitrary_slot = app
+            .object_slots
+            .iter()
+            .find(|slot| slot.shape_name.as_deref() == Some("ArbitraryBytes"))
+            .expect("the shortcut should create an explicit ArbitraryBytes slot");
+        let result_slot_id = arbitrary_slot
+            .result_slot_ids
+            .first()
+            .copied()
             .unwrap_or_else(|| {
                 panic!(
-                    "fake invocation should create a result slot: {}",
+                    "arbitrary source should create a result slot: {}",
                     app.status_message
                 )
             });
+        assert_eq!(
+            app.slot_by_id(result_slot_id)
+                .and_then(|slot| slot.produced_by_slot_id),
+            Some(arbitrary_slot.id)
+        );
+        assert!(
+            app.slot_by_id(1)
+                .and_then(|slot| slot.result_slot_ids.first().copied())
+                .is_none(),
+            "the request selects the output shape but does not produce the arbitrary value"
+        );
         let resolved_value = app
             .slot_by_id(result_slot_id)
             .and_then(|slot| slot.runtime_state.as_ref())
@@ -6505,7 +6805,54 @@ mod tests {
                 _ => None,
             })
             .expect("fake result slot should resolve immediately");
-        assert!(resolved_value.is_array());
+        assert_ne!(
+            resolved_value,
+            serde_json::Value::String("00000000-0000-4000-8000-000000000000".to_string())
+        );
+    }
+
+    #[test]
+    fn invoke_arbitrary_can_reuse_an_existing_arbitrary_bytes_slot() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label.contains("AzureTenantIdResolveRequest"))
+            .expect("AzureTenantIdResolveRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        let source_slot_id = app
+            .create_random_arbitrary_bytes_slot()
+            .expect("ArbitraryBytes should be constructible");
+        app.activate_slot_action(1, super::SlotAction::InvokeArbitrary);
+        assert!(matches!(
+            app.arbitrary_source_picker
+                .as_ref()
+                .and_then(|picker| picker.selected_choice()),
+            Some(super::ArbitrarySourceChoice::ExistingSlot { slot_id })
+                if slot_id == source_slot_id
+        ));
+        app.apply_arbitrary_source_picker_selection();
+
+        assert_eq!(
+            app.object_slots
+                .iter()
+                .filter(|slot| slot.shape_name.as_deref() == Some("ArbitraryBytes"))
+                .count(),
+            1
+        );
+        assert_eq!(
+            app.slot_by_id(source_slot_id)
+                .map(|slot| slot.result_slot_ids.len()),
+            Some(1)
+        );
     }
 
     #[test]

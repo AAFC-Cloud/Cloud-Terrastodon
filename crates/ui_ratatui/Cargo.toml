@@ -20,6 +20,7 @@ tracing = { workspace = true }
 crossterm = { workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true }
+rand = { workspace = true }
 rustc-hash = { workspace = true }
 nucleo = { workspace = true }
 tui-textarea = { workspace = true }
