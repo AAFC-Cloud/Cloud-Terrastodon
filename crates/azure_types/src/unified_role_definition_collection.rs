@@ -6,7 +6,7 @@ use std::ops::Deref;
 /// A collection of Entra role definitions, indexed by their template ID.
 ///
 /// Not to be confused with Azure RBAC role definitions.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 pub struct UnifiedRoleDefinitionCollection {
     lookup: HashMap<UnifiedRoleDefinitionId, UnifiedRoleDefinition>,
     canonicalized: bool,

@@ -7,13 +7,15 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsTeamMembersRequest<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub team_id: &'a AzureDevOpsTeamId,
+    pub team_id: Cow<'a, AzureDevOpsTeamId>,
 }
 
 pub fn fetch_azure_devops_team_members<'a>(
@@ -22,9 +24,19 @@ pub fn fetch_azure_devops_team_members<'a>(
     team_id: &'a AzureDevOpsTeamId,
 ) -> AzureDevOpsTeamMembersRequest<'a> {
     AzureDevOpsTeamMembersRequest {
-        org_url,
+        org_url: Cow::Borrowed(org_url),
         project: project.into(),
-        team_id,
+        team_id: Cow::Borrowed(team_id),
+    }
+}
+
+impl<'a> Arbitrary<'a> for AzureDevOpsTeamMembersRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
+            team_id: Cow::Owned(AzureDevOpsTeamId::arbitrary(u)?),
+        })
     }
 }
 
@@ -76,6 +88,9 @@ impl<'a> CacheableCommand for AzureDevOpsTeamMembersRequest<'a> {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsTeamMembersRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsTeamMembersRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTeamMembersRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(AzureDevOpsTeamMembersRequest<'static> => Vec<AzureDevOpsTeamMember>, effects = [Read]);
 
 #[cfg(test)]
 mod test {
@@ -113,3 +128,4 @@ mod test {
         Ok(())
     }
 }
+use arbitrary::Arbitrary;

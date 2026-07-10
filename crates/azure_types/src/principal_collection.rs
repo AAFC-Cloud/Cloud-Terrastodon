@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
+#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 pub struct PrincipalCollection(pub HashMap<PrincipalId, Principal>);
 
 impl PrincipalCollection {

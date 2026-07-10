@@ -7,19 +7,33 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use reqwest::Method;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
+#[derive(Debug, Clone, facet::Facet)]
 pub struct WorkItemsForQueryRequest<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
-    pub query_id: &'a AzureDevOpsWorkItemQueryId,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    pub query_id: Cow<'a, AzureDevOpsWorkItemQueryId>,
 }
 
 pub fn fetch_work_items_for_query<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     query_id: &'a AzureDevOpsWorkItemQueryId,
 ) -> WorkItemsForQueryRequest<'a> {
-    WorkItemsForQueryRequest { org_url, query_id }
+    WorkItemsForQueryRequest {
+        org_url: Cow::Borrowed(org_url),
+        query_id: Cow::Borrowed(query_id),
+    }
+}
+
+impl<'a> Arbitrary<'a> for WorkItemsForQueryRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            query_id: Cow::Owned(AzureDevOpsWorkItemQueryId::arbitrary(u)?),
+        })
+    }
 }
 
 #[async_trait]
@@ -58,6 +72,9 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(WorkItemsForQueryRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(WorkItemsForQueryRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(WorkItemsForQueryRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(WorkItemsForQueryRequest<'static> => Option<WorkItemQueryResult>, effects = [Read]);
 
 #[cfg(test)]
 #[allow(deprecated)]
@@ -111,3 +128,4 @@ mod test {
         bail!("Failed to find any work items");
     }
 }
+use arbitrary::Arbitrary;

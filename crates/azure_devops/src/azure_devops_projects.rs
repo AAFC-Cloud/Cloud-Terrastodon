@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
 use cloud_terrastodon_command::CacheKey;
@@ -5,18 +6,30 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 use tracing::field::debug;
 
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsProjectsListRequest<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
 }
 
 pub fn fetch_all_azure_devops_projects<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
 ) -> AzureDevOpsProjectsListRequest<'a> {
-    AzureDevOpsProjectsListRequest { org_url }
+    AzureDevOpsProjectsListRequest {
+        org_url: Cow::Borrowed(org_url),
+    }
+}
+
+impl<'a> Arbitrary<'a> for AzureDevOpsProjectsListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+        })
+    }
 }
 
 #[async_trait]
@@ -73,6 +86,13 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsProjectsListRequest<'a>, 'a);
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectsListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectsListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(
+    AzureDevOpsProjectsListRequest<'static> => Vec<AzureDevOpsProject>,
+    effects = [Read]
+);
 
 #[cfg(test)]
 mod tests {

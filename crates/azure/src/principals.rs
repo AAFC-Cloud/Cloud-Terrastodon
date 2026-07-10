@@ -71,3 +71,5 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(PrincipalListRequest);
 cloud_terrastodon_registry::register_arbitrary!(PrincipalListRequest);
+cloud_terrastodon_registry::register_arbitrary!(PrincipalCollection);
+cloud_terrastodon_registry::register_into_future!(PrincipalListRequest => PrincipalCollection);

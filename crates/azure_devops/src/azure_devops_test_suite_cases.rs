@@ -6,11 +6,13 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use facet_json::RawJson;
 use reqwest::Method;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsTestSuiteCasesListRequest<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub plan: String,
     pub suite: String,
@@ -23,10 +25,21 @@ pub fn fetch_azure_devops_test_suite_cases<'a>(
     suite: impl Into<String>,
 ) -> AzureDevOpsTestSuiteCasesListRequest<'a> {
     AzureDevOpsTestSuiteCasesListRequest {
-        org_url,
+        org_url: Cow::Borrowed(org_url),
         project: project.into(),
         plan: plan.into(),
         suite: suite.into(),
+    }
+}
+
+impl<'a> Arbitrary<'a> for AzureDevOpsTestSuiteCasesListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
+            plan: String::arbitrary(u)?,
+            suite: String::arbitrary(u)?,
+        })
     }
 }
 
@@ -74,6 +87,9 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestSuiteCas
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsTestSuiteCasesListRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsTestSuiteCasesListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTestSuiteCasesListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(AzureDevOpsTestSuiteCasesListRequest<'static> => Vec<SuiteTestCase>, effects = [Read]);
 
 #[cfg(test)]
 mod test {
@@ -111,3 +127,4 @@ mod test {
         bail!("Failed to find any test plans in any project");
     }
 }
+use arbitrary::Arbitrary;

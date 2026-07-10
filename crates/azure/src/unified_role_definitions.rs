@@ -71,3 +71,5 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(UnifiedRoleDefinitionListRequest);
 cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinitionListRequest);
+cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinitionCollection);
+cloud_terrastodon_registry::register_into_future!(UnifiedRoleDefinitionListRequest => UnifiedRoleDefinitionCollection);

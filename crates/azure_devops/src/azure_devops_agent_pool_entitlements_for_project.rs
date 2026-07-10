@@ -5,11 +5,13 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use facet_json::RawJson;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
 }
 
@@ -18,8 +20,17 @@ pub fn fetch_azure_devops_agent_pool_entitlements_for_project<'a>(
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
 ) -> AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
     AzureDevOpsAgentPoolEntitlementListForProjectRequest {
-        org_url,
+        org_url: Cow::Borrowed(org_url),
         project: project.into(),
+    }
+}
+
+impl<'a> Arbitrary<'a> for AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
+        })
     }
 }
 
@@ -82,6 +93,13 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(
+    AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static>
+);
+cloud_terrastodon_registry::register_arbitrary!(
+    AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static>
+);
+cloud_terrastodon_registry::register_into_future!(AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static> => Vec<crate::AzureDevOpsAgentPoolEntitlement>, effects = [Read]);
 
 #[cfg(test)]
 mod test {
@@ -120,3 +138,4 @@ mod test {
         Ok(())
     }
 }
+use arbitrary::Arbitrary;

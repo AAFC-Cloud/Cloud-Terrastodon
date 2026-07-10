@@ -8,6 +8,7 @@ use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use std::path::PathBuf;
 
+#[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct RoleManagementPolicyAssignmentsForRoleRequest<T: Scope + Send> {
     pub scope: T,
     pub role_definition_id: RoleDefinitionId,
@@ -64,6 +65,21 @@ impl<T: Scope + Send> cloud_terrastodon_command::CacheableCommand
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(RoleManagementPolicyAssignmentsForRoleRequest<T>, T: Scope + Send + 'static);
+
+cloud_terrastodon_registry::register_thing!(
+    RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ResourceId>
+);
+cloud_terrastodon_registry::register_arbitrary!(
+    RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ResourceId>
+);
+cloud_terrastodon_registry::register_into_future!(RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ResourceId> => Vec<RoleManagementPolicyAssignment>);
+cloud_terrastodon_registry::register_thing!(
+    RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ScopeImpl>
+);
+cloud_terrastodon_registry::register_arbitrary!(
+    RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ScopeImpl>
+);
+cloud_terrastodon_registry::register_into_future!(RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ScopeImpl> => Vec<RoleManagementPolicyAssignment>);
 
 #[cfg(test)]
 mod tests {

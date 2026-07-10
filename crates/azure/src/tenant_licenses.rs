@@ -101,3 +101,5 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(TenantLicenseListRequest);
 cloud_terrastodon_registry::register_arbitrary!(TenantLicenseListRequest);
+cloud_terrastodon_registry::register_arbitrary!(TenantLicenseCollection);
+cloud_terrastodon_registry::register_into_future!(TenantLicenseListRequest => TenantLicenseCollection);

@@ -5,18 +5,32 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use facet_json::RawJson;
 use reqwest::Method;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 pub fn fetch_azure_devops_groups_for_member<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     member_id: &'a AzureDevOpsDescriptor,
 ) -> AzureDevOpsGroupsForMemberRequest<'a> {
-    AzureDevOpsGroupsForMemberRequest { org_url, member_id }
+    AzureDevOpsGroupsForMemberRequest {
+        org_url: Cow::Borrowed(org_url),
+        member_id: Cow::Borrowed(member_id),
+    }
 }
 
+#[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsGroupsForMemberRequest<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
-    pub member_id: &'a AzureDevOpsDescriptor,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    pub member_id: Cow<'a, AzureDevOpsDescriptor>,
+}
+
+impl<'a> Arbitrary<'a> for AzureDevOpsGroupsForMemberRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            member_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
+        })
+    }
 }
 
 #[derive(Debug, facet::Facet)]
@@ -50,7 +64,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMem
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let organization = &self.org_url.organization_name;
-        let subject_descriptor = self.member_id;
+        let subject_descriptor = &self.member_id;
         let url = format!(
             "https://vssps.dev.azure.com/{organization}/_apis/graph/Memberships/{subject_descriptor}?api-version=7.1-preview.1&direction=up",
             organization = organization,
@@ -65,6 +79,9 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMem
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsForMemberRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupsForMemberRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupsForMemberRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(AzureDevOpsGroupsForMemberRequest<'static> => Vec<AzureDevOpsGroupsForMemberResponseEntry>, effects = [Read]);
 
 #[cfg(test)]
 mod test {
@@ -88,3 +105,4 @@ mod test {
         Ok(())
     }
 }
+use arbitrary::Arbitrary;

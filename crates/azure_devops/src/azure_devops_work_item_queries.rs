@@ -7,11 +7,13 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use facet_json::RawJson;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::info;
 
+#[derive(Debug, Clone, facet::Facet)]
 pub struct WorkItemQueriesForProjectRequest<'a> {
-    pub org_url: &'a AzureDevOpsOrganizationUrl,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
 }
 
@@ -20,8 +22,17 @@ pub fn fetch_queries_for_project<'a>(
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
 ) -> WorkItemQueriesForProjectRequest<'a> {
     WorkItemQueriesForProjectRequest {
-        org_url,
+        org_url: Cow::Borrowed(org_url),
         project: project.into(),
+    }
+}
+
+impl<'a> Arbitrary<'a> for WorkItemQueriesForProjectRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
+        })
     }
 }
 
@@ -76,6 +87,9 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(WorkItemQueriesForProjectRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(WorkItemQueriesForProjectRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(WorkItemQueriesForProjectRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(WorkItemQueriesForProjectRequest<'static> => Vec<AzureDevOpsWorkItemQuery>, effects = [Read]);
 
 #[cfg(test)]
 mod test {
@@ -101,3 +115,4 @@ mod test {
         Ok(())
     }
 }
+use arbitrary::Arbitrary;
