@@ -1,3 +1,8 @@
+use crate::projection_shapes::projection_field_shape as shape_field_shape;
+use crate::projection_shapes::projection_fields;
+use crate::projection_shapes::projection_map_value_shape as registry_map_value_shape;
+use crate::projection_shapes::projection_sequence_element_shape as sequence_element_shape;
+use crate::projection_shapes::projection_shape_names;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::FunctionInvocation;
@@ -72,12 +77,6 @@ use tokio::task::JoinHandle;
 use tracing::info;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
-
-use crate::projection_shapes::projection_field_shape as shape_field_shape;
-use crate::projection_shapes::projection_fields;
-use crate::projection_shapes::projection_map_value_shape as registry_map_value_shape;
-use crate::projection_shapes::projection_sequence_element_shape as sequence_element_shape;
-use crate::projection_shapes::projection_shape_names;
 
 pub async fn ui_main() -> Result<()> {
     info!("Starting object browser");
