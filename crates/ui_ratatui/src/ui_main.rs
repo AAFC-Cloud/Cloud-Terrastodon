@@ -126,6 +126,7 @@ struct ObjectBrowserApp {
     slot_view_offset: usize,
     row_view_offset: usize,
     last_visible_slot_count: usize,
+    last_slot_layout_main_axis: u16,
     last_visible_row_count: usize,
     next_slot_id: usize,
     status_message: String,
@@ -186,6 +187,7 @@ impl Default for ObjectBrowserApp {
             slot_view_offset: 0,
             row_view_offset: 0,
             last_visible_slot_count: 1,
+            last_slot_layout_main_axis: 0,
             last_visible_row_count: 1,
             next_slot_id: 1,
             status_message: "Left/Right: slots | Up/Down: rows | Type to jump | PageUp/PageDown: page | Enter/Space: act | Esc: back/exit"
@@ -355,6 +357,7 @@ impl ObjectBrowserApp {
             SlotAxis::Horizontal => Layout::horizontal(constraints.clone()).split(slot_layout_area),
             SlotAxis::Vertical => Layout::vertical(constraints.clone()).split(slot_layout_area),
         };
+        self.last_slot_layout_main_axis = self.slot_axis.main_axis_extent(slot_layout_area);
         let top_marker_areas =
             if self.slot_axis == SlotAxis::Horizontal && top_margin_area.height > 0 {
                 Some(Layout::horizontal(constraints.clone()).split(top_margin_area))
@@ -2088,18 +2091,25 @@ impl ObjectBrowserApp {
     }
 
     fn resize_slots(&mut self, direction: isize) {
-        match self.slot_axis {
-            SlotAxis::Horizontal => {
-                self.slot_width =
-                    resize_dimension(self.slot_width, Self::MIN_SLOT_WIDTH, 1, direction);
-                self.status_message = format!("Slot width: {}.", self.slot_width);
-            }
-            SlotAxis::Vertical => {
-                self.slot_height =
-                    resize_dimension(self.slot_height, Self::MIN_SLOT_HEIGHT, 2, direction);
-                self.status_message = format!("Slot height: {}.", self.slot_height);
-            }
-        }
+        let breadth = self
+            .slot_axis
+            .main_axis_breadth(self.slot_width, self.slot_height);
+        let resized_breadth = resize_slot_breadth(
+            breadth,
+            self.slot_axis.minimum_breadth(),
+            self.last_slot_layout_main_axis,
+            direction,
+        );
+        self.slot_axis.set_main_axis_breadth(
+            &mut self.slot_width,
+            &mut self.slot_height,
+            resized_breadth,
+        );
+        self.status_message = format!(
+            "Slot {}: {}.",
+            self.slot_axis.dimension_label(),
+            resized_breadth
+        );
         self.sync_selection_viewports();
     }
 
@@ -4040,18 +4050,18 @@ impl ObjectBrowserApp {
         self.active_row_index = self.active_row_index.min(max_row);
     }
 
-    fn max_visible_slots(&self, width: u16) -> usize {
-        usize::from((width / self.slot_width.max(1)).max(1))
+    fn max_visible_slots(&self, main_axis_extent: u16) -> usize {
+        let breadth = self
+            .slot_axis
+            .main_axis_breadth(self.slot_width, self.slot_height);
+        usize::from((main_axis_extent / breadth.max(1)).max(1))
     }
 
     fn max_visible_slots_for_area(&self, area: Rect) -> usize {
         if self.focused_slot_fill {
             return 1;
         }
-        match self.slot_axis {
-            SlotAxis::Horizontal => self.max_visible_slots(area.width),
-            SlotAxis::Vertical => usize::from((area.height / self.slot_height.max(1)).max(1)),
-        }
+        self.max_visible_slots(self.slot_axis.main_axis_extent(area))
     }
 
     fn visible_slot_range_for_area(&mut self, area: Rect) -> Range<usize> {
@@ -4267,16 +4277,15 @@ impl ObjectBrowserApp {
                         FieldValueState::Linked { slot_id } => {
                             let linked = self.slot_runtime_value(slot_id)?;
                             let peek = linked.peek();
-                            partial = partial.begin_nth_field(field_index).map_err(|error| {
-                                eyre::eyre!("{}: {error}", field.info.field_name)
-                            })?;
-                            partial = unsafe { partial.set_from_peek(&peek) }.map_err(|error| {
-                                eyre::eyre!("{}: {error}", field.info.field_name)
-                            })?;
+                            partial = self.materialize_linked_field(
+                                partial,
+                                shape,
+                                field_index,
+                                field,
+                                None,
+                                &peek,
+                            )?;
                             linked.deallocate_after_move();
-                            partial = partial.end().map_err(|error| {
-                                eyre::eyre!("{}: {error}", field.info.field_name)
-                            })?;
                         }
                         FieldValueState::Defaulted => {}
                         FieldValueState::Unset => {
@@ -4297,16 +4306,15 @@ impl ObjectBrowserApp {
                         FieldValueState::Linked { slot_id } => {
                             let linked = self.slot_runtime_value(slot_id)?;
                             let peek = linked.peek();
-                            partial = partial.begin_nth_field(field_index).map_err(|error| {
-                                eyre::eyre!("{}: {error}", field.info.field_name)
-                            })?;
-                            partial = unsafe { partial.set_from_peek(&peek) }.map_err(|error| {
-                                eyre::eyre!("{}: {error}", field.info.field_name)
-                            })?;
+                            partial = self.materialize_linked_field(
+                                partial,
+                                shape,
+                                field_index,
+                                field,
+                                Some(*variant_index),
+                                &peek,
+                            )?;
                             linked.deallocate_after_move();
-                            partial = partial.end().map_err(|error| {
-                                eyre::eyre!("{}: {error}", field.info.field_name)
-                            })?;
                         }
                         FieldValueState::Defaulted => {}
                         FieldValueState::Unset => {
@@ -4321,6 +4329,72 @@ impl ObjectBrowserApp {
                 ..
             } => eyre::bail!("enum variant is not selected"),
         }
+    }
+
+    fn materialize_linked_field(
+        &self,
+        mut partial: facet_reflect::Partial<'static, false>,
+        parent_shape: &'static facet::Shape,
+        field_index: usize,
+        field: &ObjectFieldState,
+        variant_index: Option<usize>,
+        peek: &facet_reflect::Peek<'_, '_>,
+    ) -> Result<facet_reflect::Partial<'static, false>> {
+        let field_shape = self
+            .materialization_field_shape(parent_shape, field_index, field, variant_index)
+            .ok_or_else(|| eyre::eyre!("{} has no reflected field shape", field.info.field_name))?;
+        let field_name = field.info.field_name;
+
+        partial = partial
+            .begin_nth_field(field_index)
+            .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
+
+        let wraps_inner_value = matches!(field_shape.def, facet::Def::Pointer(pointer)
+            if pointer.constructible_from_pointee()
+                && pointer
+                    .pointee()
+                    .is_some_and(|pointee| pointee.is_shape(peek.shape())));
+        if wraps_inner_value {
+            partial = partial
+                .begin_smart_ptr()
+                .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
+        }
+
+        partial = unsafe { partial.set_from_peek(peek) }
+            .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
+        if wraps_inner_value {
+            partial = partial
+                .end()
+                .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
+        }
+        partial
+            .end()
+            .map_err(|error| eyre::eyre!("{field_name}: {error}"))
+    }
+
+    fn materialization_field_shape(
+        &self,
+        parent_shape: &'static facet::Shape,
+        field_index: usize,
+        field: &ObjectFieldState,
+        variant_index: Option<usize>,
+    ) -> Option<&'static facet::Shape> {
+        if let Some(shape) = shape_field_shape(parent_shape, field.info.field_name) {
+            return Some(shape);
+        }
+        if let Some(shape) = self.shape_for_shape_name(&field.info.field_shape_name) {
+            return Some(shape);
+        }
+        let facet::Type::User(facet::UserType::Enum(enum_type)) = parent_shape.ty else {
+            return None;
+        };
+        enum_type
+            .variants
+            .get(variant_index?)?
+            .data
+            .fields
+            .get(field_index)
+            .map(|field| field.proxy_shape().unwrap_or_else(|| field.shape()))
     }
 
     fn slot_display_rows(&mut self, slot_id: usize) -> Vec<SlotDisplayRow> {
@@ -6952,6 +7026,41 @@ enum SlotAxis {
 }
 
 impl SlotAxis {
+    fn main_axis_extent(self, area: Rect) -> u16 {
+        match self {
+            SlotAxis::Horizontal => area.width,
+            SlotAxis::Vertical => area.height,
+        }
+    }
+
+    fn main_axis_breadth(self, slot_width: u16, slot_height: u16) -> u16 {
+        match self {
+            SlotAxis::Horizontal => slot_width,
+            SlotAxis::Vertical => slot_height,
+        }
+    }
+
+    fn set_main_axis_breadth(self, slot_width: &mut u16, slot_height: &mut u16, breadth: u16) {
+        match self {
+            SlotAxis::Horizontal => *slot_width = breadth,
+            SlotAxis::Vertical => *slot_height = breadth,
+        }
+    }
+
+    fn minimum_breadth(self) -> u16 {
+        match self {
+            SlotAxis::Horizontal => ObjectBrowserApp::MIN_SLOT_WIDTH,
+            SlotAxis::Vertical => ObjectBrowserApp::MIN_SLOT_HEIGHT,
+        }
+    }
+
+    fn dimension_label(self) -> &'static str {
+        match self {
+            SlotAxis::Horizontal => "width",
+            SlotAxis::Vertical => "height",
+        }
+    }
+
     fn label(self) -> &'static str {
         match self {
             SlotAxis::Horizontal => "horizontal",
@@ -8977,6 +9086,26 @@ fn separator_line(label: &str) -> Line<'static> {
     ])
 }
 
+fn resize_slot_breadth(current: u16, minimum: u16, main_axis_extent: u16, direction: isize) -> u16 {
+    if main_axis_extent == 0 {
+        return resize_dimension(current, minimum, 1, direction);
+    }
+
+    let visible_cells = (main_axis_extent / current.max(1)).max(1);
+    let target_cells = if direction < 0 {
+        visible_cells.saturating_add(1)
+    } else {
+        visible_cells.saturating_sub(1).max(1)
+    };
+    let snapped_breadth = (main_axis_extent / target_cells).max(minimum);
+
+    if snapped_breadth == current {
+        resize_dimension(current, minimum, 1, direction)
+    } else {
+        snapped_breadth
+    }
+}
+
 fn resize_dimension(current: u16, minimum: u16, step: u16, direction: isize) -> u16 {
     if direction < 0 {
         current.saturating_sub(step).max(minimum)
@@ -9607,6 +9736,34 @@ mod tests {
             .default_runtime_for_shape("DummyCowProducerRequest")
             .expect("unit request should support default construction");
         assert_eq!(default.shape(), DummyCowProducerRequest::SHAPE);
+
+        let owner_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "DummyCowOwner")
+            .cloned()
+            .expect("DummyCowOwner should be registered");
+        let output_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "DummyInvokeOutput")
+            .cloned()
+            .expect("DummyInvokeOutput should be registered");
+        let mut owner_slot = ObjectSlot::new(1);
+        owner_slot.apply_shape_choice(&owner_choice);
+        app.object_slots.push(owner_slot);
+        let mut output_slot = ObjectSlot::new(2);
+        output_slot.apply_shape_choice(&output_choice);
+        output_slot.value_state = resolved(DummyInvokeOutput {
+            message: "done".to_string(),
+        });
+        app.object_slots.push(output_slot);
+        app.set_field_link(1, 0, 2);
+
+        let materialized = app
+            .slot_runtime_value(1)
+            .expect("a linked inner value should materialize into Cow");
+        assert_eq!(materialized.shape(), DummyCowOwner::SHAPE);
     }
 
     #[test]
@@ -11683,7 +11840,7 @@ mod tests {
             KeyCode::Char('+'),
             KeyModifiers::ALT,
         )));
-        assert_eq!(app.slot_height, original_height + 2);
+        assert_eq!(app.slot_height, original_height + 1);
         app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
             KeyCode::Char('-'),
             KeyModifiers::ALT,
@@ -11694,17 +11851,21 @@ mod tests {
             KeyCode::Char('t'),
             KeyModifiers::CONTROL,
         )));
+        app.last_slot_layout_main_axis = 120;
         let original_width = app.slot_width;
         app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
             KeyCode::Char('+'),
             KeyModifiers::ALT,
         )));
-        assert_eq!(app.slot_width, original_width + 1);
+        assert_eq!(app.slot_width, 60);
+        assert_eq!(120 / app.slot_width, 2);
         app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
             KeyCode::Char('-'),
             KeyModifiers::ALT,
         )));
-        assert_eq!(app.slot_width, original_width);
+        assert_eq!(app.slot_width, 40);
+        assert_eq!(120 / app.slot_width, 3);
+        assert!(app.slot_width > original_width);
 
         app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
             KeyCode::Char('f'),
