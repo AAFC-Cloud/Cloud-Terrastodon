@@ -3502,6 +3502,13 @@ impl ObjectBrowserApp {
 
         let fields = shape_fields_for_thing(thing);
         if fields.is_empty() {
+            if thing
+                .shape
+                .type_ops
+                .is_some_and(|type_ops| type_ops.has_default_in_place())
+            {
+                return Ok(Value::Object(Map::new()));
+            }
             eyre::bail!("{shape_name} has no reflected default construction");
         }
         let mut object = Map::new();
@@ -4910,11 +4917,17 @@ impl ObjectBrowserApp {
                 });
             }
             let fields = shape_fields_for_thing(thing);
-            !fields.is_empty()
-                && fields.iter().all(|field| {
+            if fields.is_empty() {
+                thing
+                    .shape
+                    .type_ops
+                    .is_some_and(|type_ops| type_ops.has_default_in_place())
+            } else {
+                fields.iter().all(|field| {
                     reflected_field_default_is_materializable(field)
                         || self.shape_supports_default_inner(&field.field_shape_name, visiting)
                 })
+            }
         });
         visiting.remove(shape_name);
         result
@@ -9432,11 +9445,9 @@ mod tests {
         value: Cow<'static, DummyInvokeOutput>,
     }
 
-    #[derive(Debug, Clone, Facet)]
+    #[derive(Debug, Clone, Facet, Default)]
     #[repr(C)]
-    enum DummyCowProducerRequest {
-        Default,
-    }
+    struct DummyCowProducerRequest;
 
     impl IntoFuture for DummyInvokeRequest {
         type Output = eyre::Result<DummyInvokeOutput>;
@@ -9586,6 +9597,11 @@ mod tests {
             Some(FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. })
                 if input_shape_name == "DummyCowProducerRequest"
         ));
+        assert_eq!(
+            app.default_json_for_shape("DummyCowProducerRequest")
+                .expect("unit request should support default construction"),
+            serde_json::json!({})
+        );
     }
 
     #[test]

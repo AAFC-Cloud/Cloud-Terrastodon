@@ -5,6 +5,7 @@ use facet::Facet;
 use facet::Shape;
 use facet::Type;
 use facet::UserType;
+use facet_reflect::Partial;
 pub use linkme::distributed_slice;
 use std::any::Any;
 use std::any::type_name;
@@ -754,18 +755,28 @@ fn shape_fields(shape: &'static Shape) -> Vec<ShapeFieldInfo> {
 
 fn shape_variants(shape: &'static Shape) -> Vec<ShapeVariantInfo> {
     match shape.ty {
-        Type::User(UserType::Enum(enum_type)) => enum_type
-            .variants
-            .iter()
-            .map(|variant| ShapeVariantInfo {
-                variant_name: variant.effective_name(),
-                payload_shape_name: variant_payload_shape_name(variant),
-                payload_fields: variant.data.fields.iter().map(shape_field_info).collect(),
-                is_default: variant.effective_name() == "Default",
-            })
-            .collect(),
+        Type::User(UserType::Enum(enum_type)) => {
+            let default_variant_index = default_variant_index_for_shape(shape);
+            enum_type
+                .variants
+                .iter()
+                .enumerate()
+                .map(|(variant_index, variant)| ShapeVariantInfo {
+                    variant_name: variant.effective_name(),
+                    payload_shape_name: variant_payload_shape_name(variant),
+                    payload_fields: variant.data.fields.iter().map(shape_field_info).collect(),
+                    is_default: default_variant_index == Some(variant_index),
+                })
+                .collect()
+        }
         _ => Vec::new(),
     }
+}
+
+fn default_variant_index_for_shape(shape: &'static Shape) -> Option<usize> {
+    let partial = unsafe { Partial::alloc_shape_owned(shape).ok()? };
+    let value = partial.set_default().ok()?.build().ok()?;
+    value.peek().into_enum().ok()?.variant_index().ok()
 }
 
 fn shape_field_info(field: &facet::Field) -> ShapeFieldInfo {
@@ -847,6 +858,27 @@ mod test {
         value: String,
     }
 
+    #[derive(Debug, Clone, Default, Facet, PartialEq, Eq)]
+    #[repr(C)]
+    enum DummyRenamedDefault {
+        #[default]
+        Unspecified,
+        Explicit,
+    }
+
+    #[derive(Debug, Clone, Facet, PartialEq, Eq)]
+    #[repr(C)]
+    enum DummyManualDefault {
+        Unspecified,
+        Explicit,
+    }
+
+    impl Default for DummyManualDefault {
+        fn default() -> Self {
+            Self::Explicit
+        }
+    }
+
     impl From<DummyOutput> for DummyConverted {
         fn from(value: DummyOutput) -> Self {
             Self { value: value.value }
@@ -856,6 +888,8 @@ mod test {
     crate::register_thing!(DummyTenant);
     crate::register_thing!(DummyOutput);
     crate::register_thing!(DummyListRequest);
+    crate::register_thing!(DummyRenamedDefault);
+    crate::register_thing!(DummyManualDefault);
     crate::register_into_future!(DummyListRequest => Vec<DummyOutput>, effects = [Read]);
     crate::register_from!(DummyOutput => DummyConverted);
     crate::register_fn_mut!(ArbitraryBytes => DummyOutput,
@@ -871,6 +905,46 @@ mod test {
             known_shapes()
                 .iter()
                 .any(|shape| shape.label == describe_shape(ArbitraryBytes::SHAPE))
+        );
+    }
+
+    #[test]
+    fn enum_default_variant_comes_from_facet_default_construction() {
+        let thing = known_shapes()
+            .into_iter()
+            .find(|shape| shape.label == "DummyRenamedDefault")
+            .expect("DummyRenamedDefault should be registered");
+        let variants = shape_variants_for_thing(thing.thing);
+
+        assert!(
+            variants
+                .iter()
+                .any(|variant| { variant.variant_name == "Unspecified" && variant.is_default })
+        );
+        assert!(
+            variants
+                .iter()
+                .all(|variant| { variant.variant_name != "Explicit" || !variant.is_default })
+        );
+    }
+
+    #[test]
+    fn enum_manual_default_comes_from_facet_default_construction() {
+        let thing = known_shapes()
+            .into_iter()
+            .find(|shape| shape.label == "DummyManualDefault")
+            .expect("DummyManualDefault should be registered");
+        let variants = shape_variants_for_thing(thing.thing);
+
+        assert!(
+            variants
+                .iter()
+                .any(|variant| { variant.variant_name == "Explicit" && variant.is_default })
+        );
+        assert!(
+            variants
+                .iter()
+                .all(|variant| { variant.variant_name != "Unspecified" || !variant.is_default })
         );
     }
 

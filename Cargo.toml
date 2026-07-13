@@ -91,6 +91,7 @@ egui_tiles = "0.14.1"
 facet = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet", features = ["uuid", "compact_str", "chrono", "net", "indexmap", "bstr"] }
 facet-csv = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet-csv" }
 facet-json = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet-json" }
+facet-reflect = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet-reflect" }
 facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet-pretty" }
 facet-value = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "facet-value" }
 figue = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "figue", features = ["arbitrary"] }

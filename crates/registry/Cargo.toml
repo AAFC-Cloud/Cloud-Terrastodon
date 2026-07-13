@@ -15,6 +15,7 @@ eyre.workspace = true
 arbitrary.workspace = true
 facet.workspace = true
 facet-json.workspace = true
+facet-reflect.workspace = true
 linkme.workspace = true
 rand.workspace = true
 

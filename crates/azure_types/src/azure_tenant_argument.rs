@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 /// Tenant can be specified as the default tenant, a tenant id, or a Cloud Terrastodon tenant alias.
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(default)]
 #[repr(C)]
 pub enum AzureTenantArgument<'a> {
     #[default]
