@@ -2091,7 +2091,7 @@ impl ObjectBrowserApp {
         match self.slot_axis {
             SlotAxis::Horizontal => {
                 self.slot_width =
-                    resize_dimension(self.slot_width, Self::MIN_SLOT_WIDTH, 8, direction);
+                    resize_dimension(self.slot_width, Self::MIN_SLOT_WIDTH, 1, direction);
                 self.status_message = format!("Slot width: {}.", self.slot_width);
             }
             SlotAxis::Vertical => {
@@ -4383,19 +4383,16 @@ impl ObjectBrowserApp {
                 rows.push(SlotDisplayRow::Static(separator_line("value")));
                 rows.push(focusable_spans_row(
                     SlotFocusTarget::RuntimeValue,
-                    vec![
-                        Span::raw("value: "),
-                        Span::styled(
-                            value
-                                .as_ref()
-                                .map_or_else(|| "unset".to_string(), RuntimeValue::display_string),
-                            value.as_ref().map_or_else(unset_style, |_| {
-                                Style::default()
-                                    .fg(Color::Green)
-                                    .add_modifier(Modifier::BOLD)
-                            }),
-                        ),
-                    ],
+                    vec![Span::styled(
+                        value
+                            .as_ref()
+                            .map_or_else(|| "unset".to_string(), RuntimeValue::display_string),
+                        value.as_ref().map_or_else(unset_style, |_| {
+                            Style::default()
+                                .fg(Color::Green)
+                                .add_modifier(Modifier::BOLD)
+                        }),
+                    )],
                 ));
             }
             Some(SlotBody::Unset) => {}
@@ -4425,8 +4422,23 @@ impl ObjectBrowserApp {
         }
 
         if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
-            rows.push(SlotDisplayRow::Static(separator_line("status")));
-            rows.extend(runtime_state_rows(runtime_state));
+            if Self::should_show_runtime_status(runtime_state) {
+                rows.push(SlotDisplayRow::Static(separator_line("status")));
+                rows.extend(runtime_state_rows(runtime_state));
+            } else if materialized_fields.is_empty()
+                && let SlotValueState::ResolvedValue { value } = runtime_state
+            {
+                rows.push(SlotDisplayRow::Static(separator_line("value")));
+                rows.push(focusable_spans_row(
+                    SlotFocusTarget::RuntimeValue,
+                    vec![Span::styled(
+                        value.display_string(),
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                    )],
+                ));
+            }
         }
 
         let inlinks = self.slot_inlinks(slot_id);
@@ -4497,6 +4509,14 @@ impl ObjectBrowserApp {
 
         rows
     }
+
+    fn should_show_runtime_status(state: &SlotValueState) -> bool {
+        match state {
+            SlotValueState::Pending(_) | SlotValueState::Failed { .. } => true,
+            SlotValueState::ResolvedValue { .. } | SlotValueState::Building(_) => false,
+        }
+    }
+
     fn invalidate_all_slot_display_caches(&mut self) {
         for slot in &mut self.object_slots {
             slot.display_cache = None;
@@ -4521,91 +4541,12 @@ impl ObjectBrowserApp {
             .collect()
     }
     fn slot_focus_targets(&self, slot_id: usize) -> Vec<SlotFocusTarget> {
-        let mut targets = Vec::new();
-        if matches!(
-            self.slot_by_id(slot_id).map(|slot| &slot.kind),
-            Some(SlotKind::View(_))
-        ) {
-            targets.push(SlotFocusTarget::ViewPointer);
-        }
-        targets.push(SlotFocusTarget::Shape);
-
-        if let Some(body) = self.slot_body(slot_id) {
-            match body {
-                SlotBody::Value { .. } => targets.push(SlotFocusTarget::RuntimeValue),
-                SlotBody::Unset => {}
-                SlotBody::Struct { fields } => {
-                    for index in 0..fields.len() {
-                        targets.push(SlotFocusTarget::FieldType(index));
-                        targets.push(SlotFocusTarget::FieldValue(index));
-                    }
-                }
-                SlotBody::Enum { fields, .. } => {
-                    targets.push(SlotFocusTarget::Variant);
-                    for index in 0..fields.len() {
-                        targets.push(SlotFocusTarget::FieldType(index));
-                        targets.push(SlotFocusTarget::FieldValue(index));
-                    }
-                }
-            }
-        } else {
-            for index in 0..self.materialized_fields(slot_id).len() {
-                targets.push(SlotFocusTarget::FieldType(index));
-                targets.push(SlotFocusTarget::FieldValue(index));
-            }
-        }
-
-        if self
-            .slot_by_id(slot_id)
-            .and_then(|slot| slot.created_for)
-            .is_some()
-        {
-            targets.push(SlotFocusTarget::CreatedFor);
-        }
-
-        if self
-            .slot_by_id(slot_id)
-            .and_then(|slot| slot.produced_by_slot_id)
-            .is_some()
-        {
-            targets.push(SlotFocusTarget::ProducedBy);
-        }
-
-        for (index, _) in self.slot_inlinks(slot_id).iter().enumerate() {
-            targets.push(SlotFocusTarget::Inlink(index));
-        }
-
-        if let Some(slot) = self.slot_by_id(slot_id) {
-            for (index, _) in slot.result_slot_ids.iter().enumerate() {
-                targets.push(SlotFocusTarget::Result(index));
-            }
-        }
-
-        if matches!(
-            self.slot_runtime_state(slot_id),
-            Some(SlotValueState::ResolvedValue { .. })
-        ) {
-            targets.push(SlotFocusTarget::RuntimeValue);
-        }
-
-        targets.extend([
-            SlotFocusTarget::Action(SlotAction::Rename),
-            SlotFocusTarget::Action(SlotAction::Delete),
-            SlotFocusTarget::Action(SlotAction::Clone),
-            SlotFocusTarget::Action(SlotAction::Take),
-        ]);
-        if !self.applicable_functions_for_slot(slot_id).is_empty() {
-            targets.push(SlotFocusTarget::Action(SlotAction::Invoke));
-        }
-        if !self
-            .applicable_arbitrary_functions_for_slot(slot_id)
-            .is_empty()
-        {
-            targets.push(SlotFocusTarget::Action(SlotAction::InvokeArbitrary));
-        }
-
-        targets
+        self.build_slot_display_rows(slot_id)
+            .into_iter()
+            .filter_map(|row| row.focus_target())
+            .collect()
     }
+
     fn slot_default_focus_target(&self, slot_id: usize) -> SlotFocusTarget {
         self.slot_by_id(self.data_slot_id_for(slot_id).unwrap_or(slot_id))
             .map(ObjectSlot::default_focus_target)
@@ -8067,6 +8008,15 @@ enum SlotDisplayRow {
         spans: Vec<Span<'static>>,
     },
 }
+
+impl SlotDisplayRow {
+    fn focus_target(&self) -> Option<SlotFocusTarget> {
+        match self {
+            Self::Static(_) => None,
+            Self::Focusable { target, .. } => Some(*target),
+        }
+    }
+}
 #[derive(Debug)]
 struct SlotSnapshot {
     name: Option<String>,
@@ -8550,19 +8500,7 @@ fn runtime_state_rows(runtime_state: &SlotValueState) -> Vec<SlotDisplayRow> {
             Span::styled("failed", unset_style()),
             Span::raw(format!(": {message}")),
         ]))],
-        SlotValueState::ResolvedValue { value, .. } => vec![focusable_spans_row(
-            SlotFocusTarget::RuntimeValue,
-            vec![
-                Span::styled(
-                    "resolved ",
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(value.display_string()),
-            ],
-        )],
-        SlotValueState::Building(_) => Vec::new(),
+        SlotValueState::ResolvedValue { .. } | SlotValueState::Building(_) => Vec::new(),
     }
 }
 
@@ -9453,6 +9391,83 @@ mod tests {
     }
 
     #[test]
+    fn slot_navigation_targets_follow_rendered_row_order() {
+        let mut app = ObjectBrowserApp::default();
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some("EntraUser".to_string()),
+            value_state: super::SlotValueState::Failed {
+                message: "test failure".to_string(),
+            },
+            result_slot_ids: vec![2],
+            created_for: Some(super::SlotCreatedFor {
+                owner_slot_id: 0,
+                field_index: 0,
+                field_name: "org_url",
+            }),
+            produced_by_slot_id: Some(0),
+            display_cache: None,
+        });
+        app.object_slots.push(super::ObjectSlot {
+            id: 2,
+            name: None,
+            kind: super::SlotKind::Owned,
+            shape_name: Some("EntraUser".to_string()),
+            value_state: resolved(test_user(
+                "Grace",
+                "grace@example.com",
+                "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            )),
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: Some(1),
+            display_cache: None,
+        });
+
+        let rows = app.slot_display_rows(1);
+        let rendered_targets = rows
+            .iter()
+            .filter_map(|row| row.focus_target())
+            .collect::<Vec<_>>();
+        assert_eq!(app.slot_focus_targets(1), rendered_targets);
+
+        let target_index = |target| {
+            rendered_targets
+                .iter()
+                .position(|candidate| *candidate == target)
+                .expect("target should be rendered")
+        };
+        assert!(
+            target_index(SlotFocusTarget::CreatedFor) < target_index(SlotFocusTarget::ProducedBy)
+        );
+        assert!(
+            target_index(SlotFocusTarget::ProducedBy) < target_index(SlotFocusTarget::Result(0))
+        );
+        assert!(
+            target_index(SlotFocusTarget::Result(0))
+                < target_index(SlotFocusTarget::Action(super::SlotAction::Rename,))
+        );
+
+        let status_line = rows.iter().position(|row| {
+            matches!(
+                row,
+                super::SlotDisplayRow::Static(line)
+                    if super::spans_plain_text(&line.spans).contains("--- status ---")
+            )
+        });
+        let activity_line = rows.iter().position(|row| {
+            matches!(
+                row,
+                super::SlotDisplayRow::Static(line)
+                    if super::spans_plain_text(&line.spans).contains("--- activity ---")
+            )
+        });
+        assert!(status_line < activity_line);
+    }
+
+    #[test]
     fn proxy_scalar_shapes_use_value_slots() {
         let mut app = ObjectBrowserApp::default();
         let choice = app
@@ -9551,6 +9566,18 @@ mod tests {
             .default_runtime_for_shape("DummyCowProducerRequest")
             .expect("unit request should support default construction");
         assert_eq!(default.shape(), DummyCowProducerRequest::SHAPE);
+    }
+
+    #[test]
+    fn tenant_id_fields_offer_default_tenant_resolution() {
+        let app = ObjectBrowserApp::default();
+        let choices = app.producer_function_choices_for("AzureTenantId");
+
+        assert!(choices.iter().any(|choice| matches!(
+            choice,
+            FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. }
+                if input_shape_name == "AzureTenantIdResolveRequest"
+        )));
     }
 
     #[test]
@@ -9833,7 +9860,7 @@ mod tests {
         )));
         assert!(matches!(
             picker.selected_choice(),
-            Some(FieldPickerChoice::CreateProducer { input_shape_name, .. })
+            Some(FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. })
                 if input_shape_name == "AzureTenantIdResolveRequest"
         ));
 
@@ -9956,6 +9983,91 @@ mod tests {
             .join("\n");
         assert!(rendered.contains("--- fields ---"), "{rendered}");
         assert!(rendered.contains("tenant: Default"), "{rendered}");
+    }
+
+    #[test]
+    fn producer_request_resolution_is_rendered_as_result_activity() {
+        let mut app = ObjectBrowserApp::default();
+        let shape = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "AzureTenantIdResolveRequest")
+            .cloned()
+            .expect("AzureTenantIdResolveRequest should be registered");
+        let mut slot = ObjectSlot::new(1);
+        slot.apply_shape_choice(&shape);
+        slot.value_state = super::SlotValueState::ResolvedValue {
+            value: runtime(AzureTenantIdResolveRequest {
+                tenant: AzureTenantArgument::Default,
+            }),
+        };
+        slot.created_for = Some(super::SlotCreatedFor {
+            owner_slot_id: 1,
+            field_index: 0,
+            field_name: "org_url",
+        });
+        slot.result_slot_ids = vec![2];
+        app.object_slots.push(slot);
+
+        let result_shape = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "EntraUser")
+            .cloned()
+            .expect("EntraUser should be registered");
+        let mut result_slot = ObjectSlot::new(2);
+        result_slot.apply_shape_choice(&result_shape);
+        result_slot.value_state = resolved(test_user(
+            "Grace",
+            "grace@example.com",
+            "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        ));
+        result_slot.produced_by_slot_id = Some(1);
+        app.object_slots.push(result_slot);
+
+        let rows = app.slot_display_rows(1);
+        let rendered = rows
+            .iter()
+            .filter_map(|row| match row {
+                super::SlotDisplayRow::Static(line) => Some(super::spans_plain_text(&line.spans)),
+                super::SlotDisplayRow::Focusable { spans, .. } => {
+                    Some(super::spans_plain_text(spans))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(!rendered.contains("--- status ---"), "{rendered}");
+        assert!(rendered.contains("--- activity ---"), "{rendered}");
+        assert!(rendered.contains("produced slot 2"), "{rendered}");
+
+        let targets = app.slot_focus_targets(1);
+        assert!(targets.contains(&SlotFocusTarget::CreatedFor));
+        assert!(targets.contains(&SlotFocusTarget::Result(0)));
+        assert!(!targets.contains(&SlotFocusTarget::RuntimeValue));
+
+        let result_rows = app.slot_display_rows(2);
+        let result_rendered = result_rows
+            .iter()
+            .filter_map(|row| match row {
+                super::SlotDisplayRow::Static(line) => Some(super::spans_plain_text(&line.spans)),
+                super::SlotDisplayRow::Focusable { spans, .. } => {
+                    Some(super::spans_plain_text(spans))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            result_rendered.contains("--- fields ---"),
+            "{result_rendered}"
+        );
+        assert!(
+            result_rendered.contains("displayName: Grace"),
+            "{result_rendered}"
+        );
+        assert!(
+            !result_rendered.contains("--- status ---"),
+            "{result_rendered}"
+        );
     }
 
     #[test]
@@ -11530,12 +11642,28 @@ mod tests {
             KeyCode::Char('+'),
             KeyModifiers::ALT,
         )));
-        assert!(app.slot_height > original_height);
+        assert_eq!(app.slot_height, original_height + 2);
         app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
             KeyCode::Char('-'),
             KeyModifiers::ALT,
         )));
         assert_eq!(app.slot_height, original_height);
+
+        app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('t'),
+            KeyModifiers::CONTROL,
+        )));
+        let original_width = app.slot_width;
+        app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('+'),
+            KeyModifiers::ALT,
+        )));
+        assert_eq!(app.slot_width, original_width + 1);
+        app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
+            KeyCode::Char('-'),
+            KeyModifiers::ALT,
+        )));
+        assert_eq!(app.slot_width, original_width);
 
         app.handle_event(&ratatui::crossterm::event::Event::Key(KeyEvent::new(
             KeyCode::Char('f'),

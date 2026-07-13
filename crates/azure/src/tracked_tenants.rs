@@ -74,7 +74,7 @@ pub trait AzureTenantArgumentExt {
 }
 
 #[must_use = "This is a future request, you must .run().await it"]
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Default, Arbitrary, facet::Facet)]
 pub struct AzureTenantIdResolveRequest {
     pub tenant: AzureTenantArgument<'static>,
 }
