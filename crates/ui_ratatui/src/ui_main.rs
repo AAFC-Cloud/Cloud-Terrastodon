@@ -10,6 +10,7 @@ use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::KnownShapeInfo;
 use cloud_terrastodon_registry::ProductionKind;
 use cloud_terrastodon_registry::ReceiverMode;
+use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::ShapeFieldInfo;
 use cloud_terrastodon_registry::ShapeVariantInfo;
 use cloud_terrastodon_registry::describe_function;
@@ -23,6 +24,7 @@ use cloud_terrastodon_registry::shape_variants_for_thing;
 use crossterm::event::EventStream;
 use eyre::Result;
 use facet::ScalarType;
+use facet_reflect::HasFields;
 use futures::FutureExt;
 use futures::StreamExt;
 use nucleo::Matcher;
@@ -64,8 +66,6 @@ use ratatui::widgets::ScrollbarOrientation;
 use ratatui::widgets::ScrollbarState;
 use ratatui::widgets::Widget;
 use ratatui::widgets::Wrap;
-use serde_json::Map;
-use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
@@ -92,7 +92,7 @@ struct ObjectBrowserApp {
     mode: UiMode,
     pool_surface: PoolSurface,
     active_breadcrumb_index: usize,
-    projection_stack: Vec<JsonProjectionView>,
+    projection_stack: Vec<ProjectionView>,
     breadcrumb_filters: Vec<BreadcrumbFilter>,
     tabs: Vec<BrowserTabState>,
     active_tab_index: usize,
@@ -241,15 +241,10 @@ impl ObjectBrowserApp {
                 .now_or_never()
                 .expect("finished join handle should resolve immediately")
             {
-                Ok(Ok(output)) => match (pending.output_serialize)(output.as_ref()) {
-                    Ok(json) => match serde_json::from_str::<Value>(&json) {
-                        Ok(value) => SlotValueState::ResolvedValue { json, value },
-                        Err(error) => SlotValueState::Failed {
-                            message: format!("could not parse invocation result json: {error}"),
-                        },
-                    },
+                Ok(Ok(output)) => match (pending.output_to_runtime)(output) {
+                    Ok(value) => SlotValueState::ResolvedValue { value },
                     Err(error) => SlotValueState::Failed {
-                        message: format!("could not serialize invocation result: {error}"),
+                        message: format!("could not store invocation result: {error}"),
                     },
                 },
                 Ok(Err(error)) => SlotValueState::Failed {
@@ -1650,7 +1645,18 @@ impl ObjectBrowserApp {
         let value = label == "true";
         let slot_id = picker.slot_id;
         self.boolean_value_picker = None;
-        self.set_scalar_slot_value(slot_id, Value::Bool(value));
+        let Some(shape) = self.scalar_shape_for_slot(slot_id) else {
+            self.status_message = format!("Slot {} has no reflected scalar shape.", slot_id);
+            return;
+        };
+        let value = match RuntimeValue::from_text(shape, if value { "true" } else { "false" }) {
+            Ok(value) => value,
+            Err(error) => {
+                self.status_message = format!("Could not create boolean value: {error}");
+                return;
+            }
+        };
+        self.set_scalar_slot_value(slot_id, value);
         self.mode = UiMode::Pool;
         self.status_message = format!("Updated value in slot {slot_id}.");
     }
@@ -2196,7 +2202,11 @@ impl ObjectBrowserApp {
 
     fn projection_rendered_line_count(&self, projection: &ProjectionSlot) -> usize {
         match self.projection_value(projection) {
-            Some(Value::Object(object)) if !object.is_empty() => 2 + object.len() * 2,
+            Some(value)
+                if peek_object_entries(value).is_some_and(|entries| !entries.is_empty()) =>
+            {
+                2 + peek_object_entries(value).map_or(0, |entries| entries.len()) * 2
+            }
             Some(_) => 3,
             None => 1,
         }
@@ -2204,11 +2214,15 @@ impl ObjectBrowserApp {
 
     fn projection_line_index(&self, projection: &ProjectionSlot, active_row: usize) -> usize {
         match self.projection_value(projection) {
-            Some(Value::Object(object)) if !object.is_empty() && active_row > 0 => (active_row + 1)
-                .min(
+            Some(value)
+                if peek_object_entries(value).is_some_and(|entries| !entries.is_empty())
+                    && active_row > 0 =>
+            {
+                (active_row + 1).min(
                     self.projection_rendered_line_count(projection)
                         .saturating_sub(1),
-                ),
+                )
+            }
             Some(_) | None => active_row.min(
                 self.projection_rendered_line_count(projection)
                     .saturating_sub(1),
@@ -2637,6 +2651,10 @@ impl ObjectBrowserApp {
 
     fn clone_slot(&mut self, slot_id: usize) {
         let Some(snapshot) = self.slot_snapshot(slot_id) else {
+            self.status_message = format!(
+                "Could not clone slot {}: its value is pending, failed, or not cloneable.",
+                slot_id
+            );
             return;
         };
         let new_slot_id = self.allocate_slot_id();
@@ -2661,6 +2679,10 @@ impl ObjectBrowserApp {
         };
 
         let Some(snapshot) = self.slot_snapshot(slot_id) else {
+            self.status_message = format!(
+                "Could not take slot {}: its value is pending, failed, or not cloneable.",
+                slot_id
+            );
             return;
         };
         self.clear_owner_field_link(info.owner_slot_id, info.field_index, slot_id);
@@ -2670,8 +2692,8 @@ impl ObjectBrowserApp {
             slot.shape_name = snapshot.shape_name;
             slot.value_state = match snapshot.value_state {
                 SlotSnapshotValueState::Building(body) => SlotValueState::Building(body),
-                SlotSnapshotValueState::ResolvedValue { json, value } => {
-                    SlotValueState::ResolvedValue { json, value }
+                SlotSnapshotValueState::ResolvedValue { value } => {
+                    SlotValueState::ResolvedValue { value }
                 }
             };
         }
@@ -2836,14 +2858,14 @@ impl ObjectBrowserApp {
             self.status_message = format!("{shape_name} is not a registered input shape.");
             return;
         };
-        let json = match self.slot_json_string(slot_id) {
-            Ok(json) => json,
+        let runtime_value = match self.slot_runtime_value(slot_id) {
+            Ok(value) => value,
             Err(error) => {
                 self.status_message = format!("Could not invoke slot {}: {error}", slot_id);
                 return;
             }
         };
-        let mut input = match thing.parse_boxed(&json) {
+        let mut input = match thing.runtime_into_boxed(runtime_value) {
             Ok(input) => input,
             Err(error) => {
                 self.status_message = format!("Could not build {shape_name} input: {error}");
@@ -2872,12 +2894,9 @@ impl ObjectBrowserApp {
                         return;
                     }
                 };
-                if let Err(error) =
-                    self.update_slot_runtime_from_typed(slot_id, thing, input.as_ref())
-                {
-                    self.status_message = format!(
-                        "Function updated the input but it could not be re-serialized: {error}"
-                    );
+                if let Err(error) = self.update_slot_runtime_from_typed(slot_id, thing, input) {
+                    self.status_message =
+                        format!("Function updated the input but it could not be stored: {error}");
                     return;
                 }
                 Ok(FunctionInvocation::Ready(output))
@@ -2899,7 +2918,7 @@ impl ObjectBrowserApp {
                 let output_shape_name = describe_shape(function.output_shape);
                 let pending = PendingInvocationState {
                     join_handle: tokio::spawn(future),
-                    output_serialize: function.output_serialize,
+                    output_to_runtime: function.output_to_runtime,
                 };
                 let mut result_slot =
                     ObjectSlot::new_result(result_slot_id, output_shape_name.clone(), pending);
@@ -2935,12 +2954,11 @@ impl ObjectBrowserApp {
         &mut self,
         slot_id: usize,
         thing: &'static cloud_terrastodon_registry::Thing,
-        value: &(dyn std::any::Any + Send),
+        value: Box<dyn std::any::Any + Send>,
     ) -> Result<()> {
-        let json = thing.serialize_boxed(value)?;
-        let value = serde_json::from_str::<Value>(&json)?;
+        let value = thing.runtime_from_boxed(value)?;
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
-            slot.value_state = SlotValueState::ResolvedValue { json, value };
+            slot.value_state = SlotValueState::ResolvedValue { value };
         }
         Ok(())
     }
@@ -2951,21 +2969,11 @@ impl ObjectBrowserApp {
         function: &'static Function,
         output: Box<dyn std::any::Any + Send>,
     ) {
-        let json = match (function.output_serialize)(output.as_ref()) {
-            Ok(json) => json,
-            Err(error) => {
-                self.status_message = format!(
-                    "Could not serialize {} output: {error}",
-                    describe_function(function)
-                );
-                return;
-            }
-        };
-        let value = match serde_json::from_str::<Value>(&json) {
+        let value = match (function.output_to_runtime)(output) {
             Ok(value) => value,
             Err(error) => {
                 self.status_message = format!(
-                    "Could not parse {} output json: {error}",
+                    "Could not store {} output: {error}",
                     describe_function(function)
                 );
                 return;
@@ -2974,7 +2982,7 @@ impl ObjectBrowserApp {
         let result_slot_id = self.allocate_slot_id();
         let output_shape_name = describe_shape(function.output_shape);
         let mut result_slot =
-            ObjectSlot::new_resolved_result(result_slot_id, output_shape_name.clone(), json, value);
+            ObjectSlot::new_resolved_result(result_slot_id, output_shape_name.clone(), value);
         result_slot.produced_by_slot_id = Some(slot_id);
         self.object_slots.push(result_slot);
         self.link_result_to_created_field(slot_id, result_slot_id);
@@ -3293,17 +3301,10 @@ impl ObjectBrowserApp {
         let mut raw = vec![0_u8; 4096];
         rand::rng().fill(raw.as_mut_slice());
         let arbitrary_bytes = ArbitraryBytes::new(raw);
-        let json = match choice.thing.serialize_boxed(&arbitrary_bytes) {
-            Ok(json) => json,
-            Err(error) => {
-                self.status_message = format!("Could not serialize new ArbitraryBytes: {error}");
-                return None;
-            }
-        };
-        let value = match serde_json::from_str(&json) {
+        let value = match RuntimeValue::from_box(Box::new(arbitrary_bytes)) {
             Ok(value) => value,
             Err(error) => {
-                self.status_message = format!("Could not parse new ArbitraryBytes JSON: {error}");
+                self.status_message = format!("Could not create new ArbitraryBytes: {error}");
                 return None;
             }
         };
@@ -3311,7 +3312,7 @@ impl ObjectBrowserApp {
         let slot_id = self.allocate_slot_id();
         let mut slot = ObjectSlot::new(slot_id);
         slot.apply_shape_choice(&choice);
-        slot.value_state = SlotValueState::ResolvedValue { json, value };
+        slot.value_state = SlotValueState::ResolvedValue { value };
         self.object_slots.push(slot);
         self.invalidate_all_slot_display_caches();
         Some(slot_id)
@@ -3426,19 +3427,11 @@ impl ObjectBrowserApp {
             self.status_message = "The selected producer function is no longer registered.".into();
             return;
         };
-        let value = match self.default_json_for_shape(input_shape_name) {
+        let value = match self.default_runtime_for_shape(input_shape_name) {
             Ok(value) => value,
             Err(error) => {
                 self.status_message =
                     format!("Could not build default {input_shape_name}: {error}");
-                return;
-            }
-        };
-        let json = match serde_json::to_string(&value) {
-            Ok(json) => json,
-            Err(error) => {
-                self.status_message =
-                    format!("Could not serialize default {input_shape_name}: {error}");
                 return;
             }
         };
@@ -3451,7 +3444,7 @@ impl ObjectBrowserApp {
             return;
         };
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
-            slot.value_state = SlotValueState::ResolvedValue { json, value };
+            slot.value_state = SlotValueState::ResolvedValue { value };
         }
         self.invalidate_all_slot_display_caches();
         self.invoke_registered_function(slot_id, function);
@@ -3484,46 +3477,11 @@ impl ObjectBrowserApp {
         self.invoke_arbitrary_registered_function(slot_id, function);
     }
 
-    fn default_json_for_shape(&self, shape_name: &str) -> Result<Value> {
-        let thing = self
-            .thing_for_shape_name(shape_name)
-            .ok_or_else(|| eyre::eyre!("{shape_name} is not registered"))?;
-        let variants = shape_variants_for_thing(thing);
-        if !variants.is_empty() {
-            let variant = variants
-                .iter()
-                .find(|variant| variant.is_default)
-                .ok_or_else(|| eyre::eyre!("{shape_name} has no Default variant"))?;
-            if !variant.payload_fields.is_empty() {
-                eyre::bail!("{}::Default requires a payload", shape_name);
-            }
-            return Ok(Value::String(variant.variant_name.to_string()));
-        }
-
-        let fields = shape_fields_for_thing(thing);
-        if fields.is_empty() {
-            if thing
-                .shape
-                .type_ops
-                .is_some_and(|type_ops| type_ops.has_default_in_place())
-            {
-                return Ok(Value::Object(Map::new()));
-            }
-            eyre::bail!("{shape_name} has no reflected default construction");
-        }
-        let mut object = Map::new();
-        for field in fields {
-            let value = if reflected_field_default_is_materializable(&field) {
-                self.default_json_value(
-                    &field.field_shape_name,
-                    field.default_value_label.as_deref(),
-                )?
-            } else {
-                self.default_json_for_shape(&field.field_shape_name)?
-            };
-            object.insert(field.field_name.to_string(), value);
-        }
-        Ok(Value::Object(object))
+    fn default_runtime_for_shape(&self, shape_name: &str) -> Result<RuntimeValue> {
+        let shape = self
+            .shape_for_shape_name(shape_name)
+            .ok_or_else(|| eyre::eyre!("{shape_name} is not reflected"))?;
+        RuntimeValue::from_default(shape)
     }
 
     fn create_general_value_slot(&mut self, owner_slot_id: usize, field_index: usize) {
@@ -3587,15 +3545,17 @@ impl ObjectBrowserApp {
         let value = self
             .slot_by_id(self.data_slot_id_for(slot_id).unwrap_or(slot_id))
             .and_then(|slot| match &slot.value_state {
-                SlotValueState::Building(SlotBody::Value { value, .. }) => value.clone(),
-                SlotValueState::ResolvedValue { value, .. } => Some(value.clone()),
+                SlotValueState::Building(SlotBody::Value { value, .. }) => {
+                    value.as_ref().map(RuntimeValue::display_string)
+                }
+                SlotValueState::ResolvedValue { value } => Some(value.display_string()),
                 _ => None,
             });
         self.general_value_editor = Some(GeneralValueEditorState::new(
             slot_id,
             shape_name,
             shape,
-            value.as_ref().map(scalar_value_input).unwrap_or_default(),
+            value.unwrap_or_default(),
         ));
         self.mode = UiMode::GeneralValueEditor;
         self.status_message = format!("Enter a value for slot {}.", slot_id);
@@ -3604,10 +3564,10 @@ impl ObjectBrowserApp {
         let selected = self
             .slot_by_id(self.data_slot_id_for(slot_id).unwrap_or(slot_id))
             .and_then(|slot| match &slot.value_state {
-                SlotValueState::Building(SlotBody::Value { value, .. }) => {
-                    value.as_ref().and_then(Value::as_bool)
-                }
-                SlotValueState::ResolvedValue { value, .. } => value.as_bool(),
+                SlotValueState::Building(SlotBody::Value { value, .. }) => value
+                    .as_ref()
+                    .and_then(|value| value.peek().get::<bool>().ok().copied()),
+                SlotValueState::ResolvedValue { value } => value.peek().get::<bool>().ok().copied(),
                 _ => None,
             })
             .map(|value| usize::from(value));
@@ -3626,85 +3586,20 @@ impl ObjectBrowserApp {
     }
     fn parse_general_value(
         &self,
-        shape_name: &str,
+        _shape_name: &str,
         shape: &'static facet::Shape,
         input: &str,
-    ) -> Result<Value> {
-        let scalar = shape.scalar_type();
-        if shape_name == "Uuid" {
-            let parsed = input
-                .parse::<cloud_terrastodon_azure::uuid::Uuid>()
-                .map_err(|error| eyre::eyre!("{error}"))?;
-            return Ok(Value::String(parsed.to_string()));
-        }
-        let thing = self.thing_for_shape_name(shape_name);
-        let expects_json_string = shape_name == "Uuid"
-            || matches!(
-                scalar,
-                Some(ScalarType::String | ScalarType::Str | ScalarType::Char)
-            )
-            || shape_accepts_text_input(shape);
-        let json_input = if expects_json_string {
-            serde_json::to_string(input)?
-        } else {
-            input.to_string()
-        };
-        if let Some(thing) = thing {
-            let parsed = thing
-                .parse_boxed(&json_input)
-                .map_err(|error| eyre::eyre!("{error}"))?;
-            let serialized = thing.serialize_boxed(parsed.as_ref())?;
-            return Ok(serde_json::from_str(&serialized)?);
-        }
-        let value: Value = serde_json::from_str(&json_input)?;
-        match scalar {
-            Some(ScalarType::Bool) if value.is_boolean() => Ok(value),
-            Some(ScalarType::String | ScalarType::Str) if value.is_string() => Ok(value),
-            Some(ScalarType::Char)
-                if value.as_str().is_some_and(|text| text.chars().count() == 1) =>
-            {
-                Ok(value)
-            }
-            Some(ScalarType::F32 | ScalarType::F64) if value.is_number() => Ok(value),
-            Some(
-                ScalarType::U8
-                | ScalarType::U16
-                | ScalarType::U32
-                | ScalarType::U64
-                | ScalarType::USize,
-            ) if value.as_u64().is_some() => Ok(value),
-            Some(
-                ScalarType::I8
-                | ScalarType::I16
-                | ScalarType::I32
-                | ScalarType::I64
-                | ScalarType::ISize,
-            ) if value.as_i64().is_some() => Ok(value),
-            _ => eyre::bail!("{input:?} is not a valid {shape_name}"),
-        }
+    ) -> Result<RuntimeValue> {
+        RuntimeValue::from_text(shape, input)
     }
-    fn set_scalar_slot_value(&mut self, slot_id: usize, value: Value) {
-        let json = match serde_json::to_string(&value) {
-            Ok(json) => json,
-            Err(error) => {
-                self.status_message = format!("Could not serialize slot {}: {}", slot_id, error);
-                return;
-            }
-        };
+    fn set_scalar_slot_value(&mut self, slot_id: usize, value: RuntimeValue) {
         let data_slot_id = self.data_slot_id_for(slot_id).unwrap_or(slot_id);
         if let Some(slot) = self.slot_by_id_mut(data_slot_id) {
             match &mut slot.value_state {
                 SlotValueState::Building(SlotBody::Value { value: current, .. }) => {
-                    *current = Some(value.clone())
+                    *current = Some(value)
                 }
-                SlotValueState::ResolvedValue {
-                    json: current_json,
-                    value: current,
-                    ..
-                } => {
-                    *current_json = json;
-                    *current = value.clone();
-                }
+                SlotValueState::ResolvedValue { value: current } => *current = value,
                 _ => {
                     self.status_message =
                         format!("Slot {} is not an editable scalar slot.", slot_id);
@@ -3859,22 +3754,21 @@ impl ObjectBrowserApp {
             return;
         };
         let Some(field) = self.slot_field(owner_slot_id, field_index).cloned() else {
-            let Some(field) = self
-                .materialized_fields(owner_slot_id)
-                .get(field_index)
-                .cloned()
-            else {
+            let materialized_fields = self.materialized_fields(owner_slot_id);
+            let Some(field) = materialized_fields.get(field_index) else {
                 return;
             };
+            let field_name = field.info.field_name;
+            let projection_path = field.projection_path.clone();
             if let Some(slot_id) = self.view_slot_id_for_field(owner_slot_id, field_index) {
                 self.jump_to_slot(slot_id);
                 self.status_message = format!(
                     "Jumped to slot {} for {} on slot {}.",
-                    slot_id, field.info.field_name, owner_slot_id
+                    slot_id, field_name, owner_slot_id
                 );
                 return;
             }
-            self.activate_json_projection(owner_slot_id, field.projection_path);
+            self.activate_projection(owner_slot_id, projection_path);
             return;
         };
 
@@ -4021,13 +3915,12 @@ impl ObjectBrowserApp {
         let data_slot = self.slot_by_id(self.data_slot_id_for(slot_id)?)?;
         let display_slot = self.slot_by_id(slot_id)?;
         let value_state = match &data_slot.value_state {
-            SlotValueState::Building(body) => SlotSnapshotValueState::Building(body.clone()),
-            SlotValueState::ResolvedValue { json, value } => {
-                SlotSnapshotValueState::ResolvedValue {
-                    json: json.clone(),
-                    value: value.clone(),
-                }
+            SlotValueState::Building(body) => {
+                SlotSnapshotValueState::Building(body.try_clone().ok()?)
             }
+            SlotValueState::ResolvedValue { value } => SlotSnapshotValueState::ResolvedValue {
+                value: value.try_clone().ok()?,
+            },
             SlotValueState::Pending(_) | SlotValueState::Failed { .. } => return None,
         };
         Some(SlotSnapshot {
@@ -4226,19 +4119,38 @@ impl ObjectBrowserApp {
             return Vec::new();
         };
         let fields = shape_fields_for_thing(thing);
+        let root_peek = value.peek();
+        let reflected_entries = peek_object_entries(root_peek);
         let transparent_value =
-            (thing.shape.is_transparent() && fields.len() == 1).then_some(value);
+            (thing.shape.is_transparent() && fields.len() == 1).then_some(root_peek);
 
         fields
             .into_iter()
             .filter_map(|info| {
-                let (value, projection_path) = match value {
-                    Value::Object(object) => (
-                        object.get(info.field_name)?.clone(),
-                        vec![JsonPathSegment::Field(info.field_name.to_string())],
-                    ),
-                    _ => (transparent_value?.clone(), Vec::new()),
+                let (peek, projection_path) = if let Some((_, peek)) = reflected_entries
+                    .as_ref()
+                    .and_then(|entries| entries.iter().find(|(name, _)| name == info.field_name))
+                {
+                    (
+                        *peek,
+                        vec![ValuePathSegment::Field(info.field_name.to_string())],
+                    )
+                } else if let Ok(tuple) = root_peek.into_tuple() {
+                    let field_index = info.field_name.parse::<usize>().ok()?;
+                    (
+                        tuple.field(field_index)?,
+                        vec![ValuePathSegment::Index(field_index)],
+                    )
+                } else {
+                    (transparent_value?, Vec::new())
                 };
+                let value = RuntimeValue::clone_from_peek(peek)
+                    .or_else(|_| {
+                        let text = peek_scalar_text(peek).unwrap_or_else(|| peek.to_string());
+                        RuntimeValue::from_text(peek.shape(), &text)
+                    })
+                    .or_else(|_| RuntimeValue::from_default(peek.shape()))
+                    .ok()?;
                 Some(MaterializedFieldState {
                     info,
                     value,
@@ -4254,7 +4166,7 @@ impl ObjectBrowserApp {
     }
 
     fn top_level_projection_child_count(&self, slot_id: usize) -> usize {
-        self.projection_child_count(&JsonProjectionView {
+        self.projection_child_count(&ProjectionView {
             root_slot_id: slot_id,
             path: Vec::new(),
         })
@@ -4311,137 +4223,106 @@ impl ObjectBrowserApp {
         self.reflected_shapes.get(shape_name).copied()
     }
 
-    fn slot_json_string(&self, slot_id: usize) -> Result<String> {
-        let value = self.slot_json_value(slot_id)?;
-        Ok(serde_json::to_string(&value)?)
-    }
-
-    fn slot_json_value(&self, slot_id: usize) -> Result<Value> {
+    fn slot_runtime_value(&self, slot_id: usize) -> Result<RuntimeValue> {
         let data_slot_id = self
             .data_slot_id_for(slot_id)
             .ok_or_else(|| eyre::eyre!("slot {slot_id} has no backing value"))?;
         let slot = self
             .slot_by_id(data_slot_id)
             .ok_or_else(|| eyre::eyre!("slot {data_slot_id} is missing"))?;
-
         match &slot.value_state {
-            SlotValueState::Pending(_) => {
-                eyre::bail!("slot {} is still pending", slot.id);
-            }
+            SlotValueState::Pending(_) => eyre::bail!("slot {} is still pending", slot.id),
             SlotValueState::Failed { message } => {
-                eyre::bail!("slot {} failed: {}", slot.id, message);
+                eyre::bail!("slot {} failed: {}", slot.id, message)
             }
-            SlotValueState::ResolvedValue { value, .. } => {
-                return Ok(value.clone());
+            SlotValueState::ResolvedValue { value } => value.try_clone(),
+            SlotValueState::Building(body) => {
+                let shape_name = slot
+                    .shape_name
+                    .as_deref()
+                    .ok_or_else(|| eyre::eyre!("slot {} has no reflected shape", slot.id))?;
+                let shape = self
+                    .shape_for_shape_name(shape_name)
+                    .ok_or_else(|| eyre::eyre!("{shape_name} is not reflected"))?;
+                self.materialize_slot_body(shape, body)
             }
-            SlotValueState::Building(_) => {}
         }
+    }
 
-        let SlotValueState::Building(body) = &slot.value_state else {
-            unreachable!("non-building states returned above")
-        };
-        let uses_proxy = slot
-            .shape_name
-            .as_deref()
-            .and_then(|shape_name| self.shape_for_shape_name(shape_name))
-            .is_some_and(|shape| shape.proxy.is_some());
+    fn materialize_slot_body(
+        &self,
+        shape: &'static facet::Shape,
+        body: &SlotBody,
+    ) -> Result<RuntimeValue> {
         match body {
             SlotBody::Value {
                 value: Some(value), ..
-            } => Ok(value.clone()),
-            SlotBody::Value { value: None, .. } => eyre::bail!("slot {} is still unset", slot.id),
-            SlotBody::Unset => eyre::bail!("slot {} is still unset", slot.id),
-            SlotBody::Struct { fields } => {
-                let mut object = Map::new();
-                for field in fields {
-                    object.insert(
-                        field.info.field_name.to_string(),
-                        self.field_json_value(field)?,
-                    );
-                }
-                Ok(Value::Object(object))
+            } => value.try_clone(),
+            SlotBody::Value { value: None, .. } | SlotBody::Unset => {
+                eyre::bail!("value is still unset")
             }
-            SlotBody::Enum {
-                variants,
-                selected_variant,
-                fields,
-            } => {
-                let Some(variant_index) = selected_variant else {
-                    eyre::bail!("slot {} does not have a selected variant", slot.id);
-                };
-                let Some(variant) = variants.get(*variant_index) else {
-                    eyre::bail!("slot {} selected an invalid variant", slot.id);
-                };
-
-                if variant.info.payload_shape_name.is_none() {
-                    return Ok(Value::String(variant.info.variant_name.to_string()));
-                }
-                if fields.is_empty() {
-                    eyre::bail!(
-                        "{} requires payload value editing, which is not implemented yet",
-                        variant.info.variant_name
-                    );
-                }
-
-                let payload = if fields.len() == 1 {
-                    self.field_json_value(&fields[0])?
-                } else {
-                    let mut payload = Map::new();
-                    for field in fields {
-                        payload.insert(
-                            field.info.field_name.to_string(),
-                            self.field_json_value(field)?,
-                        );
+            SlotBody::Struct { fields } => RuntimeValue::build_with(shape, |mut partial| {
+                for (field_index, field) in fields.iter().enumerate() {
+                    match field.value_state {
+                        FieldValueState::Linked { slot_id } => {
+                            let linked = self.slot_runtime_value(slot_id)?;
+                            let peek = linked.peek();
+                            partial = partial.begin_nth_field(field_index).map_err(|error| {
+                                eyre::eyre!("{}: {error}", field.info.field_name)
+                            })?;
+                            partial = unsafe { partial.set_from_peek(&peek) }.map_err(|error| {
+                                eyre::eyre!("{}: {error}", field.info.field_name)
+                            })?;
+                            linked.deallocate_after_move();
+                            partial = partial.end().map_err(|error| {
+                                eyre::eyre!("{}: {error}", field.info.field_name)
+                            })?;
+                        }
+                        FieldValueState::Defaulted => {}
+                        FieldValueState::Unset => {
+                            eyre::bail!("{} is unset", field.info.field_name)
+                        }
                     }
-                    Value::Object(payload)
-                };
-                if uses_proxy && fields.len() == 1 {
-                    return Ok(payload);
                 }
-
-                let mut object = Map::new();
-                object.insert(variant.info.variant_name.to_string(), payload);
-                Ok(Value::Object(object))
-            }
+                Ok(partial)
+            }),
+            SlotBody::Enum {
+                selected_variant: Some(variant_index),
+                fields,
+                ..
+            } => RuntimeValue::build_with(shape, |mut partial| {
+                partial = partial.select_nth_variant(*variant_index)?;
+                for (field_index, field) in fields.iter().enumerate() {
+                    match field.value_state {
+                        FieldValueState::Linked { slot_id } => {
+                            let linked = self.slot_runtime_value(slot_id)?;
+                            let peek = linked.peek();
+                            partial = partial.begin_nth_field(field_index).map_err(|error| {
+                                eyre::eyre!("{}: {error}", field.info.field_name)
+                            })?;
+                            partial = unsafe { partial.set_from_peek(&peek) }.map_err(|error| {
+                                eyre::eyre!("{}: {error}", field.info.field_name)
+                            })?;
+                            linked.deallocate_after_move();
+                            partial = partial.end().map_err(|error| {
+                                eyre::eyre!("{}: {error}", field.info.field_name)
+                            })?;
+                        }
+                        FieldValueState::Defaulted => {}
+                        FieldValueState::Unset => {
+                            eyre::bail!("{} is unset", field.info.field_name)
+                        }
+                    }
+                }
+                Ok(partial)
+            }),
+            SlotBody::Enum {
+                selected_variant: None,
+                ..
+            } => eyre::bail!("enum variant is not selected"),
         }
     }
 
-    fn field_json_value(&self, field: &ObjectFieldState) -> Result<Value> {
-        match field.value_state {
-            FieldValueState::Linked { slot_id } => self.slot_json_value(slot_id),
-            FieldValueState::Defaulted => self.default_json_value(
-                &field.info.field_shape_name,
-                field.info.default_value_label.as_deref(),
-            ),
-            FieldValueState::Unset => {
-                eyre::bail!("{} is unset", field.info.field_name);
-            }
-        }
-    }
-
-    fn default_json_value(
-        &self,
-        field_shape_name: &str,
-        default_value_label: Option<&str>,
-    ) -> Result<Value> {
-        let Some(default_value_label) = default_value_label else {
-            eyre::bail!(
-                "default value metadata is unavailable for {}",
-                field_shape_name
-            );
-        };
-        if let Some(variant_name) = default_value_label
-            .strip_prefix(field_shape_name)
-            .and_then(|rest| rest.strip_prefix("::"))
-        {
-            return Ok(Value::String(variant_name.to_string()));
-        }
-        eyre::bail!(
-            "generic default serialization is not implemented for {} ({})",
-            field_shape_name,
-            default_value_label
-        );
-    }
     fn slot_display_rows(&mut self, slot_id: usize) -> Vec<SlotDisplayRow> {
         let Some(slot_index) = self.slot_index_by_id(slot_id) else {
             return Vec::new();
@@ -4507,7 +4388,7 @@ impl ObjectBrowserApp {
                         Span::styled(
                             value
                                 .as_ref()
-                                .map_or_else(|| "unset".to_string(), json_value_summary),
+                                .map_or_else(|| "unset".to_string(), RuntimeValue::display_string),
                             value.as_ref().map_or_else(unset_style, |_| {
                                 Style::default()
                                     .fg(Color::Green)
@@ -4893,44 +4774,9 @@ impl ObjectBrowserApp {
     }
 
     fn shape_supports_default(&self, shape_name: &str) -> bool {
-        self.shape_supports_default_inner(shape_name, &mut BTreeSet::new())
-    }
-
-    fn shape_supports_default_inner(
-        &self,
-        shape_name: &str,
-        visiting: &mut BTreeSet<String>,
-    ) -> bool {
-        if !visiting.insert(shape_name.to_string()) {
-            return false;
-        }
-        let result = self.thing_for_shape_name(shape_name).is_some_and(|thing| {
-            let variants = shape_variants_for_thing(thing);
-            if !variants.is_empty() {
-                return variants.iter().any(|variant| {
-                    variant.is_default
-                        && variant.payload_fields.iter().all(|field| {
-                            reflected_field_default_is_materializable(field)
-                                || self
-                                    .shape_supports_default_inner(&field.field_shape_name, visiting)
-                        })
-                });
-            }
-            let fields = shape_fields_for_thing(thing);
-            if fields.is_empty() {
-                thing
-                    .shape
-                    .type_ops
-                    .is_some_and(|type_ops| type_ops.has_default_in_place())
-            } else {
-                fields.iter().all(|field| {
-                    reflected_field_default_is_materializable(field)
-                        || self.shape_supports_default_inner(&field.field_shape_name, visiting)
-                })
-            }
-        });
-        visiting.remove(shape_name);
-        result
+        self.shape_for_shape_name(shape_name)
+            .and_then(|shape| shape.type_ops.as_ref())
+            .is_some_and(|type_ops| type_ops.has_default_in_place())
     }
 
     fn field_picker_label(&self, choice: &FieldPickerChoice, required_shape_name: &str) -> String {
@@ -5219,7 +5065,7 @@ impl ObjectBrowserApp {
         };
     }
 
-    fn current_projection_view(&self) -> Option<&JsonProjectionView> {
+    fn current_projection_view(&self) -> Option<&ProjectionView> {
         self.projection_stack.last()
     }
 
@@ -5244,9 +5090,9 @@ impl ObjectBrowserApp {
             {
                 for segment in &view.path {
                     let Some(next) = (match segment {
-                        JsonPathSegment::Field(name) => shape_field_shape(shape, name),
-                        JsonPathSegment::Index(_) => sequence_element_shape(shape),
-                        JsonPathSegment::Key(_) => registry_map_value_shape(shape),
+                        ValuePathSegment::Field(name) => shape_field_shape(shape, name),
+                        ValuePathSegment::Index(_) => sequence_element_shape(shape),
+                        ValuePathSegment::Key(_) => registry_map_value_shape(shape),
                     }) else {
                         return fields;
                     };
@@ -5312,7 +5158,7 @@ impl ObjectBrowserApp {
     fn existing_value_filter_choices(&self, field_shape: &str, field_name: &str) -> Vec<String> {
         let mut values = BTreeSet::new();
         if let Some(view) = self.current_projection_view() {
-            if let Some(value) = self.json_value_at_path(view.root_slot_id, &view.path) {
+            if let Some(value) = self.peek_at_path(view.root_slot_id, &view.path) {
                 self.collect_existing_filter_values(
                     view.root_slot_id,
                     &view.path,
@@ -5324,7 +5170,7 @@ impl ObjectBrowserApp {
             }
         } else {
             for slot in &self.object_slots {
-                if let Some(value) = self.json_value_at_path(slot.id, &[]) {
+                if let Some(value) = self.peek_at_path(slot.id, &[]) {
                     self.collect_existing_filter_values(
                         slot.id,
                         &[],
@@ -5342,8 +5188,8 @@ impl ObjectBrowserApp {
     fn collect_existing_filter_values(
         &self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
-        value: &Value,
+        path: &[ValuePathSegment],
+        value: facet_reflect::Peek<'_, 'static>,
         field_shape: &str,
         field_name: &str,
         values: &mut BTreeSet<String>,
@@ -5354,49 +5200,52 @@ impl ObjectBrowserApp {
                 .is_some_and(|shape| shape == field_shape);
         let name_matches = field_name == "*"
             || path.last().is_some_and(|segment| match segment {
-                JsonPathSegment::Field(name) | JsonPathSegment::Key(name) => name == field_name,
-                JsonPathSegment::Index(_) => false,
+                ValuePathSegment::Field(name) | ValuePathSegment::Key(name) => name == field_name,
+                ValuePathSegment::Index(_) => false,
             });
-        if shape_matches && name_matches && !matches!(value, Value::Array(_) | Value::Object(_)) {
-            values.insert(match value {
-                Value::String(value) => value.clone(),
-                _ => value.to_string(),
-            });
+        if shape_matches
+            && name_matches
+            && peek_list_items(value).is_none()
+            && peek_object_entries(value).is_none()
+        {
+            values.insert(
+                value
+                    .as_str()
+                    .map(ToOwned::to_owned)
+                    .unwrap_or_else(|| value.to_string()),
+            );
         }
-        match value {
-            Value::Array(items) => {
-                for (index, child) in items.iter().enumerate() {
-                    let child_path = append_json_path_segment(path, JsonPathSegment::Index(index));
-                    self.collect_existing_filter_values(
-                        root_slot_id,
-                        &child_path,
-                        child,
-                        field_shape,
-                        field_name,
-                        values,
-                    );
-                }
+        if let Some(items) = peek_list_items(value) {
+            for (index, child) in items.into_iter().enumerate() {
+                let child_path = append_value_path_segment(path, ValuePathSegment::Index(index));
+                self.collect_existing_filter_values(
+                    root_slot_id,
+                    &child_path,
+                    child,
+                    field_shape,
+                    field_name,
+                    values,
+                );
             }
-            Value::Object(object) => {
-                let is_map = self.projection_path_is_map(root_slot_id, path);
-                for (name, child) in object {
-                    let segment = if is_map {
-                        JsonPathSegment::Key(name.clone())
-                    } else {
-                        JsonPathSegment::Field(name.clone())
-                    };
-                    let child_path = append_json_path_segment(path, segment);
-                    self.collect_existing_filter_values(
-                        root_slot_id,
-                        &child_path,
-                        child,
-                        field_shape,
-                        field_name,
-                        values,
-                    );
-                }
+        }
+        if let Some(object) = peek_object_entries(value) {
+            let is_map = self.projection_path_is_map(root_slot_id, path);
+            for (name, child) in object.into_iter() {
+                let segment = if is_map {
+                    ValuePathSegment::Key(name.clone())
+                } else {
+                    ValuePathSegment::Field(name.clone())
+                };
+                let child_path = append_value_path_segment(path, segment);
+                self.collect_existing_filter_values(
+                    root_slot_id,
+                    &child_path,
+                    child,
+                    field_shape,
+                    field_name,
+                    values,
+                );
             }
-            _ => {}
         }
     }
 
@@ -5564,20 +5413,20 @@ impl ObjectBrowserApp {
         );
     }
 
-    fn projection_view_slot_count(&self, view: &JsonProjectionView) -> usize {
+    fn projection_view_slot_count(&self, view: &ProjectionView) -> usize {
         1 + self.projection_child_count(view)
     }
 
-    fn projection_child_count(&self, view: &JsonProjectionView) -> usize {
+    fn projection_child_count(&self, view: &ProjectionView) -> usize {
         self.projection_descendant_count(view.root_slot_id, &view.path)
     }
 
     fn projection_child_path(
         &self,
         root_slot_id: usize,
-        parent_path: &[JsonPathSegment],
+        parent_path: &[ValuePathSegment],
         child_index: usize,
-    ) -> Option<Vec<JsonPathSegment>> {
+    ) -> Option<Vec<ValuePathSegment>> {
         self.projection_descendant_path_at(root_slot_id, parent_path, child_index)
     }
 
@@ -5585,8 +5434,8 @@ impl ObjectBrowserApp {
     fn projection_descendant_paths(
         &self,
         root_slot_id: usize,
-        parent_path: &[JsonPathSegment],
-    ) -> Vec<Vec<JsonPathSegment>> {
+        parent_path: &[ValuePathSegment],
+    ) -> Vec<Vec<ValuePathSegment>> {
         let descendant_count = self.projection_descendant_count(root_slot_id, parent_path);
         let mut paths = Vec::with_capacity(descendant_count);
         for child_index in 0..descendant_count {
@@ -5603,7 +5452,7 @@ impl ObjectBrowserApp {
     fn projection_descendant_count(
         &self,
         root_slot_id: usize,
-        parent_path: &[JsonPathSegment],
+        parent_path: &[ValuePathSegment],
     ) -> usize {
         let cache_key = ProjectionCacheKey::new(root_slot_id, parent_path);
         if let Some(cached_count) = self
@@ -5616,40 +5465,34 @@ impl ObjectBrowserApp {
             return cached_count;
         }
 
-        let Some(value) = self.json_value_at_path(root_slot_id, parent_path) else {
+        let Some(value) = self.peek_at_path(root_slot_id, parent_path) else {
             return 0;
         };
 
-        let descendant_count = match value {
-            Value::Array(items) => {
-                let mut descendant_count = 0;
-                for index in 0..items.len() {
-                    let path = append_json_path_segment(parent_path, JsonPathSegment::Index(index));
-                    descendant_count += 1 + self.projection_descendant_count(root_slot_id, &path);
-                }
-                descendant_count
-            }
-            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
-                let mut descendant_count = 0;
-                for key in object.keys() {
+        let descendant_count = if let Some(items) = peek_list_items(value) {
+            (0..items.len())
+                .map(|index| {
                     let path =
-                        append_json_path_segment(parent_path, JsonPathSegment::Key(key.clone()));
-                    descendant_count += 1 + self.projection_descendant_count(root_slot_id, &path);
-                }
-                descendant_count
-            }
-            Value::Object(object) => {
-                let mut descendant_count = 0;
-                for field_name in object.keys() {
-                    let path = append_json_path_segment(
-                        parent_path,
-                        JsonPathSegment::Field(field_name.clone()),
-                    );
-                    descendant_count += 1 + self.projection_descendant_count(root_slot_id, &path);
-                }
-                descendant_count
-            }
-            _ => 0,
+                        append_value_path_segment(parent_path, ValuePathSegment::Index(index));
+                    1 + self.projection_descendant_count(root_slot_id, &path)
+                })
+                .sum()
+        } else if let Some(entries) = peek_object_entries(value) {
+            let is_map = self.projection_path_is_map(root_slot_id, parent_path);
+            entries
+                .into_iter()
+                .map(|(name, _)| {
+                    let segment = if is_map {
+                        ValuePathSegment::Key(name)
+                    } else {
+                        ValuePathSegment::Field(name)
+                    };
+                    let path = append_value_path_segment(parent_path, segment);
+                    1 + self.projection_descendant_count(root_slot_id, &path)
+                })
+                .sum()
+        } else {
+            0
         };
 
         self.projection_cache
@@ -5662,7 +5505,7 @@ impl ObjectBrowserApp {
     fn filtered_projection_descendant_count(
         &self,
         root_slot_id: usize,
-        parent_path: &[JsonPathSegment],
+        parent_path: &[ValuePathSegment],
     ) -> usize {
         if self.breadcrumb_filters.is_empty() {
             return self.projection_descendant_count(root_slot_id, parent_path);
@@ -5685,65 +5528,38 @@ impl ObjectBrowserApp {
             return 0;
         }
 
-        let Some(value) = self.json_value_at_path(root_slot_id, parent_path) else {
+        let Some(value) = self.peek_at_path(root_slot_id, parent_path) else {
             return 0;
         };
-        let descendant_count = match value {
-            Value::Array(items) => {
-                let sample_path = append_json_path_segment(parent_path, JsonPathSegment::Index(0));
-                let (child_matches, child_has_matches_below) =
-                    self.projection_filter_relation(root_slot_id, &sample_path);
-                if !child_has_matches_below && !self.has_value_filters() {
-                    items.len() * usize::from(child_matches)
-                } else {
-                    (0..items.len())
-                        .map(|index| {
-                            let path = append_json_path_segment(
-                                parent_path,
-                                JsonPathSegment::Index(index),
-                            );
-                            usize::from(
-                                self.projection_path_matches_shape_filter(root_slot_id, &path),
-                            ) + self.filtered_projection_descendant_count(root_slot_id, &path)
-                        })
-                        .sum()
-                }
-            }
-            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
-                let sample_path =
-                    append_json_path_segment(parent_path, JsonPathSegment::Key(String::new()));
-                let (child_matches, child_has_matches_below) =
-                    self.projection_filter_relation(root_slot_id, &sample_path);
-                if !child_has_matches_below && !self.has_value_filters() {
-                    object.len() * usize::from(child_matches)
-                } else {
-                    object
-                        .keys()
-                        .map(|key| {
-                            let path = append_json_path_segment(
-                                parent_path,
-                                JsonPathSegment::Key(key.clone()),
-                            );
-                            usize::from(
-                                self.projection_path_matches_shape_filter(root_slot_id, &path),
-                            ) + self.filtered_projection_descendant_count(root_slot_id, &path)
-                        })
-                        .sum()
-                }
-            }
-            Value::Object(object) => object
-                .keys()
-                .map(|field_name| {
-                    let path = append_json_path_segment(
+        let child_paths = if let Some(items) = peek_list_items(value) {
+            (0..items.len())
+                .map(|index| append_value_path_segment(parent_path, ValuePathSegment::Index(index)))
+                .collect::<Vec<_>>()
+        } else if let Some(entries) = peek_object_entries(value) {
+            let is_map = self.projection_path_is_map(root_slot_id, parent_path);
+            entries
+                .into_iter()
+                .map(|(name, _)| {
+                    append_value_path_segment(
                         parent_path,
-                        JsonPathSegment::Field(field_name.clone()),
-                    );
-                    usize::from(self.projection_path_matches_shape_filter(root_slot_id, &path))
-                        + self.filtered_projection_descendant_count(root_slot_id, &path)
+                        if is_map {
+                            ValuePathSegment::Key(name)
+                        } else {
+                            ValuePathSegment::Field(name)
+                        },
+                    )
                 })
-                .sum(),
-            _ => 0,
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
         };
+        let descendant_count = child_paths
+            .iter()
+            .map(|path| {
+                usize::from(self.projection_path_matches_shape_filter(root_slot_id, path))
+                    + self.filtered_projection_descendant_count(root_slot_id, path)
+            })
+            .sum();
 
         self.projection_cache
             .borrow_mut()
@@ -5755,9 +5571,9 @@ impl ObjectBrowserApp {
     fn filtered_projection_descendant_path_at(
         &self,
         root_slot_id: usize,
-        parent_path: &[JsonPathSegment],
+        parent_path: &[ValuePathSegment],
         child_index: usize,
-    ) -> Option<Vec<JsonPathSegment>> {
+    ) -> Option<Vec<ValuePathSegment>> {
         let cache_key = FilteredPathCacheKey {
             parent: ProjectionCacheKey::new(root_slot_id, parent_path),
             child_index,
@@ -5786,40 +5602,13 @@ impl ObjectBrowserApp {
     fn filtered_projection_descendant_path_at_uncached(
         &self,
         root_slot_id: usize,
-        parent_path: &[JsonPathSegment],
+        parent_path: &[ValuePathSegment],
         child_index: usize,
-    ) -> Option<Vec<JsonPathSegment>> {
-        let value = self.json_value_at_path(root_slot_id, parent_path)?;
+    ) -> Option<Vec<ValuePathSegment>> {
+        let value = self.peek_at_path(root_slot_id, parent_path)?;
         let mut remaining = child_index;
 
-        match value {
-            Value::Array(items) => {
-                let sample_path = append_json_path_segment(parent_path, JsonPathSegment::Index(0));
-                let (child_matches, child_has_matches_below) =
-                    self.projection_filter_relation(root_slot_id, &sample_path);
-                if !child_has_matches_below && !self.has_value_filters() {
-                    return (child_matches && remaining < items.len()).then(|| {
-                        append_json_path_segment(parent_path, JsonPathSegment::Index(remaining))
-                    });
-                }
-            }
-            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
-                let sample_path =
-                    append_json_path_segment(parent_path, JsonPathSegment::Key(String::new()));
-                let (child_matches, child_has_matches_below) =
-                    self.projection_filter_relation(root_slot_id, &sample_path);
-                if !child_has_matches_below && !self.has_value_filters() {
-                    let key = child_matches.then(|| object.keys().nth(remaining).cloned())??;
-                    return Some(append_json_path_segment(
-                        parent_path,
-                        JsonPathSegment::Key(key),
-                    ));
-                }
-            }
-            _ => {}
-        }
-
-        let mut visit_child = |path: Vec<JsonPathSegment>| {
+        let mut visit_child = |path: Vec<ValuePathSegment>| {
             if self.projection_path_matches_shape_filter(root_slot_id, &path) {
                 if remaining == 0 {
                     return Some(path);
@@ -5834,36 +5623,32 @@ impl ObjectBrowserApp {
             None
         };
 
-        match value {
-            Value::Array(items) => {
-                for index in 0..items.len() {
-                    let path = append_json_path_segment(parent_path, JsonPathSegment::Index(index));
-                    if let Some(path) = visit_child(path) {
-                        return Some(path);
-                    }
-                }
-            }
-            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
-                for key in object.keys() {
-                    let path =
-                        append_json_path_segment(parent_path, JsonPathSegment::Key(key.clone()));
-                    if let Some(path) = visit_child(path) {
-                        return Some(path);
-                    }
-                }
-            }
-            Value::Object(object) => {
-                for field_name in object.keys() {
-                    let path = append_json_path_segment(
+        let child_paths = if let Some(items) = peek_list_items(value) {
+            (0..items.len())
+                .map(|index| append_value_path_segment(parent_path, ValuePathSegment::Index(index)))
+                .collect::<Vec<_>>()
+        } else if let Some(entries) = peek_object_entries(value) {
+            let is_map = self.projection_path_is_map(root_slot_id, parent_path);
+            entries
+                .into_iter()
+                .map(|(name, _)| {
+                    append_value_path_segment(
                         parent_path,
-                        JsonPathSegment::Field(field_name.clone()),
-                    );
-                    if let Some(path) = visit_child(path) {
-                        return Some(path);
-                    }
-                }
+                        if is_map {
+                            ValuePathSegment::Key(name)
+                        } else {
+                            ValuePathSegment::Field(name)
+                        },
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+        for path in child_paths {
+            if let Some(path) = visit_child(path) {
+                return Some(path);
             }
-            _ => {}
         }
         None
     }
@@ -5871,69 +5656,46 @@ impl ObjectBrowserApp {
     fn projection_descendant_path_at(
         &self,
         root_slot_id: usize,
-        parent_path: &[JsonPathSegment],
+        parent_path: &[ValuePathSegment],
         child_index: usize,
-    ) -> Option<Vec<JsonPathSegment>> {
-        let value = self.json_value_at_path(root_slot_id, parent_path)?;
+    ) -> Option<Vec<ValuePathSegment>> {
+        let value = self.peek_at_path(root_slot_id, parent_path)?;
 
-        match value {
-            Value::Array(items) => {
-                let mut remaining = child_index;
-                for index in 0..items.len() {
-                    let path = append_json_path_segment(parent_path, JsonPathSegment::Index(index));
-                    if remaining == 0 {
-                        return Some(path);
-                    }
-                    remaining -= 1;
-
-                    let descendant_count = self.projection_descendant_count(root_slot_id, &path);
-                    if remaining < descendant_count {
-                        return self.projection_descendant_path_at(root_slot_id, &path, remaining);
-                    }
-                    remaining = remaining.saturating_sub(descendant_count);
-                }
-                None
-            }
-            Value::Object(object) if self.projection_path_is_map(root_slot_id, parent_path) => {
-                let mut remaining = child_index;
-                for key in object.keys() {
-                    let path =
-                        append_json_path_segment(parent_path, JsonPathSegment::Key(key.clone()));
-                    if remaining == 0 {
-                        return Some(path);
-                    }
-                    remaining -= 1;
-
-                    let descendant_count = self.projection_descendant_count(root_slot_id, &path);
-                    if remaining < descendant_count {
-                        return self.projection_descendant_path_at(root_slot_id, &path, remaining);
-                    }
-                    remaining = remaining.saturating_sub(descendant_count);
-                }
-                None
-            }
-            Value::Object(object) => {
-                let mut remaining = child_index;
-                for field_name in object.keys() {
-                    let path = append_json_path_segment(
+        let child_paths = if let Some(items) = peek_list_items(value) {
+            (0..items.len())
+                .map(|index| append_value_path_segment(parent_path, ValuePathSegment::Index(index)))
+                .collect::<Vec<_>>()
+        } else if let Some(entries) = peek_object_entries(value) {
+            let is_map = self.projection_path_is_map(root_slot_id, parent_path);
+            entries
+                .into_iter()
+                .map(|(name, _)| {
+                    append_value_path_segment(
                         parent_path,
-                        JsonPathSegment::Field(field_name.clone()),
-                    );
-                    if remaining == 0 {
-                        return Some(path);
-                    }
-                    remaining -= 1;
-
-                    let descendant_count = self.projection_descendant_count(root_slot_id, &path);
-                    if remaining < descendant_count {
-                        return self.projection_descendant_path_at(root_slot_id, &path, remaining);
-                    }
-                    remaining = remaining.saturating_sub(descendant_count);
-                }
-                None
+                        if is_map {
+                            ValuePathSegment::Key(name)
+                        } else {
+                            ValuePathSegment::Field(name)
+                        },
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+        let mut remaining = child_index;
+        for path in child_paths {
+            if remaining == 0 {
+                return Some(path);
             }
-            _ => None,
+            remaining -= 1;
+            let descendant_count = self.projection_descendant_count(root_slot_id, &path);
+            if remaining < descendant_count {
+                return self.projection_descendant_path_at(root_slot_id, &path, remaining);
+            }
+            remaining = remaining.saturating_sub(descendant_count);
         }
+        None
     }
     fn pool_entry_at(&self, slot_index: usize) -> Option<PoolEntry> {
         if self.breadcrumb_filters.is_empty() {
@@ -6005,7 +5767,7 @@ impl ObjectBrowserApp {
     fn projection_path_matches_shape_filter(
         &self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
+        path: &[ValuePathSegment],
     ) -> bool {
         let shape_name = self.projection_shape_name_at_path(root_slot_id, path);
         self.breadcrumb_filters.iter().all(|filter| match filter {
@@ -6033,7 +5795,7 @@ impl ObjectBrowserApp {
     fn projection_filter_relation(
         &self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
+        path: &[ValuePathSegment],
     ) -> (bool, bool) {
         if !self.projection_slot_kind_filter_matches() {
             return (false, false);
@@ -6080,18 +5842,12 @@ impl ObjectBrowserApp {
         relation
     }
 
-    fn has_value_filters(&self) -> bool {
-        self.breadcrumb_filters
-            .iter()
-            .any(|filter| matches!(filter, BreadcrumbFilter::Value(_)))
-    }
-
     fn value_filter_matches(
         &self,
         filter: &ValueFilterView,
         shape_name: Option<&str>,
         field_name: Option<&str>,
-        value: Option<&Value>,
+        value: Option<facet_reflect::Peek<'_, 'static>>,
     ) -> bool {
         if filter.field_shape != "*" && shape_name.is_none_or(|shape| shape != filter.field_shape) {
             return false;
@@ -6102,10 +5858,10 @@ impl ObjectBrowserApp {
         let Some(value) = value else {
             return false;
         };
-        let candidate = match value {
-            Value::String(value) => value.clone(),
-            _ => value.to_string(),
-        };
+        let candidate = value
+            .as_str()
+            .map(ToOwned::to_owned)
+            .unwrap_or_else(|| value.to_string());
         match filter.operator {
             ValueFilterOperator::Equals => candidate == filter.value,
             ValueFilterOperator::NotEquals => candidate != filter.value,
@@ -6116,7 +5872,7 @@ impl ObjectBrowserApp {
     fn value_filter_path_matches(
         &self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
+        path: &[ValuePathSegment],
         filter: &ValueFilterView,
     ) -> bool {
         let cache_key = ValueFilterCacheKey {
@@ -6130,7 +5886,7 @@ impl ObjectBrowserApp {
             .contains_key(&cache_key)
         {
             let mut match_roots = HashSet::new();
-            if let Some(value) = self.json_value_at_path(root_slot_id, &[]) {
+            if let Some(value) = self.peek_at_path(root_slot_id, &[]) {
                 self.collect_value_filter_match_roots(
                     root_slot_id,
                     &[],
@@ -6154,62 +5910,58 @@ impl ObjectBrowserApp {
     fn collect_value_filter_match_roots(
         &self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
-        value: &Value,
+        path: &[ValuePathSegment],
+        value: facet_reflect::Peek<'_, 'static>,
         filter: &ValueFilterView,
-        match_roots: &mut HashSet<Vec<JsonPathSegment>>,
+        match_roots: &mut HashSet<Vec<ValuePathSegment>>,
     ) {
-        match value {
-            Value::Array(items) => {
-                for (index, child) in items.iter().enumerate() {
-                    let child_path = append_json_path_segment(path, JsonPathSegment::Index(index));
-                    self.collect_value_filter_match_roots(
-                        root_slot_id,
-                        &child_path,
-                        child,
-                        filter,
-                        match_roots,
+        if let Some(items) = peek_list_items(value) {
+            for (index, child) in items.into_iter().enumerate() {
+                let child_path = append_value_path_segment(path, ValuePathSegment::Index(index));
+                self.collect_value_filter_match_roots(
+                    root_slot_id,
+                    &child_path,
+                    child,
+                    filter,
+                    match_roots,
+                );
+            }
+        }
+        if let Some(object) = peek_object_entries(value) {
+            let is_map = self.projection_path_is_map(root_slot_id, path);
+            if !is_map {
+                let object_matches = object.iter().any(|(field_name, field_value)| {
+                    let field_path = append_value_path_segment(
+                        path,
+                        ValuePathSegment::Field(field_name.clone()),
                     );
+                    let shape_name = self.projection_shape_name_at_path(root_slot_id, &field_path);
+                    self.value_filter_matches(
+                        filter,
+                        shape_name.as_deref(),
+                        Some(field_name),
+                        Some(*field_value),
+                    )
+                });
+                if object_matches {
+                    match_roots.insert(path.to_vec());
                 }
             }
-            Value::Object(object) => {
-                let is_map = self.projection_path_is_map(root_slot_id, path);
-                if !is_map {
-                    let object_matches = object.iter().any(|(field_name, field_value)| {
-                        let field_path = append_json_path_segment(
-                            path,
-                            JsonPathSegment::Field(field_name.clone()),
-                        );
-                        let shape_name =
-                            self.projection_shape_name_at_path(root_slot_id, &field_path);
-                        self.value_filter_matches(
-                            filter,
-                            shape_name.as_deref(),
-                            Some(field_name),
-                            Some(field_value),
-                        )
-                    });
-                    if object_matches {
-                        match_roots.insert(path.to_vec());
-                    }
-                }
-                for (name, child) in object {
-                    let segment = if is_map {
-                        JsonPathSegment::Key(name.clone())
-                    } else {
-                        JsonPathSegment::Field(name.clone())
-                    };
-                    let child_path = append_json_path_segment(path, segment);
-                    self.collect_value_filter_match_roots(
-                        root_slot_id,
-                        &child_path,
-                        child,
-                        filter,
-                        match_roots,
-                    );
-                }
+            for (name, child) in object {
+                let segment = if is_map {
+                    ValuePathSegment::Key(name.clone())
+                } else {
+                    ValuePathSegment::Field(name.clone())
+                };
+                let child_path = append_value_path_segment(path, segment);
+                self.collect_value_filter_match_roots(
+                    root_slot_id,
+                    &child_path,
+                    child,
+                    filter,
+                    match_roots,
+                );
             }
-            _ => {}
         }
     }
 
@@ -6253,42 +6005,57 @@ impl ObjectBrowserApp {
 
         (remaining == 0).then_some(PoolEntry::NewSlot)
     }
-    fn projection_value<'a>(&'a self, projection: &ProjectionSlot) -> Option<&'a Value> {
-        self.json_value_at_path(projection.root_slot_id, &projection.path)
+    fn projection_value<'a>(
+        &'a self,
+        projection: &ProjectionSlot,
+    ) -> Option<facet_reflect::Peek<'a, 'static>> {
+        self.peek_at_path(projection.root_slot_id, &projection.path)
     }
 
-    fn json_value_at_path<'a>(
+    fn peek_at_path<'a>(
         &'a self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
-    ) -> Option<&'a Value> {
+        path: &[ValuePathSegment],
+    ) -> Option<facet_reflect::Peek<'a, 'static>> {
         let data_slot_id = self.data_slot_id_for(root_slot_id).unwrap_or(root_slot_id);
         let slot = self.slot_by_id(data_slot_id)?;
         let SlotValueState::ResolvedValue { value, .. } = &slot.value_state else {
             return None;
         };
-        let mut current = value;
+        let mut current = value.peek();
         for segment in path {
-            current = match (segment, current) {
-                (JsonPathSegment::Field(field_name), Value::Object(object)) => {
-                    object.get(field_name)?
+            current = match segment {
+                ValuePathSegment::Field(field_name) => {
+                    if let Ok(object) = current.into_struct() {
+                        object.field_by_name(field_name).ok()?
+                    } else if let Ok(object) = current.into_enum() {
+                        object.field_by_name(field_name).ok()??
+                    } else {
+                        return None;
+                    }
                 }
-                (JsonPathSegment::Index(index), Value::Array(items)) => items.get(*index)?,
-                (JsonPathSegment::Key(key), Value::Object(object)) => object.get(key)?,
-                _ => return None,
+                ValuePathSegment::Index(index) => *peek_list_items(current)?.get(*index)?,
+                ValuePathSegment::Key(key) => {
+                    let map = current.into_map().ok()?;
+                    map.iter().find_map(|(map_key, map_value)| {
+                        let matches = map_key.as_str().is_some_and(|text| text == key)
+                            || map_key.to_string() == *key;
+                        matches.then_some(map_value)
+                    })?
+                }
             };
         }
         Some(current)
     }
 
-    fn projection_view_label(&self, view: &JsonProjectionView) -> String {
+    fn projection_view_label(&self, view: &ProjectionView) -> String {
         projection_label(view.root_slot_id, &view.path)
     }
 
     fn projection_shape_name_at_path(
         &self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
+        path: &[ValuePathSegment],
     ) -> Option<String> {
         let mut current_shape = self
             .slot_shape_name(root_slot_id)
@@ -6296,9 +6063,11 @@ impl ObjectBrowserApp {
 
         for segment in path {
             current_shape = match segment {
-                JsonPathSegment::Field(field_name) => shape_field_shape(current_shape, field_name)?,
-                JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
-                JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
+                ValuePathSegment::Field(field_name) => {
+                    shape_field_shape(current_shape, field_name)?
+                }
+                ValuePathSegment::Index(_) => sequence_element_shape(current_shape)?,
+                ValuePathSegment::Key(_) => registry_map_value_shape(current_shape)?,
             };
         }
 
@@ -6308,7 +6077,7 @@ impl ObjectBrowserApp {
     fn projection_shape_names_at_path(
         &self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
+        path: &[ValuePathSegment],
     ) -> BTreeSet<String> {
         let Some(mut current_shape) = self
             .slot_shape_name(root_slot_id)
@@ -6318,9 +6087,9 @@ impl ObjectBrowserApp {
         };
         for segment in path {
             let Some(next_shape) = (match segment {
-                JsonPathSegment::Field(field_name) => shape_field_shape(current_shape, field_name),
-                JsonPathSegment::Index(_) => sequence_element_shape(current_shape),
-                JsonPathSegment::Key(_) => registry_map_value_shape(current_shape),
+                ValuePathSegment::Field(field_name) => shape_field_shape(current_shape, field_name),
+                ValuePathSegment::Index(_) => sequence_element_shape(current_shape),
+                ValuePathSegment::Key(_) => registry_map_value_shape(current_shape),
             }) else {
                 return BTreeSet::new();
             };
@@ -6329,17 +6098,17 @@ impl ObjectBrowserApp {
         projection_shape_names(current_shape)
     }
 
-    fn projection_path_is_map(&self, root_slot_id: usize, path: &[JsonPathSegment]) -> bool {
+    fn projection_path_is_map(&self, root_slot_id: usize, path: &[ValuePathSegment]) -> bool {
         self.slot_shape_name(root_slot_id)
             .and_then(|shape_name| self.shape_for_shape_name(shape_name))
             .and_then(|mut current_shape| {
                 for segment in path {
                     current_shape = match segment {
-                        JsonPathSegment::Field(field_name) => {
+                        ValuePathSegment::Field(field_name) => {
                             shape_field_shape(current_shape, field_name)?
                         }
-                        JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
-                        JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
+                        ValuePathSegment::Index(_) => sequence_element_shape(current_shape)?,
+                        ValuePathSegment::Key(_) => registry_map_value_shape(current_shape)?,
                     };
                 }
                 Some(current_shape)
@@ -6351,60 +6120,64 @@ impl ObjectBrowserApp {
     fn projection_field_type_label(
         &self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
+        path: &[ValuePathSegment],
         field_name: &str,
-        field_value: &Value,
+        field_value: facet_reflect::Peek<'_, 'static>,
     ) -> String {
         self.slot_shape_name(root_slot_id)
             .and_then(|shape_name| self.shape_for_shape_name(shape_name))
             .and_then(|mut current_shape| {
                 for segment in path {
                     current_shape = match segment {
-                        JsonPathSegment::Field(segment_field_name) => {
+                        ValuePathSegment::Field(segment_field_name) => {
                             shape_field_shape(current_shape, segment_field_name)?
                         }
-                        JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
-                        JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
+                        ValuePathSegment::Index(_) => sequence_element_shape(current_shape)?,
+                        ValuePathSegment::Key(_) => registry_map_value_shape(current_shape)?,
                     };
                 }
                 shape_field_shape(current_shape, field_name)
             })
             .map(describe_shape)
-            .unwrap_or_else(|| json_type_label(field_value))
+            .unwrap_or_else(|| peek_type_label(field_value))
     }
 
     fn projection_map_entry_type_label(
         &self,
         root_slot_id: usize,
-        path: &[JsonPathSegment],
-        entry_value: &Value,
+        path: &[ValuePathSegment],
+        entry_value: facet_reflect::Peek<'_, 'static>,
     ) -> String {
         self.slot_shape_name(root_slot_id)
             .and_then(|shape_name| self.shape_for_shape_name(shape_name))
             .and_then(|mut current_shape| {
                 for segment in path {
                     current_shape = match segment {
-                        JsonPathSegment::Field(field_name) => {
+                        ValuePathSegment::Field(field_name) => {
                             shape_field_shape(current_shape, field_name)?
                         }
-                        JsonPathSegment::Index(_) => sequence_element_shape(current_shape)?,
-                        JsonPathSegment::Key(_) => registry_map_value_shape(current_shape)?,
+                        ValuePathSegment::Index(_) => sequence_element_shape(current_shape)?,
+                        ValuePathSegment::Key(_) => registry_map_value_shape(current_shape)?,
                     };
                 }
                 registry_map_value_shape(current_shape)
             })
             .map(describe_shape)
-            .unwrap_or_else(|| json_type_label(entry_value))
+            .unwrap_or_else(|| peek_type_label(entry_value))
     }
-    fn projection_header_label(&self, projection: &ProjectionSlot, value: &Value) -> String {
+    fn projection_header_label(
+        &self,
+        projection: &ProjectionSlot,
+        value: facet_reflect::Peek<'_, 'static>,
+    ) -> String {
         self.projection_shape_name_at_path(projection.root_slot_id, &projection.path)
-            .unwrap_or_else(|| json_value_summary(value))
+            .unwrap_or_else(|| peek_value_summary(value))
     }
 
     fn projection_focusable_rows(&self, projection: &ProjectionSlot) -> usize {
         match self.projection_value(projection) {
-            Some(Value::Object(object)) => 1 + object.len() * 2,
-            Some(_) | None => 1,
+            Some(value) => peek_object_entries(value).map_or(1, |entries| 1 + entries.len() * 2),
+            None => 1,
         }
     }
     fn activate_runtime_value(&mut self, slot_id: usize) {
@@ -6415,20 +6188,20 @@ impl ObjectBrowserApp {
             self.open_slot_value_editor(slot_id);
             return;
         }
-        self.activate_json_projection(slot_id, Vec::new());
+        self.activate_projection(slot_id, Vec::new());
     }
 
-    fn activate_json_projection(&mut self, root_slot_id: usize, path: Vec<JsonPathSegment>) {
-        let Some(value) = self.json_value_at_path(root_slot_id, &path) else {
+    fn activate_projection(&mut self, root_slot_id: usize, path: Vec<ValuePathSegment>) {
+        let Some(value) = self.peek_at_path(root_slot_id, &path) else {
             self.status_message = "That projection is no longer available.".to_string();
             return;
         };
 
-        if matches!(value, Value::Array(_) | Value::Object(_)) {
+        if peek_list_items(value).is_some() || peek_object_entries(value).is_some() {
             self.breadcrumb_filters.clear();
             self.projection_cache.borrow_mut().clear();
             self.projection_stack
-                .push(JsonProjectionView { root_slot_id, path });
+                .push(ProjectionView { root_slot_id, path });
             self.active_slot_index = 0;
             self.active_row_index = 0;
             self.pool_surface = PoolSurface::Slots;
@@ -6441,7 +6214,7 @@ impl ObjectBrowserApp {
                     .unwrap_or_else(|| format!("slot {}", root_slot_id))
             );
         } else {
-            self.status_message = json_value_summary(value).to_string();
+            self.status_message = peek_value_summary(value);
         }
     }
 
@@ -6451,10 +6224,10 @@ impl ObjectBrowserApp {
             return;
         };
 
-        if let Value::Object(object) = value {
+        if let Some(object) = peek_object_entries(value) {
             if row_index == 0 {
                 if projection.role == ProjectionSlotRole::Child {
-                    self.activate_json_projection(projection.root_slot_id, projection.path.clone());
+                    self.activate_projection(projection.root_slot_id, projection.path.clone());
                 } else {
                     self.status_message =
                         self.projection_header_label(projection, value).to_string();
@@ -6466,18 +6239,14 @@ impl ObjectBrowserApp {
                 let entry_offset = row_index - 1;
                 let entry_index = entry_offset / 2;
                 let is_value_row = entry_offset % 2 == 1;
-                let Some((entry_key, entry_value)) = object
-                    .iter()
-                    .nth(entry_index)
-                    .map(|(entry_key, entry_value)| (entry_key.clone(), entry_value.clone()))
-                else {
+                let Some((entry_key, entry_value)) = object.into_iter().nth(entry_index) else {
                     return;
                 };
 
                 if is_value_row {
                     let mut path = projection.path.clone();
-                    path.push(JsonPathSegment::Key(entry_key));
-                    self.activate_json_projection(projection.root_slot_id, path);
+                    path.push(ValuePathSegment::Key(entry_key));
+                    self.activate_projection(projection.root_slot_id, path);
                 } else {
                     self.status_message = format!(
                         "{}[{entry_key}] has type {}.",
@@ -6485,7 +6254,7 @@ impl ObjectBrowserApp {
                         self.projection_map_entry_type_label(
                             projection.root_slot_id,
                             &projection.path,
-                            &entry_value,
+                            entry_value,
                         )
                     );
                 }
@@ -6495,18 +6264,14 @@ impl ObjectBrowserApp {
             let field_offset = row_index - 1;
             let field_index = field_offset / 2;
             let is_value_row = field_offset % 2 == 1;
-            let Some((field_name, field_value)) = object
-                .iter()
-                .nth(field_index)
-                .map(|(field_name, field_value)| (field_name.clone(), field_value.clone()))
-            else {
+            let Some((field_name, field_value)) = object.into_iter().nth(field_index) else {
                 return;
             };
 
             if is_value_row {
                 let mut path = projection.path.clone();
-                path.push(JsonPathSegment::Field(field_name));
-                self.activate_json_projection(projection.root_slot_id, path);
+                path.push(ValuePathSegment::Field(field_name));
+                self.activate_projection(projection.root_slot_id, path);
             } else {
                 self.status_message = format!(
                     "{}.{} has type {}.",
@@ -6516,7 +6281,7 @@ impl ObjectBrowserApp {
                         projection.root_slot_id,
                         &projection.path,
                         &field_name,
-                        &field_value,
+                        field_value,
                     )
                 );
             }
@@ -6524,9 +6289,9 @@ impl ObjectBrowserApp {
         }
 
         if projection.role == ProjectionSlotRole::Child {
-            self.activate_json_projection(projection.root_slot_id, projection.path.clone());
+            self.activate_projection(projection.root_slot_id, projection.path.clone());
         } else {
-            self.status_message = json_value_summary(value).to_string();
+            self.status_message = peek_value_summary(value);
         }
     }
     fn draw_projection_slot(
@@ -6604,134 +6369,128 @@ impl ObjectBrowserApp {
             return vec![Line::from("  unavailable")];
         };
 
-        match value {
-            Value::Object(object) => {
-                let object_is_map =
-                    self.projection_path_is_map(projection.root_slot_id, &projection.path);
-                let total_line_count = if object.is_empty() {
-                    1
+        if let Some(object) = peek_object_entries(value) {
+            let object_is_map =
+                self.projection_path_is_map(projection.root_slot_id, &projection.path);
+            let total_line_count = if object.is_empty() {
+                1
+            } else {
+                2 + object.len() * 2
+            };
+            let line_start = line_range.start.min(total_line_count);
+            let line_end = line_range.end.min(total_line_count);
+            if line_start >= line_end {
+                return Vec::new();
+            }
+
+            let mut lines = Vec::with_capacity(line_end.saturating_sub(line_start));
+            if line_start == 0 {
+                lines.push(selectable_plain_line(
+                    self.projection_header_label(projection, value),
+                    active_row == Some(0),
+                ));
+            }
+
+            if !object.is_empty() && line_start <= 1 && line_end > 1 {
+                lines.push(separator_line(if object_is_map {
+                    "entries"
                 } else {
-                    2 + object.len() * 2
+                    "fields"
+                }));
+            }
+
+            if object.is_empty() || line_end <= 2 {
+                return lines;
+            }
+
+            let entry_line_start = line_start.max(2);
+            let first_entry_index = (entry_line_start - 2) / 2;
+            let last_entry_index = (line_end - 2).div_ceil(2).min(object.len());
+
+            for (index, (field_name, field_value)) in object
+                .iter()
+                .enumerate()
+                .skip(first_entry_index)
+                .take(last_entry_index.saturating_sub(first_entry_index))
+            {
+                let accent = field_group_color(index);
+                let field_type_label = if object_is_map {
+                    self.projection_map_entry_type_label(
+                        projection.root_slot_id,
+                        &projection.path,
+                        *field_value,
+                    )
+                } else {
+                    self.projection_field_type_label(
+                        projection.root_slot_id,
+                        &projection.path,
+                        field_name,
+                        *field_value,
+                    )
                 };
-                let line_start = line_range.start.min(total_line_count);
-                let line_end = line_range.end.min(total_line_count);
-                if line_start >= line_end {
-                    return Vec::new();
-                }
 
-                let mut lines = Vec::with_capacity(line_end.saturating_sub(line_start));
-                if line_start == 0 {
-                    lines.push(selectable_plain_line(
-                        self.projection_header_label(projection, value),
-                        active_row == Some(0),
+                let type_line_index = 1 + index * 2;
+                if line_start <= type_line_index && line_end > type_line_index {
+                    lines.push(selectable_spans_line(
+                        vec![
+                            Span::styled(
+                                "type ",
+                                Style::default().fg(accent).add_modifier(Modifier::DIM),
+                            ),
+                            Span::styled(
+                                field_type_label,
+                                Style::default().fg(accent).add_modifier(Modifier::DIM),
+                            ),
+                        ],
+                        active_row == Some(type_line_index),
                     ));
                 }
 
-                if !object.is_empty() && line_start <= 1 && line_end > 1 {
-                    lines.push(separator_line(if object_is_map {
-                        "entries"
-                    } else {
-                        "fields"
-                    }));
-                }
-
-                if object.is_empty() || line_end <= 2 {
-                    return lines;
-                }
-
-                let entry_line_start = line_start.max(2);
-                let first_entry_index = (entry_line_start - 2) / 2;
-                let last_entry_index = (line_end - 2).div_ceil(2).min(object.len());
-
-                for (index, (field_name, field_value)) in object
-                    .iter()
-                    .enumerate()
-                    .skip(first_entry_index)
-                    .take(last_entry_index.saturating_sub(first_entry_index))
-                {
-                    let accent = field_group_color(index);
-                    let field_type_label = if object_is_map {
-                        self.projection_map_entry_type_label(
-                            projection.root_slot_id,
-                            &projection.path,
-                            field_value,
-                        )
-                    } else {
-                        self.projection_field_type_label(
-                            projection.root_slot_id,
-                            &projection.path,
-                            field_name,
-                            field_value,
-                        )
-                    };
-
-                    let type_line_index = 1 + index * 2;
-                    if line_start <= type_line_index && line_end > type_line_index {
-                        lines.push(selectable_spans_line(
-                            vec![
-                                Span::styled(
-                                    "type ",
-                                    Style::default().fg(accent).add_modifier(Modifier::DIM),
-                                ),
-                                Span::styled(
-                                    field_type_label,
-                                    Style::default().fg(accent).add_modifier(Modifier::DIM),
-                                ),
-                            ],
-                            active_row == Some(type_line_index),
-                        ));
-                    }
-
-                    let value_line_index = 2 + index * 2;
-                    if line_start <= value_line_index && line_end > value_line_index {
-                        lines.push(selectable_spans_line(
-                            vec![
-                                Span::styled(
-                                    format!("{}: ", field_name),
-                                    Style::default().fg(accent),
-                                ),
-                                Span::styled(
-                                    json_value_summary(field_value),
-                                    Style::default().fg(accent).add_modifier(Modifier::BOLD),
-                                ),
-                            ],
-                            active_row == Some(value_line_index),
-                        ));
-                    }
-                }
-                lines
-            }
-            _ => {
-                let total_line_count = 3;
-                let line_start = line_range.start.min(total_line_count);
-                let line_end = line_range.end.min(total_line_count);
-                if line_start >= line_end {
-                    return Vec::new();
-                }
-
-                let mut lines = Vec::with_capacity(line_end.saturating_sub(line_start));
-                if line_start == 0 {
-                    lines.push(selectable_plain_line(
-                        self.projection_header_label(projection, value),
-                        active_row == Some(0),
+                let value_line_index = 2 + index * 2;
+                if line_start <= value_line_index && line_end > value_line_index {
+                    lines.push(selectable_spans_line(
+                        vec![
+                            Span::styled(format!("{}: ", field_name), Style::default().fg(accent)),
+                            Span::styled(
+                                peek_value_summary(*field_value),
+                                Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                            ),
+                        ],
+                        active_row == Some(value_line_index),
                     ));
                 }
-                if line_start <= 1 && line_end > 1 {
-                    lines.push(separator_line("value"));
-                }
-                if line_start <= 2 && line_end > 2 {
-                    lines.push(Line::from(vec![
-                        Span::raw("  "),
-                        Span::styled(
-                            json_value_detail(value),
-                            Style::default()
-                                .fg(Color::Green)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                    ]));
-                }
-                lines
             }
+            lines
+        } else {
+            let total_line_count = 3;
+            let line_start = line_range.start.min(total_line_count);
+            let line_end = line_range.end.min(total_line_count);
+            if line_start >= line_end {
+                return Vec::new();
+            }
+
+            let mut lines = Vec::with_capacity(line_end.saturating_sub(line_start));
+            if line_start == 0 {
+                lines.push(selectable_plain_line(
+                    self.projection_header_label(projection, value),
+                    active_row == Some(0),
+                ));
+            }
+            if line_start <= 1 && line_end > 1 {
+                lines.push(separator_line("value"));
+            }
+            if line_start <= 2 && line_end > 2 {
+                lines.push(Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled(
+                        peek_value_detail(value),
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]));
+            }
+            lines
         }
     }
     fn variant_picker_preview_lines(&mut self) -> Option<Vec<Line<'static>>> {
@@ -6990,24 +6749,24 @@ impl ObjectBrowserApp {
             vec![Span::raw(format!(
                 "{} {}",
                 self.projection_header_label(projection, value),
-                json_value_summary(value)
+                peek_value_summary(value)
             ))],
         )];
-        if let Value::Object(object) = value {
+        if let Some(object) = peek_object_entries(value) {
             let is_map = self.projection_path_is_map(projection.root_slot_id, &projection.path);
             for (index, (name, field_value)) in object.iter().enumerate() {
                 let type_label = if is_map {
                     self.projection_map_entry_type_label(
                         projection.root_slot_id,
                         &projection.path,
-                        field_value,
+                        *field_value,
                     )
                 } else {
                     self.projection_field_type_label(
                         projection.root_slot_id,
                         &projection.path,
                         name,
-                        field_value,
+                        *field_value,
                     )
                 };
                 rows.push((1 + index * 2, vec![Span::raw(format!("type {type_label}"))]));
@@ -7015,7 +6774,7 @@ impl ObjectBrowserApp {
                     2 + index * 2,
                     vec![Span::raw(format!(
                         "{name}: {}",
-                        json_value_summary(field_value)
+                        peek_value_summary(*field_value)
                     ))],
                 ));
             }
@@ -7261,14 +7020,14 @@ impl SlotAxis {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct JsonProjectionView {
+struct ProjectionView {
     root_slot_id: usize,
-    path: Vec<JsonPathSegment>,
+    path: Vec<ValuePathSegment>,
 }
 
 #[derive(Clone, Debug)]
 struct BrowserTabState {
-    projection_stack: Vec<JsonProjectionView>,
+    projection_stack: Vec<ProjectionView>,
     breadcrumb_filters: Vec<BreadcrumbFilter>,
     pool_surface: PoolSurface,
     active_breadcrumb_index: usize,
@@ -7362,7 +7121,7 @@ impl ValueFilterOperator {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-enum JsonPathSegment {
+enum ValuePathSegment {
     Field(String),
     Index(usize),
     Key(String),
@@ -7371,11 +7130,11 @@ enum JsonPathSegment {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 struct ProjectionCacheKey {
     root_slot_id: usize,
-    path: Vec<JsonPathSegment>,
+    path: Vec<ValuePathSegment>,
 }
 
 impl ProjectionCacheKey {
-    fn new(root_slot_id: usize, path: &[JsonPathSegment]) -> Self {
+    fn new(root_slot_id: usize, path: &[ValuePathSegment]) -> Self {
         Self {
             root_slot_id,
             path: path.to_vec(),
@@ -7388,8 +7147,8 @@ struct ProjectionCache {
     descendant_counts: HashMap<ProjectionCacheKey, usize>,
     filtered_descendant_counts: HashMap<ProjectionCacheKey, usize>,
     filter_shape_relations: HashMap<String, (bool, bool)>,
-    value_filter_match_roots: HashMap<ValueFilterCacheKey, HashSet<Vec<JsonPathSegment>>>,
-    filtered_paths: HashMap<FilteredPathCacheKey, Vec<JsonPathSegment>>,
+    value_filter_match_roots: HashMap<ValueFilterCacheKey, HashSet<Vec<ValuePathSegment>>>,
+    filtered_paths: HashMap<FilteredPathCacheKey, Vec<ValuePathSegment>>,
 }
 
 impl ProjectionCache {
@@ -7417,7 +7176,7 @@ struct FilteredPathCacheKey {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ProjectionSlot {
     root_slot_id: usize,
-    path: Vec<JsonPathSegment>,
+    path: Vec<ValuePathSegment>,
     role: ProjectionSlotRole,
 }
 
@@ -7479,11 +7238,11 @@ struct SlotInlink {
     field_name: &'static str,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct MaterializedFieldState {
     info: ShapeFieldInfo,
-    value: Value,
-    projection_path: Vec<JsonPathSegment>,
+    value: RuntimeValue,
+    projection_path: Vec<ValuePathSegment>,
 }
 
 #[derive(Clone, Debug)]
@@ -7888,14 +7647,6 @@ fn field_picker_choice_is_arbitrary_producer(choice: &FieldPickerChoice) -> bool
             ..
         } if input_shape_name == "ArbitraryBytes"
     )
-}
-
-fn reflected_field_default_is_materializable(field: &ShapeFieldInfo) -> bool {
-    field.has_default
-        && field
-            .default_value_label
-            .as_deref()
-            .is_some_and(|label| label != "<default>")
 }
 
 struct GeneralValueEditorState {
@@ -8316,31 +8067,31 @@ enum SlotDisplayRow {
         spans: Vec<Span<'static>>,
     },
 }
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct SlotSnapshot {
     name: Option<String>,
     shape_name: Option<String>,
     value_state: SlotSnapshotValueState,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum SlotSnapshotValueState {
     Building(SlotBody),
-    ResolvedValue { json: String, value: Value },
+    ResolvedValue { value: RuntimeValue },
 }
 
 #[derive(Debug)]
 enum SlotValueState {
     Building(SlotBody),
     Pending(PendingInvocationState),
-    ResolvedValue { json: String, value: Value },
+    ResolvedValue { value: RuntimeValue },
     Failed { message: String },
 }
 
 #[derive(Debug)]
 struct PendingInvocationState {
     join_handle: JoinHandle<Result<Box<dyn std::any::Any + Send>>>,
-    output_serialize: cloud_terrastodon_registry::SerializeFn,
+    output_to_runtime: cloud_terrastodon_registry::RuntimeFromBoxedFn,
 }
 
 #[derive(Debug)]
@@ -8365,8 +8116,8 @@ impl ObjectSlot {
             shape_name: snapshot.shape_name,
             value_state: match snapshot.value_state {
                 SlotSnapshotValueState::Building(body) => SlotValueState::Building(body),
-                SlotSnapshotValueState::ResolvedValue { json, value } => {
-                    SlotValueState::ResolvedValue { json, value }
+                SlotSnapshotValueState::ResolvedValue { value } => {
+                    SlotValueState::ResolvedValue { value }
                 }
             },
             result_slot_ids: Vec::new(),
@@ -8404,13 +8155,13 @@ impl ObjectSlot {
         }
     }
 
-    fn new_resolved_result(id: usize, shape_name: String, json: String, value: Value) -> Self {
+    fn new_resolved_result(id: usize, shape_name: String, value: RuntimeValue) -> Self {
         Self {
             id,
             name: None,
             kind: SlotKind::Owned,
             shape_name: Some(shape_name),
-            value_state: SlotValueState::ResolvedValue { json, value },
+            value_state: SlotValueState::ResolvedValue { value },
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
@@ -8583,11 +8334,11 @@ struct ViewInfo {
     field_name: &'static str,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum SlotBody {
     Value {
         shape: &'static facet::Shape,
-        value: Option<Value>,
+        value: Option<RuntimeValue>,
     },
     Unset,
     Struct {
@@ -8598,6 +8349,30 @@ enum SlotBody {
         selected_variant: Option<usize>,
         fields: Vec<ObjectFieldState>,
     },
+}
+
+impl SlotBody {
+    fn try_clone(&self) -> Result<Self> {
+        Ok(match self {
+            Self::Value { shape, value } => Self::Value {
+                shape: *shape,
+                value: value.as_ref().map(RuntimeValue::try_clone).transpose()?,
+            },
+            Self::Unset => Self::Unset,
+            Self::Struct { fields } => Self::Struct {
+                fields: fields.clone(),
+            },
+            Self::Enum {
+                variants,
+                selected_variant,
+                fields,
+            } => Self::Enum {
+                variants: variants.clone(),
+                selected_variant: *selected_variant,
+                fields: fields.clone(),
+            },
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -8706,7 +8481,7 @@ fn materialized_field_rows(fields: &[MaterializedFieldState]) -> Vec<SlotDisplay
                     Style::default().fg(accent),
                 ),
                 Span::styled(
-                    json_value_summary(&field.value),
+                    field.value.display_string(),
                     Style::default().fg(accent).add_modifier(Modifier::BOLD),
                 ),
             ],
@@ -8784,7 +8559,7 @@ fn runtime_state_rows(runtime_state: &SlotValueState) -> Vec<SlotDisplayRow> {
                         .fg(Color::Green)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::raw(json_value_summary(value)),
+                Span::raw(value.display_string()),
             ],
         )],
         SlotValueState::Building(_) => Vec::new(),
@@ -9271,29 +9046,29 @@ fn resize_dimension(current: u16, minimum: u16, step: u16, direction: isize) -> 
         current.saturating_add(step).max(minimum)
     }
 }
-fn append_json_path_segment(
-    parent_path: &[JsonPathSegment],
-    segment: JsonPathSegment,
-) -> Vec<JsonPathSegment> {
+fn append_value_path_segment(
+    parent_path: &[ValuePathSegment],
+    segment: ValuePathSegment,
+) -> Vec<ValuePathSegment> {
     let mut path = parent_path.to_vec();
     path.push(segment);
     path
 }
 
-fn projection_label(root_slot_id: usize, path: &[JsonPathSegment]) -> String {
+fn projection_label(root_slot_id: usize, path: &[ValuePathSegment]) -> String {
     let mut label = format!("slot {}", root_slot_id);
     for segment in path {
         match segment {
-            JsonPathSegment::Field(field_name) => {
+            ValuePathSegment::Field(field_name) => {
                 label.push('.');
                 label.push_str(field_name);
             }
-            JsonPathSegment::Index(index) => {
+            ValuePathSegment::Index(index) => {
                 label.push('[');
                 label.push_str(&index.to_string());
                 label.push(']');
             }
-            JsonPathSegment::Key(key) => {
+            ValuePathSegment::Key(key) => {
                 label.push('[');
                 label.push_str(key);
                 label.push(']');
@@ -9304,12 +9079,7 @@ fn projection_label(root_slot_id: usize, path: &[JsonPathSegment]) -> String {
 }
 
 fn shape_accepts_text_input(shape: &facet::Shape) -> bool {
-    shape.is_transparent()
-        || shape.proxy.is_some()
-        || shape
-            .format_proxies
-            .iter()
-            .any(|proxy| proxy.format == "json")
+    shape.is_transparent() || shape.proxy.is_some() || !shape.format_proxies.is_empty()
 }
 
 fn is_general_value_shape(shape: &'static facet::Shape) -> bool {
@@ -9324,45 +9094,115 @@ fn is_general_value_shape(shape: &'static facet::Shape) -> bool {
     shape_accepts_text_input(shape)
 }
 
-fn scalar_value_input(value: &Value) -> String {
-    match value {
-        Value::String(value) => value.clone(),
-        _ => value.to_string(),
+fn peek_list_items<'a>(
+    value: facet_reflect::Peek<'a, 'static>,
+) -> Option<Vec<facet_reflect::Peek<'a, 'static>>> {
+    let value = value.innermost_peek();
+    if let Ok(list) = value.into_list_like() {
+        return Some(
+            (0..list.len())
+                .filter_map(|index| list.get(index))
+                .collect(),
+        );
     }
-}
-fn json_type_label(value: &Value) -> String {
-    match value {
-        Value::Null => "null".to_string(),
-        Value::Bool(_) => "bool".to_string(),
-        Value::Number(_) => "number".to_string(),
-        Value::String(_) => "string".to_string(),
-        Value::Array(items) => format!("array[{}]", items.len()),
-        Value::Object(object) => format!("object[{}]", object.len()),
-    }
+    let set = value.into_set().ok()?;
+    Some(set.iter().collect())
 }
 
-fn json_value_detail(value: &Value) -> String {
-    match value {
-        Value::String(text) => format!("\"{}\"", text),
-        _ => json_value_summary(value),
+fn peek_object_entries<'a>(
+    value: facet_reflect::Peek<'a, 'static>,
+) -> Option<Vec<(String, facet_reflect::Peek<'a, 'static>)>> {
+    if value.shape().proxy.is_some() || !value.shape().format_proxies.is_empty() {
+        return None;
     }
+    if let Ok(object) = value.into_struct() {
+        return Some(
+            object
+                .fields()
+                .map(|(field, child)| (field.effective_name().to_string(), child))
+                .collect(),
+        );
+    }
+    if let Ok(object) = value.into_enum() {
+        let variant = object.active_variant().ok()?;
+        return Some(
+            variant
+                .data
+                .fields
+                .iter()
+                .enumerate()
+                .filter_map(|(index, field)| {
+                    Some((
+                        field.effective_name().to_string(),
+                        object.field(index).ok()??,
+                    ))
+                })
+                .collect(),
+        );
+    }
+    if let Ok(tuple) = value.into_tuple() {
+        return Some(
+            tuple
+                .fields()
+                .enumerate()
+                .map(|(index, (_, child))| (index.to_string(), child))
+                .collect(),
+        );
+    }
+    if let Ok(object) = value.into_map() {
+        return Some(
+            object
+                .iter()
+                .map(|(key, child)| {
+                    let key = key
+                        .as_str()
+                        .map(ToOwned::to_owned)
+                        .unwrap_or_else(|| key.to_string());
+                    (key, child)
+                })
+                .collect(),
+        );
+    }
+    None
 }
-fn json_value_summary(value: &Value) -> String {
-    match value {
-        Value::Null => "null".to_string(),
-        Value::Bool(boolean) => boolean.to_string(),
-        Value::Number(number) => number.to_string(),
-        Value::String(text) => {
-            let truncated = if text.chars().count() > 40 {
-                format!("{}...", text.chars().take(37).collect::<String>())
-            } else {
-                text.clone()
-            };
-            format!("\"{}\"", truncated)
-        }
-        Value::Array(items) => format!("{} entries", items.len()),
-        Value::Object(object) => format!("object with {} fields", object.len()),
+
+fn peek_value_summary(value: facet_reflect::Peek<'_, '_>) -> String {
+    if let Some(text) = peek_scalar_text(value) {
+        let truncated = if text.chars().count() > 40 {
+            format!("{}...", text.chars().take(37).collect::<String>())
+        } else {
+            text
+        };
+        return format!("\"{truncated}\"");
     }
+    value.to_string()
+}
+
+fn peek_value_detail(value: facet_reflect::Peek<'_, '_>) -> String {
+    peek_value_summary(value)
+}
+
+fn peek_scalar_text(value: facet_reflect::Peek<'_, '_>) -> Option<String> {
+    if let Some(text) = value.as_str() {
+        return Some(text.to_owned());
+    }
+    let proxy = value.shape().effective_proxy(None)?;
+    let owned = value.custom_serialization_with_proxy(proxy).ok()?;
+    let proxied = owned.as_peek();
+    proxied
+        .as_str()
+        .map(ToOwned::to_owned)
+        .or_else(|| Some(proxied.to_string()))
+}
+
+fn peek_type_label(value: facet_reflect::Peek<'_, 'static>) -> String {
+    if let Some(items) = peek_list_items(value) {
+        return format!("array[{}]", items.len());
+    }
+    if let Some(entries) = peek_object_entries(value) {
+        return format!("object[{}]", entries.len());
+    }
+    describe_shape(value.shape())
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
@@ -9411,12 +9251,27 @@ mod tests {
     use super::FieldPickerChoice;
     use super::ObjectBrowserApp;
     use super::ObjectSlot;
+    use super::RuntimeValue;
     use super::ShapeVariantInfo;
     use super::SlotBody;
     use super::SlotFocusTarget;
     use super::SlotKind;
     use super::UiMode;
     use arbitrary::Arbitrary;
+    use cloud_terrastodon_azure::AzureTenantArgument;
+    use cloud_terrastodon_azure::AzureTenantIdResolveRequest;
+    use cloud_terrastodon_azure::EntraUser;
+    use cloud_terrastodon_azure::EntraUserId;
+    use cloud_terrastodon_azure::PrincipalId;
+    use cloud_terrastodon_azure::RoleAssignment;
+    use cloud_terrastodon_azure::RoleAssignmentId;
+    use cloud_terrastodon_azure::RoleDefinition;
+    use cloud_terrastodon_azure::RoleDefinitionId;
+    use cloud_terrastodon_azure::RoleDefinitionKind;
+    use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
+    use cloud_terrastodon_azure::RolePermissionAction;
+    use cloud_terrastodon_azure::RolePermissions;
+    use cloud_terrastodon_azure::ScopeImpl;
     use cloud_terrastodon_registry::describe_shape;
     use cloud_terrastodon_registry::known_shapes;
     use facet::Facet;
@@ -9426,8 +9281,10 @@ mod tests {
     use ratatui::crossterm::event::KeyModifiers;
     use std::borrow::Cow;
     use std::collections::BTreeSet;
+    use std::collections::HashMap;
     use std::future::Future;
     use std::future::IntoFuture;
+    use std::str::FromStr;
 
     #[derive(Debug, Clone, Arbitrary, Facet)]
     #[repr(C)]
@@ -9491,6 +9348,99 @@ mod tests {
         origin = "Arbitrary",
         invoke = cloud_terrastodon_registry::arbitrary_from_bytes::<DummyInvokeOutput>
     );
+
+    fn runtime<T>(value: T) -> RuntimeValue
+    where
+        T: Facet<'static> + Send + 'static,
+    {
+        RuntimeValue::from_box(Box::new(value)).expect("test value should be representable")
+    }
+
+    fn resolved<T>(value: T) -> super::SlotValueState
+    where
+        T: Facet<'static> + Send + 'static,
+    {
+        super::SlotValueState::ResolvedValue {
+            value: runtime(value),
+        }
+    }
+
+    fn test_user(display_name: &str, user_principal_name: &str, id: &str) -> EntraUser {
+        EntraUser {
+            business_phones: Vec::new(),
+            display_name: display_name.to_string(),
+            given_name: None,
+            id: EntraUserId::from_str(id).expect("test user id"),
+            job_title: None,
+            mail: None,
+            other_mails: Vec::new(),
+            mobile_phone: None,
+            office_location: None,
+            preferred_language: None,
+            surname: None,
+            user_principal_name: user_principal_name.to_string(),
+        }
+    }
+
+    fn test_role_assignment(id: &str, principal_id: &str, scope: &str) -> RoleAssignment {
+        RoleAssignment {
+            id: RoleAssignmentId::from_str(id).expect("test role assignment id"),
+            scope: ScopeImpl::from_str(scope).expect("test scope"),
+            role_definition_id: RoleDefinitionId::from_str(
+                "/providers/Microsoft.Authorization/RoleDefinitions/00000000-0000-4000-8000-000000000001",
+            )
+            .expect("test role definition id"),
+            principal_id: PrincipalId::from_str(principal_id).expect("test principal id"),
+        }
+    }
+
+    fn test_role_definition() -> RoleDefinition {
+        RoleDefinition {
+            id: RoleDefinitionId::from_str(
+                "/providers/Microsoft.Authorization/RoleDefinitions/00000000-0000-4000-8000-000000000001",
+            )
+            .expect("test role definition id"),
+            display_name: "Reader".to_string(),
+            description: "Can perform read and write-level data plane operations".to_string(),
+            assignable_scopes: vec!["/subscriptions/sub-1".to_string()],
+            permissions: vec![RolePermissions::new(
+                [
+                    RolePermissionAction::new("Microsoft.Storage/storageAccounts/blobServices/read"),
+                    RolePermissionAction::new(
+                        "Microsoft.Storage/storageAccounts/blobServices/generateUserDelegationKey/action",
+                    ),
+                ],
+                [],
+                [],
+                [],
+            )],
+            kind: RoleDefinitionKind::BuiltInRole,
+        }
+    }
+
+    fn test_role_collection() -> RoleDefinitionsAndAssignments {
+        let role_definition = test_role_definition();
+        let role_definition_id = role_definition.id.clone();
+        let role_assignments = [
+            test_role_assignment(
+                "/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-000000000001",
+                "11111111-2222-4333-8444-555555555555",
+                "/subscriptions/11111111-2222-4333-8444-555555555555",
+            ),
+            test_role_assignment(
+                "/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-000000000002",
+                "22222222-2222-4333-8444-555555555555",
+                "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg-a",
+            ),
+        ];
+        RoleDefinitionsAndAssignments {
+            role_definitions: HashMap::from([(role_definition_id, role_definition)]),
+            role_assignments: role_assignments
+                .into_iter()
+                .map(|assignment| (assignment.id.clone(), assignment))
+                .collect(),
+        }
+    }
     #[test]
     fn creating_a_slot_focuses_the_shape_row() {
         let mut app = ObjectBrowserApp::default();
@@ -9597,11 +9547,10 @@ mod tests {
             Some(FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. })
                 if input_shape_name == "DummyCowProducerRequest"
         ));
-        assert_eq!(
-            app.default_json_for_shape("DummyCowProducerRequest")
-                .expect("unit request should support default construction"),
-            serde_json::json!({})
-        );
+        let default = app
+            .default_runtime_for_shape("DummyCowProducerRequest")
+            .expect("unit request should support default construction");
+        assert_eq!(default.shape(), DummyCowProducerRequest::SHAPE);
     }
 
     #[test]
@@ -9689,16 +9638,23 @@ mod tests {
         let mut user_slot = ObjectSlot::new_scalar(2, user_choice.label, user_choice.thing.shape);
         user_slot.value_state = super::SlotValueState::Building(SlotBody::Value {
             shape: user_choice.thing.shape,
-            value: Some(serde_json::json!("22bd3607-20b4-41fc-bf14-000000000000")),
+            value: Some(
+                RuntimeValue::from_text(
+                    user_choice.thing.shape,
+                    "22bd3607-20b4-41fc-bf14-000000000000",
+                )
+                .expect("user id should parse"),
+            ),
         });
         app.object_slots.push(principal_slot);
         app.object_slots.push(user_slot);
         app.set_field_link(1, 0, 2);
 
         assert_eq!(
-            app.slot_json_value(1)
-                .expect("principal id should serialize"),
-            serde_json::json!("22bd3607-20b4-41fc-bf14-000000000000")
+            app.slot_runtime_value(1)
+                .expect("principal id should materialize")
+                .display_string(),
+            "22bd3607-20b4-41fc-bf14-000000000000"
         );
     }
 
@@ -9872,51 +9828,14 @@ mod tests {
         )));
         assert!(picker.choices.iter().any(|choice| matches!(
             choice,
-            FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. }
-                if input_shape_name == "AzureTenantIdResolveRequest"
-        )));
-        assert!(picker.choices.iter().any(|choice| matches!(
-            choice,
             FieldPickerChoice::InvokeArbitraryProducer { input_shape_name, .. }
                 if input_shape_name == "AzureTenantIdResolveRequest"
         )));
-        let create_index = picker
-            .choices
-            .iter()
-            .position(|choice| {
-                matches!(
-                    choice,
-                    FieldPickerChoice::CreateProducer { input_shape_name, .. }
-                        if input_shape_name == "AzureTenantIdResolveRequest"
-                )
-            })
-            .expect("create producer choice should be selectable");
-        let default_index = picker
-            .choices
-            .iter()
-            .position(|choice| {
-                matches!(
-                    choice,
-                    FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. }
-                        if input_shape_name == "AzureTenantIdResolveRequest"
-                )
-            })
-            .expect("default producer choice should be selectable");
-        assert!(
-            default_index < create_index,
-            "default producer should precede create producer: {:?}",
-            picker.labels
-        );
         assert!(matches!(
             picker.selected_choice(),
-            Some(FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. })
+            Some(FieldPickerChoice::CreateProducer { input_shape_name, .. })
                 if input_shape_name == "AzureTenantIdResolveRequest"
         ));
-        assert_eq!(
-            app.default_json_for_shape("AzureTenantIdResolveRequest")
-                .expect("the request should support reflected default construction"),
-            serde_json::json!({ "tenant": "Default" })
-        );
 
         let arbitrary_request_choice = picker
             .choices
@@ -9997,12 +9916,12 @@ mod tests {
             .find(|shape| shape.label == "AzureTenantIdResolveRequest")
             .cloned()
             .expect("AzureTenantIdResolveRequest should be registered");
-        let value = serde_json::json!({ "tenant": "Default" });
         let mut slot = ObjectSlot::new(1);
         slot.apply_shape_choice(&shape);
         slot.value_state = super::SlotValueState::ResolvedValue {
-            json: serde_json::to_string(&value).expect("json"),
-            value,
+            value: runtime(AzureTenantIdResolveRequest {
+                tenant: AzureTenantArgument::Default,
+            }),
         };
         app.object_slots.push(slot);
 
@@ -10010,7 +9929,7 @@ mod tests {
         let fields = app.materialized_fields(1);
         assert_eq!(fields.len(), 1);
         assert_eq!(fields[0].info.field_name, "tenant");
-        assert_eq!(fields[0].value, serde_json::json!("Default"));
+        assert_eq!(fields[0].value.display_string(), "Default");
         assert!(
             app.slot_focus_targets(1)
                 .contains(&SlotFocusTarget::FieldValue(0))
@@ -10036,7 +9955,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         assert!(rendered.contains("--- fields ---"), "{rendered}");
-        assert!(rendered.contains("tenant: \"Default\""), "{rendered}");
+        assert!(rendered.contains("tenant: Default"), "{rendered}");
     }
 
     #[test]
@@ -10729,25 +10648,24 @@ mod tests {
     #[test]
     fn value_filter_picklists_resolve_function_output_list_shapes() {
         let mut app = ObjectBrowserApp::default();
-        let value = serde_json::json!([
-            {
-                "displayName": "Ada",
-                "userPrincipalName": "ada@example.com"
-            },
-            {
-                "displayName": "Dominic",
-                "userPrincipalName": "dominic.phillips@agr.gc.ca"
-            }
-        ]);
+        let value = vec![
+            test_user(
+                "Ada",
+                "ada@example.com",
+                "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            ),
+            test_user(
+                "Dominic",
+                "dominic.phillips@agr.gc.ca",
+                "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            ),
+        ];
         app.object_slots.push(super::ObjectSlot {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("List<EntraUser>".to_string()),
-            value_state: super::SlotValueState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            },
+            value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
@@ -10799,18 +10717,18 @@ mod tests {
         })];
         app.projection_cache.borrow_mut().clear();
 
-        assert_eq!(app.total_slot_count(), 3);
+        assert_eq!(app.total_slot_count(), 13);
         assert!(matches!(
             app.pool_entry_at(0),
             Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
-                if path == vec![super::JsonPathSegment::Index(1)]
+                if path == vec![super::ValuePathSegment::Index(1)]
         ));
         assert!((0..app.total_slot_count()).any(|index| matches!(
             app.pool_entry_at(index),
             Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
                 if path == vec![
-                    super::JsonPathSegment::Index(1),
-                    super::JsonPathSegment::Field("displayName".to_string())
+                    super::ValuePathSegment::Index(1),
+                    super::ValuePathSegment::Field("displayName".to_string())
                 ]
         )));
         for index in 0..app.total_slot_count() {
@@ -10885,14 +10803,21 @@ mod tests {
         tokio::task::yield_now().await;
         app.advance_pending_invocations();
 
-        let resolved_json = app
+        let resolved_message = app
             .slot_by_id(result_slot_id)
             .and_then(|slot| match &slot.value_state {
-                super::SlotValueState::ResolvedValue { json, .. } => Some(json.clone()),
+                super::SlotValueState::ResolvedValue { value } => value
+                    .peek()
+                    .into_struct()
+                    .ok()?
+                    .field_by_name("message")
+                    .ok()?
+                    .as_str()
+                    .map(ToOwned::to_owned),
                 _ => None,
             })
             .expect("result slot should resolve");
-        assert!(resolved_json.contains("\"message\":\"done\""));
+        assert_eq!(resolved_message, "done");
     }
 
     #[tokio::test]
@@ -11010,12 +10935,7 @@ mod tests {
         app.apply_shape_selection();
         if let Some(slot) = app.slot_by_id_mut(1) {
             slot.value_state = super::SlotValueState::ResolvedValue {
-                json: "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]"
-                    .to_string(),
-                value: serde_json::from_str(
-                    "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]",
-                )
-                .unwrap(),
+                value: runtime(cloud_terrastodon_registry::ArbitraryBytes::new(vec![1; 32])),
             };
         }
 
@@ -11034,14 +10954,21 @@ mod tests {
             app.slot_focus_targets(1).get(app.active_row_index),
             Some(&SlotFocusTarget::Result(0))
         );
-        let resolved_value = app
+        let has_message = app
             .slot_by_id(result_slot_id)
             .and_then(|slot| match &slot.value_state {
-                super::SlotValueState::ResolvedValue { value, .. } => Some(value.clone()),
+                super::SlotValueState::ResolvedValue { value } => value
+                    .peek()
+                    .into_struct()
+                    .ok()?
+                    .field_by_name("message")
+                    .ok()?
+                    .as_str()
+                    .map(|_| true),
                 _ => None,
             })
             .expect("result slot should resolve immediately");
-        assert!(resolved_value.get("message").is_some());
+        assert!(has_message);
     }
 
     #[test]
@@ -11141,7 +11068,10 @@ mod tests {
         let materialized_fields = app.materialized_fields(arbitrary_slot_id);
         assert_eq!(materialized_fields.len(), 1);
         assert_eq!(materialized_fields[0].info.field_name, "0");
-        assert!(materialized_fields[0].value.is_array());
+        assert!(
+            super::peek_list_items(materialized_fields[0].value.peek()).is_some(),
+            "ArbitraryBytes field should be reflected as a list"
+        );
         let result_slot_id = arbitrary_slot
             .result_slot_ids
             .first()
@@ -11168,17 +11098,14 @@ mod tests {
             Some(arbitrary_slot.id),
             "the request should link forward to its generated ArbitraryBytes slot"
         );
-        let resolved_value = app
+        let resolved_display = app
             .slot_by_id(result_slot_id)
             .and_then(|slot| match &slot.value_state {
-                super::SlotValueState::ResolvedValue { value, .. } => Some(value.clone()),
+                super::SlotValueState::ResolvedValue { value } => Some(value.display_string()),
                 _ => None,
             })
             .expect("fake result slot should resolve immediately");
-        assert_ne!(
-            resolved_value,
-            serde_json::Value::String("00000000-0000-4000-8000-000000000000".to_string())
-        );
+        assert_ne!(resolved_display, "00000000-0000-4000-8000-000000000000");
     }
 
     #[test]
@@ -11360,19 +11287,24 @@ mod tests {
     #[test]
     fn creating_a_slot_after_projection_children_selects_the_new_owned_slot() {
         let mut app = ObjectBrowserApp::default();
-        let value = serde_json::json!([
-            { "displayName": "Ada" },
-            { "displayName": "Grace" }
-        ]);
+        let value = vec![
+            test_user(
+                "Ada",
+                "ada@example.com",
+                "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            ),
+            test_user(
+                "Grace",
+                "grace@example.com",
+                "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            ),
+        ];
         app.object_slots.push(super::ObjectSlot {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
-            value_state: super::SlotValueState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            },
+            value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
@@ -11404,37 +11336,13 @@ mod tests {
             .find(|shape| shape.label == "RoleDefinitionsAndAssignments")
             .map(|shape| shape.label.clone())
             .expect("RoleDefinitionsAndAssignments should be registered");
-        let value = serde_json::json!({
-            "role_assignments": {
-                "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-a": {
-                    "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-a",
-                    "principal_id": "principal-a",
-                    "role_definition_id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleDefinitions/definition-a",
-                    "scope": "/subscriptions/sub-1"
-                },
-                "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-b": {
-                    "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-b",
-                    "principal_id": "principal-b",
-                    "role_definition_id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleDefinitions/definition-a",
-                    "scope": "/subscriptions/sub-1/resourceGroups/rg-a"
-                }
-            },
-            "role_definitions": {
-                "/subscriptions/sub-1/providers/Microsoft.Authorization/roleDefinitions/definition-a": {
-                    "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleDefinitions/definition-a",
-                    "name": "Reader"
-                }
-            }
-        });
+        let value = test_role_collection();
         app.object_slots.push(super::ObjectSlot {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some(shape_name),
-            value_state: super::SlotValueState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            },
+            value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
@@ -11443,14 +11351,14 @@ mod tests {
 
         app.activate_runtime_value(1);
         assert_eq!(app.projection_stack.len(), 1);
-        assert_eq!(app.total_slot_count(), 16);
+        assert_eq!(app.total_slot_count(), 28);
 
         let root_projection = super::ProjectionSlot {
             root_slot_id: 1,
             path: Vec::new(),
             role: super::ProjectionSlotRole::ContainerRoot,
         };
-        app.activate_projection_slot_row(&root_projection, 2);
+        app.activate_projection_slot_row(&root_projection, 4);
 
         let map_view = app
             .projection_stack
@@ -11464,12 +11372,11 @@ mod tests {
         assert_eq!(app.total_slot_count(), 11);
         let descendant_paths =
             app.projection_descendant_paths(map_view.root_slot_id, &map_view.path);
-        assert!(descendant_paths.iter().any(
-            |path| matches!(path.last(), Some(super::JsonPathSegment::Key(key)) if key.contains("assignment-a"))
-        ));
-        assert!(descendant_paths.iter().any(
-            |path| matches!(path.last(), Some(super::JsonPathSegment::Key(key)) if key.contains("assignment-b"))
-        ));
+        let map_entry_count = descendant_paths
+            .iter()
+            .filter(|path| matches!(path.last(), Some(super::ValuePathSegment::Key(_))))
+            .count();
+        assert_eq!(map_entry_count, 2);
 
         let lines = app.projection_slot_lines(
             &super::ProjectionSlot {
@@ -11496,40 +11403,20 @@ mod tests {
     #[test]
     fn role_permission_action_projection_preserves_element_shape() {
         let mut app = ObjectBrowserApp::default();
-        let value = serde_json::json!({
-            "description": "Can perform read and write-level data plane operations for Storage Accounts and Key Vaults.",
-            "display_name": "Storage and Key Vault Operator",
-            "permissions": [
-                {
-                    "actions": [
-                        "Microsoft.Storage/storageAccounts/blobServices/read",
-                        "Microsoft.Storage/storageAccounts/blobServices/generateUserDelegationKey/action"
-                    ],
-                    "not_actions": [],
-                    "data_actions": [],
-                    "not_data_actions": []
-                }
-            ],
-            "assignable_scopes": ["/subscriptions/sub-1"],
-            "id": "/providers/Microsoft.Authorization/roleDefinitions/00430a36-0657-0ac7-76d9-33e2a4f9e656",
-            "kind": "BuiltInRole"
-        });
+        let value = test_role_definition();
         app.object_slots.push(super::ObjectSlot {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("RoleDefinition".to_string()),
-            value_state: super::SlotValueState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            },
+            value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
             display_cache: None,
         });
 
-        let description_path = vec![super::JsonPathSegment::Field("description".to_string())];
+        let description_path = vec![super::ValuePathSegment::Field("description".to_string())];
         assert_eq!(
             app.projection_shape_name_at_path(1, &description_path)
                 .as_deref(),
@@ -11537,10 +11424,10 @@ mod tests {
         );
 
         let action_path = vec![
-            super::JsonPathSegment::Field("permissions".to_string()),
-            super::JsonPathSegment::Index(0),
-            super::JsonPathSegment::Field("actions".to_string()),
-            super::JsonPathSegment::Index(1),
+            super::ValuePathSegment::Field("permissions".to_string()),
+            super::ValuePathSegment::Index(0),
+            super::ValuePathSegment::Field("actions".to_string()),
+            super::ValuePathSegment::Index(1),
         ];
         assert_eq!(
             app.projection_shape_name_at_path(1, &action_path)
@@ -11576,18 +11463,17 @@ mod tests {
     #[test]
     fn primitive_projection_cards_show_their_value() {
         let mut app = ObjectBrowserApp::default();
-        let value = serde_json::json!({
-            "id": "/subscriptions/sub-1/providers/Microsoft.Authorization/roleAssignments/assignment-a"
-        });
+        let value = test_role_assignment(
+            "/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-000000000001",
+            "11111111-2222-4333-8444-555555555555",
+            "/subscriptions/11111111-2222-4333-8444-555555555555",
+        );
         app.object_slots.push(super::ObjectSlot {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("RoleAssignment".to_string()),
-            value_state: super::SlotValueState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            },
+            value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
@@ -11597,7 +11483,7 @@ mod tests {
         let lines = app.projection_slot_lines(
             &super::ProjectionSlot {
                 root_slot_id: 1,
-                path: vec![super::JsonPathSegment::Field("id".to_string())],
+                path: vec![super::ValuePathSegment::Field("id".to_string())],
                 role: super::ProjectionSlotRole::Child,
             },
             None,
@@ -11615,7 +11501,18 @@ mod tests {
 
         assert!(rendered.contains("RoleAssignmentId"), "{rendered}");
         assert!(rendered.contains("--- value ---"), "{rendered}");
-        assert!(rendered.contains("assignment-a"), "{rendered}");
+        let projection = super::ProjectionSlot {
+            root_slot_id: 1,
+            path: vec![super::ValuePathSegment::Field("id".to_string())],
+            role: super::ProjectionSlotRole::Child,
+        };
+        assert_eq!(
+            super::peek_scalar_text(app.projection_value(&projection).expect("id projection"))
+                .as_deref(),
+            Some(
+                "/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-000000000001"
+            )
+        );
     }
 
     #[test]
@@ -11766,19 +11663,24 @@ mod tests {
     #[test]
     fn resolved_array_enters_projection_view() {
         let mut app = ObjectBrowserApp::default();
-        let value = serde_json::json!([
-            { "displayName": "Ada" },
-            { "displayName": "Grace" }
-        ]);
+        let value = vec![
+            test_user(
+                "Ada",
+                "ada@example.com",
+                "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            ),
+            test_user(
+                "Grace",
+                "grace@example.com",
+                "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            ),
+        ];
         app.object_slots.push(super::ObjectSlot {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
-            value_state: super::SlotValueState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            },
+            value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
@@ -11790,41 +11692,39 @@ mod tests {
         app.activate_current_row();
 
         assert_eq!(app.projection_stack.len(), 1);
-        assert_eq!(app.total_slot_count(), 5);
+        assert_eq!(app.total_slot_count(), 27);
         assert!(matches!(
             app.pool_entry_at(1),
             Some(super::PoolEntry::Projection(_))
         ));
-        assert!(matches!(
-            app.pool_entry_at(2),
-            Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
-                if matches!(
-                    path.as_slice(),
-                    [super::JsonPathSegment::Index(0), super::JsonPathSegment::Field(field_name)]
-                        if field_name == "displayName"
-                )
-        ));
+        assert!((0..app.total_slot_count()).any(|index| {
+            matches!(
+                app.pool_entry_at(index),
+                Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
+                    if matches!(
+                        path.as_slice(),
+                        [super::ValuePathSegment::Index(0), super::ValuePathSegment::Field(field_name)]
+                            if field_name == "displayName"
+                    )
+            )
+        }));
     }
 
     #[test]
     fn projected_slots_support_type_search_and_value_filters() {
         let mut app = ObjectBrowserApp::default();
         let principal_id = "11111111-2222-4333-8444-555555555555";
-        let value = serde_json::json!({
-            "id": "/providers/Microsoft.Authorization/roleAssignments/a",
-            "scope": "/subscriptions/s",
-            "role_definition_id": "/providers/Microsoft.Authorization/roleDefinitions/r",
-            "principal_id": principal_id,
-        });
+        let value = test_role_assignment(
+            "/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-000000000003",
+            principal_id,
+            "/subscriptions/11111111-2222-4333-8444-555555555555",
+        );
         app.object_slots.push(super::ObjectSlot {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some("RoleAssignment".to_string()),
-            value_state: super::SlotValueState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            },
+            value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
@@ -11864,7 +11764,7 @@ mod tests {
         assert!((0..app.total_slot_count()).any(|index| matches!(
             app.pool_entry_at(index),
             Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
-                if path == vec![super::JsonPathSegment::Field("principal_id".to_string())]
+                if path == vec![super::ValuePathSegment::Field("principal_id".to_string())]
         )));
         assert_eq!(
             app.existing_value_filter_choices("PrincipalId", "*"),
@@ -11883,25 +11783,27 @@ mod tests {
             .expect("the role collection shape should be registered");
         let role_assignments = (0..10_000)
             .map(|index| {
-                (
-                    format!("assignment-{index:05}"),
-                    serde_json::json!({ "id": format!("assignment-{index:05}") }),
-                )
+                let id = format!(
+                    "/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-{index:012x}"
+                );
+                let assignment = test_role_assignment(
+                    &id,
+                    "11111111-2222-4333-8444-555555555555",
+                    "/subscriptions/11111111-2222-4333-8444-555555555555",
+                );
+                (assignment.id.clone(), assignment)
             })
-            .collect::<serde_json::Map<_, _>>();
-        let value = serde_json::json!({
-            "role_assignments": role_assignments,
-            "role_definitions": {},
-        });
+            .collect::<HashMap<_, _>>();
+        let value = RoleDefinitionsAndAssignments {
+            role_assignments,
+            role_definitions: HashMap::new(),
+        };
         app.object_slots.push(super::ObjectSlot {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
             shape_name: Some(root_shape_name),
-            value_state: super::SlotValueState::ResolvedValue {
-                json: serde_json::to_string(&value).expect("json"),
-                value,
-            },
+            value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
             produced_by_slot_id: None,
@@ -11949,10 +11851,11 @@ mod tests {
         assert!(matches!(
             app.pool_entry_at(9_999),
             Some(super::PoolEntry::Projection(super::ProjectionSlot { path, .. }))
-                if path == vec![
-                    super::JsonPathSegment::Field("role_assignments".to_string()),
-                    super::JsonPathSegment::Key("assignment-09999".to_string()),
-                ]
+                if matches!(
+                    path.as_slice(),
+                    [super::ValuePathSegment::Field(name), super::ValuePathSegment::Key(_)]
+                        if name == "role_assignments"
+                )
         ));
     }
 }

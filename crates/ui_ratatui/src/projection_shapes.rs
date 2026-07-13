@@ -7,9 +7,9 @@ use facet::Type;
 use facet::UserType;
 use std::collections::BTreeSet;
 
-fn serialized_container_shape(mut shape: &'static Shape) -> &'static Shape {
+fn proxied_container_shape(mut shape: &'static Shape) -> &'static Shape {
     loop {
-        if let Some(proxy) = shape.effective_proxy(Some("json"))
+        if let Some(proxy) = shape.effective_proxy(None)
             && !proxy.shape.is_shape(shape)
         {
             shape = proxy.shape;
@@ -23,7 +23,7 @@ pub(crate) fn projection_field_shape(
     shape: &'static Shape,
     field_name: &str,
 ) -> Option<&'static Shape> {
-    let shape = serialized_container_shape(shape);
+    let shape = proxied_container_shape(shape);
     if shape.is_transparent()
         && let Some(inner) = shape.inner
         && !inner.is_shape(shape)
@@ -40,7 +40,7 @@ pub(crate) fn projection_field_shape(
             })
             .map(|field| {
                 field
-                    .effective_proxy(Some("json"))
+                    .effective_proxy(None)
                     .map(|proxy| proxy.shape)
                     .unwrap_or_else(|| field.shape())
             }),
@@ -49,11 +49,11 @@ pub(crate) fn projection_field_shape(
 }
 
 pub(crate) fn projection_sequence_element_shape(shape: &'static Shape) -> Option<&'static Shape> {
-    registry_sequence_element_shape(serialized_container_shape(shape))
+    registry_sequence_element_shape(proxied_container_shape(shape))
 }
 
 pub(crate) fn projection_map_value_shape(shape: &'static Shape) -> Option<&'static Shape> {
-    registry_map_value_shape(serialized_container_shape(shape))
+    registry_map_value_shape(proxied_container_shape(shape))
 }
 
 pub(crate) fn projection_shape_names(shape: &'static Shape) -> BTreeSet<String> {
@@ -62,7 +62,7 @@ pub(crate) fn projection_shape_names(shape: &'static Shape) -> BTreeSet<String> 
         labels: &mut BTreeSet<String>,
         visited: &mut BTreeSet<String>,
     ) {
-        let shape = serialized_container_shape(shape);
+        let shape = proxied_container_shape(shape);
         if let Some(element_shape) = registry_sequence_element_shape(shape) {
             visit(element_shape, labels, visited);
             return;
@@ -86,7 +86,7 @@ pub(crate) fn projection_shape_names(shape: &'static Shape) -> BTreeSet<String> 
                     }
                     visit(
                         field
-                            .effective_proxy(Some("json"))
+                            .effective_proxy(None)
                             .map(|proxy| proxy.shape)
                             .unwrap_or_else(|| field.shape()),
                         labels,
@@ -102,7 +102,7 @@ pub(crate) fn projection_shape_names(shape: &'static Shape) -> BTreeSet<String> 
                         }
                         visit(
                             field
-                                .effective_proxy(Some("json"))
+                                .effective_proxy(None)
                                 .map(|proxy| proxy.shape)
                                 .unwrap_or_else(|| field.shape()),
                             labels,
@@ -141,7 +141,7 @@ pub(crate) fn projection_fields(shape: &'static Shape) -> BTreeSet<(String, Stri
         if !visited.insert(logical_label) {
             return;
         }
-        let shape = serialized_container_shape(shape);
+        let shape = proxied_container_shape(shape);
         if let Some(element_shape) = registry_sequence_element_shape(shape) {
             visit(element_shape, fields, visited);
             return;
@@ -164,7 +164,7 @@ pub(crate) fn projection_fields(shape: &'static Shape) -> BTreeSet<(String, Stri
                         continue;
                     }
                     let field_shape = field
-                        .effective_proxy(Some("json"))
+                        .effective_proxy(None)
                         .map(|proxy| proxy.shape)
                         .unwrap_or_else(|| field.shape());
                     fields.insert((
@@ -181,7 +181,7 @@ pub(crate) fn projection_fields(shape: &'static Shape) -> BTreeSet<(String, Stri
                             continue;
                         }
                         let field_shape = field
-                            .effective_proxy(Some("json"))
+                            .effective_proxy(None)
                             .map(|proxy| proxy.shape)
                             .unwrap_or_else(|| field.shape());
                         fields.insert((

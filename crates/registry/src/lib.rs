@@ -2,25 +2,311 @@ use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use facet::Def;
 use facet::Facet;
+use facet::PtrConst;
+use facet::PtrMut;
 use facet::Shape;
 use facet::Type;
 use facet::UserType;
 use facet_reflect::Partial;
+use facet_reflect::Peek;
 pub use linkme::distributed_slice;
+use std::alloc::Layout;
 use std::any::Any;
 use std::any::type_name;
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::future::IntoFuture;
 use std::pin::Pin;
+use std::ptr::NonNull;
 
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;
 pub type AsyncValueFn = fn(Box<dyn Any + Send>) -> InvocationFuture;
 pub type SyncValueFn = fn(Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Send>>;
 pub type SyncRefFn = fn(&(dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>>;
 pub type SyncMutFn = fn(&mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>>;
-pub type ParseFn = fn(&str) -> eyre::Result<Box<dyn Any + Send>>;
-pub type SerializeFn = fn(&(dyn Any + Send)) -> eyre::Result<String>;
+pub type RuntimeFromBoxedFn = fn(Box<dyn Any + Send>) -> eyre::Result<RuntimeValue>;
+pub type RuntimeToBoxedFn = fn(RuntimeValue) -> eyre::Result<Box<dyn Any + Send>>;
+
+/// An owning, type-erased Facet value.
+pub struct RuntimeValue {
+    shape: &'static Shape,
+    ptr: NonNull<u8>,
+    layout: Layout,
+}
+
+impl RuntimeValue {
+    fn layout_for(shape: &'static Shape) -> eyre::Result<Layout> {
+        shape
+            .layout
+            .sized_layout()
+            .map_err(|_| eyre::eyre!("{} is not a sized runtime value", describe_shape(shape)))
+    }
+
+    fn allocate(shape: &'static Shape) -> eyre::Result<(facet::PtrUninit, Layout)> {
+        let layout = Self::layout_for(shape)?;
+        Ok((facet::alloc_for_layout(layout), layout))
+    }
+
+    unsafe fn from_initialized_ptr(shape: &'static Shape, ptr: PtrMut, layout: Layout) -> Self {
+        Self {
+            shape,
+            ptr: unsafe { NonNull::new_unchecked(ptr.as_mut_byte_ptr()) },
+            layout,
+        }
+    }
+
+    fn from_partial_result(
+        shape: &'static Shape,
+        ptr: facet::PtrUninit,
+        layout: Layout,
+        result: eyre::Result<()>,
+    ) -> eyre::Result<Self> {
+        match result {
+            Ok(()) => Ok(unsafe { Self::from_initialized_ptr(shape, ptr.assume_init(), layout) }),
+            Err(error) => {
+                unsafe { facet::dealloc_for_layout(ptr.assume_init(), layout) };
+                Err(error)
+            }
+        }
+    }
+
+    /// Build an owned runtime value by mutating a reflected `Partial`.
+    ///
+    /// This is the bridge used by the object browser's incomplete builder: the
+    /// browser chooses fields and variants, while Facet performs the actual
+    /// layout, default, proxy, and invariant handling.
+    pub fn build_with(
+        shape: &'static Shape,
+        build: impl FnOnce(Partial<'static, false>) -> eyre::Result<Partial<'static, false>>,
+    ) -> eyre::Result<Self> {
+        let (ptr, layout) = Self::allocate(shape)?;
+        let result = unsafe { Partial::<'static, false>::from_raw_with_shape(ptr, shape) }
+            .map_err(|error| eyre::eyre!("could not allocate {}: {error}", describe_shape(shape)))
+            .and_then(build)
+            .and_then(|partial| {
+                partial.finish_in_place().map_err(|error| {
+                    eyre::eyre!("could not finish {}: {error}", describe_shape(shape))
+                })
+            });
+        Self::from_partial_result(shape, ptr, layout, result)
+    }
+
+    /// Construct a value by invoking Facet's actual `Default` operation.
+    pub fn from_default(shape: &'static Shape) -> eyre::Result<Self> {
+        let (ptr, layout) = Self::allocate(shape)?;
+        let result = unsafe { Partial::<'static, false>::from_raw_with_shape(ptr, shape) }
+            .map_err(|error| eyre::eyre!("could not allocate {}: {error}", describe_shape(shape)))
+            .and_then(|partial| {
+                partial.set_default().map_err(|error| {
+                    eyre::eyre!("could not default {}: {error}", describe_shape(shape))
+                })
+            })
+            .and_then(|partial| {
+                partial.finish_in_place().map_err(|error| {
+                    eyre::eyre!(
+                        "could not finish default {}: {error}",
+                        describe_shape(shape)
+                    )
+                })
+            });
+        Self::from_partial_result(shape, ptr, layout, result)
+    }
+
+    /// Parse a scalar/general value through the reflected Facet parse operation.
+    pub fn from_text(shape: &'static Shape, text: &str) -> eyre::Result<Self> {
+        let (ptr, layout) = Self::allocate(shape)?;
+        let text = text.to_owned();
+        let result = unsafe { Partial::<'static, false>::from_raw_with_shape(ptr, shape) }
+            .map_err(|error| eyre::eyre!("could not allocate {}: {error}", describe_shape(shape)))
+            .and_then(|partial| {
+                partial.parse_from_str(&text).map_err(|error| {
+                    eyre::eyre!("could not parse {}: {error}", describe_shape(shape))
+                })
+            })
+            .and_then(|partial| {
+                partial.finish_in_place().map_err(|error| {
+                    eyre::eyre!("could not finish {}: {error}", describe_shape(shape))
+                })
+            });
+        Self::from_partial_result(shape, ptr, layout, result)
+    }
+
+    /// Take ownership of a typed boxed value without serializing it.
+    pub fn from_box<T>(value: Box<T>) -> eyre::Result<Self>
+    where
+        T: Facet<'static> + Any + Send + 'static,
+    {
+        let shape = T::SHAPE;
+        let layout = Self::layout_for(shape)?;
+        let ptr = Box::into_raw(value);
+        Ok(unsafe { Self::from_initialized_ptr(shape, PtrMut::new(ptr), layout) })
+    }
+
+    pub const fn shape(&self) -> &'static Shape {
+        self.shape
+    }
+
+    pub fn peek(&self) -> Peek<'_, 'static> {
+        unsafe { Peek::unchecked_new(PtrConst::new(self.ptr.as_ptr()), self.shape) }
+    }
+
+    /// Release the allocation after Facet has moved the value bytes elsewhere.
+    ///
+    /// `Partial::set_from_peek` transfers ownership of the initialized value,
+    /// so the source must not run its drop operation. Its allocation still
+    /// belongs to this wrapper and must be released separately.
+    pub fn deallocate_after_move(self) {
+        let this = std::mem::ManuallyDrop::new(self);
+        unsafe {
+            facet::dealloc_for_layout(PtrMut::new(this.ptr.as_ptr()), this.layout);
+        }
+    }
+
+    /// Clone through the reflected Facet clone operation.
+    pub fn try_clone(&self) -> eyre::Result<Self> {
+        if !self
+            .shape
+            .type_ops
+            .as_ref()
+            .is_some_and(|ops| ops.has_clone_into())
+        {
+            eyre::bail!(
+                "{} does not expose a Facet clone operation",
+                describe_shape(self.shape)
+            );
+        }
+        let (dst, layout) = Self::allocate(self.shape)?;
+        let cloned = unsafe {
+            self.shape
+                .call_clone_into(PtrConst::new(self.ptr.as_ptr()), dst.assume_init())
+                .is_some()
+        };
+        if !cloned {
+            unsafe { facet::dealloc_for_layout(dst.assume_init(), layout) };
+            eyre::bail!(
+                "{} does not expose a usable Facet clone operation",
+                describe_shape(self.shape)
+            );
+        }
+        Ok(unsafe { Self::from_initialized_ptr(self.shape, dst.assume_init(), layout) })
+    }
+
+    /// Clone an inspected child value into an owning runtime value.
+    pub fn clone_from_peek(peek: Peek<'_, '_>) -> eyre::Result<Self> {
+        let shape = peek.shape();
+        if !shape
+            .type_ops
+            .as_ref()
+            .is_some_and(|ops| ops.has_clone_into())
+        {
+            eyre::bail!(
+                "{} does not expose a Facet clone operation",
+                describe_shape(shape)
+            );
+        }
+        let (dst, layout) = Self::allocate(shape)?;
+        let cloned = unsafe {
+            shape
+                .call_clone_into(peek.data(), dst.assume_init())
+                .is_some()
+        };
+        if !cloned {
+            unsafe { facet::dealloc_for_layout(dst.assume_init(), layout) };
+            eyre::bail!(
+                "{} does not expose a usable Facet clone operation",
+                describe_shape(shape)
+            );
+        }
+        Ok(unsafe { Self::from_initialized_ptr(shape, dst.assume_init(), layout) })
+    }
+
+    pub fn into_box<T>(self) -> eyre::Result<Box<dyn Any + Send>>
+    where
+        T: Facet<'static> + Any + Send + 'static,
+    {
+        if !self.shape.is_shape(T::SHAPE) {
+            eyre::bail!(
+                "runtime value has shape {}, expected {}",
+                describe_shape(self.shape),
+                describe_shape(T::SHAPE)
+            );
+        }
+        let this = std::mem::ManuallyDrop::new(self);
+        let ptr = this.ptr.as_ptr() as *mut T;
+        Ok(unsafe { Box::from_raw(ptr) as Box<dyn Any + Send> })
+    }
+
+    pub fn display_string(&self) -> String {
+        if let Some(proxy) = self.shape.effective_proxy(None) {
+            let peek = self.peek();
+            if let Ok(owned) = peek.custom_serialization_with_proxy(proxy) {
+                let proxied = owned.as_peek();
+                if let Some(text) = proxied.as_str() {
+                    return text.to_owned();
+                }
+                return proxied.to_string();
+            }
+        }
+        if let Ok(enum_value) = self.peek().into_enum()
+            && let Ok(variant) = enum_value.active_variant()
+        {
+            return variant.effective_name().to_owned();
+        }
+        struct DisplayValue<'a>(&'a RuntimeValue);
+        impl core::fmt::Display for DisplayValue<'_> {
+            fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                unsafe {
+                    self.0
+                        .shape
+                        .call_display(PtrConst::new(self.0.ptr.as_ptr()), formatter)
+                }
+                .unwrap_or_else(|| write!(formatter, "⟨{}⟩", describe_shape(self.0.shape)))
+            }
+        }
+        DisplayValue(self).to_string()
+    }
+}
+
+impl Drop for RuntimeValue {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = self
+                .shape
+                .call_drop_in_place(PtrMut::new(self.ptr.as_ptr()));
+            facet::dealloc_for_layout(PtrMut::new(self.ptr.as_ptr()), self.layout);
+        }
+    }
+}
+
+impl core::fmt::Debug for RuntimeValue {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter
+            .debug_struct("RuntimeValue")
+            .field("shape", &describe_shape(self.shape))
+            .field("value", &self.display_string())
+            .finish()
+    }
+}
+
+pub fn runtime_from_boxed<T>(value: Box<dyn Any + Send>) -> eyre::Result<RuntimeValue>
+where
+    T: Facet<'static> + Any + Send + 'static,
+{
+    let value = value.downcast::<T>().map_err(|_| {
+        eyre::eyre!(
+            "runtime conversion expected value type {}, but received a different erased value",
+            type_name::<T>()
+        )
+    })?;
+    RuntimeValue::from_box(value)
+}
+
+pub fn runtime_into_boxed<T>(value: RuntimeValue) -> eyre::Result<Box<dyn Any + Send>>
+where
+    T: Facet<'static> + Any + Send + 'static,
+{
+    value.into_box::<T>()
+}
 
 #[derive(Clone)]
 pub struct KnownShapeInfo {
@@ -64,22 +350,22 @@ impl core::fmt::Display for RegistrationSite {
 #[derive(Clone, Copy)]
 pub struct Thing {
     pub shape: &'static Shape,
-    pub parse: ParseFn,
-    pub serialize: SerializeFn,
+    pub from_runtime: RuntimeFromBoxedFn,
+    pub to_runtime: RuntimeToBoxedFn,
     pub registration_site: RegistrationSite,
 }
 
 impl Thing {
     pub const fn value(
         shape: &'static Shape,
-        parse: ParseFn,
-        serialize: SerializeFn,
+        from_runtime: RuntimeFromBoxedFn,
+        to_runtime: RuntimeToBoxedFn,
         registration_site: RegistrationSite,
     ) -> Self {
         Self {
             shape,
-            parse,
-            serialize,
+            from_runtime,
+            to_runtime,
             registration_site,
         }
     }
@@ -88,12 +374,12 @@ impl Thing {
         input_dependencies(self.shape)
     }
 
-    pub fn parse_boxed(&self, json: &str) -> eyre::Result<Box<dyn Any + Send>> {
-        (self.parse)(json)
+    pub fn runtime_from_boxed(&self, value: Box<dyn Any + Send>) -> eyre::Result<RuntimeValue> {
+        (self.from_runtime)(value)
     }
 
-    pub fn serialize_boxed(&self, value: &(dyn Any + Send)) -> eyre::Result<String> {
-        (self.serialize)(value)
+    pub fn runtime_into_boxed(&self, value: RuntimeValue) -> eyre::Result<Box<dyn Any + Send>> {
+        (self.to_runtime)(value)
     }
 }
 
@@ -142,7 +428,7 @@ pub struct Function {
     pub origin: &'static str,
     pub effects: &'static [Effect],
     pub executor: FunctionExecutor,
-    pub output_serialize: SerializeFn,
+    pub output_to_runtime: RuntimeFromBoxedFn,
     pub registration_site: RegistrationSite,
 }
 
@@ -159,7 +445,7 @@ impl Function {
         origin: &'static str,
         effects: &'static [Effect],
         invoke: AsyncValueFn,
-        output_serialize: SerializeFn,
+        output_to_runtime: RuntimeFromBoxedFn,
         registration_site: RegistrationSite,
     ) -> Self {
         Self {
@@ -171,7 +457,7 @@ impl Function {
             origin,
             effects,
             executor: FunctionExecutor::AsyncValue(invoke),
-            output_serialize,
+            output_to_runtime,
             registration_site,
         }
     }
@@ -188,7 +474,7 @@ impl Function {
         origin: &'static str,
         effects: &'static [Effect],
         invoke: SyncValueFn,
-        output_serialize: SerializeFn,
+        output_to_runtime: RuntimeFromBoxedFn,
         registration_site: RegistrationSite,
     ) -> Self {
         Self {
@@ -200,7 +486,7 @@ impl Function {
             origin,
             effects,
             executor: FunctionExecutor::SyncValue(invoke),
-            output_serialize,
+            output_to_runtime,
             registration_site,
         }
     }
@@ -217,7 +503,7 @@ impl Function {
         origin: &'static str,
         effects: &'static [Effect],
         invoke: SyncRefFn,
-        output_serialize: SerializeFn,
+        output_to_runtime: RuntimeFromBoxedFn,
         registration_site: RegistrationSite,
     ) -> Self {
         Self {
@@ -229,7 +515,7 @@ impl Function {
             origin,
             effects,
             executor: FunctionExecutor::SyncRef(invoke),
-            output_serialize,
+            output_to_runtime,
             registration_site,
         }
     }
@@ -246,7 +532,7 @@ impl Function {
         origin: &'static str,
         effects: &'static [Effect],
         invoke: SyncMutFn,
-        output_serialize: SerializeFn,
+        output_to_runtime: RuntimeFromBoxedFn,
         registration_site: RegistrationSite,
     ) -> Self {
         Self {
@@ -258,7 +544,7 @@ impl Function {
             origin,
             effects,
             executor: FunctionExecutor::SyncMut(invoke),
-            output_serialize,
+            output_to_runtime,
             registration_site,
         }
     }
@@ -348,26 +634,6 @@ impl ArbitraryBytes {
         self.0 = remaining;
     }
 }
-pub fn parse_boxed<T>(json: &str) -> eyre::Result<Box<dyn Any + Send>>
-where
-    T: facet::Facet<'static> + Any + Send + 'static,
-{
-    Ok(Box::new(facet_json::from_str::<T>(json)?) as Box<dyn Any + Send>)
-}
-
-pub fn serialize_boxed<T>(value: &(dyn Any + Send)) -> eyre::Result<String>
-where
-    T: facet::Facet<'static> + Any + Send + 'static,
-{
-    let typed = value.downcast_ref::<T>().ok_or_else(|| {
-        eyre::eyre!(
-            "serialization expected value type {}, but received a different erased value",
-            type_name::<T>()
-        )
-    })?;
-    Ok(facet_json::to_string(typed)?)
-}
-
 pub fn invoke_result_future<T, O>(input: Box<dyn Any + Send>) -> InvocationFuture
 where
     T: IntoFuture<Output = eyre::Result<O>> + Any + Send + 'static,
@@ -416,8 +682,8 @@ macro_rules! register_thing {
             #[$crate::distributed_slice($crate::KNOWN_THINGS)]
             static REGISTERED_THING: $crate::Thing = $crate::Thing::value(
                 <$thing_ty as facet::Facet<'static>>::SHAPE,
-                $crate::parse_boxed::<$thing_ty>,
-                $crate::serialize_boxed::<$thing_ty>,
+                $crate::runtime_from_boxed::<$thing_ty>,
+                $crate::runtime_into_boxed::<$thing_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
             );
         };
@@ -452,7 +718,7 @@ macro_rules! register_into_future {
                 "IntoFuture",
                 &[$($crate::Effect::$effect),*],
                 $crate::invoke_result_future::<$thing_ty, $output_ty>,
-                $crate::serialize_boxed::<$output_ty>,
+                $crate::runtime_from_boxed::<$output_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
             );
         };
@@ -483,7 +749,7 @@ macro_rules! register_from {
                 "From",
                 &[$($crate::Effect::$effect),*],
                 invoke,
-                $crate::serialize_boxed::<$output_ty>,
+                $crate::runtime_from_boxed::<$output_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
             );
         };
@@ -514,7 +780,7 @@ macro_rules! register_try_from {
                 "TryFrom",
                 &[$($crate::Effect::$effect),*],
                 invoke,
-                $crate::serialize_boxed::<$output_ty>,
+                $crate::runtime_from_boxed::<$output_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
             );
         };
@@ -544,7 +810,7 @@ macro_rules! register_fn_ref {
                 $origin,
                 &[$($crate::Effect::$effect),*],
                 invoke,
-                $crate::serialize_boxed::<$output_ty>,
+                $crate::runtime_from_boxed::<$output_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
             );
         };
@@ -575,7 +841,7 @@ macro_rules! register_fn_mut {
                 $origin,
                 &[$($crate::Effect::$effect),*],
                 invoke,
-                $crate::serialize_boxed::<$output_ty>,
+                $crate::runtime_from_boxed::<$output_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
             );
         };
@@ -590,8 +856,8 @@ pub static KNOWN_FUNCTIONS: [Function];
 #[distributed_slice(KNOWN_THINGS)]
 static REGISTERED_ARBITRARY_BYTES: Thing = Thing::value(
     ArbitraryBytes::SHAPE,
-    parse_boxed::<ArbitraryBytes>,
-    serialize_boxed::<ArbitraryBytes>,
+    runtime_from_boxed::<ArbitraryBytes>,
+    runtime_into_boxed::<ArbitraryBytes>,
     RegistrationSite::new(file!(), line!()),
 );
 
@@ -873,6 +1139,12 @@ mod test {
         Explicit,
     }
 
+    #[derive(Debug, Facet)]
+    #[repr(C)]
+    struct DummyNotCloneable {
+        value: String,
+    }
+
     impl Default for DummyManualDefault {
         fn default() -> Self {
             Self::Explicit
@@ -946,6 +1218,29 @@ mod test {
                 .iter()
                 .all(|variant| { variant.variant_name != "Unspecified" || !variant.is_default })
         );
+    }
+
+    #[test]
+    fn runtime_value_uses_reflected_default_parse_and_clone_operations() -> eyre::Result<()> {
+        let default = RuntimeValue::from_default(DummyRenamedDefault::SHAPE)?;
+        assert_eq!(default.display_string(), "Unspecified");
+
+        let parsed = RuntimeValue::from_text(bool::SHAPE, "true")?;
+        assert_eq!(parsed.display_string(), "true");
+        assert!(RuntimeValue::from_text(bool::SHAPE, "not a bool").is_err());
+
+        let cloned = default.try_clone()?;
+        let boxed = cloned.into_box::<DummyRenamedDefault>()?;
+        assert!(matches!(
+            *boxed.downcast::<DummyRenamedDefault>().unwrap(),
+            DummyRenamedDefault::Unspecified
+        ));
+
+        let not_cloneable = RuntimeValue::from_box(Box::new(DummyNotCloneable {
+            value: "value".to_string(),
+        }))?;
+        assert!(not_cloneable.try_clone().is_err());
+        Ok(())
     }
 
     #[test]
