@@ -2399,6 +2399,12 @@ impl ObjectBrowserApp {
                 })
                 .or_else(|| {
                     choices.iter().position(|choice| {
+                        matches!(choice, FieldPickerChoice::InvokeDefaultProducer { .. })
+                            && !field_picker_choice_is_arbitrary_producer(choice)
+                    })
+                })
+                .or_else(|| {
+                    choices.iter().position(|choice| {
                         matches!(choice, FieldPickerChoice::CreateProducer { .. })
                             && !field_picker_choice_is_arbitrary_producer(choice)
                     })
@@ -2471,6 +2477,12 @@ impl ObjectBrowserApp {
                 .or_else(|| {
                     choices.iter().position(|choice| {
                         matches!(choice, FieldPickerChoice::ExistingProducerSlot { .. })
+                    })
+                })
+                .or_else(|| {
+                    choices.iter().position(|choice| {
+                        matches!(choice, FieldPickerChoice::InvokeDefaultProducer { .. })
+                            && !field_picker_choice_is_arbitrary_producer(choice)
                     })
                 })
                 .or_else(|| {
@@ -2889,7 +2901,11 @@ impl ObjectBrowserApp {
                     result_index
                 });
                 self.invalidate_all_slot_display_caches();
-                if let Some(result_index) = result_index {
+                if self
+                    .slot_by_id(slot_id)
+                    .is_none_or(|slot| slot.created_for.is_none())
+                    && let Some(result_index) = result_index
+                {
                     self.jump_to_slot_target(slot_id, SlotFocusTarget::Result(result_index));
                 }
                 self.status_message = format!(
@@ -2957,7 +2973,11 @@ impl ObjectBrowserApp {
             result_index
         });
         self.invalidate_all_slot_display_caches();
-        if let Some(result_index) = result_index {
+        if self
+            .slot_by_id(slot_id)
+            .is_none_or(|slot| slot.created_for.is_none())
+            && let Some(result_index) = result_index
+        {
             self.jump_to_slot_target(slot_id, SlotFocusTarget::Result(result_index));
         }
         self.status_message = format!(
@@ -3354,11 +3374,8 @@ impl ObjectBrowserApp {
             field_index,
             field_name,
         });
-        let focus_target = slot.default_focus_target();
-
         self.object_slots.push(slot);
         self.invalidate_all_slot_display_caches();
-        self.jump_to_slot_target(slot_id, focus_target);
         self.status_message = format!(
             "Created source slot {} ({}) to produce {} for slot {}.{}.",
             slot_id, input_shape_name, required_shape_name, owner_slot_id, field_name
@@ -4504,6 +4521,11 @@ impl ObjectBrowserApp {
             }
         }
 
+        if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
+            rows.push(SlotDisplayRow::Static(separator_line("status")));
+            rows.extend(runtime_state_rows(runtime_state));
+        }
+
         let inlinks = self.slot_inlinks(slot_id);
         let has_activity = slot.created_for.is_some()
             || slot.produced_by_slot_id.is_some()
@@ -4541,11 +4563,6 @@ impl ObjectBrowserApp {
                     format!("produced {}", self.result_slot_label(result_slot_id)),
                 ));
             }
-        }
-
-        if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
-            rows.push(SlotDisplayRow::Static(separator_line("status")));
-            rows.extend(runtime_state_rows(runtime_state));
         }
 
         rows.push(SlotDisplayRow::Static(separator_line("actions")));
@@ -4826,10 +4843,6 @@ impl ObjectBrowserApp {
             {
                 continue;
             }
-            choices.push(FieldPickerChoice::CreateProducer {
-                input_shape_name: input_shape_name.clone(),
-                function_label: function_label.clone(),
-            });
             if function.kind == FunctionKind::AsyncInvoke {
                 if self.shape_supports_default(&input_shape_name) {
                     choices.push(FieldPickerChoice::InvokeDefaultProducer {
@@ -4837,6 +4850,12 @@ impl ObjectBrowserApp {
                         function_label: function_label.clone(),
                     });
                 }
+            }
+            choices.push(FieldPickerChoice::CreateProducer {
+                input_shape_name: input_shape_name.clone(),
+                function_label: function_label.clone(),
+            });
+            if function.kind == FunctionKind::AsyncInvoke {
                 if functions_to(function.output_shape)
                     .into_iter()
                     .any(|candidate| describe_shape(candidate.input_shape) == "ArbitraryBytes")
@@ -6500,7 +6519,7 @@ impl ObjectBrowserApp {
             self.clamp_row_view_offset();
             self.ensure_active_row_visible();
         }
-        let scroll_offset = if is_active { self.row_view_offset } else { 0 };
+        let scroll_offset = self.row_view_offset;
         let active_search = is_active
             .then_some(self.projection_search.as_ref())
             .flatten()
@@ -9765,6 +9784,38 @@ mod tests {
             FieldPickerChoice::InvokeArbitraryProducer { input_shape_name, .. }
                 if input_shape_name == "AzureTenantIdResolveRequest"
         )));
+        let create_index = picker
+            .choices
+            .iter()
+            .position(|choice| {
+                matches!(
+                    choice,
+                    FieldPickerChoice::CreateProducer { input_shape_name, .. }
+                        if input_shape_name == "AzureTenantIdResolveRequest"
+                )
+            })
+            .expect("create producer choice should be selectable");
+        let default_index = picker
+            .choices
+            .iter()
+            .position(|choice| {
+                matches!(
+                    choice,
+                    FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. }
+                        if input_shape_name == "AzureTenantIdResolveRequest"
+                )
+            })
+            .expect("default producer choice should be selectable");
+        assert!(
+            default_index < create_index,
+            "default producer should precede create producer: {:?}",
+            picker.labels
+        );
+        assert!(matches!(
+            picker.selected_choice(),
+            Some(FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. })
+                if input_shape_name == "AzureTenantIdResolveRequest"
+        ));
         assert_eq!(
             app.default_json_for_shape("AzureTenantIdResolveRequest")
                 .expect("the request should support reflected default construction"),
@@ -9934,6 +9985,7 @@ mod tests {
 
         app.apply_field_picker_selection();
 
+        assert_eq!(app.current_slot_id(), Some(1));
         let created_slot = app
             .slot_by_id(2)
             .expect("selecting the producer should create a new source slot");
@@ -10785,6 +10837,7 @@ mod tests {
             .find(|function| describe_shape(function.output_shape) == "DummyInvokeOutput")
             .expect("DummyInvokeOutput constructor should be available");
         app.invoke_registered_function(2, function);
+        assert_eq!(app.current_slot_id(), Some(1));
         let result_slot_id = app
             .slot_by_id(2)
             .and_then(|slot| slot.result_slot_ids.first().copied())
