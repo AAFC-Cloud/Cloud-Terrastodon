@@ -2349,12 +2349,13 @@ impl ObjectBrowserApp {
             }
             return;
         }
-        if !self.has_known_shape_label(&field.info.field_shape_name) {
+        let required_shape_name =
+            self.field_shape_name_for_matching(owner_slot_id, field_index, &field);
+        if !self.has_known_shape_label(&required_shape_name) {
             self.toggle_default_field_value(owner_slot_id, field_index);
             return;
         }
 
-        let required_shape_name = field.info.field_shape_name.clone();
         let mut choices = self
             .matching_slot_ids(&required_shape_name, owner_slot_id)
             .into_iter()
@@ -2425,7 +2426,7 @@ impl ObjectBrowserApp {
         self.field_picker = Some(FieldPickerState::new(
             owner_slot_id,
             field_index,
-            field.info.field_shape_name.clone(),
+            required_shape_name.clone(),
             choices,
             labels,
             preferred_index,
@@ -2442,10 +2443,8 @@ impl ObjectBrowserApp {
         field_index: usize,
         field: &ObjectFieldState,
     ) {
-        let required_shape_name = self
-            .field_shape_for_field(owner_slot_id, field_index)
-            .map(describe_shape)
-            .unwrap_or_else(|| field.info.field_shape_name.clone());
+        let required_shape_name =
+            self.field_shape_name_for_matching(owner_slot_id, field_index, field);
         let mut choices = self
             .matching_slot_ids(&required_shape_name, owner_slot_id)
             .into_iter()
@@ -2553,6 +2552,18 @@ impl ObjectBrowserApp {
             _ => None,
         }
     }
+
+    fn field_shape_name_for_matching(
+        &self,
+        owner_slot_id: usize,
+        field_index: usize,
+        field: &ObjectFieldState,
+    ) -> String {
+        self.field_shape_for_field(owner_slot_id, field_index)
+            .map(|shape| describe_shape(shape.inner.unwrap_or(shape)))
+            .unwrap_or_else(|| field.info.field_shape_name.clone())
+    }
+
     fn open_link_action_picker(
         &mut self,
         owner_slot_id: usize,
