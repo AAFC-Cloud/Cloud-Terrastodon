@@ -482,7 +482,7 @@ impl ObjectBrowserApp {
             self.clamp_row_view_offset();
             self.ensure_active_row_visible();
         }
-        let scroll_offset = if is_active { self.row_view_offset } else { 0 };
+        let scroll_offset = self.row_view_offset;
         let lines = self.slot_lines(slot_id, is_active, self.active_row_index);
         let paragraph = Paragraph::new(lines.clone())
             .block(block)
@@ -977,6 +977,10 @@ impl ObjectBrowserApp {
         }
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
             self.should_quit = true;
+            return;
+        }
+        if self.show_hotkey_help && key.code == KeyCode::Esc {
+            self.show_hotkey_help = false;
             return;
         }
         if self.mode == UiMode::Pool
@@ -2878,6 +2882,7 @@ impl ObjectBrowserApp {
                     ObjectSlot::new_result(result_slot_id, output_shape_name.clone(), pending);
                 result_slot.produced_by_slot_id = Some(slot_id);
                 self.object_slots.push(result_slot);
+                self.link_result_to_created_field(slot_id, result_slot_id);
                 let result_index = self.slot_by_id_mut(slot_id).map(|slot| {
                     let result_index = slot.result_slot_ids.len();
                     slot.result_slot_ids.push(result_slot_id);
@@ -2945,6 +2950,7 @@ impl ObjectBrowserApp {
             ObjectSlot::new_resolved_result(result_slot_id, output_shape_name.clone(), json, value);
         result_slot.produced_by_slot_id = Some(slot_id);
         self.object_slots.push(result_slot);
+        self.link_result_to_created_field(slot_id, result_slot_id);
         let result_index = self.slot_by_id_mut(slot_id).map(|slot| {
             let result_index = slot.result_slot_ids.len();
             slot.result_slot_ids.push(result_slot_id);
@@ -2958,6 +2964,20 @@ impl ObjectBrowserApp {
             "Invoked {} into result slot {}.",
             describe_function(function),
             result_slot_id
+        );
+    }
+
+    fn link_result_to_created_field(&mut self, producer_slot_id: usize, result_slot_id: usize) {
+        let Some(created_for) = self
+            .slot_by_id(producer_slot_id)
+            .and_then(|slot| slot.created_for)
+        else {
+            return;
+        };
+        self.set_field_link(
+            created_for.owner_slot_id,
+            created_for.field_index,
+            result_slot_id,
         );
     }
 
@@ -6847,13 +6867,27 @@ impl ObjectBrowserApp {
         let mut rows = Vec::with_capacity(fields.len() * 2);
         for (index, field) in fields.iter().enumerate() {
             let accent = field_group_color(index);
-            let linked_style = match field.value_state {
-                FieldValueState::Linked { slot_id }
-                    if !matches!(self.slot_completion(slot_id), SlotCompletion::Complete) =>
-                {
-                    unset_style()
-                }
-                _ => Style::default().fg(accent).add_modifier(Modifier::BOLD),
+            let (linked_style, linked_label) = match field.value_state {
+                FieldValueState::Linked { slot_id } => match self.slot_runtime_state(slot_id) {
+                    Some(SlotValueState::Pending(_)) => (
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                        "pending".to_string(),
+                    ),
+                    Some(SlotValueState::Failed { .. }) => (unset_style(), "failed".to_string()),
+                    _ if !matches!(self.slot_completion(slot_id), SlotCompletion::Complete) => {
+                        (unset_style(), format!("slot {slot_id}"))
+                    }
+                    _ => (
+                        Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                        format!("slot {slot_id}"),
+                    ),
+                },
+                _ => (
+                    Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                    String::new(),
+                ),
             };
             rows.push(focusable_spans_row(
                 SlotFocusTarget::FieldType(index),
@@ -6861,7 +6895,7 @@ impl ObjectBrowserApp {
             ));
             rows.push(focusable_spans_row(
                 SlotFocusTarget::FieldValue(index),
-                field.value_spans(accent, linked_style),
+                field.value_spans(accent, linked_style, linked_label),
             ));
         }
         rows
@@ -8548,7 +8582,12 @@ impl ObjectFieldState {
         ]
     }
 
-    fn value_spans(&self, accent: Color, linked_style: Style) -> Vec<Span<'static>> {
+    fn value_spans(
+        &self,
+        accent: Color,
+        linked_style: Style,
+        linked_label: String,
+    ) -> Vec<Span<'static>> {
         let mut spans = vec![Span::styled(
             format!("{}: ", self.info.field_name),
             Style::default().fg(accent),
@@ -8570,9 +8609,7 @@ impl ObjectFieldState {
                 ));
             }
             FieldValueState::Unset => spans.push(Span::styled("unset", unset_style())),
-            FieldValueState::Linked { slot_id } => {
-                spans.push(Span::styled(format!("slot {slot_id}"), linked_style))
-            }
+            FieldValueState::Linked { .. } => spans.push(Span::styled(linked_label, linked_style)),
         }
 
         spans
@@ -10710,6 +10747,93 @@ mod tests {
         assert!(resolved_json.contains("\"message\":\"done\""));
     }
 
+    #[tokio::test]
+    async fn pending_producer_result_is_linked_into_its_created_field() {
+        let mut app = ObjectBrowserApp::default();
+        let owner_choice = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "EntraGroupsForMemberRequest")
+            .cloned()
+            .expect("EntraGroupsForMemberRequest should be registered");
+        let field_index = super::shape_fields_for_thing(owner_choice.thing)
+            .iter()
+            .position(|field| field.field_name == "tenant_id")
+            .expect("request should have a tenant_id field");
+        let source_choice = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "DummyInvokeRequest")
+            .cloned()
+            .expect("DummyInvokeRequest should be registered");
+
+        let mut owner_slot = ObjectSlot::new(1);
+        owner_slot.apply_shape_choice(&owner_choice);
+        let mut source_slot = ObjectSlot::new(2);
+        source_slot.apply_shape_choice(&source_choice);
+        source_slot.created_for = Some(super::SlotCreatedFor {
+            owner_slot_id: 1,
+            field_index,
+            field_name: "tenant_id",
+        });
+        app.object_slots.push(owner_slot);
+        app.object_slots.push(source_slot);
+
+        let function = app
+            .applicable_functions_for_slot(2)
+            .into_iter()
+            .find(|function| describe_shape(function.output_shape) == "DummyInvokeOutput")
+            .expect("DummyInvokeOutput constructor should be available");
+        app.invoke_registered_function(2, function);
+        let result_slot_id = app
+            .slot_by_id(2)
+            .and_then(|slot| slot.result_slot_ids.first().copied())
+            .expect("invocation should create a result slot");
+
+        assert!(matches!(
+            app.slot_field(1, field_index).map(|field| field.value_state),
+            Some(super::FieldValueState::Linked { slot_id }) if slot_id == result_slot_id
+        ));
+        let rendered = app
+            .slot_display_rows(1)
+            .into_iter()
+            .find_map(|row| match row {
+                super::SlotDisplayRow::Focusable {
+                    target: SlotFocusTarget::FieldValue(index),
+                    spans,
+                } if index == field_index => Some(
+                    spans
+                        .iter()
+                        .map(|span| span.content.as_ref())
+                        .collect::<String>(),
+                ),
+                _ => None,
+            })
+            .expect("tenant_id value row should be rendered");
+        assert_eq!(rendered, "tenant_id: pending");
+
+        tokio::task::yield_now().await;
+        app.advance_pending_invocations();
+
+        let rendered = app
+            .slot_display_rows(1)
+            .into_iter()
+            .find_map(|row| match row {
+                super::SlotDisplayRow::Focusable {
+                    target: SlotFocusTarget::FieldValue(index),
+                    spans,
+                } if index == field_index => Some(
+                    spans
+                        .iter()
+                        .map(|span| span.content.as_ref())
+                        .collect::<String>(),
+                ),
+                _ => None,
+            })
+            .expect("tenant_id value row should still be rendered");
+        assert_eq!(rendered, format!("tenant_id: slot {result_slot_id}"));
+    }
+
     #[test]
     fn invoke_arbitrary_action_creates_a_resolved_result_slot() {
         let mut app = ObjectBrowserApp::default();
@@ -11378,6 +11502,11 @@ mod tests {
             KeyModifiers::ALT,
         )));
         assert!(app.show_hotkey_help);
+
+        app.pool_surface = super::PoolSurface::Breadcrumbs;
+        app.handle_event(&Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
+        assert!(!app.show_hotkey_help);
+        assert_eq!(app.pool_surface, super::PoolSurface::Breadcrumbs);
     }
     #[test]
     fn horizontal_navigation_only_scrolls_once_selection_reaches_the_edge() {
