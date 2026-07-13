@@ -3903,7 +3903,11 @@ impl ObjectBrowserApp {
                 );
             }
             FieldValueState::Defaulted | FieldValueState::Unset
-                if self.has_known_shape_label(&field.info.field_shape_name) =>
+                if self.has_known_shape_label(&self.field_shape_name_for_matching(
+                    owner_slot_id,
+                    field_index,
+                    &field,
+                )) =>
             {
                 self.open_field_picker(field_index)
             }
@@ -9407,6 +9411,7 @@ mod tests {
     use ratatui::crossterm::event::KeyCode;
     use ratatui::crossterm::event::KeyEvent;
     use ratatui::crossterm::event::KeyModifiers;
+    use std::borrow::Cow;
     use std::collections::BTreeSet;
     use std::future::Future;
     use std::future::IntoFuture;
@@ -9421,7 +9426,32 @@ mod tests {
     #[repr(C)]
     struct DummyInvokeRequest {}
 
+    #[derive(Debug, Clone, Facet)]
+    #[repr(C)]
+    struct DummyCowOwner {
+        value: Cow<'static, DummyInvokeOutput>,
+    }
+
+    #[derive(Debug, Clone, Facet)]
+    #[repr(C)]
+    enum DummyCowProducerRequest {
+        Default,
+    }
+
     impl IntoFuture for DummyInvokeRequest {
+        type Output = eyre::Result<DummyInvokeOutput>;
+        type IntoFuture = std::pin::Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+
+        fn into_future(self) -> Self::IntoFuture {
+            Box::pin(async {
+                Ok(DummyInvokeOutput {
+                    message: "done".to_string(),
+                })
+            })
+        }
+    }
+
+    impl IntoFuture for DummyCowProducerRequest {
         type Output = eyre::Result<DummyInvokeOutput>;
         type IntoFuture = std::pin::Pin<Box<dyn Future<Output = Self::Output> + Send>>;
 
@@ -9436,7 +9466,13 @@ mod tests {
 
     cloud_terrastodon_registry::register_thing!(DummyInvokeOutput);
     cloud_terrastodon_registry::register_thing!(DummyInvokeRequest);
+    cloud_terrastodon_registry::register_thing!(DummyCowOwner);
+    cloud_terrastodon_registry::register_thing!(Cow<'static, DummyInvokeOutput>);
+    cloud_terrastodon_registry::register_thing!(DummyCowProducerRequest);
     cloud_terrastodon_registry::register_into_future!(DummyInvokeRequest => DummyInvokeOutput);
+    cloud_terrastodon_registry::register_into_future!(
+        DummyCowProducerRequest => DummyInvokeOutput
+    );
     cloud_terrastodon_registry::register_fn_mut!(
         cloud_terrastodon_registry::ArbitraryBytes => DummyInvokeOutput,
         kind = cloud_terrastodon_registry::FunctionKind::Constructor,
@@ -9516,6 +9552,39 @@ mod tests {
         assert!(matches!(
             app.slot_by_id(2).map(|slot| &slot.value_state),
             Some(super::SlotValueState::Building(SlotBody::Value { .. }))
+        ));
+    }
+
+    #[test]
+    fn cow_fields_discover_producers_for_the_inner_shape() {
+        let mut app = ObjectBrowserApp::default();
+        let owner_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label == "DummyCowOwner")
+            .expect("DummyCowOwner should be registered");
+
+        app.activate_current_row();
+        app.shape_picker.open(Some(owner_index));
+        app.shape_picker.search.list_state.select(Some(owner_index));
+        app.apply_shape_selection();
+
+        app.active_row_index = 2;
+        app.activate_current_row();
+
+        let picker = app
+            .field_picker
+            .as_ref()
+            .expect("the Cow field should open its object picker");
+        assert!(picker.choices.iter().any(|choice| matches!(
+            choice,
+            FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. }
+                if input_shape_name == "DummyCowProducerRequest"
+        )));
+        assert!(matches!(
+            picker.selected_choice(),
+            Some(FieldPickerChoice::InvokeDefaultProducer { input_shape_name, .. })
+                if input_shape_name == "DummyCowProducerRequest"
         ));
     }
 
