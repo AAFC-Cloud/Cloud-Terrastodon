@@ -22,6 +22,7 @@ use cloud_terrastodon_registry::shape_fields_for_thing;
 use cloud_terrastodon_registry::shape_variants_for_thing;
 use crossterm::event::EventStream;
 use eyre::Result;
+use facet::ScalarType;
 use futures::FutureExt;
 use futures::StreamExt;
 use nucleo::Matcher;
@@ -106,6 +107,8 @@ struct ObjectBrowserApp {
     filter_kind_picker: Option<FilterKindPickerState>,
     value_filter_editor: Option<ValueFilterEditorState>,
     value_filter_choice_picker: Option<ValueFilterChoicePickerState>,
+    general_value_editor: Option<GeneralValueEditorState>,
+    boolean_value_picker: Option<BooleanValuePickerState>,
     rename_slot: Option<RenameSlotState>,
     slot_search: Option<SlotSearchState>,
     projection_search: Option<ProjectionSlotSearchState>,
@@ -164,6 +167,8 @@ impl Default for ObjectBrowserApp {
             filter_kind_picker: None,
             value_filter_editor: None,
             value_filter_choice_picker: None,
+            general_value_editor: None,
+            boolean_value_picker: None,
             rename_slot: None,
             slot_search: None,
             projection_search: None,
@@ -306,6 +311,8 @@ impl ObjectBrowserApp {
             UiMode::FilterKindPicker => self.draw_filter_kind_picker_popup(frame),
             UiMode::ValueFilterEditor => self.draw_value_filter_editor_popup(frame),
             UiMode::ValueFilterChoicePicker => self.draw_value_filter_choice_picker_popup(frame),
+            UiMode::GeneralValueEditor => self.draw_general_value_editor_popup(frame),
+            UiMode::BooleanValuePicker => self.draw_boolean_value_picker_popup(frame),
             UiMode::RenameSlot => self.draw_rename_slot_popup(frame),
         }
 
@@ -551,9 +558,7 @@ impl ObjectBrowserApp {
     }
 
     fn draw_field_picker_popup(&mut self, frame: &mut Frame) {
-        let Some(preview_lines) = self.field_picker_preview_lines() else {
-            return;
-        };
+        let preview_lines = self.field_picker_preview_lines().unwrap_or_default();
         let Some((items, total_count)) = self
             .field_picker
             .as_ref()
@@ -736,6 +741,7 @@ impl ObjectBrowserApp {
             vec![
                 Line::from("filter shape: include selected projected shapes"),
                 Line::from("filter value: match shape/name/value metadata"),
+                Line::from("filter slot kind: show owned, view, and/or projection slots"),
             ],
         );
     }
@@ -818,6 +824,90 @@ impl ObjectBrowserApp {
         );
     }
 
+    fn draw_general_value_editor_popup(&mut self, frame: &mut Frame) {
+        let Some(editor) = self.general_value_editor.as_mut() else {
+            return;
+        };
+        let area = centered_rect(70, 34, frame.area());
+        frame.render_widget(Clear, area);
+        let border_color = editor
+            .validation_error
+            .as_ref()
+            .map_or(Color::Cyan, |_| Color::Red);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(format!("Edit {}", editor.shape_name))
+            .border_style(Style::default().fg(border_color));
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        let error_height = editor
+            .validation_error
+            .as_ref()
+            .map(|message| message.lines().count().clamp(1, 3) as u16)
+            .unwrap_or(0);
+        let [hint_area, input_area, error_area] = Layout::vertical([
+            Constraint::Length(2),
+            Constraint::Length(3),
+            Constraint::Length(error_height),
+        ])
+        .areas(inner);
+        frame.render_widget(
+            Paragraph::new("Enter: save | Esc: cancel | Value is validated before saving"),
+            hint_area,
+        );
+        let input_border = if editor.validation_error.is_some() {
+            Color::Red
+        } else {
+            Color::DarkGray
+        };
+        editor.textarea.set_block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Value")
+                .border_style(Style::default().fg(input_border)),
+        );
+        editor.textarea.render(input_area, frame.buffer_mut());
+        if let Some(message) = &editor.validation_error {
+            frame.render_widget(
+                Paragraph::new(Line::from(Span::styled(
+                    message.clone(),
+                    Style::default().fg(Color::Red),
+                )))
+                .wrap(Wrap { trim: true }),
+                error_area,
+            );
+        }
+    }
+
+    fn draw_boolean_value_picker_popup(&mut self, frame: &mut Frame) {
+        let Some(picker) = self.boolean_value_picker.as_mut() else {
+            return;
+        };
+        let items = picker
+            .search
+            .filtered_indices
+            .iter()
+            .filter_map(|index| picker.labels.get(*index))
+            .cloned()
+            .map(ListItem::new)
+            .collect::<Vec<_>>();
+        let area = centered_rect(44, 34, frame.area());
+        frame.render_widget(Clear, area);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(format!("Choose {}", picker.shape_name))
+            .border_style(Style::default().fg(Color::Cyan));
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        let [list_area, hint_area] =
+            Layout::vertical([Constraint::Fill(1), Constraint::Length(2)]).areas(inner);
+        let mut list_state = picker.search.list_state.clone();
+        frame.render_stateful_widget(List::new(items), list_area, &mut list_state);
+        frame.render_widget(
+            Paragraph::new("Up/Down: choose | Enter: save | Esc: cancel"),
+            hint_area,
+        );
+    }
     fn draw_hotkey_help_popup(&self, frame: &mut Frame) {
         let area = centered_rect(48, 44, frame.area());
         frame.render_widget(Clear, area);
@@ -957,6 +1047,8 @@ impl ObjectBrowserApp {
             UiMode::FilterKindPicker => self.handle_filter_kind_picker_key(*key),
             UiMode::ValueFilterEditor => self.handle_value_filter_editor_key(*key),
             UiMode::ValueFilterChoicePicker => self.handle_value_filter_choice_picker_key(*key),
+            UiMode::GeneralValueEditor => self.handle_general_value_editor_key(*key),
+            UiMode::BooleanValuePicker => self.handle_boolean_value_picker_key(*key),
             UiMode::RenameSlot => self.handle_rename_slot_key(*key),
         }
     }
@@ -1349,6 +1441,7 @@ impl ObjectBrowserApp {
                 self.filter_kind_picker = None;
                 match selected {
                     Some(0) => self.open_shape_filter_picker(None),
+                    Some(2) => self.open_slot_kind_filter_picker(None),
                     Some(1) => self.open_value_filter_editor(
                         None,
                         ValueFilterView {
@@ -1473,6 +1566,90 @@ impl ObjectBrowserApp {
         }
     }
 
+    fn handle_general_value_editor_key(&mut self, key: KeyEvent) {
+        let Some(editor) = self.general_value_editor.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+        match key.code {
+            KeyCode::Esc => {
+                self.general_value_editor = None;
+                self.mode = UiMode::Pool;
+                self.status_message = "Value editing cancelled.".to_string();
+            }
+            KeyCode::Enter => self.apply_general_value_editor(),
+            _ => {
+                if editor.textarea.input(key) {
+                    editor.validation_error = None;
+                }
+            }
+        }
+    }
+
+    fn handle_boolean_value_picker_key(&mut self, key: KeyEvent) {
+        let Some(picker) = self.boolean_value_picker.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+        match picker.search.handle_key(key, &picker.labels) {
+            PickerSearchAction::None => {}
+            PickerSearchAction::Cancel => {
+                self.boolean_value_picker = None;
+                self.mode = UiMode::Pool;
+                self.status_message = "Boolean value editing cancelled.".to_string();
+            }
+            PickerSearchAction::Submit => self.apply_boolean_value_picker(),
+        }
+    }
+
+    fn apply_general_value_editor(&mut self) {
+        let Some((slot_id, shape_name, shape, input)) =
+            self.general_value_editor.as_ref().map(|editor| {
+                (
+                    editor.slot_id,
+                    editor.shape_name.clone(),
+                    editor.shape,
+                    editor.textarea.lines().join("\n"),
+                )
+            })
+        else {
+            return;
+        };
+
+        match self.parse_general_value(&shape_name, shape, &input) {
+            Ok(value) => {
+                self.general_value_editor = None;
+                self.set_scalar_slot_value(slot_id, value);
+                self.mode = UiMode::Pool;
+                self.status_message = format!("Updated value in slot {slot_id}.");
+            }
+            Err(error) => {
+                if let Some(editor) = self.general_value_editor.as_mut() {
+                    editor.validation_error = Some(error.to_string());
+                }
+                self.status_message = "Value is invalid; fix the error before saving.".to_string();
+            }
+        }
+    }
+
+    fn apply_boolean_value_picker(&mut self) {
+        let Some(picker) = self.boolean_value_picker.as_ref() else {
+            return;
+        };
+        let Some(index) = picker.search.selected_filtered_index() else {
+            self.status_message = "No boolean value is selected.".to_string();
+            return;
+        };
+        let Some(label) = picker.labels.get(index) else {
+            return;
+        };
+        let value = label == "true";
+        let slot_id = picker.slot_id;
+        self.boolean_value_picker = None;
+        self.set_scalar_slot_value(slot_id, Value::Bool(value));
+        self.mode = UiMode::Pool;
+        self.status_message = format!("Updated value in slot {slot_id}.");
+    }
     fn handle_rename_slot_key(&mut self, key: KeyEvent) {
         let Some(rename_slot) = self.rename_slot.as_mut() else {
             self.mode = UiMode::Pool;
@@ -2145,6 +2322,29 @@ impl ObjectBrowserApp {
             return;
         };
 
+        if self.is_general_value_field(owner_slot_id, field_index) {
+            if let FieldValueState::Linked { slot_id } = field.value_state {
+                self.jump_to_slot(slot_id);
+                self.status_message = format!(
+                    "Jumped to slot {} for {} on slot {}.",
+                    slot_id, field.info.field_name, owner_slot_id
+                );
+            } else {
+                let wrapper_slot = self
+                    .slot_shape_name(owner_slot_id)
+                    .and_then(|shape_name| self.shape_for_shape_name(shape_name))
+                    .is_some_and(is_general_value_shape);
+                if field_index == 0
+                    && wrapper_slot
+                    && self.promote_general_value_slot(owner_slot_id)
+                {
+                    self.open_slot_value_editor(owner_slot_id);
+                } else {
+                    self.open_general_field_picker(owner_slot_id, field_index, &field);
+                }
+            }
+            return;
+        }
         if !self.has_known_shape_label(&field.info.field_shape_name) {
             self.toggle_default_field_value(owner_slot_id, field_index);
             return;
@@ -2226,6 +2426,117 @@ impl ObjectBrowserApp {
                 .to_string();
     }
 
+    fn open_general_field_picker(
+        &mut self,
+        owner_slot_id: usize,
+        field_index: usize,
+        field: &ObjectFieldState,
+    ) {
+        let required_shape_name = self
+            .field_shape_for_field(owner_slot_id, field_index)
+            .map(describe_shape)
+            .unwrap_or_else(|| field.info.field_shape_name.clone());
+        let mut choices = self
+            .matching_slot_ids(&required_shape_name, owner_slot_id)
+            .into_iter()
+            .map(|slot_id| FieldPickerChoice::ExistingSlot { slot_id })
+            .collect::<Vec<_>>();
+        choices.extend(
+            self.existing_producer_slot_ids(&required_shape_name, owner_slot_id)
+                .into_iter()
+                .map(|slot_id| FieldPickerChoice::ExistingProducerSlot { slot_id }),
+        );
+        let (arbitrary_producer_choices, regular_producer_choices): (Vec<_>, Vec<_>) = self
+            .producer_function_choices_for(&required_shape_name)
+            .into_iter()
+            .partition(field_picker_choice_is_arbitrary_producer);
+        choices.extend(regular_producer_choices);
+        choices.push(FieldPickerChoice::CreateNewValue);
+        choices.extend(arbitrary_producer_choices);
+        let labels = choices
+            .iter()
+            .map(|choice| self.field_picker_label(choice, &required_shape_name))
+            .collect::<Vec<_>>();
+        let preferred_index = match field.value_state {
+            FieldValueState::Linked { slot_id } => choices
+                .iter()
+                .position(|choice| choice == &FieldPickerChoice::ExistingSlot { slot_id }),
+            _ => choices
+                .iter()
+                .position(|choice| matches!(choice, FieldPickerChoice::ExistingSlot { .. }))
+                .or_else(|| {
+                    choices.iter().position(|choice| {
+                        matches!(choice, FieldPickerChoice::ExistingProducerSlot { .. })
+                    })
+                })
+                .or_else(|| {
+                    choices.iter().position(|choice| {
+                        matches!(choice, FieldPickerChoice::CreateProducer { .. })
+                            && !field_picker_choice_is_arbitrary_producer(choice)
+                    })
+                })
+                .or_else(|| {
+                    choices
+                        .iter()
+                        .position(|choice| choice == &FieldPickerChoice::CreateNewValue)
+                }),
+        };
+        self.field_picker = Some(FieldPickerState::new(
+            owner_slot_id,
+            field_index,
+            required_shape_name.clone(),
+            choices,
+            labels,
+            preferred_index,
+        ));
+        self.mode = UiMode::FieldPicker;
+        self.status_message = format!(
+            "Choose how to create or link the {} value. Type to search.",
+            required_shape_name
+        );
+    }
+    fn is_general_value_field(&self, owner_slot_id: usize, field_index: usize) -> bool {
+        self.field_shape_for_field(owner_slot_id, field_index)
+            .is_some_and(is_general_value_shape)
+    }
+    fn field_shape_for_field(
+        &self,
+        owner_slot_id: usize,
+        field_index: usize,
+    ) -> Option<&'static facet::Shape> {
+        let field = self.slot_field(owner_slot_id, field_index)?;
+        let parent_shape = self
+            .slot_shape_name(owner_slot_id)
+            .and_then(|shape_name| self.shape_for_shape_name(shape_name))?;
+        if field.info.field_name == "0" && is_general_value_shape(parent_shape) {
+            return Some(parent_shape);
+        }
+        if let Some(shape) = self.shape_for_shape_name(&field.info.field_shape_name) {
+            return Some(shape);
+        }
+        match parent_shape.ty {
+            facet::Type::User(facet::UserType::Struct(_)) => {
+                shape_field_shape(parent_shape, field.info.field_name)
+            }
+            facet::Type::User(facet::UserType::Enum(enum_type)) => {
+                let selected_variant =
+                    self.slot_body(owner_slot_id).and_then(|body| match body {
+                        SlotBody::Enum {
+                            selected_variant, ..
+                        } => *selected_variant,
+                        _ => None,
+                    })?;
+                enum_type
+                    .variants
+                    .get(selected_variant)?
+                    .data
+                    .fields
+                    .get(field_index)
+                    .map(|field| field.proxy_shape().unwrap_or_else(|| field.shape()))
+            }
+            _ => None,
+        }
+    }
     fn open_link_action_picker(
         &mut self,
         owner_slot_id: usize,
@@ -2731,6 +3042,7 @@ impl ObjectBrowserApp {
             .unwrap_or(0);
         self.ensure_active_row_visible();
         self.status_message = match self.slot_body(slot_id) {
+            Some(SlotBody::Value { .. }) => format!("Value slot created for {}.", choice.label),
             Some(SlotBody::Unset) => format!("Shape set to {}.", choice.label),
             Some(SlotBody::Struct { fields }) if fields.is_empty() => format!(
                 "Shape set to {}. This shape has no reflected fields yet.",
@@ -2779,7 +3091,7 @@ impl ObjectBrowserApp {
         self.ensure_active_row_visible();
         self.status_message = match variant.payload_shape_name {
             Some(payload_shape_name) if variant.payload_fields.is_empty() => format!(
-                "Selected {}::{}. This payload is a {} value; general value editing is the next interaction to add.",
+                "Selected {}::{}. This payload is a {} scalar; edit it from its value slot.",
                 shape_name, variant.variant_name, payload_shape_name
             ),
             Some(_) => format!(
@@ -2845,6 +3157,9 @@ impl ObjectBrowserApp {
                 &required_shape_name,
                 &function_label,
             ),
+            FieldPickerChoice::CreateNewValue => {
+                self.create_general_value_slot(owner_slot_id, field_index)
+            }
             FieldPickerChoice::CreateNew => {
                 self.create_field_object(owner_slot_id, field_index, &required_shape_name, None)
             }
@@ -3156,6 +3471,204 @@ impl ObjectBrowserApp {
         Ok(Value::Object(object))
     }
 
+    fn create_general_value_slot(&mut self, owner_slot_id: usize, field_index: usize) {
+        let Some(field) = self.slot_field(owner_slot_id, field_index).cloned() else {
+            return;
+        };
+        let Some(shape) = self.field_shape_for_field(owner_slot_id, field_index) else {
+            self.status_message =
+                format!("Could not reflect the shape of {}.", field.info.field_name);
+            return;
+        };
+        let slot_id = self.allocate_slot_id();
+        let slot = ObjectSlot::new_scalar(slot_id, describe_shape(shape), shape);
+        self.object_slots.push(slot);
+        self.set_field_link(owner_slot_id, field_index, slot_id);
+        self.invalidate_all_slot_display_caches();
+        self.status_message = format!(
+            "Created owned value slot {} for {}. Choose or enter its value.",
+            slot_id, field.info.field_name
+        );
+        self.open_slot_value_editor(slot_id);
+    }
+    fn promote_general_value_slot(&mut self, slot_id: usize) -> bool {
+        let Some(shape) = self.scalar_shape_for_slot(slot_id) else {
+            return false;
+        };
+        if !is_general_value_shape(shape) {
+            return false;
+        }
+        let Some(data_slot_id) = self.data_slot_id_for(slot_id) else {
+            return false;
+        };
+        let Some(slot) = self.slot_by_id_mut(data_slot_id) else {
+            return false;
+        };
+        match &slot.value_state {
+            SlotValueState::Building(SlotBody::Value { .. }) => true,
+            SlotValueState::Building(SlotBody::Struct { fields })
+                if fields.len() == 1 && matches!(fields[0].value_state, FieldValueState::Unset) =>
+            {
+                slot.value_state = SlotValueState::Building(SlotBody::Value { shape, value: None });
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn open_slot_value_editor(&mut self, slot_id: usize) {
+        let Some(shape) = self.scalar_shape_for_slot(slot_id) else {
+            self.status_message = format!(
+                "Slot {} does not contain an editable scalar value.",
+                slot_id
+            );
+            return;
+        };
+        let shape_name = self.slot_shape_name(slot_id).unwrap_or("value").to_string();
+        if shape.scalar_type() == Some(ScalarType::Bool) {
+            self.open_boolean_value_picker(slot_id, shape_name);
+            return;
+        }
+        let value = self
+            .slot_by_id(self.data_slot_id_for(slot_id).unwrap_or(slot_id))
+            .and_then(|slot| match &slot.value_state {
+                SlotValueState::Building(SlotBody::Value { value, .. }) => value.clone(),
+                SlotValueState::ResolvedValue { value, .. } => Some(value.clone()),
+                _ => None,
+            });
+        self.general_value_editor = Some(GeneralValueEditorState::new(
+            slot_id,
+            shape_name,
+            shape,
+            value.as_ref().map(scalar_value_input).unwrap_or_default(),
+        ));
+        self.mode = UiMode::GeneralValueEditor;
+        self.status_message = format!("Enter a value for slot {}.", slot_id);
+    }
+    fn open_boolean_value_picker(&mut self, slot_id: usize, shape_name: String) {
+        let selected = self
+            .slot_by_id(self.data_slot_id_for(slot_id).unwrap_or(slot_id))
+            .and_then(|slot| match &slot.value_state {
+                SlotValueState::Building(SlotBody::Value { value, .. }) => {
+                    value.as_ref().and_then(Value::as_bool)
+                }
+                SlotValueState::ResolvedValue { value, .. } => value.as_bool(),
+                _ => None,
+            })
+            .map(|value| usize::from(value));
+        self.boolean_value_picker =
+            Some(BooleanValuePickerState::new(slot_id, shape_name, selected));
+        self.mode = UiMode::BooleanValuePicker;
+        self.status_message = format!("Choose true or false for slot {}.", slot_id);
+    }
+    fn scalar_shape_for_slot(&self, slot_id: usize) -> Option<&'static facet::Shape> {
+        let data_slot = self.slot_by_id(self.data_slot_id_for(slot_id).unwrap_or(slot_id))?;
+        if let SlotValueState::Building(SlotBody::Value { shape, .. }) = &data_slot.value_state {
+            return Some(*shape);
+        }
+        self.slot_shape_name(slot_id)
+            .and_then(|shape_name| self.shape_for_shape_name(shape_name))
+    }
+    fn parse_general_value(
+        &self,
+        shape_name: &str,
+        shape: &'static facet::Shape,
+        input: &str,
+    ) -> Result<Value> {
+        let scalar = shape.scalar_type();
+        if shape_name == "Uuid" {
+            let parsed = input
+                .parse::<cloud_terrastodon_azure::uuid::Uuid>()
+                .map_err(|error| eyre::eyre!("{error}"))?;
+            return Ok(Value::String(parsed.to_string()));
+        }
+        let thing = self.thing_for_shape_name(shape_name);
+        let expects_json_string = shape_name == "Uuid"
+            || matches!(
+                scalar,
+                Some(ScalarType::String | ScalarType::Str | ScalarType::Char)
+            )
+            || shape_accepts_text_input(shape);
+        let json_input = if expects_json_string {
+            serde_json::to_string(input)?
+        } else {
+            input.to_string()
+        };
+        if let Some(thing) = thing {
+            let parsed = thing
+                .parse_boxed(&json_input)
+                .map_err(|error| eyre::eyre!("{error}"))?;
+            let serialized = thing.serialize_boxed(parsed.as_ref())?;
+            return Ok(serde_json::from_str(&serialized)?);
+        }
+        let value: Value = serde_json::from_str(&json_input)?;
+        match scalar {
+            Some(ScalarType::Bool) if value.is_boolean() => Ok(value),
+            Some(ScalarType::String | ScalarType::Str) if value.is_string() => Ok(value),
+            Some(ScalarType::Char)
+                if value.as_str().is_some_and(|text| text.chars().count() == 1) =>
+            {
+                Ok(value)
+            }
+            Some(ScalarType::F32 | ScalarType::F64) if value.is_number() => Ok(value),
+            Some(
+                ScalarType::U8
+                | ScalarType::U16
+                | ScalarType::U32
+                | ScalarType::U64
+                | ScalarType::USize,
+            ) if value.as_u64().is_some() => Ok(value),
+            Some(
+                ScalarType::I8
+                | ScalarType::I16
+                | ScalarType::I32
+                | ScalarType::I64
+                | ScalarType::ISize,
+            ) if value.as_i64().is_some() => Ok(value),
+            _ => eyre::bail!("{input:?} is not a valid {shape_name}"),
+        }
+    }
+    fn set_scalar_slot_value(&mut self, slot_id: usize, value: Value) {
+        let json = match serde_json::to_string(&value) {
+            Ok(json) => json,
+            Err(error) => {
+                self.status_message = format!("Could not serialize slot {}: {}", slot_id, error);
+                return;
+            }
+        };
+        let data_slot_id = self.data_slot_id_for(slot_id).unwrap_or(slot_id);
+        if let Some(slot) = self.slot_by_id_mut(data_slot_id) {
+            match &mut slot.value_state {
+                SlotValueState::Building(SlotBody::Value { value: current, .. }) => {
+                    *current = Some(value.clone())
+                }
+                SlotValueState::ResolvedValue {
+                    json: current_json,
+                    value: current,
+                    ..
+                } => {
+                    *current_json = json;
+                    *current = value.clone();
+                }
+                _ => {
+                    self.status_message =
+                        format!("Slot {} is not an editable scalar slot.", slot_id);
+                    return;
+                }
+            }
+        }
+        self.invalidate_all_slot_display_caches();
+    }
+    fn view_slot_id_for_field(&self, owner_slot_id: usize, field_index: usize) -> Option<usize> {
+        self.object_slots.iter().find_map(|slot| match &slot.kind {
+            SlotKind::View(info)
+                if info.owner_slot_id == owner_slot_id && info.field_index == field_index =>
+            {
+                Some(slot.id)
+            }
+            _ => None,
+        })
+    }
     fn create_field_object(
         &mut self,
         owner_slot_id: usize,
@@ -3193,7 +3706,6 @@ impl ObjectBrowserApp {
                 format!("Could not select variant {variant_index} for {required_shape_name}.");
             return;
         }
-        let focus_target = slot.default_focus_target();
         slot.kind = SlotKind::View(ViewInfo {
             source_slot_id: slot_id,
             owner_slot_id,
@@ -3203,7 +3715,6 @@ impl ObjectBrowserApp {
 
         self.object_slots.push(slot);
         self.set_field_link(owner_slot_id, field_index, slot_id);
-        self.jump_to_slot_target(slot_id, focus_target);
         self.status_message = format!(
             "Created slot {} as a {} object and linked it into slot {}.{}.",
             slot_id, required_shape_name, owner_slot_id, field_name
@@ -3300,10 +3811,41 @@ impl ObjectBrowserApp {
             else {
                 return;
             };
+            if let Some(slot_id) = self.view_slot_id_for_field(owner_slot_id, field_index) {
+                self.jump_to_slot(slot_id);
+                self.status_message = format!(
+                    "Jumped to slot {} for {} on slot {}.",
+                    slot_id, field.info.field_name, owner_slot_id
+                );
+                return;
+            }
             self.activate_json_projection(owner_slot_id, field.projection_path);
             return;
         };
 
+        if self.is_general_value_field(owner_slot_id, field_index) {
+            if let FieldValueState::Linked { slot_id } = field.value_state {
+                self.jump_to_slot(slot_id);
+                self.status_message = format!(
+                    "Jumped to slot {} for {} on slot {}.",
+                    slot_id, field.info.field_name, owner_slot_id
+                );
+            } else {
+                let wrapper_slot = self
+                    .slot_shape_name(owner_slot_id)
+                    .and_then(|shape_name| self.shape_for_shape_name(shape_name))
+                    .is_some_and(is_general_value_shape);
+                if field_index == 0
+                    && wrapper_slot
+                    && self.promote_general_value_slot(owner_slot_id)
+                {
+                    self.open_slot_value_editor(owner_slot_id);
+                } else {
+                    self.open_general_field_picker(owner_slot_id, field_index, &field);
+                }
+            }
+            return;
+        }
         match field.value_state {
             FieldValueState::Linked { slot_id } => {
                 self.jump_to_slot(slot_id);
@@ -3333,7 +3875,7 @@ impl ObjectBrowserApp {
                     format!("Applied the default value for {}.", field.info.field_name)
                 }
                 FieldValueState::Unset => format!(
-                    "{} is required; general value editing is the next interaction to add.",
+                    "{} is required and has no registered creation path.",
                     field.info.field_name
                 ),
                 FieldValueState::Linked { slot_id } => {
@@ -3384,7 +3926,7 @@ impl ObjectBrowserApp {
                 continue;
             };
             match body {
-                SlotBody::Unset => {}
+                SlotBody::Value { .. } | SlotBody::Unset => {}
                 SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => {
                     for field in fields {
                         if matches!(
@@ -3739,7 +4281,16 @@ impl ObjectBrowserApp {
         let SlotValueState::Building(body) = &slot.value_state else {
             unreachable!("non-building states returned above")
         };
+        let uses_proxy = slot
+            .shape_name
+            .as_deref()
+            .and_then(|shape_name| self.shape_for_shape_name(shape_name))
+            .is_some_and(|shape| shape.proxy.is_some());
         match body {
+            SlotBody::Value {
+                value: Some(value), ..
+            } => Ok(value.clone()),
+            SlotBody::Value { value: None, .. } => eyre::bail!("slot {} is still unset", slot.id),
             SlotBody::Unset => eyre::bail!("slot {} is still unset", slot.id),
             SlotBody::Struct { fields } => {
                 let mut object = Map::new();
@@ -3785,6 +4336,9 @@ impl ObjectBrowserApp {
                     }
                     Value::Object(payload)
                 };
+                if uses_proxy && fields.len() == 1 {
+                    return Ok(payload);
+                }
 
                 let mut object = Map::new();
                 object.insert(variant.info.variant_name.to_string(), payload);
@@ -3885,6 +4439,25 @@ impl ObjectBrowserApp {
 
         let materialized_fields = self.materialized_fields(slot_id);
         match self.slot_body(slot_id) {
+            Some(SlotBody::Value { value, .. }) => {
+                rows.push(SlotDisplayRow::Static(separator_line("value")));
+                rows.push(focusable_spans_row(
+                    SlotFocusTarget::RuntimeValue,
+                    vec![
+                        Span::raw("value: "),
+                        Span::styled(
+                            value
+                                .as_ref()
+                                .map_or_else(|| "unset".to_string(), json_value_summary),
+                            value.as_ref().map_or_else(unset_style, |_| {
+                                Style::default()
+                                    .fg(Color::Green)
+                                    .add_modifier(Modifier::BOLD)
+                            }),
+                        ),
+                    ],
+                ));
+            }
             Some(SlotBody::Unset) => {}
             None => {
                 if !materialized_fields.is_empty() {
@@ -3896,7 +4469,7 @@ impl ObjectBrowserApp {
                 if !fields.is_empty() {
                     rows.push(SlotDisplayRow::Static(separator_line("fields")));
                 }
-                rows.extend(field_rows(fields));
+                rows.extend(self.field_rows(fields));
             }
             Some(SlotBody::Enum {
                 variants,
@@ -3907,7 +4480,7 @@ impl ObjectBrowserApp {
                 if !fields.is_empty() {
                     rows.push(SlotDisplayRow::Static(separator_line("fields")));
                 }
-                rows.extend(field_rows(fields));
+                rows.extend(self.field_rows(fields));
             }
         }
 
@@ -4019,6 +4592,7 @@ impl ObjectBrowserApp {
 
         if let Some(body) = self.slot_body(slot_id) {
             match body {
+                SlotBody::Value { .. } => targets.push(SlotFocusTarget::RuntimeValue),
                 SlotBody::Unset => {}
                 SlotBody::Struct { fields } => {
                     for index in 0..fields.len() {
@@ -4152,7 +4726,7 @@ impl ObjectBrowserApp {
                 continue;
             };
             let fields = match body {
-                SlotBody::Unset => continue,
+                SlotBody::Value { .. } | SlotBody::Unset => continue,
                 SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => fields,
             };
             for (field_index, field) in fields.iter().enumerate() {
@@ -4305,11 +4879,12 @@ impl ObjectBrowserApp {
             FieldPickerChoice::CreateProducer {
                 input_shape_name,
                 function_label,
-            } => {
-                format!(
-                    "+ create {} for {} via {}",
-                    input_shape_name, required_shape_name, function_label
-                )
+            } => format!(
+                "+ create {} for {} via {}",
+                input_shape_name, required_shape_name, function_label
+            ),
+            FieldPickerChoice::CreateNewValue => {
+                format!("+ create new owned {required_shape_name}")
             }
             FieldPickerChoice::CreateNew => {
                 let is_enum = self
@@ -4405,6 +4980,9 @@ impl ObjectBrowserApp {
             .chain(self.breadcrumb_filters.iter().map(|filter| match filter {
                 BreadcrumbFilter::Shape(filter) => {
                     format!("shapes ({})", filter.included_shapes.len())
+                }
+                BreadcrumbFilter::SlotKind(filter) => {
+                    format!("slots ({})", filter.included_kinds.len(),)
                 }
                 BreadcrumbFilter::Value(filter) => format!(
                     "value {}.{} {} {}",
@@ -4520,6 +5098,9 @@ impl ObjectBrowserApp {
                 Some(BreadcrumbFilter::Value(filter)) => {
                     self.open_value_filter_editor(Some(filter_index), filter.clone());
                 }
+                Some(BreadcrumbFilter::SlotKind(_)) => {
+                    self.open_slot_kind_filter_picker(Some(filter_index));
+                }
                 None => {}
             }
             return;
@@ -4552,6 +5133,7 @@ impl ObjectBrowserApp {
             self.status_message = match filter {
                 BreadcrumbFilter::Shape(_) => "Closed shape filter.".to_string(),
                 BreadcrumbFilter::Value(_) => "Closed value filter.".to_string(),
+                BreadcrumbFilter::SlotKind(_) => "Closed slot kind filter.".to_string(),
             };
             return;
         }
@@ -4815,7 +5397,7 @@ impl ObjectBrowserApp {
             .and_then(|index| self.breadcrumb_filters.get(index))
             .and_then(|filter| match filter {
                 BreadcrumbFilter::Shape(filter) => Some(filter.included_shapes.clone()),
-                BreadcrumbFilter::Value(_) => None,
+                BreadcrumbFilter::Value(_) | BreadcrumbFilter::SlotKind(_) => None,
             })
             .unwrap_or_default();
         self.partition_picker = Some(PartitionPickerState::with_included_labels(
@@ -4828,15 +5410,65 @@ impl ObjectBrowserApp {
         self.status_message = "Move shapes to Included and press Enter.".to_string();
     }
 
+    fn open_slot_kind_filter_picker(&mut self, edit_index: Option<usize>) {
+        let labels = vec![
+            SlotFilterKind::Owned.label().to_string(),
+            SlotFilterKind::View.label().to_string(),
+            SlotFilterKind::Projection.label().to_string(),
+        ];
+        let included = edit_index
+            .and_then(|index| self.breadcrumb_filters.get(index))
+            .and_then(|filter| match filter {
+                BreadcrumbFilter::SlotKind(filter) => Some(
+                    filter
+                        .included_kinds
+                        .iter()
+                        .map(|kind| kind.label().to_string())
+                        .collect::<BTreeSet<_>>(),
+                ),
+                BreadcrumbFilter::Shape(_) | BreadcrumbFilter::Value(_) => None,
+            })
+            .unwrap_or_default();
+        self.partition_picker = Some(PartitionPickerState::with_included_labels(
+            PartitionPickerTarget::SlotKindFilter { edit_index },
+            labels,
+            &included,
+        ));
+        self.mode = UiMode::PartitionPicker;
+        self.pool_surface = PoolSurface::Slots;
+        self.status_message = "Move slot kinds to Included and press Enter.".to_string();
+    }
+
     fn apply_partition_picker_selection(&mut self) {
         let Some(picker) = self.partition_picker.take() else {
             return;
+        };
+        let filter_label = match picker.target {
+            PartitionPickerTarget::ShapeFilter { .. } => "Shape",
+            PartitionPickerTarget::SlotKindFilter { .. } => "Slot kind",
         };
         let focused_filter_index = match picker.target {
             PartitionPickerTarget::ShapeFilter { edit_index } => {
                 let filter = BreadcrumbFilter::Shape(ShapeFilterView {
                     included_shapes: picker.included_labels(),
                 });
+                if let Some(index) = edit_index {
+                    if let Some(existing) = self.breadcrumb_filters.get_mut(index) {
+                        *existing = filter;
+                    }
+                    Some(index)
+                } else {
+                    self.breadcrumb_filters.push(filter);
+                    self.breadcrumb_filters.len().checked_sub(1)
+                }
+            }
+            PartitionPickerTarget::SlotKindFilter { edit_index } => {
+                let included_kinds = picker
+                    .included_labels()
+                    .into_iter()
+                    .filter_map(|label| SlotFilterKind::from_label(&label))
+                    .collect();
+                let filter = BreadcrumbFilter::SlotKind(SlotKindFilterView { included_kinds });
                 if let Some(index) = edit_index {
                     if let Some(existing) = self.breadcrumb_filters.get_mut(index) {
                         *existing = filter;
@@ -4860,7 +5492,7 @@ impl ObjectBrowserApp {
         self.row_view_offset = 0;
         self.sync_selection_viewports();
         self.status_message = format!(
-            "Shape filter applied; {} entries visible.",
+            "{filter_label} filter applied; {} entries visible.",
             self.total_slot_count()
         );
     }
@@ -5288,11 +5920,18 @@ impl ObjectBrowserApp {
 
     fn real_slot_matches_shape_filter(&self, slot_id: usize) -> bool {
         let shape_name = self.slot_shape_name(slot_id);
+        let slot_kind = self.slot_by_id(slot_id).map(|slot| match &slot.kind {
+            SlotKind::Owned => SlotFilterKind::Owned,
+            SlotKind::View(_) => SlotFilterKind::View,
+        });
         self.breadcrumb_filters.iter().all(|filter| match filter {
             BreadcrumbFilter::Shape(filter) => {
                 shape_name.is_some_and(|shape| filter.included_shapes.contains(shape))
             }
             BreadcrumbFilter::Value(filter) => self.value_filter_path_matches(slot_id, &[], filter),
+            BreadcrumbFilter::SlotKind(filter) => {
+                slot_kind.is_some_and(|kind| filter.included_kinds.contains(&kind))
+            }
         })
     }
 
@@ -5309,6 +5948,18 @@ impl ObjectBrowserApp {
             BreadcrumbFilter::Value(filter) => {
                 self.value_filter_path_matches(root_slot_id, path, filter)
             }
+            BreadcrumbFilter::SlotKind(filter) => {
+                filter.included_kinds.contains(&SlotFilterKind::Projection)
+            }
+        })
+    }
+
+    fn projection_slot_kind_filter_matches(&self) -> bool {
+        self.breadcrumb_filters.iter().all(|filter| match filter {
+            BreadcrumbFilter::SlotKind(filter) => {
+                filter.included_kinds.contains(&SlotFilterKind::Projection)
+            }
+            BreadcrumbFilter::Shape(_) | BreadcrumbFilter::Value(_) => true,
         })
     }
 
@@ -5317,12 +5968,15 @@ impl ObjectBrowserApp {
         root_slot_id: usize,
         path: &[JsonPathSegment],
     ) -> (bool, bool) {
+        if !self.projection_slot_kind_filter_matches() {
+            return (false, false);
+        }
         let shape_filters = self
             .breadcrumb_filters
             .iter()
             .filter_map(|filter| match filter {
                 BreadcrumbFilter::Shape(filter) => Some(filter),
-                BreadcrumbFilter::Value(_) => None,
+                BreadcrumbFilter::Value(_) | BreadcrumbFilter::SlotKind(_) => None,
             });
         let shape_filters = shape_filters.collect::<Vec<_>>();
         if shape_filters.is_empty() {
@@ -5687,6 +6341,13 @@ impl ObjectBrowserApp {
         }
     }
     fn activate_runtime_value(&mut self, slot_id: usize) {
+        if self
+            .scalar_shape_for_slot(slot_id)
+            .is_some_and(is_general_value_shape)
+        {
+            self.open_slot_value_editor(slot_id);
+            return;
+        }
         self.activate_json_projection(slot_id, Vec::new());
     }
 
@@ -6042,6 +6703,10 @@ impl ObjectBrowserApp {
                 .iter()
                 .find(|shape| shape.label == input_shape_name)
                 .map(shape_preview_lines),
+            FieldPickerChoice::CreateNewValue => Some(vec![
+                Line::from(format!("Create a new owned {required_shape_name} value.")),
+                Line::from("The value editor will validate the input before saving."),
+            ]),
             FieldPickerChoice::CreateNew => self
                 .shape_choices
                 .iter()
@@ -6176,6 +6841,30 @@ impl ObjectBrowserApp {
     fn slot_preview_lines(&mut self, slot_id: usize) -> Vec<Line<'static>> {
         let rows = self.slot_display_rows(slot_id);
         render_slot_display_rows(&rows, None)
+    }
+
+    fn field_rows(&self, fields: &[ObjectFieldState]) -> Vec<SlotDisplayRow> {
+        let mut rows = Vec::with_capacity(fields.len() * 2);
+        for (index, field) in fields.iter().enumerate() {
+            let accent = field_group_color(index);
+            let linked_style = match field.value_state {
+                FieldValueState::Linked { slot_id }
+                    if !matches!(self.slot_completion(slot_id), SlotCompletion::Complete) =>
+                {
+                    unset_style()
+                }
+                _ => Style::default().fg(accent).add_modifier(Modifier::BOLD),
+            };
+            rows.push(focusable_spans_row(
+                SlotFocusTarget::FieldType(index),
+                field.type_spans(accent),
+            ));
+            rows.push(focusable_spans_row(
+                SlotFocusTarget::FieldValue(index),
+                field.value_spans(accent, linked_style),
+            ));
+        }
+        rows
     }
 
     fn slot_search_matches(&mut self, slot_id: usize, query: &str) -> Vec<SlotSearchMatch> {
@@ -6348,44 +7037,82 @@ impl ObjectBrowserApp {
     }
 
     fn slot_completion(&self, slot_id: usize) -> SlotCompletion {
-        if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
-            return match runtime_state {
+        self.slot_completion_inner(slot_id, &mut BTreeSet::new())
+    }
+
+    fn slot_completion_inner(
+        &self,
+        slot_id: usize,
+        visiting: &mut BTreeSet<usize>,
+    ) -> SlotCompletion {
+        if !visiting.insert(slot_id) {
+            return SlotCompletion::Partial;
+        }
+
+        let completion = if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
+            match runtime_state {
                 SlotValueState::Pending(_) => SlotCompletion::Partial,
                 SlotValueState::ResolvedValue { .. } => SlotCompletion::Complete,
                 SlotValueState::Failed { .. } => SlotCompletion::Unset,
                 SlotValueState::Building(_) => unreachable!("builders are filtered out"),
+            }
+        } else {
+            let Some(shape_name) = self.slot_shape_name(slot_id) else {
+                visiting.remove(&slot_id);
+                return SlotCompletion::Unset;
             };
-        }
-        let Some(shape_name) = self.slot_shape_name(slot_id) else {
-            return SlotCompletion::Unset;
-        };
-        if shape_name.is_empty() {
-            return SlotCompletion::Unset;
-        }
-        let Some(body) = self.slot_body(slot_id) else {
-            return SlotCompletion::Unset;
-        };
-        match body {
-            SlotBody::Unset => SlotCompletion::Unset,
-            SlotBody::Struct { fields } => {
-                if fields.iter().all(field_is_resolved) {
-                    SlotCompletion::Complete
-                } else {
-                    SlotCompletion::Partial
+            if shape_name.is_empty() {
+                visiting.remove(&slot_id);
+                return SlotCompletion::Unset;
+            }
+            let Some(body) = self.slot_body(slot_id) else {
+                visiting.remove(&slot_id);
+                return SlotCompletion::Unset;
+            };
+            match body {
+                SlotBody::Value { value, .. } => value
+                    .as_ref()
+                    .map_or(SlotCompletion::Unset, |_| SlotCompletion::Complete),
+                SlotBody::Unset => SlotCompletion::Unset,
+                SlotBody::Struct { fields } => {
+                    if fields
+                        .iter()
+                        .all(|field| self.field_is_complete(field, visiting))
+                    {
+                        SlotCompletion::Complete
+                    } else {
+                        SlotCompletion::Partial
+                    }
+                }
+                SlotBody::Enum {
+                    selected_variant,
+                    fields,
+                    ..
+                } => {
+                    if selected_variant.is_none() {
+                        SlotCompletion::Partial
+                    } else if fields
+                        .iter()
+                        .all(|field| self.field_is_complete(field, visiting))
+                    {
+                        SlotCompletion::Complete
+                    } else {
+                        SlotCompletion::Partial
+                    }
                 }
             }
-            SlotBody::Enum {
-                selected_variant,
-                fields,
-                ..
-            } => {
-                if selected_variant.is_none() {
-                    SlotCompletion::Partial
-                } else if fields.iter().all(field_is_resolved) {
-                    SlotCompletion::Complete
-                } else {
-                    SlotCompletion::Partial
-                }
+        };
+
+        visiting.remove(&slot_id);
+        completion
+    }
+
+    fn field_is_complete(&self, field: &ObjectFieldState, visiting: &mut BTreeSet<usize>) -> bool {
+        match field.value_state {
+            FieldValueState::Defaulted => true,
+            FieldValueState::Unset => false,
+            FieldValueState::Linked { slot_id } => {
+                self.slot_completion_inner(slot_id, visiting) == SlotCompletion::Complete
             }
         }
     }
@@ -6426,6 +7153,8 @@ enum UiMode {
     FilterKindPicker,
     ValueFilterEditor,
     ValueFilterChoicePicker,
+    GeneralValueEditor,
+    BooleanValuePicker,
     RenameSlot,
 }
 
@@ -6489,9 +7218,41 @@ struct ShapeFilterView {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+struct SlotKindFilterView {
+    included_kinds: BTreeSet<SlotFilterKind>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+enum SlotFilterKind {
+    Owned,
+    View,
+    Projection,
+}
+
+impl SlotFilterKind {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Owned => "owned",
+            Self::View => "view",
+            Self::Projection => "projection",
+        }
+    }
+
+    fn from_label(label: &str) -> Option<Self> {
+        match label {
+            "owned" => Some(Self::Owned),
+            "view" => Some(Self::View),
+            "projection" => Some(Self::Projection),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum BreadcrumbFilter {
     Shape(ShapeFilterView),
     Value(ValueFilterView),
+    SlotKind(SlotKindFilterView),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -7031,6 +7792,7 @@ enum FieldPickerChoice {
         function_label: String,
     },
     CreateNew,
+    CreateNewValue,
     CreateNewVariant {
         variant_index: usize,
         variant_name: String,
@@ -7055,6 +7817,48 @@ fn reflected_field_default_is_materializable(field: &ShapeFieldInfo) -> bool {
             .is_some_and(|label| label != "<default>")
 }
 
+struct GeneralValueEditorState {
+    slot_id: usize,
+    shape_name: String,
+    shape: &'static facet::Shape,
+    textarea: TextArea<'static>,
+    validation_error: Option<String>,
+}
+impl GeneralValueEditorState {
+    fn new(
+        slot_id: usize,
+        shape_name: String,
+        shape: &'static facet::Shape,
+        input: String,
+    ) -> Self {
+        Self {
+            slot_id,
+            shape_name,
+            shape,
+            textarea: build_text_area(&input),
+            validation_error: None,
+        }
+    }
+}
+struct BooleanValuePickerState {
+    slot_id: usize,
+    shape_name: String,
+    labels: Vec<String>,
+    search: PickerSearchState,
+}
+impl BooleanValuePickerState {
+    fn new(slot_id: usize, shape_name: String, selected: Option<usize>) -> Self {
+        let labels = vec!["false".to_string(), "true".to_string()];
+        let mut search = PickerSearchState::new();
+        search.reset(&labels, selected);
+        Self {
+            slot_id,
+            shape_name,
+            labels,
+            search,
+        }
+    }
+}
 struct RenameSlotState {
     slot_id: usize,
     textarea: TextArea<'static>,
@@ -7124,6 +7928,7 @@ enum LinkAction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum PartitionPickerTarget {
     ShapeFilter { edit_index: Option<usize> },
+    SlotKindFilter { edit_index: Option<usize> },
 }
 
 struct FilterKindPickerState {
@@ -7133,7 +7938,11 @@ struct FilterKindPickerState {
 
 impl FilterKindPickerState {
     fn new() -> Self {
-        let labels = vec!["filter shape".to_string(), "filter value".to_string()];
+        let labels = vec![
+            "filter shape".to_string(),
+            "filter value".to_string(),
+            "filter slot kind".to_string(),
+        ];
         let mut search = PickerSearchState::new();
         search.reset(&labels, Some(0));
         Self { labels, search }
@@ -7528,6 +8337,12 @@ impl ObjectSlot {
         }
     }
 
+    fn new_scalar(id: usize, shape_name: String, shape: &'static facet::Shape) -> Self {
+        let mut slot = Self::new(id);
+        slot.shape_name = Some(shape_name);
+        slot.value_state = SlotValueState::Building(SlotBody::Value { shape, value: None });
+        slot
+    }
     fn new_view(
         id: usize,
         source_slot_id: usize,
@@ -7555,6 +8370,13 @@ impl ObjectSlot {
 
     fn apply_shape_choice(&mut self, choice: &KnownShapeInfo) {
         self.shape_name = Some(choice.label.clone());
+        if is_general_value_shape(choice.thing.shape) {
+            self.value_state = SlotValueState::Building(SlotBody::Value {
+                shape: choice.thing.shape,
+                value: None,
+            });
+            return;
+        }
 
         let variants = shape_variants_for_thing(choice.thing)
             .into_iter()
@@ -7636,6 +8458,7 @@ impl ObjectSlot {
             return SlotFocusTarget::RuntimeValue;
         };
         match body {
+            SlotBody::Value { .. } => SlotFocusTarget::RuntimeValue,
             SlotBody::Unset => SlotFocusTarget::Shape,
             SlotBody::Struct { fields } if fields.is_empty() => SlotFocusTarget::Shape,
             SlotBody::Struct { .. } => SlotFocusTarget::FieldValue(0),
@@ -7651,7 +8474,7 @@ impl ObjectSlot {
     fn field(&self, field_index: usize) -> Option<&ObjectFieldState> {
         match self.building_body()? {
             SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => fields.get(field_index),
-            SlotBody::Unset => None,
+            SlotBody::Value { .. } | SlotBody::Unset => None,
         }
     }
 
@@ -7660,7 +8483,7 @@ impl ObjectSlot {
             SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => {
                 fields.get_mut(field_index)
             }
-            SlotBody::Unset => None,
+            SlotBody::Value { .. } | SlotBody::Unset => None,
         }
     }
 }
@@ -7681,6 +8504,10 @@ struct ViewInfo {
 
 #[derive(Clone, Debug)]
 enum SlotBody {
+    Value {
+        shape: &'static facet::Shape,
+        value: Option<Value>,
+    },
     Unset,
     Struct {
         fields: Vec<ObjectFieldState>,
@@ -7721,7 +8548,7 @@ impl ObjectFieldState {
         ]
     }
 
-    fn value_spans(&self, accent: Color) -> Vec<Span<'static>> {
+    fn value_spans(&self, accent: Color, linked_style: Style) -> Vec<Span<'static>> {
         let mut spans = vec![Span::styled(
             format!("{}: ", self.info.field_name),
             Style::default().fg(accent),
@@ -7743,10 +8570,9 @@ impl ObjectFieldState {
                 ));
             }
             FieldValueState::Unset => spans.push(Span::styled("unset", unset_style())),
-            FieldValueState::Linked { slot_id } => spans.push(Span::styled(
-                format!("slot {slot_id}"),
-                Style::default().fg(accent).add_modifier(Modifier::BOLD),
-            )),
+            FieldValueState::Linked { slot_id } => {
+                spans.push(Span::styled(format!("slot {slot_id}"), linked_style))
+            }
         }
 
         spans
@@ -7769,22 +8595,6 @@ enum FieldValueState {
     Defaulted,
     Unset,
     Linked { slot_id: usize },
-}
-
-fn field_rows(fields: &[ObjectFieldState]) -> Vec<SlotDisplayRow> {
-    let mut rows = Vec::with_capacity(fields.len() * 2);
-    for (index, field) in fields.iter().enumerate() {
-        let accent = field_group_color(index);
-        rows.push(focusable_spans_row(
-            SlotFocusTarget::FieldType(index),
-            field.type_spans(accent),
-        ));
-        rows.push(focusable_spans_row(
-            SlotFocusTarget::FieldValue(index),
-            field.value_spans(accent),
-        ));
-    }
-    rows
 }
 
 fn materialized_field_rows(fields: &[MaterializedFieldState]) -> Vec<SlotDisplayRow> {
@@ -7966,10 +8776,6 @@ fn render_projection_search_matches(
             )
         })
         .collect()
-}
-
-fn field_is_resolved(field: &ObjectFieldState) -> bool {
-    !matches!(field.value_state, FieldValueState::Unset)
 }
 
 fn reset_field_value(field: &mut ObjectFieldState) {
@@ -8413,6 +9219,33 @@ fn projection_label(root_slot_id: usize, path: &[JsonPathSegment]) -> String {
     label
 }
 
+fn shape_accepts_text_input(shape: &facet::Shape) -> bool {
+    shape.is_transparent()
+        || shape.proxy.is_some()
+        || shape
+            .format_proxies
+            .iter()
+            .any(|proxy| proxy.format == "json")
+}
+
+fn is_general_value_shape(shape: &'static facet::Shape) -> bool {
+    if shape.scalar_type().is_some() || shape.is_transparent() || describe_shape(shape) == "Uuid" {
+        return true;
+    }
+
+    if matches!(shape.ty, facet::Type::User(facet::UserType::Enum(_))) {
+        return false;
+    }
+
+    shape_accepts_text_input(shape)
+}
+
+fn scalar_value_input(value: &Value) -> String {
+    match value {
+        Value::String(value) => value.clone(),
+        _ => value.to_string(),
+    }
+}
 fn json_type_label(value: &Value) -> String {
     match value {
         Value::Null => "null".to_string(),
@@ -8553,6 +9386,168 @@ mod tests {
         assert_eq!(app.object_slots.len(), 1);
         assert_eq!(app.active_slot_index, 0);
         assert_eq!(app.active_row_index, 0);
+    }
+
+    #[test]
+    fn proxy_scalar_shapes_use_value_slots() {
+        let mut app = ObjectBrowserApp::default();
+        let choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "EntraUserId")
+            .cloned()
+            .expect("EntraUserId should be registered");
+        assert!(super::is_general_value_shape(choice.thing.shape));
+
+        let principal_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "PrincipalId")
+            .cloned()
+            .expect("PrincipalId should be registered");
+        assert!(!super::is_general_value_shape(principal_choice.thing.shape));
+        let unknown_variant_index = super::shape_variants_for_thing(principal_choice.thing)
+            .iter()
+            .position(|variant| variant.variant_name == "Unknown")
+            .expect("PrincipalId::Unknown should be registered");
+        let mut principal_slot = ObjectSlot::new(3);
+        principal_slot.apply_shape_choice(&principal_choice);
+        assert!(matches!(
+            &principal_slot.value_state,
+            super::SlotValueState::Building(SlotBody::Enum { .. })
+        ));
+        principal_slot
+            .select_variant(unknown_variant_index)
+            .expect("PrincipalId::Unknown should be selectable");
+        app.object_slots.push(principal_slot);
+        assert!(app.is_general_value_field(3, 0));
+
+        let mut slot = ObjectSlot::new(1);
+        slot.apply_shape_choice(&choice);
+        assert!(matches!(
+            slot.value_state,
+            super::SlotValueState::Building(SlotBody::Value { .. })
+        ));
+        app.object_slots.push(slot);
+        app.activate_runtime_value(1);
+        assert_eq!(app.mode, UiMode::GeneralValueEditor);
+
+        let mut legacy_slot = ObjectSlot::new(2);
+        legacy_slot.shape_name = Some(choice.label.clone());
+        legacy_slot.value_state = super::SlotValueState::Building(SlotBody::Struct {
+            fields: super::shape_fields_for_thing(choice.thing)
+                .into_iter()
+                .map(super::ObjectFieldState::new)
+                .collect(),
+        });
+        app.general_value_editor = None;
+        app.mode = UiMode::Pool;
+        app.object_slots.push(legacy_slot);
+        app.active_slot_index = 2;
+        app.activate_field_value(0);
+        assert_eq!(app.mode, UiMode::GeneralValueEditor);
+        assert!(matches!(
+            app.slot_by_id(2).map(|slot| &slot.value_state),
+            Some(super::SlotValueState::Building(SlotBody::Value { .. }))
+        ));
+    }
+
+    #[test]
+    fn creating_field_object_keeps_owner_focused_until_field_activation() {
+        let mut app = ObjectBrowserApp::default();
+        let owner_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "EntraGroupsForMemberRequest")
+            .cloned()
+            .expect("EntraGroupsForMemberRequest should be registered");
+        let principal_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "PrincipalId")
+            .cloned()
+            .expect("PrincipalId should be registered");
+        let field_index = super::shape_fields_for_thing(owner_choice.thing)
+            .iter()
+            .position(|field| field.field_name == "principal_id")
+            .expect("request should have a principal_id field");
+        let user_variant_index = super::shape_variants_for_thing(principal_choice.thing)
+            .iter()
+            .position(|variant| variant.variant_name == "UserId")
+            .expect("PrincipalId::UserId should be registered");
+
+        let mut owner_slot = ObjectSlot::new(1);
+        owner_slot.apply_shape_choice(&owner_choice);
+        app.object_slots.push(owner_slot);
+        app.active_slot_index = 0;
+        app.active_row_index = app
+            .focus_row_for_slot_target(1, SlotFocusTarget::FieldValue(field_index))
+            .expect("principal_id field should be focusable");
+
+        app.create_field_object(1, field_index, "PrincipalId", Some(user_variant_index));
+
+        assert_eq!(app.current_slot_id(), Some(1));
+        assert!(matches!(
+            app.slot_field(1, field_index)
+                .map(|field| field.value_state),
+            Some(super::FieldValueState::Linked { slot_id: 2 })
+        ));
+        let value_spans = app
+            .slot_display_rows(1)
+            .into_iter()
+            .find_map(|row| match row {
+                super::SlotDisplayRow::Focusable {
+                    target: SlotFocusTarget::FieldValue(index),
+                    spans,
+                } if index == field_index => Some(spans),
+                _ => None,
+            })
+            .expect("principal_id value row should be rendered");
+        assert_eq!(value_spans[1].style.fg, Some(ratatui::style::Color::Red));
+
+        app.activate_field_value(field_index);
+        assert_eq!(app.current_slot_id(), Some(2));
+    }
+
+    #[test]
+    fn proxied_enum_slots_serialize_the_inner_payload() {
+        let mut app = ObjectBrowserApp::default();
+        let principal_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "PrincipalId")
+            .cloned()
+            .expect("PrincipalId should be registered");
+        let user_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "EntraUserId")
+            .cloned()
+            .expect("EntraUserId should be registered");
+        let user_variant_index = super::shape_variants_for_thing(principal_choice.thing)
+            .iter()
+            .position(|variant| variant.variant_name == "UserId")
+            .expect("PrincipalId::UserId should be registered");
+
+        let mut principal_slot = ObjectSlot::new(1);
+        principal_slot.apply_shape_choice(&principal_choice);
+        principal_slot
+            .select_variant(user_variant_index)
+            .expect("PrincipalId::UserId should be selectable");
+        let mut user_slot = ObjectSlot::new_scalar(2, user_choice.label, user_choice.thing.shape);
+        user_slot.value_state = super::SlotValueState::Building(SlotBody::Value {
+            shape: user_choice.thing.shape,
+            value: Some(serde_json::json!("22bd3607-20b4-41fc-bf14-000000000000")),
+        });
+        app.object_slots.push(principal_slot);
+        app.object_slots.push(user_slot);
+        app.set_field_link(1, 0, 2);
+
+        assert_eq!(
+            app.slot_json_value(1)
+                .expect("principal id should serialize"),
+            serde_json::json!("22bd3607-20b4-41fc-bf14-000000000000")
+        );
     }
 
     #[test]
@@ -9255,7 +10250,8 @@ mod tests {
                     super::BreadcrumbFilter::Shape(filter) => {
                         Some(filter.included_shapes.clone())
                     }
-                    super::BreadcrumbFilter::Value(_) => None,
+                    super::BreadcrumbFilter::Value(_) | super::BreadcrumbFilter::SlotKind(_) =>
+                        None,
                 }),
             Some(BTreeSet::from(["AzureTenantIdResolveRequest".to_string()]))
         );
