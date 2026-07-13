@@ -9532,6 +9532,47 @@ mod tests {
     }
 
     #[test]
+    fn scalar_value_rows_show_only_the_colored_value() {
+        let mut app = ObjectBrowserApp::default();
+        let choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "EntraUserId")
+            .cloned()
+            .expect("EntraUserId should be registered");
+        let mut slot = ObjectSlot::new(1);
+        slot.apply_shape_choice(&choice);
+        slot.value_state = resolved(
+            EntraUserId::from_str("11111111-1111-4111-8111-111111111111").expect("test user id"),
+        );
+        app.object_slots.push(slot);
+
+        let value_spans = app
+            .slot_display_rows(1)
+            .into_iter()
+            .find_map(|row| match row {
+                super::SlotDisplayRow::Focusable {
+                    target: SlotFocusTarget::RuntimeValue,
+                    spans,
+                } => Some(spans),
+                _ => None,
+            })
+            .expect("scalar value row should be rendered");
+        let rendered = value_spans
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect::<String>();
+        assert_eq!(rendered, "11111111-1111-4111-8111-111111111111");
+        assert_eq!(value_spans[0].style.fg, Some(ratatui::style::Color::Green));
+        assert!(
+            value_spans[0]
+                .style
+                .add_modifier
+                .contains(ratatui::style::Modifier::BOLD)
+        );
+    }
+
+    #[test]
     fn cow_fields_discover_producers_for_the_inner_shape() {
         let mut app = ObjectBrowserApp::default();
         let owner_index = app
