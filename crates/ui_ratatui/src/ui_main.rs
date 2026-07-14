@@ -252,6 +252,12 @@ impl ObjectBrowserApp {
                 Ok(Err(error)) => SlotValueState::Failed {
                     message: error.to_string(),
                 },
+                Err(error) if error.is_panic() => {
+                    // A panic in an invocation task is a process-level programming failure, not
+                    // a value-level result. Resume it on the UI thread so Ratatui's panic hook
+                    // restores the terminal and the normal panic report is printed cleanly.
+                    std::panic::resume_unwind(error.into_panic());
+                }
                 Err(error) => SlotValueState::Failed {
                     message: format!("task join failed: {error}"),
                 },
