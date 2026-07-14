@@ -12,7 +12,7 @@ use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(arbitrary::Arbitrary, Facet)]
-pub struct ApplicationRegistrationRequest {
+pub struct ApplicationRegistrationGetRequest {
     pub tenant_id: AzureTenantId,
     pub application_registration_id: EntraApplicationRegistrationId,
 }
@@ -20,14 +20,14 @@ pub struct ApplicationRegistrationRequest {
 pub fn fetch_application_registration(
     tenant_id: AzureTenantId,
     application_registration_id: EntraApplicationRegistrationId,
-) -> ApplicationRegistrationRequest {
-    ApplicationRegistrationRequest {
+) -> ApplicationRegistrationGetRequest {
+    ApplicationRegistrationGetRequest {
         tenant_id,
         application_registration_id,
     }
 }
 
-impl ApplicationRegistrationRequest {
+impl ApplicationRegistrationGetRequest {
     fn url(&self) -> String {
         format!(
             "https://graph.microsoft.com/v1.0/applications/{}",
@@ -37,7 +37,7 @@ impl ApplicationRegistrationRequest {
 }
 
 #[async_trait]
-impl CacheableCommand for ApplicationRegistrationRequest {
+impl CacheableCommand for ApplicationRegistrationGetRequest {
     type Output = EntraApplicationRegistration;
 
     fn cache_key(&self) -> CacheKey {
@@ -63,7 +63,7 @@ impl CacheableCommand for ApplicationRegistrationRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ApplicationRegistrationRequest);
-cloud_terrastodon_registry::register_thing!(ApplicationRegistrationRequest);
-cloud_terrastodon_registry::register_arbitrary!(ApplicationRegistrationRequest);
-cloud_terrastodon_registry::register_into_future!(ApplicationRegistrationRequest => EntraApplicationRegistration);
+cloud_terrastodon_command::impl_cacheable_into_future!(ApplicationRegistrationGetRequest);
+cloud_terrastodon_registry::register_thing!(ApplicationRegistrationGetRequest);
+cloud_terrastodon_registry::register_arbitrary!(ApplicationRegistrationGetRequest);
+cloud_terrastodon_registry::register_into_future!(ApplicationRegistrationGetRequest => EntraApplicationRegistration);

@@ -10,16 +10,16 @@ use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct GroupListRequest {
+pub struct EntraGroupListRequest {
     pub tenant_id: AzureTenantId,
 }
 
-pub fn fetch_all_groups(tenant_id: AzureTenantId) -> GroupListRequest {
-    GroupListRequest { tenant_id }
+pub fn fetch_all_groups(tenant_id: AzureTenantId) -> EntraGroupListRequest {
+    EntraGroupListRequest { tenant_id }
 }
 
 #[async_trait]
-impl CacheableCommand for GroupListRequest {
+impl CacheableCommand for EntraGroupListRequest {
     type Output = Vec<EntraGroup>;
 
     fn cache_key(&self) -> CacheKey {
@@ -46,7 +46,7 @@ impl CacheableCommand for GroupListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(GroupListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupListRequest);
 
 #[cfg(test)]
 mod tests {
@@ -62,6 +62,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(GroupListRequest);
-cloud_terrastodon_registry::register_arbitrary!(GroupListRequest);
-cloud_terrastodon_registry::register_into_future!(GroupListRequest => Vec<EntraGroup>);
+cloud_terrastodon_registry::register_thing!(EntraGroupListRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupListRequest);
+cloud_terrastodon_registry::register_into_future!(EntraGroupListRequest => Vec<EntraGroup>);

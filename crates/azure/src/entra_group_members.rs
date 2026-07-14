@@ -10,11 +10,11 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct GroupMembersListRequest {
+pub struct EntraGroupMembersListRequest {
     pub group_id: EntraGroupId,
     pub tenant_id: AzureTenantId,
 }
-impl GroupMembersListRequest {
+impl EntraGroupMembersListRequest {
     pub fn url(&self) -> String {
         format!(
             "https://graph.microsoft.com/v1.0/groups/{}/members",
@@ -22,8 +22,8 @@ impl GroupMembersListRequest {
         )
     }
 }
-impl From<GroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<Principal>> {
-    fn from(request: GroupMembersListRequest) -> Self {
+impl From<EntraGroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<Principal>> {
+    fn from(request: EntraGroupMembersListRequest) -> Self {
         MicrosoftGraphBatchRequestEntry::new_get(
             format!("group-members-for-{}", request.group_id),
             request.url(),
@@ -34,15 +34,15 @@ impl From<GroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<Princ
 pub fn fetch_group_members(
     tenant_id: AzureTenantId,
     group_id: EntraGroupId,
-) -> GroupMembersListRequest {
-    GroupMembersListRequest {
+) -> EntraGroupMembersListRequest {
+    EntraGroupMembersListRequest {
         group_id,
         tenant_id,
     }
 }
 
 #[async_trait]
-impl CacheableCommand for GroupMembersListRequest {
+impl CacheableCommand for EntraGroupMembersListRequest {
     type Output = Vec<Principal>;
 
     fn cache_key(&self) -> CacheKey {
@@ -76,7 +76,7 @@ impl CacheableCommand for GroupMembersListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(GroupMembersListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListRequest);
 
 #[cfg(test)]
 mod tests {
@@ -103,6 +103,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(GroupMembersListRequest);
-cloud_terrastodon_registry::register_arbitrary!(GroupMembersListRequest);
-cloud_terrastodon_registry::register_into_future!(GroupMembersListRequest => Vec<Principal>);
+cloud_terrastodon_registry::register_thing!(EntraGroupMembersListRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupMembersListRequest);
+cloud_terrastodon_registry::register_into_future!(EntraGroupMembersListRequest => Vec<Principal>);

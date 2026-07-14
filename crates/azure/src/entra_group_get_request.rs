@@ -13,19 +13,19 @@ use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct GroupRequest {
+pub struct EntraGroupGetRequest {
     pub tenant_id: AzureTenantId,
     pub group_id: EntraGroupId,
 }
 
-pub fn fetch_group(tenant_id: AzureTenantId, group_id: EntraGroupId) -> GroupRequest {
-    GroupRequest {
+pub fn fetch_group(tenant_id: AzureTenantId, group_id: EntraGroupId) -> EntraGroupGetRequest {
+    EntraGroupGetRequest {
         tenant_id,
         group_id,
     }
 }
 
-impl GroupRequest {
+impl EntraGroupGetRequest {
     fn url(&self) -> String {
         format!("https://graph.microsoft.com/v1.0/groups/{}", self.group_id)
     }
@@ -49,7 +49,7 @@ pub fn fetch_groups_by_id(
 }
 
 #[async_trait]
-impl CacheableCommand for GroupRequest {
+impl CacheableCommand for EntraGroupGetRequest {
     type Output = EntraGroup;
 
     fn cache_key(&self) -> CacheKey {
@@ -119,11 +119,11 @@ impl CacheableCommand for GroupByIdRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(GroupRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupGetRequest);
 cloud_terrastodon_command::impl_cacheable_into_future!(GroupByIdRequest);
-cloud_terrastodon_registry::register_thing!(GroupRequest);
+cloud_terrastodon_registry::register_thing!(EntraGroupGetRequest);
 cloud_terrastodon_registry::register_thing!(GroupByIdRequest);
-cloud_terrastodon_registry::register_arbitrary!(GroupRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupGetRequest);
 cloud_terrastodon_registry::register_arbitrary!(GroupByIdRequest);
-cloud_terrastodon_registry::register_into_future!(GroupRequest => EntraGroup);
+cloud_terrastodon_registry::register_into_future!(EntraGroupGetRequest => EntraGroup);
 cloud_terrastodon_registry::register_into_future!(GroupByIdRequest => Vec<EntraGroup>);

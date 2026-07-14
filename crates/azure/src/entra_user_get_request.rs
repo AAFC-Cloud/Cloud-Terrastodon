@@ -13,16 +13,16 @@ use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Arbitrary, Facet)]
-pub struct EntraUserRequest {
+pub struct EntraUserGetRequest {
     pub tenant_id: AzureTenantId,
     pub user_id: EntraUserId,
 }
 
-pub fn fetch_entra_user(tenant_id: AzureTenantId, user_id: EntraUserId) -> EntraUserRequest {
-    EntraUserRequest { tenant_id, user_id }
+pub fn fetch_entra_user(tenant_id: AzureTenantId, user_id: EntraUserId) -> EntraUserGetRequest {
+    EntraUserGetRequest { tenant_id, user_id }
 }
 
-impl EntraUserRequest {
+impl EntraUserGetRequest {
     fn url(&self) -> String {
         format!(
             "https://graph.microsoft.com/v1.0/users/{}?$select=businessPhones,displayName,givenName,id,jobTitle,mail,otherMails,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName",
@@ -32,7 +32,7 @@ impl EntraUserRequest {
 }
 
 #[async_trait]
-impl CacheableCommand for EntraUserRequest {
+impl CacheableCommand for EntraUserGetRequest {
     type Output = EntraUser;
 
     fn cache_key(&self) -> CacheKey {
@@ -58,7 +58,7 @@ impl CacheableCommand for EntraUserRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserRequest);
-cloud_terrastodon_registry::register_thing!(EntraUserRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraUserRequest);
-cloud_terrastodon_registry::register_into_future!(EntraUserRequest => EntraUser);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserGetRequest);
+cloud_terrastodon_registry::register_thing!(EntraUserGetRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraUserGetRequest);
+cloud_terrastodon_registry::register_into_future!(EntraUserGetRequest => EntraUser);

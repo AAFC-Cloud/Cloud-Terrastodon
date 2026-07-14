@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct GroupOwnersListRequest {
+pub struct EntraGroupOwnersListRequest {
     pub group_id: EntraGroupId,
     pub tenant_id: AzureTenantId,
 }
@@ -17,15 +17,15 @@ pub struct GroupOwnersListRequest {
 pub fn fetch_group_owners(
     tenant_id: AzureTenantId,
     group_id: EntraGroupId,
-) -> GroupOwnersListRequest {
-    GroupOwnersListRequest {
+) -> EntraGroupOwnersListRequest {
+    EntraGroupOwnersListRequest {
         group_id,
         tenant_id,
     }
 }
 
 #[async_trait]
-impl CacheableCommand for GroupOwnersListRequest {
+impl CacheableCommand for EntraGroupOwnersListRequest {
     type Output = Vec<Principal>;
 
     fn cache_key(&self) -> CacheKey {
@@ -55,7 +55,7 @@ impl CacheableCommand for GroupOwnersListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(GroupOwnersListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupOwnersListRequest);
 
 #[cfg(test)]
 mod tests {
@@ -82,6 +82,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(GroupOwnersListRequest);
-cloud_terrastodon_registry::register_arbitrary!(GroupOwnersListRequest);
-cloud_terrastodon_registry::register_into_future!(GroupOwnersListRequest => Vec<Principal>);
+cloud_terrastodon_registry::register_thing!(EntraGroupOwnersListRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupOwnersListRequest);
+cloud_terrastodon_registry::register_into_future!(EntraGroupOwnersListRequest => Vec<Principal>);

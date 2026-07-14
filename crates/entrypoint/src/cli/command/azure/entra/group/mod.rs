@@ -1,11 +1,11 @@
-pub mod azure_entra_group;
-pub mod azure_entra_group_list;
-pub mod azure_entra_group_show;
+pub mod azure_entra_group_cli;
+pub mod azure_entra_group_list_cli;
+pub mod azure_entra_group_show_cli;
 pub mod member;
 
-pub use azure_entra_group::AzureEntraGroupCommand;
-pub use azure_entra_group_list::AzureEntraGroupListArgs;
-pub use azure_entra_group_show::AzureEntraGroupShowArgs;
+pub use azure_entra_group_cli::AzureEntraGroupCommand;
+pub use azure_entra_group_list_cli::AzureEntraGroupListArgs;
+pub use azure_entra_group_show_cli::AzureEntraGroupShowArgs;
 use eyre::Result;
 pub use member::AzureEntraGroupMemberArgs;
 

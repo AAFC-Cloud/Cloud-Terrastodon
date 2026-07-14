@@ -1,4 +1,4 @@
-use crate::GroupMembersListRequest;
+use crate::EntraGroupMembersListRequest;
 use crate::MicrosoftGraphBatchRequest;
 use crate::MicrosoftGraphResponse;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct GroupMembersListBatchRequest {
+pub struct EntraGroupMembersListBatchRequest {
     pub group_ids: Vec<EntraGroupId>,
     pub tenant_id: AzureTenantId,
 }
@@ -22,15 +22,15 @@ pub struct GroupMembersListBatchRequest {
 pub fn fetch_group_members_batch(
     tenant_id: AzureTenantId,
     group_ids: impl IntoIterator<Item = EntraGroupId>,
-) -> GroupMembersListBatchRequest {
-    GroupMembersListBatchRequest {
+) -> EntraGroupMembersListBatchRequest {
+    EntraGroupMembersListBatchRequest {
         group_ids: group_ids.into_iter().collect(),
         tenant_id,
     }
 }
 
 #[async_trait]
-impl CacheableCommand for GroupMembersListBatchRequest {
+impl CacheableCommand for EntraGroupMembersListBatchRequest {
     type Output = HashMap<EntraGroupId, Vec<Principal>>;
 
     fn cache_key(&self) -> CacheKey {
@@ -53,7 +53,7 @@ impl CacheableCommand for GroupMembersListBatchRequest {
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let cache_key = self.cache_key();
-        let GroupMembersListBatchRequest {
+        let EntraGroupMembersListBatchRequest {
             group_ids,
             tenant_id,
         } = self;
@@ -66,7 +66,7 @@ impl CacheableCommand for GroupMembersListBatchRequest {
 
         // Add the request for each group
         for group_id in &group_ids {
-            batch_request.add(GroupMembersListRequest {
+            batch_request.add(EntraGroupMembersListRequest {
                 group_id: *group_id,
                 tenant_id,
             });
@@ -94,8 +94,8 @@ impl CacheableCommand for GroupMembersListBatchRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(GroupMembersListBatchRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListBatchRequest);
 
-cloud_terrastodon_registry::register_thing!(GroupMembersListBatchRequest);
-cloud_terrastodon_registry::register_arbitrary!(GroupMembersListBatchRequest);
-cloud_terrastodon_registry::register_into_future!(GroupMembersListBatchRequest => HashMap<EntraGroupId, Vec<Principal>>);
+cloud_terrastodon_registry::register_thing!(EntraGroupMembersListBatchRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupMembersListBatchRequest);
+cloud_terrastodon_registry::register_into_future!(EntraGroupMembersListBatchRequest => HashMap<EntraGroupId, Vec<Principal>>);

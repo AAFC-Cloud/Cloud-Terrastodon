@@ -1,5 +1,5 @@
-use super::azure_entra_group_list::AzureEntraGroupListArgs;
-use super::azure_entra_group_show::AzureEntraGroupShowArgs;
+use super::azure_entra_group_list_cli::AzureEntraGroupListArgs;
+use super::azure_entra_group_show_cli::AzureEntraGroupShowArgs;
 use super::member::AzureEntraGroupMemberArgs;
 use eyre::Result;
 

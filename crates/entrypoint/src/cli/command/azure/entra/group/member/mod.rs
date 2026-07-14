@@ -1,10 +1,10 @@
-pub mod azure_entra_group_member_add;
-pub mod azure_entra_group_member_list;
-pub mod azure_entra_group_member_remove;
+pub mod azure_entra_group_member_add_cli;
+pub mod azure_entra_group_member_list_cli;
+pub mod azure_entra_group_member_remove_cli;
 
-pub use azure_entra_group_member_add::AzureEntraGroupMemberAddArgs;
-pub use azure_entra_group_member_list::AzureEntraGroupMemberListArgs;
-pub use azure_entra_group_member_remove::AzureEntraGroupMemberRemoveArgs;
+pub use azure_entra_group_member_add_cli::AzureEntraGroupMemberAddArgs;
+pub use azure_entra_group_member_list_cli::AzureEntraGroupMemberListArgs;
+pub use azure_entra_group_member_remove_cli::AzureEntraGroupMemberRemoveArgs;
 use eyre::Result;
 
 /// Group member operations (add/remove)

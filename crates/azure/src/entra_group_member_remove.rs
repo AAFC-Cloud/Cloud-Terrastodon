@@ -8,24 +8,24 @@ use cloud_terrastodon_command::async_trait;
 use std::path::PathBuf;
 use std::time::Duration;
 
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct GroupMemberAddRequest {
+#[derive(Debug, arbitrary::Arbitrary, facet::Facet)]
+pub struct EntraGroupMemberRemoveRequest {
     pub group_id: EntraGroupId,
     pub member_id: PrincipalId,
 }
 
-pub fn add_group_member(
+pub fn remove_group_member(
     group_id: impl Into<EntraGroupId>,
     member_id: impl Into<PrincipalId>,
-) -> GroupMemberAddRequest {
-    GroupMemberAddRequest {
+) -> EntraGroupMemberRemoveRequest {
+    EntraGroupMemberRemoveRequest {
         group_id: group_id.into(),
         member_id: member_id.into(),
     }
 }
 
 #[async_trait]
-impl CacheableCommand for GroupMemberAddRequest {
+impl CacheableCommand for EntraGroupMemberRemoveRequest {
     type Output = ();
 
     fn cache_key(&self) -> CacheKey {
@@ -35,7 +35,7 @@ impl CacheableCommand for GroupMemberAddRequest {
                 "ad",
                 "group",
                 "member",
-                "add",
+                "remove",
                 self.group_id.to_string().as_str(),
                 self.member_id.to_string().as_str(),
             ]),
@@ -49,7 +49,7 @@ impl CacheableCommand for GroupMemberAddRequest {
             "ad",
             "group",
             "member",
-            "add",
+            "remove",
             "--group",
             self.group_id.to_string().as_str(),
             "--member-id",
@@ -61,8 +61,8 @@ impl CacheableCommand for GroupMemberAddRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(GroupMemberAddRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMemberRemoveRequest);
 
-cloud_terrastodon_registry::register_thing!(GroupMemberAddRequest);
-cloud_terrastodon_registry::register_arbitrary!(GroupMemberAddRequest);
-cloud_terrastodon_registry::register_into_future!(GroupMemberAddRequest => ());
+cloud_terrastodon_registry::register_thing!(EntraGroupMemberRemoveRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupMemberRemoveRequest);
+cloud_terrastodon_registry::register_into_future!(EntraGroupMemberRemoveRequest => ());
