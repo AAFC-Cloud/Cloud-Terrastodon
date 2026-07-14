@@ -1,7 +1,9 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraApplicationRegistration;
+use cloud_terrastodon_azure::EntraApplicationRegistrationId;
 use cloud_terrastodon_azure::fetch_all_application_registrations;
+use cloud_terrastodon_azure::fetch_application_registration;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -23,13 +25,32 @@ impl AzureEntraApplicationRegistrationShowArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.application_registration, %tenant_id, "Fetching application registrations");
+        let needle = self.application_registration.trim();
+
+        if let Ok(application_registration_id) = needle.parse::<EntraApplicationRegistrationId>() {
+            match fetch_application_registration(tenant_id, application_registration_id).await {
+                Ok(application) => {
+                    let stdout = std::io::stdout();
+                    let mut handle = stdout.lock();
+                    cloud_terrastodon_command::to_writer_pretty(&mut handle, &application)?;
+                    handle.write_all(b"\n")?;
+                    return Ok(());
+                }
+                Err(error) => {
+                    info!(
+                        %error,
+                        "Object-id lookup did not match; checking alternate application identifiers"
+                    );
+                }
+            }
+        }
+
         let applications = fetch_all_application_registrations(tenant_id).await?;
         info!(
             count = applications.len(),
             "Fetched application registrations"
         );
 
-        let needle = self.application_registration.trim();
         let mut matches = applications
             .into_iter()
             .filter(|application| matches_application_registration(application, needle))

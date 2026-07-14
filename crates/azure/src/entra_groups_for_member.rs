@@ -1,4 +1,4 @@
-use crate::fetch_all_groups;
+use crate::fetch_groups_by_id;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_azure_types::EntraGroupId;
@@ -68,11 +68,7 @@ impl CacheableCommand for EntraGroupsForMemberRequest {
         .await?;
 
         let group_ids: HashSet<_> = response.value.into_iter().collect();
-        let groups = fetch_all_groups(self.tenant_id)
-            .await?
-            .into_iter()
-            .filter(|group| group_ids.contains(&group.id))
-            .collect::<Vec<_>>();
+        let groups = fetch_groups_by_id(self.tenant_id, group_ids).await?;
         debug!(
             tenant_id = %self.tenant_id,
             principal_id = %self.principal_id,

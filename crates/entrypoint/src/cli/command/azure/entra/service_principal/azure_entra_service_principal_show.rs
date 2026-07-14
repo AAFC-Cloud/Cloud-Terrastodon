@@ -1,7 +1,9 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraServicePrincipal;
+use cloud_terrastodon_azure::EntraServicePrincipalId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
+use cloud_terrastodon_azure::fetch_service_principal;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -23,13 +25,32 @@ impl AzureEntraSpShowArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.service_principal, %tenant_id, "Fetching service principals");
+        let needle = self.service_principal.trim();
+
+        if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalId>() {
+            match fetch_service_principal(tenant_id, service_principal_id).await {
+                Ok(service_principal) => {
+                    let stdout = std::io::stdout();
+                    let mut handle = stdout.lock();
+                    cloud_terrastodon_command::to_writer_pretty(&mut handle, &service_principal)?;
+                    handle.write_all(b"\n")?;
+                    return Ok(());
+                }
+                Err(error) => {
+                    info!(
+                        %error,
+                        "Object-id lookup did not match; checking alternate service-principal identifiers"
+                    );
+                }
+            }
+        }
+
         let service_principals = fetch_all_service_principals(tenant_id).await?;
         info!(
             count = service_principals.len(),
             "Fetched service principals"
         );
 
-        let needle = self.service_principal.trim();
         let mut matches = service_principals
             .into_iter()
             .filter(|service_principal| matches_service_principal(service_principal, needle))

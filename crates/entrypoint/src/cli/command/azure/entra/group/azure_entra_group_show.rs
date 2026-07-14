@@ -8,10 +8,10 @@ use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
 use cloud_terrastodon_azure::RoleDefinitionsAndAssignmentsIterTools;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_groups;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::fetch_group_owners;
+use cloud_terrastodon_azure::fetch_groups_by_id;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::to_writer_pretty;
 use color_eyre::owo_colors::OwoColorize;
@@ -89,7 +89,7 @@ impl AzureEntraGroupShowArgs {
 
         let tenant_id = self.tenant.resolve().await?;
         info!(count = ids.len(), %tenant_id, "Fetching Entra groups");
-        let groups = fetch_all_groups(tenant_id).await?;
+        let groups = fetch_groups_by_id(tenant_id, ids.clone()).await?;
 
         // Map by id for fast lookup
         let mut map: HashMap<EntraGroupId, EntraGroup> =

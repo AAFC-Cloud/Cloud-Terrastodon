@@ -10,6 +10,8 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
+const MAX_BATCH_REQUESTS: usize = 20;
+
 pub struct MicrosoftGraphBatchRequest<REQ> {
     /// The requests to be made in the batch
     pub requests: Vec<MicrosoftGraphBatchRequestEntry<REQ>>,
@@ -61,27 +63,84 @@ impl<REQ> MicrosoftGraphBatchRequest<REQ> {
             cache_key,
             tenant_id,
         } = self;
-        let body = MicrosoftGraphBatchRequestWire {
-            requests: requests
-                .into_iter()
-                .map(MicrosoftGraphBatchRequestEntryWire::from)
-                .collect(),
-        };
-        let mut request =
-            RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
-                .tenant(tenant_id)
-                .body(
-                    facet_json::to_string_pretty(&body)
-                        .map_err(|error| eyre::eyre!("{error:?}"))?,
-                );
-        request.cache_key = cache_key;
-        let response = request.receive::<MicrosoftGraphBatchWireResponse>().await?;
-        let mut response = response.into_typed::<RESP>()?;
-        // reorder the responses to match the order of the requests
-        response
-            .responses
-            .sort_by_key(|r| ids.iter().position(|id| id == &r.id).unwrap_or(usize::MAX));
-        Ok(response)
+        if requests.is_empty() {
+            return Ok(MicrosoftGraphBatchResponse {
+                responses: Vec::new(),
+            });
+        }
+
+        let use_base_cache_key = requests.len() <= MAX_BATCH_REQUESTS;
+        let mut responses = Vec::with_capacity(requests.len());
+        let mut requests = requests.into_iter();
+        let mut ids = ids.into_iter();
+        let mut batch_index = 0;
+        loop {
+            let mut batch_requests = Vec::with_capacity(MAX_BATCH_REQUESTS);
+            let mut batch_ids = Vec::with_capacity(MAX_BATCH_REQUESTS);
+            for _ in 0..MAX_BATCH_REQUESTS {
+                let Some(request) = requests.next() else {
+                    break;
+                };
+                let Some(id) = ids.next() else {
+                    return Err(eyre::eyre!(
+                        "Microsoft Graph batch request IDs are out of sync with requests"
+                    ));
+                };
+                batch_ids.push(id);
+                batch_requests.push(request);
+            }
+            if batch_requests.is_empty() {
+                if ids.next().is_some() {
+                    return Err(eyre::eyre!(
+                        "Microsoft Graph batch request IDs are out of sync with requests"
+                    ));
+                }
+                break;
+            }
+
+            let body = MicrosoftGraphBatchRequestWire {
+                requests: batch_requests
+                    .into_iter()
+                    .map(|request| MicrosoftGraphBatchRequestEntryWire {
+                        id: request.id,
+                        method: request.method.as_str().to_string(),
+                        url: request.url,
+                        headers: request.headers,
+                        body: request.body,
+                    })
+                    .collect(),
+            };
+            let mut request =
+                RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
+                    .tenant(tenant_id)
+                    .body(
+                        facet_json::to_string_pretty(&body)
+                            .map_err(|error| eyre::eyre!("{error:?}"))?,
+                    );
+            request.cache_key = cache_key.as_ref().map(|cache_key| {
+                if use_base_cache_key {
+                    cache_key.clone()
+                } else {
+                    CacheKey {
+                        path: cache_key.path.join(batch_index.to_string()),
+                        valid_for: cache_key.valid_for,
+                    }
+                }
+            });
+            let response = request.receive::<MicrosoftGraphBatchWireResponse>().await?;
+            let mut response = response.into_typed::<RESP>()?;
+            // Reorder each response chunk to match the order of its requests.
+            response.responses.sort_by_key(|response| {
+                batch_ids
+                    .iter()
+                    .position(|id| id == &response.id)
+                    .unwrap_or(usize::MAX)
+            });
+            responses.extend(response.responses);
+            batch_index += 1;
+        }
+
+        Ok(MicrosoftGraphBatchResponse { responses })
     }
 }
 
