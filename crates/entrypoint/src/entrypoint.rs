@@ -44,11 +44,20 @@ pub fn entrypoint(
     }
 
     // Configure tracing
+    let log_filter = match cli.global_args.debug {
+        true => LevelFilter::DEBUG,
+        false => LevelFilter::from_str(&cli.global_args.log_filter)?,
+    };
+    let log_file_filter = cli
+        .global_args
+        .log_file_filter
+        .as_deref()
+        .map(LevelFilter::from_str)
+        .transpose()?;
+
     init_tracing(
-        match cli.global_args.debug {
-            true => LevelFilter::DEBUG,
-            false => LevelFilter::from_str(&cli.global_args.log_filter)?,
-        },
+        log_filter,
+        log_file_filter,
         cli.global_args.log_file.as_ref(),
         matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_))),
     )?;

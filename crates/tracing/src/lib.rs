@@ -24,21 +24,31 @@ use tracing_subscriber::util::SubscriberInitExt;
 //     EVENT_COLLECTOR.clone()
 // }
 
-/// Initialize tracing for the whole application, registering a stderr layer, an
-/// optional JSON file writer, an env filter, and the GUI event collector so that
-/// `egui_tracing::Logs` works.
+/// Initialize tracing for the whole application, registering independently filtered stderr and
+/// optional JSON file layers, and the GUI event collector so that `egui_tracing::Logs` works.
 pub fn init_tracing(
     level: impl Into<Directive>,
+    file_level: Option<impl Into<Directive>>,
     json_path: Option<impl AsRef<Path>>,
     #[expect(unused)] // TODO(EGUI-TRACING)
     enable_egui_collector: bool,
 ) -> Result<()> {
-    tracing_subscriber::registry()
-        .with(
+    let level = level.into();
+    let stderr_filter = EnvFilter::builder()
+        .with_default_directive(level.clone())
+        .from_env_lossy();
+    let file_filter = file_level
+        .map(Into::into)
+        .map(|level| {
+            // An explicitly supplied file filter is independent of RUST_LOG. When the option is
+            // omitted, the file layer below reuses the effective stderr filter instead.
             EnvFilter::builder()
-                .with_default_directive(level.into())
-                .from_env_lossy(),
-        )
+                .with_default_directive(level)
+                .parse_lossy("")
+        })
+        .unwrap_or_else(|| stderr_filter.clone());
+
+    tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
                 .with_file(cfg!(debug_assertions))
@@ -47,7 +57,8 @@ pub fn init_tracing(
                 .with_writer(std::io::stderr)
                 .pretty()
                 .without_time()
-                .with_ansi(std::io::stderr().is_terminal()),
+                .with_ansi(std::io::stderr().is_terminal())
+                .with_filter(stderr_filter),
         )
         // TODO(EGUI-TRACING)
         // .with({
@@ -91,7 +102,8 @@ pub fn init_tracing(
                 let json_layer = tracing_subscriber::fmt::layer()
                     .event_format(tracing_subscriber::fmt::format().json())
                     .with_writer(json_writer)
-                    .boxed();
+                    .boxed()
+                    .with_filter(file_filter);
 
                 info!(?json_log_path, "JSON log output initialized");
                 Some(json_layer)

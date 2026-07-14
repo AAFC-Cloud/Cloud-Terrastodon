@@ -17,6 +17,11 @@ pub struct GlobalArgs {
     )]
     pub log_filter: String,
 
+    /// Log level filter directive for structured file output. If omitted, the regular log filter
+    /// is also used for the file output.
+    #[facet(figue::named, figue::label = "DIRECTIVE")]
+    pub log_file_filter: Option<String>,
+
     /// Write structured ndjson logs to this file or directory. If a directory is provided,
     /// a filename will be generated there. If omitted, no JSON log file will be written.
     #[facet(figue::named, figue::label = "FILE|DIR")]
@@ -27,6 +32,7 @@ impl<'a> Arbitrary<'a> for GlobalArgs {
         Ok(Self {
             debug: bool::arbitrary(u)?,
             log_filter: String::arbitrary(u)?,
+            log_file_filter: Option::<String>::arbitrary(u)?,
             log_file: Option::<String>::arbitrary(u)?.map(std::path::PathBuf::from),
         })
     }
