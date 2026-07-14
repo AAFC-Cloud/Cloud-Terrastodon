@@ -97,6 +97,9 @@ facet-value = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd4496
 figue = { git = "https://github.com/TeamDman/facet.git", rev = "9d2fdd449689e493ed8bab5c228e65d8635dcab0", package = "figue", features = ["arbitrary"] }
 linkme = { version = "0.3.36" }
 
+[patch."https://github.com/TeamDman/facet.git"]
+facet-core = { path = "vendor/facet-core" }
+
 [workspace.dependencies.cloud_terrastodon_pathing]
 version = "0.36.0"        # CT_VERSION
 path = "./crates/pathing"

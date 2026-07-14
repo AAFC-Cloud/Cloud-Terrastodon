@@ -266,6 +266,9 @@ impl ObjectBrowserApp {
                 SlotValueState::Building(_) | SlotValueState::Pending(_) => {
                     unreachable!("a completed invocation only resolves or fails")
                 }
+                SlotValueState::Consumed => {
+                    unreachable!("a completed invocation cannot produce a consumed result")
+                }
             });
             slot.value_state = next_state;
             changed = true;
@@ -2259,6 +2262,7 @@ impl ObjectBrowserApp {
                 match target {
                     SlotFocusTarget::Shape => self.open_shape_picker(),
                     SlotFocusTarget::ViewPointer => self.jump_to_view_owner(slot_id),
+                    SlotFocusTarget::BorrowSource => self.activate_borrow_source(slot_id),
                     SlotFocusTarget::Variant => self.open_variant_picker(),
                     SlotFocusTarget::FieldType(field_index) => {
                         self.describe_field_type_actions(field_index)
@@ -2268,6 +2272,9 @@ impl ObjectBrowserApp {
                     }
                     SlotFocusTarget::Inlink(inlink_index) => {
                         self.activate_inlink(slot_id, inlink_index)
+                    }
+                    SlotFocusTarget::Borrow(borrow_index) => {
+                        self.activate_borrow(slot_id, borrow_index)
                     }
                     SlotFocusTarget::CreatedFor => self.activate_created_for(slot_id),
                     SlotFocusTarget::ProducedBy => self.activate_produced_by(slot_id),
@@ -2598,11 +2605,45 @@ impl ObjectBrowserApp {
             owner_slot_id,
             field_index,
             selected_slot_id,
+            self.can_borrow_into_field(owner_slot_id, field_index, selected_slot_id),
         ));
         self.mode = UiMode::LinkActionPicker;
         self.status_message =
-            "Choose whether the selected object should move into the field or stay where it is."
+            "Choose whether to borrow, move, or clone the selected object into the field."
                 .to_string();
+    }
+
+    fn can_borrow_into_field(
+        &self,
+        owner_slot_id: usize,
+        field_index: usize,
+        selected_slot_id: usize,
+    ) -> bool {
+        let Some(field_shape) = self.field_shape_for_field(owner_slot_id, field_index) else {
+            return false;
+        };
+        let facet::Def::Pointer(pointer) = field_shape.def else {
+            return false;
+        };
+        if pointer.known != Some(facet::KnownPointer::Cow)
+            || !matches!(
+                self.slot_by_id(selected_slot_id),
+                Some(ObjectSlot {
+                    kind: SlotKind::Owned,
+                    provenance: ValueProvenance::Owned,
+                    value_state: SlotValueState::ResolvedValue { .. },
+                    ..
+                })
+            )
+        {
+            return false;
+        }
+        let Some(source_shape_name) = self.slot_shape_name(selected_slot_id) else {
+            return false;
+        };
+        pointer
+            .pointee()
+            .is_some_and(|pointee| self.shape_for_shape_name(source_shape_name).is_some_and(|source| source.is_shape(pointee)))
     }
 
     fn activate_slot_action(&mut self, slot_id: usize, action: SlotAction) {
@@ -2611,9 +2652,60 @@ impl ObjectBrowserApp {
             SlotAction::Delete => self.delete_slot(slot_id),
             SlotAction::Clone => self.clone_slot(slot_id),
             SlotAction::Take => self.take_slot(slot_id),
+            SlotAction::ToOwned => self.promote_slot_to_owned(slot_id),
             SlotAction::Invoke => self.invoke_slot(slot_id),
+            SlotAction::InvokeConsume => self.invoke_consuming_slot(slot_id),
             SlotAction::InvokeArbitrary => self.invoke_arbitrary_slot(slot_id),
         }
+    }
+
+    fn can_consume_slot(&self, slot_id: usize) -> bool {
+        let Some(slot) = self.slot_by_id(slot_id) else {
+            return false;
+        };
+        matches!(slot.kind, SlotKind::Owned)
+            && !self.slot_has_borrowers(slot_id)
+            && matches!(
+                slot.value_state,
+                SlotValueState::Building(_) | SlotValueState::ResolvedValue { .. }
+            )
+            && self.slot_completion(slot_id) == SlotCompletion::Complete
+    }
+
+    fn can_promote_slot(&self, slot_id: usize) -> bool {
+        let Some(shape) = self
+            .slot_shape_name(slot_id)
+            .and_then(|shape_name| self.shape_for_shape_name(shape_name))
+        else {
+            return false;
+        };
+        matches!(shape.def, facet::Def::Pointer(pointer) if pointer.known == Some(facet::KnownPointer::Cow))
+            && cloud_terrastodon_registry::borrowed_pointer_kind_for_shape(shape).is_some()
+            && self.slot_runtime_value(slot_id).is_ok()
+    }
+
+    fn promote_slot_to_owned(&mut self, slot_id: usize) {
+        let value = match self.slot_runtime_value(slot_id) {
+            Ok(value) => value,
+            Err(error) => {
+                self.status_message = format!("Could not promote slot {}: {error}", slot_id);
+                return;
+            }
+        };
+        let value = match value.promote_to_owned() {
+            Ok(value) => value,
+            Err(error) => {
+                self.status_message = format!("Could not promote slot {} to owned: {error}", slot_id);
+                return;
+            }
+        };
+        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+            slot.provenance = ValueProvenance::Owned;
+            slot.kind = SlotKind::Owned;
+            slot.value_state = SlotValueState::ResolvedValue { value };
+        }
+        self.invalidate_all_slot_display_caches();
+        self.status_message = format!("Promoted slot {} to its owned Cow representation.", slot_id);
     }
 
     fn open_rename_slot(&mut self, slot_id: usize) {
@@ -2643,6 +2735,18 @@ impl ObjectBrowserApp {
     }
 
     fn delete_slot(&mut self, slot_id: usize) {
+        if self.slot_has_borrowers(slot_id) {
+            self.status_message = format!(
+                "Cannot delete slot {} while borrow slots {} still exist.",
+                slot_id,
+                self.slot_borrow_slots(slot_id)
+                    .into_iter()
+                    .map(|id| id.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            return;
+        }
         let Some(slot_kind) = self.slot_by_id(slot_id).map(|slot| slot.kind.clone()) else {
             return;
         };
@@ -2699,6 +2803,7 @@ impl ObjectBrowserApp {
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
             slot.name = snapshot.name;
             slot.kind = SlotKind::Owned;
+            slot.provenance = snapshot.provenance;
             slot.shape_name = snapshot.shape_name;
             slot.value_state = match snapshot.value_state {
                 SlotSnapshotValueState::Building(body) => SlotValueState::Building(body),
@@ -2771,6 +2876,38 @@ impl ObjectBrowserApp {
                 ));
                 self.mode = UiMode::FunctionPicker;
                 self.status_message = "Select a function to invoke.".to_string();
+            }
+        }
+    }
+
+    fn invoke_consuming_slot(&mut self, slot_id: usize) {
+        let functions = self.applicable_functions_for_slot(slot_id);
+        if !self.can_consume_slot(slot_id) {
+            self.status_message = format!(
+                "Slot {} cannot be consumed: it must be owned, ready, and free of active borrows.",
+                slot_id
+            );
+            return;
+        }
+        match functions.as_slice() {
+            [] => {
+                self.status_message =
+                    "No registered functions are available for this slot.".to_string()
+            }
+            [function] => self.invoke_registered_function_consuming(slot_id, function),
+            _ => {
+                let labels = functions
+                    .iter()
+                    .map(|function| self.function_picker_label(function))
+                    .collect();
+                self.function_picker = Some(FunctionPickerState::new(
+                    FunctionPickerTarget::InvokeConsumedSlot(slot_id),
+                    functions,
+                    labels,
+                ));
+                self.mode = UiMode::FunctionPicker;
+                self.status_message =
+                    "Select a function to invoke while consuming this slot.".to_string();
             }
         }
     }
@@ -2853,6 +2990,9 @@ impl ObjectBrowserApp {
             FunctionPickerTarget::InvokeSlot(slot_id) => {
                 self.invoke_registered_function(slot_id, function)
             }
+            FunctionPickerTarget::InvokeConsumedSlot(slot_id) => {
+                self.invoke_registered_function_consuming(slot_id, function)
+            }
             FunctionPickerTarget::InvokeArbitrarySlot(slot_id) => {
                 self.invoke_arbitrary_registered_function(slot_id, function)
             }
@@ -2860,6 +3000,23 @@ impl ObjectBrowserApp {
     }
 
     fn invoke_registered_function(&mut self, slot_id: usize, function: &'static Function) {
+        self.invoke_registered_function_inner(slot_id, function, false);
+    }
+
+    fn invoke_registered_function_consuming(
+        &mut self,
+        slot_id: usize,
+        function: &'static Function,
+    ) {
+        self.invoke_registered_function_inner(slot_id, function, true);
+    }
+
+    fn invoke_registered_function_inner(
+        &mut self,
+        slot_id: usize,
+        function: &'static Function,
+        consume_slot: bool,
+    ) {
         let Some(shape_name) = self.slot_shape_name(slot_id).map(str::to_string) else {
             self.status_message = "Pick a shape before invoking.".to_string();
             return;
@@ -2868,7 +3025,11 @@ impl ObjectBrowserApp {
             self.status_message = format!("{shape_name} is not a registered input shape.");
             return;
         };
-        let runtime_value = match self.slot_runtime_value(slot_id) {
+        let runtime_value = match if consume_slot {
+            self.take_slot_runtime_value(slot_id)
+        } else {
+            self.slot_runtime_value(slot_id)
+        } {
             Ok(value) => value,
             Err(error) => {
                 self.status_message = format!("Could not invoke slot {}: {error}", slot_id);
@@ -2889,6 +3050,13 @@ impl ObjectBrowserApp {
                 .invoke_ref_boxed(input.as_ref())
                 .map(FunctionInvocation::Ready),
             ReceiverMode::ByMut => {
+                if !consume_slot && self.slot_has_borrowers(slot_id) {
+                    self.status_message = format!(
+                        "Mutable invocation is blocked while slot {} has active borrows.",
+                        slot_id
+                    );
+                    return;
+                }
                 if !matches!(
                     self.slot_by_id(slot_id).map(|slot| &slot.kind),
                     Some(SlotKind::Owned)
@@ -2904,10 +3072,14 @@ impl ObjectBrowserApp {
                         return;
                     }
                 };
-                if let Err(error) = self.update_slot_runtime_from_typed(slot_id, thing, input) {
-                    self.status_message =
-                        format!("Function updated the input but it could not be stored: {error}");
-                    return;
+                if !consume_slot {
+                    if let Err(error) = self.update_slot_runtime_from_typed(slot_id, thing, input)
+                    {
+                        self.status_message = format!(
+                            "Function updated the input but it could not be stored: {error}"
+                        );
+                        return;
+                    }
                 }
                 Ok(FunctionInvocation::Ready(output))
             }
@@ -3339,7 +3511,7 @@ impl ObjectBrowserApp {
                 ))
             })
         else {
-            self.status_message = "No move/clone action is selected.".to_string();
+            self.status_message = "No link action is selected.".to_string();
             return;
         };
 
@@ -3347,6 +3519,9 @@ impl ObjectBrowserApp {
         self.mode = UiMode::Pool;
 
         match action {
+            LinkAction::Borrow => {
+                self.borrow_slot_into_field(owner_slot_id, field_index, selected_slot_id)
+            }
             LinkAction::Move => {
                 self.move_slot_into_field(owner_slot_id, field_index, selected_slot_id)
             }
@@ -3604,6 +3779,13 @@ impl ObjectBrowserApp {
     }
     fn set_scalar_slot_value(&mut self, slot_id: usize, value: RuntimeValue) {
         let data_slot_id = self.data_slot_id_for(slot_id).unwrap_or(slot_id);
+        if self.slot_has_borrowers(data_slot_id) {
+            self.status_message = format!(
+                "Cannot edit slot {} while it has active borrows.",
+                data_slot_id
+            );
+            return;
+        }
         if let Some(slot) = self.slot_by_id_mut(data_slot_id) {
             match &mut slot.value_state {
                 SlotValueState::Building(SlotBody::Value { value: current, .. }) => {
@@ -3687,6 +3869,13 @@ impl ObjectBrowserApp {
         field_index: usize,
         selected_slot_id: usize,
     ) {
+        if self.slot_has_borrowers(selected_slot_id) {
+            self.status_message = format!(
+                "Cannot move slot {} while it has active borrows.",
+                selected_slot_id
+            );
+            return;
+        }
         if owner_slot_id == selected_slot_id {
             self.status_message =
                 "Moving a slot into one of its own fields is not supported yet.".to_string();
@@ -3717,6 +3906,48 @@ impl ObjectBrowserApp {
         self.status_message = format!(
             "Moved slot {} into slot {}.{}.",
             selected_slot_id, owner_slot_id, field_name
+        );
+    }
+
+    fn borrow_slot_into_field(
+        &mut self,
+        owner_slot_id: usize,
+        field_index: usize,
+        selected_slot_id: usize,
+    ) {
+        if !self.can_borrow_into_field(owner_slot_id, field_index, selected_slot_id) {
+            self.status_message =
+                "The selected slot is not a resolved owned source for this Cow field."
+                    .to_string();
+            return;
+        }
+        let Some(field_name) = self
+            .slot_field(owner_slot_id, field_index)
+            .map(|field| field.info.field_name)
+        else {
+            return;
+        };
+        let Some(pointer_shape) = self.field_shape_for_field(owner_slot_id, field_index) else {
+            return;
+        };
+        let Some(source_slot_id) = self.data_slot_id_for(selected_slot_id) else {
+            return;
+        };
+        let slot_id = self.allocate_slot_id();
+        self.object_slots.push(ObjectSlot::new_borrow_view(
+            slot_id,
+            source_slot_id,
+            owner_slot_id,
+            field_index,
+            field_name,
+            pointer_shape,
+        ));
+        self.set_field_link(owner_slot_id, field_index, slot_id);
+        self.invalidate_all_slot_display_caches();
+        self.jump_to_slot_target(owner_slot_id, SlotFocusTarget::FieldValue(field_index));
+        self.status_message = format!(
+            "Created borrow slot {} from slot {} for slot {}.{}.",
+            slot_id, source_slot_id, owner_slot_id, field_name
         );
     }
 
@@ -3922,8 +4153,20 @@ impl ObjectBrowserApp {
     }
 
     fn slot_snapshot(&self, slot_id: usize) -> Option<SlotSnapshot> {
-        let data_slot = self.slot_by_id(self.data_slot_id_for(slot_id)?)?;
         let display_slot = self.slot_by_id(slot_id)?;
+        if matches!(display_slot.provenance, ValueProvenance::Borrowed { .. })
+            && matches!(display_slot.kind, SlotKind::View(_))
+        {
+            return Some(SlotSnapshot {
+                name: display_slot.name.clone(),
+                shape_name: display_slot.shape_name.clone(),
+                provenance: display_slot.provenance,
+                value_state: SlotSnapshotValueState::ResolvedValue {
+                    value: self.slot_runtime_value(slot_id).ok()?,
+                },
+            });
+        }
+        let data_slot = self.slot_by_id(self.data_slot_id_for(slot_id)?)?;
         let value_state = match &data_slot.value_state {
             SlotValueState::Building(body) => {
                 SlotSnapshotValueState::Building(body.try_clone().ok()?)
@@ -3931,11 +4174,17 @@ impl ObjectBrowserApp {
             SlotValueState::ResolvedValue { value } => SlotSnapshotValueState::ResolvedValue {
                 value: value.try_clone().ok()?,
             },
-            SlotValueState::Pending(_) | SlotValueState::Failed { .. } => return None,
+            SlotValueState::Pending(_) | SlotValueState::Failed { .. } | SlotValueState::Consumed => {
+                return None
+            }
         };
         Some(SlotSnapshot {
             name: display_slot.name.clone().or_else(|| data_slot.name.clone()),
-            shape_name: data_slot.shape_name.clone(),
+            shape_name: display_slot
+                .shape_name
+                .clone()
+                .or_else(|| data_slot.shape_name.clone()),
+            provenance: display_slot.provenance,
             value_state,
         })
     }
@@ -4098,6 +4347,9 @@ impl ObjectBrowserApp {
 
     fn data_slot_id_for(&self, slot_id: usize) -> Option<usize> {
         let slot = self.slot_by_id(slot_id)?;
+        if matches!(slot.provenance, ValueProvenance::Borrowed { .. }) {
+            return Some(slot.id);
+        }
         match slot.kind {
             SlotKind::Owned => Some(slot.id),
             SlotKind::View(ref info) => Some(info.source_slot_id),
@@ -4171,8 +4423,11 @@ impl ObjectBrowserApp {
     }
 
     fn slot_shape_name(&self, slot_id: usize) -> Option<&str> {
-        self.slot_by_id(self.data_slot_id_for(slot_id)?)
-            .and_then(|slot| slot.shape_name.as_deref())
+        let slot = self.slot_by_id(slot_id)?;
+        slot.shape_name.as_deref().or_else(|| {
+            self.slot_by_id(self.data_slot_id_for(slot_id)?)
+                .and_then(|slot| slot.shape_name.as_deref())
+        })
     }
 
     fn top_level_projection_child_count(&self, slot_id: usize) -> usize {
@@ -4234,6 +4489,16 @@ impl ObjectBrowserApp {
     }
 
     fn slot_runtime_value(&self, slot_id: usize) -> Result<RuntimeValue> {
+        if let Some(slot) = self.slot_by_id(slot_id)
+            && let SlotKind::View(info) = &slot.kind
+            && matches!(slot.provenance, ValueProvenance::Borrowed { .. })
+        {
+            let pointer_shape = self
+                .field_shape_for_field(info.owner_slot_id, info.field_index)
+                .ok_or_else(|| eyre::eyre!("slot {} has no reflected pointer shape", slot_id))?;
+            let source = self.resolved_slot_peek(info.source_slot_id)?;
+            return RuntimeValue::from_borrowed_pointer(pointer_shape, source);
+        }
         let data_slot_id = self
             .data_slot_id_for(slot_id)
             .ok_or_else(|| eyre::eyre!("slot {slot_id} has no backing value"))?;
@@ -4245,6 +4510,7 @@ impl ObjectBrowserApp {
             SlotValueState::Failed { message } => {
                 eyre::bail!("slot {} failed: {}", slot.id, message)
             }
+            SlotValueState::Consumed => eyre::bail!("slot {} has been consumed", slot.id),
             SlotValueState::ResolvedValue { value } => value.try_clone(),
             SlotValueState::Building(body) => {
                 let shape_name = slot
@@ -4257,6 +4523,87 @@ impl ObjectBrowserApp {
                 self.materialize_slot_body(shape, body)
             }
         }
+    }
+
+    fn take_slot_runtime_value(&mut self, slot_id: usize) -> Result<RuntimeValue> {
+        if !self.can_consume_slot(slot_id) {
+            eyre::bail!(
+                "slot {} must be owned, ready, and free of active borrows",
+                slot_id
+            );
+        }
+
+        let linked_view_slots = self.linked_view_slots_for_owner(slot_id);
+        let state = {
+            let slot = self
+                .slot_by_id_mut(slot_id)
+                .ok_or_else(|| eyre::eyre!("slot {slot_id} is missing"))?;
+            std::mem::replace(&mut slot.value_state, SlotValueState::Consumed)
+        };
+
+        let value = match state {
+            SlotValueState::ResolvedValue { value } => value,
+            SlotValueState::Building(body) => {
+                if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                    slot.value_state = SlotValueState::Building(body);
+                }
+                let value = self.slot_runtime_value(slot_id)?;
+                if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                    slot.value_state = SlotValueState::Consumed;
+                }
+                value
+            }
+            SlotValueState::Pending(pending) => {
+                if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                    slot.value_state = SlotValueState::Pending(pending);
+                }
+                eyre::bail!("slot {slot_id} is still pending")
+            }
+            SlotValueState::Failed { message } => {
+                if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                    slot.value_state = SlotValueState::Failed { message };
+                }
+                eyre::bail!("slot {slot_id} failed")
+            }
+            SlotValueState::Consumed => eyre::bail!("slot {slot_id} has already been consumed"),
+        };
+
+        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+            slot.provenance = ValueProvenance::Owned;
+        }
+        for view_slot_id in linked_view_slots {
+            if self.slot_by_id(view_slot_id).is_some() {
+                self.remove_slots_cascade(view_slot_id);
+            }
+        }
+        self.invalidate_all_slot_display_caches();
+        Ok(value)
+    }
+
+    fn linked_view_slots_for_owner(&self, owner_slot_id: usize) -> Vec<usize> {
+        let Some(body) = self.slot_body(owner_slot_id) else {
+            return Vec::new();
+        };
+        let fields = match body {
+            SlotBody::Value { .. } | SlotBody::Unset => return Vec::new(),
+            SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => fields,
+        };
+        fields
+            .iter()
+            .filter_map(|field| match field.value_state {
+                FieldValueState::Linked { slot_id } => Some(slot_id),
+                FieldValueState::Unset | FieldValueState::Defaulted => None,
+            })
+            .filter(|slot_id| {
+                matches!(
+                    self.slot_by_id(*slot_id),
+                    Some(ObjectSlot {
+                        kind: SlotKind::View(ViewInfo { owner_slot_id: owner, .. }),
+                        ..
+                    }) if *owner == owner_slot_id
+                )
+            })
+            .collect()
     }
 
     fn materialize_slot_body(
@@ -4282,6 +4629,7 @@ impl ObjectBrowserApp {
                                 shape,
                                 field_index,
                                 field,
+                                slot_id,
                                 None,
                                 &peek,
                             )?;
@@ -4311,6 +4659,7 @@ impl ObjectBrowserApp {
                                 shape,
                                 field_index,
                                 field,
+                                slot_id,
                                 Some(*variant_index),
                                 &peek,
                             )?;
@@ -4337,6 +4686,7 @@ impl ObjectBrowserApp {
         parent_shape: &'static facet::Shape,
         field_index: usize,
         field: &ObjectFieldState,
+        linked_slot_id: usize,
         variant_index: Option<usize>,
         peek: &facet_reflect::Peek<'_, '_>,
     ) -> Result<facet_reflect::Partial<'static, false>> {
@@ -4348,6 +4698,32 @@ impl ObjectBrowserApp {
         partial = partial
             .begin_nth_field(field_index)
             .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
+
+        if let facet::Def::Pointer(pointer) = field_shape.def
+            && pointer.known == Some(facet::KnownPointer::Cow)
+        {
+            if peek.shape().is_shape(field_shape) {
+                partial = unsafe { partial.set_from_peek(peek) }
+                    .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
+                return partial
+                    .end()
+                    .map_err(|error| eyre::eyre!("{field_name}: {error}"));
+            }
+            if pointer
+                .pointee()
+                .is_some_and(|pointee| pointee.is_shape(peek.shape()))
+            {
+                let source = self.resolved_slot_peek(linked_slot_id)?;
+                let borrowed = RuntimeValue::from_borrowed_pointer(field_shape, source)
+                    .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
+                partial = unsafe { partial.set_from_peek(&borrowed.peek()) }
+                    .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
+                borrowed.deallocate_after_move();
+                return partial
+                    .end()
+                    .map_err(|error| eyre::eyre!("{field_name}: {error}"));
+            }
+        }
 
         let wraps_inner_value = matches!(field_shape.def, facet::Def::Pointer(pointer)
             if pointer.constructible_from_pointee()
@@ -4397,6 +4773,26 @@ impl ObjectBrowserApp {
             .map(|field| field.proxy_shape().unwrap_or_else(|| field.shape()))
     }
 
+    fn resolved_slot_peek(&self, slot_id: usize) -> Result<facet_reflect::Peek<'_, 'static>> {
+        let data_slot_id = self
+            .data_slot_id_for(slot_id)
+            .ok_or_else(|| eyre::eyre!("slot {slot_id} has no backing value"))?;
+        let slot = self
+            .slot_by_id(data_slot_id)
+            .ok_or_else(|| eyre::eyre!("slot {data_slot_id} is missing"))?;
+        match &slot.value_state {
+            SlotValueState::ResolvedValue { value } => Ok(value.peek()),
+            SlotValueState::Pending(_) => eyre::bail!("slot {slot_id} is still pending"),
+            SlotValueState::Failed { message } => {
+                eyre::bail!("slot {slot_id} failed: {message}")
+            }
+            SlotValueState::Consumed => eyre::bail!("slot {slot_id} has been consumed"),
+            SlotValueState::Building(_) => eyre::bail!(
+                "slot {slot_id} is still being built; a Cow field needs a resolved source"
+            ),
+        }
+    }
+
     fn slot_display_rows(&mut self, slot_id: usize) -> Vec<SlotDisplayRow> {
         let Some(slot_index) = self.slot_index_by_id(slot_id) else {
             return Vec::new();
@@ -4434,6 +4830,12 @@ impl ObjectBrowserApp {
                         Style::default().fg(Color::Cyan),
                     ),
                 ],
+            ));
+        }
+        if let ValueProvenance::Borrowed { source_slot_id } = slot.provenance {
+            rows.push(focusable_plain_row(
+                SlotFocusTarget::BorrowSource,
+                format!("borrowed from slot {}", source_slot_id),
             ));
         }
 
@@ -4515,6 +4917,17 @@ impl ObjectBrowserApp {
             }
         }
 
+        let borrow_slots = self.slot_borrow_slots(slot_id);
+        if !borrow_slots.is_empty() {
+            rows.push(SlotDisplayRow::Static(separator_line("borrows")));
+            for (index, borrow_slot_id) in borrow_slots.into_iter().enumerate() {
+                rows.push(focusable_plain_row(
+                    SlotFocusTarget::Borrow(index),
+                    format!("borrow slot {}", borrow_slot_id),
+                ));
+            }
+        }
+
         let inlinks = self.slot_inlinks(slot_id);
         let has_activity = slot.created_for.is_some()
             || slot.produced_by_slot_id.is_some()
@@ -4560,9 +4973,20 @@ impl ObjectBrowserApp {
             SlotAction::Delete,
             SlotAction::Clone,
             SlotAction::Take,
+            SlotAction::ToOwned,
+            SlotAction::InvokeConsume,
             SlotAction::Invoke,
             SlotAction::InvokeArbitrary,
         ] {
+            if matches!(
+                self.slot_by_id(slot_id).map(|slot| &slot.value_state),
+                Some(SlotValueState::Consumed)
+            ) && matches!(
+                action,
+                SlotAction::Invoke | SlotAction::InvokeConsume | SlotAction::InvokeArbitrary
+            ) {
+                continue;
+            }
             if action == SlotAction::Invoke
                 && self.applicable_functions_for_slot(slot_id).is_empty()
             {
@@ -4573,6 +4997,12 @@ impl ObjectBrowserApp {
                     .applicable_arbitrary_functions_for_slot(slot_id)
                     .is_empty()
             {
+                continue;
+            }
+            if action == SlotAction::ToOwned && !self.can_promote_slot(slot_id) {
+                continue;
+            }
+            if action == SlotAction::InvokeConsume && !self.can_consume_slot(slot_id) {
                 continue;
             }
             rows.push(focusable_plain_row(
@@ -4586,7 +5016,8 @@ impl ObjectBrowserApp {
 
     fn should_show_runtime_status(state: &SlotValueState) -> bool {
         match state {
-            SlotValueState::Pending(_) | SlotValueState::Failed { .. } => true,
+            SlotValueState::Pending(_) | SlotValueState::Failed { .. } | SlotValueState::Consumed =>
+                true,
             SlotValueState::ResolvedValue { .. } | SlotValueState::Building(_) => false,
         }
     }
@@ -4660,6 +5091,26 @@ impl ObjectBrowserApp {
         self.status_message = format!("Jumped to slot {}.{}.", info.owner_slot_id, info.field_name);
     }
 
+    fn activate_borrow_source(&mut self, slot_id: usize) {
+        let Some(ValueProvenance::Borrowed { source_slot_id }) = self
+            .slot_by_id(slot_id)
+            .map(|slot| slot.provenance)
+        else {
+            return;
+        };
+        self.jump_to_slot(source_slot_id);
+        self.status_message = format!("Jumped to borrowed source slot {}.", source_slot_id);
+    }
+
+    fn activate_borrow(&mut self, slot_id: usize, borrow_index: usize) {
+        let Some(borrow_slot_id) = self.slot_borrow_slots(slot_id).get(borrow_index).copied()
+        else {
+            return;
+        };
+        self.jump_to_slot(borrow_slot_id);
+        self.status_message = format!("Jumped to borrow slot {}.", borrow_slot_id);
+    }
+
     fn activate_inlink(&mut self, slot_id: usize, inlink_index: usize) {
         let Some(inlink) = self.slot_inlinks(slot_id).get(inlink_index).cloned() else {
             return;
@@ -4700,6 +5151,24 @@ impl ObjectBrowserApp {
             }
         }
         inlinks
+    }
+
+    fn slot_borrow_slots(&self, source_slot_id: usize) -> Vec<usize> {
+        self.object_slots
+            .iter()
+            .filter(|slot| {
+                matches!(
+                    slot.provenance,
+                    ValueProvenance::Borrowed { source_slot_id: borrowed_from }
+                        if borrowed_from == source_slot_id
+                )
+            })
+            .map(|slot| slot.id)
+            .collect()
+    }
+
+    fn slot_has_borrowers(&self, source_slot_id: usize) -> bool {
+        !self.slot_borrow_slots(source_slot_id).is_empty()
     }
 
     fn has_known_shape_label(&self, shape_name: &str) -> bool {
@@ -4867,7 +5336,9 @@ impl ObjectBrowserApp {
                 SlotAction::Delete => "delete".to_string(),
                 SlotAction::Clone => "clone".to_string(),
                 SlotAction::Take => "take".to_string(),
+                SlotAction::ToOwned => "to owned".to_string(),
                 SlotAction::Invoke => "invoke".to_string(),
+                SlotAction::InvokeConsume => "invoke".to_string(),
                 SlotAction::InvokeArbitrary => "invoke arbitrary".to_string(),
             };
         };
@@ -4883,15 +5354,26 @@ impl ObjectBrowserApp {
                 SlotKind::Owned => "take (already owned)".to_string(),
                 SlotKind::View(_) => "take".to_string(),
             },
-            SlotAction::Invoke => match self.applicable_functions_for_slot(slot_id).len() {
-                0 => "invoke".to_string(),
-                1 => "invoke".to_string(),
-                count => format!("invoke ({count} functions)"),
-            },
+            SlotAction::ToOwned => "to owned".to_string(),
+            SlotAction::InvokeConsume => "invoke".to_string(),
+            SlotAction::Invoke => {
+                let functions = self.applicable_functions_for_slot(slot_id);
+                let label = if functions
+                    .iter()
+                    .all(|function| function.receiver_mode == ReceiverMode::ByMut)
+                {
+                    "clone, invoke mutably, and replace"
+                } else {
+                    "clone and invoke"
+                };
+                match functions.len() {
+                    0 | 1 => label.to_string(),
+                    count => format!("{label} ({count} functions)"),
+                }
+            }
             SlotAction::InvokeArbitrary => {
                 match self.applicable_arbitrary_functions_for_slot(slot_id).len() {
-                    0 => "invoke arbitrary".to_string(),
-                    1 => "invoke arbitrary".to_string(),
+                    0 | 1 => "invoke arbitrary".to_string(),
                     count => format!("invoke arbitrary ({count} functions)"),
                 }
             }
@@ -5346,6 +5828,7 @@ impl ObjectBrowserApp {
             SlotFilterKind::Owned.label().to_string(),
             SlotFilterKind::View.label().to_string(),
             SlotFilterKind::Projection.label().to_string(),
+            SlotFilterKind::Borrowed.label().to_string(),
         ];
         let included = edit_index
             .and_then(|index| self.breadcrumb_filters.get(index))
@@ -5764,9 +6247,15 @@ impl ObjectBrowserApp {
 
     fn real_slot_matches_shape_filter(&self, slot_id: usize) -> bool {
         let shape_name = self.slot_shape_name(slot_id);
-        let slot_kind = self.slot_by_id(slot_id).map(|slot| match &slot.kind {
-            SlotKind::Owned => SlotFilterKind::Owned,
-            SlotKind::View(_) => SlotFilterKind::View,
+        let slot_kind = self.slot_by_id(slot_id).map(|slot| {
+            if matches!(slot.provenance, ValueProvenance::Borrowed { .. }) {
+                SlotFilterKind::Borrowed
+            } else {
+                match &slot.kind {
+                    SlotKind::Owned => SlotFilterKind::Owned,
+                    SlotKind::View(_) => SlotFilterKind::View,
+                }
+            }
         });
         self.breadcrumb_filters.iter().all(|filter| match filter {
             BreadcrumbFilter::Shape(filter) => {
@@ -6633,6 +7122,13 @@ impl ObjectBrowserApp {
             });
 
         match action {
+            LinkAction::Borrow => vec![
+                Line::from(slot_label.to_string()),
+                Line::from(format!("will be borrowed by {field_label}.")),
+                Line::from(""),
+                Line::from("The source stays owned and cannot be deleted or mutated while borrowed."),
+                Line::from("The borrow is represented by a dedicated Cow view slot."),
+            ],
             LinkAction::Move => vec![
                 Line::from(slot_label.to_string()),
                 Line::from(format!("will move into {field_label}.")),
@@ -6872,6 +7368,7 @@ impl ObjectBrowserApp {
                 SlotValueState::Pending(_) => Color::Yellow,
                 SlotValueState::ResolvedValue { .. } => Color::Green,
                 SlotValueState::Failed { .. } => Color::Red,
+                SlotValueState::Consumed => Color::DarkGray,
                 SlotValueState::Building(_) => unreachable!("builders are filtered out"),
             };
             return slot_border_style(color, is_active);
@@ -6909,6 +7406,7 @@ impl ObjectBrowserApp {
                 SlotValueState::Pending(_) => SlotCompletion::Partial,
                 SlotValueState::ResolvedValue { .. } => SlotCompletion::Complete,
                 SlotValueState::Failed { .. } => SlotCompletion::Unset,
+                SlotValueState::Consumed => SlotCompletion::Unset,
                 SlotValueState::Building(_) => unreachable!("builders are filtered out"),
             }
         } else {
@@ -6989,6 +7487,7 @@ impl ObjectBrowserApp {
             SlotValueState::ResolvedValue { .. } => "resolved",
             SlotValueState::Failed { .. } => "failed",
             SlotValueState::Building(_) => "ready",
+            SlotValueState::Consumed => "consumed",
         };
         format!("slot {} [{}] - {}", slot.id, status, shape_name)
     }
@@ -7117,6 +7616,7 @@ enum SlotFilterKind {
     Owned,
     View,
     Projection,
+    Borrowed,
 }
 
 impl SlotFilterKind {
@@ -7125,6 +7625,7 @@ impl SlotFilterKind {
             Self::Owned => "owned",
             Self::View => "view",
             Self::Projection => "projection",
+            Self::Borrowed => "borrowed",
         }
     }
 
@@ -7133,6 +7634,7 @@ impl SlotFilterKind {
             "owned" => Some(Self::Owned),
             "view" => Some(Self::View),
             "projection" => Some(Self::Projection),
+            "borrowed" => Some(Self::Borrowed),
             _ => None,
         }
     }
@@ -7247,10 +7749,12 @@ enum PoolEntry {
 enum SlotFocusTarget {
     Shape,
     ViewPointer,
+    BorrowSource,
     Variant,
     FieldType(usize),
     FieldValue(usize),
     Inlink(usize),
+    Borrow(usize),
     CreatedFor,
     ProducedBy,
     RuntimeValue,
@@ -7264,7 +7768,9 @@ enum SlotAction {
     Delete,
     Clone,
     Take,
+    ToOwned,
     Invoke,
+    InvokeConsume,
     InvokeArbitrary,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7620,6 +8126,7 @@ impl FieldPickerState {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum FunctionPickerTarget {
     InvokeSlot(usize),
+    InvokeConsumedSlot(usize),
     InvokeArbitrarySlot(usize),
 }
 
@@ -7771,9 +8278,23 @@ struct LinkActionPickerState {
 }
 
 impl LinkActionPickerState {
-    fn new(owner_slot_id: usize, field_index: usize, selected_slot_id: usize) -> Self {
-        let labels = vec!["Move".to_string(), "Clone".to_string()];
-        let actions = vec![LinkAction::Move, LinkAction::Clone];
+    fn new(
+        owner_slot_id: usize,
+        field_index: usize,
+        selected_slot_id: usize,
+        include_borrow: bool,
+    ) -> Self {
+        let (labels, actions) = if include_borrow {
+            (
+                vec!["Borrow".to_string(), "Move".to_string(), "Clone".to_string()],
+                vec![LinkAction::Borrow, LinkAction::Move, LinkAction::Clone],
+            )
+        } else {
+            (
+                vec!["Move".to_string(), "Clone".to_string()],
+                vec![LinkAction::Move, LinkAction::Clone],
+            )
+        };
         let mut search = PickerSearchState::new();
         search.reset(&labels, Some(0));
         Self {
@@ -7803,6 +8324,7 @@ impl LinkActionPickerState {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum LinkAction {
+    Borrow,
     Move,
     Clone,
 }
@@ -8130,6 +8652,7 @@ impl SlotDisplayRow {
 struct SlotSnapshot {
     name: Option<String>,
     shape_name: Option<String>,
+    provenance: ValueProvenance,
     value_state: SlotSnapshotValueState,
 }
 
@@ -8145,6 +8668,7 @@ enum SlotValueState {
     Pending(PendingInvocationState),
     ResolvedValue { value: RuntimeValue },
     Failed { message: String },
+    Consumed,
 }
 
 #[derive(Debug)]
@@ -8158,6 +8682,7 @@ struct ObjectSlot {
     id: usize,
     name: Option<String>,
     kind: SlotKind,
+    provenance: ValueProvenance,
     shape_name: Option<String>,
     value_state: SlotValueState,
     result_slot_ids: Vec<usize>,
@@ -8172,6 +8697,7 @@ impl ObjectSlot {
             id,
             name: snapshot.name,
             kind: SlotKind::Owned,
+            provenance: snapshot.provenance,
             shape_name: snapshot.shape_name,
             value_state: match snapshot.value_state {
                 SlotSnapshotValueState::Building(body) => SlotValueState::Building(body),
@@ -8191,6 +8717,7 @@ impl ObjectSlot {
             id,
             name: None,
             kind: SlotKind::Owned,
+            provenance: ValueProvenance::Owned,
             shape_name: None,
             value_state: SlotValueState::Building(SlotBody::Unset),
             result_slot_ids: Vec::new(),
@@ -8205,6 +8732,7 @@ impl ObjectSlot {
             id,
             name: None,
             kind: SlotKind::Owned,
+            provenance: ValueProvenance::Owned,
             shape_name: Some(shape_name),
             value_state: SlotValueState::Pending(pending),
             result_slot_ids: Vec::new(),
@@ -8219,6 +8747,7 @@ impl ObjectSlot {
             id,
             name: None,
             kind: SlotKind::Owned,
+            provenance: ValueProvenance::Owned,
             shape_name: Some(shape_name),
             value_state: SlotValueState::ResolvedValue { value },
             result_slot_ids: Vec::new(),
@@ -8250,6 +8779,7 @@ impl ObjectSlot {
                 field_index,
                 field_name,
             }),
+            provenance: ValueProvenance::Owned,
             shape_name: None,
             value_state: SlotValueState::Building(SlotBody::Unset),
             result_slot_ids: Vec::new(),
@@ -8257,6 +8787,30 @@ impl ObjectSlot {
             produced_by_slot_id: None,
             display_cache: None,
         }
+    }
+
+    fn new_borrow_view(
+        id: usize,
+        source_slot_id: usize,
+        owner_slot_id: usize,
+        field_index: usize,
+        field_name: &'static str,
+        pointer_shape: &'static facet::Shape,
+    ) -> Self {
+        let mut slot = Self::new_view(
+            id,
+            source_slot_id,
+            owner_slot_id,
+            field_index,
+            field_name,
+        );
+        slot.provenance = ValueProvenance::Borrowed { source_slot_id };
+        slot.shape_name = Some(describe_shape(pointer_shape));
+        slot.value_state = SlotValueState::Building(SlotBody::Value {
+            shape: pointer_shape,
+            value: None,
+        });
+        slot
     }
 
     fn apply_shape_choice(&mut self, choice: &KnownShapeInfo) {
@@ -8383,6 +8937,12 @@ impl ObjectSlot {
 enum SlotKind {
     Owned,
     View(ViewInfo),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ValueProvenance {
+    Owned,
+    Borrowed { source_slot_id: usize },
 }
 
 #[derive(Clone, Debug)]
@@ -8608,6 +9168,10 @@ fn runtime_state_rows(runtime_state: &SlotValueState) -> Vec<SlotDisplayRow> {
             Span::raw("  "),
             Span::styled("failed", unset_style()),
             Span::raw(format!(": {message}")),
+        ]))],
+        SlotValueState::Consumed => vec![SlotDisplayRow::Static(Line::from(vec![
+            Span::raw("  "),
+            Span::styled("consumed", Style::default().fg(Color::DarkGray)),
         ]))],
         SlotValueState::ResolvedValue { .. } | SlotValueState::Building(_) => Vec::new(),
     }
@@ -9402,7 +9966,6 @@ mod tests {
     cloud_terrastodon_registry::register_thing!(DummyInvokeOutput);
     cloud_terrastodon_registry::register_thing!(DummyInvokeRequest);
     cloud_terrastodon_registry::register_thing!(DummyCowOwner);
-    cloud_terrastodon_registry::register_thing!(Cow<'static, DummyInvokeOutput>);
     cloud_terrastodon_registry::register_thing!(DummyCowProducerRequest);
     cloud_terrastodon_registry::register_into_future!(DummyInvokeRequest => DummyInvokeOutput);
     cloud_terrastodon_registry::register_into_future!(
@@ -9526,6 +10089,7 @@ mod tests {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some("EntraUser".to_string()),
             value_state: super::SlotValueState::Failed {
                 message: "test failure".to_string(),
@@ -9543,6 +10107,7 @@ mod tests {
             id: 2,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some("EntraUser".to_string()),
             value_state: resolved(test_user(
                 "Grace",
@@ -9764,6 +10329,97 @@ mod tests {
             .slot_runtime_value(1)
             .expect("a linked inner value should materialize into Cow");
         assert_eq!(materialized.shape(), DummyCowOwner::SHAPE);
+        let owner = materialized
+            .into_box::<DummyCowOwner>()
+            .expect("materialized Cow owner should convert to its typed value")
+            .downcast::<DummyCowOwner>()
+            .expect("typed Cow owner should downcast");
+        assert_eq!(owner.value.message, "done");
+    }
+
+    #[test]
+    fn cow_borrow_slots_preserve_provenance_until_promoted() {
+        let mut app = ObjectBrowserApp::default();
+        let owner_choice = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "DummyCowOwner")
+            .cloned()
+            .expect("DummyCowOwner should be registered");
+        let output_choice = app
+            .shape_choices
+            .iter()
+            .find(|shape| shape.label == "DummyInvokeOutput")
+            .cloned()
+            .expect("DummyInvokeOutput should be registered");
+
+        let mut owner_slot = ObjectSlot::new(1);
+        owner_slot.apply_shape_choice(&owner_choice);
+        app.object_slots.push(owner_slot);
+        let mut source_slot = ObjectSlot::new(2);
+        source_slot.apply_shape_choice(&output_choice);
+        source_slot.value_state = resolved(DummyInvokeOutput {
+            message: "borrowed".to_string(),
+        });
+        app.object_slots.push(source_slot);
+
+        assert!(app.can_borrow_into_field(1, 0, 2));
+        app.borrow_slot_into_field(1, 0, 2);
+        let borrow_slot_id = app
+            .slot_field(1, 0)
+            .and_then(|field| match field.value_state {
+                super::FieldValueState::Linked { slot_id } => Some(slot_id),
+                _ => None,
+            })
+            .expect("the Cow field should link to its borrow slot");
+        assert!(matches!(
+            app.slot_by_id(borrow_slot_id).map(|slot| slot.provenance),
+            Some(super::ValueProvenance::Borrowed { source_slot_id: 2 })
+        ));
+        assert_eq!(app.slot_borrow_slots(2), vec![borrow_slot_id]);
+
+        let materialized = app
+            .slot_runtime_value(1)
+            .expect("the owner should materialize through its Cow borrow");
+        let owner = materialized
+            .into_box::<DummyCowOwner>()
+            .expect("owner should retain its reflected shape")
+            .downcast::<DummyCowOwner>()
+            .expect("owner should retain its concrete type");
+        assert!(matches!(owner.value, Cow::Borrowed(_)));
+        assert_eq!(owner.value.message, "borrowed");
+
+        app.clone_slot(borrow_slot_id);
+        let cloned_slot_id = app
+            .object_slots
+            .iter()
+            .map(|slot| slot.id)
+            .max()
+            .expect("clone should allocate a slot");
+        assert!(matches!(
+            app.slot_by_id(cloned_slot_id).map(|slot| slot.provenance),
+            Some(super::ValueProvenance::Borrowed { source_slot_id: 2 })
+        ));
+        app.take_slot(borrow_slot_id);
+        assert!(matches!(
+            app.slot_by_id(borrow_slot_id)
+                .map(|slot| (&slot.kind, slot.provenance)),
+            Some((super::SlotKind::Owned, super::ValueProvenance::Borrowed { source_slot_id: 2 }))
+        ));
+        assert_eq!(app.slot_borrow_slots(2).len(), 2);
+
+        app.promote_slot_to_owned(cloned_slot_id);
+        assert!(matches!(
+            app.slot_by_id(cloned_slot_id).map(|slot| slot.provenance),
+            Some(super::ValueProvenance::Owned)
+        ));
+        assert_eq!(app.slot_borrow_slots(2).len(), 1);
+        app.promote_slot_to_owned(borrow_slot_id);
+        assert_eq!(app.slot_borrow_slots(2), Vec::<usize>::new());
+        assert!(matches!(
+            app.slot_field(1, 0).map(|field| field.value_state),
+            Some(super::FieldValueState::Unset)
+        ));
     }
 
     #[test]
@@ -10974,6 +11630,7 @@ mod tests {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some("List<EntraUser>".to_string()),
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
@@ -11128,6 +11785,60 @@ mod tests {
             })
             .expect("result slot should resolve");
         assert_eq!(resolved_message, "done");
+    }
+
+    #[tokio::test]
+    async fn consuming_invoke_moves_the_request_and_leaves_a_tombstone() {
+        let mut app = ObjectBrowserApp::default();
+        app.activate_current_row();
+
+        let request_index = app
+            .shape_choices
+            .iter()
+            .position(|shape| shape.label == "DummyInvokeRequest")
+            .expect("DummyInvokeRequest should be registered");
+        app.shape_picker.open(Some(request_index));
+        app.shape_picker
+            .search
+            .list_state
+            .select(Some(request_index));
+        app.apply_shape_selection();
+
+        assert!(app.can_consume_slot(1));
+        assert!(app
+            .slot_focus_targets(1)
+            .contains(&SlotFocusTarget::Action(super::SlotAction::InvokeConsume)));
+        assert_eq!(
+            app.slot_action_label(1, super::SlotAction::InvokeConsume),
+            "invoke"
+        );
+
+        let dummy_function = app
+            .applicable_functions_for_slot(1)
+            .into_iter()
+            .find(|function| describe_shape(function.output_shape) == "DummyInvokeOutput")
+            .expect("DummyInvokeOutput constructor should be available");
+        app.invoke_registered_function_consuming(1, dummy_function);
+
+        assert!(matches!(
+            app.slot_by_id(1).map(|slot| &slot.value_state),
+            Some(super::SlotValueState::Consumed)
+        ));
+        let result_slot_id = app
+            .slot_by_id(1)
+            .and_then(|slot| slot.result_slot_ids.first().copied())
+            .expect("consuming invocation should create a result slot");
+        assert!(matches!(
+            app.slot_by_id(result_slot_id).map(|slot| &slot.value_state),
+            Some(super::SlotValueState::Pending(_))
+        ));
+
+        tokio::task::yield_now().await;
+        app.advance_pending_invocations();
+        assert!(matches!(
+            app.slot_by_id(result_slot_id).map(|slot| &slot.value_state),
+            Some(super::SlotValueState::ResolvedValue { .. })
+        ));
     }
 
     #[tokio::test]
@@ -11538,7 +12249,7 @@ mod tests {
         );
         assert_eq!(
             app.slot_search_current_target(),
-            Some(SlotFocusTarget::Action(super::SlotAction::Invoke)),
+            Some(SlotFocusTarget::Action(super::SlotAction::InvokeArbitrary)),
             "query={:?}, labels={:?}",
             app.slot_search
                 .as_ref()
@@ -11568,8 +12279,13 @@ mod tests {
             .select(Some(request_index));
         app.apply_shape_selection();
 
-        app.handle_pool_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE));
-        app.handle_pool_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
+        app.handle_pool_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
+        for character in "lone and invoke".chars() {
+            app.handle_slot_search_key(KeyEvent::new(
+                KeyCode::Char(character),
+                KeyModifiers::NONE,
+            ));
+        }
 
         assert_eq!(app.mode, UiMode::SlotSearch);
         assert_eq!(
@@ -11613,6 +12329,7 @@ mod tests {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
@@ -11651,6 +12368,7 @@ mod tests {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some(shape_name),
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
@@ -11718,6 +12436,7 @@ mod tests {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleDefinition".to_string()),
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
@@ -11782,6 +12501,7 @@ mod tests {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleAssignment".to_string()),
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
@@ -12009,6 +12729,7 @@ mod tests {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
@@ -12053,6 +12774,7 @@ mod tests {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleAssignment".to_string()),
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
@@ -12132,6 +12854,7 @@ mod tests {
             id: 1,
             name: None,
             kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
             shape_name: Some(root_shape_name),
             value_state: resolved(value),
             result_slot_ids: Vec::new(),

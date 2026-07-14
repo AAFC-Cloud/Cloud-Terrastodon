@@ -27,6 +27,33 @@ pub type SyncMutFn = fn(&mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Sen
 pub type RuntimeFromBoxedFn = fn(Box<dyn Any + Send>) -> eyre::Result<RuntimeValue>;
 pub type RuntimeToBoxedFn = fn(RuntimeValue) -> eyre::Result<Box<dyn Any + Send>>;
 
+pub type BorrowPointerFn = for<'mem, 'facet> fn(
+    &'static Shape,
+    Peek<'mem, 'facet>,
+) -> eyre::Result<RuntimeValue>;
+pub type PromotePointerFn = fn(RuntimeValue) -> eyre::Result<RuntimeValue>;
+
+#[derive(Clone, Copy)]
+pub struct BorrowedPointerKind {
+    pub known: facet::KnownPointer,
+    pub borrow: BorrowPointerFn,
+    pub promote_to_owned: PromotePointerFn,
+}
+
+impl BorrowedPointerKind {
+    pub const fn new(
+        known: facet::KnownPointer,
+        borrow: BorrowPointerFn,
+        promote_to_owned: PromotePointerFn,
+    ) -> Self {
+        Self {
+            known,
+            borrow,
+            promote_to_owned,
+        }
+    }
+}
+
 /// An owning, type-erased Facet value.
 pub struct RuntimeValue {
     shape: &'static Shape,
@@ -142,8 +169,38 @@ impl RuntimeValue {
         Ok(unsafe { Self::from_initialized_ptr(shape, PtrMut::new(ptr), layout) })
     }
 
+    /// Construct a reflected borrowable pointer from an already-owned value.
+    ///
+    /// The pointer-kind adapter supplies the type-specific operation through
+    /// Facet's reflected pointer metadata. The caller must retain the source
+    /// value for as long as the returned pointer may be used.
+    pub fn from_borrowed_pointer(
+        pointer_shape: &'static Shape,
+        source: Peek<'_, '_>,
+    ) -> eyre::Result<Self> {
+        let kind = borrowed_pointer_kind_for_shape(pointer_shape).ok_or_else(|| {
+            eyre::eyre!(
+                "{} is not a registered borrowable pointer kind",
+                describe_shape(pointer_shape)
+            )
+        })?;
+        (kind.borrow)(pointer_shape, source)
+    }
+
     pub const fn shape(&self) -> &'static Shape {
         self.shape
+    }
+
+    /// Promote a borrowable pointer to its owned representation using its
+    /// reflected pointer operation.
+    pub fn promote_to_owned(self) -> eyre::Result<Self> {
+        let kind = borrowed_pointer_kind_for_shape(self.shape).ok_or_else(|| {
+            eyre::eyre!(
+                "{} is not a registered borrowable pointer kind",
+                describe_shape(self.shape)
+            )
+        })?;
+        (kind.promote_to_owned)(self)
     }
 
     pub fn peek(&self) -> Peek<'_, 'static> {
@@ -265,6 +322,56 @@ impl RuntimeValue {
         }
         DisplayValue(self).to_string()
     }
+}
+
+#[doc(hidden)]
+pub fn borrow_pointer_runtime(
+    pointer_shape: &'static Shape,
+    source: Peek<'_, '_>,
+) -> eyre::Result<RuntimeValue> {
+    let Def::Pointer(pointer) = pointer_shape.def else {
+        eyre::bail!("{} is not a pointer shape", describe_shape(pointer_shape));
+    };
+    let Some(pointee) = pointer.pointee() else {
+        eyre::bail!("{} has no reflected pointee shape", describe_shape(pointer_shape));
+    };
+    if !pointee.is_shape(source.shape()) {
+        eyre::bail!(
+            "pointer pointee shape mismatch: expected {}, got {}",
+            describe_shape(pointee),
+            describe_shape(source.shape())
+        );
+    }
+    let borrow = pointer.vtable.borrow_from_pointee_fn.ok_or_else(|| {
+        eyre::eyre!(
+            "{} does not expose a reflected borrow-from-pointee operation",
+            describe_shape(pointer_shape)
+        )
+    })?;
+    let (dst, layout) = RuntimeValue::allocate(pointer_shape)?;
+    let ptr = unsafe { borrow(dst, source.data()) };
+    Ok(unsafe { RuntimeValue::from_initialized_ptr(pointer_shape, ptr, layout) })
+}
+
+#[doc(hidden)]
+pub fn promote_pointer_runtime(value: RuntimeValue) -> eyre::Result<RuntimeValue> {
+    let shape = value.shape;
+    let Def::Pointer(pointer) = shape.def else {
+        eyre::bail!("{} is not a pointer shape", describe_shape(shape));
+    };
+    let promote = pointer.vtable.promote_to_owned_fn.ok_or_else(|| {
+        eyre::eyre!(
+            "{} does not expose a reflected promote-to-owned operation",
+            describe_shape(shape)
+        )
+    })?;
+    let (dst, layout) = RuntimeValue::allocate(shape)?;
+    let source = std::mem::ManuallyDrop::new(value);
+    let ptr = unsafe { promote(PtrConst::new(source.ptr.as_ptr()), dst.assume_init()) };
+    unsafe {
+        facet::dealloc_for_layout(PtrMut::new(source.ptr.as_ptr()), source.layout);
+    }
+    Ok(unsafe { RuntimeValue::from_initialized_ptr(shape, ptr, layout) })
 }
 
 impl Drop for RuntimeValue {
@@ -848,10 +955,35 @@ macro_rules! register_fn_mut {
     };
 }
 
+#[macro_export]
+macro_rules! register_borrowed_pointer_kind {
+    (Cow) => {
+        const _: () = {
+            #[$crate::distributed_slice($crate::KNOWN_BORROWED_POINTER_KINDS)]
+            static REGISTERED_BORROWED_POINTER_KIND: $crate::BorrowedPointerKind =
+                $crate::BorrowedPointerKind::new(
+                    facet::KnownPointer::Cow,
+                    $crate::borrow_pointer_runtime,
+                    $crate::promote_pointer_runtime,
+                );
+        };
+    };
+    ($kind:ident) => {
+        compile_error!(concat!(
+            "no borrowed pointer adapter is defined for ",
+            stringify!($kind)
+        ));
+    };
+}
+
 #[distributed_slice]
 pub static KNOWN_THINGS: [Thing];
 #[distributed_slice]
 pub static KNOWN_FUNCTIONS: [Function];
+#[distributed_slice]
+pub static KNOWN_BORROWED_POINTER_KINDS: [BorrowedPointerKind];
+
+register_borrowed_pointer_kind!(Cow);
 
 #[distributed_slice(KNOWN_THINGS)]
 static REGISTERED_ARBITRARY_BYTES: Thing = Thing::value(
@@ -865,6 +997,17 @@ pub fn known_thing_for_shape(shape: &'static Shape) -> Option<&'static Thing> {
     KNOWN_THINGS
         .iter()
         .find(|thing| thing.shape.is_shape(shape))
+}
+
+pub fn borrowed_pointer_kind_for_shape(
+    shape: &'static Shape,
+) -> Option<&'static BorrowedPointerKind> {
+    let Def::Pointer(pointer) = shape.def else {
+        return None;
+    };
+    KNOWN_BORROWED_POINTER_KINDS
+        .iter()
+        .find(|kind| pointer.known == Some(kind.known))
 }
 
 pub fn known_things() -> Vec<&'static Thing> {
@@ -1090,6 +1233,7 @@ fn default_value_label(field: &facet::Field) -> Option<String> {
 mod test {
     use super::*;
     use facet::Facet;
+    use std::borrow::Cow;
     use std::future::Future;
     use std::future::IntoFuture;
 
@@ -1198,6 +1342,67 @@ mod test {
                 .iter()
                 .all(|variant| { variant.variant_name != "Explicit" || !variant.is_default })
         );
+    }
+
+    #[test]
+    fn one_cow_pointer_kind_registration_supports_multiple_pointee_shapes() {
+        assert_eq!(
+            KNOWN_BORROWED_POINTER_KINDS
+                .iter()
+                .filter(|kind| kind.known == facet::KnownPointer::Cow)
+                .count(),
+            1
+        );
+
+        let pointee: &'static DummyOutput = Box::leak(Box::new(DummyOutput {
+            value: "struct".to_string(),
+        }));
+        let source = RuntimeValue::from_box(Box::new(Cow::Borrowed(pointee)))
+            .expect("Cow<DummyOutput> should be a reflected runtime value");
+        let source_inner = source
+            .peek()
+            .into_pointer()
+            .expect("Cow should reflect as a pointer")
+            .borrow_inner()
+            .expect("Cow should expose its pointee");
+        let borrowed = RuntimeValue::from_borrowed_pointer(
+            <Cow<'static, DummyOutput>>::SHAPE,
+            source_inner,
+        )
+        .expect("the registered Cow adapter should construct a borrow");
+        let promoted = borrowed
+            .promote_to_owned()
+            .expect("the registered Cow adapter should promote to owned");
+        let promoted = promoted
+            .into_box::<Cow<'static, DummyOutput>>()
+            .expect("promoted Cow should retain its reflected shape")
+            .downcast::<Cow<'static, DummyOutput>>()
+            .expect("promoted Cow should retain its concrete type");
+        assert!(matches!(*promoted, Cow::Owned(_)));
+
+        let source_text: Cow<'static, str> = Cow::Borrowed("text");
+        let source_text = RuntimeValue::from_box(Box::new(source_text))
+            .expect("Cow<str> should be a reflected runtime value");
+        let source_text_inner = source_text
+            .peek()
+            .into_pointer()
+            .expect("Cow<str> should reflect as a pointer")
+            .borrow_inner()
+            .expect("Cow<str> should expose its str pointee");
+        let promoted_text = RuntimeValue::from_borrowed_pointer(
+            <Cow<'static, str>>::SHAPE,
+            source_text_inner,
+        )
+        .expect("the same Cow adapter should support Cow<str>")
+        .promote_to_owned()
+        .expect("Cow<str> should promote through Cow::into_owned");
+        let promoted_text = promoted_text
+            .into_box::<Cow<'static, str>>()
+            .expect("promoted Cow<str> should retain its reflected shape")
+            .downcast::<Cow<'static, str>>()
+            .expect("promoted Cow<str> should retain its concrete type");
+        assert!(matches!(*promoted_text, Cow::Owned(_)));
+        assert_eq!(promoted_text.as_ref(), "text");
     }
 
     #[test]

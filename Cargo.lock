@@ -2580,7 +2580,6 @@ dependencies = [
 [[package]]
 name = "facet-core"
 version = "0.50.0-rc.5"
-source = "git+https://github.com/TeamDman/facet.git?rev=9d2fdd449689e493ed8bab5c228e65d8635dcab0#9d2fdd449689e493ed8bab5c228e65d8635dcab0"
 dependencies = [
  "autocfg",
  "bstr 1.12.3",
