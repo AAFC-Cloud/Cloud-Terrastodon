@@ -51,6 +51,10 @@ pub fn init_tracing(
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
+                // Keep the human-readable field cache distinct from the JSON layer's
+                // `DefaultFields`; otherwise the stderr layer's ANSI-formatted fields can be
+                // reparsed by the JSON formatter as though they were JSON.
+                .fmt_fields(tracing_subscriber::fmt::format::PrettyFields::default())
                 .with_file(cfg!(debug_assertions))
                 .with_target(false)
                 .with_line_number(cfg!(debug_assertions))
@@ -100,10 +104,12 @@ pub fn init_tracing(
                 };
 
                 let json_layer = tracing_subscriber::fmt::layer()
-                    .event_format(tracing_subscriber::fmt::format().json())
+                    // Use the JSON layer constructor so span fields use JsonFields as well as
+                    // the event formatter. Configuring only event_format(json()) leaves the
+                    // DefaultFields formatter in place, which can contain ANSI text from another
+                    // formatting layer and then gets reparsed as JSON.
+                    .json()
                     .with_writer(json_writer)
-                    // JSON fields must remain machine-readable; the default field formatter can
-                    // emit ANSI styling even when the event format itself is JSON.
                     .with_ansi(false)
                     .boxed()
                     .with_filter(file_filter);
@@ -117,4 +123,36 @@ pub fn init_tracing(
         .try_init()?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use tracing_subscriber::Layer;
+    use tracing_subscriber::layer::SubscriberExt;
+
+    #[test]
+    fn json_layer_does_not_reparse_human_span_fields() {
+        let human_layer = tracing_subscriber::fmt::layer()
+            .pretty()
+            .with_writer(std::io::sink)
+            .with_ansi(true)
+            .boxed();
+        let json_layer = tracing_subscriber::fmt::layer()
+            .json()
+            .with_writer(std::io::sink)
+            .boxed();
+        let subscriber = tracing_subscriber::registry()
+            .with(human_layer)
+            .with(json_layer);
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = tracing::info_span!(
+                "command_run_raw",
+                summary = "az account list --output json --debug",
+                location = "crates/azure/src/accounts.rs:15:19",
+            );
+            let _entered = span.enter();
+            tracing::info!("request started");
+        });
+    }
 }
