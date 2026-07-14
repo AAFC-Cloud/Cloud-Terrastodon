@@ -102,6 +102,9 @@ pub fn init_tracing(
                 let json_layer = tracing_subscriber::fmt::layer()
                     .event_format(tracing_subscriber::fmt::format().json())
                     .with_writer(json_writer)
+                    // JSON fields must remain machine-readable; the default field formatter can
+                    // emit ANSI styling even when the event format itself is JSON.
+                    .with_ansi(false)
                     .boxed()
                     .with_filter(file_filter);
 
