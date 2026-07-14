@@ -6535,16 +6535,10 @@ impl ObjectBrowserApp {
         let mut current = value.peek();
         for segment in path {
             current = match segment {
-                ValuePathSegment::Field(field_name) => {
-                    if let Ok(object) = current.into_struct() {
-                        object.field_by_name(field_name).ok()?
-                    } else if let Ok(object) = current.into_enum() {
-                        object.field_by_name(field_name).ok()??
-                    } else {
-                        return None;
-                    }
-                }
-                ValuePathSegment::Index(index) => *peek_list_items(current)?.get(*index)?,
+                ValuePathSegment::Field(field_name) => peek_object_entries(current)?
+                    .into_iter()
+                    .find_map(|(name, child)| (name == *field_name).then_some(child))?,
+                ValuePathSegment::Index(index) => peek_list_item(current, *index)?,
                 ValuePathSegment::Key(key) => {
                     let map = current.into_map().ok()?;
                     map.iter().find_map(|(map_key, map_value)| {
@@ -9746,6 +9740,18 @@ fn peek_list_items<'a>(
     Some(set.iter().collect())
 }
 
+fn peek_list_item<'a>(
+    value: facet_reflect::Peek<'a, 'static>,
+    index: usize,
+) -> Option<facet_reflect::Peek<'a, 'static>> {
+    let value = value.innermost_peek();
+    if let Ok(list) = value.into_list_like() {
+        return list.get(index);
+    }
+    let set = value.into_set().ok()?;
+    set.iter().nth(index)
+}
+
 fn peek_object_entries<'a>(
     value: facet_reflect::Peek<'a, 'static>,
 ) -> Option<Vec<(String, facet_reflect::Peek<'a, 'static>)>> {
@@ -9922,6 +9928,7 @@ mod tests {
     use std::future::Future;
     use std::future::IntoFuture;
     use std::str::FromStr;
+    use std::time::Instant;
 
     #[derive(Debug, Clone, Arbitrary, Facet)]
     #[repr(C)]
@@ -12916,5 +12923,76 @@ mod tests {
                         if name == "role_assignments"
                 )
         ));
+    }
+
+    #[test]
+    fn large_entra_user_list_projections_remain_available() {
+        let mut app = ObjectBrowserApp::default();
+        let root_shape_name = describe_shape(<Vec<EntraUser> as Facet>::SHAPE);
+        let users = (0..10_000)
+            .map(|index| {
+                test_user(
+                    &format!("User {index}"),
+                    &format!("user{index}@example.com"),
+                    &format!("00000000-0000-4000-8000-{index:012x}"),
+                )
+            })
+            .collect::<Vec<_>>();
+        app.object_slots.push(super::ObjectSlot {
+            id: 4,
+            name: None,
+            kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
+            shape_name: Some(root_shape_name),
+            value_state: resolved(users),
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            display_cache: None,
+        });
+        app.projection_cache.borrow_mut().clear();
+
+        let started = Instant::now();
+        let descendant_count = app.projection_descendant_count(4, &[]);
+        let discovery_elapsed = started.elapsed();
+        eprintln!(
+            "10,000 EntraUser projection descendants: {descendant_count} in {discovery_elapsed:?}"
+        );
+
+        let display_name = super::ProjectionSlot {
+            root_slot_id: 4,
+            path: vec![
+                super::ValuePathSegment::Index(8),
+                super::ValuePathSegment::Field("displayName".to_string()),
+            ],
+            role: super::ProjectionSlotRole::Child,
+        };
+        let business_phones = super::ProjectionSlot {
+            root_slot_id: 4,
+            path: vec![
+                super::ValuePathSegment::Index(8),
+                super::ValuePathSegment::Field("businessPhones".to_string()),
+            ],
+            role: super::ProjectionSlotRole::Child,
+        };
+
+        let started = Instant::now();
+        let display_value = app
+            .projection_value(&display_name)
+            .expect("slot 4[8].displayName should remain available");
+        let business_value = app
+            .projection_value(&business_phones)
+            .expect("slot 4[8].businessPhones should remain available");
+        let lookup_elapsed = started.elapsed();
+        eprintln!("two indexed projections resolved in {lookup_elapsed:?}");
+
+        assert_eq!(
+            super::peek_scalar_text(display_value).as_deref(),
+            Some("User 8")
+        );
+        assert_eq!(
+            super::peek_list_items(business_value).map(|items| items.len()),
+            Some(0)
+        );
     }
 }
