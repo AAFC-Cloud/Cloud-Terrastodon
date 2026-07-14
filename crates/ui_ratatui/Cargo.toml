@@ -28,9 +28,9 @@ tui-textarea = { workspace = true }
 cloud_terrastodon_azure = { workspace = true }
 cloud_terrastodon_command = { workspace = true }
 cloud_terrastodon_registry = { workspace = true }
+linkme = { workspace = true }
 
 [dev-dependencies]
 arbitrary = { workspace = true }
 color-eyre = { workspace = true }
-linkme = { workspace = true }
 

@@ -82,10 +82,48 @@ use tui_textarea::TextArea;
 pub async fn ui_main() -> Result<()> {
     info!("Starting object browser");
     let terminal = ratatui::init();
-    let app_result = ObjectBrowserApp::default().run(terminal).await;
+    let app_result = ObjectBrowserApp::new().run(terminal).await;
     ratatui::restore();
     app_result
 }
+
+#[derive(Clone, Debug, facet::Facet)]
+#[repr(C)]
+struct Tab {
+    name: String,
+    #[facet(default)]
+    breadcrumbs: Breadcrumbs,
+}
+
+#[derive(Clone, Debug, Default, facet::Facet)]
+#[repr(C)]
+struct Breadcrumbs {
+    entries: Vec<Breadcrumb>,
+}
+
+#[derive(Clone, Debug, facet::Facet)]
+#[repr(C)]
+enum Breadcrumb {
+    Projection {
+        root_slot_id: usize,
+        path: Vec<ValuePathSegment>,
+    },
+    ShapeFilter {
+        included_shapes: Vec<String>,
+    },
+    SlotKindFilter {
+        included_kinds: Vec<SlotFilterKind>,
+    },
+    ValueFilter {
+        field_shape: String,
+        field_name: String,
+        operator: ValueFilterOperator,
+        value: String,
+    },
+}
+
+cloud_terrastodon_registry::register_thing!(Breadcrumbs);
+cloud_terrastodon_registry::register_thing!(Tab);
 
 struct ObjectBrowserApp {
     should_quit: bool,
@@ -109,7 +147,6 @@ struct ObjectBrowserApp {
     value_filter_choice_picker: Option<ValueFilterChoicePickerState>,
     general_value_editor: Option<GeneralValueEditorState>,
     boolean_value_picker: Option<BooleanValuePickerState>,
-    rename_slot: Option<RenameSlotState>,
     slot_search: Option<SlotSearchState>,
     projection_search: Option<ProjectionSlotSearchState>,
     slot_axis: SlotAxis,
@@ -170,7 +207,6 @@ impl Default for ObjectBrowserApp {
             value_filter_choice_picker: None,
             general_value_editor: None,
             boolean_value_picker: None,
-            rename_slot: None,
             slot_search: None,
             projection_search: None,
             slot_axis: SlotAxis::Horizontal,
@@ -200,6 +236,13 @@ impl ObjectBrowserApp {
     const FRAMES_PER_SECOND: f32 = 60.0;
     const MIN_SLOT_WIDTH: u16 = 34;
     const MIN_SLOT_HEIGHT: u16 = 7;
+
+    fn new() -> Self {
+        let mut app = Self::default();
+        let tab_slot_id = app.create_tab_slot();
+        app.tabs[0].tab_slot_id = tab_slot_id;
+        app
+    }
 
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         let period = Duration::from_secs_f32(1.0 / Self::FRAMES_PER_SECOND);
@@ -295,7 +338,7 @@ impl ObjectBrowserApp {
         ]);
         let [title_area, breadcrumb_area, body_area, status_area] = vertical.areas(frame.area());
 
-        let title = Line::from(format!("Tab {}", self.active_tab_index + 1))
+        let title = Line::from(self.current_tab_title())
             .centered()
             .bold();
         frame.render_widget(title, title_area);
@@ -317,9 +360,11 @@ impl ObjectBrowserApp {
             UiMode::FilterKindPicker => self.draw_filter_kind_picker_popup(frame),
             UiMode::ValueFilterEditor => self.draw_value_filter_editor_popup(frame),
             UiMode::ValueFilterChoicePicker => self.draw_value_filter_choice_picker_popup(frame),
+            UiMode::ValueFilterLiteralEditor => {
+                self.draw_value_filter_literal_editor_popup(frame)
+            }
             UiMode::GeneralValueEditor => self.draw_general_value_editor_popup(frame),
             UiMode::BooleanValuePicker => self.draw_boolean_value_picker_popup(frame),
-            UiMode::RenameSlot => self.draw_rename_slot_popup(frame),
         }
 
         if self.show_hotkey_help {
@@ -471,10 +516,16 @@ impl ObjectBrowserApp {
     }
     fn draw_object_slot(&mut self, frame: &mut Frame, area: Rect, slot_id: usize, is_active: bool) {
         let Some(title) = self.slot_by_id(slot_id).map(|slot| {
-            let slot_label = slot.name.as_deref().unwrap_or("unnamed");
+            if self.is_tab_slot(slot.id) {
+                let name = self
+                    .tab_name(slot.id)
+                    .filter(|name| !name.is_empty())
+                    .unwrap_or_else(|| "unnamed".to_string());
+                return format!("slot {} - Tab - {}", slot.id, name);
+            }
             match slot.kind {
-                SlotKind::Owned => format!("slot {} ({slot_label}) [owned]", slot.id),
-                SlotKind::View(_) => format!("slot {} ({slot_label}) [view]", slot.id),
+                SlotKind::Owned => format!("slot {} [owned]", slot.id),
+                SlotKind::View(_) => format!("slot {} [view]", slot.id),
             }
         }) else {
             return;
@@ -766,14 +817,30 @@ impl ObjectBrowserApp {
             .cloned()
             .map(ListItem::new)
             .collect();
-        draw_picker_popup(
+        let preview_lines = picker
+            .search
+            .selected_filtered_index()
+            .and_then(|index| picker.labels.get(index))
+            .map(|selected| {
+                vec![
+                    Line::from(Span::styled(
+                        selected.clone(),
+                        Style::default().fg(Color::Yellow),
+                    )),
+                    Line::from(""),
+                    Line::from("Enter: choose | Esc: return to editor"),
+                ]
+            })
+            .unwrap_or_else(|| vec![Line::from("Enter: choose | Esc: return to editor")]);
+        draw_picker_popup_with_left_percentage(
             frame,
             "Choose Value Filter Property",
             "Selection",
             &mut picker.search,
             items,
             picker.labels.len(),
-            vec![Line::from("Enter: choose | Esc: return to editor")],
+            preview_lines,
+            68,
         );
     }
 
@@ -787,10 +854,9 @@ impl ObjectBrowserApp {
             .first()
             .map(String::as_str)
             .unwrap_or("");
-        let shown_value = if literal.is_empty() {
-            editor.draft.value.as_str()
-        } else {
-            literal
+        let shown_value = match editor.source {
+            ValueFilterSource::Existing => editor.draft.value.as_str(),
+            ValueFilterSource::Literal => literal,
         };
         let rows = [
             format!("field shape: {}", editor.draft.field_shape),
@@ -824,11 +890,38 @@ impl ObjectBrowserApp {
         frame.render_widget(List::new(rows), form_area);
         frame.render_widget(
             Paragraph::new(
-                "Up/Down: field | Enter: choose/save | Left/Right: operator/source | Type: literal value | Esc: cancel",
+                "Up/Down: field | Enter: choose/save/edit | Left/Right: operator/source | Esc: cancel",
             )
             .wrap(Wrap { trim: true }),
             hint_area,
         );
+    }
+
+    fn draw_value_filter_literal_editor_popup(&mut self, frame: &mut Frame) {
+        let Some(editor) = self.value_filter_editor.as_mut() else {
+            return;
+        };
+        let area = centered_rect(70, 34, frame.area());
+        frame.render_widget(Clear, area);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title("Edit Filter Literal")
+            .border_style(Style::default().fg(Color::Cyan));
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        let [hint_area, input_area] =
+            Layout::vertical([Constraint::Length(2), Constraint::Fill(1)]).areas(inner);
+        frame.render_widget(
+            Paragraph::new("Enter: save value | Esc: return to filter editor"),
+            hint_area,
+        );
+        editor.literal_input.set_block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Literal value")
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
+        editor.literal_input.render(input_area, frame.buffer_mut());
     }
 
     fn draw_general_value_editor_popup(&mut self, frame: &mut Frame) {
@@ -930,6 +1023,7 @@ impl ObjectBrowserApp {
             Line::from("Ctrl+T: transpose slot axis"),
             Line::from("Alt+F: focused slot fill"),
             Line::from("Alt++/Alt+-: resize slots"),
+            Line::from("F2: focus current tab name"),
             Line::from("Left/Right: previous/next slot"),
             Line::from("Up/Down: previous/next row"),
             Line::from("PageUp/PageDown: page rows"),
@@ -943,38 +1037,6 @@ impl ObjectBrowserApp {
         ];
         frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
     }
-    fn draw_rename_slot_popup(&mut self, frame: &mut Frame) {
-        let Some(rename_slot) = self.rename_slot.as_mut() else {
-            return;
-        };
-
-        let area = centered_rect(52, 28, frame.area());
-        frame.render_widget(Clear, area);
-
-        let popup_block = Block::default()
-            .borders(Borders::ALL)
-            .title("Rename Slot")
-            .border_style(Style::default().fg(Color::Cyan));
-        let inner = popup_block.inner(area);
-        frame.render_widget(popup_block, area);
-
-        let [hint_area, editor_area] =
-            Layout::vertical([Constraint::Length(2), Constraint::Length(3)]).areas(inner);
-
-        frame.render_widget(
-            Paragraph::new(vec![
-                Line::from(format!("slot {}", rename_slot.slot_id)),
-                Line::from("Enter: save | Esc: cancel"),
-            ]),
-            hint_area,
-        );
-
-        rename_slot
-            .textarea
-            .set_block(Block::default().borders(Borders::ALL).title("Name"));
-        rename_slot.textarea.render(editor_area, frame.buffer_mut());
-    }
-
     fn handle_event(&mut self, event: &Event) {
         let Event::Key(key) = event else {
             return;
@@ -1027,6 +1089,10 @@ impl ObjectBrowserApp {
             self.toggle_focused_slot_fill();
             return;
         }
+        if self.mode == UiMode::Pool && key.code == KeyCode::F(2) {
+            self.focus_current_tab_name();
+            return;
+        }
         if key.modifiers.contains(KeyModifiers::CONTROL)
             && matches!(key.code, KeyCode::Char('t') | KeyCode::Char('T'))
         {
@@ -1058,9 +1124,11 @@ impl ObjectBrowserApp {
             UiMode::FilterKindPicker => self.handle_filter_kind_picker_key(*key),
             UiMode::ValueFilterEditor => self.handle_value_filter_editor_key(*key),
             UiMode::ValueFilterChoicePicker => self.handle_value_filter_choice_picker_key(*key),
+            UiMode::ValueFilterLiteralEditor => {
+                self.handle_value_filter_literal_editor_key(*key)
+            }
             UiMode::GeneralValueEditor => self.handle_general_value_editor_key(*key),
             UiMode::BooleanValuePicker => self.handle_boolean_value_picker_key(*key),
-            UiMode::RenameSlot => self.handle_rename_slot_key(*key),
         }
     }
 
@@ -1121,6 +1189,10 @@ impl ObjectBrowserApp {
 
     fn current_tab_state(&self) -> BrowserTabState {
         BrowserTabState {
+            tab_slot_id: self
+                .tabs
+                .get(self.active_tab_index)
+                .map_or(0, |tab| tab.tab_slot_id),
             projection_stack: self.projection_stack.clone(),
             breadcrumb_filters: self.breadcrumb_filters.clone(),
             pool_surface: self.pool_surface,
@@ -1133,6 +1205,7 @@ impl ObjectBrowserApp {
     }
 
     fn save_current_tab(&mut self) {
+        self.sync_current_tab_breadcrumbs();
         let state = self.current_tab_state();
         if let Some(tab) = self.tabs.get_mut(self.active_tab_index) {
             *tab = state;
@@ -1143,8 +1216,14 @@ impl ObjectBrowserApp {
         let Some(tab) = self.tabs.get(self.active_tab_index).cloned() else {
             return;
         };
-        self.projection_stack = tab.projection_stack;
-        self.breadcrumb_filters = tab.breadcrumb_filters;
+        if let Some(tab_slot_id) = self.current_tab_slot_id()
+            && let Some(breadcrumbs) = self.tab_breadcrumbs_value(tab_slot_id)
+        {
+            (self.projection_stack, self.breadcrumb_filters) = breadcrumbs.into_ui();
+        } else {
+            self.projection_stack = tab.projection_stack;
+            self.breadcrumb_filters = tab.breadcrumb_filters;
+        }
         self.pool_surface = tab.pool_surface;
         self.active_breadcrumb_index = tab
             .active_breadcrumb_index
@@ -1159,7 +1238,7 @@ impl ObjectBrowserApp {
             .min(self.total_slot_count().saturating_sub(1));
         self.clamp_active_row();
         self.sync_selection_viewports();
-        self.status_message = format!("Switched to Tab {}.", self.active_tab_index + 1);
+        self.status_message = format!("Switched to {}.", self.current_tab_title());
     }
 
     fn switch_tab_previous(&mut self) {
@@ -1174,10 +1253,194 @@ impl ObjectBrowserApp {
     fn switch_tab_next(&mut self) {
         self.save_current_tab();
         if self.active_tab_index + 1 == self.tabs.len() {
-            self.tabs.push(BrowserTabState::default());
+            let tab_slot_id = self.create_tab_slot();
+            self.tabs.push(BrowserTabState::new(tab_slot_id));
         }
         self.active_tab_index += 1;
         self.load_active_tab();
+    }
+
+    fn create_tab_slot(&mut self) -> usize {
+        let slot_id = self.allocate_slot_id();
+        self.object_slots.push(ObjectSlot::new_tab(slot_id));
+        slot_id
+    }
+
+    fn close_tab(&mut self, tab_index: usize) {
+        if tab_index >= self.tabs.len() {
+            return;
+        }
+
+        let was_active = tab_index == self.active_tab_index;
+        if was_active {
+            self.save_current_tab();
+        }
+
+        let tab_slot_id = self.tabs[tab_index].tab_slot_id;
+        if self.slot_has_borrowers(tab_slot_id) {
+            self.status_message = format!(
+                "Cannot close tab slot {} while borrow slots {} still exist.",
+                tab_slot_id,
+                self.slot_borrow_slots(tab_slot_id)
+                    .into_iter()
+                    .map(|id| id.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            return;
+        }
+        self.tabs.remove(tab_index);
+        self.remove_slots_cascade(tab_slot_id);
+
+        let replacement_slot_id = if tab_index == 0 {
+            let slot_id = self.create_tab_slot();
+            self.tabs.insert(0, BrowserTabState::new(slot_id));
+            Some(slot_id)
+        } else {
+            None
+        };
+
+        if was_active {
+            self.active_tab_index = if tab_index == 0 {
+                0
+            } else {
+                tab_index
+                    .saturating_sub(1)
+                    .min(self.tabs.len().saturating_sub(1))
+            };
+            self.load_active_tab();
+        } else {
+            if tab_index < self.active_tab_index {
+                self.active_tab_index = self.active_tab_index.saturating_sub(1);
+            }
+            if tab_index == 0 {
+                self.active_tab_index += 1;
+            }
+        }
+
+        self.mode = UiMode::Pool;
+        self.status_message = if let Some(replacement_slot_id) = replacement_slot_id {
+            format!(
+                "Closed tab slot {}; created and selected replacement tab slot {}.",
+                tab_slot_id, replacement_slot_id
+            )
+        } else if was_active {
+            format!(
+                "Closed tab slot {}; selected the previous tab.",
+                tab_slot_id
+            )
+        } else {
+            format!("Closed tab slot {}.", tab_slot_id)
+        };
+    }
+
+    fn current_tab_slot_id(&self) -> Option<usize> {
+        self.tabs
+            .get(self.active_tab_index)
+            .map(|tab| tab.tab_slot_id)
+            .filter(|slot_id| *slot_id != 0 && self.slot_by_id(*slot_id).is_some())
+    }
+
+    fn tab_name(&self, slot_id: usize) -> Option<String> {
+        self.materialized_fields(slot_id)
+            .into_iter()
+            .find(|field| field.info.field_name == "name")
+            .map(|field| field.value.display_string())
+            .or_else(|| {
+                let value_slot_id = self.slot_field(slot_id, 0).and_then(|field| match field.value_state {
+                    FieldValueState::Linked { slot_id } => Some(slot_id),
+                    FieldValueState::Defaulted | FieldValueState::Unset => None,
+                })?;
+                self.slot_runtime_value(value_slot_id)
+                    .ok()
+                    .map(|value| value.display_string())
+            })
+    }
+
+    fn tab_breadcrumbs_value(&self, tab_slot_id: usize) -> Option<Breadcrumbs> {
+        let breadcrumbs_slot_id = self
+            .slot_field(tab_slot_id, 1)
+            .and_then(|field| match field.value_state {
+                FieldValueState::Linked { slot_id } => Some(slot_id),
+                FieldValueState::Defaulted | FieldValueState::Unset => None,
+            })?;
+        let value = self.slot_runtime_value(breadcrumbs_slot_id).ok()?;
+        value.into_box::<Breadcrumbs>().ok()?.downcast().ok().map(|value| *value)
+    }
+
+    fn sync_current_tab_breadcrumbs(&mut self) {
+        let Some(tab_slot_id) = self.current_tab_slot_id() else {
+            return;
+        };
+        let breadcrumbs = Breadcrumbs::from_ui(&self.projection_stack, &self.breadcrumb_filters);
+        let breadcrumbs_slot_id = self
+            .slot_field(tab_slot_id, 1)
+            .and_then(|field| match field.value_state {
+                FieldValueState::Linked { slot_id } => Some(slot_id),
+                FieldValueState::Defaulted | FieldValueState::Unset => None,
+            });
+        if breadcrumbs.entries.is_empty() && breadcrumbs_slot_id.is_none() {
+            return;
+        }
+        let value = match RuntimeValue::from_box(Box::new(breadcrumbs)) {
+            Ok(value) => value,
+            Err(error) => {
+                self.status_message = format!("Could not store tab breadcrumbs: {error}");
+                return;
+            }
+        };
+        if let Some(slot_id) = breadcrumbs_slot_id {
+            if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                slot.value_state = SlotValueState::ResolvedValue { value };
+            }
+        } else {
+            let slot_id = self.allocate_slot_id();
+            self.object_slots.push(ObjectSlot::new_resolved_result(
+                slot_id,
+                describe_shape(<Breadcrumbs as facet::Facet<'static>>::SHAPE),
+                value,
+            ));
+            self.set_field_link(tab_slot_id, 1, slot_id);
+        }
+        self.invalidate_all_slot_display_caches();
+    }
+
+    fn current_tab_title(&self) -> String {
+        self.current_tab_slot_id()
+            .map(|slot_id| {
+                let name = self
+                    .tab_name(slot_id)
+                    .filter(|name| !name.is_empty())
+                    .unwrap_or_else(|| "unnamed".to_string());
+                format!("slot {} - Tab - {}", slot_id, name)
+            })
+            .unwrap_or_else(|| format!("Tab {}", self.active_tab_index + 1))
+    }
+
+    fn is_tab_slot(&self, slot_id: usize) -> bool {
+        slot_id != 0 && self.tabs.iter().any(|tab| tab.tab_slot_id == slot_id)
+    }
+
+    fn focus_current_tab_name(&mut self) {
+        let Some(tab_slot_id) = self.current_tab_slot_id() else {
+            self.status_message = "The current tab has no Tab slot yet.".to_string();
+            return;
+        };
+        let name_index = self
+            .slot_field(tab_slot_id, 0)
+            .is_some_and(|field| field.info.field_name == "name")
+            .then_some(0)
+            .or_else(|| {
+                self.materialized_fields(tab_slot_id)
+                    .iter()
+                    .position(|field| field.info.field_name == "name")
+            });
+        let Some(name_index) = name_index else {
+            self.status_message = "The current Tab slot has no name field.".to_string();
+            return;
+        };
+        self.jump_to_slot_target(tab_slot_id, SlotFocusTarget::FieldValue(name_index));
+        self.status_message = "Current tab name field selected.".to_string();
     }
 
     fn handle_slot_search_key(&mut self, key: KeyEvent) {
@@ -1513,19 +1776,55 @@ impl ObjectBrowserApp {
                     4 if source == ValueFilterSource::Existing => {
                         self.open_value_filter_choice(ValueFilterChoiceTarget::ExistingValue)
                     }
-                    4 => {
-                        if let Some(editor) = self.value_filter_editor.as_mut() {
-                            editor.active_row = 5;
-                        }
-                    }
+                    4 => self.open_value_filter_literal_editor(),
                     5 => self.apply_value_filter_editor(),
                     _ => {}
                 }
             }
-            _ if editor.active_row == 4 && editor.source == ValueFilterSource::Literal => {
+            _ => {}
+        }
+    }
+
+    fn open_value_filter_literal_editor(&mut self) {
+        let Some(editor) = self.value_filter_editor.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+        editor.literal_edit_original = Some(
+            editor
+                .literal_input
+                .lines()
+                .first()
+                .cloned()
+                .unwrap_or_default(),
+        );
+        editor.literal_input.cancel_selection();
+        editor.literal_input.move_cursor(CursorMove::End);
+        self.mode = UiMode::ValueFilterLiteralEditor;
+        self.status_message = "Edit the literal filter value, then press Enter to return.".to_string();
+    }
+
+    fn handle_value_filter_literal_editor_key(&mut self, key: KeyEvent) {
+        let Some(editor) = self.value_filter_editor.as_mut() else {
+            self.mode = UiMode::Pool;
+            return;
+        };
+        match key.code {
+            KeyCode::Esc => {
+                if let Some(original) = editor.literal_edit_original.take() {
+                    editor.literal_input = build_text_area(&original);
+                }
+                self.mode = UiMode::ValueFilterEditor;
+                self.status_message = "Literal filter value editing cancelled.".to_string();
+            }
+            KeyCode::Enter => {
+                editor.literal_edit_original = None;
+                self.mode = UiMode::ValueFilterEditor;
+                self.status_message = "Literal filter value updated.".to_string();
+            }
+            _ => {
                 editor.literal_input.input(key);
             }
-            _ => {}
         }
     }
 
@@ -1672,25 +1971,6 @@ impl ObjectBrowserApp {
         self.mode = UiMode::Pool;
         self.status_message = format!("Updated value in slot {slot_id}.");
     }
-    fn handle_rename_slot_key(&mut self, key: KeyEvent) {
-        let Some(rename_slot) = self.rename_slot.as_mut() else {
-            self.mode = UiMode::Pool;
-            return;
-        };
-
-        match key.code {
-            KeyCode::Esc => {
-                self.rename_slot = None;
-                self.mode = UiMode::Pool;
-                self.status_message = "Rename cancelled.".to_string();
-            }
-            KeyCode::Enter => self.apply_rename_slot(),
-            _ => {
-                rename_slot.textarea.input(key);
-            }
-        }
-    }
-
     fn is_slot_search_key(&self, key: KeyEvent) -> bool {
         matches!(key.code, KeyCode::Char(character) if character != ' ' && !character.is_control())
             && !key
@@ -2654,7 +2934,6 @@ impl ObjectBrowserApp {
 
     fn activate_slot_action(&mut self, slot_id: usize, action: SlotAction) {
         match action {
-            SlotAction::Rename => self.open_rename_slot(slot_id),
             SlotAction::Delete => self.delete_slot(slot_id),
             SlotAction::Clone => self.clone_slot(slot_id),
             SlotAction::Take => self.take_slot(slot_id),
@@ -2714,33 +2993,11 @@ impl ObjectBrowserApp {
         self.status_message = format!("Promoted slot {} to its owned Cow representation.", slot_id);
     }
 
-    fn open_rename_slot(&mut self, slot_id: usize) {
-        let existing_name = self.slot_by_id(slot_id).and_then(|slot| slot.name.clone());
-        self.rename_slot = Some(RenameSlotState::new(slot_id, existing_name));
-        self.mode = UiMode::RenameSlot;
-        self.status_message = "Rename the slot and press Enter to save.".to_string();
-    }
-
-    fn apply_rename_slot(&mut self) {
-        let Some(rename_slot) = self.rename_slot.take() else {
-            return;
-        };
-        let slot_id = rename_slot.slot_id;
-        let name = rename_slot.text_value();
-
-        if let Some(slot) = self.slot_by_id_mut(slot_id) {
-            slot.name = name.clone();
-        }
-
-        self.mode = UiMode::Pool;
-        self.invalidate_all_slot_display_caches();
-        self.status_message = match name {
-            Some(name) => format!("Renamed slot {} to {}.", slot_id, name),
-            None => format!("Cleared the name for slot {}.", slot_id),
-        };
-    }
-
     fn delete_slot(&mut self, slot_id: usize) {
+        if let Some(tab_index) = self.tabs.iter().position(|tab| tab.tab_slot_id == slot_id) {
+            self.close_tab(tab_index);
+            return;
+        }
         if self.slot_has_borrowers(slot_id) {
             self.status_message = format!(
                 "Cannot delete slot {} while borrow slots {} still exist.",
@@ -2807,7 +3064,6 @@ impl ObjectBrowserApp {
         };
         self.clear_owner_field_link(info.owner_slot_id, info.field_index, slot_id);
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
-            slot.name = snapshot.name;
             slot.kind = SlotKind::Owned;
             slot.provenance = snapshot.provenance;
             slot.shape_name = snapshot.shape_name;
@@ -3685,12 +3941,18 @@ impl ObjectBrowserApp {
             return;
         };
         let slot_id = self.allocate_slot_id();
-        let slot = ObjectSlot::new_scalar(slot_id, describe_shape(shape), shape);
+        let mut slot = ObjectSlot::new_scalar(slot_id, describe_shape(shape), shape);
+        slot.kind = SlotKind::View(ViewInfo {
+            source_slot_id: slot_id,
+            owner_slot_id,
+            field_index,
+            field_name: field.info.field_name,
+        });
         self.object_slots.push(slot);
         self.set_field_link(owner_slot_id, field_index, slot_id);
         self.invalidate_all_slot_display_caches();
         self.status_message = format!(
-            "Created owned value slot {} for {}. Choose or enter its value.",
+            "Created view value slot {} for {}. Choose or enter its value.",
             slot_id, field.info.field_name
         );
         self.open_slot_value_editor(slot_id);
@@ -4164,7 +4426,6 @@ impl ObjectBrowserApp {
             && matches!(display_slot.kind, SlotKind::View(_))
         {
             return Some(SlotSnapshot {
-                name: display_slot.name.clone(),
                 shape_name: display_slot.shape_name.clone(),
                 provenance: display_slot.provenance,
                 value_state: SlotSnapshotValueState::ResolvedValue {
@@ -4185,7 +4446,6 @@ impl ObjectBrowserApp {
             }
         };
         Some(SlotSnapshot {
-            name: display_slot.name.clone().or_else(|| data_slot.name.clone()),
             shape_name: display_slot
                 .shape_name
                 .clone()
@@ -4518,6 +4778,12 @@ impl ObjectBrowserApp {
             }
             SlotValueState::Consumed => eyre::bail!("slot {} has been consumed", slot.id),
             SlotValueState::ResolvedValue { value } => value.try_clone(),
+            SlotValueState::Building(SlotBody::Value {
+                value: Some(value), ..
+            }) => value.try_clone(),
+            SlotValueState::Building(SlotBody::Value { value: None, .. }) => {
+                eyre::bail!("slot {} value is still unset", slot.id)
+            }
             SlotValueState::Building(body) => {
                 let shape_name = slot
                     .shape_name
@@ -4975,7 +5241,6 @@ impl ObjectBrowserApp {
 
         rows.push(SlotDisplayRow::Static(separator_line("actions")));
         for action in [
-            SlotAction::Rename,
             SlotAction::Delete,
             SlotAction::Clone,
             SlotAction::Take,
@@ -5338,7 +5603,6 @@ impl ObjectBrowserApp {
     fn slot_action_label(&self, slot_id: usize, action: SlotAction) -> String {
         let Some(slot) = self.slot_by_id(slot_id) else {
             return match action {
-                SlotAction::Rename => "rename".to_string(),
                 SlotAction::Delete => "delete".to_string(),
                 SlotAction::Clone => "clone".to_string(),
                 SlotAction::Take => "take".to_string(),
@@ -5350,7 +5614,7 @@ impl ObjectBrowserApp {
         };
 
         match action {
-            SlotAction::Rename => "rename".to_string(),
+            SlotAction::Delete if self.is_tab_slot(slot_id) => "delete (close tab)".to_string(),
             SlotAction::Delete => match slot.kind {
                 SlotKind::Owned => "delete".to_string(),
                 SlotKind::View(_) => "delete (unset field)".to_string(),
@@ -5480,6 +5744,7 @@ impl ObjectBrowserApp {
         self.active_slot_index = 0;
         self.active_row_index = 0;
         self.sync_selection_viewports();
+        self.sync_current_tab_breadcrumbs();
         self.status_message = "Breadcrumb removed.".to_string();
     }
 
@@ -5501,6 +5766,7 @@ impl ObjectBrowserApp {
             self.active_row_index = 0;
             self.pool_surface = PoolSurface::Slots;
             self.sync_selection_viewports();
+            self.sync_current_tab_breadcrumbs();
             self.status_message = "Returned to the full object pool.".to_string();
             return;
         }
@@ -5528,6 +5794,7 @@ impl ObjectBrowserApp {
         self.active_row_index = 0;
         self.pool_surface = PoolSurface::Slots;
         self.sync_selection_viewports();
+        self.sync_current_tab_breadcrumbs();
         self.status_message = format!(
             "Focused {}.",
             self.projection_stack
@@ -5546,6 +5813,7 @@ impl ObjectBrowserApp {
             self.active_slot_index = 0;
             self.active_row_index = 0;
             self.sync_selection_viewports();
+            self.sync_current_tab_breadcrumbs();
             self.status_message = match filter {
                 BreadcrumbFilter::Shape(_) => "Closed shape filter.".to_string(),
                 BreadcrumbFilter::Value(_) => "Closed value filter.".to_string(),
@@ -5562,6 +5830,7 @@ impl ObjectBrowserApp {
         self.active_slot_index = 0;
         self.active_row_index = 0;
         self.sync_selection_viewports();
+        self.sync_current_tab_breadcrumbs();
         self.status_message = match popped {
             Some(view) => format!("Closed {}.", self.projection_view_label(&view)),
             None => "Returned to the full object pool.".to_string(),
@@ -5708,15 +5977,9 @@ impl ObjectBrowserApp {
             });
         if shape_matches
             && name_matches
-            && peek_list_items(value).is_none()
-            && peek_object_entries(value).is_none()
+            && let Some(candidate) = peek_filter_scalar_text(value)
         {
-            values.insert(
-                value
-                    .as_str()
-                    .map(ToOwned::to_owned)
-                    .unwrap_or_else(|| value.to_string()),
-            );
+            values.insert(candidate);
         }
         if let Some(items) = peek_list_items(value) {
             for (index, child) in items.into_iter().enumerate() {
@@ -5779,6 +6042,7 @@ impl ObjectBrowserApp {
         self.active_slot_index = 0;
         self.active_row_index = 0;
         self.sync_selection_viewports();
+        self.sync_current_tab_breadcrumbs();
         self.status_message = format!(
             "Value filter applied; {} entries visible.",
             self.total_slot_count()
@@ -5911,6 +6175,7 @@ impl ObjectBrowserApp {
         self.slot_view_offset = 0;
         self.row_view_offset = 0;
         self.sync_selection_viewports();
+        self.sync_current_tab_breadcrumbs();
         self.status_message = format!(
             "{filter_label} filter applied; {} entries visible.",
             self.total_slot_count()
@@ -6368,10 +6633,9 @@ impl ObjectBrowserApp {
         let Some(value) = value else {
             return false;
         };
-        let candidate = value
-            .as_str()
-            .map(ToOwned::to_owned)
-            .unwrap_or_else(|| value.to_string());
+        let Some(candidate) = peek_filter_scalar_text(value) else {
+            return false;
+        };
         match filter.operator {
             ValueFilterOperator::Equals => candidate == filter.value,
             ValueFilterOperator::NotEquals => candidate != filter.value,
@@ -6710,6 +6974,7 @@ impl ObjectBrowserApp {
             self.active_row_index = 0;
             self.pool_surface = PoolSurface::Slots;
             self.sync_selection_viewports();
+            self.sync_current_tab_breadcrumbs();
             self.status_message = format!(
                 "Browsing {}.",
                 self.projection_stack
@@ -6836,6 +7101,7 @@ impl ObjectBrowserApp {
                 projection,
                 is_active.then_some(self.active_row_index),
                 scroll_offset..scroll_offset.saturating_add(visible_line_count),
+                usize::from(inner.width),
             )
         };
         let paragraph = Paragraph::new(lines.clone()).block(block);
@@ -6860,7 +7126,12 @@ impl ObjectBrowserApp {
         active_row: Option<usize>,
     ) -> Vec<Line<'static>> {
         let rendered_line_count = self.projection_rendered_line_count(projection);
-        self.projection_slot_lines_window(projection, active_row, 0..rendered_line_count.max(1))
+        self.projection_slot_lines_window(
+            projection,
+            active_row,
+            0..rendered_line_count.max(1),
+            usize::MAX,
+        )
     }
 
     fn projection_slot_lines_window(
@@ -6868,6 +7139,7 @@ impl ObjectBrowserApp {
         projection: &ProjectionSlot,
         active_row: Option<usize>,
         line_range: Range<usize>,
+        content_width: usize,
     ) -> Vec<Line<'static>> {
         let Some(value) = self.projection_value(projection) else {
             return vec![Line::from("  unavailable")];
@@ -6956,7 +7228,11 @@ impl ObjectBrowserApp {
                         vec![
                             Span::styled(format!("{}: ", field_name), Style::default().fg(accent)),
                             Span::styled(
-                                peek_value_summary(*field_value),
+                                peek_value_summary_with_width(
+                                    *field_value,
+                                    content_width
+                                        .saturating_sub(field_name.chars().count() + 4),
+                                ),
                                 Style::default().fg(accent).add_modifier(Modifier::BOLD),
                             ),
                         ],
@@ -7507,9 +7783,9 @@ enum UiMode {
     FilterKindPicker,
     ValueFilterEditor,
     ValueFilterChoicePicker,
+    ValueFilterLiteralEditor,
     GeneralValueEditor,
     BooleanValuePicker,
-    RenameSlot,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7576,6 +7852,7 @@ struct ProjectionView {
 
 #[derive(Clone, Debug)]
 struct BrowserTabState {
+    tab_slot_id: usize,
     projection_stack: Vec<ProjectionView>,
     breadcrumb_filters: Vec<BreadcrumbFilter>,
     pool_surface: PoolSurface,
@@ -7588,7 +7865,14 @@ struct BrowserTabState {
 
 impl Default for BrowserTabState {
     fn default() -> Self {
+        Self::new(0)
+    }
+}
+
+impl BrowserTabState {
+    fn new(tab_slot_id: usize) -> Self {
         Self {
+            tab_slot_id,
             projection_stack: Vec::new(),
             breadcrumb_filters: Vec::new(),
             pool_surface: PoolSurface::Slots,
@@ -7611,7 +7895,8 @@ struct SlotKindFilterView {
     included_kinds: BTreeSet<SlotFilterKind>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, facet::Facet)]
+#[repr(C)]
 enum SlotFilterKind {
     Owned,
     View,
@@ -7647,6 +7932,67 @@ enum BreadcrumbFilter {
     SlotKind(SlotKindFilterView),
 }
 
+impl Breadcrumbs {
+    fn from_ui(projection_stack: &[ProjectionView], filters: &[BreadcrumbFilter]) -> Self {
+        let mut entries = projection_stack
+            .iter()
+            .map(|projection| Breadcrumb::Projection {
+                root_slot_id: projection.root_slot_id,
+                path: projection.path.clone(),
+            })
+            .collect::<Vec<_>>();
+        entries.extend(filters.iter().map(|filter| match filter {
+            BreadcrumbFilter::Shape(filter) => Breadcrumb::ShapeFilter {
+                included_shapes: filter.included_shapes.iter().cloned().collect(),
+            },
+            BreadcrumbFilter::SlotKind(filter) => Breadcrumb::SlotKindFilter {
+                included_kinds: filter.included_kinds.iter().copied().collect(),
+            },
+            BreadcrumbFilter::Value(filter) => Breadcrumb::ValueFilter {
+                field_shape: filter.field_shape.clone(),
+                field_name: filter.field_name.clone(),
+                operator: filter.operator,
+                value: filter.value.clone(),
+            },
+        }));
+        Self { entries }
+    }
+
+    fn into_ui(self) -> (Vec<ProjectionView>, Vec<BreadcrumbFilter>) {
+        let mut projections = Vec::new();
+        let mut filters = Vec::new();
+        for entry in self.entries {
+            match entry {
+                Breadcrumb::Projection { root_slot_id, path } => {
+                    projections.push(ProjectionView { root_slot_id, path });
+                }
+                Breadcrumb::ShapeFilter { included_shapes } => {
+                    filters.push(BreadcrumbFilter::Shape(ShapeFilterView {
+                        included_shapes: included_shapes.into_iter().collect(),
+                    }));
+                }
+                Breadcrumb::SlotKindFilter { included_kinds } => {
+                    filters.push(BreadcrumbFilter::SlotKind(SlotKindFilterView {
+                        included_kinds: included_kinds.into_iter().collect(),
+                    }));
+                }
+                Breadcrumb::ValueFilter {
+                    field_shape,
+                    field_name,
+                    operator,
+                    value,
+                } => filters.push(BreadcrumbFilter::Value(ValueFilterView {
+                    field_shape,
+                    field_name,
+                    operator,
+                    value,
+                })),
+            }
+        }
+        (projections, filters)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 struct ValueFilterView {
     field_shape: String,
@@ -7655,7 +8001,8 @@ struct ValueFilterView {
     value: String,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, facet::Facet)]
+#[repr(C)]
 enum ValueFilterOperator {
     Equals,
     NotEquals,
@@ -7672,7 +8019,8 @@ impl ValueFilterOperator {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, facet::Facet)]
+#[repr(C)]
 enum ValuePathSegment {
     Field(String),
     Index(usize),
@@ -7764,7 +8112,6 @@ enum SlotFocusTarget {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SlotAction {
-    Rename,
     Delete,
     Clone,
     Take,
@@ -8248,26 +8595,6 @@ impl BooleanValuePickerState {
         }
     }
 }
-struct RenameSlotState {
-    slot_id: usize,
-    textarea: TextArea<'static>,
-}
-
-impl RenameSlotState {
-    fn new(slot_id: usize, existing_name: Option<String>) -> Self {
-        let mut textarea = build_text_area(existing_name.as_deref().unwrap_or(""));
-        if existing_name.is_some() {
-            textarea.select_all();
-        }
-        Self { slot_id, textarea }
-    }
-
-    fn text_value(&self) -> Option<String> {
-        let text = self.textarea.lines().join("\n").trim().to_string();
-        (!text.is_empty()).then_some(text)
-    }
-}
-
 struct LinkActionPickerState {
     owner_slot_id: usize,
     field_index: usize,
@@ -8374,6 +8701,7 @@ struct ValueFilterEditorState {
     source: ValueFilterSource,
     active_row: usize,
     literal_input: TextArea<'static>,
+    literal_edit_original: Option<String>,
 }
 
 impl ValueFilterEditorState {
@@ -8385,6 +8713,7 @@ impl ValueFilterEditorState {
             source: ValueFilterSource::Existing,
             active_row: 0,
             literal_input,
+            literal_edit_original: None,
         }
     }
 }
@@ -8650,7 +8979,6 @@ impl SlotDisplayRow {
 }
 #[derive(Debug)]
 struct SlotSnapshot {
-    name: Option<String>,
     shape_name: Option<String>,
     provenance: ValueProvenance,
     value_state: SlotSnapshotValueState,
@@ -8680,7 +9008,6 @@ struct PendingInvocationState {
 #[derive(Debug)]
 struct ObjectSlot {
     id: usize,
-    name: Option<String>,
     kind: SlotKind,
     provenance: ValueProvenance,
     shape_name: Option<String>,
@@ -8695,7 +9022,6 @@ impl ObjectSlot {
     fn from_snapshot(id: usize, snapshot: SlotSnapshot) -> Self {
         Self {
             id,
-            name: snapshot.name,
             kind: SlotKind::Owned,
             provenance: snapshot.provenance,
             shape_name: snapshot.shape_name,
@@ -8715,7 +9041,6 @@ impl ObjectSlot {
     fn new(id: usize) -> Self {
         Self {
             id,
-            name: None,
             kind: SlotKind::Owned,
             provenance: ValueProvenance::Owned,
             shape_name: None,
@@ -8727,10 +9052,47 @@ impl ObjectSlot {
         }
     }
 
+    fn new_tab(id: usize) -> Self {
+        let shape = <Tab as facet::Facet<'static>>::SHAPE;
+        let fields = cloud_terrastodon_registry::known_thing_for_shape(shape)
+            .map(cloud_terrastodon_registry::shape_fields_for_thing)
+            .unwrap_or_else(|| {
+                vec![
+                    ShapeFieldInfo {
+                        field_name: "name",
+                        field_shape_name: describe_shape(<String as facet::Facet<'static>>::SHAPE),
+                        has_default: false,
+                        default_value_label: None,
+                    },
+                    ShapeFieldInfo {
+                        field_name: "breadcrumbs",
+                        field_shape_name: describe_shape(
+                            <Breadcrumbs as facet::Facet<'static>>::SHAPE,
+                        ),
+                        has_default: true,
+                        default_value_label: Some("<default>".to_string()),
+                    },
+                ]
+            })
+            .into_iter()
+            .map(ObjectFieldState::new)
+            .collect();
+        Self {
+            id,
+            kind: SlotKind::Owned,
+            provenance: ValueProvenance::Owned,
+            shape_name: Some(describe_shape(shape)),
+            value_state: SlotValueState::Building(SlotBody::Struct { fields }),
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            display_cache: None,
+        }
+    }
+
     fn new_result(id: usize, shape_name: String, pending: PendingInvocationState) -> Self {
         Self {
             id,
-            name: None,
             kind: SlotKind::Owned,
             provenance: ValueProvenance::Owned,
             shape_name: Some(shape_name),
@@ -8745,7 +9107,6 @@ impl ObjectSlot {
     fn new_resolved_result(id: usize, shape_name: String, value: RuntimeValue) -> Self {
         Self {
             id,
-            name: None,
             kind: SlotKind::Owned,
             provenance: ValueProvenance::Owned,
             shape_name: Some(shape_name),
@@ -8772,7 +9133,6 @@ impl ObjectSlot {
     ) -> Self {
         Self {
             id,
-            name: None,
             kind: SlotKind::View(ViewInfo {
                 source_slot_id,
                 owner_slot_id,
@@ -9265,6 +9625,28 @@ fn draw_picker_popup(
     total_count: usize,
     preview_lines: Vec<Line<'static>>,
 ) {
+    draw_picker_popup_with_left_percentage(
+        frame,
+        popup_title,
+        preview_title,
+        search,
+        items,
+        total_count,
+        preview_lines,
+        42,
+    );
+}
+
+fn draw_picker_popup_with_left_percentage(
+    frame: &mut Frame,
+    popup_title: &str,
+    preview_title: &str,
+    search: &mut PickerSearchState,
+    items: Vec<ListItem<'static>>,
+    total_count: usize,
+    preview_lines: Vec<Line<'static>>,
+    left_percentage: u16,
+) {
     let area = centered_rect(82, 80, frame.area());
     frame.render_widget(Clear, area);
 
@@ -9275,8 +9657,12 @@ fn draw_picker_popup(
     let inner = popup_block.inner(area);
     frame.render_widget(popup_block, area);
 
-    let [left_area, right_area] =
-        Layout::horizontal([Constraint::Percentage(42), Constraint::Percentage(58)]).areas(inner);
+    let left_percentage = left_percentage.clamp(1, 99);
+    let [left_area, right_area] = Layout::horizontal([
+        Constraint::Percentage(left_percentage),
+        Constraint::Percentage(100 - left_percentage),
+    ])
+    .areas(inner);
     let [list_area, search_area] =
         Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(left_area);
 
@@ -9810,9 +10196,21 @@ fn peek_object_entries<'a>(
 }
 
 fn peek_value_summary(value: facet_reflect::Peek<'_, '_>) -> String {
+    peek_value_summary_with_width(value, 40)
+}
+
+fn peek_value_summary_with_width(
+    value: facet_reflect::Peek<'_, '_>,
+    max_text_width: usize,
+) -> String {
     if let Some(text) = peek_scalar_text(value) {
-        let truncated = if text.chars().count() > 40 {
-            format!("{}...", text.chars().take(37).collect::<String>())
+        let truncated = if text.chars().count() > max_text_width {
+            format!(
+                "{}...",
+                text.chars()
+                    .take(max_text_width.saturating_sub(3))
+                    .collect::<String>()
+            )
         } else {
             text
         };
@@ -9836,6 +10234,21 @@ fn peek_scalar_text(value: facet_reflect::Peek<'_, '_>) -> Option<String> {
         .as_str()
         .map(ToOwned::to_owned)
         .or_else(|| Some(proxied.to_string()))
+}
+
+fn peek_filter_scalar_text(value: facet_reflect::Peek<'_, 'static>) -> Option<String> {
+    if peek_list_items(value).is_some() {
+        return None;
+    }
+    if let Some(text) = peek_scalar_text(value) {
+        return Some(text);
+    }
+    if value.shape().is_transparent() {
+        return Some(value.to_string());
+    }
+    peek_object_entries(value)
+        .is_none()
+        .then(|| value.to_string())
 }
 
 fn peek_type_label(value: facet_reflect::Peek<'_, 'static>) -> String {
@@ -9914,6 +10327,7 @@ mod tests {
     use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
     use cloud_terrastodon_azure::RolePermissionAction;
     use cloud_terrastodon_azure::RolePermissions;
+    use cloud_terrastodon_azure::ResourceGroupName;
     use cloud_terrastodon_azure::ScopeImpl;
     use cloud_terrastodon_registry::describe_shape;
     use cloud_terrastodon_registry::known_shapes;
@@ -9949,6 +10363,12 @@ mod tests {
     #[derive(Debug, Clone, Facet, Default)]
     #[repr(C)]
     struct DummyCowProducerRequest;
+
+    #[derive(Debug, Clone, Facet)]
+    #[repr(C)]
+    struct ResourceGroupNameFilterFixture {
+        name: ResourceGroupName,
+    }
 
     impl IntoFuture for DummyInvokeRequest {
         type Output = eyre::Result<DummyInvokeOutput>;
@@ -10100,7 +10520,6 @@ mod tests {
         let mut app = ObjectBrowserApp::default();
         app.object_slots.push(super::ObjectSlot {
             id: 1,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("EntraUser".to_string()),
@@ -10118,7 +10537,6 @@ mod tests {
         });
         app.object_slots.push(super::ObjectSlot {
             id: 2,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("EntraUser".to_string()),
@@ -10154,7 +10572,7 @@ mod tests {
         );
         assert!(
             target_index(SlotFocusTarget::Result(0))
-                < target_index(SlotFocusTarget::Action(super::SlotAction::Rename,))
+                < target_index(SlotFocusTarget::Action(super::SlotAction::Delete))
         );
 
         let status_line = rows.iter().position(|row| {
@@ -11485,6 +11903,81 @@ mod tests {
     }
 
     #[test]
+    fn closing_active_tab_selects_the_previous_tab() {
+        let mut app = ObjectBrowserApp::new();
+        let first_tab_slot_id = app.current_tab_slot_id().expect("first tab slot");
+        app.switch_tab_next();
+        let second_tab_slot_id = app.current_tab_slot_id().expect("second tab slot");
+
+        app.delete_slot(second_tab_slot_id);
+
+        assert_eq!(app.active_tab_index, 0);
+        assert_eq!(app.tabs.len(), 1);
+        assert_eq!(app.current_tab_slot_id(), Some(first_tab_slot_id));
+        assert!(app.slot_by_id(second_tab_slot_id).is_none());
+        assert!(app.status_message.contains("selected the previous tab"));
+        assert_eq!(
+            app.slot_action_label(first_tab_slot_id, super::SlotAction::Delete),
+            "delete (close tab)"
+        );
+    }
+
+    #[test]
+    fn closing_the_first_tab_creates_and_selects_a_replacement() {
+        let mut app = ObjectBrowserApp::new();
+        let first_tab_slot_id = app.current_tab_slot_id().expect("first tab slot");
+        app.switch_tab_next();
+        let second_tab_slot_id = app.current_tab_slot_id().expect("second tab slot");
+        app.switch_tab_previous();
+
+        app.delete_slot(first_tab_slot_id);
+
+        let replacement_tab_slot_id = app.current_tab_slot_id().expect("replacement tab slot");
+        assert_eq!(app.active_tab_index, 0);
+        assert_eq!(app.tabs.len(), 2);
+        assert_ne!(replacement_tab_slot_id, first_tab_slot_id);
+        assert_ne!(replacement_tab_slot_id, second_tab_slot_id);
+        assert!(app.slot_by_id(first_tab_slot_id).is_none());
+        assert!(app.slot_by_id(replacement_tab_slot_id).is_some());
+        assert!(app.slot_by_id(second_tab_slot_id).is_some());
+        assert!(app.status_message.contains("replacement tab"));
+    }
+
+    #[test]
+    fn tab_slots_store_typed_breadcrumbs_and_restore_them() {
+        let mut app = ObjectBrowserApp::new();
+        app.projection_stack.push(super::ProjectionView {
+            root_slot_id: 1,
+            path: vec![super::ValuePathSegment::Field("users".to_string())],
+        });
+        app.breadcrumb_filters = vec![super::BreadcrumbFilter::Shape(
+            super::ShapeFilterView {
+                included_shapes: BTreeSet::from(["EntraUser".to_string()]),
+            },
+        )];
+        app.sync_current_tab_breadcrumbs();
+
+        let tab_slot_id = app.current_tab_slot_id().expect("active tab slot");
+        let breadcrumbs = app
+            .tab_breadcrumbs_value(tab_slot_id)
+            .expect("breadcrumbs should be linked from Tab");
+        assert_eq!(breadcrumbs.entries.len(), 2);
+        assert_eq!(app.current_tab_title(), "slot 1 - Tab - unnamed");
+
+        app.handle_event(&Event::Key(KeyEvent::new(
+            KeyCode::Char('}'),
+            KeyModifiers::SHIFT,
+        )));
+        app.handle_event(&Event::Key(KeyEvent::new(
+            KeyCode::Char('{'),
+            KeyModifiers::SHIFT,
+        )));
+
+        assert_eq!(app.projection_stack.len(), 1);
+        assert_eq!(app.breadcrumb_filters.len(), 1);
+    }
+
+    #[test]
     fn value_filter_editor_supports_page_and_edge_navigation() {
         let mut app = ObjectBrowserApp::default();
         app.open_value_filter_editor(
@@ -11516,6 +12009,68 @@ mod tests {
         assert_eq!(
             app.value_filter_editor.as_ref().expect("editor").active_row,
             0
+        );
+    }
+
+    #[test]
+    fn literal_value_filter_row_opens_a_modal_editor() {
+        let mut app = ObjectBrowserApp::default();
+        app.open_value_filter_editor(
+            None,
+            super::ValueFilterView {
+                field_shape: "ResourceGroupName".to_string(),
+                field_name: "name".to_string(),
+                operator: super::ValueFilterOperator::Contains,
+                value: "group".to_string(),
+            },
+        );
+        let editor = app.value_filter_editor.as_mut().expect("editor");
+        editor.source = super::ValueFilterSource::Literal;
+        editor.active_row = 4;
+        editor.literal_input = super::build_text_area("group");
+
+        app.handle_value_filter_editor_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+        assert_eq!(app.mode, UiMode::ValueFilterLiteralEditor);
+        app.handle_value_filter_literal_editor_key(KeyEvent::new(
+            KeyCode::Char('s'),
+            KeyModifiers::NONE,
+        ));
+        app.handle_value_filter_literal_editor_key(KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::NONE,
+        ));
+
+        assert_eq!(app.mode, UiMode::ValueFilterEditor);
+        assert_eq!(
+            app.value_filter_editor
+                .as_ref()
+                .expect("editor")
+                .literal_input
+                .lines()
+                .first()
+                .map(String::as_str),
+            Some("groups")
+        );
+
+        app.handle_value_filter_editor_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        app.handle_value_filter_literal_editor_key(KeyEvent::new(
+            KeyCode::Char('x'),
+            KeyModifiers::NONE,
+        ));
+        app.handle_value_filter_literal_editor_key(KeyEvent::new(
+            KeyCode::Esc,
+            KeyModifiers::NONE,
+        ));
+        assert_eq!(
+            app.value_filter_editor
+                .as_ref()
+                .expect("editor")
+                .literal_input
+                .lines()
+                .first()
+                .map(String::as_str),
+            Some("groups")
         );
     }
 
@@ -11641,7 +12196,6 @@ mod tests {
         ];
         app.object_slots.push(super::ObjectSlot {
             id: 1,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("List<EntraUser>".to_string()),
@@ -11727,20 +12281,124 @@ mod tests {
     }
 
     #[test]
-    fn rename_action_updates_the_slot_name() {
+    fn value_filter_picklists_include_transparent_resource_group_names() {
         let mut app = ObjectBrowserApp::default();
-        app.activate_current_row();
+        let value = vec![
+            ResourceGroupNameFilterFixture {
+                name: "group-alpha".parse().expect("valid resource group"),
+            },
+            ResourceGroupNameFilterFixture {
+                name: "group-beta".parse().expect("valid resource group"),
+            },
+        ];
+        let shape_name = describe_shape(<Vec<ResourceGroupNameFilterFixture>>::SHAPE);
+        app.reflected_shapes
+            .insert(shape_name.clone(), <Vec<ResourceGroupNameFilterFixture>>::SHAPE);
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
+            shape_name: Some(shape_name),
+            value_state: resolved(value),
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            display_cache: None,
+        });
+        let choices = app.existing_value_filter_choices("ResourceGroupName", "*");
+        assert_eq!(
+            app.projection_shape_name_at_path(
+                1,
+                &[
+                    super::ValuePathSegment::Index(0),
+                    super::ValuePathSegment::Field("name".to_string()),
+                ],
+            )
+            .as_deref(),
+            Some("ResourceGroupName"),
+            "choices={choices:?}"
+        );
+        assert_eq!(
+            choices,
+            vec!["group-alpha".to_string(), "group-beta".to_string()]
+        );
+        assert!(app.value_filter_path_matches(
+            1,
+            &[super::ValuePathSegment::Index(1)],
+            &super::ValueFilterView {
+                field_shape: "ResourceGroupName".to_string(),
+                field_name: "*".to_string(),
+                operator: super::ValueFilterOperator::Contains,
+                value: "group-beta".to_string(),
+            }
+        ));
+        app.open_value_filter_editor(
+            None,
+            super::ValueFilterView {
+                field_shape: "ResourceGroupName".to_string(),
+                field_name: "*".to_string(),
+                operator: super::ValueFilterOperator::Contains,
+                value: String::new(),
+            },
+        );
 
-        app.open_rename_slot(1);
-        if let Some(rename_slot) = app.rename_slot.as_mut() {
-            rename_slot.textarea = super::build_text_area("tenant source");
-        }
-        app.apply_rename_slot();
+        app.open_value_filter_choice(super::ValueFilterChoiceTarget::ExistingValue);
 
         assert_eq!(
-            app.slot_by_id(1).and_then(|slot| slot.name.as_deref()),
-            Some("tenant source")
+            app.value_filter_choice_picker
+                .as_ref()
+                .expect("existing-value picker should open")
+                .labels,
+            vec!["group-alpha".to_string(), "group-beta".to_string()]
         );
+    }
+
+    #[test]
+    fn f2_focuses_the_current_tab_name_field() {
+        let mut app = ObjectBrowserApp::new();
+
+        app.handle_event(&Event::Key(KeyEvent::new(
+            KeyCode::F(2),
+            KeyModifiers::NONE,
+        )));
+
+        assert_eq!(app.current_slot_id(), Some(1));
+        assert_eq!(
+            app.slot_focus_targets(1).get(app.active_row_index),
+            Some(&SlotFocusTarget::FieldValue(0))
+        );
+        assert_eq!(app.mode, UiMode::Pool);
+    }
+
+    #[test]
+    fn tab_name_value_is_a_view_and_updates_the_tab_title() {
+        let mut app = ObjectBrowserApp::new();
+        app.create_general_value_slot(1, 0);
+        let name_slot_id = app
+            .slot_field(1, 0)
+            .and_then(|field| match field.value_state {
+                super::FieldValueState::Linked { slot_id } => Some(slot_id),
+                super::FieldValueState::Defaulted | super::FieldValueState::Unset => None,
+            })
+            .expect("Tab.name should link to its value slot");
+        let value = super::RuntimeValue::from_text(
+            <String as facet::Facet<'static>>::SHAPE,
+            "toby",
+        )
+        .expect("tab name should parse");
+        app.set_scalar_slot_value(name_slot_id, value);
+
+        assert_eq!(
+            app.slot_runtime_value(name_slot_id)
+                .expect("tab name value should be materializable")
+                .display_string(),
+            "toby"
+        );
+        assert!(matches!(
+            app.slot_by_id(name_slot_id).map(|slot| &slot.kind),
+            Some(super::SlotKind::View(_))
+        ));
+        assert_eq!(app.current_tab_title(), "slot 1 - Tab - toby");
     }
 
     #[tokio::test]
@@ -12340,7 +12998,6 @@ mod tests {
         ];
         app.object_slots.push(super::ObjectSlot {
             id: 1,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
@@ -12379,7 +13036,6 @@ mod tests {
         let value = test_role_collection();
         app.object_slots.push(super::ObjectSlot {
             id: 1,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some(shape_name),
@@ -12447,7 +13103,6 @@ mod tests {
         let value = test_role_definition();
         app.object_slots.push(super::ObjectSlot {
             id: 1,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleDefinition".to_string()),
@@ -12512,7 +13167,6 @@ mod tests {
         );
         app.object_slots.push(super::ObjectSlot {
             id: 1,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleAssignment".to_string()),
@@ -12556,6 +13210,51 @@ mod tests {
                 "/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-000000000001"
             )
         );
+    }
+
+    #[test]
+    fn wide_projection_cards_use_their_available_value_width() {
+        let mut app = ObjectBrowserApp::default();
+        let scope = "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg-a";
+        app.object_slots.push(super::ObjectSlot {
+            id: 1,
+            kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
+            shape_name: Some("RoleAssignment".to_string()),
+            value_state: resolved(test_role_assignment(
+                "/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-000000000004",
+                "11111111-2222-4333-8444-555555555555",
+                scope,
+            )),
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            display_cache: None,
+        });
+
+        let projection = super::ProjectionSlot {
+            root_slot_id: 1,
+            path: Vec::new(),
+            role: super::ProjectionSlotRole::ContainerRoot,
+        };
+        let rendered = app
+            .projection_slot_lines_window(
+                &projection,
+                None,
+                0..app.projection_rendered_line_count(&projection),
+                80,
+            )
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|span| span.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains(scope), "{rendered}");
     }
 
     #[test]
@@ -12740,7 +13439,6 @@ mod tests {
         ];
         app.object_slots.push(super::ObjectSlot {
             id: 1,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
@@ -12785,7 +13483,6 @@ mod tests {
         );
         app.object_slots.push(super::ObjectSlot {
             id: 1,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleAssignment".to_string()),
@@ -12865,7 +13562,6 @@ mod tests {
         };
         app.object_slots.push(super::ObjectSlot {
             id: 1,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some(root_shape_name),
@@ -12940,7 +13636,6 @@ mod tests {
             .collect::<Vec<_>>();
         app.object_slots.push(super::ObjectSlot {
             id: 4,
-            name: None,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some(root_shape_name),
