@@ -33,3 +33,5 @@ When submitting commentary like issues, pull requests, and comments to GitHub, u
 A temporary markdown file must be created for the user to review the content of the submission before you are allowed to publish.
 
 Submissions must include a disclaimer that content was written with LLM assistance, including the name and precise version of the LLM.
+
+To be clear, we should be merging our feature branch into mine/main and the pin for Cloud Terrastodon and teamy-mft should be against mine/main not the feature branch.
