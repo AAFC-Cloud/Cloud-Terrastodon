@@ -17,7 +17,7 @@ type FailureExtraFilesFn = fn(&eyre::Report) -> BTreeMap<PathBuf, BString>;
 #[async_trait]
 pub trait CacheableWorkRequest: Sized + Send {
     type Raw: Facet<'static> + Send + 'static;
-    type Output;
+    type Output: Send + 'static;
 
     fn cache_key(&self) -> CacheKey;
     fn context(&self) -> String;
@@ -33,7 +33,8 @@ pub struct CachedWorkSpec<Exec, ExecFuture, Decode, Raw, Output>
 where
     Exec: FnOnce() -> ExecFuture + Send,
     ExecFuture: Future<Output = Result<Raw>> + Send,
-    Decode: FnOnce(Raw) -> Result<Output> + Send,
+    Decode: FnOnce(Raw) -> Result<Output> + Send + 'static,
+    Output: Send + 'static,
 {
     pub cache_key: CacheKey,
     pub context: String,
@@ -84,14 +85,18 @@ where
     Raw: Facet<'static> + Send + 'static,
 {
     let raw = execute_raw().await?;
-    let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
-    let stdout =
-        crate::json::to_vec_pretty(&raw).context("serializing cached work raw output to JSON")?;
-    let output = CommandOutput {
-        stdout: BString::from(stdout),
-        stderr: BString::default(),
-        status: 0,
-    };
+    let (output, extra_files) = tokio::task::spawn_blocking(move || -> Result<_> {
+        let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
+        let stdout = crate::json::to_vec_pretty(&raw)
+            .context("serializing cached work raw output to JSON")?;
+        let output = CommandOutput {
+            stdout: BString::from(stdout),
+            stderr: BString::default(),
+            status: 0,
+        };
+        Ok((output, extra_files))
+    })
+    .await??;
     if let Err(error) = artifact_cache::write_output_with_extra_files(
         &cache_key.path_on_disk(),
         context,
@@ -117,6 +122,7 @@ where
     ExecFuture: Future<Output = Result<Raw>> + Send,
     Decode: FnOnce(Raw) -> Result<Output> + Send,
     Raw: Facet<'static> + Send + 'static,
+    Output: Send + 'static,
 {
     let CachedWorkSpec {
         cache_key,
@@ -162,9 +168,14 @@ where
             }
         };
 
-    let raw = crate::json::from_slice::<Raw>(&output.stdout)?;
-    let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
-    match decode(raw) {
+    let (output, raw, extra_files) = tokio::task::spawn_blocking(move || -> Result<_> {
+        let raw = crate::json::from_slice::<Raw>(&output.stdout)?;
+        let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
+        Ok((output, raw, extra_files))
+    })
+    .await??;
+    let decode_result = tokio::task::spawn_blocking(move || decode(raw)).await?;
+    match decode_result {
         Ok(result) => Ok(result),
         Err(error) => {
             let mut extra_files = extra_files;
@@ -192,7 +203,7 @@ where
 #[doc(hidden)]
 pub async fn run_cached_work_request<Request>(request: Request) -> Result<Request::Output>
 where
-    Request: CacheableWorkRequest,
+    Request: CacheableWorkRequest + 'static,
 {
     let cache_key = request.cache_key();
     let context = request.context();

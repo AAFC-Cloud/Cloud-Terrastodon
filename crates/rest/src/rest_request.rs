@@ -212,7 +212,8 @@ impl RestRequest {
                 let failure_extra_files = self.failure_extra_files;
                 let response = self.execute_without_cache_from(caller).await?;
                 let response_for_failure = response.clone();
-                return match decode(response) {
+                let decoded = tokio::task::spawn_blocking(move || decode(response)).await?;
+                return match decoded {
                     Ok(result) => Ok(result),
                     Err(error) => {
                         let output = rest_response_output(&response_for_failure)?;
