@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 /// Tenant can be specified as the default tenant, a tenant id, or a Cloud Terrastodon tenant alias.
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash, facet::Facet)]
+#[facet(proxy = String)]
 #[facet(default)]
 #[repr(C)]
 pub enum AzureTenantArgument<'a> {
@@ -77,6 +78,20 @@ impl<'a> FromStr for AzureTenantArgument<'a> {
                 "'{s}' is not a valid default tenant selector, Azure tenant id, or Cloud Terrastodon tenant alias"
             )
         }
+    }
+}
+
+impl<'a> TryFrom<String> for AzureTenantArgument<'a> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&AzureTenantArgument<'_>> for String {
+    fn from(value: &AzureTenantArgument<'_>) -> Self {
+        value.to_string()
     }
 }
 
