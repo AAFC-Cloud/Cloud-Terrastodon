@@ -10,6 +10,7 @@
 - Add `--log-file-filter` to independently control structured log-file verbosity
 - Add `ct az container-instance|aci list|show` support
 - Update `ct outage investigate {hostname}` command
+- Add tracy support for profiling in development
 
 # v0.36.0
 
