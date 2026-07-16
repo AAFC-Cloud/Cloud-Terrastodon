@@ -3,6 +3,7 @@ pub mod application_gateway;
 pub mod audit;
 pub mod azure_command;
 pub mod cognitive_services;
+pub mod container_instance;
 pub mod entra;
 pub mod find;
 pub mod network_interface;

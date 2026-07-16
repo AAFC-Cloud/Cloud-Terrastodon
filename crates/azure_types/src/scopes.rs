@@ -1,5 +1,6 @@
 use crate::AzureAppServiceResourceId;
 use crate::AzureApplicationGatewayResourceId;
+use crate::AzureContainerInstanceResourceId;
 use crate::AzureCognitiveServicesAccountResourceId;
 use crate::AzureNetworkInterfaceResourceId;
 use crate::AzurePrivateEndpointResourceId;
@@ -671,6 +672,7 @@ pub enum ScopeImplKind {
     AppServiceResource,
     CognitiveServicesAccountResource,
     ApplicationGatewayResource,
+    ContainerInstanceResource,
     NetworkInterfaceResource,
     PrivateEndpointResource,
     PublicIpResource,
@@ -709,6 +711,7 @@ pub enum ScopeImpl {
     AzureAppServiceResource(AzureAppServiceResourceId),
     AzureCognitiveServicesAccountResource(AzureCognitiveServicesAccountResourceId),
     AzureApplicationGatewayResource(AzureApplicationGatewayResourceId),
+    AzureContainerInstanceResource(AzureContainerInstanceResourceId),
     AzureNetworkInterfaceResource(AzureNetworkInterfaceResourceId),
     AzurePrivateEndpointResource(AzurePrivateEndpointResourceId),
     VirtualNetwork(VirtualNetworkId),
@@ -753,6 +756,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::AzureAppServiceResource(id) => id.expanded_form(),
             ScopeImpl::AzureCognitiveServicesAccountResource(id) => id.expanded_form(),
             ScopeImpl::AzureApplicationGatewayResource(id) => id.expanded_form(),
+            ScopeImpl::AzureContainerInstanceResource(id) => id.expanded_form(),
             ScopeImpl::AzureNetworkInterfaceResource(id) => id.expanded_form(),
             ScopeImpl::AzurePrivateEndpointResource(id) => id.expanded_form(),
             ScopeImpl::VirtualNetwork(id) => id.expanded_form(),
@@ -787,6 +791,7 @@ impl Scope for ScopeImpl {
             ScopeImpl::AzureAppServiceResource(id) => id.short_form(),
             ScopeImpl::AzureCognitiveServicesAccountResource(id) => id.short_form(),
             ScopeImpl::AzureApplicationGatewayResource(id) => id.short_form(),
+            ScopeImpl::AzureContainerInstanceResource(id) => id.short_form(),
             ScopeImpl::AzureNetworkInterfaceResource(id) => id.short_form(),
             ScopeImpl::AzurePrivateEndpointResource(id) => id.short_form(),
             ScopeImpl::VirtualNetwork(id) => id.short_form(),
@@ -823,6 +828,9 @@ impl Scope for ScopeImpl {
         }
         if let Ok(id) = AzureApplicationGatewayResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::AzureApplicationGatewayResource(id));
+        }
+        if let Ok(id) = AzureContainerInstanceResourceId::try_from_expanded(expanded) {
+            return Ok(ScopeImpl::AzureContainerInstanceResource(id));
         }
         if let Ok(id) = AzureNetworkInterfaceResourceId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::AzureNetworkInterfaceResource(id));
@@ -903,6 +911,9 @@ impl Scope for ScopeImpl {
             }
             ScopeImpl::AzureApplicationGatewayResource(_) => {
                 ScopeImplKind::ApplicationGatewayResource
+            }
+            ScopeImpl::AzureContainerInstanceResource(_) => {
+                ScopeImplKind::ContainerInstanceResource
             }
             ScopeImpl::AzureNetworkInterfaceResource(_) => ScopeImplKind::NetworkInterfaceResource,
             ScopeImpl::AzurePrivateEndpointResource(_) => ScopeImplKind::PrivateEndpointResource,
@@ -985,6 +996,10 @@ impl std::fmt::Display for ScopeImpl {
             )),
             ScopeImpl::AzureApplicationGatewayResource(x) => f.write_fmt(format_args!(
                 "AzureApplicationGatewayResource({})",
+                x.short_form()
+            )),
+            ScopeImpl::AzureContainerInstanceResource(x) => f.write_fmt(format_args!(
+                "AzureContainerInstanceResource({})",
                 x.short_form()
             )),
             ScopeImpl::AzureNetworkInterfaceResource(x) => f.write_fmt(format_args!(

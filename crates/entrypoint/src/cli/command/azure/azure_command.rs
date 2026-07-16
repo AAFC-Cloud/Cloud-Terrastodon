@@ -2,6 +2,7 @@ use super::app_service::AzureAppServiceArgs;
 use super::application_gateway::AzureApplicationGatewayArgs;
 use super::audit::AzureAuditArgs;
 use super::cognitive_services::AzureCognitiveServicesArgs;
+use super::container_instance::AzureContainerInstanceArgs;
 use super::find::AzureFindArgs;
 use super::network_interface::AzureNetworkInterfaceArgs;
 use super::pim::AzurePimArgs;
@@ -33,6 +34,9 @@ pub enum AzureCommand {
     ApplicationGateway(AzureApplicationGatewayArgs),
     /// Manage Azure Cognitive Services accounts and deployments.
     CognitiveServices(AzureCognitiveServicesArgs),
+    /// Manage Azure Container Instances.
+    #[facet(figue::alias = "aci")]
+    ContainerInstance(AzureContainerInstanceArgs),
     /// Find resources where resource JSON contains the given text.
     Find(AzureFindArgs),
     /// Manage Azure network interfaces.
@@ -85,6 +89,9 @@ impl AzureCommand {
                 args.invoke().await?;
             }
             AzureCommand::CognitiveServices(args) => {
+                args.invoke().await?;
+            }
+            AzureCommand::ContainerInstance(args) => {
                 args.invoke().await?;
             }
             AzureCommand::Find(args) => {
