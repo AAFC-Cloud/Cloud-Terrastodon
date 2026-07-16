@@ -14,7 +14,7 @@ pub struct AzureContainerInstanceShowArgs {
     #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
-    /// Container Instance resource id, resource name, or private IP address.
+    /// Container Instance resource id, resource name, IP address, or FQDN.
     #[facet(figue::positional)]
     pub container_instance: String,
 }
@@ -45,6 +45,13 @@ impl AzureContainerInstanceShowArgs {
                         .as_ref()
                         .and_then(|address| address.ip)
                         .map(|ip| ip.to_string() == needle)
+                        .unwrap_or(false)
+                    || container_instance
+                        .properties
+                        .ip_address
+                        .as_ref()
+                        .and_then(|address| address.fqdn.as_deref())
+                        .map(|fqdn| fqdn.eq_ignore_ascii_case(needle))
                         .unwrap_or(false)
             })
             .collect::<Vec<_>>();

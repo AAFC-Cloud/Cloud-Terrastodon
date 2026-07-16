@@ -230,6 +230,8 @@ pub struct AzureContainerInstanceIpAddress {
     #[facet(default)]
     pub r#type: Option<String>,
     #[facet(default)]
+    pub fqdn: Option<String>,
+    #[facet(default)]
     pub dns_name_label: Option<String>,
 }
 
