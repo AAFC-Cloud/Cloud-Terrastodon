@@ -6,6 +6,7 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
+use tracing::debug;
 use std::path::PathBuf;
 use tracing::info;
 
@@ -33,7 +34,7 @@ impl CacheableCommand for ApplicationGatewayListRequest {
     }
 
     async fn run(self) -> Result<Self::Output> {
-        info!(%self.tenant_id, "Fetching application gateways");
+        debug!(%self.tenant_id, "Fetching application gateways");
         let query = indoc! {r#"
         Resources
         | where type == "microsoft.network/applicationgateways"
@@ -52,7 +53,7 @@ impl CacheableCommand for ApplicationGatewayListRequest {
             ResourceGraphHelper::new(self.tenant_id, query, Some(self.cache_key()))
                 .collect_all::<AzureApplicationGatewayResource>()
                 .await?;
-        info!(
+        debug!(
             count = application_gateways.len(),
             "Fetched application gateways"
         );
