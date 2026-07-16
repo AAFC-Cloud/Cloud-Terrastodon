@@ -8,6 +8,8 @@
 - Add specifying multiple `--user {}` to `ct az devops license entitlement user update` cli
 - Clean up CLI types to use `AzureDevOpsUserArgument` instead of previous matcher duplicate type
 - Add `--log-file-filter` to independently control structured log-file verbosity
+- Add `ct az container-instance|aci list|show` support
+- Update `ct outage investigate {hostname}` command
 
 # v0.36.0
 

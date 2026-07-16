@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthRespons
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServer;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServerHealth;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceId;
+use cloud_terrastodon_azure::AzureContainerInstanceResource;
 use cloud_terrastodon_azure::AzureNetworkInterfaceResource;
 use cloud_terrastodon_azure::AzurePrivateEndpointResource;
 use cloud_terrastodon_azure::AzurePrivateEndpointResourceId;
@@ -9,9 +10,12 @@ use cloud_terrastodon_azure::AzurePublicIpResource;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::VirtualNetwork;
+use cloud_terrastodon_azure::fetch_all_container_instances;
 use cloud_terrastodon_azure::fetch_all_network_interfaces;
 use cloud_terrastodon_azure::fetch_all_private_endpoints;
 use cloud_terrastodon_azure::fetch_all_public_ips;
+use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
@@ -121,6 +125,7 @@ struct OutagePublicIpMatch {
         Option<AzureApplicationGatewayResourceBackendHealthResponse>,
     application_gateway_backend_health_error: Option<String>,
     backend_probe_investigations: Vec<BackendProbeInvestigation>,
+    virtual_network_backend_investigations: Vec<VirtualNetworkBackendInvestigation>,
 }
 
 #[derive(Debug, facet::Facet, Clone)]
@@ -129,8 +134,26 @@ struct BackendProbeInvestigation {
     backend_http_settings_id: String,
     server: AzureApplicationGatewayResourceBackendHealthServer,
     matching_network_interfaces: Vec<AzureNetworkInterfaceResource>,
+    matching_container_instances: Vec<AzureContainerInstanceResource>,
     matching_private_endpoints: Vec<AzurePrivateEndpointResource>,
     private_link_service_ids: Vec<String>,
+}
+
+#[derive(Debug, facet::Facet, Clone)]
+struct VirtualNetworkBackendInvestigation {
+    virtual_network: VirtualNetwork,
+    backend_entries: Vec<VirtualNetworkBackendEntry>,
+    devices: Vec<AzureNetworkInterfaceResource>,
+    container_instances: Vec<AzureContainerInstanceResource>,
+}
+
+#[derive(Debug, facet::Facet, Clone)]
+struct VirtualNetworkBackendEntry {
+    backend_address_pool_id: String,
+    backend_http_settings_id: String,
+    server: AzureApplicationGatewayResourceBackendHealthServer,
+    matching_network_interface_ids: Vec<String>,
+    matching_container_instance_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -292,6 +315,7 @@ fn match_public_ip(
         application_gateway_backend_health: None,
         application_gateway_backend_health_error: None,
         backend_probe_investigations: Vec::new(),
+        virtual_network_backend_investigations: Vec::new(),
     })
 }
 
@@ -344,6 +368,20 @@ async fn enrich_matches_with_backend_resource_discovery(
         fetch_all_network_interfaces(tenant_id).await?
     };
 
+    let virtual_networks = if backend_candidates.is_empty() {
+        Vec::new()
+    } else {
+        info!("Fetching virtual networks for backend probe investigation");
+        fetch_all_virtual_networks(tenant_id).await?
+    };
+
+    let container_instances = if backend_candidates.is_empty() {
+        Vec::new()
+    } else {
+        info!("Fetching container instances for backend probe investigation");
+        fetch_all_container_instances(tenant_id).await?
+    };
+
     let relevant_private_endpoint_ids = backend_candidates
         .iter()
         .flat_map(|candidate| {
@@ -378,11 +416,17 @@ async fn enrich_matches_with_backend_resource_discovery(
             continue;
         };
 
-        matched_public_ip.backend_probe_investigations = collect_backend_servers(backend_health)
+        let backend_candidates = collect_backend_servers(backend_health);
+        matched_public_ip.backend_probe_investigations = backend_candidates
+            .clone()
             .into_iter()
             .map(|candidate| {
                 let matching_network_interfaces = network_interfaces_for_backend_address(
                     &network_interfaces,
+                    &candidate.server.address,
+                );
+                let matching_container_instances = container_instances_for_backend_address(
+                    &container_instances,
                     &candidate.server.address,
                 );
                 let matching_private_endpoints = matching_network_interfaces
@@ -410,11 +454,19 @@ async fn enrich_matches_with_backend_resource_discovery(
                     backend_http_settings_id: candidate.backend_http_settings_id,
                     server: candidate.server,
                     matching_network_interfaces,
+                    matching_container_instances,
                     matching_private_endpoints,
                     private_link_service_ids,
                 }
             })
             .collect();
+        matched_public_ip.virtual_network_backend_investigations =
+            collect_virtual_network_backend_investigations(
+                &virtual_networks,
+                &backend_candidates,
+                &network_interfaces,
+                &container_instances,
+            );
     }
 
     Ok(matches)
@@ -499,6 +551,222 @@ fn collect_backend_servers(
                             server: server.clone(),
                         })
                 })
+        })
+        .collect()
+}
+
+fn collect_virtual_network_backend_investigations(
+    virtual_networks: &[VirtualNetwork],
+    backend_candidates: &[BackendServerCandidate],
+    network_interfaces: &[AzureNetworkInterfaceResource],
+    container_instances: &[AzureContainerInstanceResource],
+) -> Vec<VirtualNetworkBackendInvestigation> {
+    virtual_networks
+        .iter()
+        .filter_map(|virtual_network| {
+            let backend_candidates = backend_candidates
+                .iter()
+                .filter(|candidate| {
+                    virtual_network_contains_backend_address(
+                        virtual_network,
+                        &candidate.server.address,
+                    )
+                })
+                .collect::<Vec<_>>();
+            if backend_candidates.is_empty() {
+                return None;
+            }
+
+            let devices =
+                network_interfaces_for_virtual_network(network_interfaces, virtual_network);
+            let container_instances =
+                container_instances_for_virtual_network(container_instances, virtual_network);
+            let mut backend_entries: Vec<VirtualNetworkBackendEntry> = backend_candidates
+                .into_iter()
+                .map(|candidate| VirtualNetworkBackendEntry {
+                    backend_address_pool_id: candidate.backend_address_pool_id.clone(),
+                    backend_http_settings_id: candidate.backend_http_settings_id.clone(),
+                    server: candidate.server.clone(),
+                    matching_network_interface_ids: network_interfaces_for_backend_address(
+                        &devices,
+                        &candidate.server.address,
+                    )
+                    .into_iter()
+                    .map(|network_interface| network_interface.id.expanded_form())
+                    .collect(),
+                    matching_container_instance_ids: container_instances_for_backend_address(
+                        &container_instances,
+                        &candidate.server.address,
+                    )
+                    .into_iter()
+                    .map(|container_instance| container_instance.id.expanded_form())
+                    .collect(),
+                })
+                .collect();
+            backend_entries
+                .sort_by_key(|backend_entry| !is_failing_backend_server(&backend_entry.server));
+
+            Some(VirtualNetworkBackendInvestigation {
+                virtual_network: virtual_network.clone(),
+                backend_entries,
+                devices,
+                container_instances,
+            })
+        })
+        .collect()
+}
+
+fn virtual_network_contains_backend_address(
+    virtual_network: &VirtualNetwork,
+    backend_address: &str,
+) -> bool {
+    let Ok(backend_address) = backend_address.parse::<std::net::Ipv4Addr>() else {
+        return false;
+    };
+
+    virtual_network
+        .properties
+        .address_space
+        .address_prefixes
+        .iter()
+        .any(|address_prefix| address_prefix.contains(backend_address))
+}
+
+fn network_interfaces_for_virtual_network(
+    network_interfaces: &[AzureNetworkInterfaceResource],
+    virtual_network: &VirtualNetwork,
+) -> Vec<AzureNetworkInterfaceResource> {
+    let subnet_ids = virtual_network
+        .properties
+        .subnets
+        .iter()
+        .map(|subnet| subnet.id.expanded_form().to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
+
+    network_interfaces
+        .iter()
+        .filter(|network_interface| {
+            network_interface
+                .properties
+                .ip_configurations
+                .iter()
+                .any(|ip_configuration| {
+                    let subnet_matches = ip_configuration
+                        .properties
+                        .subnet
+                        .as_ref()
+                        .map(|subnet| subnet_ids.contains(&subnet.id.to_ascii_lowercase()))
+                        .unwrap_or(false);
+                    let address_space_matches = ip_configuration
+                        .properties
+                        .private_ip_address
+                        .map(|ip_address| {
+                            virtual_network_contains_backend_ip(virtual_network, ip_address)
+                        })
+                        .unwrap_or(false);
+
+                    subnet_matches || address_space_matches
+                })
+        })
+        .cloned()
+        .collect()
+}
+
+fn virtual_network_contains_backend_ip(
+    virtual_network: &VirtualNetwork,
+    ip_address: std::net::IpAddr,
+) -> bool {
+    let std::net::IpAddr::V4(ip_address) = ip_address else {
+        return false;
+    };
+
+    virtual_network
+        .properties
+        .address_space
+        .address_prefixes
+        .iter()
+        .any(|address_prefix| address_prefix.contains(ip_address))
+}
+
+fn container_instances_for_virtual_network(
+    container_instances: &[AzureContainerInstanceResource],
+    virtual_network: &VirtualNetwork,
+) -> Vec<AzureContainerInstanceResource> {
+    let virtual_network_id = virtual_network.id.expanded_form().to_ascii_lowercase();
+    container_instances
+        .iter()
+        .filter(|container_instance| {
+            let subnet_matches = container_instance
+                .properties
+                .subnet_ids
+                .iter()
+                .any(|subnet| {
+                    subnet
+                        .id
+                        .to_ascii_lowercase()
+                        .starts_with(&virtual_network_id)
+                });
+            let address_space_matches = container_instance
+                .properties
+                .ip_address
+                .as_ref()
+                .and_then(|ip_address| ip_address.ip)
+                .map(|ip_address| virtual_network_contains_backend_ip(virtual_network, ip_address))
+                .unwrap_or(false);
+            subnet_matches || address_space_matches
+        })
+        .cloned()
+        .collect()
+}
+
+fn container_instances_for_backend_address(
+    container_instances: &[AzureContainerInstanceResource],
+    backend_address: &str,
+) -> Vec<AzureContainerInstanceResource> {
+    container_instances
+        .iter()
+        .filter(|container_instance| {
+            container_instance
+                .properties
+                .ip_address
+                .as_ref()
+                .and_then(|ip_address| ip_address.ip)
+                .map(|ip_address| ip_address.to_string() == backend_address)
+                .unwrap_or(false)
+        })
+        .cloned()
+        .collect()
+}
+
+fn backend_entries_for_network_interface<'a>(
+    backend_entries: &'a [VirtualNetworkBackendEntry],
+    network_interface: &AzureNetworkInterfaceResource,
+) -> Vec<&'a VirtualNetworkBackendEntry> {
+    let network_interface_id = network_interface.id.expanded_form();
+    backend_entries
+        .iter()
+        .filter(|backend_entry| {
+            backend_entry.matching_network_interface_ids.iter().any(
+                |matching_network_interface_id| {
+                    matching_network_interface_id == &network_interface_id
+                },
+            )
+        })
+        .collect()
+}
+
+fn backend_entries_for_container_instance<'a>(
+    backend_entries: &'a [VirtualNetworkBackendEntry],
+    container_instance: &AzureContainerInstanceResource,
+) -> Vec<&'a VirtualNetworkBackendEntry> {
+    let container_instance_id = container_instance.id.expanded_form();
+    backend_entries
+        .iter()
+        .filter(|backend_entry| {
+            backend_entry
+                .matching_container_instance_ids
+                .iter()
+                .any(|matching_id| matching_id == &container_instance_id)
         })
         .collect()
 }
@@ -758,12 +1026,36 @@ fn print_pretty_report(report: &OutageInvestigationReport, output_dir: Option<&P
                         );
                         match network_interface.managed_by.as_deref() {
                             Some(managed_by) => {
-                                println!("          {} {}", "managedBy:".bold(), managed_by.cyan())
+                                println!(
+                                    "          {} {}",
+                                    "managedBy:".bold(),
+                                    managed_by.dimmed()
+                                )
                             }
                             None => {
                                 println!("          {} {}", "managedBy:".bold(), "none".dimmed())
                             }
                         }
+                    }
+                }
+
+                if investigation.matching_container_instances.is_empty() {
+                    println!(
+                        "        {}",
+                        "No matching container instances found by backend IP.".yellow()
+                    );
+                } else {
+                    for container_instance in &investigation.matching_container_instances {
+                        println!(
+                            "        {} {}",
+                            "Container instance:".bold(),
+                            container_instance.name.to_string().green()
+                        );
+                        println!(
+                            "          {} {}",
+                            "Resource ID:".bold(),
+                            container_instance.id.expanded_form().dimmed()
+                        );
                     }
                 }
 
@@ -798,9 +1090,226 @@ fn print_pretty_report(report: &OutageInvestigationReport, output_dir: Option<&P
                         println!(
                             "        {} {}",
                             "PrivateLinkServiceId:".bold(),
-                            private_link_service_id.magenta()
+                            private_link_service_id.dimmed()
                         );
                     }
+                }
+            }
+
+            if !matched_public_ip
+                .virtual_network_backend_investigations
+                .is_empty()
+            {
+                println!(
+                    "    {} {}",
+                    "Virtual networks containing backend addresses:"
+                        .bold()
+                        .bright_blue(),
+                    matched_public_ip
+                        .virtual_network_backend_investigations
+                        .len()
+                );
+                for investigation in &matched_public_ip.virtual_network_backend_investigations {
+                    println!(
+                        "      {} {}",
+                        "VNet:".bold(),
+                        investigation.virtual_network.name.to_string().cyan()
+                    );
+                    println!(
+                        "        {} {}",
+                        "Resource ID:".bold(),
+                        investigation.virtual_network.id.expanded_form().dimmed()
+                    );
+                    println!(
+                        "        {} {}",
+                        "Address spaces:".bold(),
+                        investigation
+                            .virtual_network
+                            .properties
+                            .address_space
+                            .address_prefixes
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                            .dimmed()
+                    );
+
+                    println!("        {}", "Backend pool entries:".bold());
+                    for backend_entry in &investigation.backend_entries {
+                        let matching_device_count =
+                            backend_entry.matching_network_interface_ids.len()
+                                + backend_entry.matching_container_instance_ids.len();
+                        let device_match = if matching_device_count == 0 {
+                            "no matching device found".red().to_string()
+                        } else {
+                            format!("{} matching device(s)", matching_device_count)
+                                .green()
+                                .to_string()
+                        };
+                        println!(
+                            "          {} {} {} ({})",
+                            "Backend IP:".bold(),
+                            backend_entry.server.address.yellow(),
+                            format_backend_health(&backend_entry.server.health),
+                            device_match
+                        );
+                        println!(
+                            "            {} {}",
+                            "Pool:".bold(),
+                            backend_entry.backend_address_pool_id.dimmed()
+                        );
+                        println!(
+                            "            {} {}",
+                            "HTTP settings:".bold(),
+                            backend_entry.backend_http_settings_id.dimmed()
+                        );
+                    }
+
+                    println!("        {}", "Devices:".bold());
+                    if investigation.devices.is_empty()
+                        && investigation.container_instances.is_empty()
+                    {
+                        println!("          {}", "No devices found on this VNet.".yellow());
+                    } else {
+                        for device in &investigation.devices {
+                            println!(
+                                "          {} {}",
+                                "NIC:".bold(),
+                                device.name.to_string().green()
+                            );
+                            println!(
+                                "            {} {}",
+                                "Resource ID:".bold(),
+                                device.id.expanded_form().dimmed()
+                            );
+                            for ip_configuration in &device.properties.ip_configurations {
+                                if let Some(ip_address) =
+                                    ip_configuration.properties.private_ip_address
+                                {
+                                    println!(
+                                        "            {} {}",
+                                        "IP:".bold(),
+                                        ip_address.to_string().green()
+                                    );
+                                }
+                            }
+                            let matching_backend_entries = backend_entries_for_network_interface(
+                                &investigation.backend_entries,
+                                device,
+                            );
+                            if matching_backend_entries.is_empty() {
+                                println!("            {}", "Backend: none found".bold().red());
+                            } else {
+                                for backend_entry in matching_backend_entries {
+                                    println!(
+                                        "            {} {} {}",
+                                        "Backend:".bold(),
+                                        backend_entry.server.address.yellow(),
+                                        format_backend_health(&backend_entry.server.health)
+                                    );
+                                }
+                            }
+                            match device.managed_by.as_deref() {
+                                Some(managed_by) => println!(
+                                    "            {} {}",
+                                    "managedBy:".bold(),
+                                    managed_by.dimmed()
+                                ),
+                                None => println!(
+                                    "            {} {}",
+                                    "managedBy:".bold(),
+                                    "none".dimmed()
+                                ),
+                            }
+                        }
+
+                        for container_instance in &investigation.container_instances {
+                            println!(
+                                "          {} {}",
+                                "Container instance:".bold(),
+                                container_instance.name.to_string().green()
+                            );
+                            println!(
+                                "            {} {}",
+                                "Resource ID:".bold(),
+                                container_instance.id.expanded_form().dimmed()
+                            );
+                            if let Some(ip_address) = container_instance
+                                .properties
+                                .ip_address
+                                .as_ref()
+                                .and_then(|ip_address| ip_address.ip)
+                            {
+                                println!(
+                                    "            {} {}",
+                                    "IP:".bold(),
+                                    ip_address.to_string().green()
+                                );
+                            }
+                            let matching_backend_entries = backend_entries_for_container_instance(
+                                &investigation.backend_entries,
+                                container_instance,
+                            );
+                            if matching_backend_entries.is_empty() {
+                                println!("            {}", "Backend: none found".bold().red());
+                            } else {
+                                for backend_entry in matching_backend_entries {
+                                    println!(
+                                        "            {} {} {}",
+                                        "Backend:".bold(),
+                                        backend_entry.server.address.yellow(),
+                                        format_backend_health(&backend_entry.server.health)
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let backend_entries_without_virtual_network = matched_public_ip
+                .backend_probe_investigations
+                .iter()
+                .filter(|backend_probe| {
+                    !matched_public_ip
+                        .virtual_network_backend_investigations
+                        .iter()
+                        .flat_map(|investigation| investigation.backend_entries.iter())
+                        .any(|backend_entry| {
+                            backend_entry.backend_address_pool_id
+                                == backend_probe.backend_address_pool_id
+                                && backend_entry.backend_http_settings_id
+                                    == backend_probe.backend_http_settings_id
+                                && backend_entry.server.address == backend_probe.server.address
+                        })
+                })
+                .collect::<Vec<_>>();
+            if !backend_entries_without_virtual_network.is_empty() {
+                println!(
+                    "    {} {}",
+                    "Backend entries not contained by any discovered VNet:"
+                        .bold()
+                        .red(),
+                    backend_entries_without_virtual_network.len()
+                );
+                for backend_probe in backend_entries_without_virtual_network {
+                    println!(
+                        "      {} {} {}",
+                        "Backend IP:".bold(),
+                        backend_probe.server.address.yellow(),
+                        format_backend_health(&backend_probe.server.health)
+                    );
+                    println!(
+                        "        {} {}",
+                        "Pool:".bold(),
+                        backend_probe.backend_address_pool_id.dimmed()
+                    );
+                    println!(
+                        "        {} {}",
+                        "HTTP settings:".bold(),
+                        backend_probe.backend_http_settings_id.dimmed()
+                    );
                 }
             }
         }
@@ -868,6 +1377,21 @@ fn write_investigation_artifacts(
         &backend_probe_investigations,
     )?;
 
+    let virtual_network_backend_investigations = report
+        .matches
+        .iter()
+        .flat_map(|matched_public_ip| {
+            matched_public_ip
+                .virtual_network_backend_investigations
+                .iter()
+                .cloned()
+        })
+        .collect::<Vec<_>>();
+    write_json_file(
+        output_dir.join("virtual-network-backend-investigations.json"),
+        &virtual_network_backend_investigations,
+    )?;
+
     let network_interfaces = report
         .matches
         .iter()
@@ -884,6 +1408,34 @@ fn write_investigation_artifacts(
     write_json_file(
         output_dir.join("matching-network-interfaces.json"),
         &network_interfaces,
+    )?;
+
+    let container_instances = report
+        .matches
+        .iter()
+        .flat_map(|matched_public_ip| {
+            matched_public_ip
+                .backend_probe_investigations
+                .iter()
+                .flat_map(|investigation| {
+                    investigation.matching_container_instances.iter().cloned()
+                })
+                .chain(
+                    matched_public_ip
+                        .virtual_network_backend_investigations
+                        .iter()
+                        .flat_map(|investigation| {
+                            investigation.container_instances.iter().cloned()
+                        }),
+                )
+        })
+        .map(|container_instance| (container_instance.id.expanded_form(), container_instance))
+        .collect::<BTreeMap<_, _>>()
+        .into_values()
+        .collect::<Vec<_>>();
+    write_json_file(
+        output_dir.join("matching-container-instances.json"),
+        &container_instances,
     )?;
 
     let private_endpoints = report
@@ -1026,6 +1578,154 @@ mod tests {
         assert_eq!(candidates.len(), 2);
         assert_eq!(candidates[0].server.address, "10.0.0.5");
         assert_eq!(candidates[1].server.address, "10.0.0.6");
+        Ok(())
+    }
+
+    #[test]
+    fn correlates_backend_addresses_and_devices_to_a_virtual_network() -> Result<()> {
+        let virtual_network = facet_json::from_str::<VirtualNetwork>(
+            r#"
+                {
+                    "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/virtualNetworks/my-vnet",
+                    "name": "my-vnet",
+                    "location": "canadacentral",
+                    "tags": {},
+                    "properties": {
+                        "addressSpace": { "addressPrefixes": ["10.0.0.0/24"] },
+                        "subnets": [
+                            {
+                                "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/virtualNetworks/my-vnet/subnets/default",
+                                "name": "default",
+                                "properties": {
+                                    "addressPrefix": "10.0.0.0/24",
+                                    "networkSecurityGroup": null,
+                                    "routeTable": null,
+                                    "privateEndpointNetworkPolicies": "Disabled",
+                                    "privateLinkServiceNetworkPolicies": "Enabled",
+                                    "provisioningState": "Succeeded",
+                                    "delegations": [],
+                                    "serviceEndpoints": [],
+                                    "serviceEndpointPolicies": [],
+                                    "natGateway": null
+                                }
+                            }
+                        ],
+                        "virtualNetworkPeerings": [],
+                        "resourceGuid": "00000000-0000-0000-0000-000000000000",
+                        "provisioningState": "Succeeded",
+                        "enableDdosProtection": false
+                    }
+                }
+            "#,
+        )?;
+        let backend_health =
+            facet_json::from_str::<AzureApplicationGatewayResourceBackendHealthResponse>(
+                r#"
+                {
+                    "backendAddressPools": [
+                        {
+                            "backendAddressPool": { "id": "pool" },
+                            "backendHttpSettingsCollection": [
+                                {
+                                    "backendHttpSettings": { "id": "settings" },
+                                    "servers": [
+                                        { "address": "10.0.0.5", "health": "Unhealthy" },
+                                        { "address": "10.0.0.6", "health": "Healthy" }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            "#,
+            )?;
+        let network_interface = facet_json::from_str::<AzureNetworkInterfaceResource>(
+            r#"
+                {
+                    "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/networkInterfaces/my-nic",
+                    "tenantId": "22222222-2222-2222-2222-222222222222",
+                    "name": "my-nic",
+                    "location": "canadacentral",
+                    "tags": {},
+                    "properties": {
+                        "ipConfigurations": [
+                            {
+                                "name": "ipconfig1",
+                                "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/networkInterfaces/my-nic/ipConfigurations/ipconfig1",
+                                "properties": {
+                                    "privateIPAddress": "10.0.0.5",
+                                    "subnet": {
+                                        "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/virtualNetworks/my-vnet/subnets/default"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            "#,
+        )?;
+        let container_instance = facet_json::from_str::<AzureContainerInstanceResource>(
+            r#"
+                {
+                    "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.ContainerInstance/containerGroups/my-aci",
+                    "name": "my-aci",
+                    "location": "canadacentral",
+                    "properties": {
+                        "ipAddress": {
+                            "ports": [],
+                            "ip": "10.0.0.6",
+                            "type": "Private"
+                        },
+                        "subnetIds": [
+                            {
+                                "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/virtualNetworks/my-vnet/subnets/default"
+                            }
+                        ]
+                    }
+                }
+            "#,
+        )?;
+
+        let candidates = collect_backend_servers(&backend_health);
+        assert!(virtual_network_contains_backend_address(
+            &virtual_network,
+            "10.0.0.5"
+        ));
+        assert!(!virtual_network_contains_backend_address(
+            &virtual_network,
+            "10.1.0.5"
+        ));
+        let investigations = collect_virtual_network_backend_investigations(
+            &[virtual_network],
+            &candidates,
+            &[network_interface],
+            &[container_instance],
+        );
+
+        assert_eq!(investigations.len(), 1);
+        assert_eq!(investigations[0].devices.len(), 1);
+        assert_eq!(investigations[0].container_instances.len(), 1);
+        assert_eq!(investigations[0].backend_entries.len(), 2);
+        assert_eq!(
+            investigations[0].backend_entries[0]
+                .matching_network_interface_ids
+                .len(),
+            1
+        );
+        assert_eq!(
+            investigations[0].backend_entries[1]
+                .matching_container_instance_ids
+                .len(),
+            1
+        );
+        assert_eq!(
+            backend_entries_for_network_interface(
+                &investigations[0].backend_entries,
+                &investigations[0].devices[0]
+            )
+            .len(),
+            1
+        );
         Ok(())
     }
 
