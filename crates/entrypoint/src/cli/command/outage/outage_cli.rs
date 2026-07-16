@@ -3,7 +3,7 @@ use eyre::Result;
 
 /// Outage investigation subcommands.
 #[derive(facet::Facet, Debug, Clone)]
-#[repr(u8)]
+#[repr(C)]
 pub enum OutageCommand {
     /// Resolve a host and correlate it to Azure public IP resources.
     Investigate(OutageInvestigateArgs),

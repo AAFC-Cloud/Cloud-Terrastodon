@@ -1,9 +1,9 @@
-pub mod outage_command;
-pub mod outage_investigate;
+pub mod outage_cli;
+pub mod outage_investigate_cli;
 
 use eyre::Result;
-pub use outage_command::OutageCommand;
-pub use outage_investigate::OutageInvestigateArgs;
+pub use outage_cli::OutageCommand;
+pub use outage_investigate_cli::OutageInvestigateArgs;
 
 /// Investigate suspected service outages.
 #[derive(facet::Facet, Debug, Clone)]
