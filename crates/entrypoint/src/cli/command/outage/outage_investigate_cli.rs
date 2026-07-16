@@ -77,8 +77,7 @@ impl OutageInvestigateArgs {
             .collect::<Vec<_>>();
         let matches =
             enrich_matches_with_application_gateway_backend_health(tenant_id, matches).await?;
-        let matches =
-            enrich_matches_with_failing_backend_resource_discovery(tenant_id, matches).await?;
+        let matches = enrich_matches_with_backend_resource_discovery(tenant_id, matches).await?;
 
         let report = OutageInvestigationReport {
             input: self.target,
@@ -121,11 +120,11 @@ struct OutagePublicIpMatch {
     application_gateway_backend_health:
         Option<AzureApplicationGatewayResourceBackendHealthResponse>,
     application_gateway_backend_health_error: Option<String>,
-    failing_backend_probe_investigations: Vec<FailingBackendProbeInvestigation>,
+    backend_probe_investigations: Vec<BackendProbeInvestigation>,
 }
 
 #[derive(Debug, facet::Facet, Clone)]
-struct FailingBackendProbeInvestigation {
+struct BackendProbeInvestigation {
     backend_address_pool_id: String,
     backend_http_settings_id: String,
     server: AzureApplicationGatewayResourceBackendHealthServer,
@@ -141,7 +140,7 @@ struct ApplicationGatewayBackendHealthLookup {
 }
 
 #[derive(Debug, Clone)]
-struct FailingBackendServerCandidate {
+struct BackendServerCandidate {
     backend_address_pool_id: String,
     backend_http_settings_id: String,
     server: AzureApplicationGatewayResourceBackendHealthServer,
@@ -292,7 +291,7 @@ fn match_public_ip(
         application_gateway_frontend_ip_configuration_id: frontend_ip_configuration_id,
         application_gateway_backend_health: None,
         application_gateway_backend_health_error: None,
-        failing_backend_probe_investigations: Vec::new(),
+        backend_probe_investigations: Vec::new(),
     })
 }
 
@@ -320,32 +319,32 @@ async fn enrich_matches_with_application_gateway_backend_health(
     Ok(matches)
 }
 
-async fn enrich_matches_with_failing_backend_resource_discovery(
+async fn enrich_matches_with_backend_resource_discovery(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     mut matches: Vec<OutagePublicIpMatch>,
 ) -> Result<Vec<OutagePublicIpMatch>> {
-    let failing_backend_candidates = matches
+    let backend_candidates = matches
         .iter()
         .flat_map(|matched_public_ip| {
             matched_public_ip
                 .application_gateway_backend_health
                 .as_ref()
-                .map(collect_failing_backend_servers)
+                .map(collect_backend_servers)
                 .unwrap_or_default()
         })
         .collect::<Vec<_>>();
 
-    if failing_backend_candidates.is_empty() {
-        return Ok(matches);
-    }
+    let network_interfaces = if backend_candidates.is_empty() {
+        Vec::new()
+    } else {
+        info!(
+            count = backend_candidates.len(),
+            "Fetching network interfaces for backend probe investigation"
+        );
+        fetch_all_network_interfaces(tenant_id).await?
+    };
 
-    info!(
-        count = failing_backend_candidates.len(),
-        "Fetching network interfaces for failing backend probe investigation"
-    );
-    let network_interfaces = fetch_all_network_interfaces(tenant_id).await?;
-
-    let relevant_private_endpoint_ids = failing_backend_candidates
+    let relevant_private_endpoint_ids = backend_candidates
         .iter()
         .flat_map(|candidate| {
             network_interfaces_for_backend_address(&network_interfaces, &candidate.server.address)
@@ -359,7 +358,7 @@ async fn enrich_matches_with_failing_backend_resource_discovery(
     } else {
         info!(
             count = relevant_private_endpoint_ids.len(),
-            "Fetching private endpoints for failing backend probe investigation"
+            "Fetching private endpoints for backend probe investigation"
         );
         fetch_all_private_endpoints(tenant_id)
             .await?
@@ -379,46 +378,43 @@ async fn enrich_matches_with_failing_backend_resource_discovery(
             continue;
         };
 
-        matched_public_ip.failing_backend_probe_investigations =
-            collect_failing_backend_servers(backend_health)
-                .into_iter()
-                .map(|candidate| {
-                    let matching_network_interfaces = network_interfaces_for_backend_address(
-                        &network_interfaces,
-                        &candidate.server.address,
-                    );
-                    let matching_private_endpoints = matching_network_interfaces
-                        .iter()
-                        .filter_map(|network_interface| {
-                            managed_by_private_endpoint_id(network_interface).and_then(
-                                |private_endpoint_id| {
-                                    private_endpoints_by_id.get(&private_endpoint_id).cloned()
-                                },
-                            )
-                        })
-                        .map(|private_endpoint| {
-                            (private_endpoint.id.expanded_form(), private_endpoint)
-                        })
-                        .collect::<BTreeMap<_, _>>()
-                        .into_values()
-                        .collect::<Vec<_>>();
-                    let private_link_service_ids = matching_private_endpoints
-                        .iter()
-                        .flat_map(private_link_service_ids)
-                        .collect::<BTreeSet<_>>()
-                        .into_iter()
-                        .collect::<Vec<_>>();
+        matched_public_ip.backend_probe_investigations = collect_backend_servers(backend_health)
+            .into_iter()
+            .map(|candidate| {
+                let matching_network_interfaces = network_interfaces_for_backend_address(
+                    &network_interfaces,
+                    &candidate.server.address,
+                );
+                let matching_private_endpoints = matching_network_interfaces
+                    .iter()
+                    .filter_map(|network_interface| {
+                        managed_by_private_endpoint_id(network_interface).and_then(
+                            |private_endpoint_id| {
+                                private_endpoints_by_id.get(&private_endpoint_id).cloned()
+                            },
+                        )
+                    })
+                    .map(|private_endpoint| (private_endpoint.id.expanded_form(), private_endpoint))
+                    .collect::<BTreeMap<_, _>>()
+                    .into_values()
+                    .collect::<Vec<_>>();
+                let private_link_service_ids = matching_private_endpoints
+                    .iter()
+                    .flat_map(private_link_service_ids)
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>();
 
-                    FailingBackendProbeInvestigation {
-                        backend_address_pool_id: candidate.backend_address_pool_id,
-                        backend_http_settings_id: candidate.backend_http_settings_id,
-                        server: candidate.server,
-                        matching_network_interfaces,
-                        matching_private_endpoints,
-                        private_link_service_ids,
-                    }
-                })
-                .collect();
+                BackendProbeInvestigation {
+                    backend_address_pool_id: candidate.backend_address_pool_id,
+                    backend_http_settings_id: candidate.backend_http_settings_id,
+                    server: candidate.server,
+                    matching_network_interfaces,
+                    matching_private_endpoints,
+                    private_link_service_ids,
+                }
+            })
+            .collect();
     }
 
     Ok(matches)
@@ -481,9 +477,9 @@ fn application_gateway_id_from_frontend_ip_configuration_id(id: &str) -> Option<
     Some(id[..marker_index].to_string())
 }
 
-fn collect_failing_backend_servers(
+fn collect_backend_servers(
     backend_health: &AzureApplicationGatewayResourceBackendHealthResponse,
-) -> Vec<FailingBackendServerCandidate> {
+) -> Vec<BackendServerCandidate> {
     backend_health
         .backend_address_pools
         .iter()
@@ -494,8 +490,7 @@ fn collect_failing_backend_servers(
                     http_settings
                         .servers
                         .iter()
-                        .filter(|server| is_failing_backend_server(server))
-                        .map(|server| FailingBackendServerCandidate {
+                        .map(|server| BackendServerCandidate {
                             backend_address_pool_id: pool.backend_address_pool.id.clone(),
                             backend_http_settings_id: http_settings
                                 .backend_http_settings
@@ -509,13 +504,34 @@ fn collect_failing_backend_servers(
 }
 
 fn is_failing_backend_server(server: &AzureApplicationGatewayResourceBackendHealthServer) -> bool {
-    server.health_probe_log.is_some()
-        || server.health_probe_error_name.is_some()
-        || !matches!(
-            server.health,
-            AzureApplicationGatewayResourceBackendHealthServerHealth::Healthy
-                | AzureApplicationGatewayResourceBackendHealthServerHealth::Up
-        )
+    !matches!(
+        server.health,
+        AzureApplicationGatewayResourceBackendHealthServerHealth::Healthy
+            | AzureApplicationGatewayResourceBackendHealthServerHealth::Up
+    )
+}
+
+fn format_backend_health(
+    health: &AzureApplicationGatewayResourceBackendHealthServerHealth,
+) -> String {
+    format_backend_health_text(health, format!("[{}]", String::from(health.clone())))
+}
+
+fn format_backend_health_text(
+    health: &AzureApplicationGatewayResourceBackendHealthServerHealth,
+    text: impl AsRef<str>,
+) -> String {
+    match health {
+        AzureApplicationGatewayResourceBackendHealthServerHealth::Healthy
+        | AzureApplicationGatewayResourceBackendHealthServerHealth::Up => {
+            text.as_ref().green().to_string()
+        }
+        AzureApplicationGatewayResourceBackendHealthServerHealth::Unhealthy
+        | AzureApplicationGatewayResourceBackendHealthServerHealth::Down => {
+            text.as_ref().red().to_string()
+        }
+        _ => text.as_ref().yellow().to_string(),
+    }
 }
 
 fn network_interfaces_for_backend_address(
@@ -670,26 +686,35 @@ fn print_pretty_report(report: &OutageInvestigationReport, output_dir: Option<&P
                 println!("    {} {}", "Backend health error:".bold(), error.red());
             }
 
-            if matched_public_ip
-                .failing_backend_probe_investigations
-                .is_empty()
-            {
-                println!("    {}", "No failing backend probes discovered.".green());
+            if matched_public_ip.backend_probe_investigations.is_empty() {
+                println!("    {}", "No backend probes discovered.".green());
                 continue;
             }
 
+            let failing_backend_probe_count = matched_public_ip
+                .backend_probe_investigations
+                .iter()
+                .filter(|investigation| is_failing_backend_server(&investigation.server))
+                .count();
             println!(
-                "    {} {}",
-                "Failing backend probes:".bold().red(),
-                matched_public_ip.failing_backend_probe_investigations.len()
+                "    {} {} ({} failing)",
+                "Backend probes:".bold().bright_blue(),
+                matched_public_ip.backend_probe_investigations.len(),
+                failing_backend_probe_count
             );
-            for investigation in &matched_public_ip.failing_backend_probe_investigations {
-                let health: String = investigation.server.health.clone().into();
+            let mut investigations = matched_public_ip
+                .backend_probe_investigations
+                .iter()
+                .collect::<Vec<_>>();
+            investigations
+                .sort_by_key(|investigation| !is_failing_backend_server(&investigation.server));
+
+            for investigation in investigations {
                 println!(
                     "      {} {} {}",
                     "Backend".bold(),
                     investigation.server.address.yellow(),
-                    format!("[{}]", health).red()
+                    format_backend_health(&investigation.server.health)
                 );
                 println!(
                     "        {} {}",
@@ -702,7 +727,11 @@ fn print_pretty_report(report: &OutageInvestigationReport, output_dir: Option<&P
                     investigation.backend_http_settings_id.dimmed()
                 );
                 if let Some(probe_log) = investigation.server.health_probe_log.as_deref() {
-                    println!("        {} {}", "Probe log:".bold(), probe_log.red());
+                    println!(
+                        "        {} {}",
+                        "Probe log:".bold(),
+                        format_backend_health_text(&investigation.server.health, probe_log)
+                    );
                 }
                 if let Some(probe_error_name) = investigation.server.health_probe_error_name.clone()
                 {
@@ -829,13 +858,13 @@ fn write_investigation_artifacts(
         .iter()
         .flat_map(|matched_public_ip| {
             matched_public_ip
-                .failing_backend_probe_investigations
+                .backend_probe_investigations
                 .iter()
                 .cloned()
         })
         .collect::<Vec<_>>();
     write_json_file(
-        output_dir.join("failing-backend-probe-investigations.json"),
+        output_dir.join("backend-probe-investigations.json"),
         &backend_probe_investigations,
     )?;
 
@@ -844,7 +873,7 @@ fn write_investigation_artifacts(
         .iter()
         .flat_map(|matched_public_ip| {
             matched_public_ip
-                .failing_backend_probe_investigations
+                .backend_probe_investigations
                 .iter()
                 .flat_map(|investigation| investigation.matching_network_interfaces.iter().cloned())
         })
@@ -862,7 +891,7 @@ fn write_investigation_artifacts(
         .iter()
         .flat_map(|matched_public_ip| {
             matched_public_ip
-                .failing_backend_probe_investigations
+                .backend_probe_investigations
                 .iter()
                 .flat_map(|investigation| investigation.matching_private_endpoints.iter().cloned())
         })
@@ -934,6 +963,70 @@ mod tests {
             application_gateway_id_from_frontend_ip_configuration_id(id),
             None
         );
+    }
+
+    #[test]
+    fn healthy_backend_with_successful_probe_metadata_is_not_failing() -> Result<()> {
+        let server = facet_json::from_str::<AzureApplicationGatewayResourceBackendHealthServer>(
+            r#"
+                {
+                    "address": "10.0.0.5",
+                    "health": "Healthy",
+                    "healthProbeLog": "Success",
+                    "healthProbeErrorName": "SuccessWithStatusCode"
+                }
+            "#,
+        )?;
+
+        assert!(!is_failing_backend_server(&server));
+        Ok(())
+    }
+
+    #[test]
+    fn unhealthy_backend_is_failing() -> Result<()> {
+        let server = facet_json::from_str::<AzureApplicationGatewayResourceBackendHealthServer>(
+            r#"
+                {
+                    "address": "10.0.0.5",
+                    "health": "Unhealthy"
+                }
+            "#,
+        )?;
+
+        assert!(is_failing_backend_server(&server));
+        Ok(())
+    }
+
+    #[test]
+    fn collects_healthy_and_unhealthy_backend_servers() -> Result<()> {
+        let backend_health =
+            facet_json::from_str::<AzureApplicationGatewayResourceBackendHealthResponse>(
+                r#"
+                {
+                    "backendAddressPools": [
+                        {
+                            "backendAddressPool": { "id": "pool" },
+                            "backendHttpSettingsCollection": [
+                                {
+                                    "backendHttpSettings": { "id": "settings" },
+                                    "servers": [
+                                        { "address": "10.0.0.5", "health": "Healthy" },
+                                        { "address": "10.0.0.6", "health": "Unhealthy" }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            "#,
+            )?;
+
+        let candidates = collect_backend_servers(&backend_health);
+
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].server.address, "10.0.0.5");
+        assert_eq!(candidates[1].server.address, "10.0.0.6");
+        Ok(())
     }
 
     #[test]
