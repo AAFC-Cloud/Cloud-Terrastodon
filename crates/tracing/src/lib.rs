@@ -15,6 +15,18 @@ use tracing_subscriber::layer::Layer;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
+#[cfg(feature = "tracy")]
+fn tracy_log_filter_directive() -> &'static str {
+    "trace"
+}
+
+#[cfg(feature = "tracy")]
+fn tracy_log_filter() -> Result<EnvFilter> {
+    EnvFilter::builder()
+        .parse(tracy_log_filter_directive())
+        .map_err(Into::into)
+}
+
 // TODO(EGUI-TRACING)
 // static EVENT_COLLECTOR: LazyLock<EventCollector> = LazyLock::new(EventCollector::default);
 
@@ -48,7 +60,7 @@ pub fn init_tracing(
         })
         .unwrap_or_else(|| stderr_filter.clone());
 
-    tracing_subscriber::registry()
+    let subscriber = tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
                 // Keep the human-readable field cache distinct from the JSON layer's
@@ -119,16 +131,33 @@ pub fn init_tracing(
             } else {
                 None
             }
-        })
-        .try_init()?;
+        });
+
+    #[cfg(all(feature = "tracy", not(test)))]
+    let subscriber =
+        subscriber.with(tracing_tracy::TracyLayer::default().with_filter(tracy_log_filter()?));
+
+    subscriber.try_init()?;
+
+    #[cfg(all(feature = "tracy", not(test)))]
+    info!("Tracy profiling layer added, memory usage will increase until a client is connected");
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "tracy")]
+    use super::*;
     use tracing_subscriber::Layer;
     use tracing_subscriber::layer::SubscriberExt;
+
+    #[cfg(feature = "tracy")]
+    #[test]
+    fn tracy_filter_is_always_trace() {
+        assert_eq!(tracy_log_filter_directive(), "trace");
+        tracy_log_filter().expect("the fixed Tracy filter should parse");
+    }
 
     #[test]
     fn json_layer_does_not_reparse_human_span_fields() {

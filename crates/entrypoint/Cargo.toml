@@ -81,4 +81,7 @@ windows = { version = "0.62.2", features = [
 arbitrary.workspace = true
 test-log.workspace = true
 
+[features]
+default = []
+tracy = ["cloud_terrastodon_tracing/tracy"]
 

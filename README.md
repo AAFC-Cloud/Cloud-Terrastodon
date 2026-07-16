@@ -59,6 +59,27 @@ Install the windows sdk and visual studio dev tools
     - [x] Desktop development with C++
 
 
+### Tracy profiling
+
+Install `teamy-profiler` from the profiler repository and ensure
+`tracy-capture.exe` is available on `PATH`:
+
+```pwsh
+cargo install --path C:\path\to\teamy-profiler --locked
+```
+
+Run the default resource-list capture or provide another Cloud Terrastodon
+command:
+
+```pwsh
+.\run-profiler.ps1
+.\run-profiler.ps1 az resource list
+```
+
+The wrapper writes the Tracy capture, target logs, top-span CSV, and run
+manifest under `tracy/`. Open the `.tracy` file in Tracy Profiler or
+summarize it with `teamy-profiler tracy csv export`.
+
 ## Copyright
 
 Copyright belongs to © His Majesty the King in Right of Canada, as represented by the Minister of Agriculture and Agri-Food, 2025.
