@@ -1,4 +1,5 @@
 use super::AzureEntraOAuth2PermissionGrantBrowseArgs;
+use super::AzureEntraOAuth2PermissionGrantClaimArgs;
 use super::AzureEntraOAuth2PermissionGrantCreateArgs;
 use super::AzureEntraOAuth2PermissionGrantListArgs;
 use super::AzureEntraOAuth2PermissionGrantUpdateArgs;
@@ -16,6 +17,8 @@ pub enum AzureEntraOAuth2PermissionGrantCommand {
     Update(AzureEntraOAuth2PermissionGrantUpdateArgs),
     /// Browse delegated permission grants interactively.
     Browse(AzureEntraOAuth2PermissionGrantBrowseArgs),
+    /// Inspect delegated permission claims exposed by resource service principals.
+    Claim(AzureEntraOAuth2PermissionGrantClaimArgs),
 }
 
 impl AzureEntraOAuth2PermissionGrantCommand {
@@ -25,6 +28,7 @@ impl AzureEntraOAuth2PermissionGrantCommand {
             AzureEntraOAuth2PermissionGrantCommand::Create(args) => args.invoke().await,
             AzureEntraOAuth2PermissionGrantCommand::Update(args) => args.invoke().await,
             AzureEntraOAuth2PermissionGrantCommand::Browse(args) => args.invoke().await,
+            AzureEntraOAuth2PermissionGrantCommand::Claim(args) => args.invoke().await,
         }
     }
 }

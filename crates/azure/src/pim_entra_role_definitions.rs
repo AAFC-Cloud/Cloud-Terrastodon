@@ -76,4 +76,27 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(PimEntraRoleDefinitionListRequest);
 cloud_terrastodon_registry::register_arbitrary!(PimEntraRoleDefinitionListRequest);
+
+/// Fetch role definitions using the delegated PIM app token.
+pub async fn fetch_all_entra_pim_role_definitions_with_graph_access_token(
+    tenant_id: AzureTenantId,
+    access_token: &str,
+) -> Result<Vec<PimEntraRoleDefinition>> {
+    let url = format!(
+        "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleDefinitions?$select=id,displayName,type,isbuiltIn&$orderby=displayName"
+    );
+    #[derive(facet::Facet)]
+    struct Response {
+        value: Vec<PimEntraRoleDefinition>,
+    }
+
+    let request = RestRequest::new(http::Method::GET, &url)?
+        .tenant(tenant_id)
+        .bearer_token(access_token);
+    let mut result: Result<Response, _> = request.clone().receive().await;
+    if result.is_err() {
+        result = request.receive().await;
+    }
+    Ok(result?.value)
+}
 cloud_terrastodon_registry::register_into_future!(PimEntraRoleDefinitionListRequest => Vec<PimEntraRoleDefinition>);

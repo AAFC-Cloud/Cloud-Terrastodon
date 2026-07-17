@@ -1,7 +1,7 @@
 use crate::AzureAppServiceResourceId;
 use crate::AzureApplicationGatewayResourceId;
-use crate::AzureContainerInstanceResourceId;
 use crate::AzureCognitiveServicesAccountResourceId;
+use crate::AzureContainerInstanceResourceId;
 use crate::AzureNetworkInterfaceResourceId;
 use crate::AzurePrivateEndpointResourceId;
 use crate::AzurePublicIpResourceId;

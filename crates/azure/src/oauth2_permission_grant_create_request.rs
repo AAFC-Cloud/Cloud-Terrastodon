@@ -2,7 +2,7 @@ use crate::bust_oauth2_permission_grants_cache;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ConsentType;
-use cloud_terrastodon_azure_types::EntraServicePrincipalId;
+use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
@@ -18,16 +18,16 @@ use tracing::info;
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionGrantCreateRequest {
     pub tenant_id: AzureTenantId,
-    pub resource_id: EntraServicePrincipalId,
-    pub client_id: EntraServicePrincipalId,
+    pub resource_id: EntraServicePrincipalObjectId,
+    pub client_id: EntraServicePrincipalObjectId,
     pub principal_id: EntraUserId,
     pub scope: String,
 }
 
 pub fn create_oauth2_permission_grant(
     tenant_id: AzureTenantId,
-    resource_id: EntraServicePrincipalId,
-    client_id: EntraServicePrincipalId,
+    resource_id: EntraServicePrincipalObjectId,
+    client_id: EntraServicePrincipalObjectId,
     principal_id: EntraUserId,
     scope: String,
 ) -> OAuth2PermissionGrantCreateRequest {

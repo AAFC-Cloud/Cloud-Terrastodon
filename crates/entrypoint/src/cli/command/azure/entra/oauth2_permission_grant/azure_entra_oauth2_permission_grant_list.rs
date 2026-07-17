@@ -4,7 +4,7 @@ use super::split_scope_csv;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::EntraServicePrincipalId;
+use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
@@ -21,7 +21,7 @@ pub struct AzureEntraOAuth2PermissionGrantListArgs {
 
     /// Filter by client service principal object id.
     #[facet(figue::named)]
-    pub client_id: Option<EntraServicePrincipalId>,
+    pub client_id: Option<EntraServicePrincipalObjectId>,
 
     /// Filter by principal user object id or user principal name.
     #[facet(figue::named)]
@@ -33,7 +33,7 @@ pub struct AzureEntraOAuth2PermissionGrantListArgs {
 
     /// Filter by resource service principal object id.
     #[facet(figue::named)]
-    pub resource_id: Option<EntraServicePrincipalId>,
+    pub resource_id: Option<EntraServicePrincipalObjectId>,
 
     /// Resolve common client/resource pairs for the current tenant.
     #[facet(figue::named)]

@@ -1,6 +1,6 @@
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
 use cloud_terrastodon_azure_types::AzureTenantId;
-use cloud_terrastodon_azure_types::EntraServicePrincipalId;
+use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
 use cloud_terrastodon_command::CacheKey;
@@ -81,8 +81,8 @@ pub fn merge_oauth2_permission_grant_scopes<'a>(
 
 pub fn find_matching_oauth2_permission_grant(
     grants: &mut [OAuth2PermissionGrant],
-    resource_id: EntraServicePrincipalId,
-    client_id: EntraServicePrincipalId,
+    resource_id: EntraServicePrincipalObjectId,
+    client_id: EntraServicePrincipalObjectId,
     principal_id: EntraUserId,
 ) -> Option<&mut OAuth2PermissionGrant> {
     grants.iter_mut().find(|grant| {

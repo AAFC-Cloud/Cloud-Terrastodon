@@ -1,5 +1,6 @@
 use super::AzureEntraApplicationRegistrationBrowseArgs;
 use super::AzureEntraApplicationRegistrationListArgs;
+use super::AzureEntraApplicationRegistrationRoleArgs;
 use super::AzureEntraApplicationRegistrationShowArgs;
 use eyre::Result;
 
@@ -13,6 +14,8 @@ pub enum AzureEntraApplicationRegistrationCommand {
     Show(AzureEntraApplicationRegistrationShowArgs),
     /// Browse application registrations interactively.
     Browse(AzureEntraApplicationRegistrationBrowseArgs),
+    /// Inspect app roles and application permissions.
+    Role(AzureEntraApplicationRegistrationRoleArgs),
 }
 
 impl AzureEntraApplicationRegistrationCommand {
@@ -21,6 +24,7 @@ impl AzureEntraApplicationRegistrationCommand {
             AzureEntraApplicationRegistrationCommand::List(args) => args.invoke().await,
             AzureEntraApplicationRegistrationCommand::Show(args) => args.invoke().await,
             AzureEntraApplicationRegistrationCommand::Browse(args) => args.invoke().await,
+            AzureEntraApplicationRegistrationCommand::Role(args) => args.invoke().await,
         }
     }
 }

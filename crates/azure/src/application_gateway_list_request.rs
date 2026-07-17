@@ -8,7 +8,6 @@ use eyre::Result;
 use indoc::indoc;
 use tracing::debug;
 use std::path::PathBuf;
-use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]

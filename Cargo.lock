@@ -1192,9 +1192,12 @@ dependencies = [
  "facet",
  "facet-json",
  "http",
+ "opener",
  "reqwest",
+ "sha2",
  "tokio",
  "tracing",
+ "uuid",
  "windows 0.62.2",
 ]
 

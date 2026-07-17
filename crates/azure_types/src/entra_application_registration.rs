@@ -1,5 +1,5 @@
-use crate::AppId;
-use crate::EntraApplicationRegistrationId;
+use crate::EntraApplicationClientId;
+use crate::entra_application_object_id::EntraApplicationObjectId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
@@ -14,7 +14,7 @@ pub struct EntraApplicationRegistration {
     pub add_ins: Vec<RawJson<'static>>,
     #[arbitrary(default)]
     pub api: Option<RawJson<'static>>,
-    pub app_id: AppId,
+    pub app_id: EntraApplicationClientId,
     pub application_template_id: Option<Uuid>,
     #[arbitrary(default)]
     pub app_roles: Vec<RawJson<'static>>,
@@ -24,7 +24,7 @@ pub struct EntraApplicationRegistration {
     pub disabled_by_microsoft_status: Option<String>,
     pub display_name: String,
     pub group_membership_claims: Option<String>,
-    pub id: EntraApplicationRegistrationId,
+    pub id: EntraApplicationObjectId,
     pub identifier_uris: Vec<String>,
     #[arbitrary(default)]
     pub info: Option<RawJson<'static>>,

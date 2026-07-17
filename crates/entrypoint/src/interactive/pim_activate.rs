@@ -1,16 +1,18 @@
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::GovernanceRoleAssignmentState;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::activate_pim_entra_role;
+use cloud_terrastodon_azure::activate_pim_entra_role_with_graph_access_token;
 use cloud_terrastodon_azure::activate_pim_role;
-use cloud_terrastodon_azure::fetch_all_entra_pim_role_definitions;
+use cloud_terrastodon_azure::fetch_all_entra_pim_role_definitions_with_graph_access_token;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::fetch_current_user;
-use cloud_terrastodon_azure::fetch_entra_pim_role_settings;
-use cloud_terrastodon_azure::fetch_my_entra_pim_role_assignments;
+use cloud_terrastodon_azure::fetch_current_user_with_graph_access_token;
+use cloud_terrastodon_azure::fetch_entra_pim_role_settings_with_graph_access_token;
+use cloud_terrastodon_azure::fetch_my_entra_pim_role_assignments_with_graph_access_token;
 use cloud_terrastodon_azure::fetch_my_role_eligibility_schedules;
 use cloud_terrastodon_azure::fetch_role_management_policy_assignments;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_credentials::fetch_pim_graph_access_token;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
@@ -18,6 +20,7 @@ use eyre::Result;
 use humantime::format_duration;
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::info;
 
@@ -52,21 +55,32 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
     // https://learn.microsoft.com/en-us/graph/api/resources/privilegedidentitymanagementv3-overview?view=graph-rest-1.0
     // https://github.com/Azure/azure-cli/issues/28854
 
+    let access_token = Arc::new(Box::pin(fetch_pim_graph_access_token(tenant_id)).await?);
+    let principal_id = fetch_current_user_with_graph_access_token(tenant_id, access_token.as_str())
+        .await?
+        .id;
+
     info!("Prompting user choice");
     let chosen_roles = PickerTui::new()
         .set_header("Choose roles to activate")
-        .pick_many_reloadable(async |invalidate| {
+        .pick_many_reloadable(async |_invalidate| {
             info!("Fetching role definitions");
-            let role_definitions = fetch_all_entra_pim_role_definitions(tenant_id)
-                .with_invalidation(invalidate)
-                .await?
-                .into_iter()
-                .map(|role_definition| (role_definition.id, role_definition))
-                .collect::<HashMap<_, _>>();
+            let role_definitions = fetch_all_entra_pim_role_definitions_with_graph_access_token(
+                tenant_id,
+                access_token.as_str(),
+            )
+            .await?
+            .into_iter()
+            .map(|role_definition| (role_definition.id, role_definition))
+            .collect::<HashMap<_, _>>();
 
             info!("Fetching role assignments");
-            let activatable_assignments = fetch_my_entra_pim_role_assignments()
-                .with_invalidation(invalidate)
+            let activatable_assignments =
+                fetch_my_entra_pim_role_assignments_with_graph_access_token(
+                    tenant_id,
+                    principal_id,
+                    access_token.as_str(),
+                )
                 .await?
                 .into_iter()
                 .filter_map(move |role_assignment| {
@@ -93,15 +107,17 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
 
     let chosen_duration: Duration = PickerTui::new()
         .set_header("Duration to activate PIM for")
-        .pick_one_reloadable(async |invalidate| {
+        .pick_one_reloadable(async |_invalidate| {
             info!("Fetching maximum activation durations");
             let mut max_duration = Duration::MAX;
             for (role_assignment, _role_definition) in &chosen_roles {
-                let duration =
-                    fetch_entra_pim_role_settings(tenant_id, role_assignment.role_definition_id)
-                        .with_invalidation(invalidate)
-                        .await?
-                        .get_maximum_grant_period()?;
+                let duration = fetch_entra_pim_role_settings_with_graph_access_token(
+                    tenant_id,
+                    role_assignment.role_definition_id,
+                    access_token.as_str(),
+                )
+                .await?
+                .get_maximum_grant_period()?;
                 if duration < max_duration {
                     max_duration = duration;
                 }
@@ -121,7 +137,6 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
 
     let justification = prompt_line("Justification: ").await?;
 
-    let principal_id = fetch_current_user().await?.id;
     for (role_assignment, role_definition) in &chosen_roles {
         info!(
             ?role_assignment,
@@ -129,12 +144,13 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
             duration=%format_duration(chosen_duration),
             "Activating entra role",
         );
-        activate_pim_entra_role(
+        activate_pim_entra_role_with_graph_access_token(
             tenant_id,
             principal_id,
             role_assignment,
             justification.clone(),
             chosen_duration,
+            access_token.as_str(),
         )
         .await?;
     }

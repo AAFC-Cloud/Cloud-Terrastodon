@@ -37,3 +37,35 @@ pub async fn activate_pim_entra_role(
         .await?;
     Ok(())
 }
+
+/// Activate an Entra role using the delegated PIM app token.
+pub async fn activate_pim_entra_role_with_graph_access_token(
+    tenant_id: AzureTenantId,
+    principal_id: impl Into<PrincipalId>,
+    role_assignment: &GovernanceRoleAssignment,
+    justification: String,
+    duration: Duration,
+    access_token: &str,
+) -> Result<()> {
+    let url = "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests";
+    RestRequest::new(Method::POST, url)?
+        .tenant(tenant_id)
+        .bearer_token(access_token)
+        .cache(CacheKey {
+            path: PathBuf::from_iter(["az", "rest", "POST", "roleAssignmentRequests"]),
+            valid_for: Duration::ZERO,
+        })
+        .body(
+            facet_json::to_string_pretty(&RoleAssignmentRequest::new_self_activation(
+                principal_id.into(),
+                tenant_id,
+                role_assignment,
+                justification,
+                duration,
+            ))
+            .map_err(|error| eyre::eyre!("{error:?}"))?,
+        )
+        .receive_raw()
+        .await?;
+    Ok(())
+}

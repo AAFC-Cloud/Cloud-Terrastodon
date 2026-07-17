@@ -1,5 +1,7 @@
 use crate::fetch_current_user;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
+use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
@@ -88,6 +90,42 @@ mod tests {
     }
 }
 
+/// Fetch the current user's eligible/active Entra PIM role assignments with an explicit token.
+pub async fn fetch_my_entra_pim_role_assignments_with_graph_access_token(
+    tenant_id: AzureTenantId,
+    principal_id: impl Into<PrincipalId>,
+    access_token: &str,
+) -> Result<Vec<GovernanceRoleAssignment>> {
+    let principal_id: PrincipalId = principal_id.into();
+    let url = format!(
+        "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignments?$filter=(subject/id eq '{principal_id}') and (assignmentState in ('Eligible', 'Active'))&$select={}",
+        [
+            "assignmentState",
+            "endDateTime",
+            "id",
+            "linkedEligibleRoleAssignmentId",
+            "memberType",
+            "roleDefinitionId",
+            "startDateTime",
+            "status",
+            "subjectId",
+        ]
+        .join(",")
+    );
+    #[derive(facet::Facet)]
+    struct Response {
+        value: Vec<GovernanceRoleAssignment>,
+    }
+
+    let request = RestRequest::new(http::Method::GET, &url)?
+        .tenant(tenant_id)
+        .bearer_token(access_token);
+    let mut result: Result<Response, _> = request.clone().receive().await;
+    if result.is_err() {
+        result = request.receive().await;
+    }
+    Ok(result?.value)
+}
 cloud_terrastodon_registry::register_thing!(MyEntraPimRoleAssignmentsListRequest);
 cloud_terrastodon_registry::register_arbitrary!(MyEntraPimRoleAssignmentsListRequest);
 cloud_terrastodon_registry::register_into_future!(MyEntraPimRoleAssignmentsListRequest => Vec<GovernanceRoleAssignment>);

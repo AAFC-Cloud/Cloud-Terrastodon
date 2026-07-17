@@ -1,4 +1,5 @@
-use cloud_terrastodon_azure_types::EntraServicePrincipalId;
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure_types::OAuth2PermissionScope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
@@ -8,13 +9,16 @@ use tracing::info;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionScopesListRequest {
-    pub service_principal_id: EntraServicePrincipalId,
+    pub tenant_id: AzureTenantId,
+    pub service_principal_id: EntraServicePrincipalObjectId,
 }
 
 pub fn fetch_oauth2_permission_scopes(
-    service_principal_id: EntraServicePrincipalId,
+    tenant_id: AzureTenantId,
+    service_principal_id: EntraServicePrincipalObjectId,
 ) -> OAuth2PermissionScopesListRequest {
     OAuth2PermissionScopesListRequest {
+        tenant_id,
         service_principal_id,
     }
 }
@@ -29,6 +33,7 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionScopesListR
             "rest",
             "GET",
             "oauth2_permission_scopes",
+            self.tenant_id.to_string().as_ref(),
             self.service_principal_id.to_string().as_ref(),
         ]))
     }
@@ -48,12 +53,13 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionScopesListR
             oauth2_permission_scopes: Vec<OAuth2PermissionScope>,
         }
         let entries = RestRequest::new(http::Method::GET, url.as_str())?
+            .tenant(self.tenant_id)
             .cache(self.cache_key())
             .receive::<Response>()
             .await?
             .oauth2_permission_scopes;
 
-        info!("Found {} service principals", entries.len());
+        info!("Found {} OAuth2 permission scopes", entries.len());
         Ok(entries)
     }
 }
@@ -69,12 +75,13 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let service_principals = fetch_all_service_principals(get_test_tenant_id().await?).await?;
+        let tenant_id = get_test_tenant_id().await?;
+        let service_principals = fetch_all_service_principals(tenant_id).await?;
         let graph = service_principals
             .iter()
             .find(|sp| sp.display_name == "Microsoft Graph")
             .ok_or_eyre("Failed to find graph sp")?;
-        let scopes = fetch_oauth2_permission_scopes(graph.id).await?;
+        let scopes = fetch_oauth2_permission_scopes(tenant_id, graph.id).await?;
         assert!(scopes.len() > 10);
         Ok(())
     }

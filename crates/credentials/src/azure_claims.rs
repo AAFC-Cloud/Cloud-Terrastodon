@@ -1,7 +1,7 @@
 use chrono::DateTime;
 use chrono::Local;
-use cloud_terrastodon_azure_types::AppId;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
@@ -30,7 +30,7 @@ pub struct AzureClaims {
     #[facet(rename = "amr")]
     pub authentication_methods: Vec<String>,
     #[facet(rename = "appid")]
-    pub app_id: AppId,
+    pub app_id: EntraApplicationClientId,
     #[facet(rename = "appidacr")]
     pub app_id_acr: String,
     #[facet(rename = "deviceid")]

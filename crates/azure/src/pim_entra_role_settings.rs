@@ -99,4 +99,38 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EntraPimRoleSettingsRequest);
 cloud_terrastodon_registry::register_arbitrary!(EntraPimRoleSettingsRequest);
+
+/// Fetch role settings using the delegated PIM app token.
+pub async fn fetch_entra_pim_role_settings_with_graph_access_token(
+    tenant_id: AzureTenantId,
+    role_definition_id: Uuid,
+    access_token: &str,
+) -> Result<PimEntraRoleSettings> {
+    let url = format!(
+        "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleSettings?{query}",
+        query = format_args!(
+            "$select={}&$filter={}",
+            "id,roleDefinitionId,userMemberSettings",
+            format_args!("(roleDefinition/id eq '{}')", role_definition_id),
+        )
+    );
+
+    #[derive(facet::Facet)]
+    struct Response {
+        value: Vec<PimEntraRoleSettings>,
+    }
+
+    let request = RestRequest::new(http::Method::GET, &url)?
+        .tenant(tenant_id)
+        .bearer_token(access_token);
+    let mut result: Result<Response, _> = request.clone().receive().await;
+    if result.is_err() {
+        result = request.receive().await;
+    }
+    let mut response = result?;
+    if response.value.len() != 1 {
+        bail!("Expected a single result, got {}", response.value.len());
+    }
+    Ok(response.value.pop().unwrap())
+}
 cloud_terrastodon_registry::register_into_future!(EntraPimRoleSettingsRequest => PimEntraRoleSettings);

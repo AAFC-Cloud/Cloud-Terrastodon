@@ -50,6 +50,7 @@ pub struct RestRequest {
     pub body: Option<String>,
     pub headers: Option<RequestHeaders>,
     pub tenant: Option<AzureTenantId>,
+    pub bearer_token: Option<String>,
     pub cache_key: Option<CacheKey>,
     pub output_format: RestOutputFormat,
     pub failure_extra_files: Option<ResponseFailureExtraFiles>,
@@ -70,6 +71,7 @@ impl RestRequest {
             body: None,
             headers: None,
             tenant: None,
+            bearer_token: None,
             cache_key: None,
             output_format: RestOutputFormat::default(),
             failure_extra_files: None,
@@ -88,6 +90,11 @@ impl RestRequest {
 
     pub fn tenant(mut self, tenant: AzureTenantId) -> Self {
         self.tenant = Some(tenant);
+        self
+    }
+
+    pub fn bearer_token(mut self, bearer_token: impl Into<String>) -> Self {
+        self.bearer_token = Some(bearer_token.into());
         self
     }
 
@@ -163,6 +170,7 @@ impl RestRequest {
             self.body,
             self.headers,
             self.tenant,
+            self.bearer_token,
         )
         .await?;
         let serialized = SerializableRestResponse::from_response(response).await?;

@@ -1,4 +1,5 @@
-use crate::EntraServicePrincipalId;
+use crate::EntraApplicationClientId;
+use crate::EntraServicePrincipalObjectId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
@@ -14,7 +15,7 @@ pub struct EntraServicePrincipal {
     pub alternative_names: Vec<String>,
     pub app_description: Option<String>,
     pub app_display_name: Option<String>,
-    pub app_id: Uuid,
+    pub app_id: EntraApplicationClientId,
     pub app_owner_organization_id: Option<Uuid>,
     pub app_role_assignment_required: bool,
     #[arbitrary(default)]
@@ -28,7 +29,7 @@ pub struct EntraServicePrincipal {
     pub disabled_by_microsoft_status: Option<RawJson<'static>>,
     pub display_name: String,
     pub homepage: Option<String>,
-    pub id: EntraServicePrincipalId,
+    pub id: EntraServicePrincipalObjectId,
     #[arbitrary(default)]
     pub info: Option<RawJson<'static>>,
     pub key_credentials: Vec<ServicePrincipalKeyCredential>,

@@ -1,7 +1,7 @@
 use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraServicePrincipal;
-use cloud_terrastodon_azure_types::EntraServicePrincipalId;
+use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -13,12 +13,12 @@ use tracing::debug;
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ServicePrincipalRequest {
     pub tenant_id: AzureTenantId,
-    pub service_principal_id: EntraServicePrincipalId,
+    pub service_principal_id: EntraServicePrincipalObjectId,
 }
 
 pub fn fetch_service_principal(
     tenant_id: AzureTenantId,
-    service_principal_id: EntraServicePrincipalId,
+    service_principal_id: EntraServicePrincipalObjectId,
 ) -> ServicePrincipalRequest {
     ServicePrincipalRequest {
         tenant_id,

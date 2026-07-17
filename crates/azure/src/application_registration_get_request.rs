@@ -1,7 +1,7 @@
 use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationRegistration;
-use cloud_terrastodon_azure_types::EntraApplicationRegistrationId;
+use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -14,16 +14,16 @@ use tracing::debug;
 #[derive(arbitrary::Arbitrary, Facet)]
 pub struct ApplicationRegistrationGetRequest {
     pub tenant_id: AzureTenantId,
-    pub application_registration_id: EntraApplicationRegistrationId,
+    pub application_id: EntraApplicationClientId,
 }
 
 pub fn fetch_application_registration(
     tenant_id: AzureTenantId,
-    application_registration_id: EntraApplicationRegistrationId,
+    application_id: EntraApplicationClientId,
 ) -> ApplicationRegistrationGetRequest {
     ApplicationRegistrationGetRequest {
         tenant_id,
-        application_registration_id,
+        application_id,
     }
 }
 
@@ -31,7 +31,7 @@ impl ApplicationRegistrationGetRequest {
     fn url(&self) -> String {
         format!(
             "https://graph.microsoft.com/v1.0/applications/{}",
-            self.application_registration_id
+            self.application_id
         )
     }
 }
@@ -47,14 +47,14 @@ impl CacheableCommand for ApplicationRegistrationGetRequest {
             "GET",
             "applications",
             self.tenant_id.to_string().as_str(),
-            self.application_registration_id.to_string().as_str(),
+            self.application_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         debug!(
             tenant_id = %self.tenant_id,
-            application_registration_id = %self.application_registration_id,
+            application_registration_id = %self.application_id,
             "Fetching application registration by object id"
         );
         MicrosoftGraphHelper::new(self.tenant_id, self.url(), Some(self.cache_key()))

@@ -1,9 +1,12 @@
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::bail;
+use http::Method;
 use std::path::PathBuf;
 use tracing::warn;
 
@@ -46,4 +49,16 @@ pub async fn login() -> Result<()> {
         .run_raw()
         .await?;
     Ok(())
+}
+/// Fetch the signed-in user from Graph using an explicitly supplied delegated token.
+pub async fn fetch_current_user_with_graph_access_token(
+    tenant_id: AzureTenantId,
+    access_token: &str,
+) -> Result<EntraUser> {
+    let url = "https://graph.microsoft.com/v1.0/me?$select=businessPhones,displayName,givenName,id,jobTitle,mail,otherMails,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName";
+    RestRequest::new(Method::GET, url)?
+        .tenant(tenant_id)
+        .bearer_token(access_token)
+        .receive()
+        .await
 }

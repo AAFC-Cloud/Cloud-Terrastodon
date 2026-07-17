@@ -35,7 +35,7 @@ pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result
         }))?;
     info!("You chose: {} - {}", client.display_name, client.id);
 
-    let scopes = fetch_oauth2_permission_scopes(resource.id)
+    let scopes = fetch_oauth2_permission_scopes(tenant_id, resource.id)
         .await?
         .into_iter()
         .collect::<HashSet<_>>();

@@ -1,5 +1,5 @@
 use crate::EntraGroupId;
-use crate::EntraServicePrincipalId;
+use crate::EntraServicePrincipalObjectId;
 use crate::EntraUserId;
 use arbitrary::Arbitrary;
 use std::hash::Hash;
@@ -11,7 +11,7 @@ use uuid::Uuid;
 pub enum PrincipalId {
     UserId(EntraUserId),
     GroupId(EntraGroupId),
-    ServicePrincipalId(EntraServicePrincipalId),
+    ServicePrincipalId(EntraServicePrincipalObjectId),
     Unknown(Uuid),
 }
 crate::impl_facet_string_proxy!(PrincipalId, value => value.to_string());
@@ -74,8 +74,8 @@ impl From<EntraGroupId> for PrincipalId {
         Self::GroupId(value)
     }
 }
-impl From<EntraServicePrincipalId> for PrincipalId {
-    fn from(value: EntraServicePrincipalId) -> Self {
+impl From<EntraServicePrincipalObjectId> for PrincipalId {
+    fn from(value: EntraServicePrincipalObjectId) -> Self {
         Self::ServicePrincipalId(value)
     }
 }
@@ -94,8 +94,8 @@ impl From<&EntraGroupId> for PrincipalId {
         Self::GroupId(*value)
     }
 }
-impl From<&EntraServicePrincipalId> for PrincipalId {
-    fn from(value: &EntraServicePrincipalId) -> Self {
+impl From<&EntraServicePrincipalObjectId> for PrincipalId {
+    fn from(value: &EntraServicePrincipalObjectId) -> Self {
         Self::ServicePrincipalId(*value)
     }
 }

@@ -11,6 +11,13 @@
 - Add `ct az container-instance|aci list|show` support
 - Update `ct outage investigate {hostname}` command
 - Add tracy support for profiling in development
+- Add `ct az ad oauth2-permission-grant claim list`
+- Add support for `$env:CLOUD_TERRASTODON_PIM_CLIENT_ID` to be used for `ct az pim activate entra` with an application with `azuread_application_fallback_public_client enabled=true`
+- Add `ct az ad oauth2-permission-grant claim list`
+- Change `EntraServicePrincipal.app_id` to be `EntraApplicationClientId` instead of `Uuid`
+- Change `EntraApplicationRegistration.app_id` to be `EntraApplicationClientId` instead of `Uuid`
+- Rename `EntraApplicationId` to `EntraApplicationObjectId`
+- Add `ct az ad app role list {client id}`
 
 # v0.36.0
 

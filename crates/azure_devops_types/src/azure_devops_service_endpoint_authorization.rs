@@ -1,7 +1,7 @@
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_azure_types::AzureTenantId;
-use cloud_terrastodon_azure_types::EntraServicePrincipalId;
+use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure_types::OptionalNonEmptyStringProxy;
 use cloud_terrastodon_azure_types::ScopeImpl;
 use compact_str::CompactString;
@@ -22,7 +22,7 @@ pub enum AzureDevOpsServiceEndpointAuthorization {
     Other(ArbitraryJson),
 }
 impl AzureDevOpsServiceEndpointAuthorization {
-    pub fn service_principal_id(&self) -> Option<&EntraServicePrincipalId> {
+    pub fn service_principal_id(&self) -> Option<&EntraServicePrincipalObjectId> {
         match self {
             AzureDevOpsServiceEndpointAuthorization::ServicePrincipal(data) => {
                 Some(&data.service_principal_id)
@@ -108,7 +108,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationServicePrincipal {
     pub authentication_type:
         AzureDevOpsServiceEndpointAuthorizationServicePrincipalAuthenticationType,
     #[facet(rename = "serviceprincipalid")]
-    pub service_principal_id: EntraServicePrincipalId,
+    pub service_principal_id: EntraServicePrincipalObjectId,
     #[facet(rename = "tenantId", alias = "tenantid")]
     pub tenant_id: AzureTenantId,
 }
@@ -133,7 +133,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
     pub scope: Option<ScopeImpl>,
     #[facet(rename = "servicePrincipalId", alias = "serviceprincipalid")]
     #[facet(proxy = OptionalNonEmptyStringProxy)]
-    pub service_principal_id: Option<EntraServicePrincipalId>,
+    pub service_principal_id: Option<EntraServicePrincipalObjectId>,
     #[facet(rename = "tenantId", alias = "tenantid")]
     pub tenant_id: AzureTenantId,
     pub workload_identity_federation_issuer: String,

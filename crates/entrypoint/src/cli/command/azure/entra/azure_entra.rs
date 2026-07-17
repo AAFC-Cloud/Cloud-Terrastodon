@@ -28,6 +28,7 @@ pub enum AzureEntraCommand {
     /// OAuth2 delegated permission grant operations.
     #[facet(
         figue::alias = "oauth2-permission-grants",
+        figue::alias = "oauth2-permission-grant",
         figue::alias = "oauth2-grant"
     )]
     OAuth2PermissionGrant(AzureEntraOAuth2PermissionGrantArgs),

@@ -41,6 +41,7 @@ pub async fn execute_rest_request(
     body: Option<String>,
     headers: Option<RequestHeaders>,
     tenant: Option<AzureTenantId>,
+    bearer_token: Option<String>,
 ) -> Result<Response> {
     match service {
         RestService::AzureDevOps => {
@@ -56,6 +57,7 @@ pub async fn execute_rest_request(
                 body,
                 headers,
                 tenant,
+                bearer_token,
                 AzureRestResource::MicrosoftGraph,
             )
             .await
@@ -67,6 +69,7 @@ pub async fn execute_rest_request(
                 body,
                 headers,
                 tenant,
+                bearer_token,
                 AzureRestResource::AzureResourceManager,
             )
             .await
@@ -101,34 +104,41 @@ pub async fn execute_azure_bearer_request(
     body: Option<String>,
     headers: Option<RequestHeaders>,
     tenant: Option<AzureTenantId>,
+    bearer_token: Option<String>,
     resource: AzureRestResource,
 ) -> Result<Response> {
-    let token = match resource {
-        AzureRestResource::MicrosoftGraph => {
-            fetch_azure_access_token::<String>(
-                tenant,
-                cloud_terrastodon_credentials::AzureRestResource::MicrosoftGraph,
-            )
-            .await?
-        }
-        AzureRestResource::AzureResourceManager => {
-            fetch_azure_access_token::<String>(
-                tenant,
-                cloud_terrastodon_credentials::AzureRestResource::AzureResourceManager,
-            )
-            .await?
-        }
-        AzureRestResource::AzureDevOps => {
-            fetch_azure_access_token::<String>(
-                tenant,
-                cloud_terrastodon_credentials::AzureRestResource::AzureDevOps,
-            )
-            .await?
-        }
+    let token = match bearer_token {
+        Some(token) => token,
+        None => match resource {
+            AzureRestResource::MicrosoftGraph => {
+                fetch_azure_access_token::<String>(
+                    tenant,
+                    cloud_terrastodon_credentials::AzureRestResource::MicrosoftGraph,
+                )
+                .await?
+                .access_token
+            }
+            AzureRestResource::AzureResourceManager => {
+                fetch_azure_access_token::<String>(
+                    tenant,
+                    cloud_terrastodon_credentials::AzureRestResource::AzureResourceManager,
+                )
+                .await?
+                .access_token
+            }
+            AzureRestResource::AzureDevOps => {
+                fetch_azure_access_token::<String>(
+                    tenant,
+                    cloud_terrastodon_credentials::AzureRestResource::AzureDevOps,
+                )
+                .await?
+                .access_token
+            }
+        },
     };
     let client = create_tls12_client()?;
     debug!(?method, %url, ?resource, ?tenant, "Executing Azure REST request");
-    let mut request_builder = client.request(method, url).bearer_auth(&token.access_token);
+    let mut request_builder = client.request(method, url).bearer_auth(token);
     if let Some(body) = body {
         request_builder = request_builder
             .header(CONTENT_TYPE, "application/json")

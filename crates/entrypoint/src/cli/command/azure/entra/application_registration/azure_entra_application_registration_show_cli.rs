@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraApplicationRegistration;
-use cloud_terrastodon_azure::EntraApplicationRegistrationId;
 use cloud_terrastodon_azure::fetch_all_application_registrations;
 use cloud_terrastodon_azure::fetch_application_registration;
 use eyre::Result;
@@ -27,8 +27,8 @@ impl AzureEntraApplicationRegistrationShowArgs {
         info!(needle = %self.application_registration, %tenant_id, "Fetching application registrations");
         let needle = self.application_registration.trim();
 
-        if let Ok(application_registration_id) = needle.parse::<EntraApplicationRegistrationId>() {
-            match fetch_application_registration(tenant_id, application_registration_id).await {
+        if let Ok(app_id) = needle.parse::<EntraApplicationClientId>() {
+            match fetch_application_registration(tenant_id, app_id).await {
                 Ok(application) => {
                     let stdout = std::io::stdout();
                     let mut handle = stdout.lock();
