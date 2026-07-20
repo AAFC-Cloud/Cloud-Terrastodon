@@ -1,9 +1,9 @@
+use crate::ArbitraryJson;
 use crate::AzureAppServiceResourceId;
 use crate::AzureAppServiceResourceName;
 use crate::AzureLocationName;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
-use facet_json::RawJson;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::IpAddr;
@@ -142,9 +142,8 @@ pub struct AzureAppServiceResourceProperties {
     pub private_endpoint_connections: Vec<AzureAppServicePrivateEndpointConnection>,
     #[facet(default)]
     pub site_config: Option<AzureAppServiceSiteConfig>,
-    #[arbitrary(default)]
     #[facet(flatten)]
-    pub additional_properties: HashMap<String, RawJson<'static>>,
+    pub additional_properties: HashMap<String, ArbitraryJson>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
@@ -173,9 +172,8 @@ pub struct AzureAppServicePrivateEndpointConnectionProperties {
     pub ip_addresses: Vec<IpAddr>,
     #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub group_ids: Vec<String>,
-    #[arbitrary(default)]
     #[facet(flatten)]
-    pub additional_properties: HashMap<String, RawJson<'static>>,
+    pub additional_properties: HashMap<String, ArbitraryJson>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
@@ -205,9 +203,8 @@ pub struct AzureAppServiceSiteConfig {
     pub windows_fx_version: Option<String>,
     #[facet(default)]
     pub always_on: Option<bool>,
-    #[arbitrary(default)]
     #[facet(flatten)]
-    pub additional_properties: HashMap<String, RawJson<'static>>,
+    pub additional_properties: HashMap<String, ArbitraryJson>,
 }
 
 #[cfg(test)]

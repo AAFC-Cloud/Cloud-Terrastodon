@@ -38,9 +38,11 @@ mod azure_devops_rest_client;
 mod azure_rest_resource;
 mod azure_token_cache;
 mod jwt;
+mod pim_client_id;
+mod pim_config;
 mod pim_graph_access_token;
-mod windows_credential_manager_target_name;
 mod windows_credential_manager;
+mod windows_credential_manager_target_name;
 
 pub use auth_bearer_ext::*;
 pub use azure_access_token::*;
@@ -51,7 +53,9 @@ pub use azure_rest_resource::*;
 #[expect(unused_imports)]
 pub use azure_token_cache::*;
 pub use jwt::*;
+pub use pim_client_id::*;
+pub use pim_config::*;
 pub use pim_graph_access_token::*;
-pub use windows_credential_manager_target_name::*;
 #[cfg(windows)]
 pub use windows_credential_manager::*;
+pub use windows_credential_manager_target_name::*;

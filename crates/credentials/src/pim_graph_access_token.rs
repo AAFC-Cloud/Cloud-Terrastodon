@@ -1,6 +1,6 @@
+use crate::pim_client_id;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use eyre::Context;
@@ -23,15 +23,16 @@ use tracing::debug;
 use tracing::instrument;
 use uuid::Uuid;
 
-const PIM_CLIENT_ID_ENV: &str = "CLOUD_TERRASTODON_PIM_CLIENT_ID";
 const PIM_SCOPES_ENV: &str = "CLOUD_TERRASTODON_PIM_GRAPH_SCOPES";
 const PIM_AUTH_FLOW_ENV: &str = "CLOUD_TERRASTODON_PIM_AUTH_FLOW";
+
+pub const PIM_APPLICATION_DISPLAY_NAME: &str = "Cloud Terrastodon PIM";
 
 // These are the delegated permissions required by the legacy Entra-role PIM
 // endpoints currently used by Cloud Terrastodon. The newer
 // roleAssignmentScheduleRequests endpoint uses RoleAssignmentSchedule.* and
 // RoleManagement.* instead; callers can select those with PIM_SCOPES_ENV.
-const DEFAULT_PIM_GRAPH_SCOPES: &[&str] = &[
+pub const DEFAULT_PIM_GRAPH_SCOPES: &[&str] = &[
     "https://graph.microsoft.com/User.Read",
     "https://graph.microsoft.com/PrivilegedAccess.Read.AzureAD",
     "https://graph.microsoft.com/PrivilegedAccess.ReadWrite.AzureAD",
@@ -85,7 +86,7 @@ struct TokenResponse {
 pub async fn fetch_pim_graph_access_token(
     tenant_id: AzureTenantId,
 ) -> Result<MicrosoftGraphAccessToken> {
-    let client_id = pim_client_id()?;
+    let client_id = pim_client_id(&tenant_id).await?;
     let scopes = pim_graph_scopes();
 
     if let Some(refresh_token) = load_pim_refresh_token(&tenant_id, &client_id)? {
@@ -114,7 +115,7 @@ pub async fn fetch_pim_graph_access_token_interactive(
     tenant_id: AzureTenantId,
 ) -> Result<MicrosoftGraphAccessToken> {
     debug!("Starting Microsoft Graph interactive authentication");
-    let client_id = pim_client_id()?;
+    let client_id = pim_client_id(&tenant_id).await?;
     let scopes = pim_graph_scopes();
     let authority = format!("https://login.microsoftonline.com/{tenant_id}");
     let redirect_uri;
@@ -201,7 +202,7 @@ pub async fn fetch_pim_graph_access_token_interactive(
 pub async fn fetch_pim_graph_access_token_device_code(
     tenant_id: AzureTenantId,
 ) -> Result<MicrosoftGraphAccessToken> {
-    let client_id = pim_client_id()?;
+    let client_id = pim_client_id(&tenant_id).await?;
     let scopes = pim_graph_scopes();
     let authority = format!("https://login.microsoftonline.com/{tenant_id}");
     let client = Client::new();
@@ -367,18 +368,6 @@ async fn write_callback_response(stream: &mut tokio::net::TcpStream, success: bo
     Ok(())
 }
 
-fn pim_client_id() -> Result<EntraApplicationClientId> {
-    let client_id = std::env::var(PIM_CLIENT_ID_ENV).with_context(|| {
-        format!(
-            "{PIM_CLIENT_ID_ENV} is not set; set it to the Application (client) ID of the Cloud Terrastodon PIM app registration"
-        )
-    })?;
-    if client_id.trim().is_empty() {
-        bail!("{PIM_CLIENT_ID_ENV} must not be empty");
-    }
-    Ok(client_id.parse()?)
-}
-
 fn pim_graph_scopes() -> String {
     let mut scopes =
         std::env::var(PIM_SCOPES_ENV).unwrap_or_else(|_| DEFAULT_PIM_GRAPH_SCOPES.join(" "));
@@ -494,10 +483,7 @@ fn store_pim_refresh_token(
 }
 
 #[cfg(windows)]
-fn delete_pim_refresh_token(
-    tenant_id: &AzureTenantId,
-    client_id: &EntraApplicationClientId,
-) {
+fn delete_pim_refresh_token(tenant_id: &AzureTenantId, client_id: &EntraApplicationClientId) {
     let target = match pim_refresh_token_target(tenant_id, client_id) {
         Ok(target) => target,
         Err(error) => {

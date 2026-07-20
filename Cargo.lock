@@ -1184,14 +1184,19 @@ dependencies = [
 name = "cloud_terrastodon_credentials"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
+ "async-trait",
  "base64 0.22.1",
  "chrono",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",
+ "cloud_terrastodon_config",
+ "cloud_terrastodon_registry",
  "eyre",
  "facet",
  "facet-json",
  "http",
+ "linkme",
  "opener",
  "reqwest",
  "sha2",

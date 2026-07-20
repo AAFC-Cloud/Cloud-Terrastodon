@@ -1,23 +1,20 @@
+use crate::ArbitraryJson;
 use crate::EntraApplicationClientId;
 use crate::entra_application_object_id::EntraApplicationObjectId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use facet_json::RawJson;
 use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct EntraApplicationRegistration {
-    #[arbitrary(default)]
-    pub add_ins: Vec<RawJson<'static>>,
-    #[arbitrary(default)]
-    pub api: Option<RawJson<'static>>,
+    pub add_ins: Vec<ArbitraryJson>,
+    pub api: Option<ArbitraryJson>,
     pub app_id: EntraApplicationClientId,
     pub application_template_id: Option<Uuid>,
-    #[arbitrary(default)]
-    pub app_roles: Vec<RawJson<'static>>,
+    pub app_roles: Vec<ArbitraryJson>,
     pub created_date_time: Option<DateTime<Utc>>,
     pub default_redirect_uri: Option<String>,
     pub description: Option<String>,
@@ -26,42 +23,29 @@ pub struct EntraApplicationRegistration {
     pub group_membership_claims: Option<String>,
     pub id: EntraApplicationObjectId,
     pub identifier_uris: Vec<String>,
-    #[arbitrary(default)]
-    pub info: Option<RawJson<'static>>,
+    pub info: Option<ArbitraryJson>,
     pub is_device_only_auth_supported: Option<bool>,
     pub is_fallback_public_client: Option<bool>,
-    #[arbitrary(default)]
-    pub key_credentials: Vec<RawJson<'static>>,
+    pub key_credentials: Vec<ArbitraryJson>,
     pub notes: Option<String>,
-    #[arbitrary(default)]
-    pub optional_claims: Option<RawJson<'static>>,
-    #[arbitrary(default)]
-    pub parental_control_settings: Option<RawJson<'static>>,
-    #[arbitrary(default)]
-    pub password_credentials: Vec<RawJson<'static>>,
-    #[arbitrary(default)]
-    pub public_client: Option<RawJson<'static>>,
+    pub optional_claims: Option<ArbitraryJson>,
+    pub parental_control_settings: Option<ArbitraryJson>,
+    pub password_credentials: Vec<ArbitraryJson>,
+    pub public_client: Option<ArbitraryJson>,
     pub publisher_domain: Option<String>,
-    #[arbitrary(default)]
-    pub request_signature_verification: Option<RawJson<'static>>,
-    #[arbitrary(default)]
-    pub required_resource_access: Vec<RawJson<'static>>,
+    pub request_signature_verification: Option<ArbitraryJson>,
+    pub required_resource_access: Vec<ArbitraryJson>,
     pub service_management_reference: Option<String>,
-    #[arbitrary(default)]
-    pub service_principal_lock_configuration: Option<RawJson<'static>>,
+    pub service_principal_lock_configuration: Option<ArbitraryJson>,
     pub sign_in_audience: Option<String>,
-    #[arbitrary(default)]
-    pub spa: Option<RawJson<'static>>,
+    pub spa: Option<ArbitraryJson>,
     pub tags: Vec<String>,
     pub token_encryption_key_id: Option<Uuid>,
     pub unique_name: Option<String>,
-    #[arbitrary(default)]
-    pub verified_publisher: Option<RawJson<'static>>,
-    #[arbitrary(default)]
-    pub web: Option<RawJson<'static>>,
-    #[arbitrary(default)]
+    pub verified_publisher: Option<ArbitraryJson>,
+    pub web: Option<ArbitraryJson>,
     #[facet(flatten)]
-    pub additional_properties: HashMap<String, RawJson<'static>>,
+    pub additional_properties: HashMap<String, ArbitraryJson>,
 }
 
 impl std::fmt::Display for EntraApplicationRegistration {

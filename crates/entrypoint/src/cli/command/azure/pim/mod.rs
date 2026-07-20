@@ -1,6 +1,8 @@
 pub mod azure_pim_activate;
+pub mod azure_pim_setup;
 
 pub use azure_pim_activate::AzurePimActivateArgs;
+pub use azure_pim_setup::AzurePimSetupArgs;
 use eyre::Result;
 
 /// Arguments for Azure Privileged Identity Management operations.
@@ -16,6 +18,8 @@ pub struct AzurePimArgs {
 pub enum AzurePimCommand {
     /// Activate Azure or Entra PIM assignments.
     Activate(AzurePimActivateArgs),
+    /// Discover and configure the Cloud Terrastodon PIM app registration.
+    Setup(AzurePimSetupArgs),
 }
 
 impl AzurePimArgs {
@@ -28,6 +32,7 @@ impl AzurePimCommand {
     pub async fn invoke(self) -> Result<()> {
         match self {
             AzurePimCommand::Activate(args) => args.invoke().await,
+            AzurePimCommand::Setup(args) => args.invoke().await,
         }
     }
 }
