@@ -1,4 +1,5 @@
 use crate::reflow::HclReflower;
+use crate::reflow::HclUuidCollector;
 use crate::reflow::ReflowAzureDevOpsGitRepositoryInitializationAttributes;
 use crate::reflow::ReflowBlockDecorations;
 use crate::reflow::ReflowByBlockIdentifier;
@@ -8,7 +9,7 @@ use crate::reflow::ReflowPrincipalIdComments;
 use crate::reflow::ReflowRemoveDefaultAttributes;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::fetch_all_principals;
+use cloud_terrastodon_azure::fetch_entra_directory_objects_by_ids;
 use hcl::edit::structure::Body;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -29,11 +30,19 @@ pub async fn reflow_hcl(
         Box::new(ReflowExpressionsUseImportedResourceBlocks::default()),
         Box::new(ReflowBlockDecorations),
     ];
-    if include_principal_id_comments {
+    let principal_ids = include_principal_id_comments
+        .then(|| HclUuidCollector::collect(&hcl))
+        .unwrap_or_default();
+    if include_principal_id_comments && !principal_ids.is_empty() {
         info!("Fetching principals");
         let tenant_id = tenant.resolve().await?;
-        let principals = fetch_all_principals(tenant_id).await?;
-        reflowers.insert(3, Box::new(ReflowPrincipalIdComments::new(principals)));
+        let principals = fetch_entra_directory_objects_by_ids(tenant_id, principal_ids).await?;
+        reflowers.insert(
+            3,
+            Box::new(ReflowPrincipalIdComments::from_directory_objects(
+                principals,
+            )),
+        );
     }
     for mut reflower in reflowers {
         hcl = reflower.reflow(hcl).await?;

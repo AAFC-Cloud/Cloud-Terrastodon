@@ -22,6 +22,7 @@
 //!
 //! Any attribute whose value is a string literal that can successfully be parsed as JSON must be replaced with a call to `jsonencode(...)`.
 
+mod hcl_uuid_collector;
 mod reflow_azure_devops_git_repository_initialization_attributes;
 mod reflow_block_decorations;
 mod reflow_by_block_identifier;
@@ -32,6 +33,7 @@ mod reflow_principal_id_comments;
 mod reflow_remove_default_attributes;
 mod reflow_trait;
 
+pub use hcl_uuid_collector::*;
 pub use reflow_azure_devops_git_repository_initialization_attributes::*;
 pub use reflow_block_decorations::*;
 pub use reflow_by_block_identifier::*;
