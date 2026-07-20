@@ -1,6 +1,7 @@
 use crate::MicrosoftGraphHelper;
 use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_azure_types::AzurePrincipalArgument;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::EntraUserId;
@@ -22,6 +23,38 @@ pub enum EntraUserLookup {
     UserPrincipalName(String),
 }
 
+impl From<EntraUserId> for EntraUserLookup {
+    fn from(value: EntraUserId) -> Self {
+        Self::ObjectId(value)
+    }
+}
+
+impl From<String> for EntraUserLookup {
+    fn from(value: String) -> Self {
+        Self::UserPrincipalName(value)
+    }
+}
+
+impl From<&str> for EntraUserLookup {
+    fn from(value: &str) -> Self {
+        Self::UserPrincipalName(value.to_owned())
+    }
+}
+
+impl From<AzurePrincipalArgument<'_>> for EntraUserLookup {
+    fn from(value: AzurePrincipalArgument<'_>) -> Self {
+        match value {
+            AzurePrincipalArgument::Id(id) => {
+                Self::ObjectId(EntraUserId::new(**id.as_ref()))
+            }
+            AzurePrincipalArgument::Name(name) => Self::UserPrincipalName(name.into_owned()),
+            AzurePrincipalArgument::Principal(principal) => {
+                Self::ObjectId(EntraUserId::new(*principal.as_ref().as_ref()))
+            }
+        }
+    }
+}
+
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Arbitrary, Facet)]
 pub struct EntraUserGetRequest {
@@ -29,10 +62,13 @@ pub struct EntraUserGetRequest {
     pub lookup: EntraUserLookup,
 }
 
-pub fn fetch_entra_user(tenant_id: AzureTenantId, user_id: EntraUserId) -> EntraUserGetRequest {
+pub fn fetch_entra_user<T>(tenant_id: AzureTenantId, lookup: T) -> EntraUserGetRequest
+where
+    T: Into<EntraUserLookup>,
+{
     EntraUserGetRequest {
         tenant_id,
-        lookup: EntraUserLookup::ObjectId(user_id),
+        lookup: lookup.into(),
     }
 }
 
@@ -135,5 +171,15 @@ mod tests {
                 .url()
                 .contains("/users/O%27Neil%40example.com?$select=")
         );
+    }
+
+    #[test]
+    fn azure_principal_argument_converts_to_user_lookup() {
+        let lookup: EntraUserLookup = AzurePrincipalArgument::from("jane.doe@example.com").into();
+
+        assert!(matches!(
+            lookup,
+            EntraUserLookup::UserPrincipalName(name) if name == "jane.doe@example.com"
+        ));
     }
 }
