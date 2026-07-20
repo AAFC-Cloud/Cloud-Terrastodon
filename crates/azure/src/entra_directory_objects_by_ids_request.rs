@@ -1,3 +1,5 @@
+use crate::MicrosoftGraphBatchRequest;
+use crate::MicrosoftGraphBatchRequestEntry;
 use crate::EntraDirectoryObject;
 use crate::MicrosoftGraphResponse;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -6,9 +8,10 @@ use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use facet::Facet;
+use http::Method;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -92,36 +95,35 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest {
         }
 
         let cache_key = self.cache_key();
-        let chunk_count = ids.len().div_ceil(MAX_DIRECTORY_OBJECT_IDS);
-        let mut objects = Vec::new();
+        let mut batch =
+            MicrosoftGraphBatchRequest::<EntraDirectoryObjectsByIdsRequestBody>::new(
+                self.tenant_id,
+            );
+        batch.cache(cache_key);
 
         for (chunk_index, ids) in ids.chunks(MAX_DIRECTORY_OBJECT_IDS).enumerate() {
             debug!(
                 tenant_id = %self.tenant_id,
                 chunk_index,
-                chunk_count,
                 count = ids.len(),
-                "Fetching Entra directory objects by object id"
+                "Queueing Entra directory objects by object id lookup"
             );
+            batch.add(MicrosoftGraphBatchRequestEntry::new(
+                format!("directory-objects-{chunk_index}"),
+                Method::POST,
+                DIRECTORY_OBJECTS_BY_IDS_URL.to_owned(),
+                HashMap::from([(String::from("Content-Type"), String::from("application/json"))]),
+                Some(Self::request_body(ids)),
+            ));
+        }
 
-            let chunk_cache_key = if chunk_count == 1 {
-                cache_key.clone()
-            } else {
-                CacheKey {
-                    path: cache_key.path.join(chunk_index.to_string()),
-                    valid_for: cache_key.valid_for,
-                }
-            };
-            let body = facet_json::to_string_pretty(&Self::request_body(ids))
-                .map_err(|error| eyre::eyre!("{error:?}"))?;
-            let response: MicrosoftGraphResponse<EntraDirectoryObject> =
-                RestRequest::new(http::Method::POST, DIRECTORY_OBJECTS_BY_IDS_URL)?
-                    .tenant(self.tenant_id)
-                    .cache(chunk_cache_key)
-                    .body(body)
-                    .receive()
-                    .await?;
-            objects.extend(response.value);
+        let responses = batch
+            .send::<MicrosoftGraphResponse<EntraDirectoryObject>>()
+            .await?
+            .responses;
+        let mut objects = Vec::new();
+        for response in responses {
+            objects.extend(response.into_body()?.value);
         }
 
         debug!(tenant_id = %self.tenant_id, count = objects.len(), "Found Entra directory objects");
