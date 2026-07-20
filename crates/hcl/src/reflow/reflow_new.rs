@@ -1,3 +1,4 @@
+use crate::HclProject;
 use crate::reflow::HclReflower;
 use crate::reflow::HclUuidCollector;
 use crate::reflow::ReflowAzureDevOpsGitRepositoryInitializationAttributes;
@@ -10,18 +11,16 @@ use crate::reflow::ReflowRemoveDefaultAttributes;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_entra_directory_objects_by_ids;
-use hcl::edit::structure::Body;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use tracing::info;
 
 pub async fn reflow_hcl(
     tenant: AzureTenantArgument<'_>,
-    mut hcl: HashMap<PathBuf, Body>,
+    mut hcl: HclProject,
     include_principal_id_comments: bool,
     single_file_path: Option<PathBuf>,
     mixed: bool,
-) -> eyre::Result<HashMap<PathBuf, Body>> {
+) -> eyre::Result<HclProject> {
     let mut reflowers: Vec<Box<dyn HclReflower>> = vec![
         Box::new(ReflowJsonAttributes),
         Box::new(ReflowAzureDevOpsGitRepositoryInitializationAttributes),

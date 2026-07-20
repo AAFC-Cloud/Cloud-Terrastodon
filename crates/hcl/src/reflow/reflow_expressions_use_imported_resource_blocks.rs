@@ -1,16 +1,14 @@
+use crate::HclProject;
 use crate::discovery::ImportBlockDiscoverer;
 use crate::reflow::HclReflower;
 use cloud_terrastodon_azure::ScopeImpl;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::AttributeMut;
 use hcl::edit::structure::Block;
-use hcl::edit::structure::Body;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::visit_mut::visit_attr_mut;
 use hcl::edit::visit_mut::visit_block_mut;
-use std::collections::HashMap;
-use std::path::PathBuf;
 
 #[derive(Default)]
 pub struct ReflowExpressionsUseImportedResourceBlocks {
@@ -18,11 +16,8 @@ pub struct ReflowExpressionsUseImportedResourceBlocks {
 }
 #[async_trait::async_trait]
 impl HclReflower for ReflowExpressionsUseImportedResourceBlocks {
-    async fn reflow(
-        &mut self,
-        hcl: HashMap<PathBuf, Body>,
-    ) -> eyre::Result<HashMap<PathBuf, Body>> {
-        let mut reflowed = HashMap::new();
+    async fn reflow(&mut self, hcl: HclProject) -> eyre::Result<HclProject> {
+        let mut reflowed = HclProject::new();
         hcl.values()
             .for_each(|body| self.import_blocks.visit_body(body));
         for (path, mut body) in hcl {

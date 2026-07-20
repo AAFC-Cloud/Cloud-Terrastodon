@@ -1,9 +1,6 @@
-use hcl::edit::structure::Body;
-use std::collections::HashMap;
-use std::path::PathBuf;
+use crate::HclProject;
 
 #[async_trait::async_trait]
 pub trait HclReflower: Send {
-    async fn reflow(&mut self, hcl: HashMap<PathBuf, Body>)
-    -> eyre::Result<HashMap<PathBuf, Body>>;
+    async fn reflow(&mut self, hcl: HclProject) -> eyre::Result<HclProject>;
 }

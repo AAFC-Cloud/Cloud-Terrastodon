@@ -1,4 +1,5 @@
 use crate::DecorExtensions;
+use crate::HclProject;
 use crate::reflow::HclReflower;
 use eyre::bail;
 use hcl::edit::Decor;
@@ -410,10 +411,7 @@ struct BucketLayout<'a> {
 
 #[async_trait::async_trait]
 impl HclReflower for ReflowByBlockIdentifier {
-    async fn reflow(
-        &mut self,
-        hcl: HashMap<PathBuf, Body>,
-    ) -> eyre::Result<HashMap<PathBuf, Body>> {
+    async fn reflow(&mut self, hcl: HclProject) -> eyre::Result<HclProject> {
         let mut collected = CollectedGraph::default();
 
         for (path, mut body) in hcl {
@@ -464,10 +462,10 @@ impl HclReflower for ReflowByBlockIdentifier {
                 },
                 &collected_decor_for_layout(&body_decor_fragments, nodes.values()),
             );
-            return Ok(HashMap::from([(single_file_path.clone(), body)]));
+            return Ok(HclProject::from([(single_file_path.clone(), body)]));
         }
 
-        let mut rendered = HashMap::new();
+        let mut rendered = HclProject::new();
         for layout in bucket_layouts(&nodes, &buckets) {
             let output_path = bucket_output_path(&layout.nodes);
             let body = render_layout(

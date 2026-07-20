@@ -1,3 +1,4 @@
+use crate::HclProject;
 use crate::reflow::HclReflower;
 use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::ResourceBlockResourceKind;
@@ -6,20 +7,14 @@ use hcl::edit::expr::Array;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::Attribute;
 use hcl::edit::structure::Block;
-use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::VisitMut;
-use std::collections::HashMap;
-use std::path::PathBuf;
 use tracing::warn;
 
 pub struct ReflowAzureDevOpsGitRepositoryInitializationAttributes;
 #[async_trait::async_trait]
 impl HclReflower for ReflowAzureDevOpsGitRepositoryInitializationAttributes {
-    async fn reflow(
-        &mut self,
-        hcl: HashMap<PathBuf, Body>,
-    ) -> eyre::Result<HashMap<PathBuf, Body>> {
-        let mut reflowed = HashMap::new();
+    async fn reflow(&mut self, hcl: HclProject) -> eyre::Result<HclProject> {
+        let mut reflowed = HclProject::new();
         for (path, mut body) in hcl {
             self.visit_body_mut(&mut body);
             reflowed.insert(path, body);

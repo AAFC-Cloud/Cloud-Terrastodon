@@ -12,6 +12,7 @@ use cloud_terrastodon_hcl::FreshTFWorkDir;
 use cloud_terrastodon_hcl::GeneratedConfigOutTFWorkDir;
 use cloud_terrastodon_hcl::HclBlock;
 use cloud_terrastodon_hcl::HclImportBlock;
+use cloud_terrastodon_hcl::HclProject;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::InitializedTFWorkDir;
 use cloud_terrastodon_hcl::ProcessedTFWorkDir;
@@ -19,7 +20,6 @@ use cloud_terrastodon_hcl::ProviderManager;
 use cloud_terrastodon_hcl::ValidatedTFWorkDir;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
-use cloud_terrastodon_hcl::edit::structure::Body;
 use cloud_terrastodon_hcl::generate_config_out_bulk;
 use cloud_terrastodon_hcl::initialize_work_dirs;
 use cloud_terrastodon_hcl::reflow::reflow_hcl;
@@ -266,7 +266,7 @@ async fn process_generated_many(
     let imports_dir = AppDir::Imports.as_path_buf().canonicalize()?;
     struct WorkOutcome {
         out_dir: PathBuf,
-        file_contents: HashMap<PathBuf, Body>,
+        file_contents: HclProject,
     }
     let mut reflow_jobs: JoinSet<eyre::Result<WorkOutcome>> = JoinSet::new();
     let rate_limit = Arc::new(Semaphore::new(16));

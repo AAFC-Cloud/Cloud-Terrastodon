@@ -1,11 +1,9 @@
+use crate::HclProject;
 use cloud_terrastodon_azure::uuid::Uuid;
 use hcl::edit::expr::Expression;
-use hcl::edit::structure::Body;
 use hcl::edit::visit::Visit;
 use hcl::edit::visit::visit_expr;
-use std::collections::HashMap;
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::str::FromStr;
 
 #[derive(Default)]
@@ -14,7 +12,7 @@ pub struct HclUuidCollector {
 }
 
 impl HclUuidCollector {
-    pub fn collect(hcl: &HashMap<PathBuf, Body>) -> Vec<Uuid> {
+    pub fn collect(hcl: &HclProject) -> Vec<Uuid> {
         let mut collector = Self::default();
         for body in hcl.values() {
             collector.visit_body(body);
@@ -37,6 +35,8 @@ impl Visit for HclUuidCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hcl::edit::structure::Body;
+    use std::path::PathBuf;
 
     #[test]
     fn collects_distinct_uuid_string_literals() -> eyre::Result<()> {

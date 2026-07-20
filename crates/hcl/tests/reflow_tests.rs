@@ -1,3 +1,4 @@
+use cloud_terrastodon_hcl::HclProject;
 use cloud_terrastodon_hcl::reflow::HclReflower;
 use cloud_terrastodon_hcl::reflow::ReflowAzureDevOpsGitRepositoryInitializationAttributes;
 use cloud_terrastodon_hcl::reflow::ReflowBlockDecorations;
@@ -6,7 +7,6 @@ use cloud_terrastodon_hcl::reflow::ReflowExpressionsUseImportedResourceBlocks;
 use cloud_terrastodon_hcl::reflow::ReflowRemoveDefaultAttributes;
 use hcl::edit::structure::Body;
 use indoc::indoc;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 fn parse_body(input: &str) -> eyre::Result<Body> {
@@ -16,21 +16,21 @@ fn parse_body(input: &str) -> eyre::Result<Body> {
 async fn apply_reflower<'a, R>(
     mut reflower: R,
     files: impl IntoIterator<Item = (&'a str, &'a str)>,
-) -> eyre::Result<HashMap<PathBuf, Body>>
+) -> eyre::Result<HclProject>
 where
     R: HclReflower,
 {
     let hcl = files
         .into_iter()
         .map(|(path, body)| Ok((PathBuf::from(path), parse_body(body)?)))
-        .collect::<eyre::Result<HashMap<_, _>>>()?;
+        .collect::<eyre::Result<HclProject>>()?;
     reflower.reflow(hcl).await
 }
 
 async fn apply_reflowers(
-    mut hcl: HashMap<PathBuf, Body>,
+    mut hcl: HclProject,
     reflowers: &mut [Box<dyn HclReflower>],
-) -> eyre::Result<HashMap<PathBuf, Body>> {
+) -> eyre::Result<HclProject> {
     for reflower in reflowers {
         hcl = reflower.reflow(hcl).await?;
     }
@@ -46,7 +46,7 @@ async fn reflow_by_block_identifier_preserves_comment_only_body() -> eyre::Resul
     let expected = original.to_string();
 
     let reflowed = ReflowByBlockIdentifier::default()
-        .reflow(HashMap::from([(path.clone(), original)]))
+        .reflow(HclProject::from([(path.clone(), original)]))
         .await?;
 
     assert_eq!(reflowed.get(&path).unwrap().to_string(), expected);
@@ -107,7 +107,7 @@ async fn reflow_by_block_identifier_co_locates_import_and_moved_above_resource()
 
 #[tokio::test]
 async fn reflow_import_merge_is_idempotent() -> eyre::Result<()> {
-    let input = HashMap::from([
+    let input = HclProject::from([
         (
             PathBuf::from("imports.tf"),
             parse_body(indoc! {r#"
@@ -140,7 +140,7 @@ async fn reflow_import_merge_is_idempotent() -> eyre::Result<()> {
         .unwrap()
         .to_string();
 
-    let second_input = HashMap::from([(
+    let second_input = HclProject::from([(
         PathBuf::from("resource.azuread_service_principal.main.tf"),
         parse_body(&first_output)?,
     )]);

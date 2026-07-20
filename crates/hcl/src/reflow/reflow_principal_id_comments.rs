@@ -1,3 +1,4 @@
+use crate::HclProject;
 use crate::reflow::HclReflower;
 use cloud_terrastodon_azure::EntraDirectoryObject;
 use cloud_terrastodon_azure::Principal;
@@ -6,12 +7,10 @@ use cloud_terrastodon_azure::PrincipalId;
 use hcl::edit::Decorate;
 use hcl::edit::RawString;
 use hcl::edit::expr::Expression;
-use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::visit_mut::visit_expr_mut;
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::path::PathBuf;
 use std::str::FromStr;
 
 /// Prefix any hardcoded principal IDs with comments indicating the principal type and name.
@@ -61,11 +60,8 @@ impl From<&Principal> for PrincipalComment {
 }
 #[async_trait::async_trait]
 impl HclReflower for ReflowPrincipalIdComments {
-    async fn reflow(
-        &mut self,
-        hcl: HashMap<PathBuf, Body>,
-    ) -> eyre::Result<HashMap<PathBuf, Body>> {
-        let mut reflowed = HashMap::new();
+    async fn reflow(&mut self, hcl: HclProject) -> eyre::Result<HclProject> {
+        let mut reflowed = HclProject::new();
         for (path, mut body) in hcl {
             self.visit_body_mut(&mut body);
             reflowed.insert(path, body);

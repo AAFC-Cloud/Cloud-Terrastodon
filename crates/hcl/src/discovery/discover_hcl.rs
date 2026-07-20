@@ -1,6 +1,6 @@
+use crate::HclProject;
 use crate::discovery::try_read_hcl_file;
 use hcl::edit::structure::Body;
-use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::task::JoinSet;
@@ -23,11 +23,11 @@ enum ActionResponse {
 pub async fn discover_hcl(
     directory: impl AsRef<Path>,
     depth: DiscoveryDepth,
-) -> eyre::Result<HashMap<PathBuf, Body>> {
+) -> eyre::Result<HclProject> {
     let mut join_set: JoinSet<eyre::Result<ActionResponse>> = JoinSet::new();
     let dir = directory.as_ref().to_path_buf();
     join_set.spawn(async move { Ok(ActionResponse::DiscoverDirChildren(dir)) });
-    let mut hcl_bodies = HashMap::new();
+    let mut hcl_bodies = HclProject::new();
     while let Some(res) = join_set.join_next().await {
         let res = res??;
         debug!(?res, "Handling discovery action response");

@@ -1,20 +1,16 @@
+use crate::HclProject;
 use crate::reflow::HclReflower;
 use facet_value::Value;
 use hcl::edit::expr::Expression;
 use hcl::edit::structure::Body;
 use hcl::edit::visit_mut::VisitMut;
 use hcl::edit::visit_mut::visit_expr_mut;
-use std::collections::HashMap;
-use std::path::PathBuf;
 
 pub struct ReflowJsonAttributes;
 #[async_trait::async_trait]
 impl HclReflower for ReflowJsonAttributes {
-    async fn reflow(
-        &mut self,
-        hcl: HashMap<PathBuf, Body>,
-    ) -> eyre::Result<HashMap<PathBuf, Body>> {
-        let mut reflowed = HashMap::new();
+    async fn reflow(&mut self, hcl: HclProject) -> eyre::Result<HclProject> {
+        let mut reflowed = HclProject::new();
         for (path, mut body) in hcl {
             self.visit_body_mut(&mut body);
             reflowed.insert(path, body);
