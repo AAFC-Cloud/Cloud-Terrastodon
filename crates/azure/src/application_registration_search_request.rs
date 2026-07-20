@@ -1,4 +1,5 @@
 use crate::MicrosoftGraphHelper;
+use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationRegistration;
@@ -36,7 +37,7 @@ impl ApplicationRegistrationSearchRequest {
 
         format!(
             "https://graph.microsoft.com/v1.0/applications?$filter={}",
-            percent_encode_query_component(&filter)
+            filter.percent_encode()
         )
     }
 }
@@ -87,22 +88,6 @@ impl CacheableCommand for ApplicationRegistrationSearchRequest {
 
 fn escape_odata_string(value: &str) -> String {
     value.replace('\'', "''")
-}
-
-fn percent_encode_query_component(value: &str) -> String {
-    const HEX: &[u8; 16] = b"0123456789ABCDEF";
-
-    let mut encoded = String::with_capacity(value.len());
-    for byte in value.bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
-            encoded.push(byte as char);
-        } else {
-            encoded.push('%');
-            encoded.push(HEX[(byte >> 4) as usize] as char);
-            encoded.push(HEX[(byte & 0x0F) as usize] as char);
-        }
-    }
-    encoded
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(ApplicationRegistrationSearchRequest);
