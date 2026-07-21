@@ -7,13 +7,20 @@ use std::io::IsTerminal;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
+use tracing::Metadata;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::Directive;
+use tracing_subscriber::filter::FilterExt;
+use tracing_subscriber::filter::filter_fn;
 use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::layer::Layer;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::util::SubscriberInitExt;
+
+fn exclude_tracy_frame_mark(meta: &Metadata<'_>) -> bool {
+    meta.fields().field("tracy.frame_mark").is_none()
+}
 
 #[cfg(feature = "tracy")]
 fn tracy_log_filter_directive() -> &'static str {
@@ -74,7 +81,7 @@ pub fn init_tracing(
                 .pretty()
                 .without_time()
                 .with_ansi(std::io::stderr().is_terminal())
-                .with_filter(stderr_filter),
+                .with_filter(stderr_filter.and(filter_fn(exclude_tracy_frame_mark))),
         )
         // TODO(EGUI-TRACING)
         // .with({
@@ -124,7 +131,7 @@ pub fn init_tracing(
                     .with_writer(json_writer)
                     .with_ansi(false)
                     .boxed()
-                    .with_filter(file_filter);
+                    .with_filter(file_filter.and(filter_fn(exclude_tracy_frame_mark)));
 
                 info!(?json_log_path, "JSON log output initialized");
                 Some(json_layer)

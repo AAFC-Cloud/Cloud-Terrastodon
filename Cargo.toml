@@ -244,8 +244,17 @@ cloud_terrastodon_software = { workspace = true, optional = true }
 default = ["full"]
 # Feature to enable the binary entrypoint wiring
 entrypoint = ["dep:cloud_terrastodon_entrypoint"]
+# Enable high-frequency instrumentation intended for profiling and diagnosis.
+extended_observability = [
+    "entrypoint",
+    "cloud_terrastodon_entrypoint/extended_observability",
+]
 # Enable Tracy profiling for the CLI entrypoint.
-tracy = ["entrypoint", "cloud_terrastodon_entrypoint/tracy"]
+tracy = [
+    "entrypoint",
+    "cloud_terrastodon_entrypoint/tracy",
+    "extended_observability",
+]
 # One feature per optional subcrate. Each maps to its dependency via the `dep:` syntax.
 pathing = ["dep:cloud_terrastodon_pathing"]
 config = ["dep:cloud_terrastodon_config"]

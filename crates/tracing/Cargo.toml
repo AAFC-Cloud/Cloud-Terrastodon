@@ -21,4 +21,5 @@ tracing-tracy = { workspace = true, optional = true }
 
 [features]
 default = []
-tracy = ["dep:tracing-tracy"]
+extended_observability = []
+tracy = ["dep:tracing-tracy", "extended_observability"]

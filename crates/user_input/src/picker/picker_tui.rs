@@ -63,6 +63,20 @@ use tracing::trace_span;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
 
+#[cfg(feature = "extended_observability")]
+macro_rules! extended_trace_span {
+    ($name:literal) => {
+        tracing::trace_span!($name)
+    };
+}
+
+#[cfg(not(feature = "extended_observability"))]
+macro_rules! extended_trace_span {
+    ($name:literal) => {
+        tracing::Span::none()
+    };
+}
+
 pub struct PickerTui<'a, T> {
     pub default_query: String,
     pub header: Option<String>,
@@ -353,10 +367,10 @@ impl<'a, T> PickerTui<'a, T> {
                 }
                 Some(message) = candidate_receiver.recv() => {
                     if message.generation == picker_state.generation {
-                        let batch_span = trace_span!("picker_candidate_batch");
+                        let batch_span = extended_trace_span!("picker_candidate_batch");
                         let (changed, tab_warning_key) = batch_span.in_scope(|| {
                             let mut tab_warning_key = None;
-                            let changed = trace_span!("picker_inject_candidates").in_scope(|| {
+                            let changed = extended_trace_span!("picker_inject_candidates").in_scope(|| {
                                 picker_state.candidates.inject(message.choices, |key| {
                                     nucleo.injector().push(key.clone(), |x, cols| {
                                         cols[0] = x.as_str().into();
@@ -440,7 +454,7 @@ impl<'a, T> PickerTui<'a, T> {
             }
 
             if query_changed {
-                let new_query = trace_span!("picker_reparse_query").in_scope(|| {
+                let new_query = extended_trace_span!("picker_reparse_query").in_scope(|| {
                     let new_query = query_text_area.lines().join("\n");
                     nucleo.pattern.reparse(
                         0,
@@ -457,9 +471,9 @@ impl<'a, T> PickerTui<'a, T> {
                 query_changed = false;
             }
 
-            let status = trace_span!("picker_nucleo_tick").in_scope(|| nucleo.tick(10));
+            let status = extended_trace_span!("picker_nucleo_tick").in_scope(|| nucleo.tick(10));
             if status.changed {
-                trace_span!("picker_rebuild_results").in_scope(|| {
+                extended_trace_span!("picker_rebuild_results").in_scope(|| {
                     rebuild_results(
                         &nucleo,
                         &picker_state.candidates,
@@ -506,7 +520,7 @@ impl<'a, T> PickerTui<'a, T> {
             };
             query_text_area.set_block(Block::bordered().title(counts_title));
 
-            trace_span!("picker_render").in_scope(|| {
+            extended_trace_span!("picker_render").in_scope(|| {
                 terminal.draw(|frame| {
                     let area = frame.area();
                     let buf = frame.buffer_mut();
@@ -531,6 +545,8 @@ impl<'a, T> PickerTui<'a, T> {
                     }
                 })
             })?;
+            #[cfg(feature = "extended_observability")]
+            tracing::info!(message = "finished picker frame", tracy.frame_mark = true);
         }
 
         drop(handler_tasks);
