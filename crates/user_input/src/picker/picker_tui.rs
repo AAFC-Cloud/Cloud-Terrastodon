@@ -345,6 +345,10 @@ impl<'a, T> PickerTui<'a, T> {
             tokio::pin!(debounce);
 
             tokio::select! {
+                // Prefer already-buffered terminal input over continuously-ready background
+                // work so navigation keys are handled with the lowest possible queueing delay.
+                biased;
+
                 input = event_stream.next() => {
                     match input {
                         Some(Ok(Event::Key(key))) if key.kind == KeyEventKind::Press => {
