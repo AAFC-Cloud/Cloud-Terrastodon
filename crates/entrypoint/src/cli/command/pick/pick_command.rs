@@ -6,6 +6,7 @@ use jmespath::Variable;
 use jsonpath_rust::JsonPath;
 use std::io::IsTerminal;
 use strum::Display;
+use tracing::instrument;
 
 /// Pick from stdin or the filesystem.
 #[derive(facet::Facet, Debug, Clone, Default)]
@@ -104,6 +105,7 @@ fn resolve_default_pick_command(stdin_is_terminal: bool) -> PickCommand {
 }
 
 impl PickArgs {
+    #[instrument(name = "pick_command", skip_all)]
     pub async fn invoke(self) -> Result<()> {
         let command = self
             .command

@@ -12,6 +12,8 @@ use eyre::Result;
 use figue::Driver;
 use std::str::FromStr;
 use teamy_cancellation::CtrlCHandler;
+use tracing::Instrument;
+use tracing::info_span;
 use tracing::level_filters::LevelFilter;
 
 pub fn entrypoint(
@@ -84,7 +86,10 @@ pub fn entrypoint(
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    runtime.block_on(cli.invoke(&cancellation_token))?;
+    runtime.block_on(
+        cli.invoke(&cancellation_token)
+            .instrument(info_span!("cli_invocation")),
+    )?;
     Ok(())
 }
 

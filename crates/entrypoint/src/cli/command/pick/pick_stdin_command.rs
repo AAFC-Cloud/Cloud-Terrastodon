@@ -6,6 +6,8 @@ use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Read;
 use strum::Display;
+use tracing::instrument;
+use tracing::trace_span;
 
 #[derive(Debug, Clone, facet::Facet, Display)]
 #[strum(serialize_all = "kebab-case")]
@@ -43,46 +45,61 @@ fn resolve_input_format(input_format: Option<InputFormat>, stdin_buf: &str) -> I
 }
 
 impl PickStdinArgs {
+    #[instrument(name = "pick_stdin_command", skip_all)]
     pub(crate) async fn invoke(self, common: PickCommonArgs) -> Result<()> {
-        let mut stdin_buf = String::new();
-        std::io::stdin().read_to_string(&mut stdin_buf)?;
+        self.invoke_inner(common).await
+    }
 
-        match resolve_input_format(self.input_format, &stdin_buf) {
+    async fn invoke_inner(self, common: PickCommonArgs) -> Result<()> {
+        let stdin_buf = trace_span!("pick_stdin_read").in_scope(|| {
+            let mut stdin_buf = String::new();
+            std::io::stdin().read_to_string(&mut stdin_buf)?;
+            Ok::<_, std::io::Error>(stdin_buf)
+        })?;
+
+        let input_format = trace_span!("pick_stdin_detect_format")
+            .in_scope(|| resolve_input_format(self.input_format, &stdin_buf));
+
+        match input_format {
             InputFormat::Json => {
-                let stdin_json: Vec<Value> = crate::serde_json_isolation::from_str(&stdin_buf)?;
+                let stdin_json: Vec<Value> = trace_span!("pick_stdin_parse_json")
+                    .in_scope(|| crate::serde_json_isolation::from_str(&stdin_buf))?;
 
-                let mut choices = Vec::with_capacity(stdin_json.len());
-                for value in stdin_json {
-                    let key = common.query_engine.query(&value, &common.query)?;
-                    choices.push(Choice { key, value });
-                }
+                let choices = trace_span!("pick_stdin_build_json_choices").in_scope(|| {
+                    stdin_json
+                        .into_iter()
+                        .map(|value| {
+                            let key = common.query_engine.query(&value, &common.query)?;
+                            Ok(Choice { key, value })
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })?;
 
                 let rtn = PickerTui::<_>::new()
                     .set_auto_accept(common.auto_accept)
                     .set_query(common.default_query.unwrap_or_default())
-                    .pick_inner(!common.single, choices).await?;
+                    .pick_inner(!common.single, choices)
+                    .await?;
 
                 crate::serde_json_isolation::to_writer_pretty(std::io::stdout(), &rtn)?;
             }
             InputFormat::Lines => {
-                let lines: Vec<String> = stdin_buf
-                    .lines()
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string())
-                    .collect();
-
-                let mut choices = Vec::with_capacity(lines.len());
-                for line in &lines {
-                    choices.push(Choice {
-                        key: line.clone(),
-                        value: line.clone(),
-                    });
-                }
+                let choices = trace_span!("pick_stdin_build_line_choices").in_scope(|| {
+                    stdin_buf
+                        .lines()
+                        .filter(|s| !s.is_empty())
+                        .map(|line| Choice {
+                            key: line.to_string(),
+                            value: line.to_string(),
+                        })
+                        .collect::<Vec<_>>()
+                });
 
                 let rtn = PickerTui::<_>::new()
                     .set_auto_accept(common.auto_accept)
                     .set_query(common.default_query.unwrap_or_default())
-                    .pick_inner(!common.single, choices).await?;
+                    .pick_inner(!common.single, choices)
+                    .await?;
 
                 write_selected_lines(&rtn)?;
             }

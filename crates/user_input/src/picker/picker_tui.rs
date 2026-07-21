@@ -57,6 +57,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 use tokio::sync::mpsc;
+use tracing::Instrument;
+use tracing::info_span;
+use tracing::trace_span;
 use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
 
@@ -184,7 +187,9 @@ impl<'a, T> PickerTui<'a, T> {
     where
         T: Send + 'a,
     {
-        let choices = Arc::new(Mutex::new(Some(choices.into_choices())));
+        let choices =
+            info_span!("picker_prepare_initial_choices").in_scope(|| choices.into_choices());
+        let choices = Arc::new(Mutex::new(Some(choices)));
         self.add_event_handler(move |event, sink| {
             let choices = choices.clone();
             async move {
@@ -241,6 +246,11 @@ impl<'a, T> PickerTui<'a, T> {
         }
     }
 
+    #[tracing::instrument(
+        name = "picker_session",
+        skip_all,
+        fields(many = many, static_empty_is_error = static_empty_is_error),
+    )]
     async fn run_inner(self, many: bool, static_empty_is_error: bool) -> eyre::Result<RunOutcome<T>>
     where
         T: Send + 'a,
@@ -343,17 +353,25 @@ impl<'a, T> PickerTui<'a, T> {
                 }
                 Some(message) = candidate_receiver.recv() => {
                     if message.generation == picker_state.generation {
-                        let mut tab_warning_key = None;
-                        let changed = picker_state.candidates.inject(message.choices, |key| {
-                            nucleo.injector().push(key.clone(), |x, cols| {
-                                cols[0] = x.as_str().into();
+                        let batch_span = trace_span!("picker_candidate_batch");
+                        let (changed, tab_warning_key) = batch_span.in_scope(|| {
+                            let mut tab_warning_key = None;
+                            let changed = trace_span!("picker_inject_candidates").in_scope(|| {
+                                picker_state.candidates.inject(message.choices, |key| {
+                                    nucleo.injector().push(key.clone(), |x, cols| {
+                                        cols[0] = x.as_str().into();
+                                    });
+                                    if should_warn_for_tab(&mut warned_tab_keys, key) {
+                                        tab_warning_key = Some(key.clone());
+                                    }
+                                })
                             });
-                            if should_warn_for_tab(&mut warned_tab_keys, key) {
-                                tab_warning_key = Some(key.clone());
-                            }
+                            (changed, tab_warning_key)
                         });
                         if let Some(key) = tab_warning_key {
-                            suspend_for_tab_warning(&key).await?;
+                            suspend_for_tab_warning(&key)
+                                .instrument(batch_span.clone())
+                                .await?;
                             terminal.clear()?;
                         }
                         query_changed |= changed;
@@ -422,31 +440,36 @@ impl<'a, T> PickerTui<'a, T> {
             }
 
             if query_changed {
-                let new_query = query_text_area.lines().join("\n");
-                nucleo.pattern.reparse(
-                    0,
-                    &new_query,
-                    CaseMatching::Smart,
-                    Normalization::Smart,
-                    previous_query
-                        .as_deref()
-                        .is_some_and(|previous| new_query.starts_with(previous)),
-                );
+                let new_query = trace_span!("picker_reparse_query").in_scope(|| {
+                    let new_query = query_text_area.lines().join("\n");
+                    nucleo.pattern.reparse(
+                        0,
+                        &new_query,
+                        CaseMatching::Smart,
+                        Normalization::Smart,
+                        previous_query
+                            .as_deref()
+                            .is_some_and(|previous| new_query.starts_with(previous)),
+                    );
+                    new_query
+                });
                 previous_query = Some(new_query);
                 query_changed = false;
             }
 
-            let status = nucleo.tick(10);
+            let status = trace_span!("picker_nucleo_tick").in_scope(|| nucleo.tick(10));
             if status.changed {
-                rebuild_results(
-                    &nucleo,
-                    &picker_state.candidates,
-                    many,
-                    &picker_state.marked,
-                    &mut list_state,
-                    &mut search_results_keys,
-                    &mut search_results_display,
-                );
+                trace_span!("picker_rebuild_results").in_scope(|| {
+                    rebuild_results(
+                        &nucleo,
+                        &picker_state.candidates,
+                        many,
+                        &picker_state.marked,
+                        &mut list_state,
+                        &mut search_results_keys,
+                        &mut search_results_display,
+                    )
+                });
             }
 
             if self.auto_accept
@@ -459,6 +482,7 @@ impl<'a, T> PickerTui<'a, T> {
             if static_empty_is_error
                 && startup_handlers == 0
                 && pending_handlers == 0
+                && candidate_receiver.is_empty()
                 && picker_state.candidates.len() == 0
             {
                 return Ok(RunOutcome::NoChoices);
@@ -482,28 +506,30 @@ impl<'a, T> PickerTui<'a, T> {
             };
             query_text_area.set_block(Block::bordered().title(counts_title));
 
-            terminal.draw(|frame| {
-                let area = frame.area();
-                let buf = frame.buffer_mut();
-                let [list_area, searchbox_area] =
-                    Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(area);
-                if search_results_display.is_empty() {
-                    Paragraph::new("No results")
-                        .block(list_block(self.header.as_deref()))
-                        .render(list_area, buf);
-                } else {
-                    let list = List::new(search_results_display.clone())
-                        .block(list_block(self.header.as_deref()))
-                        .highlight_style(Style::new().bg(Color::Blue).fg(Color::Yellow));
-                    StatefulWidget::render(&list, list_area, buf, &mut list_state);
-                }
-                if query_text_area.is_empty() {
-                    Paragraph::new("Type to search".gray())
-                        .block(Block::bordered())
-                        .render(searchbox_area, buf);
-                } else {
-                    query_text_area.render(searchbox_area, buf);
-                }
+            trace_span!("picker_render").in_scope(|| {
+                terminal.draw(|frame| {
+                    let area = frame.area();
+                    let buf = frame.buffer_mut();
+                    let [list_area, searchbox_area] =
+                        Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(area);
+                    if search_results_display.is_empty() {
+                        Paragraph::new("No results")
+                            .block(list_block(self.header.as_deref()))
+                            .render(list_area, buf);
+                    } else {
+                        let list = List::new(search_results_display.clone())
+                            .block(list_block(self.header.as_deref()))
+                            .highlight_style(Style::new().bg(Color::Blue).fg(Color::Yellow));
+                        StatefulWidget::render(&list, list_area, buf, &mut list_state);
+                    }
+                    if query_text_area.is_empty() {
+                        Paragraph::new("Type to search".gray())
+                            .block(Block::bordered())
+                            .render(searchbox_area, buf);
+                    } else {
+                        query_text_area.render(searchbox_area, buf);
+                    }
+                })
             })?;
         }
 
@@ -531,6 +557,13 @@ fn spawn_handlers<'a, T>(
     pending_handlers: &mut usize,
     startup_handlers: &mut usize,
 ) {
+    let event_kind = match &event {
+        PickerEvent::InitialLoad => "initial_load",
+        PickerEvent::QueryChanged(_) => "query_changed",
+        PickerEvent::QueryCleared => "query_cleared",
+        PickerEvent::ReloadRequested => "reload_requested",
+    };
+    let handler_span = trace_span!("picker_handler", event = event_kind, startup = is_startup,);
     let event = Arc::new(event);
     for handler in handlers {
         let future = handler(
@@ -540,8 +573,9 @@ fn spawn_handlers<'a, T>(
                 generation,
             },
         );
+        let handler_span = handler_span.clone();
         tasks.push(Box::pin(async move {
-            let result = future.await;
+            let result = future.instrument(handler_span).await;
             HandlerCompletion { is_startup, result }
         }));
         *pending_handlers += 1;
