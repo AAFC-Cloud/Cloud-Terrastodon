@@ -16,7 +16,7 @@ $profiler.Source run cargo `
     --project $PSScriptRoot `
     --bin cloud_terrastodon `
     --profile release `
-    --feature tracy `
+    --feature tracy-alloc `
     -- @QueryArgs
 
 return $LASTEXITCODE

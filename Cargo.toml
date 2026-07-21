@@ -35,6 +35,15 @@ indoc = "2.0.5"
 hcl-rs = "0.19.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
+tracy-client = { version = "0.18.4", default-features = false, features = [
+    "enable",
+    "system-tracing",
+    "context-switch-tracing",
+    "sampling",
+    "code-transfer",
+    "callstack-inlines",
+    "only-localhost",
+] }
 tracing-tracy = { version = "0.11", default-features = false, features = [
     "enable",
     "system-tracing",
@@ -218,6 +227,7 @@ eyre = { workspace = true }
 color-eyre = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing = { workspace = true }
+tracy-client = { workspace = true, optional = true }
 
 # Optional re-exported crates (enable via features below)
 cloud_terrastodon_pathing = { workspace = true, optional = true }
@@ -255,6 +265,8 @@ tracy = [
     "cloud_terrastodon_entrypoint/tracy",
     "extended_observability",
 ]
+# Enable Tracy allocation profiling in addition to spans and events.
+tracy-alloc = ["tracy", "dep:tracy-client"]
 # One feature per optional subcrate. Each maps to its dependency via the `dep:` syntax.
 pathing = ["dep:cloud_terrastodon_pathing"]
 config = ["dep:cloud_terrastodon_config"]
