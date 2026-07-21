@@ -8,10 +8,15 @@ use cloud_terrastodon_entrypoint::GitRevision;
 use cloud_terrastodon_entrypoint::Version;
 use cloud_terrastodon_entrypoint::entrypoint;
 
+/// https://microsoft.github.io/rust-guidelines/guidelines/apps/index.html?highlight=alloc#M-MIMALLOC-APPS
+#[cfg(not(feature = "tracy-alloc"))]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[cfg(feature = "tracy-alloc")]
 #[global_allocator]
-static GLOBAL_ALLOCATOR: tracy_client::ProfiledAllocator<std::alloc::System> =
-    tracy_client::ProfiledAllocator::new(std::alloc::System, 0);
+static GLOBAL_ALLOCATOR: tracy_client::ProfiledAllocator<mimalloc::MiMalloc> =
+    tracy_client::ProfiledAllocator::new(mimalloc::MiMalloc, 0);
 
 fn main() -> eyre::Result<()> {
     let version = Version::new(env!("CARGO_PKG_VERSION").to_string());

@@ -987,6 +987,7 @@ dependencies = [
  "color-eyre",
  "embed-resource",
  "eyre",
+ "mimalloc",
  "tokio",
  "tracing",
  "tracing-subscriber",
