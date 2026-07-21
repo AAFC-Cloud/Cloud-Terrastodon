@@ -28,6 +28,7 @@ use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
 use nucleo::pattern::Normalization;
 use ratatui::Terminal;
+use ratatui::buffer::Buffer;
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::EnterAlternateScreen;
 use ratatui::crossterm::terminal::LeaveAlternateScreen;
@@ -35,18 +36,14 @@ use ratatui::crossterm::terminal::disable_raw_mode;
 use ratatui::crossterm::terminal::enable_raw_mode;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
+use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
 use ratatui::style::Style;
 use ratatui::style::Stylize;
-use ratatui::text::Span;
-use ratatui::text::Text;
 use ratatui::widgets::Block;
-use ratatui::widgets::List;
-use ratatui::widgets::ListItem;
 use ratatui::widgets::ListState;
 use ratatui::widgets::Paragraph;
-use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::Widget;
 use rustc_hash::FxHashSet;
 use std::future::Future;
@@ -328,7 +325,7 @@ impl<'a, T> PickerTui<'a, T> {
         let mut nucleo = new_nucleo();
         let mut warned_tab_keys = FxHashSet::<CompactString>::default();
         let mut search_results_keys = Vec::<CompactString>::new();
-        let mut search_results_display = Vec::<Text>::new();
+        let mut search_results_heights = Vec::<usize>::new();
         let mut list_state = ListState::default();
         let mut query_text_area = Self::build_text_area(&self.default_query);
         let mut previous_query = None::<String>;
@@ -345,7 +342,6 @@ impl<'a, T> PickerTui<'a, T> {
                 .map(|deadline| tokio::time::sleep_until(deadline.into()))
                 .unwrap_or_else(|| tokio::time::sleep(Duration::from_secs(86_400)));
             tokio::pin!(debounce);
-            let mut marked_changed = false;
             tokio::select! {
                 // Prefer already-buffered terminal input over continuously-ready background
                 // work so navigation keys are handled with the lowest possible queueing delay.
@@ -368,7 +364,6 @@ impl<'a, T> PickerTui<'a, T> {
                                         &mut return_reason,
                                     )
                                 });
-                            marked_changed = effects.marked_changed;
                             render_dirty |= effects.render_requested;
                         }
                         Some(Ok(Event::Resize(_, _))) => render_dirty = true,
@@ -449,7 +444,7 @@ impl<'a, T> PickerTui<'a, T> {
                 picker_state.reload();
                 nucleo = new_nucleo();
                 search_results_keys.clear();
-                search_results_display.clear();
+                search_results_heights.clear();
                 list_state.select(None);
                 previous_query = None;
                 query_changed = true;
@@ -488,17 +483,15 @@ impl<'a, T> PickerTui<'a, T> {
             }
 
             let status = extended_trace_span!("picker_nucleo_tick").in_scope(|| nucleo.tick(10));
-            if status.changed || marked_changed {
+            if status.changed {
                 render_dirty = true;
                 extended_trace_span!("picker_rebuild_results").in_scope(|| {
                     rebuild_results(
                         &nucleo,
                         &picker_state.candidates,
-                        many,
-                        &picker_state.marked,
                         &mut list_state,
                         &mut search_results_keys,
-                        &mut search_results_display,
+                        &mut search_results_heights,
                     )
                 });
             }
@@ -545,27 +538,21 @@ impl<'a, T> PickerTui<'a, T> {
                         let [list_area, searchbox_area] =
                             Layout::vertical([Constraint::Fill(1), Constraint::Length(3)])
                                 .areas(area);
-                        if search_results_display.is_empty() {
+                        if search_results_keys.is_empty() {
                             Paragraph::new("No results")
                                 .block(list_block(self.header.as_deref()))
                                 .render(list_area, buf);
                         } else {
-                            let selected_index = list_state.selected();
-                            let list_items = search_results_display
-                                .iter()
-                                .enumerate()
-                                .map(|(index, text)| {
-                                    let marked = many
-                                        && picker_state
-                                            .marked
-                                            .contains(&search_results_keys[index]);
-                                    ListItem::new(text.clone())
-                                        .style(row_style(marked, selected_index == Some(index)))
-                                })
-                                .collect::<Vec<_>>();
-                            let list =
-                                List::new(list_items).block(list_block(self.header.as_deref()));
-                            StatefulWidget::render(&list, list_area, buf, &mut list_state);
+                            render_picker_list(
+                                buf,
+                                list_area,
+                                self.header.as_deref(),
+                                many,
+                                &search_results_keys,
+                                &search_results_heights,
+                                &picker_state.marked,
+                                &mut list_state,
+                            );
                         }
                         if query_text_area.is_empty() {
                             Paragraph::new("Type to search".gray())
@@ -659,7 +646,6 @@ fn pending_title(pending: usize) -> String {
 
 #[derive(Debug, Default)]
 struct KeyEffects {
-    marked_changed: bool,
     render_requested: bool,
 }
 
@@ -702,7 +688,6 @@ fn handle_key(
                 if !marked_for_return.insert(selected_item.clone()) {
                     marked_for_return.remove(selected_item);
                 }
-                effects.marked_changed = true;
                 effects.render_requested = true;
                 list_state.select_next();
             }
@@ -718,7 +703,6 @@ fn handle_key(
         }
         KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             marked_for_return.extend(search_results_keys.iter().cloned());
-            effects.marked_changed = true;
             effects.render_requested = true;
         }
         KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -727,12 +711,10 @@ fn handle_key(
                 .filter(|key| !marked_for_return.contains(*key))
                 .cloned()
                 .collect();
-            effects.marked_changed = true;
             effects.render_requested = true;
         }
         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             marked_for_return.clear();
-            effects.marked_changed = true;
             effects.render_requested = true;
         }
         KeyCode::PageUp => {
@@ -786,34 +768,145 @@ fn row_style(marked: bool, cursor: bool) -> Style {
     }
 }
 
+fn render_picker_list(
+    buf: &mut Buffer,
+    area: Rect,
+    header: Option<&str>,
+    many: bool,
+    search_results_keys: &[CompactString],
+    search_results_heights: &[usize],
+    marked_for_return: &FxHashSet<CompactString>,
+    list_state: &mut ListState,
+) {
+    let block = list_block(header);
+    let list_area = block.inner(area);
+    block.render(area, buf);
+
+    if list_area.is_empty() || search_results_keys.is_empty() {
+        list_state.select(None);
+        return;
+    }
+
+    let last_index = search_results_keys.len() - 1;
+    let selected_index = match list_state.selected() {
+        Some(index) if index <= last_index => Some(index),
+        Some(_) => {
+            list_state.select(Some(last_index));
+            Some(last_index)
+        }
+        None => None,
+    };
+    let max_height = list_area.height as usize;
+    let mut first_visible_index = list_state.offset().min(last_index);
+
+    if let Some(selected_index) = selected_index {
+        if selected_index < first_visible_index {
+            first_visible_index = selected_index;
+        } else {
+            let mut visible_height = 0;
+            let mut visible_end = first_visible_index;
+            while visible_end <= last_index {
+                let row_height = search_results_heights[visible_end].max(1);
+                if visible_height + row_height > max_height && visible_end > first_visible_index {
+                    break;
+                }
+                visible_height += row_height;
+                visible_end += 1;
+                if visible_height >= max_height {
+                    break;
+                }
+            }
+            if selected_index >= visible_end {
+                let mut selected_window_start = selected_index;
+                let mut selected_window_height = search_results_heights[selected_index].max(1);
+                while selected_window_start > 0 {
+                    let previous_height = search_results_heights[selected_window_start - 1].max(1);
+                    if selected_window_height.saturating_add(previous_height) > max_height {
+                        break;
+                    }
+                    selected_window_height += previous_height;
+                    selected_window_start -= 1;
+                }
+                first_visible_index = selected_window_start;
+            }
+        }
+    }
+    *list_state.offset_mut() = first_visible_index;
+
+    let mut y = list_area.top();
+
+    for index in first_visible_index..search_results_keys.len() {
+        if y >= list_area.bottom() {
+            break;
+        }
+
+        let height = search_results_heights[index].max(1) as u16;
+        let row_height = height.min(list_area.bottom().saturating_sub(y));
+        let row_area = Rect::new(list_area.left(), y, list_area.width, row_height);
+        let marked = many && marked_for_return.contains(&search_results_keys[index]);
+        let item_style = row_style(marked, selected_index == Some(index));
+        let dot_style = item_style.fg(Color::Red);
+        for row_y in row_area.top()..row_area.bottom() {
+            for x in row_area.left()..row_area.right() {
+                buf[(x, row_y)].reset();
+                buf[(x, row_y)].set_style(item_style);
+            }
+        }
+
+        for (line_index, line) in search_results_keys[index].lines().enumerate() {
+            let line_y = y + line_index as u16;
+            if line_y >= list_area.bottom() {
+                break;
+            }
+
+            let (prefix, prefix_style, key_x) = if marked {
+                if line_index == 0 {
+                    ("  • ", dot_style, list_area.left().saturating_add(4))
+                } else {
+                    ("    ", item_style, list_area.left().saturating_add(4))
+                }
+            } else {
+                ("", item_style, list_area.left())
+            };
+            let prefix_width = if marked { 4 } else { 0 };
+            buf.set_stringn(
+                list_area.left(),
+                line_y,
+                prefix,
+                (list_area.width as usize).min(prefix_width),
+                prefix_style,
+            );
+            buf.set_stringn(
+                key_x,
+                line_y,
+                line,
+                (list_area.width as usize).saturating_sub(prefix_width),
+                item_style,
+            );
+        }
+
+        y = y.saturating_add(height);
+    }
+}
+
 fn rebuild_results<T>(
     nucleo: &Nucleo<CompactString>,
     candidate_pool: &ChoicePool<T>,
-    many: bool,
-    marked_for_return: &FxHashSet<CompactString>,
     list_state: &mut ListState,
     search_results_keys: &mut Vec<CompactString>,
-    search_results_display: &mut Vec<Text>,
+    search_results_heights: &mut Vec<usize>,
 ) {
     let selected_key = list_state
         .selected()
         .and_then(|index| search_results_keys.get(index))
         .cloned();
     search_results_keys.clear();
-    search_results_display.clear();
-
+    search_results_heights.clear();
     for item in nucleo.snapshot().matched_items(..) {
         let key = item.data.clone();
-        let mut text = Text::from(key.to_string());
-        if many && marked_for_return.contains(&key) {
-            text.lines[0].spans.insert(0, Span::from("  "));
-            text.lines[0].spans.insert(1, Span::from("• ").red());
-            for line in text.lines.iter_mut().skip(1) {
-                line.spans.insert(0, Span::from("    "));
-            }
-        }
+        let height = key.lines().count().max(1);
         search_results_keys.push(key);
-        search_results_display.push(text);
+        search_results_heights.push(height);
     }
 
     let selected_index = preserved_selection(selected_key.as_ref(), search_results_keys);
