@@ -43,6 +43,7 @@ use ratatui::text::Span;
 use ratatui::text::Text;
 use ratatui::widgets::Block;
 use ratatui::widgets::List;
+use ratatui::widgets::ListItem;
 use ratatui::widgets::ListState;
 use ratatui::widgets::Paragraph;
 use ratatui::widgets::StatefulWidget;
@@ -343,6 +344,7 @@ impl<'a, T> PickerTui<'a, T> {
                 .map(|deadline| tokio::time::sleep_until(deadline.into()))
                 .unwrap_or_else(|| tokio::time::sleep(Duration::from_secs(86_400)));
             tokio::pin!(debounce);
+            let mut marked_changed = false;
 
             tokio::select! {
                 // Prefer already-buffered terminal input over continuously-ready background
@@ -352,7 +354,7 @@ impl<'a, T> PickerTui<'a, T> {
                 input = event_stream.next() => {
                     match input {
                         Some(Ok(Event::Key(key))) if key.kind == KeyEventKind::Press => {
-                            handle_key(
+                            marked_changed = handle_key(
                                 key,
                                 many,
                                 &mut list_state,
@@ -476,7 +478,7 @@ impl<'a, T> PickerTui<'a, T> {
             }
 
             let status = extended_trace_span!("picker_nucleo_tick").in_scope(|| nucleo.tick(10));
-            if status.changed {
+            if status.changed || marked_changed {
                 extended_trace_span!("picker_rebuild_results").in_scope(|| {
                     rebuild_results(
                         &nucleo,
@@ -535,9 +537,18 @@ impl<'a, T> PickerTui<'a, T> {
                             .block(list_block(self.header.as_deref()))
                             .render(list_area, buf);
                     } else {
-                        let list = List::new(search_results_display.clone())
-                            .block(list_block(self.header.as_deref()))
-                            .highlight_style(Style::new().bg(Color::Blue).fg(Color::Yellow));
+                        let selected_index = list_state.selected();
+                        let list_items = search_results_display
+                            .iter()
+                            .enumerate()
+                            .map(|(index, text)| {
+                                let marked = many
+                                    && picker_state.marked.contains(&search_results_keys[index]);
+                                ListItem::new(text.clone())
+                                    .style(row_style(marked, selected_index == Some(index)))
+                            })
+                            .collect::<Vec<_>>();
+                        let list = List::new(list_items).block(list_block(self.header.as_deref()));
                         StatefulWidget::render(&list, list_area, buf, &mut list_state);
                     }
                     if query_text_area.is_empty() {
@@ -638,7 +649,8 @@ fn handle_key(
     query_changed: &mut bool,
     query_debouncer: &mut QueryDebouncer,
     return_reason: &mut Option<ReturnReason>,
-) {
+) -> bool {
+    let mut marked_changed = false;
     match key.code {
         KeyCode::Esc => *return_reason = Some(ReturnReason::Cancelled),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -658,6 +670,7 @@ fn handle_key(
                 if !marked_for_return.insert(selected_item.clone()) {
                     marked_for_return.remove(selected_item);
                 }
+                marked_changed = true;
                 list_state.select_next();
             }
         }
@@ -672,6 +685,7 @@ fn handle_key(
         }
         KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             marked_for_return.extend(search_results_keys.iter().cloned());
+            marked_changed = true;
         }
         KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             *marked_for_return = search_results_keys
@@ -679,9 +693,11 @@ fn handle_key(
                 .filter(|key| !marked_for_return.contains(*key))
                 .cloned()
                 .collect();
+            marked_changed = true;
         }
         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             marked_for_return.clear();
+            marked_changed = true;
         }
         KeyCode::PageUp => {
             if let Some(selected) = list_state.selected() {
@@ -707,6 +723,17 @@ fn handle_key(
     if *query_changed {
         query_debouncer.schedule(query_text_area.lines().join("\n"), Instant::now());
     }
+
+    marked_changed
+}
+
+fn row_style(marked: bool, cursor: bool) -> Style {
+    match (marked, cursor) {
+        (true, true) => Style::new().bg(Color::Magenta),
+        (true, false) => Style::new().bg(Color::DarkGray),
+        (false, true) => Style::new().bg(Color::Blue),
+        (false, false) => Style::default(),
+    }
 }
 
 fn rebuild_results<T>(
@@ -728,16 +755,11 @@ fn rebuild_results<T>(
     for item in nucleo.snapshot().matched_items(..) {
         let key = item.data.clone();
         let mut text = Text::from(key.to_string());
-        if many {
-            if marked_for_return.contains(&key) {
-                text.lines[0].spans.insert(0, Span::from("● ").red());
-                for line in text.lines.iter_mut().skip(1) {
-                    line.spans.insert(0, Span::from("  "));
-                }
-            } else if !marked_for_return.is_empty() {
-                for line in text.lines.iter_mut() {
-                    line.spans.insert(0, Span::from("  "));
-                }
+        if many && marked_for_return.contains(&key) {
+            text.lines[0].spans.insert(0, Span::from("  "));
+            text.lines[0].spans.insert(1, Span::from("• ").red());
+            for line in text.lines.iter_mut().skip(1) {
+                line.spans.insert(0, Span::from("    "));
             }
         }
         search_results_keys.push(key);
