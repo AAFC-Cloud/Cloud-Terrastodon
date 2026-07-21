@@ -27,10 +27,8 @@ pub type SyncMutFn = fn(&mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Sen
 pub type RuntimeFromBoxedFn = fn(Box<dyn Any + Send>) -> eyre::Result<RuntimeValue>;
 pub type RuntimeToBoxedFn = fn(RuntimeValue) -> eyre::Result<Box<dyn Any + Send>>;
 
-pub type BorrowPointerFn = for<'mem, 'facet> fn(
-    &'static Shape,
-    Peek<'mem, 'facet>,
-) -> eyre::Result<RuntimeValue>;
+pub type BorrowPointerFn =
+    for<'mem, 'facet> fn(&'static Shape, Peek<'mem, 'facet>) -> eyre::Result<RuntimeValue>;
 pub type PromotePointerFn = fn(RuntimeValue) -> eyre::Result<RuntimeValue>;
 
 #[derive(Clone, Copy)]
@@ -333,7 +331,10 @@ pub fn borrow_pointer_runtime(
         eyre::bail!("{} is not a pointer shape", describe_shape(pointer_shape));
     };
     let Some(pointee) = pointer.pointee() else {
-        eyre::bail!("{} has no reflected pointee shape", describe_shape(pointer_shape));
+        eyre::bail!(
+            "{} has no reflected pointee shape",
+            describe_shape(pointer_shape)
+        );
     };
     if !pointee.is_shape(source.shape()) {
         eyre::bail!(
@@ -1365,11 +1366,9 @@ mod test {
             .expect("Cow should reflect as a pointer")
             .borrow_inner()
             .expect("Cow should expose its pointee");
-        let borrowed = RuntimeValue::from_borrowed_pointer(
-            <Cow<'static, DummyOutput>>::SHAPE,
-            source_inner,
-        )
-        .expect("the registered Cow adapter should construct a borrow");
+        let borrowed =
+            RuntimeValue::from_borrowed_pointer(<Cow<'static, DummyOutput>>::SHAPE, source_inner)
+                .expect("the registered Cow adapter should construct a borrow");
         let promoted = borrowed
             .promote_to_owned()
             .expect("the registered Cow adapter should promote to owned");
@@ -1389,13 +1388,11 @@ mod test {
             .expect("Cow<str> should reflect as a pointer")
             .borrow_inner()
             .expect("Cow<str> should expose its str pointee");
-        let promoted_text = RuntimeValue::from_borrowed_pointer(
-            <Cow<'static, str>>::SHAPE,
-            source_text_inner,
-        )
-        .expect("the same Cow adapter should support Cow<str>")
-        .promote_to_owned()
-        .expect("Cow<str> should promote through Cow::into_owned");
+        let promoted_text =
+            RuntimeValue::from_borrowed_pointer(<Cow<'static, str>>::SHAPE, source_text_inner)
+                .expect("the same Cow adapter should support Cow<str>")
+                .promote_to_owned()
+                .expect("Cow<str> should promote through Cow::into_owned");
         let promoted_text = promoted_text
             .into_box::<Cow<'static, str>>()
             .expect("promoted Cow<str> should retain its reflected shape")

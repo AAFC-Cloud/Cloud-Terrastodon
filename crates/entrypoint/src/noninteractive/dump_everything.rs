@@ -103,7 +103,8 @@ impl Strategy {
 pub async fn dump_everything_inner(tenant_id: AzureTenantId) -> eyre::Result<()> {
     let strategy = *PickerTui::<_>::new()
         .set_header("Dump strategy")
-        .pick_one(Strategy::VARIANTS).await?;
+        .pick_one(Strategy::VARIANTS)
+        .await?;
 
     #[derive(VariantArray, Debug)]
     enum Behaviour {
@@ -143,7 +144,8 @@ pub async fn dump_everything_inner(tenant_id: AzureTenantId) -> eyre::Result<()>
     }
     let behaviour = PickerTui::<_>::new()
         .set_header("What do you want to run?")
-        .pick_one(Behaviour::VARIANTS).await?;
+        .pick_one(Behaviour::VARIANTS)
+        .await?;
 
     let should_clean = matches!(
         behaviour,

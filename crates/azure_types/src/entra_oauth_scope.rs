@@ -80,8 +80,8 @@ cloud_terrastodon_registry::register_thing!(EntraOAuthScope);
 
 #[cfg(test)]
 mod tests {
-    use super::EntraOAuthScopeClaim;
     use super::EntraOAuthScope;
+    use super::EntraOAuthScopeClaim;
     use crate::MicrosoftGraphScopeClaim;
     use crate::OpenIdConnectScopeClaim;
 

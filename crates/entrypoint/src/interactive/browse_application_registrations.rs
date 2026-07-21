@@ -16,7 +16,8 @@ pub async fn browse_application_registrations(tenant_id: AzureTenantId) -> Resul
                 application.id, application.display_name, application.app_id
             ),
             value: application,
-        })).await?;
+        }))
+        .await?;
     info!(
         count = applications.len(),
         "You chose application registrations"

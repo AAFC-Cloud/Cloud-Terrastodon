@@ -18,7 +18,8 @@ pub async fn browse_azure_devops_project_teams() -> Result<()> {
                 project.description.clone().unwrap_or_default()
             ),
             value: project,
-        })).await?;
+        }))
+        .await?;
 
     let teams = fetch_azure_devops_teams_for_project(&org_url, &project.id).await?;
     let teams = PickerTui::<_>::new()
@@ -26,7 +27,8 @@ pub async fn browse_azure_devops_project_teams() -> Result<()> {
         .pick_many(teams.into_iter().map(|team| Choice {
             key: format!("{} {:64} - {}", team.id, team.name, team.description),
             value: team,
-        })).await?;
+        }))
+        .await?;
     println!("{teams:#?}");
     Ok(())
 }

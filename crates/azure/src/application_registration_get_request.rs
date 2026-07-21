@@ -1,7 +1,7 @@
 use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::AzureTenantId;
-use cloud_terrastodon_azure_types::EntraApplicationRegistration;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
+use cloud_terrastodon_azure_types::EntraApplicationRegistration;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;

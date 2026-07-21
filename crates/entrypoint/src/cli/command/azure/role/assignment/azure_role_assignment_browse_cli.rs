@@ -71,7 +71,8 @@ impl AzureRoleAssignmentBrowseArgs {
         }
 
         let chosen = PickerTui::<_>::new()
-            .pick_many(choices).await?
+            .pick_many(choices)
+            .await?
             .into_iter()
             .map(
                 |(role_assignment, role_definition, principal)| RoleAssignmentBrowseOutput {

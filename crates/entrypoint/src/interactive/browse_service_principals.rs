@@ -13,7 +13,8 @@ pub async fn browse_service_principals(tenant_id: AzureTenantId) -> Result<()> {
         .pick_many(service_principals.into_iter().map(|sp| Choice {
             key: format!("{} {:64} {}", sp.id, sp.display_name, sp.app_id),
             value: sp,
-        })).await?;
+        }))
+        .await?;
     info!("You chose:");
     for sp in service_principals {
         println!("- {} {:64} {}", sp.id, sp.display_name, sp.app_id);

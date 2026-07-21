@@ -13,7 +13,8 @@ pub async fn browse_users(tenant_id: AzureTenantId) -> Result<()> {
         .pick_many(users.into_iter().map(|u| Choice {
             key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
             value: u,
-        })).await?;
+        }))
+        .await?;
     info!("You chose:");
     for user in users {
         println!(

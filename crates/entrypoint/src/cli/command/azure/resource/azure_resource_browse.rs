@@ -31,7 +31,8 @@ impl AzureResourceBrowseArgs {
 
         let chosen: Vec<Resource> = PickerTui::<_>::new()
             .set_header("Select Azure resources")
-            .pick_many(choices).await?;
+            .pick_many(choices)
+            .await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

@@ -190,13 +190,13 @@ mod tests {
             else {
                 return Ok(());
             };
-            let next_scope: EligibleChildResource =
-                PickerTui::<_>::new().set_header("Choose a scope").pick_one(
-                    resources.into_iter().map(|x| Choice {
-                        key: x.name.to_owned(),
-                        value: x,
-                    }),
-                ).await?;
+            let next_scope: EligibleChildResource = PickerTui::<_>::new()
+                .set_header("Choose a scope")
+                .pick_one(resources.into_iter().map(|x| Choice {
+                    key: x.name.to_owned(),
+                    value: x,
+                }))
+                .await?;
             scope = next_scope.id;
         }
     }
@@ -210,11 +210,12 @@ mod tests {
         else {
             return Ok(());
         };
-        let chosen: Vec<EligibleChildResource> =
-            PickerTui::<_>::new().pick_many(resources.into_iter().map(|x| Choice {
+        let chosen: Vec<EligibleChildResource> = PickerTui::<_>::new()
+            .pick_many(resources.into_iter().map(|x| Choice {
                 key: x.to_string(),
                 value: x,
-            })).await?;
+            }))
+            .await?;
         assert!(!chosen.is_empty());
         Ok(())
     }

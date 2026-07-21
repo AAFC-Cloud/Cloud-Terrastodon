@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use crate::{MICROSOFT_GRAPH_SCOPE_PREFIX, MicrosoftGraphScopeClaim, OpenIdConnectScopeClaim};
 
-
 /// One claim value in an Entra OAuth `scope` parameter.
 #[repr(C)]
 #[derive(

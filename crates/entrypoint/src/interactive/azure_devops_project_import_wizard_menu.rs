@@ -38,7 +38,8 @@ pub async fn azure_devops_project_import_wizard_menu() -> Result<()> {
         .pick_many(projects.into_iter().map(|project| Choice {
             key: project.name.to_string(),
             value: project,
-        })).await?;
+        }))
+        .await?;
 
     let mut project_import_blocks = Vec::new();
     for project in projects {

@@ -18,7 +18,8 @@ pub async fn browse_resources_menu(tenant_id: AzureTenantId) -> Result<()> {
         });
     let chosen: Vec<Resource> = PickerTui::<_>::new()
         .set_header("Resources")
-        .pick_many(choices).await?;
+        .pick_many(choices)
+        .await?;
     info!("You chose:");
     for value in chosen {
         info!("{:#?}", value);

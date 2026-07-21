@@ -44,9 +44,7 @@ impl From<&str> for EntraUserLookup {
 impl From<AzurePrincipalArgument<'_>> for EntraUserLookup {
     fn from(value: AzurePrincipalArgument<'_>) -> Self {
         match value {
-            AzurePrincipalArgument::Id(id) => {
-                Self::ObjectId(EntraUserId::new(**id.as_ref()))
-            }
+            AzurePrincipalArgument::Id(id) => Self::ObjectId(EntraUserId::new(**id.as_ref())),
             AzurePrincipalArgument::Name(name) => Self::UserPrincipalName(name.into_owned()),
             AzurePrincipalArgument::Principal(principal) => {
                 Self::ObjectId(EntraUserId::new(*principal.as_ref().as_ref()))

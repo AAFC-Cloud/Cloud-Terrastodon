@@ -20,7 +20,8 @@ pub async fn tag_resources_menu(tenant_id: AzureTenantId) -> eyre::Result<()> {
         .pick_one(resource_groups.into_iter().map(|rg| Choice {
             key: rg.id.expanded_form().to_string(),
             value: rg,
-        })).await?;
+        }))
+        .await?;
     let resources = fetch_all_resources(tenant_id)
         .await?
         .into_iter()
@@ -34,7 +35,8 @@ pub async fn tag_resources_menu(tenant_id: AzureTenantId) -> eyre::Result<()> {
         .pick_many(resources.map(|r| Choice {
             key: r.id.expanded_form().to_string(),
             value: r,
-        })).await?;
+        }))
+        .await?;
     let resource_tags = get_tags_for_resources(
         tenant_id,
         resources

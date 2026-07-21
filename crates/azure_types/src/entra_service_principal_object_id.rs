@@ -17,9 +17,9 @@ mod test {
     fn json_roundtrips() -> eyre::Result<()> {
         let id = EntraServicePrincipalObjectId::new(uuid::Uuid::nil());
         crate::facet_json_equivalence::assert_json_serialize_equivalent(&id)?;
-        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<EntraServicePrincipalObjectId>(
-            "\"00000000-0000-0000-0000-000000000000\"",
-        )?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<
+            EntraServicePrincipalObjectId,
+        >("\"00000000-0000-0000-0000-000000000000\"")?;
         Ok(())
     }
 }

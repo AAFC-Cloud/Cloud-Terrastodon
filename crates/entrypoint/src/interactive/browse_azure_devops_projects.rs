@@ -17,7 +17,8 @@ pub async fn browse_azure_devops_projects() -> Result<()> {
                 project.description.clone().unwrap_or_default()
             ),
             value: project,
-        })).await?;
+        }))
+        .await?;
 
     println!("You chose:");
     println!("{:#?}", chosen);

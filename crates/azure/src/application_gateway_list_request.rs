@@ -6,8 +6,8 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use indoc::indoc;
-use tracing::debug;
 use std::path::PathBuf;
+use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]

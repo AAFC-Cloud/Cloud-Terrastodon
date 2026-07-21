@@ -11,7 +11,8 @@ pub async fn browse_role_assignments(tenant_id: AzureTenantId) -> Result<()> {
     info!("Picking");
     let chosen: Vec<RoleAssignment> = PickerTui::<_>::new()
         .set_header("Role assignments")
-        .pick_many(choices).await?;
+        .pick_many(choices)
+        .await?;
 
     info!("You chose:");
     for value in chosen {

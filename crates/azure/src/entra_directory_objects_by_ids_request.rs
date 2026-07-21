@@ -1,6 +1,6 @@
+use crate::EntraDirectoryObject;
 use crate::MicrosoftGraphBatchRequest;
 use crate::MicrosoftGraphBatchRequestEntry;
-use crate::EntraDirectoryObject;
 use crate::MicrosoftGraphResponse;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraDirectoryObjectType;
@@ -95,10 +95,9 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest {
         }
 
         let cache_key = self.cache_key();
-        let mut batch =
-            MicrosoftGraphBatchRequest::<EntraDirectoryObjectsByIdsRequestBody>::new(
-                self.tenant_id,
-            );
+        let mut batch = MicrosoftGraphBatchRequest::<EntraDirectoryObjectsByIdsRequestBody>::new(
+            self.tenant_id,
+        );
         batch.cache(cache_key);
 
         for (chunk_index, ids) in ids.chunks(MAX_DIRECTORY_OBJECT_IDS).enumerate() {
@@ -112,7 +111,10 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest {
                 format!("directory-objects-{chunk_index}"),
                 Method::POST,
                 DIRECTORY_OBJECTS_BY_IDS_URL.to_owned(),
-                HashMap::from([(String::from("Content-Type"), String::from("application/json"))]),
+                HashMap::from([(
+                    String::from("Content-Type"),
+                    String::from("application/json"),
+                )]),
                 Some(Self::request_body(ids)),
             ));
         }

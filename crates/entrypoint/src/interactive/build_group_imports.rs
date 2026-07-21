@@ -19,7 +19,8 @@ pub async fn build_group_imports(tenant_id: AzureTenantId) -> Result<()> {
 
     let chosen = PickerTui::<_>::new()
         .set_header("Groups to import")
-        .pick_many(groups).await?;
+        .pick_many(groups)
+        .await?;
 
     let imports: Vec<HclImportBlock> = chosen.into_iter().map(|x| x.into()).collect_vec();
 

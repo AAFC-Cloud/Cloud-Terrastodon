@@ -81,8 +81,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListRequ
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::get_test_tenant_id;
     use crate::fetch_all_groups;
+    use crate::get_test_tenant_id;
     use eyre::bail;
 
     #[tokio::test]

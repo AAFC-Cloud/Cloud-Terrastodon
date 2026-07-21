@@ -19,7 +19,8 @@ pub async fn dump_tags(tenant_id: AzureTenantId) -> eyre::Result<()> {
                 "Output path {} already exists, overwrite?",
                 path.display()
             ))
-            .pick_one(vec![yes, no]).await?
+            .pick_one(vec![yes, no])
+            .await?
             == no
         {
             warn!("Chose not to overwrite, no action taken!");

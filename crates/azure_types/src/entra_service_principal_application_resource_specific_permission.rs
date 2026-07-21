@@ -11,6 +11,9 @@ pub struct EntraServicePrincipalApplicationResourceSpecificPermission {
     pub value: String,
 }
 
-
-cloud_terrastodon_registry::register_thing!(EntraServicePrincipalApplicationResourceSpecificPermission);
-cloud_terrastodon_registry::register_arbitrary!(EntraServicePrincipalApplicationResourceSpecificPermission);
+cloud_terrastodon_registry::register_thing!(
+    EntraServicePrincipalApplicationResourceSpecificPermission
+);
+cloud_terrastodon_registry::register_arbitrary!(
+    EntraServicePrincipalApplicationResourceSpecificPermission
+);

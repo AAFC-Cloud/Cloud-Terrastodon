@@ -65,7 +65,8 @@ impl AzureRoleAssignmentCreateArgs {
                 .pick_many(all.into_iter().map(|r| Choice {
                     key: r.display_name.clone(),
                     value: r,
-                })).await?
+                }))
+                .await?
         };
 
         // Resolve principals
@@ -88,7 +89,8 @@ impl AzureRoleAssignmentCreateArgs {
                 .pick_many(fetched.values().map(|u| Choice {
                     key: format!("{} {:64} {}", u.id(), u.display_name(), u.name()),
                     value: u.clone(),
-                })).await?
+                }))
+                .await?
         };
 
         // Resolve scopes
@@ -106,7 +108,8 @@ impl AzureRoleAssignmentCreateArgs {
                 .pick_many(resources.into_iter().map(|resource| Choice {
                     key: resource.id.to_string(),
                     value: resource.id,
-                })).await?
+                }))
+                .await?
         };
 
         // Create assignments for each combination

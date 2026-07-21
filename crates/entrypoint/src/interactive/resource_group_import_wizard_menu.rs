@@ -72,7 +72,8 @@ pub async fn resource_group_import_wizard_menu(tenant_id: AzureTenantId) -> Resu
     info!("Picking resource groups");
     let chosen_resource_groups = PickerTui::<_>::new()
         .set_header("Pick which to import")
-        .pick_many(resource_group_choices?).await?;
+        .pick_many(resource_group_choices?)
+        .await?;
     info!("You chose {} resource groups", chosen_resource_groups.len());
 
     let mut used_resource_groups = HashSet::new();

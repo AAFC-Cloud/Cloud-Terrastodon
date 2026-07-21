@@ -338,9 +338,7 @@ impl ObjectBrowserApp {
         ]);
         let [title_area, breadcrumb_area, body_area, status_area] = vertical.areas(frame.area());
 
-        let title = Line::from(self.current_tab_title())
-            .centered()
-            .bold();
+        let title = Line::from(self.current_tab_title()).centered().bold();
         frame.render_widget(title, title_area);
         frame.render_widget(self.breadcrumbs_line(), breadcrumb_area);
 
@@ -360,9 +358,7 @@ impl ObjectBrowserApp {
             UiMode::FilterKindPicker => self.draw_filter_kind_picker_popup(frame),
             UiMode::ValueFilterEditor => self.draw_value_filter_editor_popup(frame),
             UiMode::ValueFilterChoicePicker => self.draw_value_filter_choice_picker_popup(frame),
-            UiMode::ValueFilterLiteralEditor => {
-                self.draw_value_filter_literal_editor_popup(frame)
-            }
+            UiMode::ValueFilterLiteralEditor => self.draw_value_filter_literal_editor_popup(frame),
             UiMode::GeneralValueEditor => self.draw_general_value_editor_popup(frame),
             UiMode::BooleanValuePicker => self.draw_boolean_value_picker_popup(frame),
         }
@@ -1124,9 +1120,7 @@ impl ObjectBrowserApp {
             UiMode::FilterKindPicker => self.handle_filter_kind_picker_key(*key),
             UiMode::ValueFilterEditor => self.handle_value_filter_editor_key(*key),
             UiMode::ValueFilterChoicePicker => self.handle_value_filter_choice_picker_key(*key),
-            UiMode::ValueFilterLiteralEditor => {
-                self.handle_value_filter_literal_editor_key(*key)
-            }
+            UiMode::ValueFilterLiteralEditor => self.handle_value_filter_literal_editor_key(*key),
             UiMode::GeneralValueEditor => self.handle_general_value_editor_key(*key),
             UiMode::BooleanValuePicker => self.handle_boolean_value_picker_key(*key),
         }
@@ -1347,10 +1341,12 @@ impl ObjectBrowserApp {
             .find(|field| field.info.field_name == "name")
             .map(|field| field.value.display_string())
             .or_else(|| {
-                let value_slot_id = self.slot_field(slot_id, 0).and_then(|field| match field.value_state {
-                    FieldValueState::Linked { slot_id } => Some(slot_id),
-                    FieldValueState::Defaulted | FieldValueState::Unset => None,
-                })?;
+                let value_slot_id =
+                    self.slot_field(slot_id, 0)
+                        .and_then(|field| match field.value_state {
+                            FieldValueState::Linked { slot_id } => Some(slot_id),
+                            FieldValueState::Defaulted | FieldValueState::Unset => None,
+                        })?;
                 self.slot_runtime_value(value_slot_id)
                     .ok()
                     .map(|value| value.display_string())
@@ -1365,7 +1361,12 @@ impl ObjectBrowserApp {
                 FieldValueState::Defaulted | FieldValueState::Unset => None,
             })?;
         let value = self.slot_runtime_value(breadcrumbs_slot_id).ok()?;
-        value.into_box::<Breadcrumbs>().ok()?.downcast().ok().map(|value| *value)
+        value
+            .into_box::<Breadcrumbs>()
+            .ok()?
+            .downcast()
+            .ok()
+            .map(|value| *value)
     }
 
     fn sync_current_tab_breadcrumbs(&mut self) {
@@ -1373,12 +1374,12 @@ impl ObjectBrowserApp {
             return;
         };
         let breadcrumbs = Breadcrumbs::from_ui(&self.projection_stack, &self.breadcrumb_filters);
-        let breadcrumbs_slot_id = self
-            .slot_field(tab_slot_id, 1)
-            .and_then(|field| match field.value_state {
-                FieldValueState::Linked { slot_id } => Some(slot_id),
-                FieldValueState::Defaulted | FieldValueState::Unset => None,
-            });
+        let breadcrumbs_slot_id =
+            self.slot_field(tab_slot_id, 1)
+                .and_then(|field| match field.value_state {
+                    FieldValueState::Linked { slot_id } => Some(slot_id),
+                    FieldValueState::Defaulted | FieldValueState::Unset => None,
+                });
         if breadcrumbs.entries.is_empty() && breadcrumbs_slot_id.is_none() {
             return;
         }
@@ -1801,7 +1802,8 @@ impl ObjectBrowserApp {
         editor.literal_input.cancel_selection();
         editor.literal_input.move_cursor(CursorMove::End);
         self.mode = UiMode::ValueFilterLiteralEditor;
-        self.status_message = "Edit the literal filter value, then press Enter to return.".to_string();
+        self.status_message =
+            "Edit the literal filter value, then press Enter to return.".to_string();
     }
 
     fn handle_value_filter_literal_editor_key(&mut self, key: KeyEvent) {
@@ -2927,9 +2929,10 @@ impl ObjectBrowserApp {
         let Some(source_shape_name) = self.slot_shape_name(selected_slot_id) else {
             return false;
         };
-        pointer
-            .pointee()
-            .is_some_and(|pointee| self.shape_for_shape_name(source_shape_name).is_some_and(|source| source.is_shape(pointee)))
+        pointer.pointee().is_some_and(|pointee| {
+            self.shape_for_shape_name(source_shape_name)
+                .is_some_and(|source| source.is_shape(pointee))
+        })
     }
 
     fn activate_slot_action(&mut self, slot_id: usize, action: SlotAction) {
@@ -2980,7 +2983,8 @@ impl ObjectBrowserApp {
         let value = match value.promote_to_owned() {
             Ok(value) => value,
             Err(error) => {
-                self.status_message = format!("Could not promote slot {} to owned: {error}", slot_id);
+                self.status_message =
+                    format!("Could not promote slot {} to owned: {error}", slot_id);
                 return;
             }
         };
@@ -3335,8 +3339,7 @@ impl ObjectBrowserApp {
                     }
                 };
                 if !consume_slot {
-                    if let Err(error) = self.update_slot_runtime_from_typed(slot_id, thing, input)
-                    {
+                    if let Err(error) = self.update_slot_runtime_from_typed(slot_id, thing, input) {
                         self.status_message = format!(
                             "Function updated the input but it could not be stored: {error}"
                         );
@@ -4185,8 +4188,7 @@ impl ObjectBrowserApp {
     ) {
         if !self.can_borrow_into_field(owner_slot_id, field_index, selected_slot_id) {
             self.status_message =
-                "The selected slot is not a resolved owned source for this Cow field."
-                    .to_string();
+                "The selected slot is not a resolved owned source for this Cow field.".to_string();
             return;
         }
         let Some(field_name) = self
@@ -4441,9 +4443,9 @@ impl ObjectBrowserApp {
             SlotValueState::ResolvedValue { value } => SlotSnapshotValueState::ResolvedValue {
                 value: value.try_clone().ok()?,
             },
-            SlotValueState::Pending(_) | SlotValueState::Failed { .. } | SlotValueState::Consumed => {
-                return None
-            }
+            SlotValueState::Pending(_)
+            | SlotValueState::Failed { .. }
+            | SlotValueState::Consumed => return None,
         };
         Some(SlotSnapshot {
             shape_name: display_slot
@@ -5287,8 +5289,9 @@ impl ObjectBrowserApp {
 
     fn should_show_runtime_status(state: &SlotValueState) -> bool {
         match state {
-            SlotValueState::Pending(_) | SlotValueState::Failed { .. } | SlotValueState::Consumed =>
-                true,
+            SlotValueState::Pending(_)
+            | SlotValueState::Failed { .. }
+            | SlotValueState::Consumed => true,
             SlotValueState::ResolvedValue { .. } | SlotValueState::Building(_) => false,
         }
     }
@@ -5363,9 +5366,8 @@ impl ObjectBrowserApp {
     }
 
     fn activate_borrow_source(&mut self, slot_id: usize) {
-        let Some(ValueProvenance::Borrowed { source_slot_id }) = self
-            .slot_by_id(slot_id)
-            .map(|slot| slot.provenance)
+        let Some(ValueProvenance::Borrowed { source_slot_id }) =
+            self.slot_by_id(slot_id).map(|slot| slot.provenance)
         else {
             return;
         };
@@ -7230,8 +7232,7 @@ impl ObjectBrowserApp {
                             Span::styled(
                                 peek_value_summary_with_width(
                                     *field_value,
-                                    content_width
-                                        .saturating_sub(field_name.chars().count() + 4),
+                                    content_width.saturating_sub(field_name.chars().count() + 4),
                                 ),
                                 Style::default().fg(accent).add_modifier(Modifier::BOLD),
                             ),
@@ -7402,7 +7403,9 @@ impl ObjectBrowserApp {
                 Line::from(slot_label.to_string()),
                 Line::from(format!("will be borrowed by {field_label}.")),
                 Line::from(""),
-                Line::from("The source stays owned and cannot be deleted or mutated while borrowed."),
+                Line::from(
+                    "The source stays owned and cannot be deleted or mutated while borrowed.",
+                ),
                 Line::from("The borrow is represented by a dedicated Cow view slot."),
             ],
             LinkAction::Move => vec![
@@ -8613,7 +8616,11 @@ impl LinkActionPickerState {
     ) -> Self {
         let (labels, actions) = if include_borrow {
             (
-                vec!["Borrow".to_string(), "Move".to_string(), "Clone".to_string()],
+                vec![
+                    "Borrow".to_string(),
+                    "Move".to_string(),
+                    "Clone".to_string(),
+                ],
                 vec![LinkAction::Borrow, LinkAction::Move, LinkAction::Clone],
             )
         } else {
@@ -9157,13 +9164,7 @@ impl ObjectSlot {
         field_name: &'static str,
         pointer_shape: &'static facet::Shape,
     ) -> Self {
-        let mut slot = Self::new_view(
-            id,
-            source_slot_id,
-            owner_slot_id,
-            field_index,
-            field_name,
-        );
+        let mut slot = Self::new_view(id, source_slot_id, owner_slot_id, field_index, field_name);
         slot.provenance = ValueProvenance::Borrowed { source_slot_id };
         slot.shape_name = Some(describe_shape(pointer_shape));
         slot.value_state = SlotValueState::Building(SlotBody::Value {
@@ -10319,6 +10320,7 @@ mod tests {
     use cloud_terrastodon_azure::EntraUser;
     use cloud_terrastodon_azure::EntraUserId;
     use cloud_terrastodon_azure::PrincipalId;
+    use cloud_terrastodon_azure::ResourceGroupName;
     use cloud_terrastodon_azure::RoleAssignment;
     use cloud_terrastodon_azure::RoleAssignmentId;
     use cloud_terrastodon_azure::RoleDefinition;
@@ -10327,7 +10329,6 @@ mod tests {
     use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
     use cloud_terrastodon_azure::RolePermissionAction;
     use cloud_terrastodon_azure::RolePermissions;
-    use cloud_terrastodon_azure::ResourceGroupName;
     use cloud_terrastodon_azure::ScopeImpl;
     use cloud_terrastodon_registry::describe_shape;
     use cloud_terrastodon_registry::known_shapes;
@@ -10835,7 +10836,10 @@ mod tests {
         assert!(matches!(
             app.slot_by_id(borrow_slot_id)
                 .map(|slot| (&slot.kind, slot.provenance)),
-            Some((super::SlotKind::Owned, super::ValueProvenance::Borrowed { source_slot_id: 2 }))
+            Some((
+                super::SlotKind::Owned,
+                super::ValueProvenance::Borrowed { source_slot_id: 2 }
+            ))
         ));
         assert_eq!(app.slot_borrow_slots(2).len(), 2);
 
@@ -11950,11 +11954,9 @@ mod tests {
             root_slot_id: 1,
             path: vec![super::ValuePathSegment::Field("users".to_string())],
         });
-        app.breadcrumb_filters = vec![super::BreadcrumbFilter::Shape(
-            super::ShapeFilterView {
-                included_shapes: BTreeSet::from(["EntraUser".to_string()]),
-            },
-        )];
+        app.breadcrumb_filters = vec![super::BreadcrumbFilter::Shape(super::ShapeFilterView {
+            included_shapes: BTreeSet::from(["EntraUser".to_string()]),
+        })];
         app.sync_current_tab_breadcrumbs();
 
         let tab_slot_id = app.current_tab_slot_id().expect("active tab slot");
@@ -12058,10 +12060,7 @@ mod tests {
             KeyCode::Char('x'),
             KeyModifiers::NONE,
         ));
-        app.handle_value_filter_literal_editor_key(KeyEvent::new(
-            KeyCode::Esc,
-            KeyModifiers::NONE,
-        ));
+        app.handle_value_filter_literal_editor_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
         assert_eq!(
             app.value_filter_editor
                 .as_ref()
@@ -12292,8 +12291,10 @@ mod tests {
             },
         ];
         let shape_name = describe_shape(<Vec<ResourceGroupNameFilterFixture>>::SHAPE);
-        app.reflected_shapes
-            .insert(shape_name.clone(), <Vec<ResourceGroupNameFilterFixture>>::SHAPE);
+        app.reflected_shapes.insert(
+            shape_name.clone(),
+            <Vec<ResourceGroupNameFilterFixture>>::SHAPE,
+        );
         app.object_slots.push(super::ObjectSlot {
             id: 1,
             kind: super::SlotKind::Owned,
@@ -12381,11 +12382,9 @@ mod tests {
                 super::FieldValueState::Defaulted | super::FieldValueState::Unset => None,
             })
             .expect("Tab.name should link to its value slot");
-        let value = super::RuntimeValue::from_text(
-            <String as facet::Facet<'static>>::SHAPE,
-            "toby",
-        )
-        .expect("tab name should parse");
+        let value =
+            super::RuntimeValue::from_text(<String as facet::Facet<'static>>::SHAPE, "toby")
+                .expect("tab name should parse");
         app.set_scalar_slot_value(name_slot_id, value);
 
         assert_eq!(
@@ -12476,9 +12475,10 @@ mod tests {
         app.apply_shape_selection();
 
         assert!(app.can_consume_slot(1));
-        assert!(app
-            .slot_focus_targets(1)
-            .contains(&SlotFocusTarget::Action(super::SlotAction::InvokeConsume)));
+        assert!(
+            app.slot_focus_targets(1)
+                .contains(&SlotFocusTarget::Action(super::SlotAction::InvokeConsume))
+        );
         assert_eq!(
             app.slot_action_label(1, super::SlotAction::InvokeConsume),
             "invoke"
@@ -12952,10 +12952,7 @@ mod tests {
 
         app.handle_pool_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
         for character in "lone and invoke".chars() {
-            app.handle_slot_search_key(KeyEvent::new(
-                KeyCode::Char(character),
-                KeyModifiers::NONE,
-            ));
+            app.handle_slot_search_key(KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE));
         }
 
         assert_eq!(app.mode, UiMode::SlotSearch);
