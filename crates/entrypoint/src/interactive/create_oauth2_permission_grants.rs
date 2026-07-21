@@ -17,22 +17,24 @@ use tracing::info;
 pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching all service principals");
     let service_principals = fetch_all_service_principals(tenant_id).await?;
-    let resource = PickerTui::new()
+    let resource = PickerTui::<_>::new()
         .set_header("Pick the underlying resource being granted access to")
         .set_query("'Microsoft\\ Graph")
         .pick_one(service_principals.iter().map(|sp| Choice {
             key: format!("{} - {}", sp.id, sp.display_name),
             value: sp,
-        }))?;
+        }))
+        .await?;
     info!("You chose: {} - {}", resource.display_name, resource.id);
 
-    let client = PickerTui::new()
+    let client = PickerTui::<_>::new()
         .set_header("Pick the client accessing the resource")
         .set_query("'Graph\\ Explorer")
         .pick_one(service_principals.iter().map(|sp| Choice {
             key: format!("{} - {}", sp.id, sp.display_name),
             value: sp,
-        }))?;
+        }))
+        .await?;
     info!("You chose: {} - {}", client.display_name, client.id);
 
     let scopes = fetch_oauth2_permission_scopes(tenant_id, resource.id)
@@ -40,15 +42,16 @@ pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result
         .into_iter()
         .collect::<HashSet<_>>();
 
-    let scopes_to_add = PickerTui::new()
+    let scopes_to_add = PickerTui::<_>::new()
         .set_header("Select the scopes you want to grant")
         .pick_many(scopes.iter().map(|scope| Choice {
             key: format!("{} - {}", scope.value, scope.user_consent_display_name),
             value: scope,
-        }))?;
+        }))
+        .await?;
 
     let users = fetch_all_entra_users(tenant_id).await?;
-    let users_to_add = PickerTui::new()
+    let users_to_add = PickerTui::<_>::new()
         .set_header(format!(
             "Select the users to add {} grants to",
             scopes_to_add.len()
@@ -56,7 +59,8 @@ pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result
         .pick_many(users.iter().map(|user| Choice {
             key: user.to_string(),
             value: user,
-        }))?;
+        }))
+        .await?;
 
     let mut existing_grants = fetch_oauth2_permission_grants(tenant_id).await?;
     let requested_scope =

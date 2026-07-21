@@ -12,16 +12,16 @@ use tracing::info;
 pub async fn create_role_assignment_menu(tenant_id: AzureTenantId) -> Result<()> {
     info!("Fetching role definition list");
     let role_definitions = fetch_all_role_definitions(tenant_id).await?;
-    let role_definitions = PickerTui::new().set_header("Roles to assign").pick_many(
+    let role_definitions = PickerTui::<_>::new().set_header("Roles to assign").pick_many(
         role_definitions.into_iter().map(|r| Choice {
             key: r.display_name.to_owned(),
             value: r,
         }),
-    )?;
+    ).await?;
 
     info!("Fetching principals");
     let users = fetch_all_entra_users(tenant_id).await?;
-    let principals = PickerTui::new()
+    let principals = PickerTui::<_>::new()
         .set_header(format!(
             "Assigning {}",
             role_definitions.iter().map(|r| &r.display_name).join(", ")
@@ -29,11 +29,11 @@ pub async fn create_role_assignment_menu(tenant_id: AzureTenantId) -> Result<()>
         .pick_many(users.into_iter().map(|u| Choice {
             key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
             value: u,
-        }))?;
+        })).await?;
 
     info!("Fetching resources");
     let resources = fetch_all_resources(tenant_id).await?;
-    let resources = PickerTui::new()
+    let resources = PickerTui::<_>::new()
         .set_header(format!(
             "Assigning: {} TO {}",
             role_definitions.iter().map(|r| &r.display_name).join(", "),
@@ -42,7 +42,7 @@ pub async fn create_role_assignment_menu(tenant_id: AzureTenantId) -> Result<()>
         .pick_many(resources.into_iter().map(|resource| Choice {
             key: resource.id.to_string(),
             value: resource,
-        }))?;
+        })).await?;
 
     let mut total = 0;
     for res in resources {

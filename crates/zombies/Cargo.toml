@@ -17,3 +17,6 @@ cloud_terrastodon_pathing = { workspace = true }
 eyre = { workspace = true }
 itertools = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

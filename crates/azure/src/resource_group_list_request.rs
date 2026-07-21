@@ -92,8 +92,8 @@ mod tests {
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn pick() -> Result<()> {
-        let chosen = PickerTui::new()
-            .pick_many_reloadable(async |invalidate| {
+        let chosen = PickerTui::<_>::new()
+            .pick_many_reloadable(|invalidate| async move {
                 let tenant_id = get_test_tenant_id().await?;
                 if invalidate {
                     fetch_all_resource_groups(tenant_id)

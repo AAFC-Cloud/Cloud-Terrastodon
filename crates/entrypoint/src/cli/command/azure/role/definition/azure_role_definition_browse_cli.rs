@@ -18,8 +18,8 @@ pub struct AzureRoleDefinitionBrowseArgs {
 impl AzureRoleDefinitionBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        let chosen = PickerTui::new()
-            .pick_many_reloadable(async |invalidate| {
+        let chosen = PickerTui::<_>::new()
+            .pick_many_reloadable(|invalidate| async move {
                 info!("Fetching Azure role definitions");
                 let role_definitions = fetch_all_role_definitions(tenant_id)
                     .with_invalidation(invalidate)

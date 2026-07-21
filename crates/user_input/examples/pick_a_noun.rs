@@ -1,8 +1,12 @@
 use cloud_terrastodon_user_input::PickerTui;
 
-pub fn main() -> eyre::Result<()> {
+#[tokio::main]
+pub async fn main() -> eyre::Result<()> {
     let nouns = vec!["dog", "cat", "house", "pickle", "mouse"];
-    let chosen = PickerTui::new().set_header("Pick a noun").pick_one(nouns)?;
+    let chosen = PickerTui::<&str>::new()
+        .set_header("Pick a noun")
+        .pick_one(nouns)
+        .await?;
     println!("You chose {}", chosen);
 
     Ok(())

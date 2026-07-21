@@ -93,10 +93,10 @@ impl PickFsArgs {
             });
         }
 
-        let rtn = PickerTui::new()
+        let rtn = PickerTui::<_>::new()
             .set_auto_accept(common.auto_accept)
             .set_query(common.default_query.unwrap_or_default())
-            .pick_inner(!common.single, choices)?;
+            .pick_inner(!common.single, choices).await?;
 
         write_selected_lines(&rtn)?;
         Ok(())

@@ -15,13 +15,17 @@ pub async fn remove_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result
     if !are_you_sure(format!(
         "Are you sure you want to remove {} grants?",
         to_remove.len()
-    ))? {
+    ))
+    .await?
+    {
         return Ok(());
     }
     if !are_you_sure(format!(
         "Are you super sure you want to remove {} grants?",
         to_remove.len()
-    ))? {
+    ))
+    .await?
+    {
         return Ok(());
     }
 

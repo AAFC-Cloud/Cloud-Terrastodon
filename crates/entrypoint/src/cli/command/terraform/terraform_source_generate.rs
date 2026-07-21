@@ -29,7 +29,7 @@ impl TerraformSourceGenerateArgs {
         let tenant_id = self.tenant.resolve().await?;
         let work_dir = self.work_dir;
 
-        let kind_to_import = HclImportable::pick()?;
+        let kind_to_import = HclImportable::pick().await?;
         let imports = kind_to_import.pick_into_body(tenant_id).await?;
 
         work_dir.ensure_dir_exists().await?;

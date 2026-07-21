@@ -19,9 +19,9 @@ pub struct AzureEntraRoleDefinitionBrowseArgs {
 impl AzureEntraRoleDefinitionBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        let chosen = PickerTui::new()
+        let chosen = PickerTui::<_>::new()
             .set_header("Entra role definitions")
-            .pick_many_reloadable(async |invalidate| {
+            .pick_many_reloadable(|invalidate| async move {
                 info!(%tenant_id, "Fetching Entra role definitions");
                 let mut role_definitions = fetch_all_entra_role_definitions(tenant_id)
                     .with_invalidation(invalidate)

@@ -52,15 +52,15 @@ impl PickStdinArgs {
                 let stdin_json: Vec<Value> = crate::serde_json_isolation::from_str(&stdin_buf)?;
 
                 let mut choices = Vec::with_capacity(stdin_json.len());
-                for value in &stdin_json {
-                    let key = common.query_engine.query(value, &common.query)?;
+                for value in stdin_json {
+                    let key = common.query_engine.query(&value, &common.query)?;
                     choices.push(Choice { key, value });
                 }
 
-                let rtn = PickerTui::new()
+                let rtn = PickerTui::<_>::new()
                     .set_auto_accept(common.auto_accept)
                     .set_query(common.default_query.unwrap_or_default())
-                    .pick_inner(!common.single, choices)?;
+                    .pick_inner(!common.single, choices).await?;
 
                 crate::serde_json_isolation::to_writer_pretty(std::io::stdout(), &rtn)?;
             }
@@ -79,10 +79,10 @@ impl PickStdinArgs {
                     });
                 }
 
-                let rtn = PickerTui::new()
+                let rtn = PickerTui::<_>::new()
                     .set_auto_accept(common.auto_accept)
                     .set_query(common.default_query.unwrap_or_default())
-                    .pick_inner(!common.single, choices)?;
+                    .pick_inner(!common.single, choices).await?;
 
                 write_selected_lines(&rtn)?;
             }

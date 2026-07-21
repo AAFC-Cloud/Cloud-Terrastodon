@@ -8,7 +8,7 @@ use tracing::info;
 pub async fn browse_application_registrations(tenant_id: AzureTenantId) -> Result<()> {
     info!(%tenant_id, "Fetching application registrations");
     let applications = fetch_all_application_registrations(tenant_id).await?;
-    let applications = PickerTui::new()
+    let applications = PickerTui::<_>::new()
         .set_header("Application Registrations")
         .pick_many(applications.into_iter().map(|application| Choice {
             key: format!(
@@ -16,7 +16,7 @@ pub async fn browse_application_registrations(tenant_id: AzureTenantId) -> Resul
                 application.id, application.display_name, application.app_id
             ),
             value: application,
-        }))?;
+        })).await?;
     info!(
         count = applications.len(),
         "You chose application registrations"

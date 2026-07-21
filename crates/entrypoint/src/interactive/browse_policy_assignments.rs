@@ -280,7 +280,7 @@ pub async fn browse_policy_assignments(tenant_id: AzureTenantId) -> eyre::Result
             }
         }
     }
-    let chosen = PickerTui::new().pick_many(choices)?;
+    let chosen = PickerTui::<_>::new().pick_many(choices).await?;
     info!("You chose:\n{}", chosen.into_iter().join("\n=====\n"));
     Ok(())
 }

@@ -62,12 +62,16 @@ impl AzureRoleAssignmentBrowseArgs {
                     role_assignment.principal_id,
                     role_assignment.id.expanded_form()
                 ),
-                value: (role_assignment, role_definition, principal),
+                value: (
+                    role_assignment,
+                    role_definition,
+                    principal,
+                ),
             });
         }
 
-        let chosen = PickerTui::new()
-            .pick_many(choices)?
+        let chosen = PickerTui::<_>::new()
+            .pick_many(choices).await?
             .into_iter()
             .map(
                 |(role_assignment, role_definition, principal)| RoleAssignmentBrowseOutput {

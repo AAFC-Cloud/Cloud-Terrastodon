@@ -7,7 +7,7 @@ use eyre::Result;
 pub async fn browse_azure_devops_projects() -> Result<()> {
     let org_url = get_default_organization_url().await?;
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
-    let chosen = PickerTui::new()
+    let chosen = PickerTui::<_>::new()
         .set_header("Azure DevOps Projects")
         .pick_many(projects.into_iter().map(|project| Choice {
             key: format!(
@@ -17,7 +17,7 @@ pub async fn browse_azure_devops_projects() -> Result<()> {
                 project.description.clone().unwrap_or_default()
             ),
             value: project,
-        }))?;
+        })).await?;
 
     println!("You chose:");
     println!("{:#?}", chosen);

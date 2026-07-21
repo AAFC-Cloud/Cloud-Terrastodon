@@ -18,7 +18,7 @@ pub async fn browse_policy_definitions(tenant_id: AzureTenantId) -> eyre::Result
             },
             value: def,
         });
-    let chosen: Vec<PolicyDefinition> = PickerTui::new().pick_many(policy_definitions)?;
+    let chosen: Vec<PolicyDefinition> = PickerTui::<_>::new().pick_many(policy_definitions).await?;
     let msg = format!(
         "You chose:\n{}",
         chosen

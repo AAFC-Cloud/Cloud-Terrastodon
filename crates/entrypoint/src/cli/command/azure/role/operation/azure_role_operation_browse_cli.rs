@@ -19,8 +19,8 @@ pub struct AzureRoleOperationBrowseArgs {
 impl AzureRoleOperationBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        let chosen = PickerTui::new()
-            .pick_many_reloadable(async |invalidate| {
+        let chosen = PickerTui::<_>::new()
+            .pick_many_reloadable(|invalidate| async move {
                 info!(%tenant_id, "Fetching Azure provider operations metadata");
                 let provider_operations = fetch_all_role_operation_metadata(tenant_id)
                     .with_invalidation(invalidate)

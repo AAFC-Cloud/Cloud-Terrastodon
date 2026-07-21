@@ -1,6 +1,7 @@
 use cloud_terrastodon_user_input::PickerTui;
 
-pub fn main() -> eyre::Result<()> {
+#[tokio::main]
+pub async fn main() -> eyre::Result<()> {
     let choices = vec![
         "First\nSecond\nThird",
         "A\nB\nC",
@@ -8,7 +9,7 @@ pub fn main() -> eyre::Result<()> {
         "single item",
         "another single item",
     ];
-    let chosen = PickerTui::new().pick_many(choices)?;
+    let chosen = PickerTui::<&str>::new().pick_many(choices).await?;
     println!("You chose: {chosen:#?}");
     Ok(())
 }

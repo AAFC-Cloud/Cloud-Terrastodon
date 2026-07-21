@@ -1471,7 +1471,9 @@ name = "cloud_terrastodon_user_input"
 version = "0.36.0"
 dependencies = [
  "compact_str",
+ "crossterm 0.29.0",
  "eyre",
+ "futures",
  "indexmap 2.14.0",
  "itertools 0.14.0",
  "nucleo",
@@ -1491,6 +1493,7 @@ dependencies = [
  "eyre",
  "itertools 0.14.0",
  "sysinfo",
+ "tokio",
  "tracing",
 ]
 

@@ -55,15 +55,20 @@ impl AzureEntraRoleAssignmentBrowseArgs {
                         role_assignment.principal_id,
                         role_assignment.id,
                     ),
-                    value: (role_assignment, role_definition, principals.get(&role_assignment.principal_id)),
+                    value: (
+                        role_assignment,
+                        role_definition,
+                        principals.get(&role_assignment.principal_id),
+                    ),
                 }
             })
             .collect::<Vec<_>>();
         choices.sort_unstable_by(|left, right| left.key.cmp(&right.key));
 
-        let chosen = PickerTui::new()
+        let chosen = PickerTui::<_>::new()
             .set_header("Entra role assignments")
-            .pick_many(choices)?
+            .pick_many(choices)
+            .await?
             .into_iter()
             .map(
                 |(role_assignment, role_definition, principal)| EntraRoleAssignmentBrowseOutput {

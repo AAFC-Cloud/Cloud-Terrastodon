@@ -16,9 +16,9 @@ use tracing::info;
 
 pub async fn copy_azurerm_backend_menu(tenant_id: AzureTenantId) -> Result<()> {
     info!("Picking storage account");
-    let chosen_storage_account = PickerTui::new()
+    let chosen_storage_account = PickerTui::<_>::new()
         .set_header("Picking the storage account for the state file")
-        .pick_one_reloadable(async |invalidate| {
+        .pick_one_reloadable(|invalidate| async move {
             info!("Fetching storage accounts");
             info!("Fetching subscriptions");
             let (storage_accounts, subscriptions) = join!(
@@ -50,32 +50,35 @@ pub async fn copy_azurerm_backend_menu(tenant_id: AzureTenantId) -> Result<()> {
         .await?;
 
     info!("Fetching blob containers for {}", chosen_storage_account.1);
-    let chosen_blob_container = PickerTui::new()
+    let chosen_blob_container = PickerTui::<_>::new()
         .set_header("Blob Container Name")
-        .pick_one_reloadable(async |_invalidate| {
-            let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-            cmd.args(["storage", "container", "list", "--account-name"]);
-            cmd.arg(&*chosen_storage_account.0.name);
-            cmd.arg("--subscription");
-            cmd.arg(
-                chosen_storage_account
-                    .0
-                    .id
-                    .resource_group_id
-                    .subscription_id
-                    .short_form(),
-            );
-            cmd.args(["--query", "[].name", "--output", "json"]);
-            let blob_container_names = cmd.run::<Vec<String>>().await?;
+        .pick_one_reloadable(|_invalidate| {
+            let chosen_storage_account = &chosen_storage_account;
+            async move {
+                let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+                cmd.args(["storage", "container", "list", "--account-name"]);
+                cmd.arg(&*chosen_storage_account.0.name);
+                cmd.arg("--subscription");
+                cmd.arg(
+                    chosen_storage_account
+                        .0
+                        .id
+                        .resource_group_id
+                        .subscription_id
+                        .short_form(),
+                );
+                cmd.args(["--query", "[].name", "--output", "json"]);
+                let blob_container_names = cmd.run::<Vec<String>>().await?;
 
-            if blob_container_names.is_empty() {
-                bail!("No blob containers found in {}", chosen_storage_account.1);
+                if blob_container_names.is_empty() {
+                    bail!("No blob containers found in {}", chosen_storage_account.1);
+                }
+
+                Ok(blob_container_names.into_iter().map(|name| Choice {
+                    key: name.clone(),
+                    value: name,
+                }))
             }
-
-            Ok(blob_container_names.into_iter().map(|name| Choice {
-                key: name.clone(),
-                value: name,
-            }))
         })
         .await?;
 

@@ -14,12 +14,12 @@ pub async fn dump_tags(tenant_id: AzureTenantId) -> eyre::Result<()> {
     if try_exists(&path).await.unwrap_or(false) {
         let yes = "yes";
         let no = "no";
-        if PickerTui::new()
+        if PickerTui::<_>::new()
             .set_header(format!(
                 "Output path {} already exists, overwrite?",
                 path.display()
             ))
-            .pick_one(vec![yes, no])?
+            .pick_one(vec![yes, no]).await?
             == no
         {
             warn!("Chose not to overwrite, no action taken!");

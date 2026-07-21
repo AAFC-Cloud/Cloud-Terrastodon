@@ -16,13 +16,13 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
     pub async fn invoke(self) -> Result<()> {
         let org_url = get_default_organization_url().await?;
 
-        let chosen_entitlements = PickerTui::new()
+        let chosen_entitlements = PickerTui::<_>::new()
             .set_header("Azure DevOps License Entitlements")
-            .pick_many_reloadable(async |invalidate| {
-                fetch_azure_devops_user_license_entitlements(&org_url)
-                    .with_invalidation(invalidate)
-                    .await
-                    .map(|ents| {
+            .pick_many_reloadable(|invalidate| {
+                let future = fetch_azure_devops_user_license_entitlements(&org_url)
+                    .with_invalidation(invalidate);
+                async move {
+                    future.await.map(|ents| {
                         ents.into_iter()
                             .map(|e| Choice {
                                 key: format!(
@@ -33,13 +33,15 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
                             })
                             .collect::<Vec<_>>()
                     })
+                }
             })
             .await?;
 
         // Choose a single license kind
-        let license = PickerTui::new()
+        let license = PickerTui::<_>::new()
             .set_header("Azure DevOps License Kind")
-            .pick_one(AzureDevOpsLicenseType::VARIANTS)?;
+            .pick_one(AzureDevOpsLicenseType::VARIANTS)
+            .await?;
 
         for entitlement in chosen_entitlements {
             let resp = update_azure_devops_user_license_entitlement(

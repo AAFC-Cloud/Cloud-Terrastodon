@@ -20,9 +20,9 @@ pub async fn open_dir() -> Result<()> {
             value: (dir, exists),
         });
     }
-    let dirs_to_open = PickerTui::new()
+    let dirs_to_open = PickerTui::<_>::new()
         .set_header("Choose directories to open")
-        .pick_many(choices)?;
+        .pick_many(choices).await?;
     for v in dirs_to_open {
         let (dir, exists) = v;
         if !exists {

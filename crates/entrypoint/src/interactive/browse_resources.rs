@@ -16,9 +16,9 @@ pub async fn browse_resources_menu(tenant_id: AzureTenantId) -> Result<()> {
             key: x.id.expanded_form().to_owned(),
             value: x,
         });
-    let chosen: Vec<Resource> = PickerTui::new()
+    let chosen: Vec<Resource> = PickerTui::<_>::new()
         .set_header("Resources")
-        .pick_many(choices)?;
+        .pick_many(choices).await?;
     info!("You chose:");
     for value in chosen {
         info!("{:#?}", value);

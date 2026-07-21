@@ -52,9 +52,10 @@ pub async fn build_resource_group_imports(tenant_id: AzureTenantId) -> Result<()
         };
         choices.push(choice.into());
     }
-    let chosen = PickerTui::new()
+    let chosen = PickerTui::<_>::new()
         .set_header("Groups to import")
-        .pick_many(choices)?;
+        .pick_many(choices)
+        .await?;
 
     info!("Building import blocks");
     let mut imports: Vec<HclImportBlock> = Vec::with_capacity(chosen.len());

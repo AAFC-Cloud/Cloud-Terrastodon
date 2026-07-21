@@ -101,9 +101,9 @@ impl Strategy {
     }
 }
 pub async fn dump_everything_inner(tenant_id: AzureTenantId) -> eyre::Result<()> {
-    let strategy = *PickerTui::new()
+    let strategy = *PickerTui::<_>::new()
         .set_header("Dump strategy")
-        .pick_one(Strategy::VARIANTS)?;
+        .pick_one(Strategy::VARIANTS).await?;
 
     #[derive(VariantArray, Debug)]
     enum Behaviour {
@@ -141,9 +141,9 @@ pub async fn dump_everything_inner(tenant_id: AzureTenantId) -> eyre::Result<()>
             }
         }
     }
-    let behaviour = PickerTui::new()
+    let behaviour = PickerTui::<_>::new()
         .set_header("What do you want to run?")
-        .pick_one(Behaviour::VARIANTS)?;
+        .pick_one(Behaviour::VARIANTS).await?;
 
     let should_clean = matches!(
         behaviour,
@@ -157,7 +157,8 @@ pub async fn dump_everything_inner(tenant_id: AzureTenantId) -> eyre::Result<()>
                 .map(|x| x.as_path_buf())
                 .filter(|x| x.exists()),
                 "Previous runs can leave dangling processes if aborted. Select the ones you want to kill".to_string()
-        )?;
+        )
+        .await?;
         for dir in [AppDir::Imports, AppDir::Processed] {
             if dir.exists_async().await? {
                 tokio::fs::remove_dir_all(dir.as_path_buf()).await?;

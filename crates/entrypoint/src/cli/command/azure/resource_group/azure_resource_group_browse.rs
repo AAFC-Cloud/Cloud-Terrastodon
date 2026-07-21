@@ -18,8 +18,8 @@ pub struct AzureResourceGroupBrowseArgs {
 impl AzureResourceGroupBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        let chosen = PickerTui::new()
-            .pick_many_reloadable(async |invalidate| {
+        let chosen = PickerTui::<_>::new()
+            .pick_many_reloadable(|invalidate| async move {
                 info!(%tenant_id, "Fetching all Azure resource groups");
 
                 fetch_all_resource_groups(tenant_id)

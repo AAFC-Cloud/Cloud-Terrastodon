@@ -9,7 +9,7 @@ use tracing::info;
 
 /// Kill any processes whose exe path is in the given dirs or a child of one.
 /// Fails if any of the given dirs do not exist.
-pub fn prompt_kill_processes_using_dirs(
+pub async fn prompt_kill_processes_using_dirs(
     dirs: impl IntoIterator<Item = impl AsRef<Path>>,
     header: String,
 ) -> eyre::Result<()> {
@@ -49,14 +49,17 @@ pub fn prompt_kill_processes_using_dirs(
             );
             to_kill.push(Choice {
                 key: key.clone(),
-                value: (key, pid, process),
+                value: (key, *pid, process),
             });
         }
     }
     if to_kill.is_empty() {
         return Ok(());
     }
-    let selected_to_kill = PickerTui::new().set_header(header).pick_many(to_kill)?;
+    let selected_to_kill = PickerTui::<(String, sysinfo::Pid, &sysinfo::Process)>::new()
+        .set_header(header)
+        .pick_many(to_kill)
+        .await?;
     for (key, pid, process) in selected_to_kill {
         debug!(
             "Killing ID: {pid}, Name: {name}, Path: {path:?}",
@@ -99,9 +102,9 @@ mod test {
             println!("ID: {}, Name: {}, Path: {:?}", pid, name, process.exe());
         }
     }
-    #[test]
+    #[tokio::test]
     #[ignore]
-    fn kill() {
+    async fn kill() {
         prompt_kill_processes_using_dirs(
             [
                 AppDir::Imports.as_path_buf(),
@@ -109,6 +112,7 @@ mod test {
             ],
             "Found the following processes, select the ones you want to kill".to_string(),
         )
+        .await
         .unwrap();
     }
 }

@@ -122,8 +122,9 @@ pub async fn pick_oauth2_permission_grants(tenant_id: AzureTenantId) -> eyre::Re
         key: g.to_string(),
         value: g,
     });
-    let chosen = PickerTui::new()
+    let chosen = PickerTui::<_>::new()
         .set_header("Pick the items to browse")
-        .pick_many(choices)?;
+        .pick_many(choices)
+        .await?;
     Ok(chosen)
 }

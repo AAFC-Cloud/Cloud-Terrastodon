@@ -9,10 +9,10 @@ use eyre::Result;
 pub async fn browse_storage_accounts(tenant_id: AzureTenantId) -> Result<()> {
     let storage_accounts = fetch_all_storage_accounts(tenant_id).await?;
     let chosen: Vec<StorageAccount> =
-        PickerTui::new().pick_many(storage_accounts.into_iter().map(|storage_account| Choice {
+        PickerTui::<_>::new().pick_many(storage_accounts.into_iter().map(|storage_account| Choice {
             key: storage_account.id.expanded_form(),
             value: storage_account,
-        }))?;
+        })).await?;
     println!(
         "You chose: {}",
         cloud_terrastodon_command::to_string_pretty(&chosen)?

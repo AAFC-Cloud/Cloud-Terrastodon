@@ -38,9 +38,10 @@ pub async fn remediate_policy_assignment(tenant_id: AzureTenantId) -> Result<()>
         });
 
     info!("Prompting for user choice");
-    let policy_assignment: PolicyAssignment = PickerTui::new()
+    let policy_assignment: PolicyAssignment = PickerTui::<_>::new()
         .set_header("Choose policy to remediate")
-        .pick_one(choices)?;
+        .pick_one(choices)
+        .await?;
 
     info!("Finding policy definition for chosen");
     match policy_assignment.properties.policy_definition_id {
@@ -66,9 +67,10 @@ pub async fn remediate_policy_assignment(tenant_id: AzureTenantId) -> Result<()>
                     value: x,
                 })
                 .collect_vec();
-            let chosen = PickerTui::new()
+            let chosen = PickerTui::<_>::new()
                 .set_header("Pick the inner definitions to remediate")
-                .pick_many(reference_ids)?;
+                .pick_many(reference_ids)
+                .await?;
 
             info!("Launching remediation tasks");
             for choice in chosen {

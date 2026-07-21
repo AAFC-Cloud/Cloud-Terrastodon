@@ -24,9 +24,9 @@ impl CacheCleanTuiArgs {
             .collect();
 
         // Let the user pick multiple cache entries to invalidate
-        let picked = PickerTui::new()
+        let picked = PickerTui::<_>::new()
             .set_header("Select cache entries to invalidate")
-            .pick_many(choices)?;
+            .pick_many(choices).await?;
 
         for key in picked {
             key.invalidate().await?;

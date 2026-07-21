@@ -18,7 +18,7 @@ pub async fn evaluate_policy_assignment_compliance(tenant_id: AzureTenantId) -> 
     info!("Fetching policy assignments");
     let policy_assignments = fetch_all_policy_assignments(tenant_id).await?;
 
-    let policy_assignment: PolicyAssignment = PickerTui::new()
+    let policy_assignment: PolicyAssignment = PickerTui::<_>::new()
         .set_header("Choose policy to evaluate")
         .pick_one(
             policy_assignments
@@ -35,7 +35,8 @@ pub async fn evaluate_policy_assignment_compliance(tenant_id: AzureTenantId) -> 
                     ),
                     value: ass,
                 }),
-        )?;
+        )
+        .await?;
 
     info!(
         "Querying policy compliance for {} ({})",
@@ -85,7 +86,7 @@ policyResources
     .collect_all::<ReferenceIdRow>()
     .await?;
 
-    let chosen_reference_id: ReferenceIdRow = PickerTui::new()
+    let chosen_reference_id: ReferenceIdRow = PickerTui::<_>::new()
         .set_header("Choose an inner policy to review")
         .pick_one(reference_ids.into_iter().map(|row| Choice {
             key: format!(
@@ -93,7 +94,8 @@ policyResources
                 row.policy_definition_reference_id, row.resource_type, row.found
             ),
             value: row,
-        }))?;
+        }))
+        .await?;
 
     info!(
         "Fetching resource compliance for {}",
@@ -152,7 +154,7 @@ policyResources
     .collect_all::<ResourceRow>()
     .await?;
 
-    let chosen_resource_id: ResourceRow = PickerTui::new()
+    let chosen_resource_id: ResourceRow = PickerTui::<_>::new()
         .set_header(format!(
             "{} - {}",
             chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
@@ -168,7 +170,8 @@ policyResources
                     .unwrap_or(row.resource_id.as_str())
             ),
             value: row,
-        }))?;
+        }))
+        .await?;
 
     info!(
         "You chose: {} - {}",

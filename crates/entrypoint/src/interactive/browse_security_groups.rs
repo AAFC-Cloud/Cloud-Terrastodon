@@ -43,11 +43,11 @@ struct SecurityGroupRoleAssignmentRow {
 }
 
 pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
-    let security_groups = PickerTui::new()
+    let security_groups = PickerTui::<_>::new()
         .set_header("security groups")
-        .pick_many(get_security_group_choices(tenant_id).await?)?;
+        .pick_many(get_security_group_choices(tenant_id).await?).await?;
 
-    let actions = PickerTui::new()
+    let actions = PickerTui::<_>::new()
         .set_header("Would you like any other details?")
         .pick_many(
             SecurityGroupAction::VARIANTS
@@ -57,7 +57,7 @@ pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
                     key: format!("{action:?}"),
                     value: action,
                 }),
-        )?;
+        ).await?;
 
     info!(
         "You chose:\n{}",
@@ -69,7 +69,8 @@ pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
         && !are_you_sure(format!(
             "You selected {} groups, fetching additional details will perform O(n) requests",
             security_groups.len()
-        ))?
+        ))
+        .await?
     {
         return Ok(());
     }

@@ -28,9 +28,9 @@ pub async fn resource_group_import_wizard_menu(tenant_id: AzureTenantId) -> Resu
     info!("Confirming remove existing imports");
     let start_from_scratch = "start from scratch";
     let keep_existing_imports = "keep existing imports";
-    match PickerTui::new()
+    match PickerTui::<_>::new()
         .set_header("This will wipe any existing imports from the Cloud Terrastodon work directory. Proceed?")
-        .pick_one(vec![start_from_scratch, keep_existing_imports])? {
+        .pick_one(vec![start_from_scratch, keep_existing_imports]).await? {
         x if x == start_from_scratch => {
             info!("Removing existing imports");
             let _ = remove_dir_all(AppDir::Imports.as_path_buf()).await;
@@ -70,9 +70,9 @@ pub async fn resource_group_import_wizard_menu(tenant_id: AzureTenantId) -> Resu
     // let users = users?;
 
     info!("Picking resource groups");
-    let chosen_resource_groups = PickerTui::new()
+    let chosen_resource_groups = PickerTui::<_>::new()
         .set_header("Pick which to import")
-        .pick_many(resource_group_choices?)?;
+        .pick_many(resource_group_choices?).await?;
     info!("You chose {} resource groups", chosen_resource_groups.len());
 
     let mut used_resource_groups = HashSet::new();

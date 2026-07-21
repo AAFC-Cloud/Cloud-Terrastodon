@@ -79,19 +79,21 @@ impl HclImportable {
         };
         Ok(rtn)
     }
-    pub fn pick() -> eyre::Result<HclImportable> {
-        Ok(PickerTui::new()
+    pub async fn pick() -> eyre::Result<HclImportable> {
+        Ok(PickerTui::<_>::new()
             .set_header("Pick the kind of thing to import")
             .pick_one(HclImportable::VARIANTS.iter().copied().map(|x| Choice {
                 key: x.to_string(),
                 value: x,
-            }))?)
+            }))
+            .await?)
     }
     pub async fn pick_into_body(self, tenant_id: AzureTenantId) -> eyre::Result<Body> {
         let import_blocks = self.try_into_import_blocks(tenant_id).await?;
-        let import_blocks = PickerTui::new()
+        let import_blocks = PickerTui::<_>::new()
             .set_header("Pick the resources to import")
-            .pick_many(import_blocks)?;
+            .pick_many(import_blocks)
+            .await?;
         let providers = import_blocks
             .iter()
             .filter_map(|(_, provider)| provider.clone())

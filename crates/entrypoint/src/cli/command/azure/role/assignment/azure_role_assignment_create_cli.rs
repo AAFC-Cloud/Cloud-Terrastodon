@@ -60,12 +60,12 @@ impl AzureRoleAssignmentCreateArgs {
         } else {
             info!("Fetching role definitions for interactive pick");
             let all = fetch_all_role_definitions(tenant_id).await?;
-            PickerTui::new()
+            PickerTui::<_>::new()
                 .set_header("Roles to assign")
                 .pick_many(all.into_iter().map(|r| Choice {
                     key: r.display_name.clone(),
                     value: r,
-                }))?
+                })).await?
         };
 
         // Resolve principals
@@ -83,12 +83,12 @@ impl AzureRoleAssignmentCreateArgs {
         } else {
             info!("Fetching principals for interactive pick");
             let fetched = fetch_all_principals(tenant_id).await?;
-            PickerTui::new()
+            PickerTui::<_>::new()
                 .set_header("Principals to assign")
                 .pick_many(fetched.values().map(|u| Choice {
                     key: format!("{} {:64} {}", u.id(), u.display_name(), u.name()),
                     value: u.clone(),
-                }))?
+                })).await?
         };
 
         // Resolve scopes
@@ -97,7 +97,7 @@ impl AzureRoleAssignmentCreateArgs {
         } else {
             info!("Fetching resources for interactive pick");
             let resources = fetch_all_resources(tenant_id).await?;
-            PickerTui::new()
+            PickerTui::<_>::new()
                 .set_header(format!(
                     "Assigning {} to {}",
                     role_defs.iter().map(|r| &r.display_name).join(", "),
@@ -106,7 +106,7 @@ impl AzureRoleAssignmentCreateArgs {
                 .pick_many(resources.into_iter().map(|resource| Choice {
                     key: resource.id.to_string(),
                     value: resource.id,
-                }))?
+                })).await?
         };
 
         // Create assignments for each combination

@@ -18,6 +18,7 @@
 - Change `EntraApplicationRegistration.app_id` to be `EntraApplicationClientId` instead of `Uuid`
 - Rename `EntraApplicationId` to `EntraApplicationObjectId`
 - Add `ct az ad app role list {client id}`
+- Change `PickerTui` to be async and support late injection of choices
 
 # v0.36.0
 

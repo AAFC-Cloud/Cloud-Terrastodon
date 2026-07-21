@@ -31,7 +31,7 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::ops::Deref;
-use std::rc::Rc;
+use std::sync::Arc;
 use strum::VariantArray;
 use tokio::try_join;
 use tracing::info;
@@ -151,12 +151,12 @@ impl<'a> std::fmt::Display for Clue<'a> {
 }
 #[derive(Debug, Clone)]
 struct ClueChain<'a> {
-    pub discovery_chain: Vec<Rc<Clue<'a>>>,
+    pub discovery_chain: Vec<Arc<Clue<'a>>>,
 }
 impl<'a> ClueChain<'a> {
     pub fn new(clue: Clue<'a>) -> Self {
         ClueChain {
-            discovery_chain: vec![Rc::new(clue)],
+            discovery_chain: vec![Arc::new(clue)],
         }
     }
     pub fn join(&self, clue: Clue<'a>) -> Self {
@@ -165,7 +165,7 @@ impl<'a> ClueChain<'a> {
                 .discovery_chain
                 .iter()
                 .cloned()
-                .chain(std::iter::once(Rc::new(clue)))
+                .chain(std::iter::once(Arc::new(clue)))
                 .collect(),
         }
     }
@@ -450,27 +450,34 @@ pub async fn find_resource_owners_menu(tenant_id: AzureTenantId) -> eyre::Result
         }
     }
 
-    let beginning = PickerTui::new()
+    let beginning = PickerTui::<_>::new()
         .set_header("Where should the investigation start?")
-        .pick_one(MyChoice::VARIANTS)?;
+        .pick_one(MyChoice::VARIANTS)
+        .await?;
     let chosen_resources: Vec<&Resource> = match beginning {
-        MyChoice::ResourceGroups => PickerTui::new()
-            .set_header("Pick the resources to find the owners for")
-            .pick_many(
-                resources
-                    .iter()
-                    .filter(|resource| resource.kind.is_resource_group())
-                    .map(|resource| Choice {
-                        key: resource.id.expanded_form().to_string(),
-                        value: resource,
-                    }),
-            )?,
-        MyChoice::AllResources => PickerTui::new()
-            .set_header("Pick the resources to find the owners for")
-            .pick_many(resources.iter().map(|resource| Choice {
-                key: resource.id.expanded_form().to_string(),
-                value: resource,
-            }))?,
+        MyChoice::ResourceGroups => {
+            PickerTui::<_>::new()
+                .set_header("Pick the resources to find the owners for")
+                .pick_many(
+                    resources
+                        .iter()
+                        .filter(|resource| resource.kind.is_resource_group())
+                        .map(|resource| Choice {
+                            key: resource.id.expanded_form().to_string(),
+                            value: resource,
+                        }),
+                )
+                .await?
+        }
+        MyChoice::AllResources => {
+            PickerTui::<_>::new()
+                .set_header("Pick the resources to find the owners for")
+                .pick_many(resources.iter().map(|resource| Choice {
+                    key: resource.id.expanded_form().to_string(),
+                    value: resource,
+                }))
+                .await?
+        }
     };
 
     info!("You chose:");
@@ -516,17 +523,19 @@ pub async fn find_resource_owners_menu(tenant_id: AzureTenantId) -> eyre::Result
     }
 
     loop {
-        let clue_source = PickerTui::new()
+        let clue_source = PickerTui::<_>::new()
             .set_header("What to search next?")
-            .pick_one(ClueAction::VARIANTS)?;
+            .pick_one(ClueAction::VARIANTS)
+            .await?;
         match clue_source {
             ClueAction::PeekClueDetails => {
-                let clues = PickerTui::new()
+                let clues = PickerTui::<_>::new()
                     .set_header("What clues do you want to see the details for?")
-                    .pick_many(traversal_context.clues.iter().cloned().map(|clue| Choice {
+                    .pick_many(traversal_context.clues.iter().map(|clue| Choice {
                         key: clue.to_string(),
                         value: clue,
-                    }))?;
+                    }))
+                    .await?;
                 info!("You chose:\n{clues:#?}");
                 press_enter_to_continue().await?;
             }

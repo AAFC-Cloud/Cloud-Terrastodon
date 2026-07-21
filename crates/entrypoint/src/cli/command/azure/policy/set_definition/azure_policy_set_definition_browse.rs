@@ -34,9 +34,9 @@ impl AzurePolicySetDefinitionBrowseArgs {
             value: definition,
         });
 
-        let chosen: Vec<PolicySetDefinition> = PickerTui::new()
+        let chosen: Vec<PolicySetDefinition> = PickerTui::<_>::new()
             .set_header("Select Azure policy set definitions")
-            .pick_many(choices)?;
+            .pick_many(choices).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

@@ -16,11 +16,10 @@ pub struct GiteaOrgBrowseArgs {
 impl GiteaOrgBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant = self.tenant.resolve().await?;
-        let chosen = PickerTui::new()
-            .pick_many_reloadable(async |invalidate| {
-                fetch_all_gitea_organizations(&tenant)
-                    .with_invalidation(invalidate)
-                    .await
+        let chosen = PickerTui::<_>::new()
+            .pick_many_reloadable(|invalidate| {
+                let future = fetch_all_gitea_organizations(&tenant).with_invalidation(invalidate);
+                async move { future.await }
             })
             .await?;
         let stdout = std::io::stdout();

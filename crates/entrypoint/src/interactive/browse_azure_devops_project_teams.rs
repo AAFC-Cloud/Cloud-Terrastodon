@@ -8,7 +8,7 @@ use eyre::Result;
 pub async fn browse_azure_devops_project_teams() -> Result<()> {
     let org_url = get_default_organization_url().await?;
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
-    let project = PickerTui::new()
+    let project = PickerTui::<_>::new()
         .set_header("Azure DevOps Projects")
         .pick_one(projects.into_iter().map(|project| Choice {
             key: format!(
@@ -18,15 +18,15 @@ pub async fn browse_azure_devops_project_teams() -> Result<()> {
                 project.description.clone().unwrap_or_default()
             ),
             value: project,
-        }))?;
+        })).await?;
 
     let teams = fetch_azure_devops_teams_for_project(&org_url, &project.id).await?;
-    let teams = PickerTui::new()
+    let teams = PickerTui::<_>::new()
         .set_header("Azure DevOps Teams")
         .pick_many(teams.into_iter().map(|team| Choice {
             key: format!("{} {:64} - {}", team.id, team.name, team.description),
             value: team,
-        }))?;
+        })).await?;
     println!("{teams:#?}");
     Ok(())
 }

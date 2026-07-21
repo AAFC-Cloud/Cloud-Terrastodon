@@ -14,9 +14,11 @@ categories.workspace = true
 
 [dependencies]
 eyre.workspace = true
+futures.workspace = true
 itertools.workspace = true
 indexmap.workspace = true
 tokio.workspace = true
+crossterm.workspace = true
 ratatui.workspace = true
 tui-textarea.workspace = true
 nucleo.workspace = true

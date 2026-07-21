@@ -29,7 +29,7 @@ pub async fn menu() -> Result<MenuActionResult> {
     choices.reverse();
 
     // Prompt user for action of choice
-    let chosen = PickerTui::new()
+    let chosen = PickerTui::<_>::new()
         .set_header(if !some_unavailable {
             "Actions"
         } else {
@@ -37,7 +37,7 @@ pub async fn menu() -> Result<MenuActionResult> {
         })
         .pick_many(choices);
 
-    let mut chosen = match chosen {
+    let mut chosen = match chosen.await {
         Ok(c) => c,
         Err(PickError::Cancelled) => {
             info!("Operation cancelled by user");
