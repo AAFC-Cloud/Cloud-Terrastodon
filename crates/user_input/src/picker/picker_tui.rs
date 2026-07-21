@@ -337,6 +337,7 @@ impl<'a, T> PickerTui<'a, T> {
         let mut event_stream = EventStream::new();
         let mut ticker = tokio::time::interval(Duration::from_millis(16));
         let mut return_reason = None;
+        let mut render_dirty = true;
 
         loop {
             let debounce = query_debouncer
@@ -345,7 +346,6 @@ impl<'a, T> PickerTui<'a, T> {
                 .unwrap_or_else(|| tokio::time::sleep(Duration::from_secs(86_400)));
             tokio::pin!(debounce);
             let mut marked_changed = false;
-
             tokio::select! {
                 // Prefer already-buffered terminal input over continuously-ready background
                 // work so navigation keys are handled with the lowest possible queueing delay.
@@ -354,18 +354,24 @@ impl<'a, T> PickerTui<'a, T> {
                 input = event_stream.next() => {
                     match input {
                         Some(Ok(Event::Key(key))) if key.kind == KeyEventKind::Press => {
-                            marked_changed = handle_key(
-                                key,
-                                many,
-                                &mut list_state,
-                                &search_results_keys,
-                                &mut picker_state.marked,
-                                &mut query_text_area,
-                                &mut query_changed,
-                                &mut query_debouncer,
-                                &mut return_reason,
-                            );
+                            let effects =
+                                extended_trace_span!("picker_handle_key").in_scope(|| {
+                                    handle_key(
+                                        key,
+                                        many,
+                                        &mut list_state,
+                                        &search_results_keys,
+                                        &mut picker_state.marked,
+                                        &mut query_text_area,
+                                        &mut query_changed,
+                                        &mut query_debouncer,
+                                        &mut return_reason,
+                                    )
+                                });
+                            marked_changed = effects.marked_changed;
+                            render_dirty |= effects.render_requested;
                         }
+                        Some(Ok(Event::Resize(_, _))) => render_dirty = true,
                         Some(Ok(_)) => {}
                         Some(Err(error)) => return Err(error.into()),
                         None => return_reason = Some(ReturnReason::Cancelled),
@@ -394,6 +400,7 @@ impl<'a, T> PickerTui<'a, T> {
                                 .await?;
                             terminal.clear()?;
                         }
+                        render_dirty |= changed;
                         query_changed |= changed;
                     }
                 }
@@ -401,6 +408,7 @@ impl<'a, T> PickerTui<'a, T> {
                     match joined {
                         Some(completion) => {
                             pending_handlers -= 1;
+                            render_dirty = true;
                             if completion.is_startup {
                                 startup_handlers -= 1;
                             }
@@ -413,6 +421,7 @@ impl<'a, T> PickerTui<'a, T> {
                 }
                 _ = &mut debounce, if query_debouncer.deadline().is_some() => {
                     if let Some(query) = query_debouncer.take_due(Instant::now()) {
+                        render_dirty = true;
                         spawn_handlers(
                             &self.handlers,
                             match query {
@@ -445,6 +454,7 @@ impl<'a, T> PickerTui<'a, T> {
                 previous_query = None;
                 query_changed = true;
                 return_reason = None;
+                render_dirty = true;
                 spawn_handlers(
                     &self.handlers,
                     PickerEvent::ReloadRequested,
@@ -479,6 +489,7 @@ impl<'a, T> PickerTui<'a, T> {
 
             let status = extended_trace_span!("picker_nucleo_tick").in_scope(|| nucleo.tick(10));
             if status.changed || marked_changed {
+                render_dirty = true;
                 extended_trace_span!("picker_rebuild_results").in_scope(|| {
                     rebuild_results(
                         &nucleo,
@@ -508,60 +519,67 @@ impl<'a, T> PickerTui<'a, T> {
                 return Ok(RunOutcome::NoChoices);
             }
 
-            let counts_title = if many {
-                format!(
-                    "{} items marked for return of {} items matching query of {} items total{}",
-                    picker_state.marked.len(),
-                    search_results_keys.len(),
-                    picker_state.candidates.len(),
-                    pending_title(pending_handlers),
-                )
-            } else {
-                format!(
-                    "{} items matching query of {} items total{}",
-                    search_results_keys.len(),
-                    picker_state.candidates.len(),
-                    pending_title(pending_handlers),
-                )
-            };
-            query_text_area.set_block(Block::bordered().title(counts_title));
+            if render_dirty {
+                let counts_title = if many {
+                    format!(
+                        "{} items marked for return of {} items matching query of {} items total{}",
+                        picker_state.marked.len(),
+                        search_results_keys.len(),
+                        picker_state.candidates.len(),
+                        pending_title(pending_handlers),
+                    )
+                } else {
+                    format!(
+                        "{} items matching query of {} items total{}",
+                        search_results_keys.len(),
+                        picker_state.candidates.len(),
+                        pending_title(pending_handlers),
+                    )
+                };
+                query_text_area.set_block(Block::bordered().title(counts_title));
 
-            extended_trace_span!("picker_render").in_scope(|| {
-                terminal.draw(|frame| {
-                    let area = frame.area();
-                    let buf = frame.buffer_mut();
-                    let [list_area, searchbox_area] =
-                        Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(area);
-                    if search_results_display.is_empty() {
-                        Paragraph::new("No results")
-                            .block(list_block(self.header.as_deref()))
-                            .render(list_area, buf);
-                    } else {
-                        let selected_index = list_state.selected();
-                        let list_items = search_results_display
-                            .iter()
-                            .enumerate()
-                            .map(|(index, text)| {
-                                let marked = many
-                                    && picker_state.marked.contains(&search_results_keys[index]);
-                                ListItem::new(text.clone())
-                                    .style(row_style(marked, selected_index == Some(index)))
-                            })
-                            .collect::<Vec<_>>();
-                        let list = List::new(list_items).block(list_block(self.header.as_deref()));
-                        StatefulWidget::render(&list, list_area, buf, &mut list_state);
-                    }
-                    if query_text_area.is_empty() {
-                        Paragraph::new("Type to search".gray())
-                            .block(Block::bordered())
-                            .render(searchbox_area, buf);
-                    } else {
-                        query_text_area.render(searchbox_area, buf);
-                    }
-                })
-            })?;
-            #[cfg(feature = "extended_observability")]
-            tracing::info!(message = "finished picker frame", tracy.frame_mark = true);
+                extended_trace_span!("picker_render").in_scope(|| {
+                    terminal.draw(|frame| {
+                        let area = frame.area();
+                        let buf = frame.buffer_mut();
+                        let [list_area, searchbox_area] =
+                            Layout::vertical([Constraint::Fill(1), Constraint::Length(3)])
+                                .areas(area);
+                        if search_results_display.is_empty() {
+                            Paragraph::new("No results")
+                                .block(list_block(self.header.as_deref()))
+                                .render(list_area, buf);
+                        } else {
+                            let selected_index = list_state.selected();
+                            let list_items = search_results_display
+                                .iter()
+                                .enumerate()
+                                .map(|(index, text)| {
+                                    let marked = many
+                                        && picker_state
+                                            .marked
+                                            .contains(&search_results_keys[index]);
+                                    ListItem::new(text.clone())
+                                        .style(row_style(marked, selected_index == Some(index)))
+                                })
+                                .collect::<Vec<_>>();
+                            let list =
+                                List::new(list_items).block(list_block(self.header.as_deref()));
+                            StatefulWidget::render(&list, list_area, buf, &mut list_state);
+                        }
+                        if query_text_area.is_empty() {
+                            Paragraph::new("Type to search".gray())
+                                .block(Block::bordered())
+                                .render(searchbox_area, buf);
+                        } else {
+                            query_text_area.render(searchbox_area, buf);
+                        }
+                    })
+                })?;
+                #[cfg(feature = "extended_observability")]
+                tracing::info!(message = "finished picker frame", tracy.frame_mark = true);
+                render_dirty = false;
+            }
         }
 
         drop(handler_tasks);
@@ -639,6 +657,12 @@ fn pending_title(pending: usize) -> String {
     }
 }
 
+#[derive(Debug, Default)]
+struct KeyEffects {
+    marked_changed: bool,
+    render_requested: bool,
+}
+
 fn handle_key(
     key: KeyEvent,
     many: bool,
@@ -649,8 +673,8 @@ fn handle_key(
     query_changed: &mut bool,
     query_debouncer: &mut QueryDebouncer,
     return_reason: &mut Option<ReturnReason>,
-) -> bool {
-    let mut marked_changed = false;
+) -> KeyEffects {
+    let mut effects = KeyEffects::default();
     match key.code {
         KeyCode::Esc => *return_reason = Some(ReturnReason::Cancelled),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -659,8 +683,16 @@ fn handle_key(
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             *return_reason = Some(ReturnReason::ReloadRequested)
         }
-        KeyCode::Up => list_state.select_previous(),
-        KeyCode::Down => list_state.select_next(),
+        KeyCode::Up => {
+            let previous = list_state.selected();
+            list_state.select_previous();
+            effects.render_requested = previous != list_state.selected();
+        }
+        KeyCode::Down => {
+            let previous = list_state.selected();
+            list_state.select_next();
+            effects.render_requested = previous != list_state.selected();
+        }
         KeyCode::Tab => {
             if many
                 && let Some(selected_item) = list_state
@@ -670,7 +702,8 @@ fn handle_key(
                 if !marked_for_return.insert(selected_item.clone()) {
                     marked_for_return.remove(selected_item);
                 }
-                marked_changed = true;
+                effects.marked_changed = true;
+                effects.render_requested = true;
                 list_state.select_next();
             }
         }
@@ -685,7 +718,8 @@ fn handle_key(
         }
         KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             marked_for_return.extend(search_results_keys.iter().cloned());
-            marked_changed = true;
+            effects.marked_changed = true;
+            effects.render_requested = true;
         }
         KeyCode::Char('t') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             *marked_for_return = search_results_keys
@@ -693,15 +727,18 @@ fn handle_key(
                 .filter(|key| !marked_for_return.contains(*key))
                 .cloned()
                 .collect();
-            marked_changed = true;
+            effects.marked_changed = true;
+            effects.render_requested = true;
         }
         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             marked_for_return.clear();
-            marked_changed = true;
+            effects.marked_changed = true;
+            effects.render_requested = true;
         }
         KeyCode::PageUp => {
             if let Some(selected) = list_state.selected() {
                 list_state.select(Some(selected.saturating_sub(10)));
+                effects.render_requested = Some(selected) != list_state.selected();
             }
         }
         KeyCode::PageDown => {
@@ -709,22 +746,35 @@ fn handle_key(
                 let next = selected.saturating_add(10);
                 if next < search_results_keys.len() {
                     list_state.select(Some(next));
+                    effects.render_requested = Some(selected) != list_state.selected();
                 }
             }
         }
-        KeyCode::Home => list_state.select(Some(0)),
-        KeyCode::End => list_state.select(Some(search_results_keys.len().saturating_sub(1))),
+        KeyCode::Home => {
+            let previous = list_state.selected();
+            list_state.select(Some(0));
+            effects.render_requested = previous != list_state.selected();
+        }
+        KeyCode::End => {
+            let previous = list_state.selected();
+            list_state.select(Some(search_results_keys.len().saturating_sub(1)));
+            effects.render_requested = previous != list_state.selected();
+        }
         KeyCode::BackTab if key.modifiers.contains(KeyModifiers::CONTROL) => {
             *query_changed = query_text_area.delete_word();
+            effects.render_requested = *query_changed;
         }
-        _ => *query_changed = query_text_area.input(key),
+        _ => {
+            *query_changed = query_text_area.input(key);
+            effects.render_requested = *query_changed;
+        }
     }
 
     if *query_changed {
         query_debouncer.schedule(query_text_area.lines().join("\n"), Instant::now());
     }
 
-    marked_changed
+    effects
 }
 
 fn row_style(marked: bool, cursor: bool) -> Style {
