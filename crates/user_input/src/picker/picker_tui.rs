@@ -41,6 +41,7 @@ use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
 use ratatui::style::Style;
 use ratatui::style::Stylize;
+use ratatui::text::Line;
 use ratatui::widgets::Block;
 use ratatui::widgets::ListState;
 use ratatui::widgets::Paragraph;
@@ -120,13 +121,23 @@ impl<'a, T> PickerTui<'a, T> {
         self
     }
 
-    pub fn add_event_handler<F, Fut>(mut self, handler: F) -> Self
+    pub fn add_event_handler<F, Fut>(self, handler: F) -> Self
     where
         F: Fn(Arc<PickerEvent>, CandidateSink<T>) -> Fut + Send + 'a,
         Fut: Future<Output = eyre::Result<()>> + Send + 'a,
     {
-        self.handlers
-            .push(Box::new(move |event, sink| Box::pin(handler(event, sink))));
+        self.add_named_event_handler("background work", handler)
+    }
+
+    pub fn add_named_event_handler<F, Fut>(mut self, label: impl Into<Arc<str>>, handler: F) -> Self
+    where
+        F: Fn(Arc<PickerEvent>, CandidateSink<T>) -> Fut + Send + 'a,
+        Fut: Future<Output = eyre::Result<()>> + Send + 'a,
+    {
+        self.handlers.push(EventHandler {
+            label: label.into(),
+            handler: Box::new(move |event, sink| Box::pin(handler(event, sink))),
+        });
         self
     }
 
@@ -202,7 +213,7 @@ impl<'a, T> PickerTui<'a, T> {
         let choices =
             info_span!("picker_prepare_initial_choices").in_scope(|| choices.into_choices());
         let choices = Arc::new(Mutex::new(Some(choices)));
-        self.add_event_handler(move |event, sink| {
+        self.add_named_event_handler("loading choices", move |event, sink| {
             let choices = choices.clone();
             async move {
                 if matches!(event.as_ref(), PickerEvent::InitialLoad) {
@@ -223,13 +234,13 @@ impl<'a, T> PickerTui<'a, T> {
         C: IntoChoices<T> + 'a,
     {
         let choice_supplier = Arc::new(Mutex::new(choice_supplier));
-        self.add_event_handler(move |event, sink| {
+        self.add_named_event_handler("loading choices", move |event, sink| {
             let choice_supplier = Arc::clone(&choice_supplier);
-            let invalidate = matches!(event.as_ref(), PickerEvent::ReloadRequested);
+            let invalidate = matches!(event.as_ref(), PickerEvent::ReloadRequested(_));
             async move {
                 if matches!(
                     event.as_ref(),
-                    PickerEvent::InitialLoad | PickerEvent::ReloadRequested
+                    PickerEvent::InitialLoad | PickerEvent::ReloadRequested(_)
                 ) {
                     let future = {
                         let choice_supplier = choice_supplier
@@ -297,6 +308,7 @@ impl<'a, T> PickerTui<'a, T> {
         let mut handler_tasks = FuturesUnordered::<HandlerTask<'a>>::new();
         let mut pending_handlers = 0usize;
         let mut startup_handlers = 0usize;
+        let mut pending_work = Vec::<Arc<str>>::new();
         let mut picker_state = PickerEventState::default();
 
         spawn_handlers(
@@ -308,6 +320,7 @@ impl<'a, T> PickerTui<'a, T> {
             &mut handler_tasks,
             &mut pending_handlers,
             &mut startup_handlers,
+            &mut pending_work,
         );
         if !self.default_query.is_empty() {
             spawn_handlers(
@@ -319,6 +332,7 @@ impl<'a, T> PickerTui<'a, T> {
                 &mut handler_tasks,
                 &mut pending_handlers,
                 &mut startup_handlers,
+                &mut pending_work,
             );
         }
 
@@ -403,6 +417,7 @@ impl<'a, T> PickerTui<'a, T> {
                     match joined {
                         Some(completion) => {
                             pending_handlers -= 1;
+                            remove_pending_work(&mut pending_work, &completion.label);
                             render_dirty = true;
                             if completion.is_startup {
                                 startup_handlers -= 1;
@@ -411,7 +426,10 @@ impl<'a, T> PickerTui<'a, T> {
                                 return Err(error);
                             }
                         }
-                        None => pending_handlers = 0,
+                        None => {
+                            pending_handlers = 0;
+                            pending_work.clear();
+                        }
                     }
                 }
                 _ = &mut debounce, if query_debouncer.deadline().is_some() => {
@@ -431,6 +449,7 @@ impl<'a, T> PickerTui<'a, T> {
                             &mut handler_tasks,
                             &mut pending_handlers,
                             &mut startup_handlers,
+                            &mut pending_work,
                         );
                     }
                 }
@@ -441,6 +460,7 @@ impl<'a, T> PickerTui<'a, T> {
                 handler_tasks = FuturesUnordered::new();
                 pending_handlers = 0;
                 startup_handlers = 0;
+                pending_work.clear();
                 picker_state.reload();
                 nucleo = new_nucleo();
                 search_results_keys.clear();
@@ -448,17 +468,21 @@ impl<'a, T> PickerTui<'a, T> {
                 list_state.select(None);
                 previous_query = None;
                 query_changed = true;
+                query_debouncer.clear();
                 return_reason = None;
                 render_dirty = true;
                 spawn_handlers(
                     &self.handlers,
-                    PickerEvent::ReloadRequested,
+                    PickerEvent::ReloadRequested(Arc::<str>::from(
+                        query_text_area.lines().join("\n"),
+                    )),
                     true,
                     picker_state.generation,
                     &candidate_sender,
                     &mut handler_tasks,
                     &mut pending_handlers,
                     &mut startup_handlers,
+                    &mut pending_work,
                 );
             } else if return_reason.is_some() {
                 break;
@@ -515,21 +539,24 @@ impl<'a, T> PickerTui<'a, T> {
             if render_dirty {
                 let counts_title = if many {
                     format!(
-                        "{} items marked for return of {} items matching query of {} items total{}",
+                        "{} items marked for return of {} items matching query of {} items total",
                         picker_state.marked.len(),
                         search_results_keys.len(),
                         picker_state.candidates.len(),
-                        pending_title(pending_handlers),
                     )
                 } else {
                     format!(
-                        "{} items matching query of {} items total{}",
+                        "{} items matching query of {} items total",
                         search_results_keys.len(),
                         picker_state.candidates.len(),
-                        pending_title(pending_handlers),
                     )
                 };
-                query_text_area.set_block(Block::bordered().title(counts_title));
+                let mut query_block = Block::bordered().title(counts_title);
+                if let Some(pending_title) = pending_title(&pending_work) {
+                    query_block =
+                        query_block.title_bottom(Line::from(pending_title).right_aligned());
+                }
+                query_text_area.set_block(query_block);
 
                 extended_trace_span!("picker_render").in_scope(|| {
                     terminal.draw(|frame| {
@@ -539,7 +566,12 @@ impl<'a, T> PickerTui<'a, T> {
                             Layout::vertical([Constraint::Fill(1), Constraint::Length(3)])
                                 .areas(area);
                         if search_results_keys.is_empty() {
-                            Paragraph::new("No results")
+                            let empty_message = if query_text_area.is_empty() {
+                                "No choices yet, try typing to search"
+                            } else {
+                                "No results"
+                            };
+                            Paragraph::new(empty_message)
                                 .block(list_block(self.header.as_deref()))
                                 .render(list_area, buf);
                         } else {
@@ -556,7 +588,12 @@ impl<'a, T> PickerTui<'a, T> {
                         }
                         if query_text_area.is_empty() {
                             Paragraph::new("Type to search".gray())
-                                .block(Block::bordered())
+                                .block(
+                                    query_text_area
+                                        .block()
+                                        .cloned()
+                                        .unwrap_or_else(Block::bordered),
+                                )
                                 .render(searchbox_area, buf);
                         } else {
                             query_text_area.render(searchbox_area, buf);
@@ -592,27 +629,34 @@ fn spawn_handlers<'a, T>(
     tasks: &mut FuturesUnordered<HandlerTask<'a>>,
     pending_handlers: &mut usize,
     startup_handlers: &mut usize,
+    pending_work: &mut Vec<Arc<str>>,
 ) {
     let event_kind = match &event {
         PickerEvent::InitialLoad => "initial_load",
         PickerEvent::QueryChanged(_) => "query_changed",
         PickerEvent::QueryCleared => "query_cleared",
-        PickerEvent::ReloadRequested => "reload_requested",
+        PickerEvent::ReloadRequested(_) => "reload_requested",
     };
     let handler_span = trace_span!("picker_handler", event = event_kind, startup = is_startup,);
     let event = Arc::new(event);
     for handler in handlers {
-        let future = handler(
+        let future = (handler.handler)(
             event.clone(),
             CandidateSink {
                 sender: sender.clone(),
                 generation,
             },
         );
+        let label = handler.label.clone();
+        pending_work.push(label.clone());
         let handler_span = handler_span.clone();
         tasks.push(Box::pin(async move {
             let result = future.instrument(handler_span).await;
-            HandlerCompletion { is_startup, result }
+            HandlerCompletion {
+                label,
+                is_startup,
+                result,
+            }
         }));
         *pending_handlers += 1;
         if is_startup {
@@ -633,14 +677,24 @@ fn list_block(header: Option<&str>) -> Block<'static> {
     block
 }
 
-fn pending_title(pending: usize) -> String {
-    if pending == 0 {
-        String::new()
-    } else {
-        format!(
-            " (loading {pending} background task{})",
-            if pending == 1 { "" } else { "s" }
-        )
+fn pending_title(pending_work: &[Arc<str>]) -> Option<String> {
+    if pending_work.is_empty() {
+        return None;
+    }
+
+    let mut title = String::from("loading: ");
+    for (index, label) in pending_work.iter().enumerate() {
+        if index > 0 {
+            title.push_str(", ");
+        }
+        title.push_str(label);
+    }
+    Some(title)
+}
+
+fn remove_pending_work(pending_work: &mut Vec<Arc<str>>, label: &Arc<str>) {
+    if let Some(index) = pending_work.iter().position(|pending| pending == label) {
+        pending_work.remove(index);
     }
 }
 

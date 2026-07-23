@@ -112,7 +112,7 @@ impl PickFsArgs {
         let rtn = PickerTui::<_>::new()
             .set_auto_accept(common.auto_accept)
             .set_query(common.default_query.unwrap_or_default())
-            .add_event_handler(move |event, sink| {
+            .add_named_event_handler("walking filesystem", move |event, sink| {
                 let cwd = cwd.clone();
                 let query = query.clone();
                 let query_engine = query_engine.clone();

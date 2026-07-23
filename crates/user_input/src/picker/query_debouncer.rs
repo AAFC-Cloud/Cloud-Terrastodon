@@ -20,6 +20,11 @@ impl QueryDebouncer {
         self.deadline = Some(now + QUERY_DEBOUNCE);
     }
 
+    pub(super) fn clear(&mut self) {
+        self.pending = None;
+        self.deadline = None;
+    }
+
     pub(super) fn take_due(&mut self, now: Instant) -> Option<QueryEvent> {
         if !self.deadline.is_some_and(|deadline| now >= deadline) {
             return None;

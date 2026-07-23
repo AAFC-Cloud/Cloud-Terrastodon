@@ -5,5 +5,5 @@ pub enum PickerEvent {
     InitialLoad,
     QueryChanged(Arc<str>),
     QueryCleared,
-    ReloadRequested,
+    ReloadRequested(Arc<str>),
 }
