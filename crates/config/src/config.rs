@@ -54,9 +54,7 @@ pub trait Config:
             let default_json = facet_value::to_value(&Self::default())?;
             // Merge the user config (if present) into the default config.
             let merged_json = merge_json(default_json, user_json);
-            // Decode the merged JSON-shaped value.
-            facet_value::from_value(merged_json)
-                .map_err(|e| eyre!("Failed to deserialize merged config: {}", e))?
+            deserialize_merged_config(merged_json)?
         } else {
             Self::default()
         };
@@ -84,6 +82,19 @@ pub trait Config:
         self.save().await?;
         Ok(())
     }
+}
+
+fn deserialize_merged_config<T>(merged_json: Value) -> Result<T>
+where
+    T: facet::Facet<'static>,
+{
+    // Decode through JSON rather than directly from the dynamic value.
+    // Dynamic object keys are represented as strings, while JSON
+    // deserialization knows how to parse newtype map keys such as
+    // AzureTenantId.
+    let merged_json = facet_json::to_string(&merged_json)?;
+    facet_json::from_str(&merged_json)
+        .map_err(|e| eyre!("Failed to deserialize merged config: {}", e))
 }
 
 /// A recursive merge function that takes the `default` value and overrides

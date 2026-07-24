@@ -3,6 +3,7 @@ use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationRegistration;
+use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
@@ -31,9 +32,11 @@ pub fn search_application_registrations(
 impl ApplicationRegistrationSearchRequest {
     fn url(&self) -> String {
         let search_term = escape_odata_string(self.search_term.trim());
-        let filter = format!(
-            "appId eq '{search_term}' or id eq '{search_term}' or startswith(displayName,'{search_term}') or startswith(uniqueName,'{search_term}') or identifierUris/any(x:startswith(x,'{search_term}'))"
-        );
+        let filter = if Uuid::parse_str(self.search_term.trim()).is_ok() {
+            format!("appId eq '{search_term}' or id eq '{search_term}'")
+        } else {
+            format!("startswith(displayName,'{search_term}')")
+        };
 
         format!(
             "https://graph.microsoft.com/v1.0/applications?$filter={}",
@@ -115,8 +118,46 @@ mod tests {
         let request = search_application_registrations(AzureTenantId::new(Uuid::nil()), "pim");
         let url = request.url();
 
-        assert!(url.contains("appId%20eq%20%27pim%27"));
         assert!(url.contains("startswith%28displayName%2C%27pim%27%29"));
-        assert!(url.contains("identifierUris%2Fany%28x%3Astartswith%28x%2C%27pim%27%29%29"));
+        assert!(!url.contains("appId"));
+        assert!(!url.contains("id%20eq"));
+    }
+
+    #[test]
+    fn url_filters_application_ids_only_for_uuid_search_terms() {
+        let request = search_application_registrations(
+            AzureTenantId::new(Uuid::nil()),
+            "00000003-0000-0000-c000-000000000000",
+        );
+        let url = request.url();
+
+        assert!(url.contains("appId%20eq%20%2700000003-0000-0000-c000-000000000000%27"));
+        assert!(url.contains("id%20eq%20%2700000003-0000-0000-c000-000000000000%27"));
+        assert!(!url.contains("startswith%28displayName"));
+    }
+
+    #[tokio::test]
+    #[ignore = "live Microsoft Graph smoke test; requires Azure CLI authentication"]
+    async fn application_search_filters_are_accepted_by_graph() -> Result<()> {
+        use crate::get_default_tenant_id;
+
+        const MICROSOFT_GRAPH_APP_ID: &str = "00000003-0000-0000-c000-000000000000";
+
+        let tenant_id = get_default_tenant_id().await?;
+        for search_term in ["Microsoft Graph", MICROSOFT_GRAPH_APP_ID] {
+            let request = search_application_registrations(tenant_id, search_term);
+
+            // The Microsoft Graph service principal is present in customer
+            // tenants, but its application object is owned by Microsoft and
+            // is not necessarily returned by /applications in the customer
+            // tenant. This smoke test therefore verifies that both generated
+            // requests are accepted by Graph rather than requiring a result.
+            let _: Vec<EntraApplicationRegistration> =
+                MicrosoftGraphHelper::new(tenant_id, request.url(), None)
+                    .fetch_all()
+                    .await?;
+        }
+
+        Ok(())
     }
 }
