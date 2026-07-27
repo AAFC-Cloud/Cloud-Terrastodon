@@ -7,7 +7,18 @@ use crate::git_revision::GitRevision;
 use crate::git_revision::set_git_revision;
 use crate::version::full_version;
 use crate::version::set_version;
-use cloud_terrastodon_tracing::init_tracing;
+use cloud_terrastodon_tracing::StructuredLogLevel;
+use cloud_terrastodon_tracing::TerminalLogBuffer;
+use cloud_terrastodon_tracing::init_tracing_with_terminal;
+use cloud_terrastodon_user_input::PickerLogBuffer;
+use cloud_terrastodon_user_input::PickerLogBufferHandle;
+use cloud_terrastodon_user_input::PickerLogLevel;
+use cloud_terrastodon_user_input::PickerLogRecord;
+use cloud_terrastodon_user_input::PickerLogSpan;
+use cloud_terrastodon_user_input::TerminalActivity;
+use cloud_terrastodon_user_input::TerminalCoordinator;
+use cloud_terrastodon_user_input::TerminalCoordinatorFutureExt;
+use cloud_terrastodon_user_input::TerminalLogBufferFutureExt;
 use eyre::Result;
 use figue::Driver;
 use std::str::FromStr;
@@ -57,11 +68,18 @@ pub fn entrypoint(
         .map(LevelFilter::from_str)
         .transpose()?;
 
-    init_tracing(
+    let terminal_activity = TerminalActivity::new();
+    let terminal_log_buffer = TerminalLogBuffer::new();
+    init_tracing_with_terminal(
         log_filter,
         log_file_filter,
         cli.global_args.log_file.as_ref(),
         matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_))),
+        Some(terminal_log_buffer.clone()),
+        Some(std::sync::Arc::new({
+            let terminal_activity = terminal_activity.clone();
+            move || terminal_activity.is_active()
+        })),
     )?;
 
     // Configure terminal colour support
@@ -86,16 +104,94 @@ pub fn entrypoint(
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    runtime.block_on(
+    // `TerminalCoordinator::try_new_with_activity` starts its actor with
+    // `tokio::spawn`, so the runtime must be entered while the coordinator is
+    // initialized. The runtime's `block_on` call below enters it later, but that
+    // is too late for this synchronous setup boundary.
+    let terminal_coordinator = {
+        let _runtime_guard = runtime.enter();
+        TerminalCoordinator::try_new_with_activity(terminal_activity)?
+    };
+    #[cfg(feature = "terminal_coordinator_debug")]
+    let _debug_application_root = terminal_coordinator.debug_register_as_application_root()?;
+    let picker_log_buffer: PickerLogBufferHandle =
+        std::sync::Arc::new(TracingPickerLogBuffer::new(terminal_log_buffer.clone()));
+    // Keep the complete CLI dispatch future off the synchronous main-thread stack.  Individual
+    // requests may own substantial nested futures (the picker is one example), and the CLI
+    // future contains the whole command dispatch tree around them.
+    let invocation = Box::pin(
         cli.invoke(&cancellation_token)
-            .instrument(info_span!("cli_invocation")),
-    )?;
+            .instrument(info_span!("cli_invocation"))
+            .with_terminal_coordinator(terminal_coordinator.clone()),
+    );
+    let invocation_result =
+        runtime.block_on(invocation.with_terminal_log_buffer(picker_log_buffer));
+    if let Some(payload) = terminal_coordinator.take_actor_panic() {
+        // Preserve coordinator actor panics as process-level failures. This uses
+        // the same reporting path as invocation JoinError panics in the Ratatui
+        // UI rather than hiding an infrastructure invariant violation in a
+        // value-level error.
+        std::panic::resume_unwind(payload);
+    }
+    terminal_log_buffer.replay_to_stderr();
+    invocation_result?;
     Ok(())
+}
+
+struct TracingPickerLogBuffer {
+    buffer: TerminalLogBuffer,
+}
+
+impl TracingPickerLogBuffer {
+    fn new(buffer: TerminalLogBuffer) -> Self {
+        Self { buffer }
+    }
+}
+
+impl PickerLogBuffer for TracingPickerLogBuffer {
+    fn records_since(&self, cursor: &mut usize) -> Vec<PickerLogRecord> {
+        self.buffer
+            .records_since(cursor)
+            .into_iter()
+            .map(|record| PickerLogRecord {
+                level: match record.level {
+                    StructuredLogLevel::Debug | StructuredLogLevel::Trace => PickerLogLevel::Debug,
+                    StructuredLogLevel::Info => PickerLogLevel::Info,
+                    StructuredLogLevel::Warn => PickerLogLevel::Warn,
+                    StructuredLogLevel::Error => PickerLogLevel::Error,
+                },
+                message: record.message,
+                target: record.target,
+                timestamp: record.timestamp,
+                fields: record
+                    .fields
+                    .into_iter()
+                    .map(|(name, value)| (name.into(), value.into()))
+                    .collect(),
+                spans: record
+                    .spans
+                    .into_iter()
+                    .map(|span| PickerLogSpan {
+                        name: span.name,
+                        fields: span
+                            .fields
+                            .into_iter()
+                            .map(|(name, value)| (name.into(), value.into()))
+                            .collect(),
+                    })
+                    .collect(),
+                file: record.file,
+                line: record.line,
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_azure::EntraUser;
+    use cloud_terrastodon_azure::EntraUserPickRequest;
     use cloud_terrastodon_registry::ArbitraryBytes;
     use cloud_terrastodon_registry::Function;
     use cloud_terrastodon_registry::FunctionKind;
@@ -151,6 +247,25 @@ mod tests {
             "duplicate function registrations found:\n{}",
             duplicates.join("\n")
         );
+    }
+
+    #[test]
+    fn entra_user_pick_request_is_registered_with_typed_many_output() {
+        let registrations = known_functions()
+            .into_iter()
+            .filter(|function| {
+                function.input_shape.is_shape(EntraUserPickRequest::SHAPE)
+                    && function.output_shape.is_shape(Vec::<EntraUser>::SHAPE)
+                    && function.is_async()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            registrations.len(),
+            1,
+            "expected one Entra user picker registration"
+        );
+        assert_eq!(registrations[0].label, "invoke");
     }
 
     #[test]

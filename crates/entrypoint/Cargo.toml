@@ -86,6 +86,8 @@ default = []
 extended_observability = [
     "cloud_terrastodon_user_input/extended_observability",
     "cloud_terrastodon_tracing/extended_observability",
+    "cloud_terrastodon_ui_ratatui/extended_observability",
 ]
+terminal_coordinator_debug = ["cloud_terrastodon_user_input/terminal_coordinator_debug"]
 tracy = ["cloud_terrastodon_tracing/tracy", "extended_observability"]
 

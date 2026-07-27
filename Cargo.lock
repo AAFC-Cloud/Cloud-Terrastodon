@@ -1409,6 +1409,7 @@ version = "0.36.0"
 dependencies = [
  "chrono",
  "eyre",
+ "tokio",
  "tracing",
  "tracing-subscriber",
  "tracing-tracy",
@@ -1450,6 +1451,7 @@ dependencies = [
  "cloud_terrastodon_azure",
  "cloud_terrastodon_command",
  "cloud_terrastodon_registry",
+ "cloud_terrastodon_user_input",
  "color-eyre",
  "crossterm 0.29.0",
  "eyre",

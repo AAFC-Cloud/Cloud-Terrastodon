@@ -7,6 +7,7 @@ use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::FunctionInvocation;
 use cloud_terrastodon_registry::FunctionKind;
+use cloud_terrastodon_registry::InvocationFuture;
 use cloud_terrastodon_registry::KnownShapeInfo;
 use cloud_terrastodon_registry::ProductionKind;
 use cloud_terrastodon_registry::ReceiverMode;
@@ -21,6 +22,13 @@ use cloud_terrastodon_registry::known_functions;
 use cloud_terrastodon_registry::known_shapes;
 use cloud_terrastodon_registry::shape_fields_for_thing;
 use cloud_terrastodon_registry::shape_variants_for_thing;
+use cloud_terrastodon_user_input::TerminalBackend;
+use cloud_terrastodon_user_input::TerminalCoordinator;
+use cloud_terrastodon_user_input::TerminalCoordinatorFutureExt;
+use cloud_terrastodon_user_input::TerminalGuard;
+use cloud_terrastodon_user_input::TerminalLogBufferFutureExt;
+use cloud_terrastodon_user_input::apply_terminal_control;
+use cloud_terrastodon_user_input::try_current_picker_log_buffer;
 use crossterm::event::EventStream;
 use eyre::Result;
 use facet::ScalarType;
@@ -80,11 +88,100 @@ use tui_textarea::CursorMove;
 use tui_textarea::TextArea;
 
 pub async fn ui_main() -> Result<()> {
-    info!("Starting object browser");
-    let terminal = ratatui::init();
-    let app_result = ObjectBrowserApp::new().run(terminal).await;
-    ratatui::restore();
-    app_result
+    let coordinator = TerminalCoordinator::try_current().unwrap_or_else(TerminalCoordinator::new);
+    let coordinator_for_future = coordinator.clone();
+    coordinator
+        .scope(async move {
+            info!("Starting object browser");
+            let mut guard = coordinator_for_future.acquire().await?;
+            let mut terminal = None;
+            if let Err(error) = (RatatuiTerminalBackend {
+                terminal: &mut terminal,
+                coordinator: &coordinator_for_future,
+            })
+            .resume()
+            {
+                let release_result = guard.release().await;
+                return match release_result {
+                    Ok(()) => Err(error),
+                    Err(release_error) => Err(eyre::eyre!(
+                        "Ratatui terminal setup failed: {error}; guard release also failed: {release_error}"
+                    )),
+                };
+            }
+            let app_result = ObjectBrowserApp::new()
+                .run(&mut terminal, &mut guard, &coordinator_for_future)
+                .await;
+            let restore_result = if terminal.take().is_some() {
+                restore_terminal(&coordinator_for_future)
+            } else {
+                Ok(())
+            };
+            let release_result = guard.release().await;
+            match (app_result, restore_result, release_result) {
+                (Ok(()), Ok(()), Ok(())) => Ok(()),
+                (Err(error), _, _) => Err(error),
+                (Ok(()), Err(error), _) => Err(error),
+                (Ok(()), Ok(()), Err(error)) => Err(error),
+            }
+        })
+        .await
+}
+
+fn init_terminal(coordinator: &TerminalCoordinator) -> Result<DefaultTerminal> {
+    ratatui::try_init().map_err(|error| {
+        coordinator.poison(format!("Ratatui terminal setup failed: {error}"));
+        let cleanup = ratatui::try_restore();
+        match cleanup {
+            Ok(()) => eyre::eyre!("Ratatui terminal setup failed: {error}"),
+            Err(cleanup_error) => eyre::eyre!(
+                "Ratatui terminal setup failed: {error}; cleanup also failed: {cleanup_error}"
+            ),
+        }
+    })
+}
+
+fn restore_terminal(coordinator: &TerminalCoordinator) -> Result<()> {
+    ratatui::try_restore().map_err(|error| {
+        coordinator.poison(format!("Ratatui terminal restoration failed: {error}"));
+        error.into()
+    })
+}
+
+struct RatatuiTerminalBackend<'a> {
+    terminal: &'a mut Option<DefaultTerminal>,
+    coordinator: &'a TerminalCoordinator,
+}
+
+impl TerminalBackend for RatatuiTerminalBackend<'_> {
+    fn is_active(&self) -> bool {
+        self.terminal.is_some()
+    }
+
+    fn suspend(&mut self) -> Result<()> {
+        if self.terminal.take().is_some() {
+            restore_terminal(self.coordinator)?;
+        }
+        Ok(())
+    }
+
+    fn resume(&mut self) -> Result<()> {
+        if self.terminal.is_none() {
+            *self.terminal = Some(init_terminal(self.coordinator)?);
+        }
+        Ok(())
+    }
+}
+
+fn attach_terminal_coordinator(future: InvocationFuture) -> InvocationFuture {
+    let future = match TerminalCoordinator::try_current() {
+        Some(coordinator) => Box::pin(future.with_terminal_coordinator(coordinator)),
+        None => future,
+    };
+    match try_current_picker_log_buffer() {
+        Some(log_buffer) => Box::pin(future.with_terminal_log_buffer(log_buffer)),
+        None => future,
+    }
 }
 
 #[derive(Clone, Debug, facet::Facet)]
@@ -244,15 +341,40 @@ impl ObjectBrowserApp {
         app
     }
 
-    pub async fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
+    pub async fn run(
+        mut self,
+        terminal: &mut Option<DefaultTerminal>,
+        guard: &mut TerminalGuard,
+        coordinator: &TerminalCoordinator,
+    ) -> Result<()> {
         let period = Duration::from_secs_f32(1.0 / Self::FRAMES_PER_SECOND);
         let mut interval = tokio::time::interval(period);
         let mut events = EventStream::new();
 
         while !self.should_quit {
             tokio::select! {
-                _ = interval.tick() => { self.advance_pending_invocations(); terminal.draw(|frame| self.draw(frame))?; },
-                Some(Ok(event)) = events.next() => self.handle_event(&event),
+                control = guard.next_control() => {
+                    let Some(control) = control else {
+                        return Err(eyre::eyre!("terminal coordinator owner channel closed"));
+                    };
+                    let mut backend = RatatuiTerminalBackend {
+                        terminal,
+                        coordinator,
+                    };
+                    apply_terminal_control(control, guard, &mut backend)?;
+                }
+                _ = interval.tick() => {
+                    self.advance_pending_invocations();
+                    if let Some(terminal) = terminal.as_mut() {
+                        terminal.draw(|frame| self.draw(frame)).map_err(|error| {
+                            coordinator.poison(format!("Ratatui frame draw failed: {error}"));
+                            error
+                        })?;
+                        #[cfg(feature = "extended_observability")]
+                        info!(message = "finished Ratatui frame", tracy.frame_mark = true);
+                    }
+                },
+                Some(Ok(event)) = events.next(), if terminal.is_some() => self.handle_event(&event),
             }
         }
 
@@ -3364,7 +3486,7 @@ impl ObjectBrowserApp {
                 let result_slot_id = self.allocate_slot_id();
                 let output_shape_name = describe_shape(function.output_shape);
                 let pending = PendingInvocationState {
-                    join_handle: tokio::spawn(future),
+                    join_handle: tokio::spawn(attach_terminal_coordinator(future)),
                     output_to_runtime: function.output_to_runtime,
                 };
                 let mut result_slot =
@@ -13686,5 +13808,21 @@ mod tests {
             super::peek_list_items(business_value).map(|items| items.len()),
             Some(0)
         );
+    }
+
+    #[tokio::test]
+    async fn spawned_invocation_restores_terminal_coordinator_scope() -> eyre::Result<()> {
+        let coordinator = super::TerminalCoordinator::try_new()?;
+
+        coordinator
+            .scope(async {
+                let future: super::InvocationFuture = Box::pin(async {
+                    assert!(super::TerminalCoordinator::try_current().is_some());
+                    Ok(Box::new(()) as Box<dyn std::any::Any + Send>)
+                });
+                tokio::spawn(super::attach_terminal_coordinator(future)).await??;
+                Ok(())
+            })
+            .await
     }
 }

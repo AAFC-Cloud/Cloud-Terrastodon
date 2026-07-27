@@ -8,7 +8,10 @@ use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use facet::Facet;
 use std::path::PathBuf;
+use std::time::Duration;
 use tracing::debug;
+
+const USER_LIST_CACHE_DURATION: Duration = Duration::MAX;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Arbitrary, Facet)]
@@ -25,13 +28,16 @@ impl CacheableCommand for EntraUserListRequest {
     type Output = Vec<EntraUser>;
 
     fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
-            "ms",
-            "graph",
-            "GET",
-            "users",
-            self.tenant_id.to_string().as_str(),
-        ]))
+        CacheKey {
+            path: PathBuf::from_iter([
+                "ms",
+                "graph",
+                "GET",
+                "users",
+                self.tenant_id.to_string().as_str(),
+            ]),
+            valid_for: USER_LIST_CACHE_DURATION,
+        }
     }
 
     async fn run(self) -> Result<Self::Output> {

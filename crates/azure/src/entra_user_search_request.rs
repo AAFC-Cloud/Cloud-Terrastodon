@@ -9,9 +9,11 @@ use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use facet::Facet;
 use std::path::PathBuf;
+use std::time::Duration;
 use tracing::debug;
 
 const USER_SELECT: &str = "businessPhones,displayName,givenName,id,jobTitle,mail,otherMails,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName";
+const USER_SEARCH_CACHE_DURATION: Duration = Duration::from_secs(60);
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Arbitrary, Facet)]
@@ -52,15 +54,18 @@ impl CacheableCommand for EntraUserSearchRequest {
         let search_hash = blake3::hash(self.search_term.trim().as_bytes())
             .to_hex()
             .to_string();
-        CacheKey::new(PathBuf::from_iter([
-            "ms",
-            "graph",
-            "GET",
-            "users",
-            "search",
-            self.tenant_id.to_string().as_str(),
-            search_hash.as_str(),
-        ]))
+        CacheKey {
+            path: PathBuf::from_iter([
+                "ms",
+                "graph",
+                "GET",
+                "users",
+                "search",
+                self.tenant_id.to_string().as_str(),
+                search_hash.as_str(),
+            ]),
+            valid_for: USER_SEARCH_CACHE_DURATION,
+        }
     }
 
     async fn run(self) -> Result<Self::Output> {
@@ -107,6 +112,16 @@ mod tests {
         );
 
         assert!(request.url().contains("O%27%27Neil%20%26%20Smith"));
+    }
+
+    #[test]
+    fn paginated_search_cache_expires() {
+        let request = search_entra_users(
+            AzureTenantId::new(cloud_terrastodon_azure_types::uuid::Uuid::nil()),
+            "Smith",
+        );
+
+        assert_eq!(request.cache_key().valid_for, Duration::from_secs(60));
     }
 
     #[tokio::test]

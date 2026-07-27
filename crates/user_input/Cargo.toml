@@ -26,6 +26,10 @@ compact_str.workspace = true
 rustc-hash.workspace = true
 tracing.workspace = true
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+
 [features]
 default = []
 extended_observability = []
+terminal_coordinator_debug = []

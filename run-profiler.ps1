@@ -12,11 +12,12 @@ if (-not $profiler) {
     throw "teamy-profiler not found in PATH"
 }
 
-$profiler.Source run cargo `
+teamy-profiler run cargo `
     --project $PSScriptRoot `
     --bin cloud_terrastodon `
     --profile release `
     --feature tracy-alloc `
+    --tee `
     -- @QueryArgs
 
 return $LASTEXITCODE

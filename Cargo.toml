@@ -261,6 +261,11 @@ extended_observability = [
     "entrypoint",
     "cloud_terrastodon_entrypoint/extended_observability",
 ]
+# Enable coordinator consistency checks at application boundaries.
+terminal_coordinator_debug = [
+    "entrypoint",
+    "cloud_terrastodon_entrypoint/terminal_coordinator_debug",
+]
 # Enable Tracy profiling for the CLI entrypoint.
 tracy = [
     "entrypoint",
