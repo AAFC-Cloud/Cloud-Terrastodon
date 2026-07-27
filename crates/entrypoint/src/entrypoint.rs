@@ -116,6 +116,9 @@ pub fn entrypoint(
     let _debug_application_root = terminal_coordinator.debug_register_as_application_root()?;
     let picker_log_buffer: PickerLogBufferHandle =
         std::sync::Arc::new(TracingPickerLogBuffer::new(terminal_log_buffer.clone()));
+
+    let should_replay_logs = cli.global_args.debug;
+
     // Keep the complete CLI dispatch future off the synchronous main-thread stack.  Individual
     // requests may own substantial nested futures (the picker is one example), and the CLI
     // future contains the whole command dispatch tree around them.
@@ -133,7 +136,9 @@ pub fn entrypoint(
         // value-level error.
         std::panic::resume_unwind(payload);
     }
-    terminal_log_buffer.replay_to_stderr();
+    if should_replay_logs {
+        terminal_log_buffer.replay_to_stderr();
+    }
     invocation_result?;
     Ok(())
 }
