@@ -3,6 +3,11 @@ use crate::search_entra_users;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
+use cloud_terrastodon_command::CacheInvalidatable;
+use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerEvent;
 use cloud_terrastodon_user_input::PickerTui;
@@ -10,7 +15,9 @@ use eyre::Result;
 use facet::Facet;
 use std::future::Future;
 use std::future::IntoFuture;
+use std::path::PathBuf;
 use std::pin::Pin;
+use tokio::try_join;
 use tracing::info;
 
 #[must_use = "This is an interactive future request, you must .await it"]
@@ -21,6 +28,37 @@ pub struct EntraUserPickRequest {
 
 pub fn pick_entra_users(tenant_id: AzureTenantId) -> EntraUserPickRequest {
     EntraUserPickRequest { tenant_id }
+}
+
+#[async_trait]
+impl CacheInvalidatable for EntraUserPickRequest {
+    async fn invalidate(&self) -> Result<()> {
+        let users = fetch_all_entra_users(self.tenant_id).cache_key();
+        let searches = CacheKey::new(PathBuf::from_iter([
+            "ms",
+            "graph",
+            "GET",
+            "users",
+            "search",
+            self.tenant_id.to_string().as_str(),
+        ]));
+
+        try_join!(users.invalidate(), searches.invalidate())?;
+        Ok(())
+    }
+}
+
+impl CacheInvalidatableIntoFuture for EntraUserPickRequest {
+    type WithInvalidation = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+
+    fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
+        Box::pin(async move {
+            if invalidate_cache {
+                self.invalidate().await?;
+            }
+            self.into_future().await
+        })
+    }
 }
 
 impl IntoFuture for EntraUserPickRequest {
