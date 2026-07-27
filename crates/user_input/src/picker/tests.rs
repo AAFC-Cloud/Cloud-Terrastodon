@@ -396,10 +396,18 @@ fn expired_toasts_are_removed_and_active_toasts_stack_upward() {
         },
     ];
     let mut buffer = Buffer::empty(Rect::new(0, 0, 30, 5));
+    for x in 20..30 {
+        buffer[(x, 3)].set_symbol("underlying");
+        buffer[(x, 4)].set_symbol("underlying");
+    }
     render_toasts(&mut buffer, Rect::new(0, 0, 30, 5), &toasts);
     let bottom = buffer.content().iter().any(|cell| cell.symbol() == "b");
     let top = buffer.content().iter().any(|cell| cell.symbol() == "t");
     assert!(bottom && top);
+    assert_eq!(buffer[(23, 4)].symbol(), "t");
+    assert_eq!(buffer[(20, 3)].symbol(), "b");
+    assert_eq!(buffer[(26, 3)].symbol(), " ");
+    assert_eq!(buffer[(26, 4)].symbol(), " ");
     assert!(toasts.pop().is_some());
 }
 

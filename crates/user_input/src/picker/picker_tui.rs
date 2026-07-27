@@ -1064,13 +1064,24 @@ pub(super) fn advance_toasts(toasts: &mut Vec<PickerToast>, now: Instant) -> boo
 }
 
 pub(super) fn render_toasts(buf: &mut Buffer, area: Rect, toasts: &[PickerToast]) {
+    let max_width = toasts
+        .iter()
+        .rev()
+        .take(area.height as usize)
+        .map(|toast| toast.record.message.chars().count().saturating_add(4))
+        .max()
+        .unwrap_or_default()
+        .min(area.width as usize)
+        .max(1) as u16;
     let mut bottom = area.bottom();
     for toast in toasts.iter().rev() {
         if bottom <= area.top() {
             break;
         }
         let message_width = toast.record.message.chars().count().saturating_add(4);
-        let width = message_width.min(area.width as usize).max(1) as u16;
+        let left_padding = max_width.saturating_sub(message_width as u16) as usize;
+        let message = format!("{}{}", " ".repeat(left_padding), toast.record.message);
+        let width = max_width;
         let height = 1u16;
         let y = bottom.saturating_sub(height);
         let x = area.right().saturating_sub(width);
@@ -1084,9 +1095,10 @@ pub(super) fn render_toasts(buf: &mut Buffer, area: Rect, toasts: &[PickerToast]
             (_, true) => Style::new().fg(Color::DarkGray).bg(Color::Black),
             (PickerLogLevel::Debug, _) => Style::default(),
         };
-        Paragraph::new(toast.record.message.as_ref())
-            .style(style)
-            .render(toast_area, buf);
+        for x in toast_area.left()..toast_area.right() {
+            buf[(x, y)].set_symbol(" ").set_style(style);
+        }
+        Paragraph::new(message).style(style).render(toast_area, buf);
         bottom = y;
     }
 }
