@@ -7,6 +7,7 @@ pub mod clean;
 pub mod copy_results;
 pub mod dump_azure_devops;
 pub mod dump_everything;
+pub mod echo;
 pub mod egui;
 pub mod extract_uuid;
 pub mod get_path;
@@ -30,6 +31,7 @@ use crate::cli::clean::CleanArgs;
 use crate::cli::copy_results::CopyResultsArgs;
 use crate::cli::dump_azure_devops::DumpAzureDevOpsArgs;
 use crate::cli::dump_everything::DumpEverythingArgs;
+use crate::cli::echo::EchoArgs;
 use crate::cli::egui::EguiArgs;
 use crate::cli::extract_uuid::ExtractUuidArgs;
 use crate::cli::get_path::GetPathArgs;
@@ -59,6 +61,8 @@ pub enum CloudTerrastodonCommand {
     Ratatui(RatatuiArgs),
     /// Launch the egui-based interface.
     Egui(EguiArgs),
+    /// Emit a message through the configured logging pipeline.
+    Echo(EchoArgs),
     /// Remove generated artifacts.
     Clean(CleanArgs),
     /// Write Terraform import definitions for known resources.
@@ -117,6 +121,7 @@ impl CloudTerrastodonCommand {
         match self {
             CloudTerrastodonCommand::Ratatui(args) => args.invoke().await,
             CloudTerrastodonCommand::Egui(args) => args.invoke().await,
+            CloudTerrastodonCommand::Echo(args) => args.invoke().await,
             CloudTerrastodonCommand::Clean(args) => args.invoke().await,
             CloudTerrastodonCommand::WriteAllImports(args) => args.invoke().await,
             CloudTerrastodonCommand::PerformCodeGenerationFromImports(args) => args.invoke().await,
