@@ -1,4 +1,5 @@
 use std::fmt::Write as _;
+use std::io::IsTerminal;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -306,30 +307,84 @@ fn level(level: &tracing::Level) -> StructuredLogLevel {
 }
 
 pub fn format_record(record: &StructuredLogRecord) -> String {
-    let mut output = format!("{:?} {}: {}", record.level, record.target, record.message);
+    format_record_with_terminal(record, std::io::stderr().is_terminal())
+}
+
+fn format_record_with_terminal(record: &StructuredLogRecord, terminal: bool) -> String {
+    let mut event = format!("  {} {}", format_level(record.level), record.message);
     for (name, value) in &record.fields {
-        let _ = write!(output, " {name}={value}");
+        let _ = write!(event, ", {name}: {value}");
     }
-    if !record.spans.is_empty() {
-        output.push_str(" [");
-        for (index, span) in record.spans.iter().enumerate() {
-            if index != 0 {
-                output.push_str(" > ");
-            }
-            output.push_str(&span.name);
-            for (name, value) in &span.fields {
-                let _ = write!(output, " {name}={value}");
-            }
-        }
-        output.push(']');
-    }
+
+    let mut output = colorize_event(event, record.level, terminal);
     if let Some(file) = &record.file {
-        let _ = write!(output, " at {file}");
+        let _ = write!(output, "\n    {} {file}", dim_italic("at", terminal));
         if let Some(line) = record.line {
             let _ = write!(output, ":{line}");
         }
     }
+
+    for span in &record.spans {
+        let _ = write!(
+            output,
+            "\n    {} {}",
+            dim_italic("in", terminal),
+            bold(&span.name, terminal)
+        );
+        if !span.fields.is_empty() {
+            output.push(' ');
+            output.push_str(&dim_italic("with", terminal));
+            output.push(' ');
+            for (index, (name, value)) in span.fields.iter().enumerate() {
+                if index != 0 {
+                    output.push_str(", ");
+                }
+                let _ = write!(output, "{name}: {value}");
+            }
+        }
+    }
     output
+}
+
+fn format_level(level: StructuredLogLevel) -> &'static str {
+    match level {
+        StructuredLogLevel::Trace => "TRACE",
+        StructuredLogLevel::Debug => "DEBUG",
+        StructuredLogLevel::Info => " INFO",
+        StructuredLogLevel::Warn => " WARN",
+        StructuredLogLevel::Error => "ERROR",
+    }
+}
+
+fn colorize_event(event: String, level: StructuredLogLevel, terminal: bool) -> String {
+    if !terminal {
+        return event;
+    }
+
+    let color = match level {
+        StructuredLogLevel::Trace => 35,
+        StructuredLogLevel::Debug => 34,
+        StructuredLogLevel::Info => 32,
+        StructuredLogLevel::Warn => 33,
+        StructuredLogLevel::Error => 31,
+    };
+    format!("\x1b[{color}m{event}\x1b[0m")
+}
+
+fn dim_italic(value: &str, terminal: bool) -> String {
+    if terminal {
+        format!("\x1b[2;3m{value}\x1b[0m")
+    } else {
+        value.to_string()
+    }
+}
+
+fn bold(value: &str, terminal: bool) -> String {
+    if terminal {
+        format!("\x1b[1m{value}\x1b[0m")
+    } else {
+        value.to_string()
+    }
 }
 
 #[cfg(test)]
@@ -421,9 +476,9 @@ mod tests {
         buffer.replay_to(&mut replay).expect("replay should write");
         let replay = String::from_utf8(replay).expect("replay should be UTF-8");
         assert!(replay.contains("search returned no users"));
-        assert!(replay.contains("query=smith"));
+        assert!(replay.contains("query: smith"));
         assert!(replay.contains("picker_handler"));
-        assert!(replay.contains("stage=initial_load"));
+        assert!(replay.contains("stage: initial_load"));
         assert!(replay.contains(" at "));
     }
 
@@ -457,5 +512,66 @@ mod tests {
                 .iter()
                 .all(|record| record.message.as_ref() == "concurrent event")
         );
+    }
+
+    #[test]
+    fn pretty_format_includes_fields_and_source_location() {
+        let record = StructuredLogRecord {
+            timestamp: SystemTime::now(),
+            level: StructuredLogLevel::Info,
+            target: Arc::from("cloud_terrastodon_entrypoint"),
+            message: Arc::from("hello world"),
+            fields: vec![("answer".to_string(), "42".to_string())],
+            spans: Vec::new(),
+            file: Some(Arc::from("crates/entrypoint/src/echo.rs")),
+            line: Some(12),
+        };
+
+        assert_eq!(
+            format_record_with_terminal(&record, false),
+            "   INFO hello world, answer: 42\n    at crates/entrypoint/src/echo.rs:12"
+        );
+    }
+
+    #[test]
+    fn pretty_format_includes_empty_span_context() {
+        let record = StructuredLogRecord {
+            timestamp: SystemTime::now(),
+            level: StructuredLogLevel::Info,
+            target: Arc::from("cloud_terrastodon_entrypoint"),
+            message: Arc::from("hello world"),
+            fields: Vec::new(),
+            spans: vec![StructuredSpan {
+                name: Arc::from("cli_invocation"),
+                fields: Vec::new(),
+            }],
+            file: None,
+            line: None,
+        };
+
+        assert_eq!(
+            format_record_with_terminal(&record, false),
+            "   INFO hello world\n    in cli_invocation"
+        );
+    }
+
+    #[test]
+    fn terminal_format_colours_the_level_without_hyperlinking() {
+        let record = StructuredLogRecord {
+            timestamp: SystemTime::now(),
+            level: StructuredLogLevel::Info,
+            target: Arc::from("cloud_terrastodon_entrypoint"),
+            message: Arc::from("hello world"),
+            fields: Vec::new(),
+            spans: Vec::new(),
+            file: Some(Arc::from("crates/entrypoint/src/echo.rs")),
+            line: Some(12),
+        };
+
+        let output = format_record_with_terminal(&record, true);
+
+        assert!(output.starts_with("\x1b[32m   INFO hello world\x1b[0m"));
+        assert!(output.contains("\n    \x1b[2;3mat\x1b[0m crates/entrypoint/src/echo.rs:12"));
+        assert!(!output.contains("\x1b]8;;"));
     }
 }
