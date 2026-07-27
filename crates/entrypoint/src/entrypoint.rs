@@ -33,6 +33,7 @@ pub fn entrypoint(
     build_timestamp: BuildTimestamp,
 ) -> Result<()> {
     // Track version information globally
+    let implementation_revision = git_rev.to_string();
     set_git_revision(git_rev);
     set_build_timestamp(build_timestamp);
     set_version(version);
@@ -44,7 +45,14 @@ pub fn entrypoint(
         figue::builder::<Cli>()
             .expect("CLI schema should be valid")
             .cli(|cli| cli.args_os(std::env::args_os().skip(1)).strict())
-            .help(|help| help.version(full_version().to_string()))
+            .help(move |help| {
+                help.version(full_version().to_string())
+                    .include_implementation_source_file(true)
+                    .include_implementation_github_url(
+                        "AAFC-Cloud/Cloud-Terrastodon",
+                        implementation_revision,
+                    )
+            })
             .build(),
     )
     .run()
@@ -212,7 +220,11 @@ mod tests {
     fn cli_schema_builds() {
         let _ = figue::builder::<Cli>()
             .expect("CLI schema should be valid")
-            .help(|help| help.version(full_version().to_string()))
+            .help(|help| {
+                help.version(full_version().to_string())
+                    .include_implementation_source_file(true)
+                    .include_implementation_github_url("AAFC-Cloud/Cloud-Terrastodon", "unknown")
+            })
             .build();
     }
 
