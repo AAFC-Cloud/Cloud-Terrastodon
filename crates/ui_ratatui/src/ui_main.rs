@@ -18,8 +18,10 @@ use cloud_terrastodon_registry::describe_function;
 use cloud_terrastodon_registry::describe_shape;
 use cloud_terrastodon_registry::functions_from;
 use cloud_terrastodon_registry::functions_to;
+use cloud_terrastodon_registry::invoke_with_default_input;
 use cloud_terrastodon_registry::known_functions;
 use cloud_terrastodon_registry::known_shapes;
+use cloud_terrastodon_registry::shape_can_be_produced_from_defaults;
 use cloud_terrastodon_registry::shape_fields_for_thing;
 use cloud_terrastodon_registry::shape_variants_for_thing;
 use cloud_terrastodon_user_input::TerminalBackend;
@@ -3484,40 +3486,49 @@ impl ObjectBrowserApp {
 
         match invocation {
             FunctionInvocation::Pending(future) => {
-                let result_slot_id = self.allocate_slot_id();
-                let output_shape_name = describe_shape(function.output_shape);
-                let pending = PendingInvocationState {
-                    join_handle: tokio::spawn(attach_terminal_coordinator(future)),
-                    output_to_runtime: function.output_to_runtime,
-                };
-                let mut result_slot =
-                    ObjectSlot::new_result(result_slot_id, output_shape_name.clone(), pending);
-                result_slot.produced_by_slot_id = Some(slot_id);
-                self.object_slots.push(result_slot);
-                self.link_result_to_created_field(slot_id, result_slot_id);
-                let result_index = self.slot_by_id_mut(slot_id).map(|slot| {
-                    let result_index = slot.result_slot_ids.len();
-                    slot.result_slot_ids.push(result_slot_id);
-                    result_index
-                });
-                self.invalidate_all_slot_display_caches();
-                if self
-                    .slot_by_id(slot_id)
-                    .is_none_or(|slot| slot.created_for.is_none())
-                    && let Some(result_index) = result_index
-                {
-                    self.jump_to_slot_target(slot_id, SlotFocusTarget::Result(result_index));
-                }
-                self.status_message = format!(
-                    "Invoked {} and started result slot {}.",
-                    describe_function(function),
-                    result_slot_id
-                );
+                self.start_pending_function_result(slot_id, function, future);
             }
             FunctionInvocation::Ready(output) => {
                 self.finish_ready_function_output(slot_id, function, output)
             }
         }
+    }
+
+    fn start_pending_function_result(
+        &mut self,
+        slot_id: usize,
+        function: &'static Function,
+        future: InvocationFuture,
+    ) {
+        let result_slot_id = self.allocate_slot_id();
+        let output_shape_name = describe_shape(function.output_shape);
+        let pending = PendingInvocationState {
+            join_handle: tokio::spawn(attach_terminal_coordinator(future)),
+            output_to_runtime: function.output_to_runtime,
+        };
+        let mut result_slot =
+            ObjectSlot::new_result(result_slot_id, output_shape_name.clone(), pending);
+        result_slot.produced_by_slot_id = Some(slot_id);
+        self.object_slots.push(result_slot);
+        self.link_result_to_created_field(slot_id, result_slot_id);
+        let result_index = self.slot_by_id_mut(slot_id).map(|slot| {
+            let result_index = slot.result_slot_ids.len();
+            slot.result_slot_ids.push(result_slot_id);
+            result_index
+        });
+        self.invalidate_all_slot_display_caches();
+        if self
+            .slot_by_id(slot_id)
+            .is_none_or(|slot| slot.created_for.is_none())
+            && let Some(result_index) = result_index
+        {
+            self.jump_to_slot_target(slot_id, SlotFocusTarget::Result(result_index));
+        }
+        self.status_message = format!(
+            "Invoked {} and started result slot {}.",
+            describe_function(function),
+            result_slot_id
+        );
     }
 
     fn update_slot_runtime_from_typed(
@@ -4000,14 +4011,6 @@ impl ObjectBrowserApp {
             self.status_message = "The selected producer function is no longer registered.".into();
             return;
         };
-        let value = match self.default_runtime_for_shape(input_shape_name) {
-            Ok(value) => value,
-            Err(error) => {
-                self.status_message =
-                    format!("Could not build default {input_shape_name}: {error}");
-                return;
-            }
-        };
         let Some(slot_id) = self.create_producer_request_for_field(
             owner_slot_id,
             field_index,
@@ -4016,11 +4019,8 @@ impl ObjectBrowserApp {
         ) else {
             return;
         };
-        if let Some(slot) = self.slot_by_id_mut(slot_id) {
-            slot.value_state = SlotValueState::ResolvedValue { value };
-        }
         self.invalidate_all_slot_display_caches();
-        self.invoke_registered_function(slot_id, function);
+        self.start_pending_function_result(slot_id, function, invoke_with_default_input(function));
     }
 
     fn invoke_arbitrary_producer_for_field(
@@ -4048,13 +4048,6 @@ impl ObjectBrowserApp {
             return;
         };
         self.invoke_arbitrary_registered_function(slot_id, function);
-    }
-
-    fn default_runtime_for_shape(&self, shape_name: &str) -> Result<RuntimeValue> {
-        let shape = self
-            .shape_for_shape_name(shape_name)
-            .ok_or_else(|| eyre::eyre!("{shape_name} is not reflected"))?;
-        RuntimeValue::from_default(shape)
     }
 
     fn create_general_value_slot(&mut self, owner_slot_id: usize, field_index: usize) {
@@ -5627,7 +5620,7 @@ impl ObjectBrowserApp {
                 continue;
             }
             if function.kind == FunctionKind::AsyncInvoke {
-                if self.shape_supports_default(&input_shape_name) {
+                if shape_can_be_produced_from_defaults(function.input_shape) {
                     choices.push(FieldPickerChoice::InvokeDefaultProducer {
                         input_shape_name: input_shape_name.clone(),
                         function_label: function_label.clone(),
@@ -5651,12 +5644,6 @@ impl ObjectBrowserApp {
             }
         }
         choices
-    }
-
-    fn shape_supports_default(&self, shape_name: &str) -> bool {
-        self.shape_for_shape_name(shape_name)
-            .and_then(|shape| shape.type_ops.as_ref())
-            .is_some_and(|type_ops| type_ops.has_default_in_place())
     }
 
     fn field_picker_label(&self, choice: &FieldPickerChoice, required_shape_name: &str) -> String {

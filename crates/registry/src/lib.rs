@@ -19,6 +19,13 @@ use std::future::IntoFuture;
 use std::pin::Pin;
 use std::ptr::NonNull;
 
+mod default_production;
+
+pub use default_production::DefaultProductionPlan;
+pub use default_production::default_production_plan;
+pub use default_production::invoke_with_default_input;
+pub use default_production::shape_can_be_produced_from_defaults;
+
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;
 pub type AsyncValueFn = fn(Box<dyn Any + Send>) -> InvocationFuture;
 pub type SyncValueFn = fn(Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Send>>;
@@ -1238,7 +1245,7 @@ mod test {
     use std::future::Future;
     use std::future::IntoFuture;
 
-    #[derive(Debug, Clone, Copy, Facet)]
+    #[derive(Debug, Clone, Copy, Default, Facet)]
     #[repr(C)]
     struct DummyTenant;
 
@@ -1474,6 +1481,20 @@ mod test {
             FunctionInvocation::Pending(future) => future.await?,
             FunctionInvocation::Ready(_) => panic!("expected pending"),
         };
+        let output = output.downcast::<Vec<DummyOutput>>().unwrap();
+        assert_eq!(output[0].value, "ok");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn default_production_composes_registered_field_producers() -> eyre::Result<()> {
+        assert!(shape_can_be_produced_from_defaults(DummyListRequest::SHAPE));
+
+        let function = functions_from(DummyListRequest::SHAPE)
+            .into_iter()
+            .find(|function| function.kind == FunctionKind::AsyncInvoke)
+            .unwrap();
+        let output = invoke_with_default_input(function).await?;
         let output = output.downcast::<Vec<DummyOutput>>().unwrap();
         assert_eq!(output[0].value, "ok");
         Ok(())
