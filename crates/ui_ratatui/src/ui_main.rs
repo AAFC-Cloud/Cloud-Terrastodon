@@ -5865,18 +5865,29 @@ impl ObjectBrowserApp {
         let materialized_fields = self.materialized_fields(slot_id);
         match self.slot_body(slot_id) {
             Some(SlotBody::Value { value, .. }) => {
+                let borrowed_value = value.is_none().then(|| {
+                    self.slot_by_id(slot_id)
+                        .filter(|slot| matches!(slot.provenance, ValueProvenance::Borrowed { .. }))
+                        .and_then(|_| self.slot_runtime_value(slot_id).ok())
+                });
+                let borrowed_value = borrowed_value.flatten();
+                let display_value = value
+                    .as_ref()
+                    .map(RuntimeValue::display_string)
+                    .or_else(|| borrowed_value.as_ref().map(RuntimeValue::display_string));
+                let value_is_resolved = display_value.is_some();
                 rows.push(SlotDisplayRow::Static(separator_line("value")));
                 rows.push(focusable_spans_row(
                     SlotFocusTarget::RuntimeValue,
                     vec![Span::styled(
-                        value
-                            .as_ref()
-                            .map_or_else(|| "unset".to_string(), RuntimeValue::display_string),
-                        value.as_ref().map_or_else(unset_style, |_| {
+                        display_value.unwrap_or_else(|| "unset".to_string()),
+                        if value_is_resolved {
                             Style::default()
                                 .fg(Color::Green)
                                 .add_modifier(Modifier::BOLD)
-                        }),
+                        } else {
+                            unset_style()
+                        },
                     )],
                 ));
             }
@@ -8643,7 +8654,11 @@ impl ObjectBrowserApp {
             return SlotCompletion::Partial;
         }
 
-        let completion = if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
+        let completion = if let Some(ValueProvenance::Borrowed { source_slot_id }) =
+            self.slot_by_id(slot_id).map(|slot| slot.provenance)
+        {
+            self.slot_completion_inner(source_slot_id, visiting)
+        } else if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
             match runtime_state {
                 SlotValueState::Pending(_) => SlotCompletion::Partial,
                 SlotValueState::ResolvedValue { .. } => SlotCompletion::Complete,
@@ -11931,6 +11946,11 @@ mod tests {
             Some(super::ValueProvenance::Borrowed { source_slot_id: 2 })
         ));
         assert_eq!(app.slot_borrow_slots(2), vec![borrow_slot_id]);
+        assert_eq!(
+            app.slot_completion(borrow_slot_id),
+            super::SlotCompletion::Complete
+        );
+        assert_eq!(app.slot_completion(1), super::SlotCompletion::Complete);
 
         let materialized = app
             .slot_runtime_value(1)
