@@ -221,6 +221,7 @@ enum Breadcrumb {
         operator: ValueFilterOperator,
         value: String,
     },
+    Pop,
 }
 
 cloud_terrastodon_registry::register_thing!(Breadcrumbs);
@@ -1330,6 +1331,7 @@ impl ObjectBrowserApp {
                 Line::from("filter shape: include selected projected shapes"),
                 Line::from("filter value: match shape/name/value metadata"),
                 Line::from("filter slot kind: show owned, view, and/or projection slots"),
+                Line::from("pop projection: show the parent of every matching projection"),
             ],
         );
     }
@@ -2260,6 +2262,7 @@ impl ObjectBrowserApp {
                             value: String::new(),
                         },
                     ),
+                    Some(3) => self.apply_projection_pop(),
                     _ => self.mode = UiMode::Pool,
                 }
             }
@@ -5193,6 +5196,22 @@ impl ObjectBrowserApp {
         self.sync_selection_viewports();
     }
     fn total_slot_count(&self) -> usize {
+        if self.projection_pop_count() > 0 {
+            if let Some(view) = self.current_projection_view() {
+                return self
+                    .popped_projection_paths(view.root_slot_id, &view.path, true)
+                    .len();
+            }
+            return self
+                .object_slots
+                .iter()
+                .map(|slot| {
+                    usize::from(self.real_slot_matches_shape_filter(slot.id))
+                        + self.popped_projection_paths(slot.id, &[], false).len()
+                })
+                .sum::<usize>()
+                + 1;
+        }
         if let Some(view) = self.current_projection_view()
             && !self.breadcrumb_filters.is_empty()
         {
@@ -6574,7 +6593,11 @@ impl ObjectBrowserApp {
             )
             .chain(self.breadcrumb_filters.iter().map(|filter| match filter {
                 BreadcrumbFilter::Shape(filter) => {
-                    format!("shapes ({})", filter.included_shapes.len())
+                    let shapes = filter.included_shapes.iter().cloned().collect::<Vec<_>>();
+                    match shapes.as_slice() {
+                        [] => "is <none>".to_string(),
+                        _ => format!("is {}", shapes.join(" or ")),
+                    }
                 }
                 BreadcrumbFilter::SlotKind(filter) => {
                     format!("slots ({})", filter.included_kinds.len(),)
@@ -6586,6 +6609,7 @@ impl ObjectBrowserApp {
                     filter.operator.label(),
                     filter.value
                 ),
+                BreadcrumbFilter::Pop => "pop".to_string(),
             }))
             .collect::<Vec<_>>();
         let add_index = labels.len();
@@ -6698,6 +6722,9 @@ impl ObjectBrowserApp {
                 Some(BreadcrumbFilter::SlotKind(_)) => {
                     self.open_slot_kind_filter_picker(Some(filter_index));
                 }
+                Some(BreadcrumbFilter::Pop) => {
+                    self.status_message = "Projection pop is already applied.".to_string();
+                }
                 None => {}
             }
             return;
@@ -6733,6 +6760,7 @@ impl ObjectBrowserApp {
                 BreadcrumbFilter::Shape(_) => "Closed shape filter.".to_string(),
                 BreadcrumbFilter::Value(_) => "Closed value filter.".to_string(),
                 BreadcrumbFilter::SlotKind(_) => "Closed slot kind filter.".to_string(),
+                BreadcrumbFilter::Pop => "Closed projection pop.".to_string(),
             };
             return;
         }
@@ -6760,6 +6788,51 @@ impl ObjectBrowserApp {
         self.filter_kind_picker = Some(FilterKindPickerState::new());
         self.mode = UiMode::FilterKindPicker;
         self.status_message = "Choose the kind of breadcrumb filter.".to_string();
+    }
+
+    fn apply_projection_pop(&mut self) {
+        let active_path_len = self
+            .current_projection_view()
+            .map_or(0, |view| view.path.len());
+        let pop_count = self.projection_pop_count();
+        let has_poppable_projection = active_path_len > pop_count
+            || (self.current_projection_view().is_none()
+                && self.object_slots.iter().any(|slot| {
+                    self.projection_descendant_paths(slot.id, &[])
+                        .iter()
+                        .any(|path| path.len() > pop_count)
+                }));
+        if !has_poppable_projection {
+            self.status_message = "The active projection has no more parents.".to_string();
+            self.mode = UiMode::Pool;
+            return;
+        }
+
+        self.breadcrumb_filters.push(BreadcrumbFilter::Pop);
+        self.projection_cache.borrow_mut().clear();
+        self.mode = UiMode::Pool;
+        self.pool_surface = PoolSurface::Breadcrumbs;
+        self.active_breadcrumb_index =
+            self.projection_stack.len() + 1 + self.breadcrumb_filters.len().saturating_sub(1);
+        self.active_slot_index = 0;
+        self.active_row_index = 0;
+        self.slot_view_offset = 0;
+        self.row_view_offset = 0;
+        self.sync_selection_viewports();
+        self.sync_current_tab_breadcrumbs();
+        self.status_message = format!(
+            "Projected to {}.",
+            self.current_projection_view()
+                .map(|view| self.projection_view_label(view))
+                .unwrap_or_else(|| "the projection root".to_string())
+        );
+    }
+
+    fn projection_pop_count(&self) -> usize {
+        self.breadcrumb_filters
+            .iter()
+            .filter(|filter| matches!(filter, BreadcrumbFilter::Pop))
+            .count()
     }
 
     fn open_value_filter_editor(&mut self, edit_index: Option<usize>, filter: ValueFilterView) {
@@ -6995,7 +7068,9 @@ impl ObjectBrowserApp {
             .and_then(|index| self.breadcrumb_filters.get(index))
             .and_then(|filter| match filter {
                 BreadcrumbFilter::Shape(filter) => Some(filter.included_shapes.clone()),
-                BreadcrumbFilter::Value(_) | BreadcrumbFilter::SlotKind(_) => None,
+                BreadcrumbFilter::Value(_)
+                | BreadcrumbFilter::SlotKind(_)
+                | BreadcrumbFilter::Pop => None,
             })
             .unwrap_or_default();
         self.partition_picker = Some(PartitionPickerState::with_included_labels(
@@ -7025,7 +7100,9 @@ impl ObjectBrowserApp {
                         .map(|kind| kind.label().to_string())
                         .collect::<BTreeSet<_>>(),
                 ),
-                BreadcrumbFilter::Shape(_) | BreadcrumbFilter::Value(_) => None,
+                BreadcrumbFilter::Shape(_) | BreadcrumbFilter::Value(_) | BreadcrumbFilter::Pop => {
+                    None
+                }
             })
             .unwrap_or_default();
         self.partition_picker = Some(PartitionPickerState::with_included_labels(
@@ -7114,7 +7191,6 @@ impl ObjectBrowserApp {
         self.projection_descendant_path_at(root_slot_id, parent_path, child_index)
     }
 
-    #[cfg(test)]
     fn projection_descendant_paths(
         &self,
         root_slot_id: usize,
@@ -7381,11 +7457,101 @@ impl ObjectBrowserApp {
         }
         None
     }
+
+    fn popped_projection_paths(
+        &self,
+        root_slot_id: usize,
+        parent_path: &[ValuePathSegment],
+        include_parent: bool,
+    ) -> Vec<Vec<ValuePathSegment>> {
+        let cache_key = PoppedPathCacheKey {
+            parent: ProjectionCacheKey::new(root_slot_id, parent_path),
+            include_parent,
+        };
+        if let Some(paths) = self.projection_cache.borrow().popped_paths.get(&cache_key) {
+            return paths.clone();
+        }
+
+        let pop_count = self.projection_pop_count();
+        let mut raw_paths = Vec::new();
+        if include_parent && self.projection_path_matches_shape_filter(root_slot_id, parent_path) {
+            raw_paths.push(parent_path.to_vec());
+        }
+        for child_index in 0..self.filtered_projection_descendant_count(root_slot_id, parent_path) {
+            if let Some(path) =
+                self.filtered_projection_descendant_path_at(root_slot_id, parent_path, child_index)
+            {
+                raw_paths.push(path);
+            }
+        }
+
+        let mut paths = Vec::new();
+        let mut seen = HashSet::new();
+        for path in raw_paths {
+            let Some(end) = path.len().checked_sub(pop_count) else {
+                continue;
+            };
+            let path = path[..end].to_vec();
+            if seen.insert(path.clone()) {
+                paths.push(path);
+            }
+        }
+        self.projection_cache
+            .borrow_mut()
+            .popped_paths
+            .insert(cache_key, paths.clone());
+        paths
+    }
+
+    fn popped_projection_path_at(
+        &self,
+        root_slot_id: usize,
+        parent_path: &[ValuePathSegment],
+        include_parent: bool,
+        index: usize,
+    ) -> Option<Vec<ValuePathSegment>> {
+        self.popped_projection_paths(root_slot_id, parent_path, include_parent)
+            .get(index)
+            .cloned()
+    }
+
     fn pool_entry_at(&self, slot_index: usize) -> Option<PoolEntry> {
         if self.breadcrumb_filters.is_empty() {
             return self.pool_entry_at_unfiltered(slot_index);
         }
         let mut remaining = slot_index;
+        if self.projection_pop_count() > 0 {
+            if let Some(view) = self.current_projection_view() {
+                let path =
+                    self.popped_projection_path_at(view.root_slot_id, &view.path, true, remaining)?;
+                return Some(PoolEntry::Projection(ProjectionSlot {
+                    root_slot_id: view.root_slot_id,
+                    path,
+                    role: ProjectionSlotRole::Child,
+                }));
+            }
+
+            for slot in &self.object_slots {
+                if self.real_slot_matches_shape_filter(slot.id) {
+                    if remaining == 0 {
+                        return Some(PoolEntry::RealSlot(slot.id));
+                    }
+                    remaining -= 1;
+                }
+                let projection_count = self.popped_projection_paths(slot.id, &[], false).len();
+                if remaining < projection_count {
+                    let path = self.popped_projection_path_at(slot.id, &[], false, remaining)?;
+                    return Some(PoolEntry::Projection(ProjectionSlot {
+                        root_slot_id: slot.id,
+                        path,
+                        role: ProjectionSlotRole::Child,
+                    }));
+                }
+                remaining = remaining.saturating_sub(projection_count);
+            }
+
+            return (remaining == 0).then_some(PoolEntry::NewSlot);
+        }
         if let Some(view) = self.current_projection_view() {
             if self.projection_path_matches_shape_filter(view.root_slot_id, &view.path) {
                 if remaining == 0 {
@@ -7451,6 +7617,7 @@ impl ObjectBrowserApp {
             BreadcrumbFilter::SlotKind(filter) => {
                 slot_kind.is_some_and(|kind| filter.included_kinds.contains(&kind))
             }
+            BreadcrumbFilter::Pop => true,
         })
     }
 
@@ -7470,6 +7637,7 @@ impl ObjectBrowserApp {
             BreadcrumbFilter::SlotKind(filter) => {
                 filter.included_kinds.contains(&SlotFilterKind::Projection)
             }
+            BreadcrumbFilter::Pop => true,
         })
     }
 
@@ -7478,7 +7646,7 @@ impl ObjectBrowserApp {
             BreadcrumbFilter::SlotKind(filter) => {
                 filter.included_kinds.contains(&SlotFilterKind::Projection)
             }
-            BreadcrumbFilter::Shape(_) | BreadcrumbFilter::Value(_) => true,
+            BreadcrumbFilter::Shape(_) | BreadcrumbFilter::Value(_) | BreadcrumbFilter::Pop => true,
         })
     }
 
@@ -7495,7 +7663,9 @@ impl ObjectBrowserApp {
             .iter()
             .filter_map(|filter| match filter {
                 BreadcrumbFilter::Shape(filter) => Some(filter),
-                BreadcrumbFilter::Value(_) | BreadcrumbFilter::SlotKind(_) => None,
+                BreadcrumbFilter::Value(_)
+                | BreadcrumbFilter::SlotKind(_)
+                | BreadcrumbFilter::Pop => None,
             });
         let shape_filters = shape_filters.collect::<Vec<_>>();
         if shape_filters.is_empty() {
@@ -8913,6 +9083,7 @@ enum BreadcrumbFilter {
     Shape(ShapeFilterView),
     Value(ValueFilterView),
     SlotKind(SlotKindFilterView),
+    Pop,
 }
 
 impl Breadcrumbs {
@@ -8937,6 +9108,7 @@ impl Breadcrumbs {
                 operator: filter.operator,
                 value: filter.value.clone(),
             },
+            BreadcrumbFilter::Pop => Breadcrumb::Pop,
         }));
         Self { entries }
     }
@@ -8970,6 +9142,7 @@ impl Breadcrumbs {
                     operator,
                     value,
                 })),
+                Breadcrumb::Pop => filters.push(BreadcrumbFilter::Pop),
             }
         }
         (projections, filters)
@@ -9032,6 +9205,7 @@ struct ProjectionCache {
     filter_shape_relations: HashMap<String, (bool, bool)>,
     value_filter_match_roots: HashMap<ValueFilterCacheKey, HashSet<Vec<ValuePathSegment>>>,
     filtered_paths: HashMap<FilteredPathCacheKey, Vec<ValuePathSegment>>,
+    popped_paths: HashMap<PoppedPathCacheKey, Vec<Vec<ValuePathSegment>>>,
 }
 
 impl ProjectionCache {
@@ -9041,6 +9215,7 @@ impl ProjectionCache {
         self.filter_shape_relations.clear();
         self.value_filter_match_roots.clear();
         self.filtered_paths.clear();
+        self.popped_paths.clear();
     }
 }
 
@@ -9054,6 +9229,12 @@ struct ValueFilterCacheKey {
 struct FilteredPathCacheKey {
     parent: ProjectionCacheKey,
     child_index: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct PoppedPathCacheKey {
+    parent: ProjectionCacheKey,
+    include_parent: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -9670,6 +9851,7 @@ impl FilterKindPickerState {
             "filter shape".to_string(),
             "filter value".to_string(),
             "filter slot kind".to_string(),
+            "pop projection".to_string(),
         ];
         let mut search = PickerSearchState::new();
         search.reset(&labels, Some(0));
@@ -11508,6 +11690,18 @@ mod tests {
         name: ResourceGroupName,
     }
 
+    #[derive(Debug, Clone, Facet)]
+    #[repr(C)]
+    struct PopPermission {
+        display_name: String,
+    }
+
+    #[derive(Debug, Clone, Facet)]
+    #[repr(C)]
+    struct PopMember {
+        permission_objects: Vec<PopPermission>,
+    }
+
     impl IntoFuture for DummyInvokeRequest {
         type Output = eyre::Result<DummyInvokeOutput>;
         type IntoFuture = std::pin::Pin<Box<dyn Future<Output = Self::Output> + Send>>;
@@ -12897,8 +13091,9 @@ mod tests {
                     super::BreadcrumbFilter::Shape(filter) => {
                         Some(filter.included_shapes.clone())
                     }
-                    super::BreadcrumbFilter::Value(_) | super::BreadcrumbFilter::SlotKind(_) =>
-                        None,
+                    super::BreadcrumbFilter::Value(_)
+                    | super::BreadcrumbFilter::SlotKind(_)
+                    | super::BreadcrumbFilter::Pop => None,
                 }),
             Some(BTreeSet::from(["AzureTenantIdResolveRequest".to_string()]))
         );
@@ -13318,6 +13513,150 @@ mod tests {
         assert_eq!(editor.draft.field_shape, "*");
         assert_eq!(editor.draft.field_name, "*");
         assert_eq!(editor.source, super::ValueFilterSource::Existing);
+    }
+
+    #[test]
+    fn breadcrumbs_describe_shapes_values_and_projection_pops() {
+        let mut app = ObjectBrowserApp::default();
+        app.breadcrumb_filters = vec![
+            super::BreadcrumbFilter::Shape(super::ShapeFilterView {
+                included_shapes: BTreeSet::from(["B".to_string(), "A".to_string()]),
+            }),
+            super::BreadcrumbFilter::Value(super::ValueFilterView {
+                field_shape: "*".to_string(),
+                field_name: "displayName".to_string(),
+                operator: super::ValueFilterOperator::Equals,
+                value: "Project Administrators".to_string(),
+            }),
+            super::BreadcrumbFilter::Pop,
+            super::BreadcrumbFilter::Pop,
+        ];
+
+        let text = super::spans_plain_text(&app.breadcrumbs_line().spans);
+        assert!(text.contains("is A or B"), "{text}");
+        assert!(
+            text.contains("value *.displayName equals Project Administrators"),
+            "{text}"
+        );
+        assert!(text.contains(" > pop > pop > +Add Breadcrumb"), "{text}");
+    }
+
+    #[test]
+    fn breadcrumbs_round_trip_projection_pop_operations() {
+        let projection_stack = vec![super::ProjectionView {
+            root_slot_id: 14,
+            path: vec![
+                super::ValuePathSegment::Index(0),
+                super::ValuePathSegment::Field("permission_objects".to_string()),
+                super::ValuePathSegment::Index(2),
+            ],
+        }];
+        let filters = vec![
+            super::BreadcrumbFilter::Value(super::ValueFilterView {
+                field_shape: "*".to_string(),
+                field_name: "display_name".to_string(),
+                operator: super::ValueFilterOperator::Equals,
+                value: "Project Administrators".to_string(),
+            }),
+            super::BreadcrumbFilter::Pop,
+            super::BreadcrumbFilter::Pop,
+        ];
+
+        let breadcrumbs = super::Breadcrumbs::from_ui(&projection_stack, &filters);
+        let (restored_projection_stack, restored_filters) = breadcrumbs.into_ui();
+
+        assert_eq!(restored_projection_stack, projection_stack);
+        assert_eq!(restored_filters, filters);
+    }
+
+    #[test]
+    fn projection_pop_projects_all_matching_roots_and_deduplicates_paths() {
+        let mut app = ObjectBrowserApp::default();
+        app.object_slots.push(super::ObjectSlot {
+            id: 14,
+            kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
+            shape_name: Some("Vec<PopMember>".to_string()),
+            value_state: resolved(vec![
+                PopMember {
+                    permission_objects: vec![
+                        PopPermission {
+                            display_name: "Project Administrators".to_string(),
+                        },
+                        PopPermission {
+                            display_name: "Other".to_string(),
+                        },
+                    ],
+                },
+                PopMember {
+                    permission_objects: vec![PopPermission {
+                        display_name: "Project Administrators".to_string(),
+                    }],
+                },
+            ]),
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            display_cache: None,
+        });
+        app.breadcrumb_filters = vec![super::BreadcrumbFilter::Value(super::ValueFilterView {
+            field_shape: "*".to_string(),
+            field_name: "display_name".to_string(),
+            operator: super::ValueFilterOperator::Equals,
+            value: "Project Administrators".to_string(),
+        })];
+        app.projection_cache.borrow_mut().clear();
+
+        app.apply_projection_pop();
+        let first_pop_paths = (0..app.total_slot_count())
+            .filter_map(|index| match app.pool_entry_at(index) {
+                Some(super::PoolEntry::Projection(projection)) => Some(projection.path),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(first_pop_paths.iter().any(|path| {
+            path == &vec![
+                super::ValuePathSegment::Index(0),
+                super::ValuePathSegment::Field("permission_objects".to_string()),
+            ]
+        }));
+        assert!(first_pop_paths.iter().any(|path| {
+            path == &vec![
+                super::ValuePathSegment::Index(1),
+                super::ValuePathSegment::Field("permission_objects".to_string()),
+            ]
+        }));
+        assert_eq!(
+            first_pop_paths
+                .iter()
+                .filter(|path| {
+                    *path
+                        == &vec![
+                            super::ValuePathSegment::Index(0),
+                            super::ValuePathSegment::Field("permission_objects".to_string()),
+                        ]
+                })
+                .count(),
+            1
+        );
+
+        app.apply_projection_pop();
+        let second_pop_paths = (0..app.total_slot_count())
+            .filter_map(|index| match app.pool_entry_at(index) {
+                Some(super::PoolEntry::Projection(projection)) => Some(projection.path),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            second_pop_paths
+                .iter()
+                .any(|path| { path == &vec![super::ValuePathSegment::Index(0)] })
+        );
+        assert!(
+            second_pop_paths
+                .iter()
+                .any(|path| { path == &vec![super::ValuePathSegment::Index(1)] })
+        );
     }
 
     #[test]
