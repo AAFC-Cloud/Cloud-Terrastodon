@@ -20,6 +20,7 @@ tracing = { workspace = true }
 crossterm = { workspace = true }
 futures = { workspace = true }
 facet = { workspace = true }
+facet-json.workspace = true
 facet-reflect.workspace = true
 rand = { workspace = true }
 rustc-hash = { workspace = true }

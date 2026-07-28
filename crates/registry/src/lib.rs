@@ -228,31 +228,64 @@ impl RuntimeValue {
 
     /// Clone through the reflected Facet clone operation.
     pub fn try_clone(&self) -> eyre::Result<Self> {
-        if !self
+        if self
             .shape
             .type_ops
             .as_ref()
             .is_some_and(|ops| ops.has_clone_into())
         {
-            eyre::bail!(
-                "{} does not expose a Facet clone operation",
-                describe_shape(self.shape)
-            );
+            let (dst, layout) = Self::allocate(self.shape)?;
+            let cloned = unsafe {
+                self.shape
+                    .call_clone_into(PtrConst::new(self.ptr.as_ptr()), dst.assume_init())
+                    .is_some()
+            };
+            if !cloned {
+                unsafe { facet::dealloc_for_layout(dst.assume_init(), layout) };
+                eyre::bail!(
+                    "{} does not expose a usable Facet clone operation",
+                    describe_shape(self.shape)
+                );
+            }
+            return Ok(unsafe {
+                Self::from_initialized_ptr(self.shape, dst.assume_init(), layout)
+            });
         }
-        let (dst, layout) = Self::allocate(self.shape)?;
-        let cloned = unsafe {
-            self.shape
-                .call_clone_into(PtrConst::new(self.ptr.as_ptr()), dst.assume_init())
-                .is_some()
-        };
-        if !cloned {
-            unsafe { facet::dealloc_for_layout(dst.assume_init(), layout) };
-            eyre::bail!(
-                "{} does not expose a usable Facet clone operation",
-                describe_shape(self.shape)
-            );
+
+        if let facet::Def::List(list_def) = self.shape.def {
+            return self.try_clone_list(list_def);
         }
-        Ok(unsafe { Self::from_initialized_ptr(self.shape, dst.assume_init(), layout) })
+
+        eyre::bail!(
+            "{} does not expose a Facet clone operation",
+            describe_shape(self.shape)
+        );
+    }
+
+    fn try_clone_list(&self, list_def: facet::ListDef) -> eyre::Result<Self> {
+        let source = unsafe { facet_reflect::PeekList::new(self.peek(), list_def) };
+        let length = source.len();
+
+        Self::build_with(self.shape, |partial| {
+            let mut partial = partial
+                .init_list_with_capacity(length)
+                .map_err(|error| eyre::eyre!("could not initialize list clone: {error}"))?;
+
+            for item in source.iter() {
+                let cloned_item = Self::clone_from_peek(item)?;
+                partial = partial
+                    .begin_list_item()
+                    .map_err(|error| eyre::eyre!("could not begin list clone item: {error}"))?;
+                partial = unsafe { partial.set_from_peek(&cloned_item.peek()) }
+                    .map_err(|error| eyre::eyre!("could not set list clone item: {error}"))?;
+                cloned_item.deallocate_after_move();
+                partial = partial
+                    .end()
+                    .map_err(|error| eyre::eyre!("could not finish list clone item: {error}"))?;
+            }
+
+            Ok(partial)
+        })
     }
 
     /// Clone an inspected child value into an owning runtime value.
@@ -1451,6 +1484,32 @@ mod test {
             value: "value".to_string(),
         }))?;
         assert!(not_cloneable.try_clone().is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn runtime_value_deep_clones_reflected_lists() -> eyre::Result<()> {
+        let source = RuntimeValue::from_box(Box::new(vec![
+            DummyOutput {
+                value: "first".to_string(),
+            },
+            DummyOutput {
+                value: "second".to_string(),
+            },
+        ]))?;
+
+        let cloned = source.try_clone()?.into_box::<Vec<DummyOutput>>()?;
+        assert_eq!(
+            *cloned.downcast::<Vec<DummyOutput>>().unwrap(),
+            vec![
+                DummyOutput {
+                    value: "first".to_string(),
+                },
+                DummyOutput {
+                    value: "second".to_string(),
+                },
+            ]
+        );
         Ok(())
     }
 

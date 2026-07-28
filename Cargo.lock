@@ -1456,6 +1456,7 @@ dependencies = [
  "crossterm 0.29.0",
  "eyre",
  "facet",
+ "facet-json",
  "facet-reflect",
  "futures",
  "itertools 0.14.0",

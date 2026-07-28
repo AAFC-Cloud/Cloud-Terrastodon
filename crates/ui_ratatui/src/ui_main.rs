@@ -3,6 +3,7 @@ use crate::projection_shapes::projection_fields;
 use crate::projection_shapes::projection_map_value_shape as registry_map_value_shape;
 use crate::projection_shapes::projection_sequence_element_shape as sequence_element_shape;
 use crate::projection_shapes::projection_shape_names;
+use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::DefaultProductionPlan;
 use cloud_terrastodon_registry::DefaultProductionPlanKind;
@@ -78,11 +79,16 @@ use ratatui::widgets::ScrollbarOrientation;
 use ratatui::widgets::ScrollbarState;
 use ratatui::widgets::Widget;
 use ratatui::widgets::Wrap;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::future::Future;
+use std::future::IntoFuture;
 use std::ops::Range;
+use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -194,6 +200,32 @@ struct Tab {
     name: String,
     #[facet(default)]
     breadcrumbs: Breadcrumbs,
+    #[facet(default)]
+    entries: Vec<ArbitraryJson>,
+}
+
+#[derive(Clone, Debug, facet::Facet)]
+#[repr(C)]
+struct ProduceJsonRequest<'a> {
+    tab: Cow<'a, Tab>,
+    filename: String,
+}
+
+impl<'a> IntoFuture for ProduceJsonRequest<'a> {
+    type Output = Result<String>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(async move {
+            let filename = PathBuf::from(self.filename);
+            let content = facet_json::to_string_pretty(&self.tab.entries)
+                .map_err(|error| eyre::eyre!("could not serialize tab entries: {error:?}"))?;
+            tokio::fs::write(&filename, content)
+                .await
+                .map_err(|error| eyre::eyre!("could not write {}: {error}", filename.display()))?;
+            Ok(filename.display().to_string())
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default, facet::Facet)]
@@ -222,10 +254,31 @@ enum Breadcrumb {
         value: String,
     },
     Pop,
+    ProjectFields {
+        mode: ProjectFieldsMode,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, facet::Facet)]
+#[repr(C)]
+enum ProjectFieldsMode {
+    Extend,
+    Map,
+}
+
+impl ProjectFieldsMode {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Extend => "project extend fields",
+            Self::Map => "project map fields",
+        }
+    }
 }
 
 cloud_terrastodon_registry::register_thing!(Breadcrumbs);
 cloud_terrastodon_registry::register_thing!(Tab);
+cloud_terrastodon_registry::register_thing!(ProduceJsonRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(ProduceJsonRequest<'static> => String, effects = [Write]);
 
 struct ObjectBrowserApp {
     should_quit: bool,
@@ -461,6 +514,7 @@ impl ObjectBrowserApp {
         }
         if changed {
             self.invalidate_all_slot_display_caches();
+            self.sync_current_tab_breadcrumbs();
         }
     }
     fn advance_object_plans(&mut self) {
@@ -587,6 +641,7 @@ impl ObjectBrowserApp {
 
         if changed {
             self.invalidate_all_slot_display_caches();
+            self.sync_current_tab_breadcrumbs();
         }
     }
 
@@ -1332,6 +1387,8 @@ impl ObjectBrowserApp {
                 Line::from("filter value: match shape/name/value metadata"),
                 Line::from("filter slot kind: show owned, view, and/or projection slots"),
                 Line::from("pop projection: show the parent of every matching projection"),
+                Line::from("project extend fields: retain matching objects and add their fields"),
+                Line::from("project map fields: replace matching objects with their fields"),
             ],
         );
     }
@@ -1791,9 +1848,20 @@ impl ObjectBrowserApp {
     }
 
     fn create_tab_slot(&mut self) -> usize {
-        let slot_id = self.allocate_slot_id();
-        self.object_slots.push(ObjectSlot::new_tab(slot_id));
-        slot_id
+        let tab_slot_id = self.allocate_slot_id();
+        self.object_slots.push(ObjectSlot::new_tab(tab_slot_id));
+
+        let name_slot_id = self.allocate_slot_id();
+        let name_value = RuntimeValue::from_box(Box::new("unnamed".to_string()))
+            .expect("String should be representable as a runtime value");
+        self.object_slots.push(ObjectSlot::new_resolved_result(
+            name_slot_id,
+            describe_shape(<String as facet::Facet<'static>>::SHAPE),
+            name_value,
+        ));
+        self.set_field_link(tab_slot_id, 0, name_slot_id);
+
+        tab_slot_id
     }
 
     fn close_tab(&mut self, tab_index: usize) {
@@ -1910,36 +1978,111 @@ impl ObjectBrowserApp {
             return;
         };
         let breadcrumbs = Breadcrumbs::from_ui(&self.projection_stack, &self.breadcrumb_filters);
+        let entries = self.current_tab_entries_snapshot();
         let breadcrumbs_slot_id =
             self.slot_field(tab_slot_id, 1)
                 .and_then(|field| match field.value_state {
                     FieldValueState::Linked { slot_id } => Some(slot_id),
                     FieldValueState::Defaulted | FieldValueState::Unset => None,
                 });
-        if breadcrumbs.entries.is_empty() && breadcrumbs_slot_id.is_none() {
-            return;
-        }
-        let value = match RuntimeValue::from_box(Box::new(breadcrumbs)) {
-            Ok(value) => value,
-            Err(error) => {
-                self.status_message = format!("Could not store tab breadcrumbs: {error}");
-                return;
+        if !breadcrumbs.entries.is_empty() || breadcrumbs_slot_id.is_some() {
+            match RuntimeValue::from_box(Box::new(breadcrumbs)) {
+                Ok(value) => self.sync_tab_field_value(
+                    tab_slot_id,
+                    1,
+                    describe_shape(<Breadcrumbs as facet::Facet<'static>>::SHAPE),
+                    value,
+                ),
+                Err(error) => {
+                    self.status_message = format!("Could not store tab breadcrumbs: {error}");
+                }
             }
-        };
-        if let Some(slot_id) = breadcrumbs_slot_id {
+        }
+        let entries_slot_id =
+            self.slot_field(tab_slot_id, 2)
+                .and_then(|field| match field.value_state {
+                    FieldValueState::Linked { slot_id } => Some(slot_id),
+                    FieldValueState::Defaulted | FieldValueState::Unset => None,
+                });
+        if !entries.is_empty() || entries_slot_id.is_some() {
+            match RuntimeValue::from_box(Box::new(entries)) {
+                Ok(value) => self.sync_tab_field_value(
+                    tab_slot_id,
+                    2,
+                    describe_shape(<Vec<ArbitraryJson> as facet::Facet<'static>>::SHAPE),
+                    value,
+                ),
+                Err(error) => {
+                    self.status_message = format!("Could not store tab entries: {error}");
+                }
+            }
+        }
+        self.invalidate_all_slot_display_caches();
+    }
+
+    fn current_tab_entries_snapshot(&self) -> Vec<ArbitraryJson> {
+        (0..self.total_slot_count())
+            .filter_map(|index| match self.pool_entry_at(index)? {
+                PoolEntry::NewSlot => None,
+                PoolEntry::RealSlot(slot_id) if self.is_tab_metadata_slot(slot_id) => None,
+                PoolEntry::RealSlot(slot_id) => self
+                    .slot_runtime_value(slot_id)
+                    .ok()
+                    .and_then(|value| facet_json::peek_to_string(value.peek()).ok())
+                    .map(|json| ArbitraryJson::from(facet_json::RawJson::from_owned(json))),
+                PoolEntry::Projection(projection)
+                    if self.is_tab_metadata_slot(projection.root_slot_id) =>
+                {
+                    None
+                }
+                PoolEntry::Projection(projection) => self
+                    .projection_value(&projection)
+                    .and_then(|value| facet_json::peek_to_string(value).ok())
+                    .map(|json| ArbitraryJson::from(facet_json::RawJson::from_owned(json))),
+            })
+            .collect()
+    }
+
+    fn is_tab_metadata_slot(&self, slot_id: usize) -> bool {
+        self.tabs.iter().any(|tab| {
+            tab.tab_slot_id == slot_id
+                || [1, 2].into_iter().any(|field_index| {
+                    self.slot_field(tab.tab_slot_id, field_index)
+                        .is_some_and(|field| {
+                            matches!(
+                                field.value_state,
+                                FieldValueState::Linked {
+                                    slot_id: linked_slot_id
+                                } if linked_slot_id == slot_id
+                            )
+                        })
+                })
+        })
+    }
+
+    fn sync_tab_field_value(
+        &mut self,
+        tab_slot_id: usize,
+        field_index: usize,
+        shape_name: String,
+        value: RuntimeValue,
+    ) {
+        let linked_slot_id =
+            self.slot_field(tab_slot_id, field_index)
+                .and_then(|field| match field.value_state {
+                    FieldValueState::Linked { slot_id } => Some(slot_id),
+                    FieldValueState::Defaulted | FieldValueState::Unset => None,
+                });
+        if let Some(slot_id) = linked_slot_id {
             if let Some(slot) = self.slot_by_id_mut(slot_id) {
                 slot.value_state = SlotValueState::ResolvedValue { value };
             }
         } else {
             let slot_id = self.allocate_slot_id();
-            self.object_slots.push(ObjectSlot::new_resolved_result(
-                slot_id,
-                describe_shape(<Breadcrumbs as facet::Facet<'static>>::SHAPE),
-                value,
-            ));
-            self.set_field_link(tab_slot_id, 1, slot_id);
+            self.object_slots
+                .push(ObjectSlot::new_resolved_result(slot_id, shape_name, value));
+            self.set_field_link(tab_slot_id, field_index, slot_id);
         }
-        self.invalidate_all_slot_display_caches();
     }
 
     fn current_tab_title(&self) -> String {
@@ -2263,6 +2406,8 @@ impl ObjectBrowserApp {
                         },
                     ),
                     Some(3) => self.apply_projection_pop(),
+                    Some(4) => self.apply_project_fields(ProjectFieldsMode::Extend),
+                    Some(5) => self.apply_project_fields(ProjectFieldsMode::Map),
                     _ => self.mode = UiMode::Pool,
                 }
             }
@@ -3245,6 +3390,9 @@ impl ObjectBrowserApp {
             .producer_function_choices_for(&required_shape_name)
             .into_iter()
             .partition(field_picker_choice_is_arbitrary_producer);
+        let mut regular_producer_choices = regular_producer_choices;
+        regular_producer_choices
+            .sort_by_key(|choice| self.field_picker_label(choice, &required_shape_name));
         choices.extend(regular_producer_choices);
         choices.push(FieldPickerChoice::CreateNew);
         if let Some(thing) = self.thing_for_shape_name(&required_shape_name) {
@@ -3334,6 +3482,9 @@ impl ObjectBrowserApp {
             .producer_function_choices_for(&required_shape_name)
             .into_iter()
             .partition(field_picker_choice_is_arbitrary_producer);
+        let mut regular_producer_choices = regular_producer_choices;
+        regular_producer_choices
+            .sort_by_key(|choice| self.field_picker_label(choice, &required_shape_name));
         choices.extend(regular_producer_choices);
         choices.push(FieldPickerChoice::CreateNewValue);
         choices.extend(arbitrary_producer_choices);
@@ -6610,6 +6761,7 @@ impl ObjectBrowserApp {
                     filter.value
                 ),
                 BreadcrumbFilter::Pop => "pop".to_string(),
+                BreadcrumbFilter::ProjectFields { mode } => mode.label().to_string(),
             }))
             .collect::<Vec<_>>();
         let add_index = labels.len();
@@ -6725,6 +6877,9 @@ impl ObjectBrowserApp {
                 Some(BreadcrumbFilter::Pop) => {
                     self.status_message = "Projection pop is already applied.".to_string();
                 }
+                Some(BreadcrumbFilter::ProjectFields { mode }) => {
+                    self.status_message = format!("{} is already applied.", mode.label());
+                }
                 None => {}
             }
             return;
@@ -6761,6 +6916,9 @@ impl ObjectBrowserApp {
                 BreadcrumbFilter::Value(_) => "Closed value filter.".to_string(),
                 BreadcrumbFilter::SlotKind(_) => "Closed slot kind filter.".to_string(),
                 BreadcrumbFilter::Pop => "Closed projection pop.".to_string(),
+                BreadcrumbFilter::ProjectFields { mode } => {
+                    format!("Closed {}.", mode.label())
+                }
             };
             return;
         }
@@ -6825,6 +6983,26 @@ impl ObjectBrowserApp {
             self.current_projection_view()
                 .map(|view| self.projection_view_label(view))
                 .unwrap_or_else(|| "the projection root".to_string())
+        );
+    }
+
+    fn apply_project_fields(&mut self, mode: ProjectFieldsMode) {
+        self.breadcrumb_filters
+            .push(BreadcrumbFilter::ProjectFields { mode });
+        self.projection_cache.borrow_mut().clear();
+        self.mode = UiMode::Pool;
+        self.pool_surface = PoolSurface::Breadcrumbs;
+        self.active_breadcrumb_index = self.projection_stack.len() + self.breadcrumb_filters.len();
+        self.active_slot_index = 0;
+        self.active_row_index = 0;
+        self.slot_view_offset = 0;
+        self.row_view_offset = 0;
+        self.sync_selection_viewports();
+        self.sync_current_tab_breadcrumbs();
+        self.status_message = format!(
+            "{} applied; {} entries visible.",
+            mode.label(),
+            self.total_slot_count()
         );
     }
 
@@ -7070,7 +7248,8 @@ impl ObjectBrowserApp {
                 BreadcrumbFilter::Shape(filter) => Some(filter.included_shapes.clone()),
                 BreadcrumbFilter::Value(_)
                 | BreadcrumbFilter::SlotKind(_)
-                | BreadcrumbFilter::Pop => None,
+                | BreadcrumbFilter::Pop
+                | BreadcrumbFilter::ProjectFields { .. } => None,
             })
             .unwrap_or_default();
         self.partition_picker = Some(PartitionPickerState::with_included_labels(
@@ -7100,9 +7279,10 @@ impl ObjectBrowserApp {
                         .map(|kind| kind.label().to_string())
                         .collect::<BTreeSet<_>>(),
                 ),
-                BreadcrumbFilter::Shape(_) | BreadcrumbFilter::Value(_) | BreadcrumbFilter::Pop => {
-                    None
-                }
+                BreadcrumbFilter::Shape(_)
+                | BreadcrumbFilter::Value(_)
+                | BreadcrumbFilter::Pop
+                | BreadcrumbFilter::ProjectFields { .. } => None,
             })
             .unwrap_or_default();
         self.partition_picker = Some(PartitionPickerState::with_included_labels(
@@ -7617,11 +7797,40 @@ impl ObjectBrowserApp {
             BreadcrumbFilter::SlotKind(filter) => {
                 slot_kind.is_some_and(|kind| filter.included_kinds.contains(&kind))
             }
-            BreadcrumbFilter::Pop => true,
+            BreadcrumbFilter::Pop | BreadcrumbFilter::ProjectFields { .. } => true,
         })
     }
 
     fn projection_path_matches_shape_filter(
+        &self,
+        root_slot_id: usize,
+        path: &[ValuePathSegment],
+    ) -> bool {
+        let base_match = self.projection_path_matches_base_filters(root_slot_id, path);
+        let Some(mode) = self.project_fields_mode() else {
+            return base_match;
+        };
+        let field_match = self.projection_path_is_projected_field(root_slot_id, path);
+        let is_object = self
+            .peek_at_path(root_slot_id, path)
+            .is_some_and(|value| peek_object_entries(value).is_some());
+        match mode {
+            ProjectFieldsMode::Extend => base_match || field_match,
+            ProjectFieldsMode::Map => field_match || (base_match && !is_object),
+        }
+    }
+
+    fn project_fields_mode(&self) -> Option<ProjectFieldsMode> {
+        self.breadcrumb_filters.iter().rev().find_map(|filter| {
+            if let BreadcrumbFilter::ProjectFields { mode } = filter {
+                Some(*mode)
+            } else {
+                None
+            }
+        })
+    }
+
+    fn projection_path_matches_base_filters(
         &self,
         root_slot_id: usize,
         path: &[ValuePathSegment],
@@ -7637,8 +7846,26 @@ impl ObjectBrowserApp {
             BreadcrumbFilter::SlotKind(filter) => {
                 filter.included_kinds.contains(&SlotFilterKind::Projection)
             }
-            BreadcrumbFilter::Pop => true,
+            BreadcrumbFilter::Pop | BreadcrumbFilter::ProjectFields { .. } => true,
         })
+    }
+
+    fn projection_path_is_projected_field(
+        &self,
+        root_slot_id: usize,
+        path: &[ValuePathSegment],
+    ) -> bool {
+        if self.project_fields_mode().is_none() {
+            return false;
+        }
+        let Some(ValuePathSegment::Field(_)) = path.last() else {
+            return false;
+        };
+        let parent_path = &path[..path.len().saturating_sub(1)];
+        self.projection_path_matches_base_filters(root_slot_id, parent_path)
+            && self
+                .peek_at_path(root_slot_id, parent_path)
+                .is_some_and(|value| peek_object_entries(value).is_some())
     }
 
     fn projection_slot_kind_filter_matches(&self) -> bool {
@@ -7646,7 +7873,10 @@ impl ObjectBrowserApp {
             BreadcrumbFilter::SlotKind(filter) => {
                 filter.included_kinds.contains(&SlotFilterKind::Projection)
             }
-            BreadcrumbFilter::Shape(_) | BreadcrumbFilter::Value(_) | BreadcrumbFilter::Pop => true,
+            BreadcrumbFilter::Shape(_)
+            | BreadcrumbFilter::Value(_)
+            | BreadcrumbFilter::Pop
+            | BreadcrumbFilter::ProjectFields { .. } => true,
         })
     }
 
@@ -7665,7 +7895,8 @@ impl ObjectBrowserApp {
                 BreadcrumbFilter::Shape(filter) => Some(filter),
                 BreadcrumbFilter::Value(_)
                 | BreadcrumbFilter::SlotKind(_)
-                | BreadcrumbFilter::Pop => None,
+                | BreadcrumbFilter::Pop
+                | BreadcrumbFilter::ProjectFields { .. } => None,
             });
         let shape_filters = shape_filters.collect::<Vec<_>>();
         if shape_filters.is_empty() {
@@ -7674,18 +7905,20 @@ impl ObjectBrowserApp {
         let Some(shape_name) = self.projection_shape_name_at_path(root_slot_id, path) else {
             return (false, false);
         };
-        if let Some(relation) = self
-            .projection_cache
-            .borrow()
-            .filter_shape_relations
-            .get(&shape_name)
-            .copied()
+        let project_fields_active = self.project_fields_mode().is_some();
+        if !project_fields_active
+            && let Some(relation) = self
+                .projection_cache
+                .borrow()
+                .filter_shape_relations
+                .get(&shape_name)
+                .copied()
         {
             return relation;
         }
         let mut reachable_shapes = self.projection_shape_names_at_path(root_slot_id, path);
         reachable_shapes.remove(&shape_name);
-        let relation = (
+        let mut relation = (
             shape_filters
                 .iter()
                 .all(|filter| filter.included_shapes.contains(&shape_name)),
@@ -7695,6 +7928,14 @@ impl ObjectBrowserApp {
                     .all(|filter| filter.included_shapes.contains(shape))
             }),
         );
+        if project_fields_active
+            && self.projection_path_matches_base_filters(root_slot_id, path)
+            && self
+                .peek_at_path(root_slot_id, path)
+                .is_some_and(|value| peek_object_entries(value).is_some())
+        {
+            relation.1 = true;
+        }
         self.projection_cache
             .borrow_mut()
             .filter_shape_relations
@@ -9084,6 +9325,7 @@ enum BreadcrumbFilter {
     Value(ValueFilterView),
     SlotKind(SlotKindFilterView),
     Pop,
+    ProjectFields { mode: ProjectFieldsMode },
 }
 
 impl Breadcrumbs {
@@ -9109,6 +9351,7 @@ impl Breadcrumbs {
                 value: filter.value.clone(),
             },
             BreadcrumbFilter::Pop => Breadcrumb::Pop,
+            BreadcrumbFilter::ProjectFields { mode } => Breadcrumb::ProjectFields { mode: *mode },
         }));
         Self { entries }
     }
@@ -9143,6 +9386,9 @@ impl Breadcrumbs {
                     value,
                 })),
                 Breadcrumb::Pop => filters.push(BreadcrumbFilter::Pop),
+                Breadcrumb::ProjectFields { mode } => {
+                    filters.push(BreadcrumbFilter::ProjectFields { mode });
+                }
             }
         }
         (projections, filters)
@@ -9852,6 +10098,8 @@ impl FilterKindPickerState {
             "filter value".to_string(),
             "filter slot kind".to_string(),
             "pop projection".to_string(),
+            "project extend fields".to_string(),
+            "project map fields".to_string(),
         ];
         let mut search = PickerSearchState::new();
         search.reset(&labels, Some(0));
@@ -10389,6 +10637,14 @@ impl ObjectSlot {
                         field_name: "breadcrumbs",
                         field_shape_name: describe_shape(
                             <Breadcrumbs as facet::Facet<'static>>::SHAPE,
+                        ),
+                        has_default: true,
+                        default_value_label: Some("<default>".to_string()),
+                    },
+                    ShapeFieldInfo {
+                        field_name: "entries",
+                        field_shape_name: describe_shape(
+                            <Vec<ArbitraryJson> as facet::Facet<'static>>::SHAPE,
                         ),
                         has_default: true,
                         default_value_label: Some("<default>".to_string()),
@@ -11732,6 +11988,9 @@ mod tests {
     cloud_terrastodon_registry::register_thing!(DummyInvokeRequest);
     cloud_terrastodon_registry::register_thing!(DummyCowOwner);
     cloud_terrastodon_registry::register_thing!(DummyCowProducerRequest);
+    cloud_terrastodon_registry::register_thing!(PopPermission);
+    cloud_terrastodon_registry::register_thing!(PopMember);
+    cloud_terrastodon_registry::register_thing!(Vec<PopMember>);
     cloud_terrastodon_registry::register_into_future!(DummyInvokeRequest => DummyInvokeOutput);
     cloud_terrastodon_registry::register_into_future!(
         DummyCowProducerRequest => DummyInvokeOutput
@@ -13093,7 +13352,8 @@ mod tests {
                     }
                     super::BreadcrumbFilter::Value(_)
                     | super::BreadcrumbFilter::SlotKind(_)
-                    | super::BreadcrumbFilter::Pop => None,
+                    | super::BreadcrumbFilter::Pop
+                    | super::BreadcrumbFilter::ProjectFields { .. } => None,
                 }),
             Some(BTreeSet::from(["AzureTenantIdResolveRequest".to_string()]))
         );
@@ -13576,7 +13836,7 @@ mod tests {
             id: 14,
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
-            shape_name: Some("Vec<PopMember>".to_string()),
+            shape_name: Some("List<PopMember>".to_string()),
             value_state: resolved(vec![
                 PopMember {
                     permission_objects: vec![
@@ -13657,6 +13917,111 @@ mod tests {
                 .iter()
                 .any(|path| { path == &vec![super::ValuePathSegment::Index(1)] })
         );
+    }
+
+    #[test]
+    fn project_fields_can_extend_or_map_matching_projection_objects() {
+        let mut app = ObjectBrowserApp::default();
+        app.object_slots.push(super::ObjectSlot {
+            id: 14,
+            kind: super::SlotKind::Owned,
+            provenance: super::ValueProvenance::Owned,
+            shape_name: Some("List<PopMember>".to_string()),
+            value_state: resolved(vec![PopMember {
+                permission_objects: vec![PopPermission {
+                    display_name: "Project Administrators".to_string(),
+                }],
+            }]),
+            result_slot_ids: Vec::new(),
+            created_for: None,
+            produced_by_slot_id: None,
+            display_cache: None,
+        });
+        app.breadcrumb_filters = vec![
+            super::BreadcrumbFilter::Shape(super::ShapeFilterView {
+                included_shapes: BTreeSet::from(["PopPermission".to_string()]),
+            }),
+            super::BreadcrumbFilter::ProjectFields {
+                mode: super::ProjectFieldsMode::Extend,
+            },
+        ];
+        app.projection_cache.borrow_mut().clear();
+        let extended = (0..app.total_slot_count())
+            .filter_map(|index| match app.pool_entry_at(index)? {
+                super::PoolEntry::Projection(projection) => Some(projection.path),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let object_path = vec![
+            super::ValuePathSegment::Index(0),
+            super::ValuePathSegment::Field("permission_objects".to_string()),
+            super::ValuePathSegment::Index(0),
+        ];
+        let field_path = [
+            object_path.clone(),
+            vec![
+                super::ValuePathSegment::Index(0),
+                super::ValuePathSegment::Field("permission_objects".to_string()),
+                super::ValuePathSegment::Index(0),
+                super::ValuePathSegment::Field("display_name".to_string()),
+            ],
+        ];
+        assert!(extended.contains(&object_path));
+        assert!(extended.contains(&field_path[1]));
+
+        app.breadcrumb_filters[1] = super::BreadcrumbFilter::ProjectFields {
+            mode: super::ProjectFieldsMode::Map,
+        };
+        app.projection_cache.borrow_mut().clear();
+        let mapped = (0..app.total_slot_count())
+            .filter_map(|index| match app.pool_entry_at(index)? {
+                super::PoolEntry::Projection(projection) => Some(projection.path),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(!mapped.contains(&object_path));
+        assert!(mapped.contains(&field_path[1]));
+    }
+
+    #[tokio::test]
+    async fn produce_json_borrows_tab_without_consuming_it() {
+        let filename = std::env::temp_dir().join(format!(
+            "cloud-terrastodon-ui-ratatui-test-{}.json",
+            std::process::id()
+        ));
+        let tab = super::Tab {
+            name: "results".to_string(),
+            breadcrumbs: super::Breadcrumbs::default(),
+            entries: vec![super::ArbitraryJson::from(facet_json::RawJson::from_owned(
+                "{\"displayName\":\"Project Administrators\"}".to_string(),
+            ))],
+        };
+        let cloned_tab = super::RuntimeValue::from_box(Box::new(tab.clone()))
+            .expect("Tab should be representable as a runtime value")
+            .try_clone()
+            .expect("Tab entries should be deeply cloneable")
+            .into_box::<super::Tab>()
+            .expect("cloned Tab should retain its concrete type")
+            .downcast::<super::Tab>()
+            .expect("cloned Tab should downcast");
+        assert_eq!(cloned_tab.entries.len(), 1);
+        let request = super::ProduceJsonRequest {
+            tab: Cow::Borrowed(&tab),
+            filename: filename.to_string_lossy().into_owned(),
+        };
+
+        let written = request.into_future().await.expect("json should be written");
+        assert_eq!(written, filename.display().to_string());
+        assert_eq!(tab.entries.len(), 1);
+        assert!(
+            tokio::fs::read_to_string(&filename)
+                .await
+                .expect("json file should be readable")
+                .contains("Project Administrators")
+        );
+        tokio::fs::remove_file(filename)
+            .await
+            .expect("test json file should be removed");
     }
 
     #[test]
@@ -13850,6 +14215,29 @@ mod tests {
             Some(&SlotFocusTarget::FieldValue(0))
         );
         assert_eq!(app.mode, UiMode::Pool);
+    }
+
+    #[test]
+    fn new_tabs_start_with_an_owned_unnamed_name_slot() {
+        let app = ObjectBrowserApp::new();
+        let tab_slot_id = app.current_tab_slot_id().expect("first tab slot");
+        let name_slot_id = app
+            .slot_field(tab_slot_id, 0)
+            .and_then(|field| match field.value_state {
+                super::FieldValueState::Linked { slot_id } => Some(slot_id),
+                super::FieldValueState::Defaulted | super::FieldValueState::Unset => None,
+            })
+            .expect("Tab.name should link to its value slot");
+
+        assert!(matches!(
+            app.slot_by_id(name_slot_id)
+                .map(|slot| (&slot.kind, &slot.value_state)),
+            Some((
+                super::SlotKind::Owned,
+                super::SlotValueState::ResolvedValue { .. }
+            ))
+        ));
+        assert_eq!(app.tab_name(tab_slot_id).as_deref(), Some("unnamed"));
     }
 
     #[test]
