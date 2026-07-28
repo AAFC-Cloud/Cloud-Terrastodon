@@ -7,7 +7,7 @@ use std::borrow::Cow;
 use std::str::FromStr;
 
 /// Project ID or name
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsProjectArgument<'a> {
@@ -103,3 +103,15 @@ impl From<&AzureDevOpsProjectArgument<'_>> for String {
         value.to_string()
     }
 }
+
+impl<'a> Arbitrary<'a> for AzureDevOpsProjectArgument<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(match u.int_in_range(0..=1)? {
+            0 => Self::Id(Cow::Owned(AzureDevOpsProjectId::arbitrary(u)?)),
+            _ => Self::Name(Cow::Owned(AzureDevOpsProjectName::arbitrary(u)?)),
+        })
+    }
+}
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectArgument<'static>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectArgument<'static>);
