@@ -338,6 +338,7 @@ impl ObjectBrowserApp {
         let mut app = Self::default();
         let tab_slot_id = app.create_tab_slot();
         app.tabs[0].tab_slot_id = tab_slot_id;
+        app.active_slot_index = app.total_slot_count().saturating_sub(1);
         app
     }
 
