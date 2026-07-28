@@ -21,7 +21,9 @@ use std::ptr::NonNull;
 
 mod default_production;
 
+pub use default_production::DefaultProductionField;
 pub use default_production::DefaultProductionPlan;
+pub use default_production::DefaultProductionPlanKind;
 pub use default_production::default_production_plan;
 pub use default_production::invoke_with_default_input;
 pub use default_production::shape_can_be_produced_from_defaults;

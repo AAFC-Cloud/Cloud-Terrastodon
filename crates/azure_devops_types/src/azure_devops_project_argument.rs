@@ -9,6 +9,7 @@ use std::str::FromStr;
 /// Project ID or name
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(proxy = String)]
+#[facet(traits(Clone))]
 #[repr(C)]
 pub enum AzureDevOpsProjectArgument<'a> {
     Id(Cow<'a, AzureDevOpsProjectId>),
@@ -115,3 +116,20 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectArgument<'static> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectArgument<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectArgument<'static>);
+
+#[cfg(test)]
+mod tests {
+    use super::AzureDevOpsProjectArgument;
+    use crate::AzureDevOpsProjectName;
+    use cloud_terrastodon_registry::RuntimeValue;
+
+    #[test]
+    fn exposes_a_reflected_clone_operation() {
+        let project_name = AzureDevOpsProjectName::try_new("test-project").unwrap();
+        let value =
+            RuntimeValue::from_box(Box::new(AzureDevOpsProjectArgument::from(project_name)))
+                .unwrap();
+
+        assert!(value.try_clone().is_ok());
+    }
+}

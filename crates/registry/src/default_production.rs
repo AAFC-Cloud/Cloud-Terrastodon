@@ -24,7 +24,7 @@ pub struct DefaultProductionPlan {
 enum DefaultProductionKind {
     Default,
     Struct {
-        fields: Vec<(usize, Box<DefaultProductionPlan>)>,
+        fields: Vec<DefaultProductionField>,
     },
     Invoke {
         function: &'static Function,
@@ -32,9 +32,34 @@ enum DefaultProductionKind {
     },
 }
 
+pub struct DefaultProductionField {
+    pub field_index: usize,
+    pub field_name: &'static str,
+    pub plan: Box<DefaultProductionPlan>,
+}
+
+pub enum DefaultProductionPlanKind<'a> {
+    Default,
+    Struct(&'a [DefaultProductionField]),
+    Invoke {
+        function: &'static Function,
+        input: &'a DefaultProductionPlan,
+    },
+}
+
 impl DefaultProductionPlan {
     pub fn shape(&self) -> &'static Shape {
         self.shape
+    }
+
+    pub fn kind(&self) -> DefaultProductionPlanKind<'_> {
+        match &self.kind {
+            DefaultProductionKind::Default => DefaultProductionPlanKind::Default,
+            DefaultProductionKind::Struct { fields } => DefaultProductionPlanKind::Struct(fields),
+            DefaultProductionKind::Invoke { function, input } => {
+                DefaultProductionPlanKind::Invoke { function, input }
+            }
+        }
     }
 }
 
@@ -117,7 +142,11 @@ fn plan_for_shape(
                     possible = false;
                     break;
                 };
-                fields.push((field_index, Box::new(plan)));
+                fields.push(DefaultProductionField {
+                    field_index,
+                    field_name: field.effective_name(),
+                    plan: Box::new(plan),
+                });
             }
             possible.then_some(DefaultProductionPlan {
                 shape,
@@ -156,17 +185,17 @@ fn realize_plan(
             DefaultProductionKind::Default => RuntimeValue::from_default(plan.shape),
             DefaultProductionKind::Struct { fields } => {
                 let mut values = Vec::with_capacity(fields.len());
-                for (field_index, field_plan) in fields {
-                    let thing = known_thing_for_shape(field_plan.shape()).ok_or_else(|| {
+                for field in fields {
+                    let thing = known_thing_for_shape(field.plan.shape()).ok_or_else(|| {
                         eyre::eyre!(
                             "{} is not a registered field thing",
-                            describe_shape(field_plan.shape())
+                            describe_shape(field.plan.shape())
                         )
                     })?;
                     values.push((
-                        *field_index,
+                        field.field_index,
                         thing,
-                        realize_plan_as_boxed(field_plan).await?,
+                        realize_plan_as_boxed(&field.plan).await?,
                     ));
                 }
                 RuntimeValue::build_with(plan.shape, |mut partial| {

@@ -4,6 +4,8 @@ use crate::projection_shapes::projection_map_value_shape as registry_map_value_s
 use crate::projection_shapes::projection_sequence_element_shape as sequence_element_shape;
 use crate::projection_shapes::projection_shape_names;
 use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::DefaultProductionPlan;
+use cloud_terrastodon_registry::DefaultProductionPlanKind;
 use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::FunctionInvocation;
 use cloud_terrastodon_registry::FunctionKind;
@@ -14,11 +16,11 @@ use cloud_terrastodon_registry::ReceiverMode;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::ShapeFieldInfo;
 use cloud_terrastodon_registry::ShapeVariantInfo;
+use cloud_terrastodon_registry::default_production_plan;
 use cloud_terrastodon_registry::describe_function;
 use cloud_terrastodon_registry::describe_shape;
 use cloud_terrastodon_registry::functions_from;
 use cloud_terrastodon_registry::functions_to;
-use cloud_terrastodon_registry::invoke_with_default_input;
 use cloud_terrastodon_registry::known_functions;
 use cloud_terrastodon_registry::known_shapes;
 use cloud_terrastodon_registry::shape_can_be_produced_from_defaults;
@@ -256,6 +258,7 @@ struct ObjectBrowserApp {
     shape_choices: Vec<KnownShapeInfo>,
     reflected_shapes: HashMap<String, &'static facet::Shape>,
     object_slots: Vec<ObjectSlot>,
+    object_plans: Vec<ObjectPlan>,
     projection_cache: RefCell<ProjectionCache>,
     active_slot_index: usize,
     active_row_index: usize,
@@ -316,6 +319,7 @@ impl Default for ObjectBrowserApp {
             shape_choices,
             reflected_shapes,
             object_slots: Vec::new(),
+            object_plans: Vec::new(),
             projection_cache: RefCell::new(ProjectionCache::default()),
             active_slot_index: 0,
             active_row_index: 0,
@@ -368,6 +372,7 @@ impl ObjectBrowserApp {
                 }
                 _ = interval.tick() => {
                     self.advance_pending_invocations();
+                    self.advance_object_plans();
                     if let Some(terminal) = terminal.as_mut() {
                         terminal.draw(|frame| self.draw(frame)).map_err(|error| {
                             coordinator.poison(format!("Ratatui frame draw failed: {error}"));
@@ -443,6 +448,9 @@ impl ObjectBrowserApp {
                 SlotValueState::Consumed => {
                     unreachable!("a completed invocation cannot produce a consumed result")
                 }
+                SlotValueState::Cancelled { message } => {
+                    format!("Result slot {} cancelled: {message}", slot.id)
+                }
             });
             slot.value_state = next_state;
             changed = true;
@@ -454,6 +462,407 @@ impl ObjectBrowserApp {
             self.invalidate_all_slot_display_caches();
         }
     }
+    fn advance_object_plans(&mut self) {
+        let mut changed = false;
+        for plan_index in 0..self.object_plans.len() {
+            let step_count = self.object_plans[plan_index].steps.len();
+            for step_index in 0..step_count {
+                let status = self.object_plans[plan_index].steps[step_index]
+                    .status
+                    .clone();
+                if matches!(
+                    status,
+                    ObjectPlanStepStatus::Complete
+                        | ObjectPlanStepStatus::Failed(_)
+                        | ObjectPlanStepStatus::Cancelled
+                ) {
+                    continue;
+                }
+
+                let operation = self.object_plans[plan_index].steps[step_index]
+                    .operation
+                    .clone();
+                let next_status = match operation {
+                    ObjectPlanOperation::Create { .. }
+                    | ObjectPlanOperation::InitializeDefault { .. } => {
+                        ObjectPlanStepStatus::Complete
+                    }
+                    ObjectPlanOperation::Link {
+                        owner_slot_id,
+                        field_index,
+                        producer_slot_id,
+                        result_slot_id,
+                        ..
+                    } => {
+                        let linked_slot_id = result_slot_id.or_else(|| {
+                            self.slot_by_id(producer_slot_id)
+                                .and_then(|slot| slot.result_slot_ids.last().copied())
+                        });
+                        if let Some(linked_slot_id) = linked_slot_id {
+                            self.set_field_link(owner_slot_id, field_index, linked_slot_id);
+                            if let ObjectPlanOperation::Link {
+                                result_slot_id: result,
+                                ..
+                            } = &mut self.object_plans[plan_index].steps[step_index].operation
+                            {
+                                *result = Some(linked_slot_id);
+                            }
+                            match self.slot_completion(linked_slot_id) {
+                                SlotCompletion::Complete => ObjectPlanStepStatus::Complete,
+                                SlotCompletion::Partial => ObjectPlanStepStatus::Waiting,
+                                SlotCompletion::Unset => {
+                                    self.slot_failure_message(linked_slot_id).map_or(
+                                        ObjectPlanStepStatus::Waiting,
+                                        ObjectPlanStepStatus::Failed,
+                                    )
+                                }
+                            }
+                        } else if let Some(message) = self.slot_failure_message(producer_slot_id) {
+                            ObjectPlanStepStatus::Failed(message)
+                        } else {
+                            ObjectPlanStepStatus::Waiting
+                        }
+                    }
+                    ObjectPlanOperation::Invoke {
+                        slot_id,
+                        function,
+                        result_slot_id,
+                    } => {
+                        let result_slot_id = result_slot_id.or_else(|| {
+                            if self.slot_completion(slot_id) != SlotCompletion::Complete {
+                                return None;
+                            }
+                            let previous_result_count = self
+                                .slot_by_id(slot_id)
+                                .map_or(0, |slot| slot.result_slot_ids.len());
+                            self.invoke_registered_function_inner(slot_id, function, false);
+                            self.slot_by_id(slot_id)
+                                .and_then(|slot| slot.result_slot_ids.get(previous_result_count))
+                                .copied()
+                        });
+
+                        if let Some(result_slot_id) = result_slot_id {
+                            if let ObjectPlanOperation::Invoke {
+                                result_slot_id: result,
+                                ..
+                            } = &mut self.object_plans[plan_index].steps[step_index].operation
+                            {
+                                *result = Some(result_slot_id);
+                            }
+                            match self
+                                .slot_by_id(result_slot_id)
+                                .map(|slot| &slot.value_state)
+                            {
+                                Some(SlotValueState::Pending(_)) => ObjectPlanStepStatus::Waiting,
+                                Some(SlotValueState::ResolvedValue { .. }) => {
+                                    ObjectPlanStepStatus::Complete
+                                }
+                                Some(SlotValueState::Failed { message }) => {
+                                    ObjectPlanStepStatus::Failed(message.clone())
+                                }
+                                Some(SlotValueState::Consumed) | None => {
+                                    ObjectPlanStepStatus::Failed(format!(
+                                        "result slot {result_slot_id} is unavailable"
+                                    ))
+                                }
+                                Some(SlotValueState::Cancelled { message }) => {
+                                    ObjectPlanStepStatus::Failed(message.clone())
+                                }
+                                Some(SlotValueState::Building(_)) => ObjectPlanStepStatus::Waiting,
+                            }
+                        } else if let Some(message) = self.slot_failure_message(slot_id) {
+                            ObjectPlanStepStatus::Failed(message)
+                        } else {
+                            ObjectPlanStepStatus::Waiting
+                        }
+                    }
+                };
+                if self.object_plans[plan_index].steps[step_index].status != next_status {
+                    self.object_plans[plan_index].steps[step_index].status = next_status;
+                    changed = true;
+                }
+            }
+        }
+
+        if changed {
+            self.invalidate_all_slot_display_caches();
+        }
+    }
+
+    fn slot_failure_message(&self, slot_id: usize) -> Option<String> {
+        match self.slot_by_id(slot_id).map(|slot| &slot.value_state) {
+            Some(SlotValueState::Failed { message }) => Some(message.clone()),
+            Some(SlotValueState::Consumed) => Some(format!("slot {slot_id} was consumed")),
+            _ => None,
+        }
+    }
+
+    fn begin_object_plan(
+        &mut self,
+        root_slot_id: usize,
+        function: &'static Function,
+        production_plan: &DefaultProductionPlan,
+    ) {
+        let plan_slot_id = self.allocate_slot_id();
+        self.object_slots.push(ObjectSlot::new_plan(plan_slot_id));
+        let mut plan = ObjectPlan::new(
+            root_slot_id,
+            plan_slot_id,
+            format!("construct and invoke {}", describe_function(function)),
+        );
+        plan.add_create(
+            root_slot_id,
+            self.slot_shape_name(root_slot_id)
+                .unwrap_or("untyped slot")
+                .to_string(),
+        );
+        self.populate_object_plan_slot(&mut plan, root_slot_id, production_plan);
+        plan.add_invocation(root_slot_id, function);
+        self.object_plans.push(plan);
+        self.status_message = format!(
+            "Created execution plan for {}.",
+            describe_function(function)
+        );
+        self.invalidate_all_slot_display_caches();
+        self.advance_object_plans();
+    }
+
+    fn populate_object_plan_slot(
+        &mut self,
+        plan: &mut ObjectPlan,
+        slot_id: usize,
+        production: &DefaultProductionPlan,
+    ) {
+        match production.kind() {
+            DefaultProductionPlanKind::Default => {
+                match RuntimeValue::from_default(production.shape()) {
+                    Ok(value) => {
+                        if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                            slot.value_state = SlotValueState::ResolvedValue { value };
+                        }
+                        plan.add_initialize_default(
+                            slot_id,
+                            describe_shape(production.shape()).to_string(),
+                        );
+                    }
+                    Err(error) => plan.steps.push(ObjectPlanStep {
+                        operation: ObjectPlanOperation::InitializeDefault {
+                            slot_id,
+                            shape_name: describe_shape(production.shape()).to_string(),
+                        },
+                        status: ObjectPlanStepStatus::Failed(error.to_string()),
+                    }),
+                }
+            }
+            DefaultProductionPlanKind::Struct(fields) => {
+                for field in fields {
+                    let Some(field_index) =
+                        self.slot_field_index_by_name(slot_id, field.field_name)
+                    else {
+                        plan.steps.push(ObjectPlanStep {
+                            operation: ObjectPlanOperation::InitializeDefault {
+                                slot_id,
+                                shape_name: format!("missing field {}", field.field_name),
+                            },
+                            status: ObjectPlanStepStatus::Failed(format!(
+                                "slot {slot_id} has no field {}",
+                                field.field_name
+                            )),
+                        });
+                        continue;
+                    };
+                    self.populate_object_plan_field(
+                        plan,
+                        slot_id,
+                        field_index,
+                        field.field_name,
+                        &field.plan,
+                    );
+                }
+            }
+            DefaultProductionPlanKind::Invoke { function, input } => {
+                plan.steps.push(ObjectPlanStep {
+                    operation: ObjectPlanOperation::Invoke {
+                        slot_id,
+                        function,
+                        result_slot_id: None,
+                    },
+                    status: ObjectPlanStepStatus::Failed(
+                        "a producer plan cannot directly populate an existing slot".to_string(),
+                    ),
+                });
+                let _ = input;
+            }
+        }
+    }
+
+    fn populate_object_plan_field(
+        &mut self,
+        plan: &mut ObjectPlan,
+        owner_slot_id: usize,
+        field_index: usize,
+        field_name: &'static str,
+        production: &DefaultProductionPlan,
+    ) {
+        let target_name = describe_shape(production.shape()).to_string();
+        if let Some(&producer_slot_id) = plan.shared_producers.get(&target_name) {
+            plan.add_link(owner_slot_id, field_index, field_name, producer_slot_id);
+            return;
+        }
+
+        if let Some(source_slot_id) =
+            self.existing_complete_owned_slot_for_shape(production.shape(), owner_slot_id)
+        {
+            let view_slot_id = self.allocate_slot_id();
+            self.object_slots.push(ObjectSlot::new_view(
+                view_slot_id,
+                source_slot_id,
+                owner_slot_id,
+                field_index,
+                field_name,
+            ));
+            self.set_field_link(owner_slot_id, field_index, view_slot_id);
+            plan.add_create(view_slot_id, target_name.clone());
+            let step = plan.add_link(owner_slot_id, field_index, field_name, source_slot_id);
+            if let ObjectPlanOperation::Link { result_slot_id, .. } =
+                &mut plan.steps[step].operation
+            {
+                *result_slot_id = Some(source_slot_id);
+            }
+            plan.steps[step].status = ObjectPlanStepStatus::Complete;
+            return;
+        }
+
+        match production.kind() {
+            DefaultProductionPlanKind::Default => {
+                let value = match RuntimeValue::from_default(production.shape()) {
+                    Ok(value) => value,
+                    Err(error) => {
+                        plan.steps.push(ObjectPlanStep {
+                            operation: ObjectPlanOperation::InitializeDefault {
+                                slot_id: owner_slot_id,
+                                shape_name: target_name,
+                            },
+                            status: ObjectPlanStepStatus::Failed(error.to_string()),
+                        });
+                        return;
+                    }
+                };
+                let slot_id = self.allocate_slot_id();
+                self.object_slots.push(ObjectSlot::new_resolved_result(
+                    slot_id,
+                    target_name.clone(),
+                    value,
+                ));
+                self.set_field_link(owner_slot_id, field_index, slot_id);
+                plan.add_create(slot_id, target_name.clone());
+                plan.add_initialize_default(slot_id, target_name.clone());
+                let link = plan.add_link(owner_slot_id, field_index, field_name, slot_id);
+                if let ObjectPlanOperation::Link { result_slot_id, .. } =
+                    &mut plan.steps[link].operation
+                {
+                    *result_slot_id = Some(slot_id);
+                }
+                plan.steps[link].status = ObjectPlanStepStatus::Complete;
+                plan.shared_producers.insert(target_name, slot_id);
+            }
+            DefaultProductionPlanKind::Struct(_) => {
+                let Some(choice) = self
+                    .shape_choices
+                    .iter()
+                    .find(|choice| choice.label == target_name)
+                    .cloned()
+                else {
+                    plan.steps.push(ObjectPlanStep {
+                        operation: ObjectPlanOperation::Create {
+                            slot_id: owner_slot_id,
+                            shape_name: target_name.clone(),
+                        },
+                        status: ObjectPlanStepStatus::Failed(format!(
+                            "{target_name} is not a registered shape"
+                        )),
+                    });
+                    return;
+                };
+                let slot_id = self.allocate_slot_id();
+                let mut slot = ObjectSlot::new(slot_id);
+                slot.apply_shape_choice(&choice);
+                slot.created_for = Some(SlotCreatedFor {
+                    owner_slot_id,
+                    field_index,
+                    field_name,
+                });
+                self.object_slots.push(slot);
+                self.set_field_link(owner_slot_id, field_index, slot_id);
+                plan.add_create(slot_id, target_name.clone());
+                plan.shared_producers.insert(target_name, slot_id);
+                self.populate_object_plan_slot(plan, slot_id, production);
+            }
+            DefaultProductionPlanKind::Invoke { function, input } => {
+                let input_shape_name = describe_shape(function.input_shape).to_string();
+                let Some(choice) = self
+                    .shape_choices
+                    .iter()
+                    .find(|choice| choice.label == input_shape_name)
+                    .cloned()
+                else {
+                    plan.steps.push(ObjectPlanStep {
+                        operation: ObjectPlanOperation::Invoke {
+                            slot_id: owner_slot_id,
+                            function,
+                            result_slot_id: None,
+                        },
+                        status: ObjectPlanStepStatus::Failed(format!(
+                            "{input_shape_name} is not a registered shape"
+                        )),
+                    });
+                    return;
+                };
+                let producer_slot_id = self.allocate_slot_id();
+                let mut producer_slot = ObjectSlot::new(producer_slot_id);
+                producer_slot.apply_shape_choice(&choice);
+                producer_slot.created_for = Some(SlotCreatedFor {
+                    owner_slot_id,
+                    field_index,
+                    field_name,
+                });
+                self.object_slots.push(producer_slot);
+                plan.add_create(producer_slot_id, input_shape_name);
+                plan.shared_producers.insert(target_name, producer_slot_id);
+                self.populate_object_plan_slot(plan, producer_slot_id, input);
+                plan.add_invocation(producer_slot_id, function);
+                plan.add_link(owner_slot_id, field_index, field_name, producer_slot_id);
+            }
+        }
+    }
+
+    fn slot_field_index_by_name(&self, slot_id: usize, field_name: &str) -> Option<usize> {
+        let body = self.slot_body(slot_id)?;
+        match body {
+            SlotBody::Struct { fields } | SlotBody::Enum { fields, .. } => fields
+                .iter()
+                .position(|field| field.info.field_name == field_name),
+            SlotBody::Value { .. } | SlotBody::Unset => None,
+        }
+    }
+
+    fn existing_complete_owned_slot_for_shape(
+        &self,
+        shape: &'static facet::Shape,
+        exclude_slot_id: usize,
+    ) -> Option<usize> {
+        let shape_name = describe_shape(shape);
+        self.object_slots
+            .iter()
+            .filter(|slot| slot.id != exclude_slot_id)
+            .filter(|slot| matches!(slot.kind, SlotKind::Owned))
+            .find(|slot| {
+                self.slot_shape_name(slot.id) == Some(&shape_name)
+                    && self.slot_completion(slot.id) == SlotCompletion::Complete
+            })
+            .map(|slot| slot.id)
+    }
+
     fn draw(&mut self, frame: &mut Frame) {
         let vertical = Layout::vertical([
             Constraint::Length(1),
@@ -2692,6 +3101,25 @@ impl ObjectBrowserApp {
                     SlotFocusTarget::CreatedFor => self.activate_created_for(slot_id),
                     SlotFocusTarget::ProducedBy => self.activate_produced_by(slot_id),
                     SlotFocusTarget::RuntimeValue => self.activate_runtime_value(slot_id),
+                    SlotFocusTarget::Plan { slot_id } => self.jump_to_slot(slot_id),
+                    SlotFocusTarget::PlanField {
+                        plan_slot_id,
+                        owner_slot_id,
+                        field_index,
+                    } => {
+                        let Some(step_index) =
+                            self.plan_step_for_field(plan_slot_id, owner_slot_id, field_index)
+                        else {
+                            return;
+                        };
+                        self.jump_to_slot_target(
+                            plan_slot_id,
+                            SlotFocusTarget::PlanStep(step_index),
+                        );
+                    }
+                    SlotFocusTarget::PlanStep(step_index) => {
+                        self.activate_plan_step(slot_id, step_index)
+                    }
                     SlotFocusTarget::Result(result_index) => {
                         self.activate_result(slot_id, result_index)
                     }
@@ -3066,10 +3494,97 @@ impl ObjectBrowserApp {
             SlotAction::Clone => self.clone_slot(slot_id),
             SlotAction::Take => self.take_slot(slot_id),
             SlotAction::ToOwned => self.promote_slot_to_owned(slot_id),
+            SlotAction::Cancel => self.cancel_slot(slot_id),
             SlotAction::Invoke => self.invoke_slot(slot_id),
             SlotAction::InvokeConsume => self.invoke_consuming_slot(slot_id),
             SlotAction::InvokeArbitrary => self.invoke_arbitrary_slot(slot_id),
         }
+    }
+
+    fn cancel_slot(&mut self, slot_id: usize) {
+        if let Some(plan_index) = self
+            .object_plans
+            .iter()
+            .position(|plan| plan.plan_slot_id == slot_id)
+        {
+            self.cancel_object_plan(plan_index);
+            return;
+        }
+
+        let Some(data_slot_id) = self.data_slot_id_for(slot_id) else {
+            return;
+        };
+        let Some(slot) = self.slot_by_id_mut(data_slot_id) else {
+            return;
+        };
+        let SlotValueState::Pending(pending) = std::mem::replace(
+            &mut slot.value_state,
+            SlotValueState::Building(SlotBody::Unset),
+        ) else {
+            self.status_message = format!("Slot {slot_id} has no cancellable future.");
+            return;
+        };
+        pending.join_handle.abort();
+        slot.value_state = SlotValueState::Cancelled {
+            message: "cancelled by user".to_string(),
+        };
+        self.invalidate_all_slot_display_caches();
+        self.status_message = format!("Cancelled future in slot {slot_id}.");
+    }
+
+    fn cancel_object_plan(&mut self, plan_index: usize) {
+        let Some(plan) = self.object_plans.get(plan_index) else {
+            return;
+        };
+        if plan.cancelled {
+            return;
+        }
+        let pending_slot_ids = plan
+            .steps
+            .iter()
+            .filter_map(|step| match step.operation {
+                ObjectPlanOperation::Create { slot_id, .. }
+                | ObjectPlanOperation::InitializeDefault { slot_id, .. }
+                | ObjectPlanOperation::Invoke { slot_id, .. } => Some(slot_id),
+                ObjectPlanOperation::Link { .. } => None,
+            })
+            .flat_map(|slot_id| {
+                let result_slot_ids = self
+                    .slot_by_id(slot_id)
+                    .map(|slot| slot.result_slot_ids.clone())
+                    .unwrap_or_default();
+                std::iter::once(slot_id).chain(result_slot_ids)
+            })
+            .collect::<BTreeSet<_>>();
+
+        for slot_id in pending_slot_ids {
+            let Some(slot) = self.slot_by_id_mut(slot_id) else {
+                continue;
+            };
+            let SlotValueState::Pending(pending) = std::mem::replace(
+                &mut slot.value_state,
+                SlotValueState::Building(SlotBody::Unset),
+            ) else {
+                continue;
+            };
+            pending.join_handle.abort();
+            slot.value_state = SlotValueState::Cancelled {
+                message: "cancelled with execution plan".to_string(),
+            };
+        }
+
+        let plan_slot_id = self.object_plans[plan_index].plan_slot_id;
+        {
+            let plan = &mut self.object_plans[plan_index];
+            plan.cancelled = true;
+            for step in &mut plan.steps {
+                if !matches!(step.status, ObjectPlanStepStatus::Complete) {
+                    step.status = ObjectPlanStepStatus::Cancelled;
+                }
+            }
+        }
+        self.invalidate_all_slot_display_caches();
+        self.status_message = format!("Cancelled execution plan in slot {}.", plan_slot_id);
     }
 
     fn can_consume_slot(&self, slot_id: usize) -> bool {
@@ -3125,6 +3640,26 @@ impl ObjectBrowserApp {
     fn delete_slot(&mut self, slot_id: usize) {
         if let Some(tab_index) = self.tabs.iter().position(|tab| tab.tab_slot_id == slot_id) {
             self.close_tab(tab_index);
+            return;
+        }
+        if let Some(plan_index) = self
+            .object_plans
+            .iter()
+            .position(|plan| plan.plan_slot_id == slot_id)
+        {
+            if self.object_plans[plan_index].completion() == SlotCompletion::Partial {
+                self.cancel_object_plan(plan_index);
+            }
+            self.object_plans.remove(plan_index);
+            self.object_slots.retain(|slot| slot.id != slot_id);
+            self.invalidate_all_slot_display_caches();
+            self.mode = UiMode::Pool;
+            self.status_message = format!("Deleted execution plan slot {slot_id}.");
+            self.active_slot_index = self
+                .active_slot_index
+                .min(self.total_slot_count().saturating_sub(1));
+            self.clamp_active_row();
+            self.sync_selection_viewports();
             return;
         }
         if self.slot_has_borrowers(slot_id) {
@@ -3391,6 +3926,12 @@ impl ObjectBrowserApp {
     }
 
     fn invoke_registered_function(&mut self, slot_id: usize, function: &'static Function) {
+        if self.slot_completion(slot_id) != SlotCompletion::Complete
+            && let Some(plan) = default_production_plan(function.input_shape)
+        {
+            self.begin_object_plan(slot_id, function, &plan);
+            return;
+        }
         self.invoke_registered_function_inner(slot_id, function, false);
     }
 
@@ -4019,8 +4560,38 @@ impl ObjectBrowserApp {
         ) else {
             return;
         };
+        let Some(production_plan) = default_production_plan(function.input_shape) else {
+            self.status_message = format!(
+                "No default production plan is available for {}.",
+                input_shape_name
+            );
+            return;
+        };
+        let plan_slot_id = self.allocate_slot_id();
+        self.object_slots.push(ObjectSlot::new_plan(plan_slot_id));
+        let mut plan = ObjectPlan::new(
+            slot_id,
+            plan_slot_id,
+            format!("construct and invoke {}", describe_function(function)),
+        );
+        plan.add_create(slot_id, input_shape_name.to_string());
+        self.populate_object_plan_slot(&mut plan, slot_id, &production_plan);
+        plan.add_invocation(slot_id, function);
+        plan.add_link(
+            owner_slot_id,
+            field_index,
+            self.slot_field(owner_slot_id, field_index)
+                .map(|field| field.info.field_name)
+                .unwrap_or("field"),
+            slot_id,
+        );
+        self.object_plans.push(plan);
+        self.status_message = format!(
+            "Created execution plan for {}.",
+            describe_function(function)
+        );
         self.invalidate_all_slot_display_caches();
-        self.start_pending_function_result(slot_id, function, invoke_with_default_input(function));
+        self.advance_object_plans();
     }
 
     fn invoke_arbitrary_producer_for_field(
@@ -4561,6 +5132,7 @@ impl ObjectBrowserApp {
             },
             SlotValueState::Pending(_)
             | SlotValueState::Failed { .. }
+            | SlotValueState::Cancelled { .. }
             | SlotValueState::Consumed => return None,
         };
         Some(SlotSnapshot {
@@ -4872,6 +5444,21 @@ impl ObjectBrowserApp {
         self.reflected_shapes.get(shape_name).copied()
     }
 
+    #[cfg(test)]
+    fn default_runtime_for_shape(&self, shape_name: &str) -> Result<RuntimeValue> {
+        let shape = self
+            .shape_for_shape_name(shape_name)
+            .ok_or_else(|| eyre::eyre!("{shape_name} is not a registered shape"))?;
+        let plan = default_production_plan(shape)
+            .ok_or_else(|| eyre::eyre!("{shape_name} has no default production plan"))?;
+        match plan.kind() {
+            DefaultProductionPlanKind::Default => RuntimeValue::from_default(shape),
+            DefaultProductionPlanKind::Struct(_) | DefaultProductionPlanKind::Invoke { .. } => {
+                eyre::bail!("{shape_name} requires an asynchronous production plan")
+            }
+        }
+    }
+
     fn slot_runtime_value(&self, slot_id: usize) -> Result<RuntimeValue> {
         if let Some(slot) = self.slot_by_id(slot_id)
             && let SlotKind::View(info) = &slot.kind
@@ -4893,6 +5480,9 @@ impl ObjectBrowserApp {
             SlotValueState::Pending(_) => eyre::bail!("slot {} is still pending", slot.id),
             SlotValueState::Failed { message } => {
                 eyre::bail!("slot {} failed: {}", slot.id, message)
+            }
+            SlotValueState::Cancelled { message } => {
+                eyre::bail!("slot {} was cancelled: {}", slot.id, message)
             }
             SlotValueState::Consumed => eyre::bail!("slot {} has been consumed", slot.id),
             SlotValueState::ResolvedValue { value } => value.try_clone(),
@@ -4954,6 +5544,12 @@ impl ObjectBrowserApp {
                     slot.value_state = SlotValueState::Failed { message };
                 }
                 eyre::bail!("slot {slot_id} failed")
+            }
+            SlotValueState::Cancelled { message } => {
+                if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                    slot.value_state = SlotValueState::Cancelled { message };
+                }
+                eyre::bail!("slot {slot_id} was cancelled")
             }
             SlotValueState::Consumed => eyre::bail!("slot {slot_id} has already been consumed"),
         };
@@ -5176,6 +5772,9 @@ impl ObjectBrowserApp {
             SlotValueState::Failed { message } => {
                 eyre::bail!("slot {slot_id} failed: {message}")
             }
+            SlotValueState::Cancelled { message } => {
+                eyre::bail!("slot {slot_id} was cancelled: {message}")
+            }
             SlotValueState::Consumed => eyre::bail!("slot {slot_id} has been consumed"),
             SlotValueState::Building(_) => eyre::bail!(
                 "slot {slot_id} is still being built; a Cow field needs a resolved source"
@@ -5202,6 +5801,26 @@ impl ObjectBrowserApp {
         let Some(slot) = self.slot_by_id(slot_id) else {
             return Vec::new();
         };
+
+        if let Some(plan) = self
+            .object_plans
+            .iter()
+            .find(|plan| plan.plan_slot_id == slot_id)
+        {
+            let mut rows = self.object_plan_display_rows(plan);
+            rows.push(SlotDisplayRow::Static(separator_line("actions")));
+            rows.push(focusable_plain_row(
+                SlotFocusTarget::Action(SlotAction::Delete),
+                "delete execution plan",
+            ));
+            if self.slot_is_cancellable(slot_id) {
+                rows.push(focusable_plain_row(
+                    SlotFocusTarget::Action(SlotAction::Cancel),
+                    "cancel execution plan",
+                ));
+            }
+            return rows;
+        }
 
         let mut rows = Vec::new();
 
@@ -5272,7 +5891,7 @@ impl ObjectBrowserApp {
                 if !fields.is_empty() {
                     rows.push(SlotDisplayRow::Static(separator_line("fields")));
                 }
-                rows.extend(self.field_rows(fields));
+                rows.extend(self.field_rows(slot_id, fields));
             }
             Some(SlotBody::Enum {
                 variants,
@@ -5283,8 +5902,23 @@ impl ObjectBrowserApp {
                 if !fields.is_empty() {
                     rows.push(SlotDisplayRow::Static(separator_line("fields")));
                 }
-                rows.extend(self.field_rows(fields));
+                rows.extend(self.field_rows(slot_id, fields));
             }
+        }
+
+        if let Some(plan) = self
+            .object_plans
+            .iter()
+            .rev()
+            .find(|plan| plan.root_slot_id == slot_id)
+        {
+            rows.push(SlotDisplayRow::Static(separator_line("execution plan")));
+            rows.push(focusable_plain_row(
+                SlotFocusTarget::Plan {
+                    slot_id: plan.plan_slot_id,
+                },
+                format!("plan slot {}", plan.plan_slot_id),
+            ));
         }
 
         if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
@@ -5363,6 +5997,7 @@ impl ObjectBrowserApp {
             SlotAction::Clone,
             SlotAction::Take,
             SlotAction::ToOwned,
+            SlotAction::Cancel,
             SlotAction::InvokeConsume,
             SlotAction::Invoke,
             SlotAction::InvokeArbitrary,
@@ -5394,6 +6029,9 @@ impl ObjectBrowserApp {
             if action == SlotAction::InvokeConsume && !self.can_consume_slot(slot_id) {
                 continue;
             }
+            if action == SlotAction::Cancel && !self.slot_is_cancellable(slot_id) {
+                continue;
+            }
             rows.push(focusable_plain_row(
                 SlotFocusTarget::Action(action),
                 self.slot_action_label(slot_id, action),
@@ -5403,10 +6041,145 @@ impl ObjectBrowserApp {
         rows
     }
 
+    fn object_plan_display_rows(&self, plan: &ObjectPlan) -> Vec<SlotDisplayRow> {
+        let mut rows = Vec::with_capacity(plan.steps.len() + 1);
+        rows.push(SlotDisplayRow::Static(Line::from(vec![
+            Span::styled(
+                "plan ",
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::DIM),
+            ),
+            Span::styled(plan.title.clone(), Style::default().fg(Color::Cyan)),
+        ])));
+
+        for (step_index, step) in plan.steps.iter().enumerate() {
+            let (marker, marker_style) = match &step.status {
+                ObjectPlanStepStatus::Planned => ("[ ]", Color::DarkGray),
+                ObjectPlanStepStatus::Waiting => ("[..]", Color::Yellow),
+                ObjectPlanStepStatus::Complete => ("[x]", Color::Green),
+                ObjectPlanStepStatus::Failed(_) => ("[!]", Color::Red),
+                ObjectPlanStepStatus::Cancelled => ("[-]", Color::DarkGray),
+            };
+            let description = match &step.operation {
+                ObjectPlanOperation::Create {
+                    slot_id,
+                    shape_name,
+                } => format!("create slot {slot_id} ({shape_name})"),
+                ObjectPlanOperation::InitializeDefault {
+                    slot_id,
+                    shape_name,
+                } => format!("initialize slot {slot_id} with default {shape_name}"),
+                ObjectPlanOperation::Link {
+                    owner_slot_id,
+                    field_name,
+                    producer_slot_id,
+                    result_slot_id,
+                    ..
+                } => result_slot_id.map_or_else(
+                    || format!(
+                        "set slot {owner_slot_id}.{field_name} from result of slot {producer_slot_id}"
+                    ),
+                    |result_slot_id| {
+                        format!(
+                            "set slot {owner_slot_id}.{field_name} from slot {result_slot_id}"
+                        )
+                    },
+                ),
+                ObjectPlanOperation::Invoke {
+                    slot_id, function, ..
+                } => format!(
+                    "invoke slot {slot_id} via {}",
+                    describe_function(function)
+                ),
+            };
+            let mut spans = vec![Span::styled(
+                format!("{marker} "),
+                Style::default().fg(marker_style),
+            )];
+            spans.push(Span::raw(description));
+            if let ObjectPlanStepStatus::Failed(message) = &step.status {
+                spans.push(Span::styled(
+                    format!(": {message}"),
+                    Style::default().fg(Color::Red),
+                ));
+            } else if matches!(step.status, ObjectPlanStepStatus::Cancelled) {
+                spans.push(Span::styled(
+                    ": cancelled".to_string(),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+            rows.push(focusable_spans_row(
+                SlotFocusTarget::PlanStep(step_index),
+                spans,
+            ));
+        }
+        rows
+    }
+
+    fn plan_step_for_field(
+        &self,
+        plan_slot_id: usize,
+        owner_slot_id: usize,
+        field_index: usize,
+    ) -> Option<usize> {
+        let plan = self
+            .object_plans
+            .iter()
+            .find(|plan| plan.plan_slot_id == plan_slot_id)?;
+        plan.steps.iter().position(|step| {
+            matches!(
+                &step.operation,
+                ObjectPlanOperation::Link {
+                    owner_slot_id: owner,
+                    field_index: field,
+                    ..
+                } if *owner == owner_slot_id && *field == field_index
+            )
+        })
+    }
+
+    fn activate_plan_step(&mut self, plan_slot_id: usize, step_index: usize) {
+        let Some(operation) = self
+            .object_plans
+            .iter()
+            .find(|plan| plan.plan_slot_id == plan_slot_id)
+            .and_then(|plan| plan.steps.get(step_index))
+            .map(|step| step.operation.clone())
+        else {
+            return;
+        };
+
+        match operation {
+            ObjectPlanOperation::Link {
+                owner_slot_id,
+                field_index,
+                field_name,
+                ..
+            } => {
+                self.jump_to_slot_target(owner_slot_id, SlotFocusTarget::FieldValue(field_index));
+                self.status_message = format!(
+                    "Jumped to {} on slot {} from plan slot {}.",
+                    field_name, owner_slot_id, plan_slot_id
+                );
+            }
+            ObjectPlanOperation::Create { slot_id, .. }
+            | ObjectPlanOperation::InitializeDefault { slot_id, .. }
+            | ObjectPlanOperation::Invoke { slot_id, .. } => {
+                self.jump_to_slot(slot_id);
+                self.status_message = format!(
+                    "Jumped to slot {} from plan slot {}.",
+                    slot_id, plan_slot_id
+                );
+            }
+        }
+    }
+
     fn should_show_runtime_status(state: &SlotValueState) -> bool {
         match state {
             SlotValueState::Pending(_)
             | SlotValueState::Failed { .. }
+            | SlotValueState::Cancelled { .. }
             | SlotValueState::Consumed => true,
             SlotValueState::ResolvedValue { .. } | SlotValueState::Building(_) => false,
         }
@@ -5712,6 +6485,21 @@ impl ObjectBrowserApp {
         )
     }
 
+    fn slot_is_cancellable(&self, slot_id: usize) -> bool {
+        if self.object_plans.iter().any(|plan| {
+            plan.plan_slot_id == slot_id && plan.completion() == SlotCompletion::Partial
+        }) {
+            return true;
+        }
+        let Some(data_slot_id) = self.data_slot_id_for(slot_id) else {
+            return false;
+        };
+        matches!(
+            self.slot_by_id(data_slot_id).map(|slot| &slot.value_state),
+            Some(SlotValueState::Pending(_))
+        )
+    }
+
     fn slot_action_label(&self, slot_id: usize, action: SlotAction) -> String {
         let Some(slot) = self.slot_by_id(slot_id) else {
             return match action {
@@ -5719,6 +6507,7 @@ impl ObjectBrowserApp {
                 SlotAction::Clone => "clone".to_string(),
                 SlotAction::Take => "take".to_string(),
                 SlotAction::ToOwned => "to owned".to_string(),
+                SlotAction::Cancel => "cancel".to_string(),
                 SlotAction::Invoke => "invoke".to_string(),
                 SlotAction::InvokeConsume => "invoke".to_string(),
                 SlotAction::InvokeArbitrary => "invoke arbitrary".to_string(),
@@ -5727,6 +6516,7 @@ impl ObjectBrowserApp {
 
         match action {
             SlotAction::Delete if self.is_tab_slot(slot_id) => "delete (close tab)".to_string(),
+            SlotAction::Delete if self.is_plan_slot(slot_id) => "delete execution plan".to_string(),
             SlotAction::Delete => match slot.kind {
                 SlotKind::Owned => "delete".to_string(),
                 SlotKind::View(_) => "delete (unset field)".to_string(),
@@ -5737,6 +6527,8 @@ impl ObjectBrowserApp {
                 SlotKind::View(_) => "take".to_string(),
             },
             SlotAction::ToOwned => "to owned".to_string(),
+            SlotAction::Cancel if self.is_plan_slot(slot_id) => "cancel execution plan".to_string(),
+            SlotAction::Cancel => "cancel future".to_string(),
             SlotAction::InvokeConsume => "invoke".to_string(),
             SlotAction::Invoke => {
                 let functions = self.applicable_functions_for_slot(slot_id);
@@ -7569,7 +8361,7 @@ impl ObjectBrowserApp {
         render_slot_display_rows(&rows, None)
     }
 
-    fn field_rows(&self, fields: &[ObjectFieldState]) -> Vec<SlotDisplayRow> {
+    fn field_rows(&self, owner_slot_id: usize, fields: &[ObjectFieldState]) -> Vec<SlotDisplayRow> {
         let mut rows = Vec::with_capacity(fields.len() * 2);
         for (index, field) in fields.iter().enumerate() {
             let accent = field_group_color(index);
@@ -7582,6 +8374,10 @@ impl ObjectBrowserApp {
                         "pending".to_string(),
                     ),
                     Some(SlotValueState::Failed { .. }) => (unset_style(), "failed".to_string()),
+                    Some(SlotValueState::Cancelled { .. }) => (
+                        Style::default().fg(Color::DarkGray),
+                        "cancelled".to_string(),
+                    ),
                     _ if !matches!(self.slot_completion(slot_id), SlotCompletion::Complete) => {
                         (unset_style(), format!("slot {slot_id}"))
                     }
@@ -7603,8 +8399,37 @@ impl ObjectBrowserApp {
                 SlotFocusTarget::FieldValue(index),
                 field.value_spans(accent, linked_style, linked_label),
             ));
+            for plan_slot_id in self.plans_referencing_field(owner_slot_id, index) {
+                rows.push(focusable_plain_row(
+                    SlotFocusTarget::PlanField {
+                        plan_slot_id,
+                        owner_slot_id,
+                        field_index: index,
+                    },
+                    format!("  plan slot {plan_slot_id}"),
+                ));
+            }
         }
         rows
+    }
+
+    fn plans_referencing_field(&self, owner_slot_id: usize, field_index: usize) -> Vec<usize> {
+        self.object_plans
+            .iter()
+            .filter(|plan| {
+                plan.steps.iter().any(|step| {
+                    matches!(
+                        &step.operation,
+                        ObjectPlanOperation::Link {
+                            owner_slot_id: owner,
+                            field_index: field,
+                            ..
+                        } if *owner == owner_slot_id && *field == field_index
+                    )
+                })
+            })
+            .map(|plan| plan.plan_slot_id)
+            .collect()
     }
 
     fn slot_search_matches(&mut self, slot_id: usize, query: &str) -> Vec<SlotSearchMatch> {
@@ -7746,6 +8571,13 @@ impl ObjectBrowserApp {
                 .slot_field(slot_id, field_index)
                 .map(|field| field.info.field_name.to_string())
                 .unwrap_or_else(|| spans_plain_text(spans)),
+            SlotFocusTarget::Plan { slot_id } => {
+                format!("execution plan slot {slot_id}")
+            }
+            SlotFocusTarget::PlanField { plan_slot_id, .. } => {
+                format!("execution plan slot {plan_slot_id}")
+            }
+            SlotFocusTarget::PlanStep(_) => spans_plain_text(spans),
             SlotFocusTarget::Action(action) => self.slot_action_label(slot_id, action),
             _ => spans_plain_text(spans),
         }
@@ -7757,10 +8589,18 @@ impl ObjectBrowserApp {
                 SlotValueState::Pending(_) => Color::Yellow,
                 SlotValueState::ResolvedValue { .. } => Color::Green,
                 SlotValueState::Failed { .. } => Color::Red,
+                SlotValueState::Cancelled { .. } => Color::DarkGray,
                 SlotValueState::Consumed => Color::DarkGray,
                 SlotValueState::Building(_) => unreachable!("builders are filtered out"),
             };
             return slot_border_style(color, is_active);
+        }
+        if self
+            .object_plans
+            .iter()
+            .any(|plan| plan.plan_slot_id == slot_id && plan.cancelled)
+        {
+            return slot_border_style(Color::DarkGray, is_active);
         }
 
         let color = match (
@@ -7778,7 +8618,20 @@ impl ObjectBrowserApp {
     }
 
     fn slot_completion(&self, slot_id: usize) -> SlotCompletion {
+        if let Some(plan) = self
+            .object_plans
+            .iter()
+            .find(|plan| plan.plan_slot_id == slot_id)
+        {
+            return plan.completion();
+        }
         self.slot_completion_inner(slot_id, &mut BTreeSet::new())
+    }
+
+    fn is_plan_slot(&self, slot_id: usize) -> bool {
+        self.object_plans
+            .iter()
+            .any(|plan| plan.plan_slot_id == slot_id)
     }
 
     fn slot_completion_inner(
@@ -7795,6 +8648,7 @@ impl ObjectBrowserApp {
                 SlotValueState::Pending(_) => SlotCompletion::Partial,
                 SlotValueState::ResolvedValue { .. } => SlotCompletion::Complete,
                 SlotValueState::Failed { .. } => SlotCompletion::Unset,
+                SlotValueState::Cancelled { .. } => SlotCompletion::Unset,
                 SlotValueState::Consumed => SlotCompletion::Unset,
                 SlotValueState::Building(_) => unreachable!("builders are filtered out"),
             }
@@ -7875,6 +8729,7 @@ impl ObjectBrowserApp {
             SlotValueState::Pending(_) => "pending",
             SlotValueState::ResolvedValue { .. } => "resolved",
             SlotValueState::Failed { .. } => "failed",
+            SlotValueState::Cancelled { .. } => "cancelled",
             SlotValueState::Building(_) => "ready",
             SlotValueState::Consumed => "consumed",
         };
@@ -8219,6 +9074,15 @@ enum SlotFocusTarget {
     CreatedFor,
     ProducedBy,
     RuntimeValue,
+    Plan {
+        slot_id: usize,
+    },
+    PlanField {
+        plan_slot_id: usize,
+        owner_slot_id: usize,
+        field_index: usize,
+    },
+    PlanStep(usize),
     Result(usize),
     Action(SlotAction),
 }
@@ -8229,6 +9093,7 @@ enum SlotAction {
     Clone,
     Take,
     ToOwned,
+    Cancel,
     Invoke,
     InvokeConsume,
     InvokeArbitrary,
@@ -9113,6 +9978,7 @@ enum SlotValueState {
     Pending(PendingInvocationState),
     ResolvedValue { value: RuntimeValue },
     Failed { message: String },
+    Cancelled { message: String },
     Consumed,
 }
 
@@ -9120,6 +9986,141 @@ enum SlotValueState {
 struct PendingInvocationState {
     join_handle: JoinHandle<Result<Box<dyn std::any::Any + Send>>>,
     output_to_runtime: cloud_terrastodon_registry::RuntimeFromBoxedFn,
+}
+
+struct ObjectPlan {
+    root_slot_id: usize,
+    plan_slot_id: usize,
+    title: String,
+    steps: Vec<ObjectPlanStep>,
+    shared_producers: HashMap<String, usize>,
+    cancelled: bool,
+}
+
+impl ObjectPlan {
+    fn new(root_slot_id: usize, plan_slot_id: usize, title: impl Into<String>) -> Self {
+        Self {
+            root_slot_id,
+            plan_slot_id,
+            title: title.into(),
+            steps: Vec::new(),
+            shared_producers: HashMap::new(),
+            cancelled: false,
+        }
+    }
+
+    fn completion(&self) -> SlotCompletion {
+        if self.cancelled
+            || self
+                .steps
+                .iter()
+                .any(|step| matches!(step.status, ObjectPlanStepStatus::Failed(_)))
+        {
+            return SlotCompletion::Unset;
+        }
+        if self
+            .steps
+            .iter()
+            .any(|step| !matches!(step.status, ObjectPlanStepStatus::Complete))
+        {
+            SlotCompletion::Partial
+        } else {
+            SlotCompletion::Complete
+        }
+    }
+
+    fn add_create(&mut self, slot_id: usize, shape_name: impl Into<String>) {
+        self.steps.push(ObjectPlanStep {
+            operation: ObjectPlanOperation::Create {
+                slot_id,
+                shape_name: shape_name.into(),
+            },
+            status: ObjectPlanStepStatus::Complete,
+        });
+    }
+
+    fn add_initialize_default(&mut self, slot_id: usize, shape_name: impl Into<String>) {
+        self.steps.push(ObjectPlanStep {
+            operation: ObjectPlanOperation::InitializeDefault {
+                slot_id,
+                shape_name: shape_name.into(),
+            },
+            status: ObjectPlanStepStatus::Complete,
+        });
+    }
+
+    fn add_link(
+        &mut self,
+        owner_slot_id: usize,
+        field_index: usize,
+        field_name: &'static str,
+        producer_slot_id: usize,
+    ) -> usize {
+        let step_index = self.steps.len();
+        self.steps.push(ObjectPlanStep {
+            operation: ObjectPlanOperation::Link {
+                owner_slot_id,
+                field_index,
+                field_name,
+                producer_slot_id,
+                result_slot_id: None,
+            },
+            status: ObjectPlanStepStatus::Planned,
+        });
+        step_index
+    }
+
+    fn add_invocation(&mut self, slot_id: usize, function: &'static Function) -> usize {
+        let step_index = self.steps.len();
+        self.steps.push(ObjectPlanStep {
+            operation: ObjectPlanOperation::Invoke {
+                slot_id,
+                function,
+                result_slot_id: None,
+            },
+            status: ObjectPlanStepStatus::Planned,
+        });
+        step_index
+    }
+}
+
+#[derive(Clone)]
+struct ObjectPlanStep {
+    operation: ObjectPlanOperation,
+    status: ObjectPlanStepStatus,
+}
+
+#[derive(Clone)]
+enum ObjectPlanOperation {
+    Create {
+        slot_id: usize,
+        shape_name: String,
+    },
+    InitializeDefault {
+        slot_id: usize,
+        shape_name: String,
+    },
+    Link {
+        owner_slot_id: usize,
+        field_index: usize,
+        field_name: &'static str,
+        producer_slot_id: usize,
+        result_slot_id: Option<usize>,
+    },
+    Invoke {
+        slot_id: usize,
+        function: &'static Function,
+        result_slot_id: Option<usize>,
+    },
+}
+
+#[derive(Clone, PartialEq)]
+enum ObjectPlanStepStatus {
+    Planned,
+    Waiting,
+    Complete,
+    Failed(String),
+    Cancelled,
 }
 
 #[derive(Debug)]
@@ -9167,6 +10168,12 @@ impl ObjectSlot {
             produced_by_slot_id: None,
             display_cache: None,
         }
+    }
+
+    fn new_plan(id: usize) -> Self {
+        let mut slot = Self::new(id);
+        slot.shape_name = Some("ObjectPlan".to_string());
+        slot
     }
 
     fn new_tab(id: usize) -> Self {
@@ -9638,6 +10645,11 @@ fn runtime_state_rows(runtime_state: &SlotValueState) -> Vec<SlotDisplayRow> {
         SlotValueState::Failed { message } => vec![SlotDisplayRow::Static(Line::from(vec![
             Span::raw("  "),
             Span::styled("failed", unset_style()),
+            Span::raw(format!(": {message}")),
+        ]))],
+        SlotValueState::Cancelled { message } => vec![SlotDisplayRow::Static(Line::from(vec![
+            Span::raw("  "),
+            Span::styled("cancelled", Style::default().fg(Color::DarkGray)),
             Span::raw(format!(": {message}")),
         ]))],
         SlotValueState::Consumed => vec![SlotDisplayRow::Static(Line::from(vec![
@@ -11355,7 +12367,7 @@ mod tests {
         let fields = app.materialized_fields(1);
         assert_eq!(fields.len(), 1);
         assert_eq!(fields[0].info.field_name, "tenant");
-        assert_eq!(fields[0].value.display_string(), "Default");
+        assert_eq!(fields[0].value.display_string(), "default");
         assert!(
             app.slot_focus_targets(1)
                 .contains(&SlotFocusTarget::FieldValue(0))
