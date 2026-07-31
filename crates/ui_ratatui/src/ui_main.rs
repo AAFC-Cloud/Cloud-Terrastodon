@@ -3496,6 +3496,9 @@ impl ObjectBrowserApp {
             FieldValueState::Linked { slot_id } => choices
                 .iter()
                 .position(|choice| choice == &FieldPickerChoice::ExistingSlot { slot_id }),
+            _ if required_shape_name == "String" => choices
+                .iter()
+                .position(|choice| choice == &FieldPickerChoice::CreateNewValue),
             _ => choices
                 .iter()
                 .position(|choice| matches!(choice, FieldPickerChoice::ExistingSlot { .. }))
@@ -3881,16 +3884,18 @@ impl ObjectBrowserApp {
             return;
         };
         self.clear_owner_field_link(info.owner_slot_id, info.field_index, slot_id);
+        let value_state = match snapshot.value_state {
+            SlotSnapshotValueState::Building(body) => SlotValueState::Building(body),
+            SlotSnapshotValueState::ResolvedValue { value } => {
+                SlotValueState::ResolvedValue { value }
+            }
+        };
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
             slot.kind = SlotKind::Owned;
             slot.provenance = snapshot.provenance;
             slot.shape_name = snapshot.shape_name;
-            slot.value_state = match snapshot.value_state {
-                SlotSnapshotValueState::Building(body) => SlotValueState::Building(body),
-                SlotSnapshotValueState::ResolvedValue { value } => {
-                    SlotValueState::ResolvedValue { value }
-                }
-            };
+            slot.builder_body = None;
+            slot.value_state = value_state;
         }
         self.invalidate_all_slot_display_caches();
         self.jump_to_slot(slot_id);
@@ -5227,7 +5232,7 @@ impl ObjectBrowserApp {
 
     fn clear_links_to_slot(&mut self, slot_id: usize) {
         for slot in &mut self.object_slots {
-            let SlotValueState::Building(body) = &mut slot.value_state else {
+            let Some(body) = slot.building_body_mut() else {
                 continue;
             };
             match body {
@@ -5679,7 +5684,20 @@ impl ObjectBrowserApp {
                 eyre::bail!("slot {} was cancelled: {}", slot.id, message)
             }
             SlotValueState::Consumed => eyre::bail!("slot {} has been consumed", slot.id),
-            SlotValueState::ResolvedValue { value } => value.try_clone(),
+            SlotValueState::ResolvedValue { value } => {
+                if let Some(body) = slot.builder_body.as_ref() {
+                    let shape_name = slot
+                        .shape_name
+                        .as_deref()
+                        .ok_or_else(|| eyre::eyre!("slot {} has no reflected shape", slot.id))?;
+                    let shape = self
+                        .shape_for_shape_name(shape_name)
+                        .ok_or_else(|| eyre::eyre!("{shape_name} is not reflected"))?;
+                    self.materialize_slot_body(shape, body)
+                } else {
+                    value.try_clone()
+                }
+            }
             SlotValueState::Building(SlotBody::Value {
                 value: Some(value), ..
             }) => value.try_clone(),
@@ -5708,6 +5726,11 @@ impl ObjectBrowserApp {
         }
 
         let linked_view_slots = self.linked_view_slots_for_owner(slot_id);
+        let materialized_builder_value = self
+            .slot_by_id(slot_id)
+            .is_some_and(|slot| slot.builder_body.is_some())
+            .then(|| self.slot_runtime_value(slot_id))
+            .transpose()?;
         let state = {
             let slot = self
                 .slot_by_id_mut(slot_id)
@@ -5716,7 +5739,7 @@ impl ObjectBrowserApp {
         };
 
         let value = match state {
-            SlotValueState::ResolvedValue { value } => value,
+            SlotValueState::ResolvedValue { value } => materialized_builder_value.unwrap_or(value),
             SlotValueState::Building(body) => {
                 if let Some(slot) = self.slot_by_id_mut(slot_id) {
                     slot.value_state = SlotValueState::Building(body);
@@ -5750,6 +5773,7 @@ impl ObjectBrowserApp {
 
         if let Some(slot) = self.slot_by_id_mut(slot_id) {
             slot.provenance = ValueProvenance::Owned;
+            slot.builder_body = None;
         }
         for view_slot_id in linked_view_slots {
             if self.slot_by_id(view_slot_id).is_some() {
@@ -6393,7 +6417,66 @@ impl ObjectBrowserApp {
         }
     }
 
+    fn normalize_complete_builders(&mut self) {
+        let candidate_slot_ids = self
+            .object_slots
+            .iter()
+            .filter(|slot| {
+                matches!(slot.kind, SlotKind::Owned)
+                    && matches!(slot.provenance, ValueProvenance::Owned)
+                    && (matches!(slot.value_state, SlotValueState::Building(_))
+                        || slot.builder_body.is_some())
+            })
+            .map(|slot| slot.id)
+            .collect::<Vec<_>>();
+
+        for slot_id in candidate_slot_ids {
+            let completion = self.slot_completion(slot_id);
+            let is_building = self
+                .slot_by_id(slot_id)
+                .is_some_and(|slot| matches!(slot.value_state, SlotValueState::Building(_)));
+
+            if is_building && completion == SlotCompletion::Complete {
+                let Ok(value) = self.slot_runtime_value(slot_id) else {
+                    continue;
+                };
+                let body = {
+                    let Some(slot) = self.slot_by_id_mut(slot_id) else {
+                        continue;
+                    };
+                    let state = std::mem::replace(&mut slot.value_state, SlotValueState::Consumed);
+                    match state {
+                        SlotValueState::Building(body) => body,
+                        state => {
+                            slot.value_state = state;
+                            continue;
+                        }
+                    }
+                };
+                if let Some(slot) = self.slot_by_id_mut(slot_id) {
+                    slot.builder_body = Some(body);
+                    slot.value_state = SlotValueState::ResolvedValue { value };
+                }
+            } else if !is_building && completion == SlotCompletion::Complete {
+                if let Ok(value) = self.slot_runtime_value(slot_id)
+                    && let Some(slot) = self.slot_by_id_mut(slot_id)
+                    && matches!(slot.value_state, SlotValueState::ResolvedValue { .. })
+                {
+                    slot.value_state = SlotValueState::ResolvedValue { value };
+                }
+            } else if !is_building && completion != SlotCompletion::Complete {
+                let Some(slot) = self.slot_by_id_mut(slot_id) else {
+                    continue;
+                };
+                if let Some(body) = slot.builder_body.take() {
+                    slot.value_state = SlotValueState::Building(body);
+                }
+            }
+        }
+    }
+
     fn invalidate_all_slot_display_caches(&mut self) {
+        self.normalize_complete_builders();
         for slot in &mut self.object_slots {
             slot.display_cache = None;
         }
@@ -9096,16 +9179,7 @@ impl ObjectBrowserApp {
             self.slot_by_id(slot_id).map(|slot| slot.provenance)
         {
             self.slot_completion_inner(source_slot_id, visiting)
-        } else if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
-            match runtime_state {
-                SlotValueState::Pending(_) => SlotCompletion::Partial,
-                SlotValueState::ResolvedValue { .. } => SlotCompletion::Complete,
-                SlotValueState::Failed { .. } => SlotCompletion::Unset,
-                SlotValueState::Cancelled { .. } => SlotCompletion::Unset,
-                SlotValueState::Consumed => SlotCompletion::Unset,
-                SlotValueState::Building(_) => unreachable!("builders are filtered out"),
-            }
-        } else {
+        } else if let Some(body) = self.slot_body(slot_id) {
             let Some(shape_name) = self.slot_shape_name(slot_id) else {
                 visiting.remove(&slot_id);
                 return SlotCompletion::Unset;
@@ -9114,10 +9188,6 @@ impl ObjectBrowserApp {
                 visiting.remove(&slot_id);
                 return SlotCompletion::Unset;
             }
-            let Some(body) = self.slot_body(slot_id) else {
-                visiting.remove(&slot_id);
-                return SlotCompletion::Unset;
-            };
             match body {
                 SlotBody::Value { value, .. } => value
                     .as_ref()
@@ -9150,6 +9220,17 @@ impl ObjectBrowserApp {
                     }
                 }
             }
+        } else if let Some(runtime_state) = self.slot_runtime_state(slot_id) {
+            match runtime_state {
+                SlotValueState::Pending(_) => SlotCompletion::Partial,
+                SlotValueState::ResolvedValue { .. } => SlotCompletion::Complete,
+                SlotValueState::Failed { .. } => SlotCompletion::Unset,
+                SlotValueState::Cancelled { .. } => SlotCompletion::Unset,
+                SlotValueState::Consumed => SlotCompletion::Unset,
+                SlotValueState::Building(_) => unreachable!("builders are filtered out"),
+            }
+        } else {
+            SlotCompletion::Unset
         };
 
         visiting.remove(&slot_id);
@@ -10601,6 +10682,7 @@ struct ObjectSlot {
     kind: SlotKind,
     provenance: ValueProvenance,
     shape_name: Option<String>,
+    builder_body: Option<SlotBody>,
     value_state: SlotValueState,
     result_slot_ids: Vec<usize>,
     created_for: Option<SlotCreatedFor>,
@@ -10615,6 +10697,7 @@ impl ObjectSlot {
             kind: SlotKind::Owned,
             provenance: snapshot.provenance,
             shape_name: snapshot.shape_name,
+            builder_body: None,
             value_state: match snapshot.value_state {
                 SlotSnapshotValueState::Building(body) => SlotValueState::Building(body),
                 SlotSnapshotValueState::ResolvedValue { value } => {
@@ -10634,6 +10717,7 @@ impl ObjectSlot {
             kind: SlotKind::Owned,
             provenance: ValueProvenance::Owned,
             shape_name: None,
+            builder_body: None,
             value_state: SlotValueState::Building(SlotBody::Unset),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -10686,6 +10770,7 @@ impl ObjectSlot {
             kind: SlotKind::Owned,
             provenance: ValueProvenance::Owned,
             shape_name: Some(describe_shape(shape)),
+            builder_body: None,
             value_state: SlotValueState::Building(SlotBody::Struct { fields }),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -10700,6 +10785,7 @@ impl ObjectSlot {
             kind: SlotKind::Owned,
             provenance: ValueProvenance::Owned,
             shape_name: Some(shape_name),
+            builder_body: None,
             value_state: SlotValueState::Pending(pending),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -10714,6 +10800,7 @@ impl ObjectSlot {
             kind: SlotKind::Owned,
             provenance: ValueProvenance::Owned,
             shape_name: Some(shape_name),
+            builder_body: None,
             value_state: SlotValueState::ResolvedValue { value },
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -10745,6 +10832,7 @@ impl ObjectSlot {
             }),
             provenance: ValueProvenance::Owned,
             shape_name: None,
+            builder_body: None,
             value_state: SlotValueState::Building(SlotBody::Unset),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -10773,6 +10861,7 @@ impl ObjectSlot {
 
     fn apply_shape_choice(&mut self, choice: &KnownShapeInfo) {
         self.shape_name = Some(choice.label.clone());
+        self.builder_body = None;
         if is_general_value_shape(choice.thing.shape) {
             self.value_state = SlotValueState::Building(SlotBody::Value {
                 shape: choice.thing.shape,
@@ -10802,6 +10891,9 @@ impl ObjectSlot {
     }
 
     fn building_body(&self) -> Option<&SlotBody> {
+        if self.builder_body.is_some() {
+            return self.builder_body.as_ref();
+        }
         match &self.value_state {
             SlotValueState::Building(body) => Some(body),
             _ => None,
@@ -10809,6 +10901,9 @@ impl ObjectSlot {
     }
 
     fn building_body_mut(&mut self) -> Option<&mut SlotBody> {
+        if self.builder_body.is_some() {
+            return self.builder_body.as_mut();
+        }
         match &mut self.value_state {
             SlotValueState::Building(body) => Some(body),
             _ => None,
@@ -12142,6 +12237,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("EntraUser".to_string()),
+            builder_body: None,
             value_state: super::SlotValueState::Failed {
                 message: "test failure".to_string(),
             },
@@ -12159,6 +12255,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("EntraUser".to_string()),
+            builder_body: None,
             value_state: resolved(test_user(
                 "Grace",
                 "grace@example.com",
@@ -12894,7 +12991,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         assert!(rendered.contains("--- fields ---"), "{rendered}");
-        assert!(rendered.contains("tenant: Default"), "{rendered}");
+        assert!(rendered.contains("tenant: default"), "{rendered}");
     }
 
     #[test]
@@ -13865,6 +13962,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("List<PopMember>".to_string()),
+            builder_body: None,
             value_state: resolved(vec![
                 PopMember {
                     permission_objects: vec![
@@ -13955,6 +14053,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("List<PopMember>".to_string()),
+            builder_body: None,
             value_state: resolved(vec![PopMember {
                 permission_objects: vec![PopPermission {
                     display_name: "Project Administrators".to_string(),
@@ -14072,6 +14171,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("List<EntraUser>".to_string()),
+            builder_body: None,
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -14174,6 +14274,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some(shape_name),
+            builder_body: None,
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -14269,7 +14370,94 @@ mod tests {
     }
 
     #[test]
-    fn borrowed_views_snapshot_builder_backed_sources_into_owned_cows() {
+    fn complete_owned_builders_are_materialized_and_keep_field_links() {
+        let app = ObjectBrowserApp::new();
+        let tab_slot_id = app.current_tab_slot_id().expect("first tab slot");
+
+        assert!(matches!(
+            app.slot_by_id(tab_slot_id).map(|slot| &slot.value_state),
+            Some(super::SlotValueState::ResolvedValue { .. })
+        ));
+        assert!(
+            app.slot_by_id(tab_slot_id)
+                .is_some_and(|slot| slot.builder_body.is_some())
+        );
+        assert!(matches!(
+            app.slot_field(tab_slot_id, 0)
+                .map(|field| field.value_state),
+            Some(super::FieldValueState::Linked { .. })
+        ));
+
+        let tab = app
+            .slot_runtime_value(tab_slot_id)
+            .expect("the complete Tab should be materializable")
+            .into_box::<super::Tab>()
+            .expect("the Tab should retain its reflected shape")
+            .downcast::<super::Tab>()
+            .expect("the Tab should downcast");
+        assert_eq!(tab.name, "unnamed");
+    }
+
+    #[test]
+    fn resolved_tab_sources_offer_borrow_for_produce_json_requests() {
+        let mut app = ObjectBrowserApp::new();
+        let tab_slot_id = app.current_tab_slot_id().expect("first tab slot");
+        let request_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "ProduceJsonRequest")
+            .cloned()
+            .expect("ProduceJsonRequest should be registered");
+        let request_slot_id = app.allocate_slot_id();
+        let mut request_slot = super::ObjectSlot::new(request_slot_id);
+        request_slot.apply_shape_choice(&request_choice);
+        app.object_slots.push(request_slot);
+
+        assert!(app.can_borrow_into_field(request_slot_id, 0, tab_slot_id));
+        app.open_link_action_picker(request_slot_id, 0, tab_slot_id);
+        let picker = app
+            .link_action_picker
+            .as_ref()
+            .expect("link action picker should open");
+        assert_eq!(picker.labels.first().map(String::as_str), Some("Borrow"));
+    }
+
+    #[test]
+    fn string_field_pickers_default_to_creating_a_new_owned_value() {
+        let mut app = ObjectBrowserApp::default();
+        let request_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "ProduceJsonRequest")
+            .cloned()
+            .expect("ProduceJsonRequest should be registered");
+        let request_slot_id = app.allocate_slot_id();
+        let mut request_slot = super::ObjectSlot::new(request_slot_id);
+        request_slot.apply_shape_choice(&request_choice);
+        app.object_slots.push(request_slot);
+
+        let existing_string_slot_id = app.allocate_slot_id();
+        app.object_slots
+            .push(super::ObjectSlot::new_resolved_result(
+                existing_string_slot_id,
+                "String".to_string(),
+                runtime("existing".to_string()),
+            ));
+        let field = app
+            .slot_field(request_slot_id, 1)
+            .cloned()
+            .expect("filename field should exist");
+        app.open_general_field_picker(request_slot_id, 1, &field);
+
+        assert_eq!(
+            app.field_picker
+                .as_ref()
+                .and_then(|picker| picker.selected_choice()),
+            Some(super::FieldPickerChoice::CreateNewValue)
+        );
+    }
+    #[test]
+    fn borrowed_views_use_resolved_sources_as_borrowed_cows() {
         let mut app = ObjectBrowserApp::new();
         let source_slot_id = app.current_tab_slot_id().expect("first tab slot");
         let request_choice = app
@@ -14300,24 +14488,43 @@ mod tests {
             .expect("borrow view should retain its Cow shape")
             .downcast::<Cow<'static, super::Tab>>()
             .expect("borrow view should downcast to Cow<Tab>");
-        assert!(matches!(*cow, Cow::Owned(_)));
+        assert!(matches!(*cow, Cow::Borrowed(_)));
         assert_eq!(cow.name, "unnamed");
     }
     #[tokio::test]
     async fn produce_json_request_materializes_a_builder_backed_tab_view() {
-        let mut app = ObjectBrowserApp::new();
-        let tab_slot_id = app.current_tab_slot_id().expect("first tab slot");
-
+        let mut app = ObjectBrowserApp::default();
+        let tab_slot_id = app.allocate_slot_id();
+        app.object_slots
+            .push(super::ObjectSlot::new_tab(tab_slot_id));
+        let name_slot_id = app.allocate_slot_id();
+        app.object_slots
+            .push(super::ObjectSlot::new_resolved_result(
+                name_slot_id,
+                describe_shape(<String as Facet<'static>>::SHAPE),
+                runtime("unnamed".to_string()),
+            ));
+        let entries_slot_id = app.allocate_slot_id();
         let entries = vec![
             ArbitraryJson::arbitrary(&mut arbitrary::Unstructured::new(&[1]))
                 .expect("test entry should be generated from arbitrary"),
         ];
-        app.sync_tab_field_value(
-            tab_slot_id,
-            2,
-            describe_shape(<Vec<ArbitraryJson> as Facet<'static>>::SHAPE),
-            runtime(entries),
-        );
+        app.object_slots
+            .push(super::ObjectSlot::new_resolved_result(
+                entries_slot_id,
+                describe_shape(<Vec<ArbitraryJson> as Facet<'static>>::SHAPE),
+                runtime(entries),
+            ));
+        app.slot_field_mut(tab_slot_id, 0)
+            .expect("Tab.name field should exist")
+            .value_state = super::FieldValueState::Linked {
+            slot_id: name_slot_id,
+        };
+        app.slot_field_mut(tab_slot_id, 2)
+            .expect("Tab.entries field should exist")
+            .value_state = super::FieldValueState::Linked {
+            slot_id: entries_slot_id,
+        };
 
         let request_choice = app
             .shape_choices
@@ -14338,7 +14545,11 @@ mod tests {
             0,
             "tab",
         ));
-        app.set_field_link(request_slot_id, 0, tab_view_slot_id);
+        app.slot_field_mut(request_slot_id, 0)
+            .expect("request.tab field should exist")
+            .value_state = super::FieldValueState::Linked {
+            slot_id: tab_view_slot_id,
+        };
 
         let filename_path = std::env::temp_dir().join(format!(
             "cloud-terrastodon-ui-ratatui-builder-tab-{}.json",
@@ -14351,7 +14562,11 @@ mod tests {
                 describe_shape(<String as Facet<'static>>::SHAPE),
                 runtime(filename_path.to_string_lossy().into_owned()),
             ));
-        app.set_field_link(request_slot_id, 1, filename_slot_id);
+        app.slot_field_mut(request_slot_id, 1)
+            .expect("request.filename field should exist")
+            .value_state = super::FieldValueState::Linked {
+            slot_id: filename_slot_id,
+        };
 
         let request = app
             .slot_runtime_value(request_slot_id)
@@ -14997,6 +15212,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
+            builder_body: None,
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -15035,6 +15251,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some(shape_name),
+            builder_body: None,
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -15102,6 +15319,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleDefinition".to_string()),
+            builder_body: None,
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -15166,6 +15384,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleAssignment".to_string()),
+            builder_body: None,
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -15217,6 +15436,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleAssignment".to_string()),
+            builder_body: None,
             value_state: resolved(test_role_assignment(
                 "/providers/Microsoft.Authorization/roleAssignments/00000000-0000-4000-8000-000000000004",
                 "11111111-2222-4333-8444-555555555555",
@@ -15438,6 +15658,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("Vec<EntraUser>".to_string()),
+            builder_body: None,
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -15482,6 +15703,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some("RoleAssignment".to_string()),
+            builder_body: None,
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -15561,6 +15783,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some(root_shape_name),
+            builder_body: None,
             value_state: resolved(value),
             result_slot_ids: Vec::new(),
             created_for: None,
@@ -15635,6 +15858,7 @@ mod tests {
             kind: super::SlotKind::Owned,
             provenance: super::ValueProvenance::Owned,
             shape_name: Some(root_shape_name),
+            builder_body: None,
             value_state: resolved(users),
             result_slot_ids: Vec::new(),
             created_for: None,
