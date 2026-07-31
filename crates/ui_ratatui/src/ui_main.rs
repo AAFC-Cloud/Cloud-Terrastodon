@@ -5637,8 +5637,32 @@ impl ObjectBrowserApp {
             let pointer_shape = self
                 .field_shape_for_field(info.owner_slot_id, info.field_index)
                 .ok_or_else(|| eyre::eyre!("slot {} has no reflected pointer shape", slot_id))?;
-            let source = self.resolved_slot_peek(info.source_slot_id)?;
-            return RuntimeValue::from_borrowed_pointer(pointer_shape, source);
+            if let Ok(source) = self.resolved_slot_peek(info.source_slot_id) {
+                return RuntimeValue::from_borrowed_pointer(pointer_shape, source);
+            }
+
+            let source_data_slot_id = self
+                .data_slot_id_for(info.source_slot_id)
+                .ok_or_else(|| eyre::eyre!("slot {} has no backing value", info.source_slot_id))?;
+            let source_is_building = self
+                .slot_by_id(source_data_slot_id)
+                .is_some_and(|source| matches!(source.value_state, SlotValueState::Building(_)));
+            if !source_is_building {
+                return Err(eyre::eyre!(
+                    "slot {} is not a resolved source for borrowed slot {}",
+                    info.source_slot_id,
+                    slot_id
+                ));
+            }
+
+            // A builder-backed source has no stable address to borrow from. Materialize it,
+            // briefly create the same borrowed representation, and immediately promote that
+            // representation to Cow::Owned while the temporary source is still alive.
+            let source = self.slot_runtime_value(info.source_slot_id)?;
+            let result = RuntimeValue::from_borrowed_pointer(pointer_shape, source.peek())
+                .and_then(RuntimeValue::promote_to_owned);
+            source.deallocate_after_move();
+            return result;
         }
         let data_slot_id = self
             .data_slot_id_for(slot_id)
@@ -5869,9 +5893,12 @@ impl ObjectBrowserApp {
                 .pointee()
                 .is_some_and(|pointee| pointee.is_shape(peek.shape()))
             {
-                let source = self.resolved_slot_peek(linked_slot_id)?;
-                let borrowed = RuntimeValue::from_borrowed_pointer(field_shape, source)
-                    .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
+                let borrowed = match self.resolved_slot_peek(linked_slot_id) {
+                    Ok(source) => RuntimeValue::from_borrowed_pointer(field_shape, source),
+                    Err(_) => RuntimeValue::from_borrowed_pointer(field_shape, *peek)
+                        .and_then(RuntimeValue::promote_to_owned),
+                }
+                .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
                 partial = unsafe { partial.set_from_peek(&borrowed.peek()) }
                     .map_err(|error| eyre::eyre!("{field_name}: {error}"))?;
                 borrowed.deallocate_after_move();
@@ -11890,6 +11917,7 @@ mod tests {
     use super::SlotKind;
     use super::UiMode;
     use arbitrary::Arbitrary;
+    use cloud_terrastodon_azure::ArbitraryJson;
     use cloud_terrastodon_azure::AzureTenantArgument;
     use cloud_terrastodon_azure::AzureTenantIdResolveRequest;
     use cloud_terrastodon_azure::EntraUser;
@@ -14238,6 +14266,108 @@ mod tests {
             ))
         ));
         assert_eq!(app.tab_name(tab_slot_id).as_deref(), Some("unnamed"));
+    }
+
+    #[test]
+    fn borrowed_views_snapshot_builder_backed_sources_into_owned_cows() {
+        let mut app = ObjectBrowserApp::new();
+        let source_slot_id = app.current_tab_slot_id().expect("first tab slot");
+        let request_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "ProduceJsonRequest")
+            .cloned()
+            .expect("ProduceJsonRequest should be registered");
+        let owner_slot_id = app.allocate_slot_id();
+        let mut owner_slot = super::ObjectSlot::new(owner_slot_id);
+        owner_slot.apply_shape_choice(&request_choice);
+        app.object_slots.push(owner_slot);
+        let view_slot_id = app.allocate_slot_id();
+        app.object_slots.push(super::ObjectSlot::new_borrow_view(
+            view_slot_id,
+            source_slot_id,
+            owner_slot_id,
+            0,
+            "tab",
+            <Cow<'static, super::Tab> as facet::Facet<'static>>::SHAPE,
+        ));
+
+        let value = app
+            .slot_runtime_value(view_slot_id)
+            .expect("builder-backed Tab should be usable by a borrowed view");
+        let cow = value
+            .into_box::<Cow<'static, super::Tab>>()
+            .expect("borrow view should retain its Cow shape")
+            .downcast::<Cow<'static, super::Tab>>()
+            .expect("borrow view should downcast to Cow<Tab>");
+        assert!(matches!(*cow, Cow::Owned(_)));
+        assert_eq!(cow.name, "unnamed");
+    }
+    #[tokio::test]
+    async fn produce_json_request_materializes_a_builder_backed_tab_view() {
+        let mut app = ObjectBrowserApp::new();
+        let tab_slot_id = app.current_tab_slot_id().expect("first tab slot");
+
+        let entries = vec![
+            ArbitraryJson::arbitrary(&mut arbitrary::Unstructured::new(&[1]))
+                .expect("test entry should be generated from arbitrary"),
+        ];
+        app.sync_tab_field_value(
+            tab_slot_id,
+            2,
+            describe_shape(<Vec<ArbitraryJson> as Facet<'static>>::SHAPE),
+            runtime(entries),
+        );
+
+        let request_choice = app
+            .shape_choices
+            .iter()
+            .find(|choice| choice.label == "ProduceJsonRequest")
+            .cloned()
+            .expect("ProduceJsonRequest should be registered");
+        let request_slot_id = app.allocate_slot_id();
+        let mut request_slot = super::ObjectSlot::new(request_slot_id);
+        request_slot.apply_shape_choice(&request_choice);
+        app.object_slots.push(request_slot);
+
+        let tab_view_slot_id = app.allocate_slot_id();
+        app.object_slots.push(super::ObjectSlot::new_view(
+            tab_view_slot_id,
+            tab_slot_id,
+            request_slot_id,
+            0,
+            "tab",
+        ));
+        app.set_field_link(request_slot_id, 0, tab_view_slot_id);
+
+        let filename_path = std::env::temp_dir().join(format!(
+            "cloud-terrastodon-ui-ratatui-builder-tab-{}.json",
+            std::process::id()
+        ));
+        let filename_slot_id = app.allocate_slot_id();
+        app.object_slots
+            .push(super::ObjectSlot::new_resolved_result(
+                filename_slot_id,
+                describe_shape(<String as Facet<'static>>::SHAPE),
+                runtime(filename_path.to_string_lossy().into_owned()),
+            ));
+        app.set_field_link(request_slot_id, 1, filename_slot_id);
+
+        let request = app
+            .slot_runtime_value(request_slot_id)
+            .expect("ProduceJsonRequest should materialize from the builder-backed tab")
+            .into_box::<super::ProduceJsonRequest<'static>>()
+            .expect("request should retain its reflected shape")
+            .downcast::<super::ProduceJsonRequest<'static>>()
+            .expect("request should downcast");
+        assert!(matches!(request.tab, Cow::Owned(_)));
+        assert_eq!(request.tab.entries.len(), 1);
+
+        let written = request.into_future().await.expect("request should invoke");
+        assert_eq!(written, filename_path.display().to_string());
+        tokio::fs::remove_file(filename_path)
+            .await
+            .expect("test json file should be removed");
     }
 
     #[test]
