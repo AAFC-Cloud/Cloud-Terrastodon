@@ -19,6 +19,7 @@
 - Rename `EntraApplicationId` to `EntraApplicationObjectId`
 - Add `ct az ad app role list {client id}`
 - Change `PickerTui` to be async and support late injection of choices
+- Fix breaking on az account list when logged in as service principal
 
 # v0.36.0
 
