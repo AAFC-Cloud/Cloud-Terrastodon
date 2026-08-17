@@ -69,6 +69,54 @@ pub struct RuntimeValue {
 }
 
 impl RuntimeValue {
+    /// Shape a generic field picker should create/search when a field is a
+    /// supported owning/borrowed pointer. Ordinary values return themselves.
+    pub fn preferred_field_source_shape(target_shape: &'static Shape) -> &'static Shape {
+        let Def::Pointer(pointer) = target_shape.def else {
+            return target_shape;
+        };
+        let Some(pointee) = pointer.pointee() else {
+            return target_shape;
+        };
+        if Self::can_own_pointee(target_shape, pointee)
+            || Self::can_borrow_pointee(target_shape, pointee)
+        {
+            pointee
+        } else {
+            target_shape
+        }
+    }
+
+    pub fn can_borrow_pointee(
+        pointer_shape: &'static Shape,
+        pointee_shape: &'static Shape,
+    ) -> bool {
+        let Def::Pointer(pointer) = pointer_shape.def else {
+            return false;
+        };
+        pointer
+            .pointee()
+            .is_some_and(|expected| expected.is_shape(pointee_shape))
+            && borrowed_pointer_kind_for_shape(pointer_shape).is_some()
+    }
+
+    pub fn can_own_pointee(pointer_shape: &'static Shape, pointee_shape: &'static Shape) -> bool {
+        let Def::Pointer(pointer) = pointer_shape.def else {
+            return false;
+        };
+        if !pointer
+            .pointee()
+            .is_some_and(|expected| expected.is_shape(pointee_shape))
+        {
+            return false;
+        }
+        if pointer.known == Some(facet::KnownPointer::Cow) {
+            return pointer.vtable.borrow_from_pointee_fn.is_some()
+                && pointer.vtable.promote_to_owned_fn.is_some();
+        }
+        pointer.vtable.new_into_fn.is_some()
+    }
+
     fn layout_for(shape: &'static Shape) -> eyre::Result<Layout> {
         shape
             .layout
@@ -192,6 +240,61 @@ impl RuntimeValue {
             )
         })?;
         (kind.borrow)(pointer_shape, source)
+    }
+
+    /// Wrap an owned pointee in a reflected owning pointer such as `Cow::Owned`.
+    ///
+    /// Facet's `new_into_fn` moves the pointee bytes into ordinary owning
+    /// pointers. `Cow` is formed through its borrow/promote hooks because its
+    /// reflected constructor represents the borrowed variant; the source is
+    /// retained until promotion completes and then consumed.
+    pub fn from_owned_pointee(
+        pointer_shape: &'static Shape,
+        source: RuntimeValue,
+    ) -> eyre::Result<Self> {
+        let Def::Pointer(pointer) = pointer_shape.def else {
+            eyre::bail!("{} is not a pointer shape", describe_shape(pointer_shape));
+        };
+        let pointee = pointer.pointee().ok_or_else(|| {
+            eyre::eyre!(
+                "{} has no reflected pointee shape",
+                describe_shape(pointer_shape)
+            )
+        })?;
+        if !pointee.is_shape(source.shape) {
+            eyre::bail!(
+                "pointer pointee shape mismatch: expected {}, got {}",
+                describe_shape(pointee),
+                describe_shape(source.shape)
+            );
+        }
+        if pointer.known == Some(facet::KnownPointer::Cow) {
+            let borrowed = Self::from_borrowed_pointer(pointer_shape, source.peek())?;
+            let owned = borrowed.promote_to_owned()?;
+            drop(source);
+            return Ok(owned);
+        }
+        let construct = pointer.vtable.new_into_fn.ok_or_else(|| {
+            eyre::eyre!(
+                "{} cannot be constructed from an owned pointee",
+                describe_shape(pointer_shape)
+            )
+        })?;
+        let (dst, layout) = Self::allocate(pointer_shape)?;
+        let source = std::mem::ManuallyDrop::new(source);
+        // SAFETY: the reflected pointee shape was checked above, source owns
+        // a live initialized pointee, and dst has exactly the pointer shape's
+        // layout. Facet's new_into_fn transfers the pointee bytes into the
+        // returned initialized pointer value.
+        let ptr = unsafe { construct(dst, PtrMut::new(source.ptr.as_ptr())) };
+        // SAFETY: construct moved the pointee, so its allocation must be
+        // released without running the moved value's destructor.
+        unsafe {
+            facet::dealloc_for_layout(PtrMut::new(source.ptr.as_ptr()), source.layout);
+        }
+        // SAFETY: construct returned an initialized value in dst, whose shape
+        // and allocation layout are retained here.
+        Ok(unsafe { Self::from_initialized_ptr(pointer_shape, ptr, layout) })
     }
 
     pub const fn shape(&self) -> &'static Shape {
@@ -1442,6 +1545,25 @@ mod test {
             .expect("promoted Cow<str> should retain its concrete type");
         assert!(matches!(*promoted_text, Cow::Owned(_)));
         assert_eq!(promoted_text.as_ref(), "text");
+    }
+
+    #[test]
+    fn reflected_pointer_can_take_ownership_of_a_pointee() {
+        let source = RuntimeValue::from_box(Box::new(DummyOutput {
+            value: "moved".to_owned(),
+        }))
+        .expect("pointee is representable");
+
+        let pointer = RuntimeValue::from_owned_pointee(<Cow<'static, DummyOutput>>::SHAPE, source)
+            .expect("Cow exposes Facet's owned-pointee constructor");
+        let pointer = pointer
+            .into_box::<Cow<'static, DummyOutput>>()
+            .expect("pointer retains its reflected shape")
+            .downcast::<Cow<'static, DummyOutput>>()
+            .expect("pointer retains its concrete type");
+
+        assert!(matches!(&*pointer, Cow::Owned(_)));
+        assert_eq!(pointer.value, "moved");
     }
 
     #[test]

@@ -34,6 +34,7 @@ linkme = { workspace = true }
 
 [dev-dependencies]
 arbitrary = { workspace = true }
+cloud_terrastodon_azure_devops = { workspace = true }
 color-eyre = { workspace = true }
 
 [features]

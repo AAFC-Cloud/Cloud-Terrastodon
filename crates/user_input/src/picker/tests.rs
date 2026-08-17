@@ -3,9 +3,11 @@ use super::choice_pool::ChoicePool;
 use super::handler_completion::HandlerCompletion;
 use super::picker_event_state::PickerEventState;
 use super::picker_tui::PickerToast;
+use super::picker_tui::PickerTui;
 use super::picker_tui::advance_toasts;
 use super::picker_tui::empty_picker_message;
 use super::picker_tui::handle_handler_completion;
+use super::picker_tui::handle_key;
 use super::picker_tui::new_nucleo;
 use super::picker_tui::process_candidate_message;
 use super::picker_tui::render_toasts;
@@ -20,6 +22,9 @@ use crate::Choice;
 use crate::PickerLogLevel;
 use crate::PickerLogRecord;
 use compact_str::CompactString;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyModifiers;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use rustc_hash::FxHashSet;
@@ -27,6 +32,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
+use tui_textarea::TextArea;
 
 fn log_record(level: PickerLogLevel, message: &str) -> PickerLogRecord {
     PickerLogRecord {
@@ -261,6 +267,16 @@ fn reload_increments_generation_and_clears_marked_candidates() {
 }
 
 #[test]
+fn picker_accepts_initial_multi_selection_keys() {
+    let picker = PickerTui::<String>::new().set_initial_selected(["first", "third", "first"]);
+
+    assert_eq!(
+        picker.initial_selected_keys(),
+        &FxHashSet::from_iter([CompactString::from("first"), CompactString::from("third"),])
+    );
+}
+
+#[test]
 fn preserves_selection_when_result_order_changes() {
     let selected = CompactString::from("two");
     let keys = vec![CompactString::from("one"), CompactString::from("two")];
@@ -290,6 +306,37 @@ fn query_changes_are_debounced_and_latest_query_wins() {
         debouncer.take_due(now + Duration::from_millis(120)),
         Some(QueryEvent::Cleared)
     );
+}
+
+#[test]
+fn typing_a_query_reanchors_the_picker_at_the_first_result() {
+    let mut list_state = ratatui::widgets::ListState::default();
+    list_state.select(Some(40));
+    *list_state.offset_mut() = 40;
+    let mut marked_for_return = FxHashSet::default();
+    let mut query_text_area = TextArea::default();
+    let mut query_changed = false;
+    let mut selection_needs_reset = false;
+    let mut query_debouncer = QueryDebouncer::default();
+    let mut return_reason = None;
+
+    let _effects = handle_key(
+        KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE),
+        false,
+        &mut list_state,
+        &[],
+        &mut marked_for_return,
+        &mut query_text_area,
+        &mut query_changed,
+        &mut selection_needs_reset,
+        &mut query_debouncer,
+        &mut return_reason,
+    );
+
+    assert!(query_changed);
+    assert!(selection_needs_reset);
+    assert_eq!(list_state.selected(), Some(0));
+    assert_eq!(list_state.offset(), 0);
 }
 
 #[test]

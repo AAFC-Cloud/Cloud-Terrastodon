@@ -52,7 +52,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectMemberListRequest<'static> {
     }
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsProjectMember {
     pub descriptor: AzureDevOpsDescriptor,
@@ -65,7 +65,7 @@ pub struct AzureDevOpsProjectMember {
     pub permission_objects: Vec<AzureDevOpsProjectPermissionObject>,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsProjectPermissionObject {
     pub descriptor: AzureDevOpsDescriptor,
@@ -287,7 +287,28 @@ impl From<AzureDevOpsProjectMemberAccumulator> for AzureDevOpsProjectMember {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectMemberListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectMemberListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsProjectMember>);
 cloud_terrastodon_registry::register_into_future!(
     AzureDevOpsProjectMemberListRequest<'static> => Vec<AzureDevOpsProjectMember>,
     effects = [Read]
 );
+
+#[cfg(test)]
+mod tests {
+    use cloud_terrastodon_registry::{ArbitraryBytes, ProductionKind, functions_from};
+    use facet::Facet;
+
+    use super::AzureDevOpsProjectMember;
+
+    #[test]
+    fn project_member_list_has_an_arbitrary_response_constructor() {
+        assert!(
+            functions_from(ArbitraryBytes::SHAPE)
+                .into_iter()
+                .any(|function| {
+                    function.production_kind(Vec::<AzureDevOpsProjectMember>::SHAPE)
+                        == Some(ProductionKind::Exact)
+                })
+        );
+    }
+}

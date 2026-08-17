@@ -93,6 +93,7 @@ pub struct PickerTui<'a, T> {
     pub default_query: String,
     pub header: Option<String>,
     pub auto_accept: bool,
+    initial_marked: FxHashSet<CompactString>,
     terminal_coordinator: Option<TerminalCoordinator>,
     log_buffer: Option<PickerLogBufferHandle>,
     handlers: Vec<EventHandler<'a, T>>,
@@ -104,6 +105,7 @@ impl<'a, T> Default for PickerTui<'a, T> {
             default_query: Default::default(),
             header: Default::default(),
             auto_accept: true,
+            initial_marked: FxHashSet::default(),
             terminal_coordinator: None,
             log_buffer: None,
             handlers: Vec::new(),
@@ -136,6 +138,28 @@ impl<'a, T> PickerTui<'a, T> {
     pub fn set_query(mut self, query: impl Into<String>) -> Self {
         self.default_query = query.into();
         self
+    }
+
+    /// Mark choices before a multi-select picker is first rendered.
+    ///
+    /// Keys use the same identity as [`crate::Choice::key`]. This lets an
+    /// editor reopen a picker with its persisted selections without coupling
+    /// the picker to the selected value type.
+    pub fn set_initial_selected<I, S>(mut self, keys: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        self.initial_marked = keys
+            .into_iter()
+            .map(|key| CompactString::from(key.as_ref()))
+            .collect();
+        self
+    }
+
+    #[cfg(test)]
+    pub(super) fn initial_selected_keys(&self) -> &FxHashSet<CompactString> {
+        &self.initial_marked
     }
 
     pub fn terminal_coordinator(mut self, coordinator: TerminalCoordinator) -> Self {
@@ -422,6 +446,7 @@ impl<'a, T> PickerTui<'a, T> {
         let mut pending_handlers = 0usize;
         let mut startup_handlers = 0usize;
         let mut picker_state = PickerEventState::default();
+        picker_state.marked.clone_from(&self.initial_marked);
 
         for event in startup_events(&self.default_query) {
             spawn_handlers(
@@ -444,6 +469,7 @@ impl<'a, T> PickerTui<'a, T> {
         let mut query_text_area = Self::build_text_area(&self.default_query);
         let mut previous_query = None::<String>;
         let mut query_changed = true;
+        let mut selection_needs_reset = false;
         let mut query_debouncer = QueryDebouncer::default();
         let mut event_stream = EventStream::new();
         let mut ticker = tokio::time::interval(Duration::from_millis(16));
@@ -489,6 +515,7 @@ impl<'a, T> PickerTui<'a, T> {
                                         &mut picker_state.marked,
                                         &mut query_text_area,
                                         &mut query_changed,
+                                        &mut selection_needs_reset,
                                         &mut query_debouncer,
                                         &mut return_reason,
                                     )
@@ -520,6 +547,7 @@ impl<'a, T> PickerTui<'a, T> {
                                                 &mut picker_state.marked,
                                                 &mut query_text_area,
                                                 &mut query_changed,
+                                                &mut selection_needs_reset,
                                                 &mut query_debouncer,
                                                 &mut return_reason,
                                             )
@@ -734,6 +762,7 @@ impl<'a, T> PickerTui<'a, T> {
                 list_state.select(None);
                 previous_query = None;
                 query_changed = true;
+                selection_needs_reset = true;
                 query_debouncer.clear();
                 return_reason = None;
                 render_dirty = true;
@@ -781,8 +810,10 @@ impl<'a, T> PickerTui<'a, T> {
                         &mut list_state,
                         &mut search_results_keys,
                         &mut search_results_heights,
+                        selection_needs_reset,
                     )
                 });
+                selection_needs_reset = false;
             }
 
             if self.auto_accept
@@ -1038,7 +1069,7 @@ fn pending_title(pending_handlers: usize) -> Option<String> {
 }
 
 #[derive(Debug, Default)]
-struct KeyEffects {
+pub(super) struct KeyEffects {
     render_requested: bool,
 }
 
@@ -1103,7 +1134,7 @@ pub(super) fn render_toasts(buf: &mut Buffer, area: Rect, toasts: &[PickerToast]
     }
 }
 
-fn handle_key(
+pub(super) fn handle_key(
     key: KeyEvent,
     many: bool,
     list_state: &mut ListState,
@@ -1111,6 +1142,7 @@ fn handle_key(
     marked_for_return: &mut FxHashSet<CompactString>,
     query_text_area: &mut TextArea<'static>,
     query_changed: &mut bool,
+    selection_needs_reset: &mut bool,
     query_debouncer: &mut QueryDebouncer,
     return_reason: &mut Option<ReturnReason>,
 ) -> KeyEffects {
@@ -1198,10 +1230,20 @@ fn handle_key(
         }
         KeyCode::BackTab if key.modifiers.contains(KeyModifiers::CONTROL) => {
             *query_changed = query_text_area.delete_word();
+            if *query_changed {
+                *selection_needs_reset = true;
+                list_state.select(Some(0));
+                *list_state.offset_mut() = 0;
+            }
             effects.render_requested = *query_changed;
         }
         _ => {
             *query_changed = query_text_area.input(key);
+            if *query_changed {
+                *selection_needs_reset = true;
+                list_state.select(Some(0));
+                *list_state.offset_mut() = 0;
+            }
             effects.render_requested = *query_changed;
         }
     }
@@ -1350,6 +1392,7 @@ fn rebuild_results<T>(
     list_state: &mut ListState,
     search_results_keys: &mut Vec<Arc<CompactString>>,
     search_results_heights: &mut Vec<usize>,
+    selection_needs_reset: bool,
 ) {
     let selected_key = list_state
         .selected()
@@ -1364,8 +1407,15 @@ fn rebuild_results<T>(
         search_results_heights.push(height);
     }
 
-    let selected_index = preserved_selection(selected_key.as_deref(), search_results_keys);
+    let selected_index = if selection_needs_reset {
+        (!search_results_keys.is_empty()).then_some(0)
+    } else {
+        preserved_selection(selected_key.as_deref(), search_results_keys)
+    };
     list_state.select(selected_index);
+    if selection_needs_reset {
+        *list_state.offset_mut() = 0;
+    }
     debug_assert_eq!(
         search_results_keys
             .iter()

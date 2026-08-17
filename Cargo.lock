@@ -1449,6 +1449,7 @@ version = "0.36.0"
 dependencies = [
  "arbitrary",
  "cloud_terrastodon_azure",
+ "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_command",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_user_input",
