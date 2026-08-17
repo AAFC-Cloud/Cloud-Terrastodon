@@ -1,10 +1,10 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolEntitlement;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolId;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pools;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
@@ -13,12 +13,17 @@ use std::collections::HashSet;
 
 /// Print a summary of agent pools and projects that belong to each pool.
 #[derive(facet::Facet, Debug, Clone)]
-pub struct AzureDevOpsAgentPoolSummaryArgs {}
+pub struct AzureDevOpsAgentPoolSummaryArgs {
+    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    #[facet(figue::named)]
+    pub org: Option<AzureDevOpsOrganizationUrl>,
+}
 
 impl AzureDevOpsAgentPoolSummaryArgs {
     pub async fn invoke(self) -> Result<()> {
         // Organization and caches
-        let org_url = get_default_organization_url().await?;
+        let org_url =
+            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
 
         // Fetch pools and projects once
         let pools = fetch_azure_devops_agent_pools(&org_url).await?;

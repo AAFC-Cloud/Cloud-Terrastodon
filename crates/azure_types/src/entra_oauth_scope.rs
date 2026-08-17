@@ -1,7 +1,6 @@
+use crate::EntraOAuthScopeClaim;
 use std::collections::HashSet;
 use std::str::FromStr;
-
-use crate::EntraOAuthScopeClaim;
 
 /// The space-delimited collection represented by an Entra OAuth `scope`
 /// parameter or an `oauth2PermissionGrant.scope` property.

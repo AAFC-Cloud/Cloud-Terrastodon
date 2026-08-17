@@ -122,6 +122,13 @@ impl FromStr for AzureDevOpsOrganizationUrl {
     type Err = eyre::Error;
 
     fn from_str(url: &str) -> Result<Self, Self::Err> {
+        // Treat a bare value as an organization name and use the modern
+        // Azure DevOps host. Full URLs are handled below so callers can
+        // explicitly select the legacy visualstudio.com form.
+        if !url.contains("://") {
+            return Self::try_new_dev_azure_com(url);
+        }
+
         // Handle dev.azure.com format: https://dev.azure.com/{organization}
         if let Some(org_part) = url.strip_prefix("https://dev.azure.com/") {
             let org_name = org_part.trim_end_matches('/');
@@ -216,6 +223,17 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_bare_organization_name() -> Result<()> {
+        let url = "myorg".parse::<AzureDevOpsOrganizationUrl>()?;
+        assert_eq!(
+            url,
+            AzureDevOpsOrganizationUrl::try_new_dev_azure_com("myorg")?
+        );
+        assert_eq!(url.to_string(), "https://dev.azure.com/myorg");
+        Ok(())
+    }
+
+    #[test]
     fn test_parse_visual_studio_com() -> Result<()> {
         let url = "https://myorg.visualstudio.com".parse::<AzureDevOpsOrganizationUrl>()?;
         assert_eq!(url.base_url, "https://myorg.visualstudio.com");
@@ -243,7 +261,7 @@ mod tests {
         assert!(AzureDevOpsOrganizationUrl::from_str("https://example.com").is_err());
         assert!(AzureDevOpsOrganizationUrl::from_str("https://dev.azure.com/").is_err());
         assert!(AzureDevOpsOrganizationUrl::from_str("https://.visualstudio.com").is_err());
-        assert!(AzureDevOpsOrganizationUrl::from_str("not-a-url").is_err());
+        assert!(AzureDevOpsOrganizationUrl::from_str("-not-a-valid-organization").is_err());
     }
 
     #[test]

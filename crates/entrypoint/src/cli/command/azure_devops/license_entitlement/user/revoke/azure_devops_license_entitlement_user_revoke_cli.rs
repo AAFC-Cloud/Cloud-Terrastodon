@@ -6,10 +6,10 @@ use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::remove_group_member;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseAssignmentSource;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
 use eyre::ContextCompat;
 use eyre::Result;
@@ -19,6 +19,9 @@ use tracing::info;
 /// Demote a user to Stakeholder license level, including removing the user from any groups involved in transitive license assignment.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
+    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    #[facet(figue::named)]
+    pub org: Option<AzureDevOpsOrganizationUrl>,
     #[facet(figue::named, proxy = String)]
     pub user: AzureDevOpsUserArgument<'static>,
 
@@ -32,7 +35,9 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
         let tenant_id = self.tenant.resolve().await?;
         let user_predicate = self.user.as_predicate()?;
 
-        let org_url = get_default_organization_url().await?;
+        let org_url =
+            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org.clone())
+                .await?;
 
         let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
 

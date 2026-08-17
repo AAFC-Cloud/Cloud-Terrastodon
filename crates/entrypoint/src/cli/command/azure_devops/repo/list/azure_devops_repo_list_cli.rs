@@ -1,8 +1,8 @@
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_repos_batch;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::stdout;
@@ -10,6 +10,10 @@ use std::io::stdout;
 /// List Azure DevOps repositories in a project.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsRepoListArgs {
+    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    #[facet(figue::named)]
+    pub org: Option<AzureDevOpsOrganizationUrl>,
+
     /// Optional project id or project name.
     #[facet(figue::named)]
     pub project: Option<AzureDevOpsProjectArgument<'static>>,
@@ -17,7 +21,8 @@ pub struct AzureDevOpsRepoListArgs {
 
 impl AzureDevOpsRepoListArgs {
     pub async fn invoke(self) -> Result<()> {
-        let org_url = get_default_organization_url().await?;
+        let org_url =
+            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
 
         let projects = fetch_all_azure_devops_projects(&org_url).await?;
 

@@ -1,9 +1,9 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolArgument;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_pool;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
@@ -13,6 +13,9 @@ use tracing::info;
 /// List Azure DevOps agent pool entitlements (queues) in a project.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolEntitlementListArgs {
+    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    #[facet(figue::named)]
+    pub org: Option<AzureDevOpsOrganizationUrl>,
     /// Project id or project name.
     #[facet(figue::named)]
     pub project: Option<AzureDevOpsProjectArgument<'static>>,
@@ -22,7 +25,8 @@ pub struct AzureDevOpsAgentPoolEntitlementListArgs {
 
 impl AzureDevOpsAgentPoolEntitlementListArgs {
     pub async fn invoke(self) -> Result<()> {
-        let org_url = get_default_organization_url().await?;
+        let org_url =
+            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         match (self.project, self.pool) {
             (None, None) => {
                 // Print the entitlements for all pools and projects by enumerating projects and pools

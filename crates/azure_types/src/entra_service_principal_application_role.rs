@@ -1,7 +1,6 @@
+use crate::EntraServicePrincipalApplicationRoleId;
 use arbitrary::Arbitrary;
 use facet::Facet;
-
-use crate::EntraServicePrincipalApplicationRoleId;
 
 #[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]

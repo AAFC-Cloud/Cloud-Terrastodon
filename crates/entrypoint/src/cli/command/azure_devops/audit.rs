@@ -2,11 +2,16 @@ use crate::cli::scalar_args::HumantimeDurationCli;
 use crate::noninteractive::audit_azure_devops;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use eyre::Result;
 
 /// Arguments for auditing Azure DevOps resources.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAuditArgs {
+    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    #[facet(figue::named)]
+    pub org: Option<AzureDevOpsOrganizationUrl>,
+
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
@@ -23,6 +28,7 @@ pub struct AzureDevOpsAuditArgs {
 impl AzureDevOpsAuditArgs {
     pub async fn invoke(self) -> Result<()> {
         audit_azure_devops(
+            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?,
             self.tenant.resolve().await?,
             self.test_license_inactivity_threshold.0.into(),
             self.paid_license_inactivity_threshold.0.into(),

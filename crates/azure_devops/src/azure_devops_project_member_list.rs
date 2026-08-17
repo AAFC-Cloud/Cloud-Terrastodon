@@ -295,10 +295,11 @@ cloud_terrastodon_registry::register_into_future!(
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::{ArbitraryBytes, ProductionKind, functions_from};
-    use facet::Facet;
-
     use super::AzureDevOpsProjectMember;
+    use cloud_terrastodon_registry::ArbitraryBytes;
+    use cloud_terrastodon_registry::ProductionKind;
+    use cloud_terrastodon_registry::functions_from;
+    use facet::Facet;
 
     #[test]
     fn project_member_list_has_an_arbitrary_response_constructor() {

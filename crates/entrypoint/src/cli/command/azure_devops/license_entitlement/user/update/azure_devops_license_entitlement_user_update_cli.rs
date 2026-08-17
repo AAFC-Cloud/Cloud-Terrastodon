@@ -1,8 +1,8 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use color_eyre::owo_colors::OwoColorize;
@@ -14,6 +14,9 @@ use tracing::info;
 #[derive(facet::Facet, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
 pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
+    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    #[facet(figue::named)]
+    pub org: Option<AzureDevOpsOrganizationUrl>,
     #[facet(figue::named)]
     pub user: Vec<AzureDevOpsUserArgument<'static>>,
 
@@ -33,7 +36,8 @@ pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
 
 impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
     pub async fn invoke(self) -> Result<()> {
-        let org_url = get_default_organization_url().await?;
+        let org_url =
+            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
 
         if let AzureDevOpsLicenseType::Other(s) = &self.license {
             bail!("Invalid license kind specified: {}", s);

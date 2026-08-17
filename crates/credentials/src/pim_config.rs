@@ -1,5 +1,6 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_azure_types::{AzureTenantId, EntraApplicationClientId};
+use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_config::Config;
 use std::collections::HashMap;
 

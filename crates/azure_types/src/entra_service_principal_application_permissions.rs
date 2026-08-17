@@ -1,9 +1,6 @@
+use crate::EntraServicePrincipalApplicationResourceSpecificPermission;
+use crate::EntraServicePrincipalApplicationRole;
 use arbitrary::Arbitrary;
-
-use crate::{
-    EntraServicePrincipalApplicationResourceSpecificPermission,
-    EntraServicePrincipalApplicationRole,
-};
 
 /// Application permissions exposed by an Entra service principal.
 ///

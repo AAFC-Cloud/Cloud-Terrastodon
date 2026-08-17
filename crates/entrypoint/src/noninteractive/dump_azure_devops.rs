@@ -1,8 +1,8 @@
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 
 #[derive(facet::Facet)]
@@ -26,8 +26,7 @@ struct AzureDevOpsDumpGroupMembers {
 }
 
 /// Write to stdout the json for a bunch of Azure DevOps info
-pub async fn dump_azure_devops() -> eyre::Result<()> {
-    let org_url = get_default_organization_url().await?;
+pub async fn dump_azure_devops(org_url: AzureDevOpsOrganizationUrl) -> eyre::Result<()> {
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
 
     let users = fetch_azure_devops_user_license_entitlements(&org_url).await?;

@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::Choice;
@@ -10,11 +10,16 @@ use tracing::info;
 
 #[derive(facet::Facet, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
-pub struct AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {}
+pub struct AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
+    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    #[facet(figue::named)]
+    pub org: Option<AzureDevOpsOrganizationUrl>,
+}
 
 impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
     pub async fn invoke(self) -> Result<()> {
-        let org_url = get_default_organization_url().await?;
+        let org_url =
+            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
 
         let chosen_entitlements = PickerTui::<_>::new()
             .set_header("Azure DevOps License Entitlements")

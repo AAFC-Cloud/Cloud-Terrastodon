@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsGroup;
 use cloud_terrastodon_azure_devops::AzureDevOpsGroupMembersV2Response;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsTeam;
@@ -7,7 +8,6 @@ use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members_v2;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
@@ -20,6 +20,9 @@ use tracing::info_span;
 /// Azure DevOps project dump command.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectDumpArgs {
+    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    #[facet(figue::named)]
+    pub org: Option<AzureDevOpsOrganizationUrl>,
     /// Project id (UUID) or project name.
     #[facet(figue::positional, proxy = String)]
     project: AzureDevOpsProjectArgument<'static>,
@@ -40,7 +43,7 @@ impl AzureDevOpsProjectDumpArgs {
         let _guard = span.clone().entered();
 
         info!("Fetching projects");
-        let org_url = get_default_organization_url()
+        let org_url = crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org)
             .into_future()
             .instrument(span.clone())
             .await?;

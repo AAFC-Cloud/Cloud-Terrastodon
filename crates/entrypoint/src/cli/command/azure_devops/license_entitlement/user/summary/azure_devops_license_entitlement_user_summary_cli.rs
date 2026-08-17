@@ -1,13 +1,17 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use std::collections::HashMap;
 
 /// Summarize Azure DevOps user license entitlements by license type.
 #[derive(facet::Facet, Debug, Clone)]
-pub struct AzureDevOpsLicenseEntitlementUserSummaryArgs {}
+pub struct AzureDevOpsLicenseEntitlementUserSummaryArgs {
+    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    #[facet(figue::named)]
+    pub org: Option<AzureDevOpsOrganizationUrl>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 struct LicenseSummaryRow {
@@ -19,7 +23,8 @@ struct LicenseSummaryRow {
 
 impl AzureDevOpsLicenseEntitlementUserSummaryArgs {
     pub async fn invoke(self) -> Result<()> {
-        let org_url = get_default_organization_url().await?;
+        let org_url =
+            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
         let rows = summarize_licenses(entitlements.iter().map(|entitlement| &entitlement.license));
         let total_users: usize = rows.iter().map(|row| row.count).sum();

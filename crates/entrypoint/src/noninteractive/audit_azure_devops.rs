@@ -5,6 +5,7 @@ use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_azure_devops::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::LastAccessedDate;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_member;
@@ -12,7 +13,6 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -21,6 +21,7 @@ use tracing::info;
 use tracing::warn;
 
 pub async fn audit_azure_devops(
+    org_url: AzureDevOpsOrganizationUrl,
     tenant_id: AzureTenantId,
     test_license_inactivity_threshold: Duration,
     paid_license_inactivity_threshold: Duration,
@@ -37,7 +38,6 @@ pub async fn audit_azure_devops(
     let mut total_cost_waste_cad = 0.00;
     let mut message_counts: HashMap<String, usize> = HashMap::new();
 
-    let org_url = get_default_organization_url().await?;
     let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
     let users_by_principal_name = fetch_all_entra_users(tenant_id)
         .await?
