@@ -1,5 +1,13 @@
 # TODO
 
+## audit
+
+- terraform azurerm backend blocks should have tenant_id
+- azurerm provider blocks should have tenant_id
+- azuredevops provider blocks should have tenant_id
+
+our audit commands should flag those
+
 ## deny unknown
 
 serde to facet migration removed many
