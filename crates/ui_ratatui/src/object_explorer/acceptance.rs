@@ -1,24 +1,18 @@
-use cloud_terrastodon_azure_devops::{
-    AzureDevOpsDescriptor, AzureDevOpsProjectMember, AzureDevOpsProjectMemberListRequest,
-    AzureDevOpsProjectPermissionObject,
-};
-use cloud_terrastodon_registry::{
-    ArbitraryBytes, RuntimeValue, functions_from, known_thing_for_shape,
-};
-use facet::Facet;
-use tokio::io::{AsyncReadExt, duplex};
-
 use super::arena::Arena;
 use super::arena_address_source::ArenaAddressSource;
 use super::arena_query_context::ArenaQueryContext;
 use super::borrow_graph::BorrowGraph;
-use super::breadcrumb::{Breadcrumb, ValueFilterOperator};
+use super::breadcrumb::Breadcrumb;
+use super::breadcrumb::ValueFilterOperator;
 use super::breadcrumbs::Breadcrumbs;
 use super::card_address::CardAddress;
 use super::explorer_engine::ExplorerEngine;
 use super::field_binding::FieldBinding;
-use super::field_candidate_action::{FieldCandidateAction, FieldCandidateActions};
-use super::invocation_controller::{InvocationController, InvocationEventState, InvocationStart};
+use super::field_candidate_action::FieldCandidateAction;
+use super::field_candidate_action::FieldCandidateActions;
+use super::invocation_controller::InvocationController;
+use super::invocation_controller::InvocationEventState;
+use super::invocation_controller::InvocationStart;
 use super::invocation_host::FakeInvocationHost;
 use super::invocation_mode::InvocationMode;
 use super::preorder_cursor::PreorderCursor;
@@ -27,14 +21,28 @@ use super::production_controller::arbitrary_constructor_for;
 use super::query_cursor::QueryCursor;
 use super::query_plan::QueryPlan;
 use super::query_progress::QueryProgressState;
-use super::revision::{QueryRevision, ScanRevisionStamp};
+use super::revision::QueryRevision;
+use super::revision::ScanRevisionStamp;
 use super::selection::CardSelection;
 use super::tab::Tab;
 use super::value_address::ValueAddress;
-use super::value_builder::{BuilderStore, BuilderTransition, ValueBuilder};
+use super::value_builder::BuilderStore;
+use super::value_builder::BuilderTransition;
+use super::value_builder::ValueBuilder;
 use super::value_candidate::scan_value_candidates;
 use super::value_path::ValuePathSegment;
 use super::work_budget::WorkBudget;
+use cloud_terrastodon_azure_devops::AzureDevOpsDescriptor;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectMember;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectMemberListRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectPermissionObject;
+use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::functions_from;
+use cloud_terrastodon_registry::known_thing_for_shape;
+use facet::Facet;
+use tokio::io::AsyncReadExt;
+use tokio::io::duplex;
 
 fn runtime<T>(value: T) -> RuntimeValue
 where

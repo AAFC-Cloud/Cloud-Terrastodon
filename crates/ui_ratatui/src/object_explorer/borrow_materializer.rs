@@ -1,11 +1,10 @@
-use cloud_terrastodon_registry::RuntimeValue;
-use facet::Shape;
-
 use super::arena::Arena;
 use super::arena_address_source::ArenaAddressSource;
 use super::borrow_graph::BorrowGraph;
 use super::borrow_lease::BorrowLease;
 use super::value_address::ValueAddress;
+use cloud_terrastodon_registry::RuntimeValue;
+use facet::Shape;
 
 /// Checks that Facet can represent this address as the requested pointer type.
 ///

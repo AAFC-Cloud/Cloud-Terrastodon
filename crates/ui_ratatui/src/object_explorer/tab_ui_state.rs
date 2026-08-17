@@ -1,10 +1,9 @@
-use std::collections::BTreeMap;
-
 use super::card_address::CardAddress;
 use super::card_row_key::CardRowKey;
 use super::end_scan::QueryTotal;
 use super::open_tabs::OpenTabs;
 use super::slot_id::SlotId;
+use std::collections::BTreeMap;
 
 /// Discardable presentation state for one arena-owned Tab.
 ///
@@ -104,8 +103,6 @@ impl TabUiStates {
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::breadcrumb::Breadcrumb;
@@ -114,6 +111,7 @@ mod tests {
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
     use crate::object_explorer::value_path::ValuePathSegment;
+    use cloud_terrastodon_registry::RuntimeValue;
 
     fn runtime<T>(value: T) -> RuntimeValue
     where

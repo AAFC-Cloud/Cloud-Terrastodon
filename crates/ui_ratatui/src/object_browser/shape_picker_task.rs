@@ -1,4 +1,7 @@
-use cloud_terrastodon_user_input::{Choice, PickError, PickerTui, TerminalCoordinator};
+use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickError;
+use cloud_terrastodon_user_input::PickerTui;
+use cloud_terrastodon_user_input::TerminalCoordinator;
 use tokio::task::JoinHandle;
 
 #[derive(Debug)]

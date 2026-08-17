@@ -1,19 +1,24 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::error::Error;
-use std::fmt;
-
-use cloud_terrastodon_registry::RuntimeValue;
-use facet::{Shape, Type, UserType};
-use facet_reflect::Partial;
-
-use super::arena::{Arena, ArenaError};
+use super::arena::Arena;
+use super::arena::ArenaError;
 use super::arena_address_source::ArenaAddressSource;
 use super::arena_slot_state::ArenaSlotState;
-use super::borrow_graph::{BorrowError, BorrowGraph};
-use super::borrow_lease::{BorrowHolder, BorrowLease};
-use super::borrow_materializer::{materialize_borrow, validate_borrow};
+use super::borrow_graph::BorrowError;
+use super::borrow_graph::BorrowGraph;
+use super::borrow_lease::BorrowHolder;
+use super::borrow_lease::BorrowLease;
+use super::borrow_materializer::materialize_borrow;
+use super::borrow_materializer::validate_borrow;
 use super::field_binding::FieldBinding;
 use super::slot_id::SlotId;
+use cloud_terrastodon_registry::RuntimeValue;
+use facet::Shape;
+use facet::Type;
+use facet::UserType;
+use facet_reflect::Partial;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::error::Error;
+use std::fmt;
 
 #[derive(Debug)]
 struct BuilderField {
@@ -1338,21 +1343,19 @@ fn release_leases(borrow_graph: &mut BorrowGraph, leases: Vec<BorrowLease>) {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
-
-    use arbitrary::{Arbitrary, Unstructured};
-    use cloud_terrastodon_azure_devops::{
-        AzureDevOpsOrganizationUrl, AzureDevOpsProjectMemberListRequest,
-    };
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::breadcrumbs::Breadcrumbs;
     use crate::object_explorer::produce_json_request::ProduceJsonRequest;
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
     use crate::object_explorer::value_path::ValuePathSegment;
+    use arbitrary::Arbitrary;
+    use arbitrary::Unstructured;
+    use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+    use cloud_terrastodon_azure_devops::AzureDevOpsProjectMemberListRequest;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
+    use std::borrow::Cow;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

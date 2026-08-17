@@ -1,23 +1,21 @@
-use std::num::NonZeroUsize;
-
-use cloud_terrastodon_registry::RuntimeValue;
-use facet::Facet;
-use tokio::sync::oneshot;
-
 use super::arena::Arena;
 use super::arena_address_source::ArenaAddressSource;
-use super::arena_query_command::{ArenaQueryCommand, CommandResponse};
-use super::arena_query_session::{QuerySessionEnd, QuerySessionId};
+use super::arena_query_command::ArenaQueryCommand;
+use super::arena_query_command::CommandResponse;
+use super::arena_query_session::QuerySessionEnd;
+use super::arena_query_session::QuerySessionId;
 use super::borrow_graph::BorrowGraph;
 use super::breadcrumb::Breadcrumb;
 use super::breadcrumbs::Breadcrumbs;
 use super::browse_command::BrowseCommand;
 use super::browse_session::BrowseSessionId;
 use super::card_window::CardWindow;
-use super::explorer_command::{
-    ArenaMutationCommand, ArenaReadCommand, ExplorerCommand, ExplorerInbox,
-};
-use super::export_read_barrier::{ExportReadBarrier, MutationSubmission};
+use super::explorer_command::ArenaMutationCommand;
+use super::explorer_command::ArenaReadCommand;
+use super::explorer_command::ExplorerCommand;
+use super::explorer_command::ExplorerInbox;
+use super::export_read_barrier::ExportReadBarrier;
+use super::export_read_barrier::MutationSubmission;
 use super::invocation_controller::InvocationController;
 use super::invocation_host::InvocationHost;
 use super::json_encoder::JsonEncoder;
@@ -27,14 +25,20 @@ use super::preorder_cursor::PreorderCursor;
 use super::production_controller::ProductionController;
 use super::query_cursor::QueryCursor;
 use super::query_plan::QueryPlan;
-use super::query_progress::{QueryProgress, QueryProgressState};
-use super::revision::{QueryRevision, ScanRevisionStamp};
+use super::query_progress::QueryProgress;
+use super::query_progress::QueryProgressState;
+use super::revision::QueryRevision;
+use super::revision::ScanRevisionStamp;
 use super::tab::Tab;
 use super::tokio_invocation_host::TokioInvocationHost;
 use super::value_builder::BuilderStore;
 use super::value_candidate::ValueCandidate;
 use super::value_candidate_window::ValueCandidateWindow;
 use super::work_budget::WorkBudget;
+use cloud_terrastodon_registry::RuntimeValue;
+use facet::Facet;
+use std::num::NonZeroUsize;
+use tokio::sync::oneshot;
 
 /// Headless single-owner state machine for the reflected object explorer.
 ///
@@ -1411,42 +1415,53 @@ fn reject_browse_during_export(command: BrowseCommand) {
 
 #[cfg(test)]
 mod tests {
-    use std::any::Any;
-    use std::borrow::Cow;
-    use std::future::{Future, IntoFuture, pending};
-    use std::pin::Pin;
-
-    use cloud_terrastodon_registry::{
-        Function, FunctionKind, InvocationFuture, ProductionKind, RegistrationSite, RuntimeValue,
-        Thing, functions_from, runtime_from_boxed, runtime_into_boxed,
-    };
-    use facet::Facet;
-
     use super::*;
-    use crate::object_explorer::arena_query_context::{
-        ArenaQueryContext, ArenaQueryContextError, ArenaQuerySession,
-    };
-    use crate::object_explorer::arena_query_session::{JsonBatch, JsonBatchBudget};
+    use crate::object_explorer::arena_query_context::ArenaQueryContext;
+    use crate::object_explorer::arena_query_context::ArenaQueryContextError;
+    use crate::object_explorer::arena_query_context::ArenaQuerySession;
+    use crate::object_explorer::arena_query_session::JsonBatch;
+    use crate::object_explorer::arena_query_session::JsonBatchBudget;
     use crate::object_explorer::arena_slot_state::ArenaSlotState;
     use crate::object_explorer::borrow_graph::BorrowGraph;
-    use crate::object_explorer::breadcrumb::{Breadcrumb, ValueFilterOperator};
+    use crate::object_explorer::breadcrumb::Breadcrumb;
+    use crate::object_explorer::breadcrumb::ValueFilterOperator;
     use crate::object_explorer::breadcrumbs::Breadcrumbs;
     use crate::object_explorer::card_address::CardAddress;
-    use crate::object_explorer::explorer_command::{
-        ExplorerHandleError, FieldBindingPacket, OwnedValuePacket,
-    };
+    use crate::object_explorer::explorer_command::ExplorerHandleError;
+    use crate::object_explorer::explorer_command::FieldBindingPacket;
+    use crate::object_explorer::explorer_command::OwnedValuePacket;
     use crate::object_explorer::field_binding::FieldBinding;
     use crate::object_explorer::field_candidate_action::FieldCandidateAction;
     use crate::object_explorer::produce_json_request::ProduceJsonRequest;
-    use crate::object_explorer::production_job::{ProductionJobState, ProductionStrategy};
+    use crate::object_explorer::production_job::ProductionJobState;
+    use crate::object_explorer::production_job::ProductionStrategy;
     use crate::object_explorer::selection::CardSelection;
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
-    use crate::object_explorer::value_builder::{BuilderStore, BuilderTransition, ValueBuilder};
+    use crate::object_explorer::value_builder::BuilderStore;
+    use crate::object_explorer::value_builder::BuilderTransition;
+    use crate::object_explorer::value_builder::ValueBuilder;
     use crate::object_explorer::value_candidate::ValueOwner;
     use crate::object_explorer::value_candidate::scan_value_candidates;
     use crate::object_explorer::value_candidate_window::ValueCandidateWindowBudget;
     use crate::object_explorer::value_path::ValuePathSegment;
+    use cloud_terrastodon_registry::Function;
+    use cloud_terrastodon_registry::FunctionKind;
+    use cloud_terrastodon_registry::InvocationFuture;
+    use cloud_terrastodon_registry::ProductionKind;
+    use cloud_terrastodon_registry::RegistrationSite;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use cloud_terrastodon_registry::Thing;
+    use cloud_terrastodon_registry::functions_from;
+    use cloud_terrastodon_registry::runtime_from_boxed;
+    use cloud_terrastodon_registry::runtime_into_boxed;
+    use facet::Facet;
+    use std::any::Any;
+    use std::borrow::Cow;
+    use std::future::Future;
+    use std::future::IntoFuture;
+    use std::future::pending;
+    use std::pin::Pin;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

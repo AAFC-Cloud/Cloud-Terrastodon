@@ -1,9 +1,7 @@
-use std::fmt;
-
-use facet::Shape;
-
 use super::field_binding::FieldBinding;
 use super::field_binding_snapshot::FieldBindingSnapshot;
+use facet::Shape;
+use std::fmt;
 
 /// UI-neutral metadata for one field of an incomplete reflected value.
 ///

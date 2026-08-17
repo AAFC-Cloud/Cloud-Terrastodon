@@ -1,9 +1,8 @@
-use facet::Type;
-
 use super::arena_address_source::ArenaAddressSource;
 use super::card_address::CardAddress;
 use super::card_row_key::CardRowKey;
-use super::card_row_snapshot::{CardRowContent, CardRowSnapshot};
+use super::card_row_snapshot::CardRowContent;
+use super::card_row_snapshot::CardRowSnapshot;
 use super::resolved_value::ResolvedValue;
 use super::revision::RootRevision;
 use super::root_action_snapshot::RootActionSnapshot;
@@ -11,6 +10,7 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
 use super::value_resolution_error::ValueResolutionError;
+use facet::Type;
 
 const MAX_SCALAR_SUMMARY_CHARS: usize = 256;
 
@@ -214,14 +214,12 @@ fn truncate(value: &str, max_chars: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroUsize;
-
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::card_window::CardWindow;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
+    use std::num::NonZeroUsize;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

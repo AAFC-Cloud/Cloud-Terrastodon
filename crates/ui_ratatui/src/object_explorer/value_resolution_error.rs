@@ -1,11 +1,10 @@
-use std::error::Error;
-use std::fmt;
-
 use super::arena::ArenaError;
 use super::revision::RootRevision;
 use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
+use std::error::Error;
+use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ValueResolutionError {

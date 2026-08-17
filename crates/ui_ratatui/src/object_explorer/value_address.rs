@@ -1,7 +1,7 @@
-use std::fmt;
-
 use super::slot_id::SlotId;
-use super::value_path::{ValuePath, ValuePathSegment};
+use super::value_path::ValuePath;
+use super::value_path::ValuePathSegment;
+use std::fmt;
 
 /// Logical identity of either an arena root or a reflected descendant.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

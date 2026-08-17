@@ -137,7 +137,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::object_explorer::revision::{ArenaRevisions, QueryRevision};
+    use crate::object_explorer::revision::ArenaRevisions;
+    use crate::object_explorer::revision::QueryRevision;
     use crate::object_explorer::slot_id::SlotId;
     use crate::object_explorer::value_address::ValueAddress;
 

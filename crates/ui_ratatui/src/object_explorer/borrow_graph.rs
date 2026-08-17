@@ -1,12 +1,13 @@
+use super::arena::Arena;
+use super::arena_address_source::ArenaAddressSource;
+use super::borrow_lease::BorrowHolder;
+use super::borrow_lease::BorrowId;
+use super::borrow_lease::BorrowLease;
+use super::slot_id::SlotId;
+use super::value_address::ValueAddress;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
-
-use super::arena::Arena;
-use super::arena_address_source::ArenaAddressSource;
-use super::borrow_lease::{BorrowHolder, BorrowId, BorrowLease};
-use super::slot_id::SlotId;
-use super::value_address::ValueAddress;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum BorrowError {
@@ -184,10 +185,9 @@ impl BorrowGraph {
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-
     use super::*;
     use crate::object_explorer::arena_slot_state::ArenaSlotState;
+    use cloud_terrastodon_registry::RuntimeValue;
 
     #[derive(Clone, Debug, facet::Facet)]
     #[repr(C)]

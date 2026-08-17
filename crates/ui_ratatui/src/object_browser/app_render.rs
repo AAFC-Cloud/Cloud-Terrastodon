@@ -1,14 +1,23 @@
-use std::num::NonZeroUsize;
-
+use super::app::BrowserMode;
+use super::app::ObjectBrowserApp;
+use super::render::CardLayoutAxis;
+use super::render::CardWindowRenderer;
+use crate::object_explorer::CardAddress;
+use crate::object_explorer::CardWindow;
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::prelude::{Modifier, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
-
-use super::app::{BrowserMode, ObjectBrowserApp};
-use super::render::{CardLayoutAxis, CardWindowRenderer};
-use crate::object_explorer::{CardAddress, CardWindow};
+use ratatui::layout::Constraint;
+use ratatui::layout::Layout;
+use ratatui::layout::Rect;
+use ratatui::prelude::Modifier;
+use ratatui::prelude::Style;
+use ratatui::text::Line;
+use ratatui::text::Span;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
+use ratatui::widgets::Clear;
+use ratatui::widgets::Paragraph;
+use ratatui::widgets::Wrap;
+use std::num::NonZeroUsize;
 
 impl ObjectBrowserApp {
     /// Derive the next bounded engine request from terminal geometry.

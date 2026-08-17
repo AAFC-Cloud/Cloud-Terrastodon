@@ -1,12 +1,3 @@
-use std::cell::Cell;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
-use std::rc::Rc;
-
-use facet_reflect::HasFields;
-use facet_reflect::Peek;
-
 use super::arena_address_source::ArenaAddressSource;
 use super::breadcrumb::Breadcrumb;
 use super::breadcrumb::ProjectFieldsMode;
@@ -19,6 +10,13 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
 use super::work_budget::WorkBudget;
+use facet_reflect::HasFields;
+use facet_reflect::Peek;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::rc::Rc;
 
 #[derive(Clone, Debug, Default)]
 struct SelectionStage {
@@ -642,11 +640,10 @@ fn is_object(value: Peek<'_, 'static>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena::Arena;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
 
     #[derive(Clone, Debug, Facet)]
     #[facet(rename_all = "camelCase")]

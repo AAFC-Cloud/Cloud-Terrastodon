@@ -1,14 +1,17 @@
+use crate::object_explorer::SlotId;
+use crate::object_explorer::ValueAddress;
+use crate::object_explorer::ValueCandidate;
+use crate::object_explorer::ValueCandidateWindow;
+use crate::object_explorer::arbitrary_constructor_for;
+use cloud_terrastodon_registry::Function;
+use cloud_terrastodon_registry::ProductionKind;
+use cloud_terrastodon_registry::default_production_plan;
+use cloud_terrastodon_registry::describe_function;
+use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry::functions_to;
+use facet::Facet;
+use facet::Shape;
 use std::fmt;
-
-use cloud_terrastodon_registry::{
-    Function, ProductionKind, default_production_plan, describe_function, describe_shape,
-    functions_to,
-};
-use facet::{Facet, Shape};
-
-use crate::object_explorer::{
-    SlotId, ValueAddress, ValueCandidate, ValueCandidateWindow, arbitrary_constructor_for,
-};
 
 #[derive(Clone)]
 pub(crate) enum ValuePickerChoice {
@@ -342,20 +345,19 @@ fn fuzzy_tokens_match(candidate: &str, query: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::object_browser::ObjectBrowserController;
+    use crate::object_explorer::ArenaQueryContext;
+    use crate::object_explorer::Breadcrumbs;
+    use crate::object_explorer::ExplorerEngine;
+    use crate::object_explorer::QueryProgressState;
     use std::borrow::Cow;
     use std::num::NonZeroUsize;
 
-    use super::*;
-    use crate::object_browser::ObjectBrowserController;
-    use crate::object_explorer::{
-        ArenaQueryContext, Breadcrumbs, ExplorerEngine, QueryProgressState,
-    };
-
     #[test]
     fn cow_field_picker_offers_generic_default_manual_and_arbitrary_producers() {
-        use cloud_terrastodon_azure_devops::{
-            AzureDevOpsOrganizationUrl, DefaultAzureDevOpsOrganizationUrlRequest,
-        };
+        use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+        use cloud_terrastodon_azure_devops::DefaultAzureDevOpsOrganizationUrlRequest;
 
         // Referencing the request also makes its distributed registry entries
         // part of this test binary.

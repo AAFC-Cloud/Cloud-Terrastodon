@@ -1,18 +1,3 @@
-use std::collections::BTreeMap;
-use std::error::Error;
-use std::fmt;
-
-use cloud_terrastodon_registry::ArbitraryBytes;
-use cloud_terrastodon_registry::Function;
-use cloud_terrastodon_registry::FunctionInvocation;
-use cloud_terrastodon_registry::ProductionKind;
-use cloud_terrastodon_registry::ReceiverMode;
-use cloud_terrastodon_registry::RuntimeFromBoxedFn;
-use cloud_terrastodon_registry::RuntimeValue;
-use cloud_terrastodon_registry::Thing;
-use cloud_terrastodon_registry::known_thing_for_shape;
-use facet::Facet;
-
 use super::arena::Arena;
 use super::borrow_graph::BorrowGraph;
 use super::invocation_host::InvocationHost;
@@ -24,6 +9,19 @@ use super::invocation_plan::InvocationPlanId;
 use super::invocation_plan::PlannedInvocation;
 use super::slot_id::SlotId;
 use super::value_builder::BuilderStore;
+use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::Function;
+use cloud_terrastodon_registry::FunctionInvocation;
+use cloud_terrastodon_registry::ProductionKind;
+use cloud_terrastodon_registry::ReceiverMode;
+use cloud_terrastodon_registry::RuntimeFromBoxedFn;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::Thing;
+use cloud_terrastodon_registry::known_thing_for_shape;
+use facet::Facet;
+use std::collections::BTreeMap;
+use std::error::Error;
+use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct InvocationControllerError {
@@ -658,17 +656,6 @@ impl InvocationController {
 
 #[cfg(test)]
 mod tests {
-    use std::any::Any;
-    use std::borrow::Cow;
-
-    use cloud_terrastodon_registry::FunctionKind;
-    use cloud_terrastodon_registry::InvocationFuture;
-    use cloud_terrastodon_registry::RegistrationSite;
-    use cloud_terrastodon_registry::RuntimeValue;
-    use cloud_terrastodon_registry::runtime_from_boxed;
-    use cloud_terrastodon_registry::runtime_into_boxed;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena_slot_state::ArenaSlotState;
     use crate::object_explorer::field_binding::FieldBinding;
@@ -678,6 +665,15 @@ mod tests {
     use crate::object_explorer::tokio_invocation_host::TokioInvocationHost;
     use crate::object_explorer::value_address::ValueAddress;
     use crate::object_explorer::value_builder::ValueBuilder;
+    use cloud_terrastodon_registry::FunctionKind;
+    use cloud_terrastodon_registry::InvocationFuture;
+    use cloud_terrastodon_registry::RegistrationSite;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use cloud_terrastodon_registry::runtime_from_boxed;
+    use cloud_terrastodon_registry::runtime_into_boxed;
+    use facet::Facet;
+    use std::any::Any;
+    use std::borrow::Cow;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

@@ -1,13 +1,14 @@
+use super::arena_slot::ArenaSlot;
+use super::arena_slot_state::ArenaSlotState;
+use super::revision::ArenaRevision;
+use super::revision::ArenaRevisions;
+use super::revision::RevisionError;
+use super::revision::RootRevision;
+use super::slot_id::SlotId;
+use cloud_terrastodon_registry::RuntimeValue;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
-
-use cloud_terrastodon_registry::RuntimeValue;
-
-use super::arena_slot::ArenaSlot;
-use super::arena_slot_state::ArenaSlotState;
-use super::revision::{ArenaRevision, ArenaRevisions, RevisionError, RootRevision};
-use super::slot_id::SlotId;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ArenaError {
@@ -308,10 +309,6 @@ impl Arena {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
-
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena_address_source::ArenaAddressSource;
     use crate::object_explorer::borrow_graph::BorrowGraph;
@@ -319,6 +316,8 @@ mod tests {
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
     use crate::object_explorer::value_path::ValuePathSegment;
+    use facet::Facet;
+    use std::borrow::Cow;
 
     #[derive(Clone, Debug, facet::Facet)]
     #[repr(C)]

@@ -1,4 +1,6 @@
-use facet::{Shape, Type, UserType};
+use facet::Shape;
+use facet::Type;
+use facet::UserType;
 
 pub(crate) struct VariantPicker {
     slot: crate::object_explorer::SlotId,

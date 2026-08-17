@@ -1,7 +1,6 @@
+use super::revision::RootRevision;
 use facet::Shape;
 use facet_reflect::Peek;
-
-use super::revision::RootRevision;
 
 /// A reflected read tied to the Arena borrow that produced it.
 ///

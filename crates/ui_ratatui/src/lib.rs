@@ -12,7 +12,8 @@ pub use crate::ui_main::*;
 
 #[cfg(test)]
 mod architecture_tests {
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
+    use std::path::PathBuf;
 
     fn rust_sources_below(directory: &Path, sources: &mut Vec<PathBuf>) {
         for entry in std::fs::read_dir(directory).expect("module directory is readable") {

@@ -1,4 +1,5 @@
-use super::breadcrumb::{Breadcrumb, ValueFilterOperator};
+use super::breadcrumb::Breadcrumb;
+use super::breadcrumb::ValueFilterOperator;
 use super::slot_id::SlotId;
 use super::tab::Tab;
 use super::value_path::ValuePathSegment;

@@ -1,9 +1,8 @@
-use cloud_terrastodon_registry::Function;
-use cloud_terrastodon_registry::Thing;
-
 use super::invocation_host::InvocationId;
 use super::invocation_mode::InvocationMode;
 use super::slot_id::SlotId;
+use cloud_terrastodon_registry::Function;
+use cloud_terrastodon_registry::Thing;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(crate) struct InvocationPlanId(u64);

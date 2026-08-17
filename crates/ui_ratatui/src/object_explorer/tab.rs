@@ -57,9 +57,10 @@ cloud_terrastodon_registry::register_thing!(Tab);
 
 #[cfg(test)]
 mod tests {
-    use facet::{Facet, Type, UserType};
-
     use super::*;
+    use facet::Facet;
+    use facet::Type;
+    use facet::UserType;
 
     #[test]
     fn tab_shape_contains_query_not_materialized_results() {

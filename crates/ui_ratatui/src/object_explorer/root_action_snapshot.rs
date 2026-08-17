@@ -1,8 +1,6 @@
-use std::fmt;
-
-use cloud_terrastodon_registry::Function;
-
 use super::invocation_mode::InvocationMode;
+use cloud_terrastodon_registry::Function;
+use std::fmt;
 
 /// Static registry metadata describing an action the UI may request for an
 /// owned Ready root. It contains no arena value or UI callback.

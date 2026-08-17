@@ -1,9 +1,13 @@
-use std::collections::{BTreeMap, BTreeSet};
-
-use cloud_terrastodon_user_input::{Choice, PickError, PickerTui, TerminalCoordinator};
+use crate::object_explorer::BreadcrumbContextSnapshot;
+use crate::object_explorer::ProjectFieldsMode;
+use crate::object_explorer::ProjectedField;
+use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickError;
+use cloud_terrastodon_user_input::PickerTui;
+use cloud_terrastodon_user_input::TerminalCoordinator;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use tokio::task::JoinHandle;
-
-use crate::object_explorer::{BreadcrumbContextSnapshot, ProjectFieldsMode, ProjectedField};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum BreadcrumbPickerValue {
@@ -152,11 +156,12 @@ impl BreadcrumbPickerTask {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::object_explorer::Arena;
+    use crate::object_explorer::ArenaAddressSource;
+    use crate::object_explorer::Breadcrumbs;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
-
-    use super::*;
-    use crate::object_explorer::{Arena, ArenaAddressSource, Breadcrumbs};
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

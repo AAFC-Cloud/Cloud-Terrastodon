@@ -1,32 +1,54 @@
-use std::time::{Duration, Instant};
-
-use rand::RngExt;
-use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-
-use super::app::{BreadcrumbValueEditorState, BrowserMode, ObjectBrowserApp, PendingFieldLink};
+use super::app::BreadcrumbValueEditorState;
+use super::app::BrowserMode;
+use super::app::ObjectBrowserApp;
+use super::app::PendingFieldLink;
 use super::breadcrumb_bar_focus::BreadcrumbBarFocus;
-use super::breadcrumb_menu_task::{BreadcrumbMenuOutcome, BreadcrumbMenuTask};
-use super::breadcrumb_picker_task::{
-    BreadcrumbPickerOutcome, BreadcrumbPickerTarget, BreadcrumbPickerTask, BreadcrumbPickerValue,
-};
-use super::breadcrumb_value_picker_task::{
-    BreadcrumbValuePickerOutcome, BreadcrumbValuePickerTask,
-};
+use super::breadcrumb_menu_task::BreadcrumbMenuOutcome;
+use super::breadcrumb_menu_task::BreadcrumbMenuTask;
+use super::breadcrumb_picker_task::BreadcrumbPickerOutcome;
+use super::breadcrumb_picker_task::BreadcrumbPickerTarget;
+use super::breadcrumb_picker_task::BreadcrumbPickerTask;
+use super::breadcrumb_picker_task::BreadcrumbPickerValue;
+use super::breadcrumb_value_picker_task::BreadcrumbValuePickerOutcome;
+use super::breadcrumb_value_picker_task::BreadcrumbValuePickerTask;
 use super::controller::ObjectBrowserControllerError;
-use super::link_action_picker_task::{LinkActionPickerOutcome, LinkActionPickerTask};
-use super::pickers::{
-    BreadcrumbPicker, BreadcrumbPickerChoice, FieldValuePicker, LinkActionPicker,
-    ValuePickerChoice, VariantPicker,
-};
+use super::link_action_picker_task::LinkActionPickerOutcome;
+use super::link_action_picker_task::LinkActionPickerTask;
+use super::pickers::BreadcrumbPicker;
+use super::pickers::BreadcrumbPickerChoice;
+use super::pickers::FieldValuePicker;
+use super::pickers::LinkActionPicker;
+use super::pickers::ValuePickerChoice;
+use super::pickers::VariantPicker;
 use super::render::CardLayoutAxis;
-use super::shape_picker_task::{ShapePickerOutcome, ShapePickerTask};
-use super::value_picker_task::{ValuePickerOutcome, ValuePickerTask};
-use super::variant_picker_task::{VariantPickerOutcome, VariantPickerTask};
-use crate::object_explorer::{
-    Breadcrumb, BuilderKindSnapshot, BuilderTransition, CardAddress, CardNavigation,
-    CardRowContent, CardRowKey, FieldBindingSnapshot, FieldCandidateAction, ProductionStrategy,
-    QueryProgressState, SlotId, TabUpdate, ValueAddress,
-};
+use super::shape_picker_task::ShapePickerOutcome;
+use super::shape_picker_task::ShapePickerTask;
+use super::value_picker_task::ValuePickerOutcome;
+use super::value_picker_task::ValuePickerTask;
+use super::variant_picker_task::VariantPickerOutcome;
+use super::variant_picker_task::VariantPickerTask;
+use crate::object_explorer::Breadcrumb;
+use crate::object_explorer::BuilderKindSnapshot;
+use crate::object_explorer::BuilderTransition;
+use crate::object_explorer::CardAddress;
+use crate::object_explorer::CardNavigation;
+use crate::object_explorer::CardRowContent;
+use crate::object_explorer::CardRowKey;
+use crate::object_explorer::FieldBindingSnapshot;
+use crate::object_explorer::FieldCandidateAction;
+use crate::object_explorer::ProductionStrategy;
+use crate::object_explorer::QueryProgressState;
+use crate::object_explorer::SlotId;
+use crate::object_explorer::TabUpdate;
+use crate::object_explorer::ValueAddress;
+use rand::RngExt;
+use ratatui::crossterm::event::Event;
+use ratatui::crossterm::event::KeyCode;
+use ratatui::crossterm::event::KeyEvent;
+use ratatui::crossterm::event::KeyEventKind;
+use ratatui::crossterm::event::KeyModifiers;
+use std::time::Duration;
+use std::time::Instant;
 
 impl ObjectBrowserApp {
     pub(crate) async fn handle_event(
@@ -1823,21 +1845,23 @@ fn resize_dimension(current: u16, minimum: u16, direction: isize) -> u16 {
 
 #[cfg(test)]
 mod tests {
-    use std::future::{Future, IntoFuture};
-    use std::pin::Pin;
-
+    use super::*;
+    use crate::object_explorer::ArenaQueryContext;
+    use crate::object_explorer::ExplorerEngine;
+    use crate::object_explorer::FieldCandidateAction;
+    use crate::object_explorer::ProduceJsonRequest;
+    use crate::object_explorer::RootLifecycleSnapshot;
+    use crate::object_explorer::Tab;
     use arbitrary::Arbitrary;
     use cloud_terrastodon_registry::ArbitraryBytes;
-    use cloud_terrastodon_registry::{ProductionKind, functions_from};
+    use cloud_terrastodon_registry::ProductionKind;
+    use cloud_terrastodon_registry::functions_from;
     use facet::Facet;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-
-    use super::*;
-    use crate::object_explorer::{
-        ArenaQueryContext, ExplorerEngine, FieldCandidateAction, ProduceJsonRequest,
-        RootLifecycleSnapshot, Tab,
-    };
+    use std::future::Future;
+    use std::future::IntoFuture;
+    use std::pin::Pin;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

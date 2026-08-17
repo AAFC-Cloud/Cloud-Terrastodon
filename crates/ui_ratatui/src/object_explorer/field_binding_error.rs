@@ -1,7 +1,6 @@
+use super::value_address::ValueAddress;
 use std::error::Error;
 use std::fmt;
-
-use super::value_address::ValueAddress;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum FieldBindingError {

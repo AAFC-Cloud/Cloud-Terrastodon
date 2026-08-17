@@ -80,47 +80,62 @@ pub(crate) use arena_query_context::ArenaQueryContextFutureExt;
 pub(crate) use breadcrumb::Breadcrumb;
 pub(crate) use breadcrumb::ProjectFieldsMode;
 pub(crate) use breadcrumb::ValueFilterOperator;
-pub(crate) use breadcrumb_context_snapshot::{
-    BreadcrumbContextSnapshot, BreadcrumbContextValueSnapshot,
-};
+pub(crate) use breadcrumb_context_snapshot::BreadcrumbContextSnapshot;
+pub(crate) use breadcrumb_context_snapshot::BreadcrumbContextValueSnapshot;
 pub(crate) use breadcrumbs::Breadcrumbs;
 pub(crate) use browse_session::CardWindowBudget;
 pub(crate) use builder_snapshot::BuilderKindSnapshot;
 pub(crate) use card_address::CardAddress;
 pub(crate) use card_navigation::CardNavigation;
 pub(crate) use card_row_key::CardRowKey;
-pub(crate) use card_row_snapshot::{CardRowContent, CardRowSnapshot};
+pub(crate) use card_row_snapshot::CardRowContent;
+pub(crate) use card_row_snapshot::CardRowSnapshot;
 pub(crate) use card_snapshot::CardSnapshot;
 pub(crate) use card_window::CardWindow;
+pub(crate) use explorer_command::ExplorerHandle;
+pub(crate) use explorer_command::ExplorerHandleError;
 pub(crate) use explorer_command::FieldBindingPacket;
-pub(crate) use explorer_command::{ExplorerHandle, ExplorerHandleError, OwnedValuePacket};
+pub(crate) use explorer_command::OwnedValuePacket;
 pub(crate) use explorer_engine::ExplorerEngine;
 pub(crate) use field_binding_snapshot::FieldBindingSnapshot;
 #[allow(
     unused_imports,
     reason = "consumed by the picker cutover in work item 5.3"
 )]
-pub(crate) use field_candidate_action::{
-    FieldCandidateAction, FieldCandidateActions, FieldCandidateConsequence,
-};
-pub(crate) use invocation_controller::{
-    ArbitraryInvocationStart, InvocationEvent, InvocationStart,
-};
+pub(crate) use field_candidate_action::FieldCandidateAction;
+#[allow(
+    unused_imports,
+    reason = "consumed by the picker cutover in work item 5.3"
+)]
+pub(crate) use field_candidate_action::FieldCandidateActions;
+#[allow(
+    unused_imports,
+    reason = "consumed by the picker cutover in work item 5.3"
+)]
+pub(crate) use field_candidate_action::FieldCandidateConsequence;
+pub(crate) use invocation_controller::ArbitraryInvocationStart;
+pub(crate) use invocation_controller::InvocationEvent;
+pub(crate) use invocation_controller::InvocationStart;
 pub(crate) use invocation_mode::InvocationMode;
 pub(crate) use open_tabs::OpenTabs;
 #[cfg(test)]
 pub(crate) use produce_json_request::ProduceJsonRequest;
 pub(crate) use production_controller::arbitrary_constructor_for;
-pub(crate) use production_job::{ProductionBatch, ProductionJobState, ProductionStrategy};
+pub(crate) use production_job::ProductionBatch;
+pub(crate) use production_job::ProductionJobState;
+pub(crate) use production_job::ProductionStrategy;
 pub(crate) use projected_field::ProjectedField;
-pub(crate) use query_progress::{QueryProgress, QueryProgressState};
+pub(crate) use query_progress::QueryProgress;
+pub(crate) use query_progress::QueryProgressState;
 #[cfg(test)]
 pub(crate) use revision::RootRevision;
-pub(crate) use root_snapshot::{RootLifecycleSnapshot, RootSnapshot};
+pub(crate) use root_snapshot::RootLifecycleSnapshot;
+pub(crate) use root_snapshot::RootSnapshot;
 pub(crate) use slot_id::SlotId;
 pub(crate) use tab::Tab;
 pub(crate) use tab_header_snapshot::TabHeaderSnapshot;
-pub(crate) use tab_ui_state::{TabUiState, TabUiStates};
+pub(crate) use tab_ui_state::TabUiState;
+pub(crate) use tab_ui_state::TabUiStates;
 pub(crate) use tab_update::TabUpdate;
 #[cfg(test)]
 pub(crate) use tokio_invocation_host::TokioInvocationHost;
@@ -130,7 +145,12 @@ pub(crate) use value_builder::BuilderTransition;
     unused_imports,
     reason = "consumed by the picker cutover in work item 5.3"
 )]
-pub(crate) use value_candidate::{ValueCandidate, ValueOwner};
+pub(crate) use value_candidate::ValueCandidate;
+#[allow(
+    unused_imports,
+    reason = "consumed by the picker cutover in work item 5.3"
+)]
+pub(crate) use value_candidate::ValueOwner;
 #[allow(
     unused_imports,
     reason = "consumed by the picker cutover in work item 5.3"

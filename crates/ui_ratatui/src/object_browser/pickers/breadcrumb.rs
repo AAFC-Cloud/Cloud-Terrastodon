@@ -1,6 +1,8 @@
-use crate::object_explorer::{
-    Breadcrumb, ProjectFieldsMode, ProjectedField, ValueAddress, ValueFilterOperator,
-};
+use crate::object_explorer::Breadcrumb;
+use crate::object_explorer::ProjectFieldsMode;
+use crate::object_explorer::ProjectedField;
+use crate::object_explorer::ValueAddress;
+use crate::object_explorer::ValueFilterOperator;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum BreadcrumbPickerChoice {
@@ -185,7 +187,8 @@ impl BreadcrumbPicker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::object_explorer::{SlotId, ValuePathSegment};
+    use crate::object_explorer::SlotId;
+    use crate::object_explorer::ValuePathSegment;
 
     #[test]
     fn filter_shapes_is_the_default_breadcrumb_choice_without_an_initial_selection() {

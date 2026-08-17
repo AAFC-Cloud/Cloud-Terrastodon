@@ -1,12 +1,11 @@
-use cloud_terrastodon_registry::RuntimeValue;
-use facet::Shape;
-
 use super::arena_address_source::ArenaAddressSource;
 use super::preorder_cursor::PreorderCursor;
 use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
 use super::work_budget::WorkBudget;
+use cloud_terrastodon_registry::RuntimeValue;
+use facet::Shape;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ValueOwner {
@@ -162,13 +161,12 @@ pub(crate) fn scan_value_candidates(
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::breadcrumbs::Breadcrumbs;
     use crate::object_explorer::tab::Tab;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
 
     #[derive(Facet)]
     #[repr(C)]

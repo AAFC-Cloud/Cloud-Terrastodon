@@ -1,8 +1,7 @@
+use super::slot_id::SlotId;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
-
-use super::slot_id::SlotId;
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(crate) struct ArenaRevision(u64);

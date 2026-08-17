@@ -1,7 +1,10 @@
+use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry::map_value_shape;
+use cloud_terrastodon_registry::sequence_element_shape;
+use facet::Shape;
+use facet::Type;
+use facet::UserType;
 use std::collections::BTreeSet;
-
-use cloud_terrastodon_registry::{describe_shape, map_value_shape, sequence_element_shape};
-use facet::{Shape, Type, UserType};
 
 fn proxied_container_shape(mut shape: &'static Shape) -> &'static Shape {
     loop {

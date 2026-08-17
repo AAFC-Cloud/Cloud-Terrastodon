@@ -1,23 +1,30 @@
+use super::arena_query_command::ArenaQueryCommand;
+use super::arena_query_command::CommandResponse;
+use super::arena_query_session::JsonBatch;
+use super::arena_query_session::JsonBatchBudget;
+use super::arena_query_session::QuerySessionEnd;
+use super::arena_query_session::QuerySessionId;
+use super::breadcrumbs::Breadcrumbs;
+use super::browse_command::BrowseCommand;
+use super::browse_session::BrowseSessionId;
+use super::browse_session::CardWindowBudget;
+use super::card_navigation::CardNavigation;
+use super::card_window::CardWindow;
+use super::explorer_command::ExplorerCommand;
+use super::explorer_command::ExplorerHandle;
+use super::explorer_command::ExplorerInbox;
+use super::explorer_command::explorer_channel;
+use super::query_progress::QueryProgress;
+use super::value_address::ValueAddress;
+use super::value_candidate_window::ValueCandidateWindow;
+use super::value_candidate_window::ValueCandidateWindowBudget;
+use facet::Shape;
 use std::error::Error;
 use std::fmt;
 use std::future::Future;
 use std::sync::Arc;
-
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-
-use super::arena_query_command::{ArenaQueryCommand, CommandResponse};
-use super::arena_query_session::{JsonBatch, JsonBatchBudget, QuerySessionEnd, QuerySessionId};
-use super::breadcrumbs::Breadcrumbs;
-use super::browse_command::BrowseCommand;
-use super::browse_session::{BrowseSessionId, CardWindowBudget};
-use super::card_navigation::CardNavigation;
-use super::card_window::CardWindow;
-use super::explorer_command::{ExplorerCommand, ExplorerHandle, ExplorerInbox, explorer_channel};
-use super::query_progress::QueryProgress;
-use super::value_address::ValueAddress;
-use super::value_candidate_window::{ValueCandidateWindow, ValueCandidateWindowBudget};
-use facet::Shape;
 
 tokio::task_local! {
     static CURRENT_ARENA_QUERY_CONTEXT: ArenaQueryContext;
@@ -395,9 +402,10 @@ where
 mod tests {
     use super::*;
     use crate::object_explorer::arena_query_command::ArenaQueryCommand;
-    use crate::object_explorer::arena_query_session::{
-        JsonBatch, JsonBatchBudget, QuerySessionEnd, QuerySessionId,
-    };
+    use crate::object_explorer::arena_query_session::JsonBatch;
+    use crate::object_explorer::arena_query_session::JsonBatchBudget;
+    use crate::object_explorer::arena_query_session::QuerySessionEnd;
+    use crate::object_explorer::arena_query_session::QuerySessionId;
     use crate::object_explorer::breadcrumbs::Breadcrumbs;
     use crate::object_explorer::explorer_command::ExplorerCommand;
 

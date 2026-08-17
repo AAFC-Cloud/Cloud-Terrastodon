@@ -1,6 +1,5 @@
-use std::num::NonZeroUsize;
-
 use super::value_candidate::ValueCandidate;
+use std::num::NonZeroUsize;
 
 /// Bounded picker choices retaining only addresses and generic provenance.
 #[derive(Clone, Debug, Eq, PartialEq)]

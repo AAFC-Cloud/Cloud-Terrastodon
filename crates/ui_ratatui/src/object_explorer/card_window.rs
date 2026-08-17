@@ -1,10 +1,9 @@
-use std::num::NonZeroUsize;
-
 use super::arena_address_source::ArenaAddressSource;
 use super::card_snapshot::CardSnapshot;
 use super::preorder_cursor::PreorderCursor;
 use super::query_window::QueryWindow;
 use super::value_resolution_error::ValueResolutionError;
+use std::num::NonZeroUsize;
 
 /// A bounded set of card snapshots for one presentation request.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -103,12 +102,11 @@ impl CardWindow {
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::card_address::CardAddress;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
 
     fn runtime<T>(value: T) -> RuntimeValue
     where

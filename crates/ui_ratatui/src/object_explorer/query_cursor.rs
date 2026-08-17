@@ -1,9 +1,3 @@
-use std::collections::BTreeMap;
-use std::collections::VecDeque;
-use std::error::Error;
-use std::fmt;
-use std::num::NonZeroUsize;
-
 use super::arena_address_source::ArenaAddressSource;
 use super::card_address::CardAddress;
 use super::card_navigation::CardNavigation;
@@ -20,6 +14,11 @@ use super::query_window::QueryWindow;
 use super::revision::ScanRevisionStamp;
 use super::value_address::ValueAddress;
 use super::work_budget::WorkBudget;
+use std::collections::BTreeMap;
+use std::collections::VecDeque;
+use std::error::Error;
+use std::fmt;
+use std::num::NonZeroUsize;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum QueryCursorError {
@@ -635,9 +634,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::breadcrumb::Breadcrumb;
@@ -646,6 +642,8 @@ mod tests {
     use crate::object_explorer::query_progress::QueryProgressState;
     use crate::object_explorer::revision::QueryRevision;
     use crate::object_explorer::value_path::ValuePathSegment;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
 
     fn runtime<T>(value: T) -> RuntimeValue
     where

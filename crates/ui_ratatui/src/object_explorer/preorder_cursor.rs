@@ -88,10 +88,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use super::*;
     use crate::object_explorer::value_path::ValuePathSegment;
+    use std::collections::BTreeMap;
 
     #[derive(Default)]
     struct FixtureAddressSource {

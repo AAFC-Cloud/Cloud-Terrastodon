@@ -1,23 +1,29 @@
-use std::collections::BTreeMap;
-
-use cloud_terrastodon_registry::{
-    ArbitraryBytes, Function, ProductionKind, RuntimeValue, default_production_plan,
-    describe_function, describe_shape, functions_from,
-};
-use facet::{Facet, Shape};
-
 use super::arena::Arena;
 use super::borrow_graph::BorrowGraph;
 use super::field_binding::FieldBinding;
 use super::invocation_controller::InvocationController;
 use super::invocation_host::InvocationHost;
-use super::production_job::{
-    ProductionBatch, ProductionJobId, ProductionJobState, ProductionStrategy, ProductionUpdate,
-};
-use super::production_node::{ProductionNode, ProductionNodeAdvance};
+use super::production_job::ProductionBatch;
+use super::production_job::ProductionJobId;
+use super::production_job::ProductionJobState;
+use super::production_job::ProductionStrategy;
+use super::production_job::ProductionUpdate;
+use super::production_node::ProductionNode;
+use super::production_node::ProductionNodeAdvance;
 use super::slot_id::SlotId;
 use super::value_builder::BuilderStore;
 use super::work_budget::WorkBudget;
+use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::Function;
+use cloud_terrastodon_registry::ProductionKind;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::default_production_plan;
+use cloud_terrastodon_registry::describe_function;
+use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry::functions_from;
+use facet::Facet;
+use facet::Shape;
+use std::collections::BTreeMap;
 
 struct ProductionJob {
     id: ProductionJobId,
@@ -355,17 +361,17 @@ fn next_identity(id: ProductionJobId) -> Option<ProductionJobId> {
 
 #[cfg(test)]
 mod tests {
-    use std::future::{Future, IntoFuture};
-    use std::pin::Pin;
-
-    use arbitrary::Arbitrary;
-    use cloud_terrastodon_registry::{RuntimeValue, functions_from};
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena_slot_state::ArenaSlotState;
     use crate::object_explorer::tokio_invocation_host::TokioInvocationHost;
     use crate::object_explorer::value_builder::BuilderTransition;
+    use arbitrary::Arbitrary;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use cloud_terrastodon_registry::functions_from;
+    use facet::Facet;
+    use std::future::Future;
+    use std::future::IntoFuture;
+    use std::pin::Pin;
 
     #[derive(Clone, Debug, Arbitrary, Facet)]
     #[repr(C)]

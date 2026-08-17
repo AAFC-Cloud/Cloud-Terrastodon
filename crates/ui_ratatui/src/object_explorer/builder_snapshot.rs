@@ -1,7 +1,8 @@
-use facet::{Shape, Type, UserType};
-
 use super::builder_field_snapshot::BuilderFieldSnapshot;
 use super::value_builder::ValueBuilder;
+use facet::Shape;
+use facet::Type;
+use facet::UserType;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum BuilderKindSnapshot {

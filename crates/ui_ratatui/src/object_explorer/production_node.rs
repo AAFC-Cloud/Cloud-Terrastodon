@@ -1,9 +1,3 @@
-use cloud_terrastodon_registry::{
-    ArbitraryBytes, DefaultProductionPlan, DefaultProductionPlanKind, Function, RuntimeValue,
-    describe_function, describe_shape, known_thing_for_shape,
-};
-use facet::Shape;
-
 use super::arena::Arena;
 use super::arena_slot_state::ArenaSlotState;
 use super::borrow_graph::BorrowGraph;
@@ -13,6 +7,15 @@ use super::invocation_host::InvocationHost;
 use super::invocation_mode::InvocationMode;
 use super::slot_id::SlotId;
 use super::value_builder::BuilderStore;
+use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::DefaultProductionPlan;
+use cloud_terrastodon_registry::DefaultProductionPlanKind;
+use cloud_terrastodon_registry::Function;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::describe_function;
+use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry::known_thing_for_shape;
+use facet::Shape;
 
 pub(super) enum ProductionNodeAdvance {
     Progress(SlotId),

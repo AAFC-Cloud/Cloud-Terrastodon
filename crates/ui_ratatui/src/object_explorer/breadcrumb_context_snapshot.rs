@@ -1,13 +1,12 @@
-use std::collections::BTreeSet;
-
-use facet_reflect::HasFields;
-use facet_reflect::Peek;
-
 use super::arena_address_source::ArenaAddressSource;
 use super::breadcrumbs::Breadcrumbs;
 use super::projected_field::ProjectedField;
-use super::query_plan::{QueryPlan, QueryPlanPoll};
+use super::query_plan::QueryPlan;
+use super::query_plan::QueryPlanPoll;
 use super::work_budget::WorkBudget;
+use facet_reflect::HasFields;
+use facet_reflect::Peek;
+use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct BreadcrumbContextField {
@@ -301,11 +300,10 @@ fn insert_bounded<T: Ord>(
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena::Arena;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

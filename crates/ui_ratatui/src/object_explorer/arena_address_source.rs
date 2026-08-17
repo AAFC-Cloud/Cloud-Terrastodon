@@ -1,6 +1,3 @@
-use facet_reflect::HasFields;
-use facet_reflect::Peek;
-
 use super::arena::Arena;
 use super::preorder_cursor::AddressSource;
 use super::resolved_value::ResolvedValue;
@@ -9,6 +6,8 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
 use super::value_resolution_error::ValueResolutionError;
+use facet_reflect::HasFields;
+use facet_reflect::Peek;
 
 /// Facet-backed topology adapter over Arena roots.
 ///
@@ -310,17 +309,15 @@ fn shape_name(value: Peek<'_, 'static>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::object_explorer::preorder_cursor::PreorderCursor;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
     use std::collections::BTreeMap;
     use std::collections::HashMap;
     use std::sync::Mutex;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
-
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
-    use super::*;
-    use crate::object_explorer::preorder_cursor::PreorderCursor;
 
     static BREADCRUMB_EVALUATIONS: AtomicUsize = AtomicUsize::new(0);
     static BREADCRUMB_TEST_LOCK: Mutex<()> = Mutex::new(());

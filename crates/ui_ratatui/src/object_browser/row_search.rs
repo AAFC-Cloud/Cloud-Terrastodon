@@ -1,9 +1,12 @@
-use std::collections::BTreeSet;
-
+use crate::object_explorer::CardRowContent;
+use crate::object_explorer::CardRowKey;
+use crate::object_explorer::CardSnapshot;
+use crate::object_explorer::FieldBindingSnapshot;
 use nucleo::Matcher;
-use nucleo::pattern::{CaseMatching, Normalization, Pattern};
-
-use crate::object_explorer::{CardRowContent, CardRowKey, CardSnapshot, FieldBindingSnapshot};
+use nucleo::pattern::CaseMatching;
+use nucleo::pattern::Normalization;
+use nucleo::pattern::Pattern;
+use std::collections::BTreeSet;
 
 pub(super) struct RowSearchState {
     query: String,
@@ -140,11 +143,12 @@ fn row_search_label(row: &crate::object_explorer::CardRowSnapshot) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::object_explorer::{
-        CardAddress, CardRowSnapshot, CardSnapshot, RootRevision, SlotId,
-    };
-
     use super::*;
+    use crate::object_explorer::CardAddress;
+    use crate::object_explorer::CardRowSnapshot;
+    use crate::object_explorer::CardSnapshot;
+    use crate::object_explorer::RootRevision;
+    use crate::object_explorer::SlotId;
 
     #[test]
     fn nucleo_row_search_prioritizes_plain_substrings_then_fuzzy_matches() {

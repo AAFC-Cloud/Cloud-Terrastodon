@@ -1,8 +1,7 @@
-use cloud_terrastodon_registry::RuntimeValue;
-
 use super::field_binding_error::FieldBindingError;
 use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
+use cloud_terrastodon_registry::RuntimeValue;
 
 /// Explicit construction semantics for one reflected field.
 #[derive(Debug)]

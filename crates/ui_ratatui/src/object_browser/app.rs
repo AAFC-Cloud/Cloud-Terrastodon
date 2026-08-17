@@ -1,23 +1,31 @@
-use std::num::NonZeroUsize;
-use std::time::Instant;
-
 use super::breadcrumb_bar_focus::BreadcrumbBarFocus;
 use super::breadcrumb_menu_task::BreadcrumbMenuTask;
 use super::breadcrumb_picker_task::BreadcrumbPickerTask;
 use super::breadcrumb_value_picker_task::BreadcrumbValuePickerTask;
-use super::controller::{ObjectBrowserController, ObjectBrowserControllerError};
+use super::controller::ObjectBrowserController;
+use super::controller::ObjectBrowserControllerError;
 use super::link_action_picker_task::LinkActionPickerTask;
-use super::pickers::{FieldValuePicker, LinkActionPicker, VariantPicker};
+use super::pickers::FieldValuePicker;
+use super::pickers::LinkActionPicker;
+use super::pickers::VariantPicker;
 use super::render::CardLayoutAxis;
 use super::row_search::RowSearchState;
 use super::shape_picker_task::ShapePickerTask;
 use super::value_picker_task::ValuePickerTask;
 use super::variant_picker_task::VariantPickerTask;
-use crate::object_explorer::{
-    ArenaQueryContext, BuilderKindSnapshot, CardAddress, CardSnapshot, ProductionBatch,
-    ProductionJobState, QueryProgressState, RootLifecycleSnapshot, RootSnapshot, SlotId,
-    ValueAddress,
-};
+use crate::object_explorer::ArenaQueryContext;
+use crate::object_explorer::BuilderKindSnapshot;
+use crate::object_explorer::CardAddress;
+use crate::object_explorer::CardSnapshot;
+use crate::object_explorer::ProductionBatch;
+use crate::object_explorer::ProductionJobState;
+use crate::object_explorer::QueryProgressState;
+use crate::object_explorer::RootLifecycleSnapshot;
+use crate::object_explorer::RootSnapshot;
+use crate::object_explorer::SlotId;
+use crate::object_explorer::ValueAddress;
+use std::num::NonZeroUsize;
+use std::time::Instant;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum BrowserMode {
@@ -319,12 +327,11 @@ impl ObjectBrowserApp {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::object_explorer::ExplorerEngine;
     use facet::Facet;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-
-    use super::*;
-    use crate::object_explorer::ExplorerEngine;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

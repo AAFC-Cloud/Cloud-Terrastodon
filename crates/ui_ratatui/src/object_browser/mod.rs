@@ -16,7 +16,6 @@ mod terminal;
 mod value_picker_task;
 mod variant_picker_task;
 
-pub(crate) use run::run_object_browser;
-
 #[cfg(test)]
 pub(crate) use controller::ObjectBrowserController;
+pub(crate) use run::run_object_browser;

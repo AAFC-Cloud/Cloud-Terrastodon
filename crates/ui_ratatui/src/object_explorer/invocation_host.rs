@@ -1,6 +1,5 @@
-use std::any::Any;
-
 use cloud_terrastodon_registry::InvocationFuture;
+use std::any::Any;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(crate) struct InvocationId(u64);

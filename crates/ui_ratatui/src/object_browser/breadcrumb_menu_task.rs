@@ -1,7 +1,10 @@
-use cloud_terrastodon_user_input::{Choice, PickError, PickerTui, TerminalCoordinator};
+use super::pickers::BreadcrumbPicker;
+use super::pickers::BreadcrumbPickerChoice;
+use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickError;
+use cloud_terrastodon_user_input::PickerTui;
+use cloud_terrastodon_user_input::TerminalCoordinator;
 use tokio::task::JoinHandle;
-
-use super::pickers::{BreadcrumbPicker, BreadcrumbPickerChoice};
 
 #[derive(Debug)]
 pub(super) enum BreadcrumbMenuOutcome {

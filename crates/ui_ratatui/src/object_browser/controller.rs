@@ -1,20 +1,44 @@
+use crate::object_explorer::ArbitraryInvocationStart;
+use crate::object_explorer::ArenaBrowseSession;
+use crate::object_explorer::ArenaQueryContext;
+use crate::object_explorer::ArenaQueryContextError;
+use crate::object_explorer::Breadcrumb;
+use crate::object_explorer::BreadcrumbContextSnapshot;
+use crate::object_explorer::Breadcrumbs;
+use crate::object_explorer::BuilderTransition;
+use crate::object_explorer::CardAddress;
+use crate::object_explorer::CardNavigation;
+use crate::object_explorer::CardWindow;
+use crate::object_explorer::CardWindowBudget;
+use crate::object_explorer::ExplorerHandle;
+use crate::object_explorer::ExplorerHandleError;
+use crate::object_explorer::FieldBindingPacket;
+use crate::object_explorer::FieldCandidateAction;
+use crate::object_explorer::FieldCandidateActions;
+use crate::object_explorer::InvocationEvent;
+use crate::object_explorer::InvocationMode;
+use crate::object_explorer::InvocationStart;
+use crate::object_explorer::OpenTabs;
+use crate::object_explorer::OwnedValuePacket;
+use crate::object_explorer::ProductionBatch;
+use crate::object_explorer::ProductionStrategy;
+use crate::object_explorer::QueryProgressState;
+use crate::object_explorer::RootSnapshot;
+use crate::object_explorer::SlotId;
+use crate::object_explorer::Tab;
+use crate::object_explorer::TabHeaderSnapshot;
+use crate::object_explorer::TabUiState;
+use crate::object_explorer::TabUiStates;
+use crate::object_explorer::TabUpdate;
+use crate::object_explorer::ValueAddress;
+use crate::object_explorer::ValueCandidateWindow;
+use crate::object_explorer::ValueCandidateWindowBudget;
+use cloud_terrastodon_registry::Function;
+use facet::Facet;
+use facet::Shape;
 use std::error::Error;
 use std::fmt;
 use std::num::NonZeroUsize;
-
-use cloud_terrastodon_registry::Function;
-use facet::{Facet, Shape};
-
-use crate::object_explorer::{
-    ArbitraryInvocationStart, ArenaBrowseSession, ArenaQueryContext, ArenaQueryContextError,
-    Breadcrumb, BreadcrumbContextSnapshot, Breadcrumbs, BuilderTransition, CardAddress,
-    CardNavigation, CardWindow, CardWindowBudget, ExplorerHandle, ExplorerHandleError,
-    FieldBindingPacket, FieldCandidateAction, FieldCandidateActions, InvocationEvent,
-    InvocationMode, InvocationStart, OpenTabs, OwnedValuePacket, ProductionBatch,
-    ProductionStrategy, QueryProgressState, RootSnapshot, SlotId, Tab, TabHeaderSnapshot,
-    TabUiState, TabUiStates, TabUpdate, ValueAddress, ValueCandidateWindow,
-    ValueCandidateWindowBudget,
-};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ObjectBrowserControllerError {
@@ -708,12 +732,13 @@ impl ObjectBrowserController {
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-
     use super::*;
-    use crate::object_explorer::{
-        ExplorerEngine, ProduceJsonRequest, QueryProgressState, ValueOwner, ValuePathSegment,
-    };
+    use crate::object_explorer::ExplorerEngine;
+    use crate::object_explorer::ProduceJsonRequest;
+    use crate::object_explorer::QueryProgressState;
+    use crate::object_explorer::ValueOwner;
+    use crate::object_explorer::ValuePathSegment;
+    use cloud_terrastodon_registry::RuntimeValue;
 
     #[derive(Facet)]
     #[repr(C)]

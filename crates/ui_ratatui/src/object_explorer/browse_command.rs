@@ -1,13 +1,13 @@
-use facet::Shape;
-use tokio::sync::oneshot;
-
+use super::arena_query_command::CommandResponse;
+use super::breadcrumbs::Breadcrumbs;
 use super::browse_session::BrowseSessionId;
 use super::card_navigation::CardNavigation;
 use super::card_window::CardWindow;
 use super::query_progress::QueryProgress;
 use super::value_address::ValueAddress;
 use super::value_candidate_window::ValueCandidateWindow;
-use super::{arena_query_command::CommandResponse, breadcrumbs::Breadcrumbs};
+use facet::Shape;
+use tokio::sync::oneshot;
 
 pub(crate) enum BrowseCommand {
     Begin {

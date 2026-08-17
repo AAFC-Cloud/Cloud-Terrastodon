@@ -1,9 +1,12 @@
-use super::arena::{Arena, ArenaError};
+use super::arena::Arena;
+use super::arena::ArenaError;
 use super::arena_address_source::ArenaAddressSource;
 use super::arena_slot_state::ArenaSlotState;
-use super::builder_snapshot::{BuilderKindSnapshot, BuilderSnapshot};
+use super::builder_snapshot::BuilderKindSnapshot;
+use super::builder_snapshot::BuilderSnapshot;
 use super::card_row_key::CardRowKey;
-use super::card_row_snapshot::{CardRowContent, CardRowSnapshot};
+use super::card_row_snapshot::CardRowContent;
+use super::card_row_snapshot::CardRowSnapshot;
 use super::card_snapshot::CardSnapshot;
 use super::revision::RootRevision;
 use super::slot_id::SlotId;
@@ -240,10 +243,9 @@ impl From<ValueResolutionError> for RootSnapshotError {
 
 #[cfg(test)]
 mod tests {
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::borrow_graph::BorrowGraph;
+    use facet::Facet;
 
     #[derive(Facet)]
     #[repr(C)]

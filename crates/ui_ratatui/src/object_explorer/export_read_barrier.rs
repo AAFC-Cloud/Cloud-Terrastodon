@@ -1,8 +1,7 @@
+use super::arena_query_session::QuerySessionId;
 use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt;
-
-use super::arena_query_session::QuerySessionId;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum BarrierError {

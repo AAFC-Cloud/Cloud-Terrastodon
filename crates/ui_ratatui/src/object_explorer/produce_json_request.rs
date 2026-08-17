@@ -1,14 +1,14 @@
+use super::arena_query_context::ArenaQueryContext;
+use super::arena_query_context::ArenaQueryContextError;
+use super::arena_query_session::JsonBatchBudget;
+use super::breadcrumbs::Breadcrumbs;
 use std::error::Error;
 use std::fmt;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
-
-use tokio::io::{AsyncWrite, AsyncWriteExt};
-
-use super::arena_query_context::{ArenaQueryContext, ArenaQueryContextError};
-use super::arena_query_session::JsonBatchBudget;
-use super::breadcrumbs::Breadcrumbs;
+use tokio::io::AsyncWrite;
+use tokio::io::AsyncWriteExt;
 
 const EXPORT_WORK_PER_BATCH: usize = 256;
 const EXPORT_BYTES_PER_BATCH: usize = 64 * 1024;
@@ -191,13 +191,6 @@ cloud_terrastodon_registry::register_into_future!(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::{Facet, Type, UserType};
-    use tokio::io::{AsyncReadExt, duplex};
-    use tokio::time::{Duration, timeout};
-
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::arena_query_context::ArenaQueryContextFutureExt;
@@ -207,6 +200,16 @@ mod tests {
     use crate::object_explorer::explorer_engine::ExplorerEngine;
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
+    use facet::Type;
+    use facet::UserType;
+    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::Ordering;
+    use tokio::io::AsyncReadExt;
+    use tokio::io::duplex;
+    use tokio::time::Duration;
+    use tokio::time::timeout;
 
     static NEXT_TEST_FILE: AtomicU64 = AtomicU64::new(1);
 

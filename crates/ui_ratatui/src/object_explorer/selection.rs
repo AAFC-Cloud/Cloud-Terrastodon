@@ -41,13 +41,12 @@ impl CardSelection {
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::preorder_cursor::PreorderCursor;
     use crate::object_explorer::value_address::ValueAddress;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

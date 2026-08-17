@@ -1,6 +1,6 @@
-use crate::object_explorer::{
-    FieldCandidateAction, FieldCandidateActions, FieldCandidateConsequence,
-};
+use crate::object_explorer::FieldCandidateAction;
+use crate::object_explorer::FieldCandidateActions;
+use crate::object_explorer::FieldCandidateConsequence;
 
 /// Picker-local selection over engine-validated transfer consequences.
 pub(crate) struct LinkActionPicker {

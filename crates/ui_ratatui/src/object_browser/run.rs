@@ -1,20 +1,24 @@
-use std::time::Duration;
-
+use super::app::ObjectBrowserApp;
+use super::terminal::RatatuiTerminalBackend;
+use super::terminal::restore_terminal;
+use crate::object_explorer::ArenaQueryContext;
+use crate::object_explorer::ArenaQueryContextFutureExt;
+use crate::object_explorer::ExplorerEngine;
+#[cfg(test)]
+use crate::object_explorer::TokioInvocationHost;
 use cloud_terrastodon_registry::InvocationFuture;
-use cloud_terrastodon_user_input::{
-    TerminalBackend, TerminalCoordinator, TerminalCoordinatorFutureExt, TerminalGuard,
-    TerminalLogBufferFutureExt, apply_terminal_control, try_current_picker_log_buffer,
-};
+use cloud_terrastodon_user_input::TerminalBackend;
+use cloud_terrastodon_user_input::TerminalCoordinator;
+use cloud_terrastodon_user_input::TerminalCoordinatorFutureExt;
+use cloud_terrastodon_user_input::TerminalGuard;
+use cloud_terrastodon_user_input::TerminalLogBufferFutureExt;
+use cloud_terrastodon_user_input::apply_terminal_control;
+use cloud_terrastodon_user_input::try_current_picker_log_buffer;
 use crossterm::event::EventStream;
 use eyre::Result;
 use futures::StreamExt;
 use ratatui::DefaultTerminal;
-
-use super::app::ObjectBrowserApp;
-use super::terminal::{RatatuiTerminalBackend, restore_terminal};
-#[cfg(test)]
-use crate::object_explorer::TokioInvocationHost;
-use crate::object_explorer::{ArenaQueryContext, ArenaQueryContextFutureExt, ExplorerEngine};
+use std::time::Duration;
 
 const FRAMES_PER_SECOND: f32 = 60.0;
 const COMMAND_CAPACITY: usize = 256;

@@ -1,15 +1,27 @@
+use crate::object_explorer::CardAddress;
+use crate::object_explorer::CardRowContent;
+use crate::object_explorer::CardRowKey;
+use crate::object_explorer::CardRowSnapshot;
+use crate::object_explorer::CardSnapshot;
+use crate::object_explorer::CardWindow;
+use crate::object_explorer::FieldBindingSnapshot;
 use ratatui::Frame;
-use ratatui::layout::{Alignment, Constraint, Layout, Margin, Rect};
-use ratatui::prelude::{Color, Modifier, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{
-    Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
-};
-
-use crate::object_explorer::{
-    CardAddress, CardRowContent, CardRowKey, CardRowSnapshot, CardSnapshot, CardWindow,
-    FieldBindingSnapshot,
-};
+use ratatui::layout::Alignment;
+use ratatui::layout::Constraint;
+use ratatui::layout::Layout;
+use ratatui::layout::Margin;
+use ratatui::layout::Rect;
+use ratatui::prelude::Color;
+use ratatui::prelude::Modifier;
+use ratatui::prelude::Style;
+use ratatui::text::Line;
+use ratatui::text::Span;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
+use ratatui::widgets::Paragraph;
+use ratatui::widgets::Scrollbar;
+use ratatui::widgets::ScrollbarOrientation;
+use ratatui::widgets::ScrollbarState;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum CardLayoutAxis {
@@ -517,15 +529,16 @@ fn display_content(content: &CardRowContent) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroUsize;
-
+    use super::*;
+    use crate::object_explorer::Arena;
+    use crate::object_explorer::ArenaAddressSource;
+    use crate::object_explorer::CardRowKey;
+    use crate::object_explorer::ValueAddress;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-
-    use super::*;
-    use crate::object_explorer::{Arena, ArenaAddressSource, CardRowKey, ValueAddress};
+    use std::num::NonZeroUsize;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]

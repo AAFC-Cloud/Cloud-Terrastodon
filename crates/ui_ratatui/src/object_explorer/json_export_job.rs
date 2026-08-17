@@ -1,5 +1,3 @@
-use std::num::NonZeroUsize;
-
 use super::arena_address_source::ArenaAddressSource;
 use super::arena_query_command::CommandResponse;
 use super::arena_query_session::JsonBatch;
@@ -10,6 +8,7 @@ use super::query_progress::QueryProgressState;
 use super::revision::QueryRevision;
 use super::revision::ScanRevisionStamp;
 use super::work_budget::WorkBudget;
+use std::num::NonZeroUsize;
 
 /// Engine-side state for one coherent, bounded JSON export session.
 ///
@@ -192,14 +191,13 @@ fn indent_array_item(json: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use cloud_terrastodon_registry::RuntimeValue;
-    use facet::Facet;
-
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::breadcrumb::Breadcrumb;
     use crate::object_explorer::breadcrumb::ValueFilterOperator;
     use crate::object_explorer::breadcrumbs::Breadcrumbs;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
 
     fn runtime<T>(value: T) -> RuntimeValue
     where

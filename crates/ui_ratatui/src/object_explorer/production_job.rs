@@ -1,7 +1,6 @@
-use std::fmt;
-
 use super::slot_id::SlotId;
 use super::value_builder::BuilderTransition;
+use std::fmt;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(crate) struct ProductionJobId(u64);

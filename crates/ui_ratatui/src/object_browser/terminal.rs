@@ -1,4 +1,5 @@
-use cloud_terrastodon_user_input::{TerminalBackend, TerminalCoordinator};
+use cloud_terrastodon_user_input::TerminalBackend;
+use cloud_terrastodon_user_input::TerminalCoordinator;
 use eyre::Result;
 use ratatui::DefaultTerminal;
 
