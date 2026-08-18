@@ -8,6 +8,8 @@ use facet_reflect::HasFields;
 use facet_reflect::Peek;
 use std::collections::BTreeSet;
 
+const UNKNOWN_SHAPE_STABILITY_WINDOW: usize = 16;
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct BreadcrumbContextField {
     selection: ProjectedField,
@@ -77,7 +79,9 @@ impl BreadcrumbContextSnapshot {
         let mut variant_sensitive_shapes = BTreeSet::new();
         let mut fields = BTreeSet::new();
         let mut choices_truncated = false;
+        let mut metadata_stable_items: usize = 0;
         let mut metadata_complete = known_shapes.as_ref().is_some_and(BTreeSet::is_empty);
+        let mut sampled_metadata_complete = false;
         let complete = loop {
             if metadata_complete {
                 break false;
@@ -103,7 +107,9 @@ impl BreadcrumbContextSnapshot {
                     if known_shapes.is_some() && value_is_enum(value.peek()) {
                         variant_sensitive_shapes.insert(owner_shape.clone());
                     }
-                    if observed_metadata.insert(metadata_key) {
+                    let metadata_changed = observed_metadata.insert(metadata_key);
+                    if metadata_changed {
+                        metadata_stable_items = 0;
                         collect_named_fields(
                             value.peek(),
                             &owner_shape,
@@ -111,12 +117,22 @@ impl BreadcrumbContextSnapshot {
                             max_choices,
                             &mut choices_truncated,
                         );
+                    } else {
+                        metadata_stable_items = metadata_stable_items.saturating_add(1);
                     }
                     metadata_complete = known_shapes.as_ref().is_some_and(|known| {
                         known.len() <= max_choices
                             && known.iter().all(|shape| shapes.contains(shape))
                             && variant_sensitive_shapes.is_empty()
                     });
+                    if !metadata_complete
+                        && known_shapes.is_none()
+                        && !observed_metadata.is_empty()
+                        && metadata_stable_items >= UNKNOWN_SHAPE_STABILITY_WINDOW
+                    {
+                        metadata_complete = true;
+                        sampled_metadata_complete = true;
+                    }
                     if metadata_complete {
                         break false;
                     }
@@ -131,7 +147,8 @@ impl BreadcrumbContextSnapshot {
             shapes: shapes.into_iter().collect(),
             fields: fields.into_iter().collect(),
             inspected,
-            complete: (complete || metadata_complete) && !choices_truncated,
+            complete: (complete || (metadata_complete && !sampled_metadata_complete))
+                && !choices_truncated,
         })
     }
 
@@ -404,7 +421,11 @@ mod tests {
         let snapshot =
             BreadcrumbContextSnapshot::inspect(&source, Breadcrumbs::default(), 8_192, 32).unwrap();
 
-        assert!(snapshot.complete());
+        assert!(!snapshot.complete());
+        assert!(
+            snapshot.inspected() <= 40,
+            "repeated card shapes should stop metadata sampling early"
+        );
         assert_eq!(
             snapshot
                 .fields()

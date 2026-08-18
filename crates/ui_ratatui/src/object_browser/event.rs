@@ -1274,11 +1274,7 @@ impl ObjectBrowserApp {
         let breadcrumbs = self.controller.active_breadcrumbs().await?;
         let context = self
             .controller
-            .inspect_breadcrumb_context(
-                breadcrumbs.operations().len(),
-                32 * Self::FRAME_WORK,
-                2_048,
-            )
+            .inspect_breadcrumb_context(breadcrumbs.operations().len(), Self::FRAME_WORK, 2_048)
             .await?;
         let picker = BreadcrumbPicker::new(
             selected
@@ -1500,7 +1496,7 @@ impl ObjectBrowserApp {
             edit_index.unwrap_or(self.controller.active_tab_header().breadcrumb_count());
         let snapshot = self
             .controller
-            .inspect_breadcrumb_context(prefix_len, 32 * Self::FRAME_WORK, 2_048)
+            .inspect_breadcrumb_context(prefix_len, Self::FRAME_WORK, 2_048)
             .await?;
         let inspected = snapshot.inspected();
         match BreadcrumbPickerTask::shapes(&snapshot, edit_index, &initially_included) {
@@ -1525,7 +1521,7 @@ impl ObjectBrowserApp {
         let prefix_len = self.controller.active_tab_header().breadcrumb_count();
         let snapshot = self
             .controller
-            .inspect_breadcrumb_context(prefix_len, 32 * Self::FRAME_WORK, 2_048)
+            .inspect_breadcrumb_context(prefix_len, Self::FRAME_WORK, 2_048)
             .await?;
         let inspected = snapshot.inspected();
         match BreadcrumbFilterFieldPickerTask::spawn(&snapshot) {
@@ -1554,7 +1550,7 @@ impl ObjectBrowserApp {
             edit_index.unwrap_or(self.controller.active_tab_header().breadcrumb_count());
         let snapshot = self
             .controller
-            .inspect_breadcrumb_context(prefix_len, 32 * Self::FRAME_WORK, 2_048)
+            .inspect_breadcrumb_context(prefix_len, Self::FRAME_WORK, 2_048)
             .await?;
         let inspected = snapshot.inspected();
         match BreadcrumbPickerTask::fields(&snapshot, edit_index, mode, &initially_included) {

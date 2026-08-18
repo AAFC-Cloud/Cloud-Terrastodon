@@ -609,7 +609,9 @@ where
         if matches!(self.total, QueryTotal::Exact(_)) {
             return;
         }
-        let mut budget = WorkBudget::new(64);
+        // Exact totals are useful for a stable scrollbar, but this is a
+        // background pass and must not consume a frame-sized chunk of work.
+        let mut budget = WorkBudget::new(8);
         loop {
             match self.total_scanner.poll_next(&mut budget) {
                 QueryPlanPoll::Item(_) => {
