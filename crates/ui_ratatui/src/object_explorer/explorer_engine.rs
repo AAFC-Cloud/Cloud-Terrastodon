@@ -806,6 +806,7 @@ fn observe_card_window_progress(
                 .collect::<Result<Vec<_>, _>>()?;
             QueryProgressState::Ready(CardWindow::from_cards(
                 cards,
+                window.start_ordinal(),
                 window.has_before(),
                 window.has_after(),
             ))

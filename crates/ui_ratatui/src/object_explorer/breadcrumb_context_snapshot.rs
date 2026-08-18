@@ -68,12 +68,20 @@ impl BreadcrumbContextSnapshot {
             return Err("breadcrumb context inspection needs a positive choice limit".to_owned());
         }
 
-        let mut query = QueryPlan::new(breadcrumbs).evaluate(source);
+        let plan = QueryPlan::new(breadcrumbs);
+        let known_shapes = plan.known_result_shapes();
+        let mut query = plan.evaluate(source);
         let mut work = WorkBudget::new(max_work);
         let mut shapes = BTreeSet::new();
+        let mut observed_metadata = BTreeSet::new();
+        let mut variant_sensitive_shapes = BTreeSet::new();
         let mut fields = BTreeSet::new();
         let mut choices_truncated = false;
+        let mut metadata_complete = known_shapes.as_ref().is_some_and(BTreeSet::is_empty);
         let complete = loop {
+            if metadata_complete {
+                break false;
+            }
             match query.poll_next(&mut work) {
                 QueryPlanPoll::Item(address) => {
                     let Ok(value) = source.resolve(&address) else {
@@ -87,13 +95,31 @@ impl BreadcrumbContextSnapshot {
                         max_choices,
                         &mut choices_truncated,
                     );
-                    collect_named_fields(
-                        value.peek(),
-                        &owner_shape,
-                        &mut fields,
-                        max_choices,
-                        &mut choices_truncated,
-                    );
+                    let metadata_key = if observed_metadata.contains(&owner_shape) {
+                        owner_shape.clone()
+                    } else {
+                        named_field_metadata_key(value.peek(), &owner_shape)
+                    };
+                    if known_shapes.is_some() && value_is_enum(value.peek()) {
+                        variant_sensitive_shapes.insert(owner_shape.clone());
+                    }
+                    if observed_metadata.insert(metadata_key) {
+                        collect_named_fields(
+                            value.peek(),
+                            &owner_shape,
+                            &mut fields,
+                            max_choices,
+                            &mut choices_truncated,
+                        );
+                    }
+                    metadata_complete = known_shapes.as_ref().is_some_and(|known| {
+                        known.len() <= max_choices
+                            && known.iter().all(|shape| shapes.contains(shape))
+                            && variant_sensitive_shapes.is_empty()
+                    });
+                    if metadata_complete {
+                        break false;
+                    }
                 }
                 QueryPlanPoll::Pending => break false,
                 QueryPlanPoll::Complete => break true,
@@ -105,7 +131,7 @@ impl BreadcrumbContextSnapshot {
             shapes: shapes.into_iter().collect(),
             fields: fields.into_iter().collect(),
             inspected,
-            complete: complete && !choices_truncated,
+            complete: (complete || metadata_complete) && !choices_truncated,
         })
     }
 
@@ -240,6 +266,18 @@ fn scalar_text(value: Peek<'_, 'static>) -> Option<String> {
     Some(value.to_string())
 }
 
+fn value_is_enum(value: facet_reflect::Peek<'_, 'static>) -> bool {
+    value.innermost_peek().into_enum().is_ok()
+}
+fn named_field_metadata_key(value: facet_reflect::Peek<'_, 'static>, owner_shape: &str) -> String {
+    let value = value.innermost_peek();
+    if let Ok(object) = value.into_enum()
+        && let Ok(variant) = object.active_variant()
+    {
+        return format!("{owner_shape}::{}", variant.effective_name());
+    }
+    owner_shape.to_owned()
+}
 fn collect_named_fields(
     value: facet_reflect::Peek<'_, 'static>,
     owner_shape: &str,
@@ -301,6 +339,7 @@ fn insert_bounded<T: Ord>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::object_explorer::Breadcrumb;
     use crate::object_explorer::arena::Arena;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
@@ -345,6 +384,65 @@ mod tests {
         }));
         assert!(snapshot.inspected() <= 16);
         assert!(snapshot.complete());
+    }
+
+    #[test]
+    fn context_metadata_deduplicates_repeated_shape_instances() {
+        let mut arena = Arena::default();
+        arena
+            .insert_ready(runtime(
+                (0..2_000)
+                    .map(|index| ContextThing {
+                        name: format!("member-{index}"),
+                        age: index,
+                    })
+                    .collect::<Vec<_>>(),
+            ))
+            .unwrap();
+        let source = ArenaAddressSource::new(&arena);
+
+        let snapshot =
+            BreadcrumbContextSnapshot::inspect(&source, Breadcrumbs::default(), 8_192, 32).unwrap();
+
+        assert!(snapshot.complete());
+        assert_eq!(
+            snapshot
+                .fields()
+                .iter()
+                .filter(|field| field.selection().owner_shape() == "ContextThing")
+                .count(),
+            2,
+            "repeated cards must contribute one copy of each shape field"
+        );
+        assert!(
+            snapshot
+                .fields()
+                .iter()
+                .any(|field| field.selection() == &ProjectedField::new("ContextThing", "name"))
+        );
+        assert!(
+            snapshot
+                .fields()
+                .iter()
+                .any(|field| field.selection() == &ProjectedField::new("ContextThing", "age"))
+        );
+
+        let filtered = BreadcrumbContextSnapshot::inspect(
+            &source,
+            Breadcrumbs::new(vec![Breadcrumb::ShapeFilter {
+                included_shapes: vec![cloud_terrastodon_registry::describe_shape(
+                    ContextThing::SHAPE,
+                )],
+            }]),
+            8_192,
+            32,
+        )
+        .unwrap();
+        assert!(filtered.complete());
+        assert!(
+            filtered.inspected() < 16,
+            "a bounded shape query should stop after its metadata shape is observed"
+        );
     }
 
     #[test]

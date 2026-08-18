@@ -3,6 +3,8 @@ use super::app::BrowserMode;
 use super::app::ObjectBrowserApp;
 use super::app::PendingFieldLink;
 use super::breadcrumb_bar_focus::BreadcrumbBarFocus;
+use super::breadcrumb_filter_field_picker_task::BreadcrumbFilterFieldPickerOutcome;
+use super::breadcrumb_filter_field_picker_task::BreadcrumbFilterFieldPickerTask;
 use super::breadcrumb_menu_task::BreadcrumbMenuOutcome;
 use super::breadcrumb_menu_task::BreadcrumbMenuTask;
 use super::breadcrumb_picker_task::BreadcrumbPickerOutcome;
@@ -148,6 +150,14 @@ impl ObjectBrowserApp {
                 CardLayoutAxis::Horizontal => CardLayoutAxis::Vertical,
                 CardLayoutAxis::Vertical => CardLayoutAxis::Horizontal,
             };
+            return Ok(());
+        }
+        if key.modifiers.contains(KeyModifiers::SHIFT) && key.code == KeyCode::Home {
+            self.active_root = None;
+            self.breadcrumb_focus = None;
+            self.controller
+                .focus_first_card(Self::FRAME_WORK, self.max_cards, self.max_relationship_rows)
+                .await?;
             return Ok(());
         }
         if key.modifiers.contains(KeyModifiers::SHIFT) && key.code == KeyCode::End {
@@ -1262,11 +1272,20 @@ impl ObjectBrowserApp {
             Some((address.clone(), card.shape().to_owned()))
         });
         let breadcrumbs = self.controller.active_breadcrumbs().await?;
+        let context = self
+            .controller
+            .inspect_breadcrumb_context(
+                breadcrumbs.operations().len(),
+                32 * Self::FRAME_WORK,
+                2_048,
+            )
+            .await?;
         let picker = BreadcrumbPicker::new(
             selected
                 .as_ref()
                 .map(|(address, shape)| (address, shape.as_str())),
             breadcrumbs.operations(),
+            Some(&context),
         );
         match BreadcrumbMenuTask::spawn(&picker) {
             Ok(task) => {
@@ -1315,6 +1334,9 @@ impl ObjectBrowserApp {
             } => {
                 self.launch_shape_breadcrumb_picker(edit_index, initially_included)
                     .await?;
+            }
+            BreadcrumbPickerChoice::PickFilterFields => {
+                self.launch_filter_field_breadcrumb_picker().await?;
             }
             BreadcrumbPickerChoice::PickFields {
                 edit_index,
@@ -1497,6 +1519,31 @@ impl ObjectBrowserApp {
         Ok(())
     }
 
+    async fn launch_filter_field_breadcrumb_picker(
+        &mut self,
+    ) -> Result<(), ObjectBrowserControllerError> {
+        let prefix_len = self.controller.active_tab_header().breadcrumb_count();
+        let snapshot = self
+            .controller
+            .inspect_breadcrumb_context(prefix_len, 32 * Self::FRAME_WORK, 2_048)
+            .await?;
+        let inspected = snapshot.inspected();
+        match BreadcrumbFilterFieldPickerTask::spawn(&snapshot) {
+            Ok(task) => {
+                self.breadcrumb_filter_field_picker_task = Some(task);
+                self.mode = BrowserMode::NestedPicker;
+                self.status = format!(
+                    "PickerTui is selecting a filter field from breadcrumb prefix {prefix_len} ({inspected} addresses inspected)."
+                );
+            }
+            Err(message) => {
+                self.mode = BrowserMode::Pool;
+                self.status = format!("Could not open filter field picker: {message}");
+            }
+        }
+        Ok(())
+    }
+
     async fn launch_field_breadcrumb_picker(
         &mut self,
         edit_index: Option<usize>,
@@ -1526,6 +1573,44 @@ impl ObjectBrowserApp {
         Ok(())
     }
 
+    pub(super) async fn finish_breadcrumb_filter_field_picker_task(
+        &mut self,
+    ) -> Result<(), ObjectBrowserControllerError> {
+        if !self
+            .breadcrumb_filter_field_picker_task
+            .as_ref()
+            .is_some_and(BreadcrumbFilterFieldPickerTask::is_finished)
+        {
+            return Ok(());
+        }
+        let task = self
+            .breadcrumb_filter_field_picker_task
+            .take()
+            .expect("a finished breadcrumb filter field picker task is present");
+        match task
+            .finish()
+            .await
+            .map_err(ObjectBrowserControllerError::Engine)?
+        {
+            BreadcrumbFilterFieldPickerOutcome::Selected {
+                field_shape,
+                field_name,
+                operator,
+            } => {
+                self.launch_breadcrumb_value_picker(None, field_shape, field_name, operator, None)
+                    .await?;
+            }
+            BreadcrumbFilterFieldPickerOutcome::Cancelled => {
+                self.mode = BrowserMode::Pool;
+                self.status = "Filter field selection cancelled.".to_owned();
+            }
+            BreadcrumbFilterFieldPickerOutcome::Failed(message) => {
+                self.mode = BrowserMode::Pool;
+                self.status = format!("Filter field PickerTui failed: {message}");
+            }
+        }
+        Ok(())
+    }
     pub(super) async fn finish_breadcrumb_picker_task(
         &mut self,
     ) -> Result<(), ObjectBrowserControllerError> {
@@ -1968,6 +2053,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn shift_home_focuses_the_first_card() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(8);
+        let client = async move {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            app.tick().await.unwrap();
+            let first = app
+                .controller
+                .window()
+                .and_then(|window| window.cards().first())
+                .map(|card| card.address().clone())
+                .expect("the initial query has a first card");
+
+            app.handle_event(&modified(KeyCode::Home, KeyModifiers::SHIFT))
+                .await
+                .unwrap();
+
+            assert_eq!(app.selected_address(), first);
+            assert_eq!(
+                app.controller.active_state().unwrap().viewport_anchor(),
+                &first
+            );
+            app.close().await.unwrap();
+        };
+
+        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+    }
+
+    #[tokio::test]
     async fn alt_plus_and_minus_resize_the_active_card_axis() {
         let engine = ExplorerEngine::empty();
         let (context, inbox) = ArenaQueryContext::channel(8);
@@ -2374,7 +2488,7 @@ mod tests {
                 };
                 Some((address, card.shape()))
             });
-            let picker = BreadcrumbPicker::new(selected, &[]);
+            let picker = BreadcrumbPicker::new(selected, &[], None);
             assert_eq!(picker.selected().unwrap().label(), "filter shapes…");
             let value_filter = picker
                 .rows()

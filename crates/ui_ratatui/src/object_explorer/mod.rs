@@ -92,6 +92,7 @@ pub(crate) use card_row_snapshot::CardRowContent;
 pub(crate) use card_row_snapshot::CardRowSnapshot;
 pub(crate) use card_snapshot::CardSnapshot;
 pub(crate) use card_window::CardWindow;
+pub(crate) use end_scan::QueryTotal;
 pub(crate) use explorer_command::ExplorerHandle;
 pub(crate) use explorer_command::ExplorerHandleError;
 pub(crate) use explorer_command::FieldBindingPacket;

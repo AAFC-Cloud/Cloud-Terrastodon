@@ -1,4 +1,5 @@
 use crate::object_explorer::Breadcrumb;
+use crate::object_explorer::BreadcrumbContextSnapshot;
 use crate::object_explorer::ProjectFieldsMode;
 use crate::object_explorer::ProjectedField;
 use crate::object_explorer::ValueAddress;
@@ -18,6 +19,7 @@ pub(crate) enum BreadcrumbPickerChoice {
         edit_index: Option<usize>,
         initially_included: Vec<String>,
     },
+    PickFilterFields,
     PickFields {
         edit_index: Option<usize>,
         mode: ProjectFieldsMode,
@@ -47,7 +49,11 @@ pub(crate) struct BreadcrumbPicker {
 }
 
 impl BreadcrumbPicker {
-    pub(crate) fn new(selected: Option<(&ValueAddress, &str)>, breadcrumbs: &[Breadcrumb]) -> Self {
+    pub(crate) fn new(
+        selected: Option<(&ValueAddress, &str)>,
+        breadcrumbs: &[Breadcrumb],
+        context: Option<&BreadcrumbContextSnapshot>,
+    ) -> Self {
         let mut rows = vec![BreadcrumbPickerRow {
             label: "filter shapes…".to_owned(),
             choice: BreadcrumbPickerChoice::PickShapes {
@@ -82,6 +88,12 @@ impl BreadcrumbPicker {
                     address.root_id().get(),
                     address.path().segments().to_vec(),
                 )),
+            });
+        }
+        if context.is_some() {
+            rows.push(BreadcrumbPickerRow {
+                label: "filter fields…".to_owned(),
+                choice: BreadcrumbPickerChoice::PickFilterFields,
             });
         }
         rows.extend(breadcrumbs.iter().enumerate().filter_map(
@@ -187,15 +199,26 @@ impl BreadcrumbPicker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::object_explorer::Arena;
+    use crate::object_explorer::ArenaAddressSource;
+    use crate::object_explorer::Breadcrumbs;
     use crate::object_explorer::SlotId;
     use crate::object_explorer::ValuePathSegment;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
+
+    #[derive(Clone, Debug, Facet)]
+    #[repr(C)]
+    struct ContextPickerThing {
+        name: String,
+    }
 
     #[test]
     fn filter_shapes_is_the_default_breadcrumb_choice_without_an_initial_selection() {
         let address = ValueAddress::root(SlotId::new(5))
             .child(ValuePathSegment::Index(3))
             .child(ValuePathSegment::Field("display_name".to_owned()));
-        let picker = BreadcrumbPicker::new(Some((&address, "String")), &[]);
+        let picker = BreadcrumbPicker::new(Some((&address, "String")), &[], None);
 
         assert_eq!(picker.selected_index(), 0);
         assert_eq!(picker.selected().unwrap().label(), "filter shapes…");
@@ -213,7 +236,7 @@ mod tests {
         let address = ValueAddress::root(SlotId::new(5))
             .child(ValuePathSegment::Index(3))
             .child(ValuePathSegment::Field("display_name".to_owned()));
-        let picker = BreadcrumbPicker::new(Some((&address, "String")), &[]);
+        let picker = BreadcrumbPicker::new(Some((&address, "String")), &[], None);
         let row = picker
             .rows()
             .iter()
@@ -233,6 +256,39 @@ mod tests {
     }
 
     #[test]
+    fn query_context_fields_open_a_nested_filter_picker() {
+        let mut arena = Arena::default();
+        arena
+            .insert_ready(
+                RuntimeValue::from_box(Box::new(ContextPickerThing {
+                    name: "Ada".to_owned(),
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+        let source = ArenaAddressSource::new(&arena);
+        let context =
+            BreadcrumbContextSnapshot::inspect(&source, Breadcrumbs::default(), 16, 16).unwrap();
+        let picker = BreadcrumbPicker::new(None, &[], Some(&context));
+        let rows = picker
+            .rows()
+            .iter()
+            .filter(|row| row.label().contains("name"))
+            .collect::<Vec<_>>();
+        assert!(rows.is_empty(), "context fields are no longer flattened");
+
+        let row = picker
+            .rows()
+            .iter()
+            .find(|row| row.label() == "filter fields…")
+            .expect("query context fields open a nested picker");
+        assert!(matches!(
+            row.choice(),
+            BreadcrumbPickerChoice::PickFilterFields
+        ));
+    }
+
+    #[test]
     fn existing_shape_and_field_breadcrumbs_reopen_as_edit_choices() {
         let picker = BreadcrumbPicker::new(
             None,
@@ -245,6 +301,7 @@ mod tests {
                     included_fields: vec![ProjectedField::new("Thing", "name")],
                 },
             ],
+            None,
         );
 
         assert_eq!(picker.rows()[0].label(), "filter shapes…");

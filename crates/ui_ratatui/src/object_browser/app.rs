@@ -1,4 +1,5 @@
 use super::breadcrumb_bar_focus::BreadcrumbBarFocus;
+use super::breadcrumb_filter_field_picker_task::BreadcrumbFilterFieldPickerTask;
 use super::breadcrumb_menu_task::BreadcrumbMenuTask;
 use super::breadcrumb_picker_task::BreadcrumbPickerTask;
 use super::breadcrumb_value_picker_task::BreadcrumbValuePickerTask;
@@ -89,6 +90,7 @@ pub(crate) struct ObjectBrowserApp {
     pub(super) text_editor: Option<TextEditorState>,
     pub(super) breadcrumb_focus: Option<BreadcrumbBarFocus>,
     pub(super) breadcrumb_menu_task: Option<BreadcrumbMenuTask>,
+    pub(super) breadcrumb_filter_field_picker_task: Option<BreadcrumbFilterFieldPickerTask>,
     pub(super) breadcrumb_value_editor: Option<BreadcrumbValueEditorState>,
     pub(super) breadcrumb_picker_task: Option<BreadcrumbPickerTask>,
     pub(super) breadcrumb_value_picker_task: Option<BreadcrumbValuePickerTask>,
@@ -132,13 +134,14 @@ impl ObjectBrowserApp {
             text_editor: None,
             breadcrumb_focus: None,
             breadcrumb_menu_task: None,
+            breadcrumb_filter_field_picker_task: None,
             breadcrumb_value_editor: None,
             breadcrumb_picker_task: None,
             breadcrumb_value_picker_task: None,
             row_search: None,
             tab_name_editor: None,
             production_jobs_active: false,
-            status: "Left/Right: cards | Up/Down: rows/breadcrumbs | Shift+;: fuzzy breadcrumb picker | Alt++/Alt+-: resize | Shift+End: new object | Ctrl+T: transpose | Esc: back / triple-Esc: exit".to_owned(),
+            status: "Left/Right: cards | Up/Down: rows/breadcrumbs | Shift+;: fuzzy breadcrumb picker | Alt++/Alt+-: resize | Shift+Home: first card | Shift+End: new object | Ctrl+T: transpose | Esc: back / triple-Esc: exit".to_owned(),
         })
     }
 
@@ -146,6 +149,8 @@ impl ObjectBrowserApp {
         if self.mode == BrowserMode::NestedPicker {
             if self.breadcrumb_menu_task.is_some() {
                 self.finish_breadcrumb_menu_task().await?;
+            } else if self.breadcrumb_filter_field_picker_task.is_some() {
+                self.finish_breadcrumb_filter_field_picker_task().await?;
             } else if self.shape_picker_task.is_some() {
                 self.finish_shape_picker_task().await?;
             } else if self.variant_picker_task.is_some() {

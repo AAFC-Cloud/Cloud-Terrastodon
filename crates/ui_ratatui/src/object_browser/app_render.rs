@@ -97,6 +97,11 @@ impl ObjectBrowserApp {
 
     fn draw_pool(&self, frame: &mut Frame<'_>, area: Rect, selected: &CardAddress) {
         let visible_rows = self.row_search.as_ref().map(|search| search.matches());
+        let query_total = self
+            .controller
+            .active_state()
+            .map(|state| state.query_total())
+            .unwrap_or_default();
         if let Some(window) = self.controller.window() {
             let display_window = if selected == &CardAddress::NewSlot && window.has_after() {
                 Some(CardWindow::single(
@@ -116,6 +121,7 @@ impl ObjectBrowserApp {
                 self.focused_card_fill,
                 self.card_breadth(),
             )
+            .with_query_total(query_total)
             .with_visible_rows(visible_rows)
             .draw(frame, area);
         } else if selected == &CardAddress::NewSlot {
@@ -128,6 +134,7 @@ impl ObjectBrowserApp {
                 self.focused_card_fill,
                 self.card_breadth(),
             )
+            .with_query_total(query_total)
             .with_visible_rows(visible_rows)
             .draw(frame, area);
         } else {

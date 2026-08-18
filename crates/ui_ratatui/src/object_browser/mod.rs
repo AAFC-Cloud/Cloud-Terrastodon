@@ -1,6 +1,7 @@
 mod app;
 mod app_render;
 mod breadcrumb_bar_focus;
+mod breadcrumb_filter_field_picker_task;
 mod breadcrumb_menu_task;
 mod breadcrumb_picker_task;
 mod breadcrumb_value_picker_task;

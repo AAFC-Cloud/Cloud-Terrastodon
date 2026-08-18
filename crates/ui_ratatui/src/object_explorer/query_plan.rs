@@ -246,6 +246,24 @@ impl QueryPlan {
         Self { operators }
     }
 
+    /// Shape names that bound the result stream without a projection transform.
+    ///
+    /// A single selection stage with shape filters can determine the complete
+    /// shape universe before the query walks every matching instance. Callers
+    /// still need to inspect at least one value of each shape for instance
+    /// metadata such as active enum variants.
+    pub(crate) fn known_result_shapes(&self) -> Option<BTreeSet<String>> {
+        if self.operators.len() != 1 {
+            return None;
+        }
+        let QueryOperator::Select(selection) = &self.operators[0] else {
+            return None;
+        };
+        if selection.project_fields.is_some() {
+            return None;
+        }
+        selection.allowed_shapes()
+    }
     pub(crate) fn evaluate<'source, 'arena>(
         &self,
         source: &'source ArenaAddressSource<'arena>,

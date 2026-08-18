@@ -180,6 +180,23 @@ impl ObjectBrowserController {
         Ok(())
     }
 
+    pub(crate) async fn focus_first_card(
+        &mut self,
+        max_work: usize,
+        max_cards: NonZeroUsize,
+        max_relationship_rows: usize,
+    ) -> Result<(), ObjectBrowserControllerError> {
+        self.reanchor_on_next_window = true;
+        let state = self
+            .active_state_mut()
+            .ok_or(ObjectBrowserControllerError::NoActiveTab)?;
+        state.select(CardAddress::NewSlot);
+        state.set_viewport_anchor(CardAddress::NewSlot);
+        state.focus_row(None);
+        self.refresh_window(max_work, max_cards, max_relationship_rows)
+            .await
+    }
+
     pub(crate) async fn navigate_card(
         &mut self,
         direction: CardNavigation,

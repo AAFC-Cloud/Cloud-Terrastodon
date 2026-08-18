@@ -5,6 +5,7 @@ use crate::object_explorer::CardRowSnapshot;
 use crate::object_explorer::CardSnapshot;
 use crate::object_explorer::CardWindow;
 use crate::object_explorer::FieldBindingSnapshot;
+use crate::object_explorer::QueryTotal;
 use ratatui::Frame;
 use ratatui::layout::Alignment;
 use ratatui::layout::Constraint;
@@ -41,6 +42,7 @@ pub(crate) struct CardWindowRenderer<'window> {
     axis: CardLayoutAxis,
     focused_card_fill: bool,
     card_breadth: u16,
+    query_total: QueryTotal,
     visible_rows: Option<&'window [CardRowKey]>,
 }
 
@@ -60,8 +62,14 @@ impl<'window> CardWindowRenderer<'window> {
             axis,
             focused_card_fill,
             card_breadth,
+            query_total: QueryTotal::Unknown,
             visible_rows: None,
         }
+    }
+
+    pub(crate) const fn with_query_total(mut self, query_total: QueryTotal) -> Self {
+        self.query_total = query_total;
+        self
     }
 
     pub(crate) const fn with_visible_rows(
@@ -87,7 +95,7 @@ impl<'window> CardWindowRenderer<'window> {
         } else {
             (area, None)
         };
-        let cards = self.visible_cards(cards_area);
+        let (cards, visible_start) = self.visible_cards(cards_area);
         if cards.is_empty() {
             return;
         }
@@ -100,14 +108,22 @@ impl<'window> CardWindowRenderer<'window> {
             self.draw_card(frame, area, card);
         }
         if let Some(scrollbar_area) = card_scrollbar_area {
-            let leading = usize::from(self.window.has_before());
-            let trailing = usize::from(self.window.has_after());
-            let selected = cards
+            let position = self.window.start_ordinal().saturating_add(visible_start);
+            let has_new_slot = cards
                 .iter()
-                .position(|card| card.address() == self.selected_card)
-                .unwrap_or_default();
-            let mut state = ScrollbarState::new(leading + cards.len() + trailing)
-                .position(leading + selected)
+                .any(|card| card.address() == &CardAddress::NewSlot);
+            let minimum_total = position
+                .saturating_add(cards.len())
+                .saturating_add(usize::from(self.window.has_after()));
+            let total_items = match self.query_total {
+                QueryTotal::Exact(total) => total.saturating_add(usize::from(has_new_slot)),
+                QueryTotal::Scanning(progress) => progress.matched,
+                QueryTotal::Unknown => 0,
+            }
+            .max(minimum_total);
+            let scroll_positions = total_items.saturating_sub(cards.len()).saturating_add(1);
+            let mut state = ScrollbarState::new(scroll_positions)
+                .position(position)
                 .viewport_content_length(cards.len());
             let scrollbar = Scrollbar::new(ScrollbarOrientation::HorizontalBottom).thumb_style(
                 Style::default()
@@ -118,15 +134,17 @@ impl<'window> CardWindowRenderer<'window> {
         }
     }
 
-    fn visible_cards(&self, area: Rect) -> Vec<&CardSnapshot> {
+    fn visible_cards(&self, area: Rect) -> (Vec<&CardSnapshot>, usize) {
         if self.focused_card_fill {
-            return self
-                .window
-                .cards()
-                .iter()
-                .find(|card| card.address() == self.selected_card)
-                .into_iter()
-                .collect();
+            return (
+                self.window
+                    .cards()
+                    .iter()
+                    .find(|card| card.address() == self.selected_card)
+                    .into_iter()
+                    .collect(),
+                0,
+            );
         }
 
         let cards = self.window.cards();
@@ -136,7 +154,7 @@ impl<'window> CardWindowRenderer<'window> {
         };
         let capacity = (main_axis as usize / self.card_breadth.max(1) as usize).max(1);
         if cards.len() <= capacity {
-            return cards.iter().collect();
+            return (cards.iter().collect(), 0);
         }
 
         let selected = cards
@@ -146,7 +164,7 @@ impl<'window> CardWindowRenderer<'window> {
             .map(|index| index.saturating_sub(capacity - 1))
             .unwrap_or_default()
             .min(cards.len() - capacity);
-        cards[start..start + capacity].iter().collect()
+        (cards[start..start + capacity].iter().collect(), start)
     }
 
     fn draw_card(&self, frame: &mut Frame<'_>, area: Rect, card: &CardSnapshot) {
@@ -299,7 +317,8 @@ impl<'window> CardWindowRenderer<'window> {
                 vertical: 1,
                 horizontal: 0,
             });
-            let mut state = ScrollbarState::new(line_count)
+            let scroll_positions = line_count.saturating_sub(viewport_height).saturating_add(1);
+            let mut state = ScrollbarState::new(scroll_positions)
                 .position(scroll_offset)
                 .viewport_content_length(viewport_height);
             let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
@@ -737,16 +756,117 @@ mod tests {
         );
     }
 
+    fn horizontal_scrollbar_line(window: &CardWindow, selected: &CardAddress) -> String {
+        let backend = TestBackend::new(48, 12);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| {
+                CardWindowRenderer::new(
+                    window,
+                    selected,
+                    None,
+                    CardLayoutAxis::Horizontal,
+                    false,
+                    12,
+                )
+                .draw(frame, frame.area());
+            })
+            .unwrap();
+        terminal
+            .backend()
+            .to_string()
+            .lines()
+            .last()
+            .unwrap_or_default()
+            .to_owned()
+    }
+
+    fn horizontal_scrollbar_line_with_total(
+        window: &CardWindow,
+        selected: &CardAddress,
+        total: usize,
+    ) -> String {
+        let backend = TestBackend::new(48, 12);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| {
+                CardWindowRenderer::new(
+                    window,
+                    selected,
+                    None,
+                    CardLayoutAxis::Horizontal,
+                    false,
+                    12,
+                )
+                .with_query_total(QueryTotal::Exact(total))
+                .draw(frame, frame.area());
+            })
+            .unwrap();
+        terminal
+            .backend()
+            .to_string()
+            .lines()
+            .last()
+            .unwrap_or_default()
+            .to_owned()
+    }
+
+    #[test]
+    fn horizontal_scrollbar_thumb_size_does_not_change_with_position() {
+        let mut arena = Arena::default();
+        arena
+            .insert_ready(runtime((0_usize..20).collect::<Vec<_>>()))
+            .unwrap();
+        let source = ArenaAddressSource::new(&arena);
+        let full_window = CardWindow::first(&source, NonZeroUsize::new(20).unwrap(), 1).unwrap();
+        let first = CardWindow::from_cards(full_window.cards()[..10].to_vec(), 0, false, true);
+        let second = CardWindow::from_cards(full_window.cards()[10..].to_vec(), 10, true, false);
+        let first_selected = first.cards()[0].address().clone();
+        let second_selected = second.cards()[0].address().clone();
+        let first_line = horizontal_scrollbar_line_with_total(&first, &first_selected, 21);
+        let second_line = horizontal_scrollbar_line_with_total(&second, &second_selected, 21);
+        let first_thumb = first_line
+            .chars()
+            .filter(|character| *character == '█')
+            .count();
+        let second_thumb = second_line
+            .chars()
+            .filter(|character| *character == '█')
+            .count();
+
+        assert_eq!(
+            first_thumb, second_thumb,
+            "the horizontal thumb size must be derived from total content, not its current position"
+        );
+    }
+    #[test]
+    fn horizontal_scrollbar_stays_put_when_selection_stays_in_the_viewport() {
+        let mut arena = Arena::default();
+        arena
+            .insert_ready(runtime((0_usize..20).collect::<Vec<_>>()))
+            .unwrap();
+        let source = ArenaAddressSource::new(&arena);
+        let window = CardWindow::first(&source, NonZeroUsize::new(20).unwrap(), 1).unwrap();
+        let first = window.cards()[0].address().clone();
+        let second = window.cards()[1].address().clone();
+
+        assert_eq!(
+            horizontal_scrollbar_line(&window, &first),
+            horizontal_scrollbar_line(&window, &second),
+            "selection movement inside the rendered card viewport must not move its scrollbar"
+        );
+    }
+
     #[test]
     fn selected_rows_scroll_inside_the_card_and_both_scrollbars_are_visible() {
         let mut arena = Arena::default();
         let root = arena
-            .insert_ready(runtime((0_usize..16).collect::<Vec<_>>()))
+            .insert_ready(runtime((0_usize..9).collect::<Vec<_>>()))
             .unwrap();
         let source = ArenaAddressSource::new(&arena);
         let window = CardWindow::first(&source, NonZeroUsize::new(1).unwrap(), 10).unwrap();
         let selected = CardAddress::Value(ValueAddress::root(root));
-        let selected_row = CardRowKey::Element(9);
+        let selected_row = CardRowKey::Element(8);
         let backend = TestBackend::new(48, 12);
         let mut terminal = Terminal::new(backend).unwrap();
 
@@ -765,8 +885,8 @@ mod tests {
             .unwrap();
 
         let rendered = terminal.backend().to_string();
-        assert!(rendered.contains(">[9]: usize"));
-        assert!(rendered.contains("9"));
+        assert!(rendered.contains(">[8]: usize"));
+        assert!(rendered.contains("8"));
         assert!(!rendered.contains("[0]: usize"));
         assert!(
             rendered.lines().last().unwrap_or_default().contains('◄')
@@ -782,6 +902,14 @@ mod tests {
                     .is_some_and(|cell| matches!(cell.symbol(), "█" | "║"))
             }),
             "overflowing selected-card rows render a vertical scrollbar"
+        );
+        assert!(
+            terminal
+                .backend()
+                .buffer()
+                .cell((47, 8))
+                .is_some_and(|cell| matches!(cell.symbol(), "█" | "║")),
+            "a bottom viewport must place the vertical thumb at the bottom of its track"
         );
     }
 }

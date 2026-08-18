@@ -9,14 +9,21 @@ use std::num::NonZeroUsize;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct CardWindow {
     cards: Vec<CardSnapshot>,
+    start_ordinal: usize,
     has_before: bool,
     has_after: bool,
 }
 
 impl CardWindow {
-    pub(crate) fn from_cards(cards: Vec<CardSnapshot>, has_before: bool, has_after: bool) -> Self {
+    pub(crate) fn from_cards(
+        cards: Vec<CardSnapshot>,
+        start_ordinal: usize,
+        has_before: bool,
+        has_after: bool,
+    ) -> Self {
         Self {
             cards,
+            start_ordinal,
             has_before,
             has_after,
         }
@@ -25,6 +32,7 @@ impl CardWindow {
     pub(crate) fn single(card: CardSnapshot) -> Self {
         Self {
             cards: vec![card],
+            start_ordinal: 0,
             has_before: false,
             has_after: false,
         }
@@ -50,6 +58,7 @@ impl CardWindow {
         let has_after = cursor.next().is_some();
         Ok(Self {
             cards,
+            start_ordinal: 0,
             has_before: false,
             has_after,
         })
@@ -57,6 +66,10 @@ impl CardWindow {
 
     pub(crate) fn cards(&self) -> &[CardSnapshot] {
         &self.cards
+    }
+
+    pub(crate) const fn start_ordinal(&self) -> usize {
+        self.start_ordinal
     }
 
     /// Add the logical create-object card at the end without exceeding the
@@ -68,6 +81,7 @@ impl CardWindow {
         cards.push(CardSnapshot::new_slot());
         Self {
             cards,
+            start_ordinal: self.start_ordinal.saturating_add(start),
             has_before: self.has_before || start > 0,
             has_after: false,
         }
@@ -86,6 +100,7 @@ impl CardWindow {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             cards,
+            start_ordinal: window.start_ordinal(),
             has_before: window.has_before(),
             has_after: window.has_after(),
         })

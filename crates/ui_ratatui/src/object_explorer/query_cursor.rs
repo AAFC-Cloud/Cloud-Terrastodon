@@ -138,6 +138,8 @@ pub(crate) struct QueryCursor<'source, 'arena> {
     plan: QueryPlan,
     stamp: ScanRevisionStamp,
     scanner: QueryPlanIter<'source, 'arena>,
+    total_scanner: QueryPlanIter<'source, 'arena>,
+    total_matched: usize,
     scanner_next_ordinal: usize,
     scanner_complete: bool,
     retired: QueryPlanInstrumentation,
@@ -161,11 +163,14 @@ where
         cache_capacity: NonZeroUsize,
     ) -> Self {
         let scanner = plan.evaluate(source);
+        let total_scanner = plan.evaluate(source);
         Self {
             source,
             plan,
             stamp,
             scanner,
+            total_scanner,
+            total_matched: 0,
             scanner_next_ordinal: 0,
             scanner_complete: false,
             retired: QueryPlanInstrumentation::default(),
@@ -403,6 +408,7 @@ where
                 let window = self
                     .window_from_cache(start, max_cards, true)
                     .expect("validated active-window cache range");
+                self.poll_total();
                 return Ok(self.progress(QueryProgressState::Ready(window), before, budget));
             }
             if self.scanner_complete {
@@ -414,6 +420,7 @@ where
                 let window = self
                     .window_from_cache(start, max_cards, false)
                     .expect("completed scan retains its bounded active window");
+                self.poll_total();
                 return Ok(self.progress(QueryProgressState::Ready(window), before, budget));
             }
             if self.scanner_next_ordinal > lookahead {
@@ -572,7 +579,7 @@ where
             start.checked_add(max_cards)?.min(self.scanner_next_ordinal)
         };
         let addresses = self.cache.collect_range(start, end)?;
-        Some(QueryWindow::new(addresses, start > 0, has_after))
+        Some(QueryWindow::new(addresses, start, start > 0, has_after))
     }
 
     fn select(&mut self, ordinal: usize, address: ValueAddress) {
@@ -598,6 +605,29 @@ where
         false
     }
 
+    fn poll_total(&mut self) {
+        if matches!(self.total, QueryTotal::Exact(_)) {
+            return;
+        }
+        let mut budget = WorkBudget::new(64);
+        loop {
+            match self.total_scanner.poll_next(&mut budget) {
+                QueryPlanPoll::Item(_) => {
+                    self.total_matched = self.total_matched.saturating_add(1);
+                    let instrumentation = self.total_scanner.instrumentation();
+                    self.total = QueryTotal::Scanning(ScanProgress {
+                        inspected: instrumentation.addressed,
+                        matched: self.total_matched,
+                    });
+                }
+                QueryPlanPoll::Pending => return,
+                QueryPlanPoll::Complete => {
+                    self.total = QueryTotal::Exact(self.total_matched);
+                    return;
+                }
+            }
+        }
+    }
     fn reset_scan(&mut self) {
         self.retire_current_scan();
         self.scanner = self.plan.evaluate(self.source);
@@ -688,7 +718,7 @@ mod tests {
         assert_eq!(progress.work_spent(), 9, "eight cards plus one lookahead");
         assert_eq!(progress.instrumentation().addressed, 9);
         assert_eq!(progress.instrumentation().cached, 9);
-        assert_eq!(progress.total(), QueryTotal::Unknown);
+        assert!(matches!(progress.total(), QueryTotal::Scanning(_)));
         let window = ready(progress);
         assert_eq!(window.addresses().len(), 8);
         assert_eq!(window.addresses()[0], ValueAddress::root(root));
