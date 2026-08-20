@@ -1,4 +1,5 @@
 mod audit;
+mod audit_trait;
 mod block_lister;
 mod body_formatter;
 mod data_lookup_holder;
@@ -16,6 +17,7 @@ mod terraform_block_extracter_patcher;
 mod work_dir_lifecycle;
 mod writer;
 pub use crate::audit::*;
+pub use crate::audit_trait::*;
 pub use crate::block_lister::*;
 pub use crate::data_reference_patcher::*;
 pub use crate::decor_extensions::*;

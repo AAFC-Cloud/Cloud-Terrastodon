@@ -9,6 +9,9 @@ pub struct TerraformAuditArgs {
     pub source_dir: PathBuf,
     #[facet(figue::named, default = false)]
     pub recursive: bool,
+    /// Apply audit fixes to the discovered Terraform files.
+    #[facet(figue::named, default = false)]
+    pub fix: bool,
 }
 
 impl TerraformAuditArgs {
@@ -16,10 +19,10 @@ impl TerraformAuditArgs {
         if self.recursive {
             let source_dirs = discover_terraform_source_dirs(self.source_dir).await?;
             for dir in source_dirs {
-                cloud_terrastodon_hcl::audit(&dir).await?;
+                cloud_terrastodon_hcl::audit_with_fix(&dir, self.fix).await?;
             }
         } else {
-            cloud_terrastodon_hcl::audit(&self.source_dir).await?;
+            cloud_terrastodon_hcl::audit_with_fix(&self.source_dir, self.fix).await?;
         }
 
         Ok(())
