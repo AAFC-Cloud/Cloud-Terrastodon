@@ -12,6 +12,9 @@ use facet::Shape;
 use std::future::Future;
 use std::pin::Pin;
 
+type BoxedDefaultInputFuture<'a> =
+    Pin<Box<dyn Future<Output = eyre::Result<Box<dyn std::any::Any + Send>>> + Send + 'a>>;
+
 /// A registry-discovered recipe for producing a value without user-provided
 /// input. The recipe is deliberately type-erased: callers can inspect its
 /// target shape, while the registry remains responsible for deciding which
@@ -231,9 +234,7 @@ fn realize_plan(
     })
 }
 
-fn realize_plan_as_boxed(
-    plan: &DefaultProductionPlan,
-) -> Pin<Box<dyn Future<Output = eyre::Result<Box<dyn std::any::Any + Send>>> + Send + '_>> {
+fn realize_plan_as_boxed(plan: &DefaultProductionPlan) -> BoxedDefaultInputFuture<'_> {
     Box::pin(async move {
         let value = realize_plan(plan).await?;
         let thing = known_thing_for_shape(plan.shape).ok_or_else(|| {
