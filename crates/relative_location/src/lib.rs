@@ -74,7 +74,7 @@ impl std::fmt::Display for RelativeLocation {
         write!(
             f,
             "{}:{}:{}",
-            &relative_path.display(),
+            relative_path.display(),
             self.inner.line(),
             self.inner.column()
         )

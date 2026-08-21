@@ -29,9 +29,11 @@ pub async fn reflow_hcl(
         Box::new(ReflowExpressionsUseImportedResourceBlocks::default()),
         Box::new(ReflowBlockDecorations),
     ];
-    let principal_ids = include_principal_id_comments
-        .then(|| HclUuidCollector::collect(&hcl))
-        .unwrap_or_default();
+    let principal_ids = if include_principal_id_comments {
+        HclUuidCollector::collect(&hcl)
+    } else {
+        Default::default()
+    };
     if include_principal_id_comments && !principal_ids.is_empty() {
         info!("Fetching principals");
         let tenant_id = tenant.resolve().await?;

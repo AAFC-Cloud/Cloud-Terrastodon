@@ -121,6 +121,12 @@ impl TerminalLogBuffer {
     }
 }
 
+impl Default for TerminalLogBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub type TerminalActivityProbe = Arc<dyn Fn() -> bool + Send + Sync>;
 
 #[derive(Clone, Default)]

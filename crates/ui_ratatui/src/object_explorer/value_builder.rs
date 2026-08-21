@@ -1131,6 +1131,10 @@ enum PreparedField {
     },
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "field materialization receives independent builder and borrow state"
+)]
 fn materialize_fields(
     shape: &'static Shape,
     variant: Option<usize>,
@@ -1264,8 +1268,6 @@ fn materialize_fields(
             return Err(error);
         }
     };
-    drop(source);
-
     let built = RuntimeValue::build_with(shape, |mut partial| {
         if let Some(variant) = variant {
             partial = partial.select_nth_variant(variant).map_err(|error| {

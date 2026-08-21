@@ -24,7 +24,7 @@ const FRAMES_PER_SECOND: f32 = 60.0;
 const COMMAND_CAPACITY: usize = 256;
 
 pub(crate) async fn run_object_browser() -> Result<()> {
-    let coordinator = TerminalCoordinator::try_current().unwrap_or_else(TerminalCoordinator::new);
+    let coordinator = TerminalCoordinator::try_current().unwrap_or_default();
     let scoped_coordinator = coordinator.clone();
     coordinator
         .scope(async move { run_with_terminal(scoped_coordinator).await })

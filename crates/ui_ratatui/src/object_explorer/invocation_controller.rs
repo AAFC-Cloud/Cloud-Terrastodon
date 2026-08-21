@@ -138,6 +138,10 @@ pub(crate) struct InvocationController {
 }
 
 impl InvocationController {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "invocation requires the arena, borrow graph, host, and operation metadata"
+    )]
     pub(crate) fn invoke<H: InvocationHost + ?Sized>(
         &mut self,
         arena: &mut Arena,
@@ -164,6 +168,10 @@ impl InvocationController {
         )
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "arbitrary invocation requires the arena, borrow graph, host, and operation metadata"
+    )]
     pub(crate) fn invoke_arbitrary<H: InvocationHost + ?Sized>(
         &mut self,
         arena: &mut Arena,

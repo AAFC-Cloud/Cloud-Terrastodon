@@ -78,11 +78,11 @@ impl ProviderManager {
         #[cfg(not(windows))]
         {
             // Not(Windows): $HOME/.terraform.d/plugins
-            return Ok(BaseDirs::new()
+            Ok(BaseDirs::new()
                 .ok_or_eyre("Failed to get base dirs")?
                 .home_dir()
                 .join(".terraform.d/plugins")
-                .to_path_buf());
+                .to_path_buf())
         }
     }
 

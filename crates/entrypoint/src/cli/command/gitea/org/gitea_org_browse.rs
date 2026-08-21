@@ -18,8 +18,7 @@ impl GiteaOrgBrowseArgs {
         let tenant = self.tenant.resolve().await?;
         let chosen = PickerTui::<_>::new()
             .pick_many_reloadable(|invalidate| {
-                let future = fetch_all_gitea_organizations(&tenant).with_invalidation(invalidate);
-                async move { future.await }
+                fetch_all_gitea_organizations(&tenant).with_invalidation(invalidate)
             })
             .await?;
         let stdout = std::io::stdout();

@@ -259,10 +259,10 @@ impl<'a, T> PickerTui<'a, T> {
         self.add_event_handler(move |event, sink| {
             let choices = choices.clone();
             async move {
-                if matches!(event.as_ref(), PickerEvent::InitialLoad) {
-                    if let Some(choices) = choices.lock().expect("choices mutex poisoned").take() {
-                        sink.push(choices)?;
-                    }
+                if matches!(event.as_ref(), PickerEvent::InitialLoad)
+                    && let Some(choices) = choices.lock().expect("choices mutex poisoned").take()
+                {
+                    sink.push(choices)?;
                 }
                 Ok(())
             }
@@ -329,7 +329,7 @@ impl<'a, T> PickerTui<'a, T> {
         }
         let coordinator = explicit_coordinator
             .or(current_coordinator)
-            .unwrap_or_else(TerminalCoordinator::new);
+            .unwrap_or_default();
         #[cfg(feature = "terminal_coordinator_debug")]
         coordinator.debug_assert_matches_registered_application_root()?;
         let log_buffer = self
@@ -676,26 +676,25 @@ impl<'a, T> PickerTui<'a, T> {
                     if query_debouncer
                         .deadline()
                         .is_some_and(|deadline| Instant::now() >= deadline)
+                        && let Some(query) = query_debouncer.take_due(Instant::now())
                     {
-                        if let Some(query) = query_debouncer.take_due(Instant::now()) {
-                            progressed = true;
-                            spawn_handlers(
-                                &self.handlers,
-                                match query {
-                                    QueryEvent::Cleared => PickerEvent::QueryCleared,
-                                    QueryEvent::Changed(query) => {
-                                        PickerEvent::QueryChanged(Arc::<str>::from(query))
-                                    }
-                                },
-                                false,
-                                picker_state.generation,
-                                &candidate_sender,
-                                &mut handler_tasks,
-                                &mut pending_handlers,
-                                &mut startup_handlers,
-                            );
-                            render_dirty = true;
-                        }
+                        progressed = true;
+                        spawn_handlers(
+                            &self.handlers,
+                            match query {
+                                QueryEvent::Cleared => PickerEvent::QueryCleared,
+                                QueryEvent::Changed(query) => {
+                                    PickerEvent::QueryChanged(Arc::<str>::from(query))
+                                }
+                            },
+                            false,
+                            picker_state.generation,
+                            &candidate_sender,
+                            &mut handler_tasks,
+                            &mut pending_handlers,
+                            &mut startup_handlers,
+                        );
+                        render_dirty = true;
                     }
 
                     while let Some(control) = guard.try_next_control()? {
@@ -827,7 +826,7 @@ impl<'a, T> PickerTui<'a, T> {
                 && startup_handlers == 0
                 && pending_handlers == 0
                 && candidate_receiver.is_empty()
-                && picker_state.candidates.len() == 0
+                && picker_state.candidates.is_empty()
             {
                 return Ok(RunOutcome::NoChoices);
             }
@@ -932,6 +931,10 @@ pub(super) fn startup_events(default_query: &str) -> Vec<PickerEvent> {
     events
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "handler spawning updates several independent picker counters and channels"
+)]
 fn spawn_handlers<'a, T>(
     handlers: &[EventHandler<'a, T>],
     event: PickerEvent,
@@ -1134,6 +1137,10 @@ pub(super) fn render_toasts(buf: &mut Buffer, area: Rect, toasts: &[PickerToast]
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "key handling mutates the picker state components owned by the run loop"
+)]
 pub(super) fn handle_key(
     key: KeyEvent,
     many: bool,
@@ -1264,6 +1271,10 @@ pub(super) fn row_style(marked: bool, cursor: bool) -> Style {
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "rendering receives separate terminal layout and picker selection state"
+)]
 pub(super) fn render_picker_list(
     buf: &mut Buffer,
     area: Rect,
@@ -1425,6 +1436,10 @@ fn rebuild_results<T>(
     );
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "tab-warning handling temporarily coordinates all active picker streams"
+)]
 async fn wait_for_tab_warning<'a, T>(
     terminal: &mut Option<PickerTerminal>,
     key: &CompactString,
@@ -1442,15 +1457,16 @@ async fn wait_for_tab_warning<'a, T>(
 where
     T: Send + 'a,
 {
-    let mut backend = PickerTerminalBackend { terminal };
-    if !backend.is_active() {
-        return Ok(());
+    {
+        let mut backend = PickerTerminalBackend { terminal };
+        if !backend.is_active() {
+            return Ok(());
+        }
+        backend.suspend().map_err(|error| {
+            guard.poison(format!("picker tab-warning suspension failed: {error}"));
+            error
+        })?;
     }
-    backend.suspend().map_err(|error| {
-        guard.poison(format!("picker tab-warning suspension failed: {error}"));
-        error
-    })?;
-    drop(backend);
     tracing::warn!(
         key = %key,
         "A picker candidate contains a tab character and may render poorly"

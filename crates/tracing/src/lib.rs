@@ -23,6 +23,8 @@ mod structured_log;
 
 pub use structured_log::*;
 
+type InactiveWriter = Arc<dyn Fn(&StructuredLogRecord) + Send + Sync>;
+
 fn exclude_tracy_frame_mark(meta: &Metadata<'_>) -> bool {
     meta.fields().field("tracy.frame_mark").is_none()
 }
@@ -100,7 +102,7 @@ fn build_subscriber(
     json_path: Option<PathBuf>,
     terminal_log_buffer: Option<TerminalLogBuffer>,
     terminal_active: Option<TerminalActivityProbe>,
-    inactive_writer: Option<Arc<dyn Fn(&StructuredLogRecord) + Send + Sync>>,
+    inactive_writer: Option<InactiveWriter>,
 ) -> Result<impl tracing::Subscriber + Send + Sync + 'static> {
     let stderr_filter = EnvFilter::builder()
         .with_default_directive(level.clone())

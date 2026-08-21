@@ -73,7 +73,7 @@ fn breadcrumb_label(breadcrumb: &Breadcrumb) -> String {
                 }
             }
             if path.len() > 4 {
-                label.push_str("…");
+                label.push('…');
             }
             label
         }

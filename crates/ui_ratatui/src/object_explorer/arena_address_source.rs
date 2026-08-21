@@ -153,7 +153,7 @@ fn child_addresses<'mem>(
         })));
     }
     if let Ok(tuple) = value.into_tuple() {
-        if tuple.len() == 0 {
+        if tuple.is_empty() {
             return None;
         }
         return Some(Box::new(tuple.fields().enumerate().map(

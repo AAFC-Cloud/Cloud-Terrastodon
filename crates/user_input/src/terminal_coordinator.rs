@@ -52,6 +52,12 @@ impl TerminalActivity {
     }
 }
 
+impl Default for TerminalActivity {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 struct CoordinatorState {
     next_id: AtomicU64,
     poisoned: AtomicBool,
@@ -260,6 +266,12 @@ impl TerminalCoordinator {
     }
 }
 
+impl Default for TerminalCoordinator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(feature = "terminal_coordinator_debug")]
 pub struct DebugApplicationRoot {
     coordinator: TerminalCoordinator,
@@ -327,11 +339,11 @@ pub fn apply_terminal_control<B: TerminalBackend>(
 ) -> Result<()> {
     match &control {
         TerminalControl::Suspend { .. } => {
-            if backend.is_active() {
-                if let Err(error) = backend.suspend() {
-                    guard.poison(format!("terminal suspension failed: {error}"));
-                    return Err(error);
-                }
+            if backend.is_active()
+                && let Err(error) = backend.suspend()
+            {
+                guard.poison(format!("terminal suspension failed: {error}"));
+                return Err(error);
             }
             guard.acknowledge(&control).map_err(|error| {
                 guard.poison(format!(
@@ -341,11 +353,11 @@ pub fn apply_terminal_control<B: TerminalBackend>(
             })?;
         }
         TerminalControl::Resume { .. } => {
-            if !backend.is_active() {
-                if let Err(error) = backend.resume() {
-                    guard.poison(format!("terminal resume failed: {error}"));
-                    return Err(error);
-                }
+            if !backend.is_active()
+                && let Err(error) = backend.resume()
+            {
+                guard.poison(format!("terminal resume failed: {error}"));
+                return Err(error);
             }
             guard.acknowledge(&control).map_err(|error| {
                 guard.poison(format!("terminal resume acknowledgement failed: {error}"));

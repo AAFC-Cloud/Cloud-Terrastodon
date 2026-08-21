@@ -59,6 +59,10 @@ pub(crate) struct ProductionController {
 }
 
 impl ProductionController {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "production startup coordinates the arena, builders, invocations, and strategy"
+    )]
     pub(crate) fn start(
         &mut self,
         arena: &mut Arena,

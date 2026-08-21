@@ -85,7 +85,7 @@ impl HclAuditor for TerraformAuditor {
 }
 
 fn project_body(hcl: &HclProject) -> Body {
-    hcl.values().cloned().flatten().collect()
+    hcl.values().flatten().cloned().collect()
 }
 
 fn extract_terraform_block(mut body: Body) -> TerraformBlock {

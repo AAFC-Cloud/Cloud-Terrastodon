@@ -457,14 +457,13 @@ impl ObjectBrowserApp {
         direction: CardNavigation,
     ) -> Result<(), ObjectBrowserControllerError> {
         if self.selected_address() == CardAddress::NewSlot {
-            if direction == CardNavigation::Previous {
-                if let Some(card) = self
+            if direction == CardNavigation::Previous
+                && let Some(card) = self
                     .controller
                     .window()
                     .and_then(|window| window.cards().last())
-                {
-                    self.controller.focus(card.address().clone())?;
-                }
+            {
+                self.controller.focus(card.address().clone())?;
             }
             return Ok(());
         }

@@ -119,11 +119,10 @@ pub async fn fetch_pim_graph_access_token_interactive(
     let client_id = pim_client_id(&tenant_id).await?;
     let scopes = pim_graph_scopes();
     let authority = format!("https://login.microsoftonline.com/{tenant_id}");
-    let redirect_uri;
     let listener = TcpListener::bind(("127.0.0.1", 0))
         .await
         .wrap_err("binding the local OAuth callback listener")?;
-    redirect_uri = format!(
+    let redirect_uri = format!(
         "http://localhost:{}",
         listener
             .local_addr()

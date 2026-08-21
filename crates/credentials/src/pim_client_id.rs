@@ -12,7 +12,7 @@ pub async fn pim_client_id(tenant_id: &AzureTenantId) -> Result<EntraApplication
         if client_id.trim().is_empty() {
             bail!("{PIM_CLIENT_ID_ENV} must not be empty");
         }
-        return Ok(client_id.parse()?);
+        return client_id.parse();
     }
 
     let config = PimConfig::load().await?;

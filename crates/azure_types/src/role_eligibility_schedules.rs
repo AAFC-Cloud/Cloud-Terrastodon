@@ -113,13 +113,12 @@ impl std::fmt::Display for RoleEligibilitySchedule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "PIM(role={}, principal={}, scope={})",
-            &self
-                .properties
+            self.properties
                 .expanded_properties
                 .role_definition
                 .display_name,
-            &self.properties.expanded_properties.principal.display_name,
-            &self.properties.expanded_properties.scope.display_name,
+            self.properties.expanded_properties.principal.display_name,
+            self.properties.expanded_properties.scope.display_name,
         ))
     }
 }

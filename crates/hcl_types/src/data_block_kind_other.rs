@@ -26,7 +26,7 @@ impl FromStr for OtherDataBlockKind {
 }
 impl std::fmt::Display for OtherDataBlockKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", &self.provider))?;
+        f.write_fmt(format_args!("{}", self.provider))?;
         f.write_str("_")?;
         f.write_str(&self.resource)
     }

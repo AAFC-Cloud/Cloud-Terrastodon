@@ -59,7 +59,7 @@ where
             "Failed to find {} in manifest dir {} given path {}",
             full_path.display(),
             manifest_dir.display(),
-            &path
+            path
         ))?;
     let mut ast = parse_file(&content).wrap_err_with(|| {
         format!(

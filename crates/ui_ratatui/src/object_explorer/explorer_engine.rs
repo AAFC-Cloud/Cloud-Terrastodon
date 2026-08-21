@@ -254,6 +254,10 @@ fn allocate_query_session(next_query_session: &mut u64) -> QuerySessionId {
     session
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the explorer engine passes its coordinated mutable subsystems explicitly"
+)]
 async fn begin_and_serve_export(
     arena: &mut Arena,
     builders: &mut BuilderStore,
@@ -315,6 +319,10 @@ enum ExportExit {
     InboxClosed,
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the export loop requires all coordinated engine subsystems"
+)]
 async fn serve_export(
     arena: &mut Arena,
     builders: &mut BuilderStore,
@@ -392,7 +400,6 @@ async fn serve_export(
 
     // All Facet Peeks/iterators are gone before deferred mutation resumes.
     drop(export);
-    drop(source);
 
     let deferred = match &exit {
         ExportExit::End {
@@ -450,6 +457,10 @@ enum BrowseExit {
     InboxClosed,
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the browse loop requires all coordinated engine subsystems"
+)]
 async fn serve_browse(
     arena: &mut Arena,
     builders: &mut BuilderStore,
@@ -676,7 +687,6 @@ async fn serve_browse(
         // or a coherent export barrier. The logical browse session does.
         drop(cursor);
         drop(candidate_cursor);
-        drop(source);
 
         match exit {
             BrowseExit::Mutation(command) => {
@@ -836,7 +846,6 @@ fn observe_value_candidate_progress(
             let candidates = window
                 .addresses()
                 .iter()
-                .cloned()
                 .map(|address| {
                     ValueCandidate::resolve(source, address.clone())
                         .ok_or_else(|| format!("candidate address {address} no longer resolves"))
