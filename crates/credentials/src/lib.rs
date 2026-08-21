@@ -41,7 +41,9 @@ mod jwt;
 mod pim_client_id;
 mod pim_config;
 mod pim_graph_access_token;
+#[cfg(windows)]
 mod windows_credential_manager;
+#[cfg(windows)]
 mod windows_credential_manager_target_name;
 
 pub use auth_bearer_ext::*;
@@ -58,4 +60,5 @@ pub use pim_config::*;
 pub use pim_graph_access_token::*;
 #[cfg(windows)]
 pub use windows_credential_manager::*;
+#[cfg(windows)]
 pub use windows_credential_manager_target_name::*;

@@ -117,7 +117,7 @@ fn ui_work_dir_row(
         let rect = response.rect;
 
         // Preview insertion:
-        let stroke = Stroke::new(1.0, Color32::WHITE);
+        let stroke = Stroke::new(1.0_f32, Color32::WHITE);
         let destination_index = if *source_index == index {
             // We are dragged onto ourselves
             ui.painter().hline(rect.x_range(), rect.center().y, stroke);

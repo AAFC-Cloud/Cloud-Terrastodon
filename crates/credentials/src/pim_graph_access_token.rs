@@ -39,6 +39,7 @@ pub const DEFAULT_PIM_GRAPH_SCOPES: &[&str] = &[
     "offline_access",
 ];
 
+#[cfg(windows)]
 const PIM_REFRESH_TOKEN_TARGET_PREFIX: &str = "cloud-terrastodon:pim:refresh-token";
 
 #[derive(Clone)]
@@ -476,7 +477,7 @@ fn store_pim_refresh_token(
 #[cfg(not(windows))]
 fn store_pim_refresh_token(
     _tenant_id: &AzureTenantId,
-    _client_id: &str,
+    _client_id: &EntraApplicationClientId,
     _refresh_token: &str,
 ) -> Result<()> {
     Ok(())
@@ -503,7 +504,7 @@ fn delete_pim_refresh_token(tenant_id: &AzureTenantId, client_id: &EntraApplicat
 }
 
 #[cfg(not(windows))]
-fn delete_pim_refresh_token(_tenant_id: &AzureTenantId, _client_id: &str) {}
+fn delete_pim_refresh_token(_tenant_id: &AzureTenantId, _client_id: &EntraApplicationClientId) {}
 
 fn form_urlencoded(parameters: &[(&str, &str)]) -> String {
     parameters
