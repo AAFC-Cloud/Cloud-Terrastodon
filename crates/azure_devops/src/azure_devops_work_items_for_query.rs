@@ -1,4 +1,5 @@
 #![allow(deprecated)]
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops_types::WorkItemQueryResult;
@@ -128,4 +129,3 @@ mod test {
         bail!("Failed to find any work items");
     }
 }
-use arbitrary::Arbitrary;

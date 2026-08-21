@@ -1,4 +1,5 @@
 use crate::AzureDevOpsProjectArgument;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
@@ -138,4 +139,3 @@ mod test {
         Ok(())
     }
 }
-use arbitrary::Arbitrary;

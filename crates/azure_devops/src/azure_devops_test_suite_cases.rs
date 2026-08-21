@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::SuiteTestCase;
@@ -127,4 +128,3 @@ mod test {
         bail!("Failed to find any test plans in any project");
     }
 }
-use arbitrary::Arbitrary;

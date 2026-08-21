@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::ArbitraryJson;
@@ -106,4 +107,3 @@ mod test {
         Ok(())
     }
 }
-use arbitrary::Arbitrary;
