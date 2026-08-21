@@ -60,7 +60,6 @@ hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["v4", "arbitrary"] }
 chrono = { version = "0.4.38", features = ["arbitrary"] }
 rand = "0.10.1"
-teamy-mft = { git = "https://github.com/TeamDman/teamy-mft.git", rev = "42e6e21bd0a579955aef57282730394338f6bf9f" }
 teamy-cancellation = "0.2.0"
 test-log = { version = "0.2.16", features = ["trace"] }
 iso8601-duration = { version = "0.2.0", features = ["chrono"] }
@@ -200,11 +199,6 @@ path = "./crates/credentials"
 version = "0.36.0"            # CT_VERSION
 path = "./crates/rest"
 
-[workspace.dependencies.cloud_terrastodon_software]
-version = "0.36.0"             # CT_VERSION
-path = "./crates/software"
-
-
 [package]
 name = "cloud_terrastodon"
 version = "0.36.0"                                                        # CT_VERSION
@@ -250,7 +244,6 @@ cloud_terrastodon_ui_ratatui = { workspace = true, optional = true }
 cloud_terrastodon_ui_egui = { workspace = true, optional = true }
 cloud_terrastodon_credentials = { workspace = true, optional = true }
 cloud_terrastodon_rest = { workspace = true, optional = true }
-cloud_terrastodon_software = { workspace = true, optional = true }
 
 [features]
 default = ["full"]
@@ -293,7 +286,6 @@ ui-ratatui = ["dep:cloud_terrastodon_ui_ratatui"]
 ui-egui = ["dep:cloud_terrastodon_ui_egui"]
 credentials = ["dep:cloud_terrastodon_credentials"]
 rest = ["dep:cloud_terrastodon_rest"]
-software = ["dep:cloud_terrastodon_software"]
 
 # Convenience feature that enables all re-exports, similar to tokio's `full`.
 full = [
@@ -316,7 +308,6 @@ full = [
     "ui-egui",
     "credentials",
     "rest",
-    "software",
 ]
 
 [[bin]]

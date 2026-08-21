@@ -1,3 +1,4 @@
+#!/usr/bin/pwsh
 cargo build --release --locked
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Build failed, not updating exe in path."

@@ -19,7 +19,6 @@ pub mod perform_code_generation_from_imports;
 pub mod pick;
 pub mod ratatui;
 pub mod rest;
-pub mod software;
 pub mod terraform;
 pub mod write_all_imports;
 
@@ -43,7 +42,6 @@ use crate::cli::perform_code_generation_from_imports::PerformCodeGenerationFromI
 use crate::cli::pick::PickArgs;
 use crate::cli::ratatui::RatatuiArgs;
 use crate::cli::rest::RestArgs;
-use crate::cli::software::SoftwareArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
 use eyre::Result;
@@ -81,8 +79,6 @@ pub enum CloudTerrastodonCommand {
     Outage(OutageArgs),
     /// Issue raw REST requests with service-specific authentication.
     Rest(RestArgs),
-    /// Discover software manifests via teamy-mft-backed queries.
-    Software(SoftwareArgs),
     /// Copy the latest run results to another location.
     CopyResults(CopyResultsArgs),
     /// Register a directory as a working directory.
@@ -117,7 +113,7 @@ impl<'a> Arbitrary<'a> for CloudTerrastodonCommand {
 cloud_terrastodon_registry::register_thing!(CloudTerrastodonCommand);
 cloud_terrastodon_registry::register_arbitrary!(CloudTerrastodonCommand);
 impl CloudTerrastodonCommand {
-    pub async fn invoke(self, cancellation_token: &CancellationToken) -> Result<()> {
+    pub async fn invoke(self, _cancellation_token: &CancellationToken) -> Result<()> {
         match self {
             CloudTerrastodonCommand::Ratatui(args) => args.invoke().await,
             CloudTerrastodonCommand::Egui(args) => args.invoke().await,
@@ -131,7 +127,6 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::Nslookup(args) => args.invoke().await,
             CloudTerrastodonCommand::Outage(args) => args.invoke().await,
             CloudTerrastodonCommand::Rest(args) => args.invoke_and_print().await,
-            CloudTerrastodonCommand::Software(args) => args.invoke(cancellation_token).await,
             CloudTerrastodonCommand::CopyResults(args) => args.invoke().await,
             CloudTerrastodonCommand::AddWorkDir(args) => args.invoke().await,
             CloudTerrastodonCommand::Terraform(args) => args.invoke().await,
