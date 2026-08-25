@@ -13,6 +13,8 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_command::run_cached_work;
 use cloud_terrastodon_command::to_vec_pretty;
 use cloud_terrastodon_command::write_failure_with_extra_files;
+use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AuthSource;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::ContextCompat;
@@ -44,6 +46,11 @@ pub enum RestOutputFormat {
 
 #[derive(Debug, Clone)]
 pub struct RestRequest {
+    /// Authentication is request-scoped. The optional value keeps the
+    /// low-level builder source-compatible for non-CLI callers while callers
+    /// that have an invocation context should always set it with
+    /// [`RestRequest::auth_context`].
+    pub auth_context: Option<AuthContext>,
     pub service: RestService,
     pub method: Method,
     pub url: Url,
@@ -65,6 +72,7 @@ impl RestRequest {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
         Ok(Self {
+            auth_context: None,
             service,
             method,
             url,
@@ -76,6 +84,11 @@ impl RestRequest {
             output_format: RestOutputFormat::default(),
             failure_extra_files: None,
         })
+    }
+
+    pub fn auth_context(mut self, auth_context: &AuthContext) -> Self {
+        self.auth_context = Some(auth_context.clone());
+        self
     }
 
     pub fn body(mut self, body: impl Into<String>) -> Self {
@@ -163,7 +176,15 @@ impl RestRequest {
 
     async fn execute_without_cache_inner(self) -> Result<SerializableRestResponse> {
         let start = Instant::now();
+        // Direct library users predate the CLI invocation context. Keep that
+        // API usable, but make the compatibility resolution local to this
+        // request rather than storing policy in process-global state.
+        let auth_context = match self.auth_context {
+            Some(auth_context) => auth_context,
+            None => AuthContext::resolve(AuthSource::Auto)?,
+        };
         let response = execute_rest_request(
+            &auth_context,
             self.service,
             self.method,
             self.url,

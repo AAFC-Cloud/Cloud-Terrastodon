@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::future::Future;
+use std::io::IsTerminal;
 use std::panic::Location;
 use std::path::Path;
 use std::path::PathBuf;
@@ -415,6 +416,10 @@ impl CommandBuilder {
                     // Return the result
                     return output;
                 },
+                // Legacy Azure CLI compatibility: once Azure/Graph/Azure DevOps
+                // operations have migrated to the REST request helpers, this
+                // reauthentication-and-retry path should be removed with the
+                // remaining CLI-backed commands.
                 RetryBehaviour::Retry
                     if [
                         "AADSTS70043",
@@ -427,6 +432,11 @@ impl CommandBuilder {
                     .into_iter()
                     .any(|x| output.stderr.contains_str(x)) =>
                 {
+                    if !allow_interactive_reauthentication() {
+                        bail!(
+                            "Command failed due to an authentication challenge; interactive Azure CLI reauthentication is disabled for the selected/headless authentication source"
+                        );
+                    }
                     if std::env::var("CLOUD_TERRASTODON_REAUTH").unwrap_or_default().to_uppercase() == "DENY" {
                         bail!("Command failed due to bad auth, and automatic reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again.")
                     }
@@ -467,6 +477,7 @@ impl CommandBuilder {
                                 );
                                 CommandBuilder::new(CommandKind::AzureCLI)
                                     .arg("login")
+                                    .use_output_behaviour(OutputBehaviour::Display)
                                     .run_raw_from(caller)
                                     .await?;
                             } else {
@@ -901,5 +912,79 @@ impl CommandBuilder {
             None,
         )
         .await
+    }
+}
+
+fn allow_interactive_reauthentication() -> bool {
+    // Presence of any WIF input means Auto must not turn a failed token
+    // request into an unrelated interactive Azure CLI login. The credentials
+    // crate provides the detailed completeness error at the actual boundary.
+    let has_workload_identity_input = [
+        "AZURE_CLIENT_ID",
+        "servicePrincipalId",
+        "AZURE_TENANT_ID",
+        "tenantId",
+        "AZURE_FEDERATED_TOKEN",
+        "idToken",
+    ]
+    .into_iter()
+    .any(|name| std::env::var_os(name).is_some());
+    let headless = std::env::var("CI")
+        .or_else(|_| std::env::var("TF_BUILD"))
+        .or_else(|_| std::env::var("BUILD_BUILDID"))
+        .is_ok_and(|value| !value.is_empty())
+        || !std::io::stdin().is_terminal();
+    allow_interactive_reauthentication_for("auto", has_workload_identity_input, headless)
+}
+
+fn allow_interactive_reauthentication_for(
+    selected_source: &str,
+    has_workload_identity_input: bool,
+    headless: bool,
+) -> bool {
+    if matches!(
+        selected_source,
+        "workload-identity"
+            | "workload_identity"
+            | "wif"
+            | "browser"
+            | "delegated"
+            | "pat"
+            | "personal-access-token"
+            | "personal_access_token"
+    ) || has_workload_identity_input
+        || headless
+    {
+        return false;
+    }
+    true
+}
+
+#[cfg(test)]
+mod auth_retry_tests {
+    use super::allow_interactive_reauthentication_for;
+
+    #[test]
+    fn headless_and_wif_contexts_never_allow_cli_login() {
+        assert!(!allow_interactive_reauthentication_for("auto", true, false));
+        assert!(!allow_interactive_reauthentication_for("auto", false, true));
+        assert!(!allow_interactive_reauthentication_for(
+            "workload-identity",
+            false,
+            false
+        ));
+        assert!(!allow_interactive_reauthentication_for(
+            "browser", false, false
+        ));
+        assert!(!allow_interactive_reauthentication_for("pat", false, false));
+    }
+
+    #[test]
+    fn explicit_local_context_can_reauthenticate() {
+        assert!(allow_interactive_reauthentication_for(
+            "azure-cli",
+            false,
+            false
+        ));
     }
 }

@@ -44,6 +44,7 @@ use crate::cli::ratatui::RatatuiArgs;
 use crate::cli::rest::RestArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use teamy_cancellation::CancellationToken;
 
@@ -109,7 +110,11 @@ impl<'a> Arbitrary<'a> for CloudTerrastodonCommand {
 cloud_terrastodon_registry::register_thing!(CloudTerrastodonCommand);
 cloud_terrastodon_registry::register_arbitrary!(CloudTerrastodonCommand);
 impl CloudTerrastodonCommand {
-    pub async fn invoke(self, _cancellation_token: &CancellationToken) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation_token: &CancellationToken,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         match self {
             CloudTerrastodonCommand::Ratatui(args) => args.invoke().await,
             CloudTerrastodonCommand::Egui(args) => args.invoke().await,
@@ -122,7 +127,9 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::GetPath(args) => args.invoke().await,
             CloudTerrastodonCommand::Nslookup(args) => args.invoke().await,
             CloudTerrastodonCommand::Outage(args) => args.invoke().await,
-            CloudTerrastodonCommand::Rest(args) => args.invoke_and_print().await,
+            CloudTerrastodonCommand::Rest(args) => {
+                args.invoke_and_print_with_auth_context(auth_context).await
+            }
             CloudTerrastodonCommand::CopyResults(args) => args.invoke().await,
             CloudTerrastodonCommand::AddWorkDir(args) => args.invoke().await,
             CloudTerrastodonCommand::Terraform(args) => args.invoke().await,

@@ -152,6 +152,7 @@ mod test {
     }
 
     #[tokio::test]
+    // #[ignore = "requires a signed-in Azure CLI and live Azure access"]
     pub async fn it_works() -> eyre::Result<()> {
         super::get_azure_access_token_jwt().await?;
         Ok(())

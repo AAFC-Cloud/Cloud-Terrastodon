@@ -1,11 +1,15 @@
+use crate::azure_devops_rest::azure_devops_api_url;
+use crate::azure_devops_rest::page_cache_key;
+use crate::azure_devops_rest::receive_azure_devops_page;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsGroup;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
+use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
@@ -54,42 +58,52 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsListRe
     async fn run(self) -> eyre::Result<Self::Output> {
         let project = &self.project;
         debug!("Fetching Azure DevOps groups for project {project}");
-
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        let org = self.org_url.to_string();
-        cmd.args([
-            "devops",
-            "security",
-            "group",
-            "list",
-            "--organization",
-            org.as_str(),
-            "--project",
-            &project.to_string(),
-            "--output",
-            "json",
-        ]);
-        cmd.cache(self.cache_key());
-
-        #[derive(facet::Facet)]
+        #[derive(Facet)]
         #[facet(rename_all = "camelCase")]
         struct Response {
-            continuation_token: Option<String>,
-            graph_groups: Vec<AzureDevOpsGroup>,
+            #[facet(rename = "graphGroups")]
+            graph_groups: Option<Vec<AzureDevOpsGroup>>,
+            value: Option<Vec<AzureDevOpsGroup>>,
         }
 
-        let response = cmd.run::<Response>().await?;
-        assert!(
-            response.continuation_token.is_none(),
-            "Continuation token found in Azure DevOps group list response"
-        );
+        let mut groups = Vec::new();
+        let mut continuation = None;
+        let cache_key = self.cache_key();
+        let mut page_index = 0;
+        loop {
+            let project = project.to_string();
+            let mut query = vec![
+                ("api-version", "7.1-preview.1"),
+                ("scopeDescriptor", project.as_str()),
+            ];
+            if let Some(token) = continuation.as_deref() {
+                query.push(("continuationToken", token));
+            }
+            let url = azure_devops_api_url(
+                &self.org_url,
+                "vssps.dev.azure.com",
+                "_apis/graph/groups",
+                &query,
+            )?;
+            let request = RestRequest::new(Method::GET, url)?;
+            let (response, next_continuation) = receive_azure_devops_page::<Response>(
+                request.cache(page_cache_key(&cache_key, page_index)),
+            )
+            .await?;
+            groups.extend(response.graph_groups.or(response.value).unwrap_or_default());
+            continuation = next_continuation;
+            page_index += 1;
+            if continuation.is_none() {
+                break;
+            }
+        }
 
         debug!(
             "Found {} Azure DevOps groups for project {}",
-            response.graph_groups.len(),
+            groups.len(),
             project
         );
-        Ok(response.graph_groups)
+        Ok(groups)
     }
 }
 

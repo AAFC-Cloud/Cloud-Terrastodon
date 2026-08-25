@@ -24,6 +24,7 @@ mod test {
     use facet_json::RawJson;
 
     #[tokio::test]
+    // #[ignore = "requires a PAT and live Azure DevOps access"]
     pub async fn it_works() -> eyre::Result<()> {
         let url = "https://dev.azure.com/aafc/_apis/projects?api-version=7.1";
 

@@ -37,7 +37,7 @@ impl IntoFuture for DefaultAzureDevOpsOrganizationUrlRequest {
             let org = config
                 .lines()
                 .find(|line| line.contains("organization"))
-                .ok_or_eyre("Expected organization to be configured using `az devops configure --defaults organization=https://dev.azure.com/myorg/`")?;
+                .ok_or_eyre("Expected organization to be configured using `az devops configure --defaults organization=https://dev.azure.com/myorg/` followed by `cloud_terrastodon clean` to empty the invalid cache.")?;
             let Some((_, org)) = org.rsplit_once('=') else {
                 bail!("Missing equal sign delimiting value, found {org:?}");
             };

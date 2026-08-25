@@ -3,6 +3,7 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestService;
 use cloud_terrastodon_rest::SerializableRestResponse;
@@ -83,6 +84,14 @@ impl<'a> Arbitrary<'a> for RestArgs {
 }
 impl RestArgs {
     pub async fn invoke(self) -> Result<SerializableRestResponse> {
+        let auth_context = AuthContext::resolve(cloud_terrastodon_credentials::AuthSource::Auto)?;
+        self.invoke_with_auth_context(&auth_context).await
+    }
+
+    pub async fn invoke_with_auth_context(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<SerializableRestResponse> {
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
@@ -104,7 +113,7 @@ impl RestArgs {
         };
         let body = read_optional_body(self.body).await?;
         let headers = read_optional_headers(self.headers).await?;
-        let mut request = RestRequest::new(self.method.0, url.as_str())?;
+        let mut request = RestRequest::new(self.method.0, url.as_str())?.auth_context(auth_context);
         request.service = service;
         request.body = body;
         request.headers = headers;
@@ -113,11 +122,19 @@ impl RestArgs {
     }
 
     pub async fn invoke_and_print(self) -> Result<()> {
+        let auth_context = AuthContext::resolve(cloud_terrastodon_credentials::AuthSource::Auto)?;
+        self.invoke_and_print_with_auth_context(&auth_context).await
+    }
+
+    pub async fn invoke_and_print_with_auth_context(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         let output_format = match self.output_format {
             RestOutputFormat::Text => cloud_terrastodon_rest::RestOutputFormat::Text,
             RestOutputFormat::Json => cloud_terrastodon_rest::RestOutputFormat::Json,
         };
-        let response = self.invoke().await?;
+        let response = self.invoke_with_auth_context(auth_context).await?;
         response.write(output_format, std::io::stdout())
     }
 }

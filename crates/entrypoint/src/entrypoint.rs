@@ -58,6 +58,9 @@ pub fn entrypoint(
     .run()
     .unwrap();
 
+    let auth_context =
+        cloud_terrastodon_credentials::AuthContext::resolve(cli.global_args.auth_source)?;
+
     // Configure backtrace-always
     if cli.global_args.debug {
         unsafe { std::env::set_var("RUST_BACKTRACE", "full") };
@@ -131,7 +134,7 @@ pub fn entrypoint(
     // requests may own substantial nested futures (the picker is one example), and the CLI
     // future contains the whole command dispatch tree around them.
     let invocation = Box::pin(
-        cli.invoke(&cancellation_token)
+        cli.invoke(&cancellation_token, &auth_context)
             .instrument(info_span!("cli_invocation"))
             .with_terminal_coordinator(terminal_coordinator.clone()),
     );

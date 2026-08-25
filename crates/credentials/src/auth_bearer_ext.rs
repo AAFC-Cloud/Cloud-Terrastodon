@@ -1,3 +1,4 @@
+use crate::AzureBearerToken;
 use crate::AzureDevOpsPersonalAccessToken;
 use base64::prelude::BASE64_STANDARD;
 use base64::write::EncoderWriter;
@@ -31,11 +32,48 @@ impl AuthBearerExt for String {
 }
 impl<T: AsRef<str>> AuthBearerExt for AzureAccessToken<T> {
     fn as_authorization_header_value(&self) -> HeaderValue {
-        self.access_token.as_ref().as_authorization_header_value()
+        bearer_header(self.access_token.as_ref())
     }
 }
 impl AuthBearerExt for AzureDevOpsPersonalAccessToken {
     fn as_authorization_header_value(&self) -> HeaderValue {
         self.as_str().as_authorization_header_value()
+    }
+}
+impl AuthBearerExt for AzureBearerToken {
+    fn as_authorization_header_value(&self) -> HeaderValue {
+        bearer_header(self.as_str())
+    }
+}
+
+fn bearer_header(token: &str) -> HeaderValue {
+    let mut header = HeaderValue::from_str(&format!("Bearer {token}"))
+        .expect("access tokens are expected to contain valid HTTP header bytes");
+    header.set_sensitive(true);
+    header
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::AzureBearerToken;
+    use crate::AzureDevOpsPersonalAccessToken;
+
+    #[test]
+    fn bearer_and_pat_headers_are_distinct() {
+        let bearer = AzureBearerToken::new("access-token")
+            .as_authorization_header_value()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        assert_eq!(bearer, "Bearer access-token");
+
+        let pat = AzureDevOpsPersonalAccessToken::new("pat-token")
+            .as_authorization_header_value()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        assert!(pat.starts_with("Basic "));
+        assert_ne!(bearer, pat);
     }
 }
