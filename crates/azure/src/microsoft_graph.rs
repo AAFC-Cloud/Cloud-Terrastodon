@@ -36,6 +36,31 @@ impl MicrosoftGraphHelper {
 
     /// This doesn't handle 'singleton' responses like https://graph.microsoft.com/v1.0/me
     pub async fn fetch_all<T: FromCommandOutput>(&self) -> Result<Vec<T>> {
+        match self.fetch_all_once().await {
+            Ok(results) => Ok(results),
+            Err((error, true)) => {
+                let Some(cache_key) = self.cache_key.as_ref() else {
+                    return Err(error);
+                };
+
+                tracing::debug!(
+                    %error,
+                    path = %cache_key.path.display(),
+                    "Invalidating paginated Microsoft Graph cache before retry"
+                );
+                cache_key.invalidate().await?;
+                self.fetch_all_once().await.map_err(|(retry_error, _)| {
+                    retry_error
+                        .wrap_err("cached retry after invalidating Graph continuation failed")
+                })
+            }
+            Err((error, _)) => Err(error),
+        }
+    }
+
+    async fn fetch_all_once<T: FromCommandOutput>(
+        &self,
+    ) -> std::result::Result<Vec<T>, (eyre::Report, bool)> {
         let mut results = Vec::new();
         let mut next_link = NextLink::Uninitialized;
         let mut request_index = 0;
@@ -47,7 +72,9 @@ impl MicrosoftGraphHelper {
                 NextLink::StopIteration => break,
             };
 
-            let mut request = self.get_request(url)?;
+            let mut request = self
+                .get_request(url)
+                .map_err(|error| (error, request_index > 0))?;
             if let Some(ref cache_key) = self.cache_key {
                 request.cache_key = Some(CacheKey {
                     path: cache_key.path.join(request_index.to_string()),
@@ -55,7 +82,10 @@ impl MicrosoftGraphHelper {
                 });
             }
 
-            let mut response = request.receive::<MicrosoftGraphResponse<T>>().await?;
+            let mut response = request
+                .receive::<MicrosoftGraphResponse<T>>()
+                .await
+                .map_err(|error| (error, request_index > 0))?;
             request_index += 1;
 
             // Update next link for pagination
