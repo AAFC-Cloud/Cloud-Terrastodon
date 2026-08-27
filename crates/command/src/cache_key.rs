@@ -9,10 +9,23 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tracing::debug;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct CacheKey {
     pub path: PathBuf,
     pub valid_for: Duration,
+}
+
+impl core::fmt::Debug for CacheKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut rtn = &mut f.debug_struct("CacheKey");
+        rtn = rtn.field("path", &self.path);
+        rtn = if self.valid_for == Duration::MAX {
+            rtn.field("valid_for", &"FOREVER")
+        } else {
+            rtn.field("valid_for", &humantime::format_duration(self.valid_for))
+        };
+        rtn.finish()
+    }
 }
 
 pub trait HasCacheKey {

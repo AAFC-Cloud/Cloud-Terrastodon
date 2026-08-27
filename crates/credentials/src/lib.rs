@@ -31,7 +31,10 @@
 //! idk what to think.
 
 mod auth_bearer_ext;
+mod auth_context;
+mod auth_source;
 mod azure_access_token;
+mod azure_bearer_token;
 mod azure_claims;
 mod azure_devops_pat;
 mod azure_devops_rest_client;
@@ -45,9 +48,13 @@ mod pim_graph_access_token;
 mod windows_credential_manager;
 #[cfg(windows)]
 mod windows_credential_manager_target_name;
+mod workload_identity;
 
 pub use auth_bearer_ext::*;
+pub use auth_context::*;
+pub use auth_source::*;
 pub use azure_access_token::*;
+pub use azure_bearer_token::*;
 pub use azure_claims::*;
 pub use azure_devops_pat::*;
 pub use azure_devops_rest_client::*;
@@ -62,3 +69,4 @@ pub use pim_graph_access_token::*;
 pub use windows_credential_manager::*;
 #[cfg(windows)]
 pub use windows_credential_manager_target_name::*;
+pub use workload_identity::*;

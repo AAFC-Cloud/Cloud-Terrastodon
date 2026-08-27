@@ -6,9 +6,9 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::create_azure_devops_rest_client;
-use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
+use cloud_terrastodon_rest::RestRequest;
 use facet_json::RawJson;
+use reqwest::Method;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -147,14 +147,13 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             organization = organization,
             subject_descriptor = subject_descriptor
         );
-        let client = create_azure_devops_rest_client(
-            &get_azure_devops_personal_access_token_from_credential_manager().await?,
-        )
-        .await?;
-        let resp = client.get(url).send().await?;
-        Ok(AzureDevOpsGroupMembersV2Response(RawJson::from_owned(
-            resp.text().await?,
-        )))
+        let response = RestRequest::new(Method::GET, url)?
+            .cache(self.cache_key())
+            .receive_raw()
+            .await?;
+        Ok(AzureDevOpsGroupMembersV2Response(
+            response.into_json_body()?,
+        ))
     }
 }
 

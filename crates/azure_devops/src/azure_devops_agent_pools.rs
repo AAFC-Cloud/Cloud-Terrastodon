@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsAgentPool;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
@@ -101,4 +102,3 @@ mod test {
         Ok(())
     }
 }
-use arbitrary::Arbitrary;

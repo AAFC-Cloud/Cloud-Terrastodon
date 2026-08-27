@@ -12,10 +12,22 @@ pub struct CommandsConfig {
 impl Default for CommandsConfig {
     fn default() -> Self {
         Self {
+            #[cfg(windows)]
             azure_cli: "az.cmd".to_string(),
+            #[cfg(not(windows))]
+            azure_cli: "az".to_string(),
+            #[cfg(windows)]
             tofu: "tofu.exe".to_string(),
+            #[cfg(not(windows))]
+            tofu: "tofu".to_string(),
+            #[cfg(windows)]
             terraform: "terraform.exe".to_string(),
+            #[cfg(not(windows))]
+            terraform: "terraform".to_string(),
+            #[cfg(windows)]
             vscode: "code.cmd".to_string(),
+            #[cfg(not(windows))]
+            vscode: "code".to_string(),
         }
     }
 }

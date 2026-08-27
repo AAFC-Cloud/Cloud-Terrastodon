@@ -4,6 +4,7 @@ pub mod global_args;
 pub(crate) mod scalar_args;
 
 use crate::menu::menu_loop;
+use cloud_terrastodon_credentials::AuthContext;
 pub use command::*;
 pub use global_args::GlobalArgs;
 use teamy_cancellation::CancellationToken;
@@ -34,9 +35,13 @@ impl<'a> Arbitrary<'a> for Cli {
 cloud_terrastodon_registry::register_thing!(Cli);
 cloud_terrastodon_registry::register_arbitrary!(Cli);
 impl Cli {
-    pub async fn invoke(self, cancellation_token: &CancellationToken) -> eyre::Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation_token: &CancellationToken,
+        auth_context: &AuthContext,
+    ) -> eyre::Result<()> {
         match self.command {
-            Some(cmd) => cmd.invoke(cancellation_token).await,
+            Some(cmd) => cmd.invoke(cancellation_token, auth_context).await,
             None => {
                 menu_loop().await?;
                 Ok(())

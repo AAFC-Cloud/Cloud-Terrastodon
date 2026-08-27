@@ -4,7 +4,7 @@ use chrono::DateTime;
 use chrono::Local;
 use std::fmt::Debug;
 
-#[derive(PartialEq, facet::Facet)]
+#[derive(Clone, PartialEq, facet::Facet)]
 pub struct AzureAccessToken<T> {
     #[facet(rename = "accessToken")]
     #[facet(sensitive)]

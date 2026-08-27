@@ -2,7 +2,7 @@ use cloud_terrastodon_command::CommandBuilder;
 
 pub const AZURE_DEVOPS_RESOURCE_ID: &str = "499b84ac-1321-427f-aa17-267ca6975798";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AzureRestResource {
     MicrosoftGraph,
     AzureResourceManager,
@@ -10,6 +10,10 @@ pub enum AzureRestResource {
 }
 
 impl AzureRestResource {
+    pub fn scope(self) -> &'static str {
+        crate::workload_identity::resource_scope(self)
+    }
+
     pub(crate) fn apply_access_token_args(self, cmd: &mut CommandBuilder) {
         match self {
             AzureRestResource::MicrosoftGraph => {

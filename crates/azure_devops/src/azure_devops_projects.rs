@@ -1,15 +1,18 @@
+use crate::azure_devops_rest::azure_devops_api_url;
+use crate::azure_devops_rest::page_cache_key;
+use crate::azure_devops_rest::receive_azure_devops_page;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
+use facet::Facet;
+use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
-use tracing::field::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsProjectsListRequest<'a> {
@@ -48,36 +51,38 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
 
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching Azure DevOps projects");
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args([
-            "devops",
-            "project",
-            "list",
-            "--organization",
-            self.org_url.to_string().as_ref(),
-            "--output",
-            "json",
-        ]);
-        cmd.cache(self.cache_key());
-
-        #[derive(facet::Facet)]
+        #[derive(Facet)]
+        #[facet(rename_all = "camelCase")]
         pub struct Response {
-            #[facet(rename = "continuationToken")]
-            continuation_token: Option<String>,
             value: Vec<AzureDevOpsProject>,
         }
 
         let mut projects = Vec::new();
-        let mut response = cmd.run::<Response>().await?;
+        let cache_key = self.cache_key();
+        let mut page_index = 0;
+        let query = [("api-version", "7.1")];
+        let url = azure_devops_api_url(&self.org_url, "dev.azure.com", "_apis/projects", &query)?;
+        let (mut response, mut continuation) = receive_azure_devops_page::<Response>(
+            RestRequest::new(Method::GET, url)?.cache(page_cache_key(&cache_key, page_index)),
+        )
+        .await?;
         projects.extend(response.value);
+        page_index += 1;
 
-        while let Some(continuation) = &response.continuation_token {
-            debug("Fetching the next page of projects");
-            let mut next_page_cmd = cmd.clone();
-            next_page_cmd.args(["--continuation-token", continuation.as_ref()]);
-
-            response = next_page_cmd.run::<Response>().await?;
+        while let Some(next_continuation) = continuation.take() {
+            debug!("Fetching the next page of projects");
+            let query = [
+                ("api-version", "7.1"),
+                ("continuationToken", next_continuation.as_str()),
+            ];
+            let url =
+                azure_devops_api_url(&self.org_url, "dev.azure.com", "_apis/projects", &query)?;
+            (response, continuation) = receive_azure_devops_page(
+                RestRequest::new(Method::GET, url)?.cache(page_cache_key(&cache_key, page_index)),
+            )
+            .await?;
             projects.extend(response.value);
+            page_index += 1;
         }
 
         debug!("Found {} Azure DevOps projects", projects.len());

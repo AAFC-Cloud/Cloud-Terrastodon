@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
@@ -115,4 +116,3 @@ mod test {
         Ok(())
     }
 }
-use arbitrary::Arbitrary;

@@ -11,6 +11,7 @@ mod azure_devops_project_member_list;
 mod azure_devops_project_pick_request;
 mod azure_devops_projects;
 mod azure_devops_repos;
+mod azure_devops_rest;
 mod azure_devops_service_endpoint;
 mod azure_devops_team;
 mod azure_devops_team_member;

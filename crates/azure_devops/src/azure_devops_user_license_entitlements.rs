@@ -1,10 +1,14 @@
+use crate::azure_devops_rest::azure_devops_api_url;
+use crate::azure_devops_rest::page_cache_key;
+use crate::azure_devops_rest::receive_azure_devops_page;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use facet_json::RawJson;
+use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
+use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
@@ -49,33 +53,44 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
 
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!("Fetching Azure DevOps user entitlements");
-
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["devops", "invoke"]);
-        let org = self.org_url.to_string();
-        cmd.args(["--organization", org.as_str()]);
-        cmd.args(["--area", "licensing"]);
-        cmd.args(["--resource", "entitlements"]);
-        cmd.args(["--api-version", "7.2-preview"]);
-        cmd.args(["--encoding", "utf-8"]);
-        cmd.cache(self.cache_key());
-
-        #[derive(facet::Facet)]
+        #[derive(Facet)]
+        #[facet(rename_all = "camelCase")]
         struct InvokeResponse {
-            continuation_token: Option<RawJson<'static>>,
             count: u32,
             value: Vec<AzureDevOpsUserLicenseEntitlement>,
         }
 
-        let resp = cmd.run::<InvokeResponse>().await?;
-        let entitlements = resp.value;
-
-        debug!("Found {} Azure DevOps user entitlements", resp.count);
-
-        if resp.continuation_token.is_some() {
-            todo!("Add support for continuation token...");
+        let mut entitlements = Vec::new();
+        let mut continuation = None;
+        let mut count = 0;
+        let cache_key = self.cache_key();
+        let mut page_index = 0;
+        loop {
+            let mut query = vec![("api-version", "7.1-preview.3")];
+            if let Some(token) = continuation.as_deref() {
+                query.push(("continuationToken", token));
+            }
+            let url = azure_devops_api_url(
+                &self.org_url,
+                "vsaex.dev.azure.com",
+                "_apis/userentitlements",
+                &query,
+            )?;
+            let request = RestRequest::new(Method::GET, url)?;
+            let (response, next_continuation) = receive_azure_devops_page::<InvokeResponse>(
+                request.cache(page_cache_key(&cache_key, page_index)),
+            )
+            .await?;
+            count += response.count;
+            entitlements.extend(response.value);
+            continuation = next_continuation;
+            page_index += 1;
+            if continuation.is_none() {
+                break;
+            }
         }
 
+        debug!("Found {count} Azure DevOps user entitlements");
         Ok(entitlements)
     }
 }
@@ -111,4 +126,3 @@ mod test {
         Ok(())
     }
 }
-use arbitrary::Arbitrary;

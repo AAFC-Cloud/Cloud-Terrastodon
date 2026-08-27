@@ -1,9 +1,19 @@
 use arbitrary::Arbitrary;
+use cloud_terrastodon_credentials::AuthSource;
 use std::path::PathBuf;
 
 /// Arguments that apply to all commands.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GlobalArgs {
+    /// Authentication source preference. `auto` detects a complete workload
+    /// identity environment and never launches an interactive login in CI.
+    #[facet(
+        figue::named,
+        default = AuthSource::default(),
+        figue::label = "SOURCE"
+    )]
+    pub auth_source: AuthSource,
+
     /// Enable debug logging, including backtraces on panics.
     #[facet(figue::named, default = false)]
     pub debug: bool,
@@ -30,6 +40,7 @@ pub struct GlobalArgs {
 impl<'a> Arbitrary<'a> for GlobalArgs {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            auth_source: AuthSource::arbitrary(u)?,
             debug: bool::arbitrary(u)?,
             log_filter: String::arbitrary(u)?,
             log_file_filter: Option::<String>::arbitrary(u)?,
