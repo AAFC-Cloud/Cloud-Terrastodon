@@ -7,6 +7,7 @@ use cloud_terrastodon_azure_types::EntraServicePrincipal;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickManyResult;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
 use itertools::Itertools;
@@ -74,7 +75,7 @@ impl fmt::Display for Grant {
     }
 }
 
-pub async fn pick_oauth2_permission_grants(tenant_id: AzureTenantId) -> eyre::Result<Vec<Grant>> {
+pub async fn pick_oauth2_permission_grants(tenant_id: AzureTenantId) -> PickManyResult<Grant> {
     let grants = fetch_oauth2_permission_grants(tenant_id);
     let service_principals = fetch_all_service_principals(tenant_id);
     let users = fetch_all_entra_users(tenant_id).into_future();

@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::UnifiedRoleDefinition;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_all_unified_role_definitions_and_assignments;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::borrow::Cow;
@@ -65,10 +66,12 @@ impl AzureEntraRoleAssignmentBrowseArgs {
             .collect::<Vec<_>>();
         choices.sort_unstable_by(|left, right| left.key.cmp(&right.key));
 
-        let chosen = PickerTui::<_>::new()
+        let (chosen, maybe_error) = PickerTui::<_>::new()
             .set_header("Entra role assignments")
             .pick_many(choices)
-            .await?
+            .await
+            .into_chosen_and_maybe_error()?;
+        let chosen = chosen
             .into_iter()
             .map(
                 |(role_assignment, role_definition, principal)| EntraRoleAssignmentBrowseOutput {
@@ -83,6 +86,6 @@ impl AzureEntraRoleAssignmentBrowseArgs {
         let mut handle = stdout.lock();
         cloud_terrastodon_command::to_writer_pretty(&mut handle, &chosen)?;
         handle.write_all(b"\n")?;
-        Ok(())
+        maybe_error
     }
 }

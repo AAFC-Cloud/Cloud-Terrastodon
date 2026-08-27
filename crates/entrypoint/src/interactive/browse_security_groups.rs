@@ -12,6 +12,7 @@ use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::get_security_group_choices;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::are_you_sure;
 use eyre::Result;
@@ -43,10 +44,17 @@ struct SecurityGroupRoleAssignmentRow {
 }
 
 pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
-    let security_groups = PickerTui::<_>::new()
+    let (security_groups, maybe_error) = PickerTui::<_>::new()
         .set_header("security groups")
         .pick_many(get_security_group_choices(tenant_id).await?)
-        .await?;
+        .await
+        .into_chosen_and_maybe_error()?;
+
+    info!(
+        "You chose:\n{}",
+        cloud_terrastodon_command::to_string_pretty(&security_groups)?
+    );
+    maybe_error?;
 
     let actions = PickerTui::<_>::new()
         .set_header("Would you like any other details?")
@@ -60,11 +68,6 @@ pub async fn browse_security_groups(tenant_id: AzureTenantId) -> Result<()> {
                 }),
         )
         .await?;
-
-    info!(
-        "You chose:\n{}",
-        cloud_terrastodon_command::to_string_pretty(&security_groups)?
-    );
 
     if !actions.is_empty()
         && security_groups.len() > 10

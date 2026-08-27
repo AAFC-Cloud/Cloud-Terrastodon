@@ -7,6 +7,7 @@ use cloud_terrastodon_azure::fetch_all_virtual_machines;
 use cloud_terrastodon_azure::fetch_virtual_machine_skus;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use strum::VariantArray;
 use tracing::info;
@@ -26,7 +27,7 @@ impl AzureVmBrowseArgs {
             .await?;
         match chosen {
             AzureVmBrowseOption::Resources => {
-                let chosen_resources = PickerTui::<_>::new()
+                let (chosen_resources, maybe_error) = PickerTui::<_>::new()
                     .pick_many_reloadable(|invalidate| async move {
                         info!("Fetching virtual machines");
                         Ok(fetch_all_virtual_machines(tenant_id)
@@ -42,11 +43,13 @@ impl AzureVmBrowseArgs {
                                 value: vm,
                             }))
                     })
-                    .await?;
+                    .await
+                    .into_chosen_and_maybe_error()?;
                 println!(
                     "{}",
                     cloud_terrastodon_command::to_string_pretty(&chosen_resources)?
                 );
+                maybe_error?;
             }
             AzureVmBrowseOption::Skus => {
                 let chosen_subscription = PickerTui::<_>::new()
@@ -59,7 +62,7 @@ impl AzureVmBrowseArgs {
                     })
                     .await?;
 
-                let chosen_skus = PickerTui::<_>::new().pick_many_reloadable(|invalidate| {
+                let (chosen_skus, maybe_error) = PickerTui::<_>::new().pick_many_reloadable(|invalidate| {
                     let chosen_subscription = &chosen_subscription;
                     async move {
                         info!(%chosen_subscription.name, %chosen_subscription.id, "Fetching VM SKUs, this may take a while" );
@@ -69,11 +72,12 @@ impl AzureVmBrowseArgs {
                             value: sku,
                         })).collect::<eyre::Result<Vec<_>>>()
                     }
-                }).await?;
+                }).await.into_chosen_and_maybe_error()?;
                 println!(
                     "{}",
                     cloud_terrastodon_command::to_string_pretty(&chosen_skus)?
                 );
+                maybe_error?;
             }
             AzureVmBrowseOption::Publishers => {
                 AzureVmPublisherBrowseArgs {

@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::pick_oauth2_permission_grants;
+use cloud_terrastodon_user_input::PickResultExt;
 use eyre::Result;
 use std::io::Write;
 
@@ -14,7 +15,9 @@ pub struct AzureEntraOAuth2PermissionGrantBrowseArgs {
 
 impl AzureEntraOAuth2PermissionGrantBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
-        let chosen = pick_oauth2_permission_grants(self.tenant.resolve().await?).await?;
+        let (chosen, maybe_error) = pick_oauth2_permission_grants(self.tenant.resolve().await?)
+            .await
+            .into_chosen_and_maybe_error()?;
         let chosen = chosen
             .into_iter()
             .map(|grant| grant.grant)
@@ -23,6 +26,6 @@ impl AzureEntraOAuth2PermissionGrantBrowseArgs {
         let mut handle = stdout.lock();
         cloud_terrastodon_command::to_writer_pretty(&mut handle, &chosen)?;
         handle.write_all(b"\n")?;
-        Ok(())
+        maybe_error
     }
 }

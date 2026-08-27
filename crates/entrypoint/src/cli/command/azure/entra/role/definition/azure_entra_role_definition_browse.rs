@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_entra_role_definitions;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
@@ -19,7 +20,7 @@ pub struct AzureEntraRoleDefinitionBrowseArgs {
 impl AzureEntraRoleDefinitionBrowseArgs {
     pub async fn invoke(self) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        let chosen = PickerTui::<_>::new()
+        let (chosen, maybe_error) = PickerTui::<_>::new()
             .set_header("Entra role definitions")
             .pick_many_reloadable(|invalidate| async move {
                 info!(%tenant_id, "Fetching Entra role definitions");
@@ -48,12 +49,13 @@ impl AzureEntraRoleDefinitionBrowseArgs {
                 });
                 Ok(choices)
             })
-            .await?;
+            .await
+            .into_chosen_and_maybe_error()?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
         cloud_terrastodon_command::to_writer_pretty(&mut handle, &chosen)?;
         handle.write_all(b"\n")?;
-        Ok(())
+        maybe_error
     }
 }

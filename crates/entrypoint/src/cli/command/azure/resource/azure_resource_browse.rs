@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
@@ -29,16 +30,17 @@ impl AzureResourceBrowseArgs {
             value: resource,
         });
 
-        let chosen: Vec<Resource> = PickerTui::<_>::new()
+        let (chosen, maybe_error): (Vec<Resource>, _) = PickerTui::<_>::new()
             .set_header("Select Azure resources")
             .pick_many(choices)
-            .await?;
+            .await
+            .into_chosen_and_maybe_error()?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
         cloud_terrastodon_command::to_writer_pretty(&mut handle, &chosen)?;
         handle.write_all(b"\n")?;
 
-        Ok(())
+        maybe_error
     }
 }

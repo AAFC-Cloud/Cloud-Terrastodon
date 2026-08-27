@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::PolicyDefinition;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
@@ -34,16 +35,17 @@ impl AzurePolicyDefinitionBrowseArgs {
             value: definition,
         });
 
-        let chosen: Vec<PolicyDefinition> = PickerTui::<_>::new()
+        let (chosen, maybe_error): (Vec<PolicyDefinition>, _) = PickerTui::<_>::new()
             .set_header("Select Azure policy definitions")
             .pick_many(choices)
-            .await?;
+            .await
+            .into_chosen_and_maybe_error()?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
         cloud_terrastodon_command::to_writer_pretty(&mut handle, &chosen)?;
         handle.write_all(b"\n")?;
 
-        Ok(())
+        maybe_error
     }
 }

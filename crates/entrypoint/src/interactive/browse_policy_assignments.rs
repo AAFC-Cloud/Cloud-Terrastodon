@@ -7,6 +7,7 @@ use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
 use indexmap::IndexMap;
@@ -280,7 +281,10 @@ pub async fn browse_policy_assignments(tenant_id: AzureTenantId) -> eyre::Result
             }
         }
     }
-    let chosen = PickerTui::<_>::new().pick_many(choices).await?;
-    info!("You chose:\n{}", chosen.into_iter().join("\n=====\n"));
-    Ok(())
+    let (chosen, maybe_error) = PickerTui::<_>::new()
+        .pick_many(choices)
+        .await
+        .into_chosen_and_maybe_error()?;
+    info!("You chose:\n{}", chosen.iter().join("\n=====\n"));
+    maybe_error
 }

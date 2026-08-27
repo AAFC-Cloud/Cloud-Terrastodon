@@ -1,13 +1,14 @@
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 
 pub async fn browse_azure_devops_projects() -> Result<()> {
     let org_url = get_default_organization_url().await?;
     let projects = fetch_all_azure_devops_projects(&org_url).await?;
-    let chosen = PickerTui::<_>::new()
+    let (chosen, maybe_error) = PickerTui::<_>::new()
         .set_header("Azure DevOps Projects")
         .pick_many(projects.into_iter().map(|project| Choice {
             key: format!(
@@ -18,9 +19,10 @@ pub async fn browse_azure_devops_projects() -> Result<()> {
             ),
             value: project,
         }))
-        .await?;
+        .await
+        .into_chosen_and_maybe_error()?;
 
     println!("You chose:");
     println!("{:#?}", chosen);
-    Ok(())
+    maybe_error
 }

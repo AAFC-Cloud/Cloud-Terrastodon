@@ -3,20 +3,22 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::StorageAccount;
 use cloud_terrastodon_azure::fetch_all_storage_accounts;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 
 pub async fn browse_storage_accounts(tenant_id: AzureTenantId) -> Result<()> {
     let storage_accounts = fetch_all_storage_accounts(tenant_id).await?;
-    let chosen: Vec<StorageAccount> = PickerTui::<_>::new()
+    let (chosen, maybe_error): (Vec<StorageAccount>, _) = PickerTui::<_>::new()
         .pick_many(storage_accounts.into_iter().map(|storage_account| Choice {
             key: storage_account.id.expanded_form(),
             value: storage_account,
         }))
-        .await?;
+        .await
+        .into_chosen_and_maybe_error()?;
     println!(
         "You chose: {}",
         cloud_terrastodon_command::to_string_pretty(&chosen)?
     );
-    Ok(())
+    maybe_error
 }
