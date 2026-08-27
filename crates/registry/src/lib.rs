@@ -887,10 +887,11 @@ impl ArbitraryBytes {
         self.0 = remaining;
     }
 }
-pub fn invoke_result_future<T, O>(input: Box<dyn Any + Send>) -> InvocationFuture
+pub fn invoke_result_future<T, O, E>(input: Box<dyn Any + Send>) -> InvocationFuture
 where
-    T: IntoFuture<Output = eyre::Result<O>> + Any + Send + 'static,
+    T: IntoFuture<Output = Result<O, E>> + Any + Send + 'static,
     T::IntoFuture: Send + 'static,
+    E: Into<eyre::Error> + Send + 'static,
     O: facet::Facet<'static> + Any + Send + 'static,
 {
     Box::pin(async move {
@@ -900,7 +901,7 @@ where
                 type_name::<T>()
             )
         })?;
-        let output = (*request).into_future().await?;
+        let output = (*request).into_future().await.map_err(Into::into)?;
         Ok(Box::new(output) as Box<dyn Any + Send>)
     })
 }
@@ -970,7 +971,7 @@ macro_rules! register_into_future {
                 "invoke",
                 "IntoFuture",
                 &[$($crate::Effect::$effect),*],
-                $crate::invoke_result_future::<$thing_ty, $output_ty>,
+                $crate::invoke_result_future::<$thing_ty, $output_ty, _>,
                 $crate::runtime_from_boxed::<$output_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
             );
