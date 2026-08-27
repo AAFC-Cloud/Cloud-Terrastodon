@@ -1,18 +1,23 @@
-use std::error::Error;
+pub type PickResult<T, S = T> = Result<T, PickError<S>>;
+pub type PickManyResult<T> = Result<Vec<T>, PickError<T>>;
 
-pub type PickResult<T> = Result<T, PickError>;
+pub trait PickResultExt {
+    type Item;
+
+    fn into_chosen_and_maybe_error(self) -> eyre::Result<(Vec<Self::Item>, eyre::Result<()>)>;
+}
 
 #[derive(Debug)]
-pub enum PickError {
-    Eyre(eyre::Error),
+pub enum PickError<T> {
+    Eyre(eyre::Error, Vec<T>),
     Cancelled,
     NoChoicesProvided,
     ReloadRequested,
 }
-impl std::fmt::Display for PickError {
+impl<T> std::fmt::Display for PickError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PickError::Eyre(e) => write!(f, "PickError: {}", e),
+            PickError::Eyre(e, _) => write!(f, "PickError: {}", e),
             PickError::Cancelled => write!(
                 f,
                 "PickError: The operation was cancelled by the user pressing Esc or Ctrl+C."
@@ -26,7 +31,7 @@ impl std::fmt::Display for PickError {
         }
     }
 }
-impl PartialEq for PickError {
+impl<T> PartialEq for PickError<T> {
     fn eq(&self, other: &Self) -> bool {
         #[allow(clippy::match_like_matches_macro)]
         match (self, other) {
@@ -37,30 +42,74 @@ impl PartialEq for PickError {
         }
     }
 }
-impl From<PickError> for eyre::Error {
+impl<T> From<PickError<T>> for eyre::Error {
     #[track_caller]
-    fn from(value: PickError) -> Self {
+    fn from(value: PickError<T>) -> Self {
         match value {
-            PickError::Eyre(e) => e,
+            PickError::Eyre(e, _) => e,
             _ => eyre::eyre!(value.to_string()),
         }
     }
 }
-impl<T: Error> From<T> for PickError {
+impl<S> From<eyre::Error> for PickError<S> {
     #[track_caller]
-    fn from(value: T) -> Self {
-        PickError::Eyre(eyre::eyre!(value.to_string()))
+    fn from(value: eyre::Error) -> Self {
+        PickError::Eyre(value, Vec::new())
+    }
+}
+impl<S> From<std::io::Error> for PickError<S> {
+    #[track_caller]
+    fn from(value: std::io::Error) -> Self {
+        PickError::Eyre(eyre::eyre!(value.to_string()), Vec::new())
+    }
+}
+
+impl<T> PickResultExt for PickManyResult<T> {
+    type Item = T;
+
+    fn into_chosen_and_maybe_error(self) -> eyre::Result<(Vec<Self::Item>, eyre::Result<()>)> {
+        match self {
+            Ok(chosen) => Ok((chosen, Ok(()))),
+            Err(PickError::Eyre(error, chosen)) => Ok((chosen, Err(error))),
+            Err(error) => Err(error.into()),
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
+    use crate::PickError;
+    use crate::PickManyResult;
     use crate::PickResult;
+    use crate::PickResultExt;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
-        PickResult::Ok(())?;
+        let result: PickResult<(), ()> = PickResult::Ok(());
+        result?;
         assert_eq!((), ());
         Ok(())
+    }
+
+    #[test]
+    fn pick_result_ext_preserves_successful_choices() {
+        let result: PickManyResult<i32> = Ok(vec![1, 2]);
+        let (chosen, maybe_error) = result
+            .into_chosen_and_maybe_error()
+            .expect("successful picker result should project");
+
+        assert_eq!(chosen, vec![1, 2]);
+        assert!(maybe_error.is_ok());
+    }
+
+    #[test]
+    fn pick_result_ext_preserves_choices_from_eyre_errors() {
+        let (chosen, maybe_error) = PickResultExt::into_chosen_and_maybe_error(Err(
+            PickError::Eyre(eyre::eyre!("handler failed"), vec![1, 2]),
+        ))
+        .expect("recoverable picker error should project");
+
+        assert_eq!(chosen, vec![1, 2]);
+        assert!(maybe_error.is_err());
     }
 }

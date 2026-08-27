@@ -9,11 +9,10 @@ use super::picker_event_state::PickerEventState;
 use super::preserved_selection::preserved_selection;
 use super::query_debouncer::QueryDebouncer;
 use super::query_event::QueryEvent;
-use super::return_reason::ReturnReason;
-use super::run_outcome::RunOutcome;
 use super::should_warn_for_tab::should_warn_for_tab;
 use crate::IntoChoices;
 use crate::PickError;
+use crate::PickManyResult;
 use crate::PickResult;
 use crate::PickerLogBufferHandle;
 use crate::PickerLogLevel;
@@ -193,7 +192,7 @@ impl<'a, T> PickerTui<'a, T> {
             .map(|mut items| items.remove(0))
     }
 
-    pub async fn pick_many_events(self) -> PickResult<Vec<T>>
+    pub async fn pick_many_events(self) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
@@ -210,14 +209,14 @@ impl<'a, T> PickerTui<'a, T> {
             .map(|mut items| items.remove(0))
     }
 
-    pub async fn pick_many(self, choices: impl IntoChoices<T>) -> PickResult<Vec<T>>
+    pub async fn pick_many(self, choices: impl IntoChoices<T>) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
         self.with_initial_choices(choices).run(true, true).await
     }
 
-    pub async fn pick_inner(self, many: bool, choices: impl IntoChoices<T>) -> PickResult<Vec<T>>
+    pub async fn pick_inner(self, many: bool, choices: impl IntoChoices<T>) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
@@ -237,7 +236,7 @@ impl<'a, T> PickerTui<'a, T> {
             .map(|mut items| items.remove(0))
     }
 
-    pub async fn pick_many_reloadable<F, Fut, C>(self, choice_supplier: F) -> PickResult<Vec<T>>
+    pub async fn pick_many_reloadable<F, Fut, C>(self, choice_supplier: F) -> PickManyResult<T>
     where
         T: Send + 'a,
         F: Fn(bool) -> Fut + Send + 'a,
@@ -299,17 +298,11 @@ impl<'a, T> PickerTui<'a, T> {
         })
     }
 
-    async fn run(self, many: bool, static_empty_is_error: bool) -> PickResult<Vec<T>>
+    async fn run(self, many: bool, static_empty_is_error: bool) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
-        match self.run_inner(many, static_empty_is_error).await {
-            Ok(RunOutcome::Selected(items)) => Ok(items),
-            Ok(RunOutcome::Cancelled) => Err(PickError::Cancelled),
-            Ok(RunOutcome::ReloadRequested) => Err(PickError::ReloadRequested),
-            Ok(RunOutcome::NoChoices) => Err(PickError::NoChoicesProvided),
-            Err(error) => Err(PickError::Eyre(error)),
-        }
+        self.run_inner(many, static_empty_is_error).await
     }
 
     #[tracing::instrument(
@@ -317,7 +310,7 @@ impl<'a, T> PickerTui<'a, T> {
         skip_all,
         fields(many = many, static_empty_is_error = static_empty_is_error),
     )]
-    async fn run_inner(self, many: bool, static_empty_is_error: bool) -> eyre::Result<RunOutcome<T>>
+    async fn run_inner(self, many: bool, static_empty_is_error: bool) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
@@ -361,7 +354,7 @@ impl<'a, T> PickerTui<'a, T> {
         log_buffer: Option<PickerLogBufferHandle>,
         many: bool,
         static_empty_is_error: bool,
-    ) -> eyre::Result<RunOutcome<T>>
+    ) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
@@ -375,10 +368,11 @@ impl<'a, T> PickerTui<'a, T> {
             coordinator.poison(format!("picker terminal setup failed: {error}"));
             let release_result = guard.release().await;
             return match release_result {
-                Ok(()) => Err(error),
+                Ok(()) => Err(error.into()),
                 Err(release_error) => Err(eyre::eyre!(
                     "picker terminal setup failed: {error}; guard release also failed: {release_error}"
-                )),
+                )
+                .into()),
             };
         }
         let original_hook = Arc::new(std::panic::take_hook());
@@ -420,10 +414,10 @@ impl<'a, T> PickerTui<'a, T> {
                 std::panic::resume_unwind(payload);
             }
             Ok(result) => match (result, restore_result, release_result) {
+                (result @ Err(_), _, _) => result,
+                (Ok(_), Err(error), _) => Err(error.into()),
+                (Ok(_), Ok(()), Err(error)) => Err(error.into()),
                 (Ok(outcome), Ok(()), Ok(())) => Ok(outcome),
-                (Err(error), _, _) => Err(error),
-                (Ok(_), Err(error), _) => Err(error),
-                (Ok(_), Ok(()), Err(error)) => Err(error),
             },
         }
     }
@@ -436,7 +430,7 @@ impl<'a, T> PickerTui<'a, T> {
         log_buffer: Option<PickerLogBufferHandle>,
         many: bool,
         static_empty_is_error: bool,
-    ) -> eyre::Result<RunOutcome<T>>
+    ) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
@@ -473,7 +467,7 @@ impl<'a, T> PickerTui<'a, T> {
         let mut query_debouncer = QueryDebouncer::default();
         let mut event_stream = EventStream::new();
         let mut ticker = tokio::time::interval(Duration::from_millis(16));
-        let mut return_reason = None;
+        let mut return_reason = None::<Result<(), PickError<T>>>;
         let mut render_dirty = true;
         let mut pending_tab_warnings = VecDeque::<CompactString>::new();
         let mut log_cursor = usize::MAX;
@@ -482,7 +476,7 @@ impl<'a, T> PickerTui<'a, T> {
         }
         let mut toasts = Vec::<PickerToast>::new();
 
-        loop {
+        let return_reason = loop {
             let debounce = query_debouncer
                 .deadline()
                 .map(|deadline| tokio::time::sleep_until(deadline.into()))
@@ -496,7 +490,9 @@ impl<'a, T> PickerTui<'a, T> {
 
                 control = guard.next_control() => {
                     let Some(control) = control else {
-                        return Err(eyre::eyre!("terminal coordinator owner channel closed"));
+                        return Err(
+                            eyre::eyre!("terminal coordinator owner channel closed").into()
+                        );
                     };
                     apply_terminal_control(control, guard, terminal)?;
                     render_dirty = true;
@@ -525,7 +521,7 @@ impl<'a, T> PickerTui<'a, T> {
                         Some(Ok(Event::Resize(_, _))) => render_dirty = true,
                         Some(Ok(_)) => {}
                         Some(Err(error)) => return Err(error.into()),
-                        None => return_reason = Some(ReturnReason::Cancelled),
+                        None => return_reason = Some(Err(PickError::Cancelled)),
                     }
                     if return_reason.is_none() {
                         let deadline = Instant::now() + Duration::from_millis(2);
@@ -582,11 +578,13 @@ impl<'a, T> PickerTui<'a, T> {
                 joined = handler_tasks.next(), if pending_handlers > 0 => {
                     match joined {
                         Some(completion) => {
-                            handle_handler_completion(
+                            if let Err(error) = handle_handler_completion(
                                 completion,
                                 &mut pending_handlers,
                                 &mut startup_handlers,
-                            )?;
+                            ) {
+                                return_reason = Some(Err(error.into()));
+                            }
                             render_dirty = true;
                         }
                         None => {
@@ -662,11 +660,13 @@ impl<'a, T> PickerTui<'a, T> {
                             break;
                         };
                         progressed = true;
-                        handle_handler_completion(
+                        if let Err(error) = handle_handler_completion(
                             completion,
                             &mut pending_handlers,
                             &mut startup_handlers,
-                        )?;
+                        ) {
+                            return_reason = Some(Err(error.into()));
+                        }
                         render_dirty = true;
                         if coalesce_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
                             break;
@@ -750,7 +750,7 @@ impl<'a, T> PickerTui<'a, T> {
             let now = Instant::now();
             render_dirty |= advance_toasts(&mut toasts, now);
 
-            if matches!(return_reason, Some(ReturnReason::ReloadRequested)) {
+            if matches!(return_reason, Some(Err(PickError::ReloadRequested))) {
                 handler_tasks = FuturesUnordered::new();
                 pending_handlers = 0;
                 startup_handlers = 0;
@@ -777,8 +777,8 @@ impl<'a, T> PickerTui<'a, T> {
                     &mut pending_handlers,
                     &mut startup_handlers,
                 );
-            } else if return_reason.is_some() {
-                break;
+            } else if let Some(return_reason) = return_reason.take() {
+                break return_reason;
             }
 
             if query_changed {
@@ -820,7 +820,7 @@ impl<'a, T> PickerTui<'a, T> {
                 && picker_state.candidates.len() == 1
                 && !many
             {
-                return_reason = Some(ReturnReason::Success);
+                return_reason = Some(Ok(()));
             }
             if static_empty_is_error
                 && startup_handlers == 0
@@ -828,7 +828,7 @@ impl<'a, T> PickerTui<'a, T> {
                 && candidate_receiver.is_empty()
                 && picker_state.candidates.is_empty()
             {
-                return Ok(RunOutcome::NoChoices);
+                return Err(PickError::NoChoicesProvided);
             }
 
             if render_dirty {
@@ -907,19 +907,26 @@ impl<'a, T> PickerTui<'a, T> {
                 tracing::info!(message = "finished picker frame", tracy.frame_mark = true);
                 render_dirty = false;
             }
+        };
+
+        while let Ok(message) = candidate_receiver.try_recv() {
+            process_candidate_message(
+                message,
+                picker_state.generation,
+                &mut picker_state,
+                &mut nucleo,
+                &mut warned_tab_keys,
+            );
         }
 
         drop(handler_tasks);
-        let values = match return_reason.expect("picker loop must have a return reason") {
-            ReturnReason::Cancelled => return Ok(RunOutcome::Cancelled),
-            ReturnReason::ReloadRequested => return Ok(RunOutcome::ReloadRequested),
-            ReturnReason::Success => picker_state
-                .marked
-                .into_iter()
-                .filter_map(|key| picker_state.candidates.remove(&key))
-                .collect(),
-        };
-        Ok(RunOutcome::Selected(values))
+        match return_reason {
+            Ok(()) => Ok(picker_state.selected_values()),
+            Err(PickError::Eyre(error, _)) => {
+                Err(PickError::Eyre(error, picker_state.selected_values()))
+            }
+            Err(error) => Err(error),
+        }
     }
 }
 
@@ -1141,7 +1148,7 @@ pub(super) fn render_toasts(buf: &mut Buffer, area: Rect, toasts: &[PickerToast]
     clippy::too_many_arguments,
     reason = "key handling mutates the picker state components owned by the run loop"
 )]
-pub(super) fn handle_key(
+pub(super) fn handle_key<T>(
     key: KeyEvent,
     many: bool,
     list_state: &mut ListState,
@@ -1151,16 +1158,16 @@ pub(super) fn handle_key(
     query_changed: &mut bool,
     selection_needs_reset: &mut bool,
     query_debouncer: &mut QueryDebouncer,
-    return_reason: &mut Option<ReturnReason>,
+    return_reason: &mut Option<Result<(), PickError<T>>>,
 ) -> KeyEffects {
     let mut effects = KeyEffects::default();
     match key.code {
-        KeyCode::Esc => *return_reason = Some(ReturnReason::Cancelled),
+        KeyCode::Esc => *return_reason = Some(Err(PickError::Cancelled)),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            *return_reason = Some(ReturnReason::Cancelled)
+            *return_reason = Some(Err(PickError::Cancelled))
         }
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            *return_reason = Some(ReturnReason::ReloadRequested)
+            *return_reason = Some(Err(PickError::ReloadRequested))
         }
         KeyCode::Up => {
             let previous = list_state.selected();
@@ -1192,7 +1199,7 @@ pub(super) fn handle_key(
             {
                 marked_for_return.insert(selected_key.as_ref().clone());
             }
-            *return_reason = Some(ReturnReason::Success);
+            *return_reason = Some(Ok(()));
         }
         KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             marked_for_return.extend(search_results_keys.iter().map(|key| key.as_ref().clone()));

@@ -19,6 +19,7 @@ use super::query_debouncer::QueryDebouncer;
 use super::query_event::QueryEvent;
 use super::should_warn_for_tab::should_warn_for_tab;
 use crate::Choice;
+use crate::PickError;
 use crate::PickerLogLevel;
 use crate::PickerLogRecord;
 use compact_str::CompactString;
@@ -233,6 +234,21 @@ fn handler_errors_are_returned_and_counts_are_released() {
 }
 
 #[test]
+fn marked_values_are_retained_when_a_handler_fails() {
+    let mut state = PickerEventState::default();
+    state.candidates.inject(
+        [Choice {
+            key: "selected".into(),
+            value: 1,
+        }],
+        |_| {},
+    );
+    state.marked.insert("selected".into());
+
+    assert_eq!(state.selected_values(), vec![1]);
+}
+
+#[test]
 fn clearing_removes_all_candidates() {
     let mut pool = ChoicePool::default();
     pool.inject(
@@ -318,7 +334,7 @@ fn typing_a_query_reanchors_the_picker_at_the_first_result() {
     let mut query_changed = false;
     let mut selection_needs_reset = false;
     let mut query_debouncer = QueryDebouncer::default();
-    let mut return_reason = None;
+    let mut return_reason = None::<Result<(), PickError<()>>>;
 
     let _effects = handle_key(
         KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE),
