@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -22,7 +23,9 @@ impl AzureDevOpsProjectShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
+        let projects =
+            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
 
         // Parse the argument (must be a valid id or name) and find the project.
         let maybe = projects.into_iter().find(|p| self.project.matches(p));

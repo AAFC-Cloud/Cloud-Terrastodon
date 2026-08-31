@@ -3,6 +3,7 @@ use crate::loadable_work::LoadableWorkBuilder;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use std::rc::Rc;
 use tracing::info;
 
@@ -14,7 +15,9 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
         .setter(|app, data| app.azure_devops_projects = data.map(Rc::new))
         .work(async move {
             let org_url = get_default_organization_url().await?;
-            let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
+            let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+            let projects =
+                fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
             Ok(projects)
         })
         .build()

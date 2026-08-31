@@ -4,6 +4,7 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_pathing::AppDir;
@@ -33,7 +34,8 @@ pub async fn azure_devops_project_import_wizard_menu(auth_context: &AuthContext)
     }
 
     let org_url = get_default_organization_url().await?;
-    let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
+    let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
+    let projects = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
     let projects: Vec<cloud_terrastodon_azure_devops::AzureDevOpsProject> = PickerTui::<_>::new()
         .set_header("Choose the projects to import")
         .pick_many(projects.into_iter().map(|project| Choice {

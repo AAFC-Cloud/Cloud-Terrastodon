@@ -86,15 +86,14 @@ impl<'a> CacheableCommand for ManagementGroupListRequest<'a> {
             management_group_ancestors_chain=properties.details.managementGroupAncestorsChain
     "#};
 
-        let management_groups =
-            ResourceGraphHelper::new(
-                self.tenant_id,
-                query,
-                Some(self.cache_key()),
-                self.auth_context.as_ref(),
-            )
-                .collect_all::<ManagementGroup>()
-                .await?;
+        let management_groups = ResourceGraphHelper::new(
+            self.tenant_id,
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .collect_all::<ManagementGroup>()
+        .await?;
         let count = management_groups.len();
         if count == 0 {
             bail!("No management groups found for tenant '{}'", self.tenant_id);
@@ -113,11 +112,9 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_management_groups(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let result =
+            fetch_all_management_groups(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         assert!(!result.is_empty());
         Ok(())
     }

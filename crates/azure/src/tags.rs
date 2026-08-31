@@ -151,11 +151,12 @@ mod tests {
     use super::*;
     use crate::fetch_all_resource_groups;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn get_tags_test() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let resource_groups = fetch_all_resource_groups(tenant_id).await?;
+        let resource_groups = fetch_all_resource_groups(tenant_id, &AuthContext::default()).await?;
         let tags = get_tags_for_resources(
             tenant_id,
             resource_groups

@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use eyre::bail;
@@ -39,6 +40,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
 
         if let AzureDevOpsLicenseType::Other(s) = &self.license {
             bail!("Invalid license kind specified: {}", s);
@@ -74,7 +76,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                 if let Some(entitlement) = match fetch_azure_devops_user_license_entitlement(
                     &org_url,
                     &user,
-                    auth_context,
+                    &azure_devops_auth_context,
                 )
                 .with_invalidation(i == 0 && self.no_cache)
                 .await
@@ -161,11 +163,14 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
             };
 
             // Fetch to verify
-            let new_license =
-                fetch_azure_devops_user_license_entitlement(&org_url, &user, auth_context)
-                    // underlying cache is shared for all users, so only invalidate on the first check
-                    .with_invalidation(i == 0)
-                    .await?;
+            let new_license = fetch_azure_devops_user_license_entitlement(
+                &org_url,
+                &user,
+                &azure_devops_auth_context,
+            )
+            // underlying cache is shared for all users, so only invalidate on the first check
+            .with_invalidation(i == 0)
+            .await?;
 
             if new_license.license != self.license {
                 error!(

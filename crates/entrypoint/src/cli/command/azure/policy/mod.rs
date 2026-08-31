@@ -38,19 +38,13 @@ pub enum AzurePolicyCommand {
 }
 
 impl AzurePolicyArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         self.command.invoke(auth_context).await
     }
 }
 
 impl AzurePolicyCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
             AzurePolicyCommand::Assignment(args) => args.invoke(auth_context).await,
             AzurePolicyCommand::Definition(args) => args.invoke(auth_context).await,

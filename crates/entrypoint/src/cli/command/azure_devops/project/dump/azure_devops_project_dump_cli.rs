@@ -11,6 +11,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -48,7 +49,8 @@ impl AzureDevOpsProjectDumpArgs {
             .into_future()
             .instrument(span.clone())
             .await?;
-        let projects = fetch_all_azure_devops_projects(&org_url, auth_context)
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
+        let projects = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context)
             .into_future()
             .instrument(span.clone())
             .await?;
@@ -62,21 +64,27 @@ impl AzureDevOpsProjectDumpArgs {
             .instrument(span.clone())
             .await?;
 
-        let groups = fetch_azure_devops_groups_for_project(&org_url, &project, auth_context)
-            .into_future()
-            .instrument(span.clone())
-            .await?;
+        let groups =
+            fetch_azure_devops_groups_for_project(&org_url, &project, &azure_devops_auth_context)
+                .into_future()
+                .instrument(span.clone())
+                .await?;
 
         let mut group_members = ParallelFallibleWorkQueue::new("fetching group members", 4);
         for group in groups.iter() {
             let org_url = org_url.clone();
             let group_descriptor = group.descriptor.clone();
+            let azure_devops_auth_context = azure_devops_auth_context.clone();
             let span = span.clone();
             group_members.enqueue(async move {
-                fetch_azure_devops_group_members_v2(&org_url, &group_descriptor)
-                    .into_future()
-                    .instrument(span.clone())
-                    .await
+                fetch_azure_devops_group_members_v2(
+                    &org_url,
+                    &group_descriptor,
+                    &azure_devops_auth_context,
+                )
+                .into_future()
+                .instrument(span.clone())
+                .await
             });
         }
         let group_members = group_members.join().await?;

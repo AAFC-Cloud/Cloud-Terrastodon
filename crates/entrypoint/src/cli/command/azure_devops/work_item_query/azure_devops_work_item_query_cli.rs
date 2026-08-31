@@ -23,7 +23,7 @@ impl AzureDevOpsWorkItemQueryArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
             AzureDevOpsWorkItemQueryCommand::List(args) => args.invoke(auth_context).await?,
-            AzureDevOpsWorkItemQueryCommand::Invoke(args) => args.invoke().await?,
+            AzureDevOpsWorkItemQueryCommand::Invoke(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

@@ -84,6 +84,7 @@ mod test {
     use cloud_terrastodon_azure_devops_types::AzureDevOpsServiceEndpoint;
     use cloud_terrastodon_command::ParallelFallibleWorkQueue;
     use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use itertools::Itertools;
 
     #[tokio::test]
@@ -101,7 +102,9 @@ mod test {
                     .all(|endpoint| !endpoint.name.to_string().is_empty())
             );
         } else {
-            let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
+            let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+            let projects =
+                fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
             let azure_devops_service_endpoints = {
                 let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
                     ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);

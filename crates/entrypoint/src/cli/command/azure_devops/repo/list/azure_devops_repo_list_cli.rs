@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_repos_batch;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use std::io::stdout;
 
@@ -25,7 +26,9 @@ impl AzureDevOpsRepoListArgs {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
 
-        let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
+        let projects =
+            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
 
         if let Some(project_filter) = self.project {
             // Find a project matching the provided identifier (id or name).

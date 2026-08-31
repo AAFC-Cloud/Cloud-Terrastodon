@@ -86,11 +86,14 @@ mod test {
     use crate::fetch_all_storage_accounts;
     use crate::fetch_storage_account_blob_container_names;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_credentials::AuthContext;
     use eyre::bail;
 
     #[tokio::test]
     pub async fn blob_works() -> eyre::Result<()> {
-        let storage_accounts = fetch_all_storage_accounts(get_test_tenant_id().await?).await?;
+        let storage_accounts =
+            fetch_all_storage_accounts(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         for sa in storage_accounts.into_iter() {
             if let Ok(blob_containers) = fetch_storage_account_blob_container_names(&sa.id).await {
                 assert!(!sa.name.is_empty());

@@ -66,15 +66,14 @@ impl<'a> CacheableCommand for ApplicationGatewayListRequest<'a> {
         "#}
         .to_owned();
 
-        let application_gateways =
-            ResourceGraphHelper::new(
-                self.tenant_id,
-                query,
-                Some(self.cache_key()),
-                self.auth_context.as_ref(),
-            )
-                .collect_all::<AzureApplicationGatewayResource>()
-                .await?;
+        let application_gateways = ResourceGraphHelper::new(
+            self.tenant_id,
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .collect_all::<AzureApplicationGatewayResource>()
+        .await?;
         debug!(
             count = application_gateways.len(),
             "Fetched application gateways"
@@ -92,11 +91,9 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_application_gateways(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let result =
+            fetch_all_application_gateways(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         for application_gateway in &result {
             assert!(!application_gateway.name.is_empty());
         }

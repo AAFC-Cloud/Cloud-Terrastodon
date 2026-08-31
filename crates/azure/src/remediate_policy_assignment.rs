@@ -53,9 +53,9 @@ pub async fn remediate_policy_assignment(
             info!("Remediating a policy set - must prompt for inner choice");
             let Some(policy_set_definition) =
                 fetch_all_policy_set_definitions(tenant_id, auth_context)
-                .await?
-                .into_iter()
-                .find(|def| def.id == policy_set_definition_id)
+                    .await?
+                    .into_iter()
+                    .find(|def| def.id == policy_set_definition_id)
             else {
                 bail!("Could not find policy set definition with id {policy_set_definition_id:?}");
             };

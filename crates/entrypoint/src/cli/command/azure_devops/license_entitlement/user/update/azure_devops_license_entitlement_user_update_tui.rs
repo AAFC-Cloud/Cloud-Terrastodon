@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -21,13 +22,16 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        let auth_context = auth_context.clone();
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
 
         let chosen_entitlements = PickerTui::<_>::new()
             .set_header("Azure DevOps License Entitlements")
             .pick_many_reloadable(|invalidate| {
-                let future = fetch_azure_devops_user_license_entitlements(&org_url, &auth_context)
-                    .with_invalidation(invalidate);
+                let future = fetch_azure_devops_user_license_entitlements(
+                    &org_url,
+                    &azure_devops_auth_context,
+                )
+                .with_invalidation(invalidate);
                 async move {
                     future.await.map(|ents| {
                         ents.into_iter()

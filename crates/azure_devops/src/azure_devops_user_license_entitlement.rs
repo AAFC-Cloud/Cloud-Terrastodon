@@ -5,7 +5,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::bail;
 use std::borrow::Cow;
 use std::pin::Pin;
@@ -14,13 +14,13 @@ pub struct AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
     pub user: AzureDevOpsUserArgument<'a>,
     pub invalidate_cache: bool,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
 pub fn fetch_azure_devops_user_license_entitlement<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     user: impl Into<AzureDevOpsUserArgument<'a>>,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureDevOpsAuthContext,
 ) -> AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     AzureDevOpsUserLicenseEntitlementShowRequest {
         org_url,

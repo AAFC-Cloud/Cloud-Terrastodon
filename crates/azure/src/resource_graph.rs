@@ -454,6 +454,7 @@ resourcecontainers
                 "resource_graph",
                 "resource-container-names",
             ]))),
+            &AuthContext::default(),
         )
         .collect_all::<Row>()
         .await?;

@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_queries_for_project;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use std::io::stdout;
 
@@ -26,7 +27,9 @@ impl AzureDevOpsWorkItemQueryListArgs {
         let project_name: AzureDevOpsProjectName = match self.project {
             AzureDevOpsProjectArgument::Name(n) => n.into_owned(),
             _ => {
-                let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
+                let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
+                let projects =
+                    fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
                 if let Some(project) = projects.into_iter().find(|p| self.project.matches(p)) {
                     project.name
                 } else {

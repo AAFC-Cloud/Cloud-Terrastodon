@@ -13,7 +13,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
@@ -32,13 +32,13 @@ use tracing::info;
 pub struct AzureDevOpsProjectMemberListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
 pub fn fetch_azure_devops_project_members<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureDevOpsAuthContext,
 ) -> AzureDevOpsProjectMemberListRequest<'a> {
     AzureDevOpsProjectMemberListRequest {
         org_url: Cow::Borrowed(org_url),
@@ -52,7 +52,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectMemberListRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }

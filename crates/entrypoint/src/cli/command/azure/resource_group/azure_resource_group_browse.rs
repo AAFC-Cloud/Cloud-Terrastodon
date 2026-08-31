@@ -1,8 +1,8 @@
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;

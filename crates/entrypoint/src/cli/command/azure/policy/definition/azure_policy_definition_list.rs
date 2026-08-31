@@ -1,7 +1,7 @@
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::ensure;
 use nucleo::Config;

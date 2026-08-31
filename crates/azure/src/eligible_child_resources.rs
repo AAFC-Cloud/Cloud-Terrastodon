@@ -96,13 +96,12 @@ impl<'a> CacheableCommand for EligibleChildResourceListRequest<'a> {
         let root_mg =
             fetch_root_management_group(self.tenant_id, self.auth_context.as_ref()).await?;
         let scope = root_mg.as_scope();
-        let mut resource_containers =
-            fetch_eligible_child_resources(
-                scope,
-                FetchChildrenBehaviour::GetAllChildren,
-                self.auth_context.as_ref(),
-            )
-            .await?;
+        let mut resource_containers = fetch_eligible_child_resources(
+            scope,
+            FetchChildrenBehaviour::GetAllChildren,
+            self.auth_context.as_ref(),
+        )
+        .await?;
         // this contains management groups and subscriptions
 
         let rgs = fetch_all_resource_groups(self.tenant_id, self.auth_context.as_ref())
@@ -131,9 +130,9 @@ mod tests {
     use crate::test_helpers::expect_aad_premium_p2_license;
     use cloud_terrastodon_azure_types::AsScope;
     use cloud_terrastodon_azure_types::Scope;
+    use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_user_input::Choice;
     use cloud_terrastodon_user_input::PickerTui;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {

@@ -1,7 +1,7 @@
-use cloud_terrastodon_credentials::AuthContext;
 use crate::interactive::browse_policy_assignments;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Arguments for browsing Azure policy assignments interactively.

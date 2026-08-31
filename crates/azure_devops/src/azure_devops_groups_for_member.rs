@@ -4,7 +4,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use reqwest::Method;
 use std::borrow::Cow;
@@ -13,7 +13,7 @@ use std::path::PathBuf;
 pub fn fetch_azure_devops_groups_for_member<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     member_id: &'a AzureDevOpsDescriptor,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureDevOpsAuthContext,
 ) -> AzureDevOpsGroupsForMemberRequest<'a> {
     AzureDevOpsGroupsForMemberRequest {
         org_url: Cow::Borrowed(org_url),
@@ -26,7 +26,7 @@ pub fn fetch_azure_devops_groups_for_member<'a>(
 pub struct AzureDevOpsGroupsForMemberRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub member_id: Cow<'a, AzureDevOpsDescriptor>,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsGroupsForMemberRequest<'static> {
@@ -34,7 +34,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsGroupsForMemberRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             member_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }
@@ -76,8 +76,11 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMem
             organization = organization,
             subject_descriptor = subject_descriptor
         );
-        let mut request = RestRequest::new(Method::GET, url.as_str())?.cache(self.cache_key());
-        request = request.auth_context(self.auth_context.as_ref());
+        let request = RestRequest::new(Method::GET, url.as_str())?.cache(self.cache_key());
+        let request = crate::azure_devops_rest::authenticate_azure_devops_request(
+            request,
+            self.auth_context.as_ref(),
+        )?;
         Ok(request
             .receive::<AzureDevOpsGroupsForMemberResponse>()
             .await?
@@ -97,17 +100,21 @@ mod test {
     use crate::fetch_azure_devops_user_license_entitlements;
     use crate::get_default_organization_url;
     use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let auth_context = AuthContext::default();
-        let users = fetch_azure_devops_user_license_entitlements(&org_url, &auth_context).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+        let users =
+            fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context)
+                .await?;
         for user in users.iter().take(2) {
             let groups_for_user = fetch_azure_devops_groups_for_member(
                 &org_url,
                 &user.user.descriptor,
-                &auth_context,
+                &azure_devops_auth_context,
             )
             .await?;
             assert!(

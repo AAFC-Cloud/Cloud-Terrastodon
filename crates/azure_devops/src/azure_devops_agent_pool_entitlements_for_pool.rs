@@ -3,7 +3,7 @@ use crate::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsAgentPoolArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use std::borrow::Cow;
 use std::pin::Pin;
 
@@ -11,13 +11,13 @@ pub struct AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
     pub pool: AzureDevOpsAgentPoolArgument<'a>,
     pub invalidate_cache: bool,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
 pub fn fetch_azure_devops_agent_pool_entitlements_for_pool<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     pool: impl Into<AzureDevOpsAgentPoolArgument<'a>>,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureDevOpsAuthContext,
 ) -> AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
     AzureDevOpsAgentPoolEntitlementListForPoolRequest {
         org_url,
@@ -71,6 +71,7 @@ mod test {
     use super::*;
     use crate::fetch_azure_devops_agent_pools;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_credentials::AuthContext;
     use itertools::Itertools;
 
     #[tokio::test]
@@ -78,6 +79,7 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let auth_context = AuthContext::default();
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
         let agent_pools = fetch_azure_devops_agent_pools(&org_url).await?;
         let our_agent_pools = agent_pools
             .iter()
@@ -88,9 +90,12 @@ mod test {
             "Expected at least one of our agent pools"
         );
         for pool in our_agent_pools {
-            let entitlements =
-                fetch_azure_devops_agent_pool_entitlements_for_pool(&org_url, pool, &auth_context)
-                    .await?;
+            let entitlements = fetch_azure_devops_agent_pool_entitlements_for_pool(
+                &org_url,
+                pool,
+                &azure_devops_auth_context,
+            )
+            .await?;
             if !entitlements.is_empty() {
                 assert!(
                     entitlements.iter().all(|entitlement| {

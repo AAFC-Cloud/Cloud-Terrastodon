@@ -25,6 +25,7 @@ use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
@@ -389,7 +390,8 @@ pub async fn find_resource_owners_menu(
         fetch_all_principals(tenant_id, auth_context),
         get_default_organization_url(),
     )?;
-    let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
+    let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(auth_context, tenant_id)?;
+    let projects = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
     let azure_devops_service_endpoints = {
         let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
             ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);

@@ -66,10 +66,13 @@ mod tests {
     use super::*;
     use crate::fetch_all_storage_accounts;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let resources = fetch_all_storage_accounts(get_test_tenant_id().await?).await?;
+        let resources =
+            fetch_all_storage_accounts(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         let tenant_id = get_test_tenant_id().await?;
         let resources = resources.iter().take(3);
         let _metrics = fetch_metrics(tenant_id, resources).await?;

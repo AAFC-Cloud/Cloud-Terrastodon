@@ -12,6 +12,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlement
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::ContextCompat;
 use eyre::Result;
 use tracing::debug;
@@ -40,8 +41,11 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org.clone())
                 .await?;
 
+        let azure_devops_auth_context =
+            AzureDevOpsAuthContext::for_tenant(auth_context, tenant_id)?;
         let entitlements =
-            fetch_azure_devops_user_license_entitlements(&org_url, auth_context).await?;
+            fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context)
+                .await?;
 
         let user_entitlement = entitlements
             .into_iter()

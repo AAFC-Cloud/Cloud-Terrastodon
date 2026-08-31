@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_devops_types::WorkItemQueryResult;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use reqwest::Method;
 use std::borrow::Cow;
@@ -16,15 +17,18 @@ use tracing::debug;
 pub struct WorkItemsForQueryRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub query_id: Cow<'a, AzureDevOpsWorkItemQueryId>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
 pub fn fetch_work_items_for_query<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     query_id: &'a AzureDevOpsWorkItemQueryId,
+    auth_context: &'a AzureDevOpsAuthContext,
 ) -> WorkItemsForQueryRequest<'a> {
     WorkItemsForQueryRequest {
         org_url: Cow::Borrowed(org_url),
         query_id: Cow::Borrowed(query_id),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
@@ -33,6 +37,7 @@ impl<'a> Arbitrary<'a> for WorkItemsForQueryRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             query_id: Cow::Owned(AzureDevOpsWorkItemQueryId::arbitrary(u)?),
+            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }
@@ -65,10 +70,13 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
             org_url = self.org_url,
             query_id = self.query_id,
         );
-        RestRequest::new(Method::GET, url.as_str())?
-            .cache(self.cache_key())
-            .receive()
-            .await
+        let request = RestRequest::new(Method::GET, url.as_str())?.cache(self.cache_key());
+        crate::azure_devops_rest::authenticate_azure_devops_request(
+            request,
+            self.auth_context.as_ref(),
+        )?
+        .receive()
+        .await
     }
 }
 
@@ -86,6 +94,7 @@ mod test {
     use crate::get_default_organization_url;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
     use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use eyre::Context;
     use eyre::bail;
 
@@ -95,7 +104,9 @@ mod test {
         // get all projects
         let org_url = get_default_organization_url().await?;
         let auth_context = AuthContext::default();
-        let mut projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+        let mut projects =
+            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
         while let Some(project) = projects.pop() {
             // get queries for project
             let queries = fetch_queries_for_project(&org_url, &project.name).await?;
@@ -111,7 +122,7 @@ mod test {
             };
 
             // get items from the query
-            let items = fetch_work_items_for_query(&org_url, &query.id)
+            let items = fetch_work_items_for_query(&org_url, &query.id, &azure_devops_auth_context)
                 .await
                 .wrap_err(format!(
                     "Failed to fetch work items for query {query} from project {project}",

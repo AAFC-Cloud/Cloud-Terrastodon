@@ -1,12 +1,13 @@
 use crate::AzureDevOpsProjectArgument;
+use crate::azure_devops_rest::authenticate_azure_devops_request;
+use crate::azure_devops_rest::azure_devops_api_url;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
-use facet_json::RawJson;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
+use cloud_terrastodon_rest::RestRequest;
+use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
@@ -15,13 +16,13 @@ use tracing::debug;
 pub struct AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
 pub fn fetch_azure_devops_agent_pool_entitlements_for_project<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureDevOpsAuthContext,
 ) -> AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
     AzureDevOpsAgentPoolEntitlementListForProjectRequest {
         org_url: Cow::Borrowed(org_url),
@@ -35,7 +36,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsAgentPoolEntitlementListForProjectRequest<
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }
@@ -63,38 +64,30 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
         let project = &self.project;
         debug!("Fetching Azure DevOps agent queues (pools) for project {project}");
 
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args(["devops", "invoke"]);
-        let org = self.org_url.to_string();
-        cmd.args(["--organization", org.as_str()]);
-        cmd.args(["--area", "distributedtask"]);
-        cmd.args(["--resource", "queues"]);
-        let route = format!("project={}", project);
-        cmd.args(["--route-parameters", route.as_str()]);
-        cmd.args(["--api-version", "7.1"]);
-        cmd.args(["--encoding", "utf-8"]);
-        cmd.cache(self.cache_key());
-
         #[derive(facet::Facet)]
         struct Response {
-            continuation_token: Option<RawJson<'static>>,
             count: u32,
             value: Vec<crate::AzureDevOpsAgentPoolEntitlement>,
         }
 
-        let resp = cmd.run::<Response>().await?;
-        let entitlements = resp.value;
+        let project = project.to_string();
+        let url = azure_devops_api_url(
+            &self.org_url,
+            "dev.azure.com",
+            &format!("{project}/_apis/distributedtask/queues"),
+            &[("api-version", "7.1")],
+        )?;
+        let request = RestRequest::new(Method::GET, url)?.cache(self.cache_key());
+        let response = authenticate_azure_devops_request(request, self.auth_context.as_ref())?
+            .receive::<Response>()
+            .await?;
 
         debug!(
             "Found {} Azure DevOps agent queue entitlements for project {}",
-            resp.count, project
+            response.count, project
         );
 
-        if resp.continuation_token.is_some() {
-            todo!("Add support for continuation token...");
-        }
-
-        Ok(entitlements)
+        Ok(response.value)
     }
 }
 
@@ -112,12 +105,15 @@ mod test {
     use super::*;
     use crate::fetch_all_azure_devops_projects;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let auth_context = AuthContext::default();
-        let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+        let projects =
+            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
 
         // Iterate projects, and stop when we find the first project with entitlements.
         let mut found = false;
@@ -125,7 +121,7 @@ mod test {
             let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
                 &org_url,
                 &project.name,
-                &auth_context,
+                &azure_devops_auth_context,
             )
             .await?;
             if !entitlements.is_empty() {

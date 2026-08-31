@@ -66,15 +66,14 @@ impl<'a> CacheableCommand for NetworkInterfaceListRequest<'a> {
         "#}
         .to_owned();
 
-        let network_interfaces =
-            ResourceGraphHelper::new(
-                self.tenant_id,
-                query,
-                Some(self.cache_key()),
-                self.auth_context.as_ref(),
-            )
-                .collect_all::<AzureNetworkInterfaceResource>()
-                .await?;
+        let network_interfaces = ResourceGraphHelper::new(
+            self.tenant_id,
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .collect_all::<AzureNetworkInterfaceResource>()
+        .await?;
         info!(
             count = network_interfaces.len(),
             "Fetched network interfaces"
@@ -92,11 +91,9 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_network_interfaces(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let result =
+            fetch_all_network_interfaces(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         for network_interface in &result {
             assert!(!network_interface.name.is_empty());
         }

@@ -16,10 +16,7 @@ pub struct AzurePublicIpArgs {
 }
 
 impl AzurePublicIpArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         self.command.invoke(auth_context).await
     }
 }

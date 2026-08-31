@@ -1,6 +1,6 @@
-use cloud_terrastodon_credentials::AuthContext;
 use super::AzureNetworkInterfaceListArgs;
 use super::AzureNetworkInterfaceShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Azure network interfaces.
@@ -14,10 +14,7 @@ pub enum AzureNetworkInterfaceCommand {
 }
 
 impl AzureNetworkInterfaceCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
             AzureNetworkInterfaceCommand::List(args) => args.invoke(auth_context).await,
             AzureNetworkInterfaceCommand::Show(args) => args.invoke(auth_context).await,

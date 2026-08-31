@@ -7,7 +7,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsTestPlan;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
 use reqwest::Method;
@@ -19,13 +19,13 @@ use tracing::debug;
 pub struct AzureDevOpsTestPlanListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
 pub fn fetch_azure_devops_test_plans<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureDevOpsAuthContext,
 ) -> AzureDevOpsTestPlanListRequest<'a> {
     AzureDevOpsTestPlanListRequest {
         org_url: Cow::Borrowed(org_url),
@@ -39,7 +39,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsTestPlanListRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }
@@ -86,9 +86,12 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestPlanList
                 &format!("{}/_apis/testplan/plans", project),
                 &query,
             )?;
-            let mut request =
+            let request =
                 RestRequest::new(Method::GET, url)?.cache(page_cache_key(&cache_key, page_index));
-            request = request.auth_context(self.auth_context.as_ref());
+            let request = crate::azure_devops_rest::authenticate_azure_devops_request(
+                request,
+                self.auth_context.as_ref(),
+            )?;
             let (response, next_continuation) =
                 receive_azure_devops_page::<Response>(request).await?;
             count += response.count;
@@ -114,16 +117,20 @@ mod test {
     use super::*;
     use crate::fetch_all_azure_devops_projects;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_credentials::AuthContext;
     use eyre::bail;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let auth_context = AuthContext::default();
-        let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+        let projects =
+            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
         for project in projects {
             let test_plans =
-                fetch_azure_devops_test_plans(&org_url, &project, &auth_context).await?;
+                fetch_azure_devops_test_plans(&org_url, &project, &azure_devops_auth_context)
+                    .await?;
             if test_plans.is_empty() {
                 continue;
             }

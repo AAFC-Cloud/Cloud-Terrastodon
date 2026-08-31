@@ -1,8 +1,8 @@
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::PolicySetDefinition;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -21,7 +21,8 @@ impl AzurePolicySetDefinitionBrowseArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!("Fetching Azure policy set definitions...");
-        let policy_set_definitions = fetch_all_policy_set_definitions(tenant_id, auth_context).await?;
+        let policy_set_definitions =
+            fetch_all_policy_set_definitions(tenant_id, auth_context).await?;
         info!(
             count = policy_set_definitions.len(),
             "Fetched Azure policy set definitions",

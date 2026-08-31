@@ -65,15 +65,14 @@ impl<'a> CacheableCommand for PrivateEndpointListRequest<'a> {
         "#}
         .to_owned();
 
-        let private_endpoints =
-            ResourceGraphHelper::new(
-                self.tenant_id,
-                query,
-                Some(self.cache_key()),
-                self.auth_context.as_ref(),
-            )
-                .collect_all::<AzurePrivateEndpointResource>()
-                .await?;
+        let private_endpoints = ResourceGraphHelper::new(
+            self.tenant_id,
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .collect_all::<AzurePrivateEndpointResource>()
+        .await?;
         info!(count = private_endpoints.len(), "Fetched private endpoints");
         Ok(private_endpoints)
     }
@@ -88,11 +87,9 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_private_endpoints(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let result =
+            fetch_all_private_endpoints(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         for private_endpoint in &result {
             assert!(!private_endpoint.name.is_empty());
         }

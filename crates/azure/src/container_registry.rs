@@ -129,14 +129,13 @@ mod test {
     use crate::fetch_container_registry_repository_tags;
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::Slug;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let found = fetch_all_container_registries(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let found =
+            fetch_all_container_registries(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         assert!(!found.is_empty());
         for registry in found.into_iter() {
             registry.name.validate_slug()?;

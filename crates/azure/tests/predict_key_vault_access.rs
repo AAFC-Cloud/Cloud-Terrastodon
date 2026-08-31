@@ -12,7 +12,7 @@ pub async fn predict_would_secret_list_succeed() -> eyre::Result<()> {
     let tenant_id = get_test_tenant_id().await?;
     let auth_context = cloud_terrastodon_credentials::AuthContext::default();
     let (key_vaults, rbac) = try_join!(
-        fetch_all_key_vaults(tenant_id),
+        fetch_all_key_vaults(tenant_id, &auth_context),
         fetch_all_role_definitions_and_assignments(tenant_id, &auth_context),
     )?;
 

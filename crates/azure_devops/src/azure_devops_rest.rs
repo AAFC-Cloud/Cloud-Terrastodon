@@ -1,11 +1,30 @@
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::SerializableRestResponse;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
 use reqwest::Url;
+
+/// Attach an already-refined Azure DevOps authentication context to a REST
+/// request without discarding an explicitly selected bearer-token tenant.
+pub(crate) fn authenticate_azure_devops_request(
+    request: RestRequest,
+    auth_context: &AzureDevOpsAuthContext,
+) -> Result<RestRequest> {
+    match auth_context {
+        AzureDevOpsAuthContext::None => {
+            bail!("Azure DevOps authentication is not configured for this request")
+        }
+        AzureDevOpsAuthContext::Bearer(context) => Ok(request
+            .auth_context(&context.auth_context)
+            .tenant(context.tenant_id)),
+        AzureDevOpsAuthContext::AzureCli(context)
+        | AzureDevOpsAuthContext::PersonalAccessToken(context) => Ok(request.auth_context(context)),
+    }
+}
 
 /// Builds an Azure DevOps REST URL while keeping query parameters encoded by
 /// `Url`. The host is selected per API area because Azure DevOps exposes core,
@@ -80,6 +99,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_credentials::AuthSource;
     use reqwest::StatusCode;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
@@ -112,6 +133,40 @@ mod tests {
         assert_eq!(first.path, base.path.join("0"));
         assert_eq!(continuation.path, base.path.join("1"));
         assert!(continuation.path.starts_with(&base.path));
+    }
+
+    #[test]
+    fn refined_bearer_context_applies_its_tenant_to_rest_requests() -> Result<()> {
+        let tenant_id = "11111111-1111-1111-1111-111111111111".parse()?;
+        let auth_context = AuthContext::explicit(AuthSource::Browser);
+        let auth_context = AzureDevOpsAuthContext::for_tenant(&auth_context, tenant_id)?;
+        let request = RestRequest::new(
+            reqwest::Method::GET,
+            "https://dev.azure.com/example/_apis/projects?api-version=7.1",
+        )?;
+
+        let request = authenticate_azure_devops_request(request, &auth_context)?;
+
+        assert_eq!(request.tenant, Some(tenant_id));
+        assert_eq!(
+            request.auth_context.as_ref().map(AuthContext::source),
+            Some(AuthSource::Browser)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn missing_authentication_is_rejected_locally() -> Result<()> {
+        let request = RestRequest::new(
+            reqwest::Method::GET,
+            "https://dev.azure.com/example/_apis/projects?api-version=7.1",
+        )?;
+
+        let error = authenticate_azure_devops_request(request, &AzureDevOpsAuthContext::None)
+            .expect_err("missing authentication should fail before request execution");
+
+        assert!(error.to_string().contains("not configured"));
+        Ok(())
     }
 
     #[derive(Debug, Facet, PartialEq)]

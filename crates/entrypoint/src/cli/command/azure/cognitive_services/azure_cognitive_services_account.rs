@@ -1,7 +1,7 @@
-use cloud_terrastodon_credentials::AuthContext;
 use super::AzureCognitiveServicesDeploymentArgs;
 use super::AzureCognitiveServicesListArgs;
 use super::AzureCognitiveServicesShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Azure Cognitive Services accounts.
@@ -12,10 +12,7 @@ pub struct AzureCognitiveServicesAccountArgs {
 }
 
 impl AzureCognitiveServicesAccountArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         self.command.invoke(auth_context).await
     }
 }
@@ -32,10 +29,7 @@ pub enum AzureCognitiveServicesAccountCommand {
 }
 
 impl AzureCognitiveServicesAccountCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
             AzureCognitiveServicesAccountCommand::List(args) => args.invoke(auth_context).await,
             AzureCognitiveServicesAccountCommand::Show(args) => args.invoke(auth_context).await,

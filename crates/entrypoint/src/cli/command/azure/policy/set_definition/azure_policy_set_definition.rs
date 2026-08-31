@@ -1,7 +1,7 @@
-use cloud_terrastodon_credentials::AuthContext;
 use super::AzurePolicySetDefinitionBrowseArgs;
 use super::AzurePolicySetDefinitionListArgs;
 use super::AzurePolicySetDefinitionShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for managing Azure policy set definitions.
@@ -17,10 +17,7 @@ pub enum AzurePolicySetDefinitionCommand {
 }
 
 impl AzurePolicySetDefinitionCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
             AzurePolicySetDefinitionCommand::List(args) => args.invoke(auth_context).await,
             AzurePolicySetDefinitionCommand::Browse(args) => args.invoke(auth_context).await,

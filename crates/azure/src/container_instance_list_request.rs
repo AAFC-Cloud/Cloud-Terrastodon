@@ -66,15 +66,14 @@ impl<'a> CacheableCommand for ContainerInstanceListRequest<'a> {
         "#}
         .to_owned();
 
-        let container_instances =
-            ResourceGraphHelper::new(
-                self.tenant_id,
-                query,
-                Some(self.cache_key()),
-                self.auth_context.as_ref(),
-            )
-                .collect_all::<AzureContainerInstanceResource>()
-                .await?;
+        let container_instances = ResourceGraphHelper::new(
+            self.tenant_id,
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .collect_all::<AzureContainerInstanceResource>()
+        .await?;
         info!(
             count = container_instances.len(),
             "Fetched Azure container instances"
@@ -97,11 +96,9 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_container_instances(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let result =
+            fetch_all_container_instances(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         for container_instance in &result {
             assert!(!container_instance.name.is_empty());
         }

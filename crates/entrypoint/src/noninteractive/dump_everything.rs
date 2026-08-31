@@ -9,6 +9,7 @@ use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_azure_devops::get_personal_access_token;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_hcl::FreshTFWorkDir;
 use cloud_terrastodon_hcl::GeneratedConfigOutTFWorkDir;
 use cloud_terrastodon_hcl::HclBlock;
@@ -510,8 +511,9 @@ async fn write_all_import_blocks(
 ) -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Writing all import blocks; fetching a lot of data");
     let org_url = get_default_organization_url().await?;
+    let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(auth_context, tenant_id)?;
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
-        fetch_all_azure_devops_projects(&org_url, auth_context),
+        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context),
         fetch_all_subscriptions(tenant_id, auth_context),
         fetch_all_resource_groups(tenant_id, auth_context),
     )?;

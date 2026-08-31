@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -30,8 +31,14 @@ impl AzureDevOpsTestSuiteShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        let suites =
-            fetch_azure_devops_test_suites(&org_url, self.project, self.plan, auth_context).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
+        let suites = fetch_azure_devops_test_suites(
+            &org_url,
+            self.project,
+            self.plan,
+            &azure_devops_auth_context,
+        )
+        .await?;
         if let Some(suite) = suites
             .into_iter()
             .find(|s| s.name == self.suite || s.id.to_string() == self.suite)

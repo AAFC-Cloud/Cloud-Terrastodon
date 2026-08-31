@@ -64,15 +64,14 @@ impl<'a> CacheableCommand for VirtualNetworkListRequest<'a> {
         "#}
         .to_owned();
 
-        let virtual_networks =
-            ResourceGraphHelper::new(
-                self.tenant_id,
-                query,
-                Some(self.cache_key()),
-                self.auth_context.as_ref(),
-            )
-                .collect_all::<VirtualNetwork>()
-                .await?;
+        let virtual_networks = ResourceGraphHelper::new(
+            self.tenant_id,
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .collect_all::<VirtualNetwork>()
+        .await?;
         info!("Found {} virtual networks", virtual_networks.len());
         Ok(virtual_networks)
     }
@@ -87,11 +86,9 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_virtual_networks(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let result =
+            fetch_all_virtual_networks(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         assert!(!result.is_empty());
         for vnet in result {
             assert!(!vnet.name.is_empty());

@@ -65,15 +65,14 @@ impl<'a> CacheableCommand for VirtualMachineListRequest<'a> {
         "#}
         .to_owned();
 
-        let virtual_machines =
-            ResourceGraphHelper::new(
-                self.tenant_id,
-                query,
-                Some(self.cache_key()),
-                self.auth_context.as_ref(),
-            )
-                .collect_all::<VirtualMachine>()
-                .await?;
+        let virtual_machines = ResourceGraphHelper::new(
+            self.tenant_id,
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .collect_all::<VirtualMachine>()
+        .await?;
         info!(count = virtual_machines.len(), "Found virtual machines");
         Ok(virtual_machines)
     }
@@ -88,11 +87,9 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_virtual_machines(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let result =
+            fetch_all_virtual_machines(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         assert!(!result.is_empty());
         assert!(result.iter().all(|vm| !vm.name.is_empty()));
         Ok(())

@@ -114,6 +114,7 @@ fn format_rest_error_body(body: &RestResponseBody) -> String {
 mod tests {
     use super::*;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_credentials::AuthContext;
     use http::HeaderMap;
     use http::HeaderValue;
     use http::StatusCode;
@@ -150,7 +151,9 @@ mod tests {
     #[tokio::test]
     async fn it_works1() -> eyre::Result<()> {
         let query = CostManagementQueryDefinition::new_cost_total_this_month();
-        let resp = fetch_cost_query_results(get_test_tenant_id().await?, &query).await?;
+        let resp =
+            fetch_cost_query_results(get_test_tenant_id().await?, &query, &AuthContext::default())
+                .await?;
         assert_eq!(resp.properties.next_link, None);
         assert!(!resp.properties.columns.is_empty());
         Ok(())
@@ -158,7 +161,9 @@ mod tests {
     #[tokio::test]
     async fn it_works2() -> eyre::Result<()> {
         let query = CostManagementQueryDefinition::new_cost_by_day_this_month();
-        let resp = fetch_cost_query_results(get_test_tenant_id().await?, &query).await?;
+        let resp =
+            fetch_cost_query_results(get_test_tenant_id().await?, &query, &AuthContext::default())
+                .await?;
         assert_eq!(resp.properties.next_link, None);
         assert!(!resp.properties.columns.is_empty());
         Ok(())
@@ -166,7 +171,9 @@ mod tests {
     #[tokio::test]
     async fn it_works3() -> eyre::Result<()> {
         let query = CostManagementQueryDefinition::new_cost_by_resource_group_this_month();
-        let resp = fetch_cost_query_results(get_test_tenant_id().await?, &query).await?;
+        let resp =
+            fetch_cost_query_results(get_test_tenant_id().await?, &query, &AuthContext::default())
+                .await?;
         assert_eq!(resp.properties.next_link, None);
         assert!(!resp.properties.columns.is_empty());
         Ok(())

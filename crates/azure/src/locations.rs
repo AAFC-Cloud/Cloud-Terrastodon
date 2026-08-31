@@ -53,11 +53,12 @@ mod test {
     use crate::fetch_all_locations;
     use crate::fetch_all_subscriptions;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(tenant_id).await?;
+        let subs = fetch_all_subscriptions(tenant_id, &AuthContext::default()).await?;
         let mut found_unrecognized_location = false;
         for sub in subs {
             let locations = fetch_all_locations(sub.id).await?;

@@ -62,15 +62,14 @@ impl<'a> CacheableCommand for ServiceGroupListRequest<'a> {
     "#}
         .to_owned();
 
-        let service_groups =
-            ResourceGraphHelper::new(
-                self.tenant_id,
-                query,
-                Some(self.cache_key()),
-                self.auth_context.as_ref(),
-            )
-                .collect_all::<ServiceGroup>()
-                .await?;
+        let service_groups = ResourceGraphHelper::new(
+            self.tenant_id,
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .collect_all::<ServiceGroup>()
+        .await?;
         debug!("Found {} service groups", service_groups.len());
         Ok(service_groups)
     }

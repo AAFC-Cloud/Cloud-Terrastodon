@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use std::io::stdout;
 
@@ -17,8 +18,10 @@ impl AzureDevOpsLicenseEntitlementUserListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let entitlements =
-            fetch_azure_devops_user_license_entitlements(&org_url, auth_context).await?;
+            fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context)
+                .await?;
         to_writer_pretty(stdout(), &entitlements)?;
         Ok(())
     }

@@ -1,6 +1,6 @@
-use cloud_terrastodon_credentials::AuthContext;
 use super::AzurePublicIpListArgs;
 use super::AzurePublicIpShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Azure public IP addresses.
@@ -14,10 +14,7 @@ pub enum AzurePublicIpCommand {
 }
 
 impl AzurePublicIpCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
             AzurePublicIpCommand::List(args) => args.invoke(auth_context).await,
             AzurePublicIpCommand::Show(args) => args.invoke(auth_context).await,

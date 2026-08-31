@@ -73,12 +73,15 @@ mod tests {
     use crate::fetch_all_azure_devops_projects;
     use crate::get_default_organization_url;
     use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 
     #[tokio::test]
     async fn test_fetch_all_azure_devops_repos() -> Result<()> {
         let org_url = get_default_organization_url().await?;
         let auth_context = AuthContext::default();
-        let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+        let projects =
+            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
         let mut repo_counts = Vec::new();
         for project in projects.into_iter().take(5) {
             let repos = fetch_all_azure_devops_repos_for_project(&org_url, &project.id).await?;

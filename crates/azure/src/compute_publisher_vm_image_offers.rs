@@ -74,11 +74,12 @@ mod test {
     use cloud_terrastodon_azure_types::AzureLocationName;
     use cloud_terrastodon_azure_types::ComputePublisherName;
     use cloud_terrastodon_azure_types::Slug;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(tenant_id).await?;
+        let subs = fetch_all_subscriptions(tenant_id, &AuthContext::default()).await?;
         let sub = subs.first().unwrap();
         let publisher = ComputePublisherName::try_new("center-for-internet-security-inc")?;
         let offers = super::fetch_compute_publisher_image_offers(

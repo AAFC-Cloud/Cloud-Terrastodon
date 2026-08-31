@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use std::collections::HashMap;
@@ -26,8 +27,10 @@ impl AzureDevOpsLicenseEntitlementUserSummaryArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let entitlements =
-            fetch_azure_devops_user_license_entitlements(&org_url, auth_context).await?;
+            fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context)
+                .await?;
         let rows = summarize_licenses(entitlements.iter().map(|entitlement| &entitlement.license));
         let total_users: usize = rows.iter().map(|row| row.count).sum();
         let total_monthly_cost_cad: f64 = rows.iter().map(|row| row.total_cost_cad).sum();

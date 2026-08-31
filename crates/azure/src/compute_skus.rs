@@ -65,12 +65,13 @@ mod test {
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::AzureLocationName;
     use cloud_terrastodon_azure_types::ComputeSkuResourceType;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     #[ignore] // this endpoint takes forever
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(tenant_id).await?;
+        let subs = fetch_all_subscriptions(tenant_id, &AuthContext::default()).await?;
         let sub = subs.first().unwrap();
         let vm_skus = fetch_all_compute_skus(sub.id).await?;
         let canada_vm_skus = vm_skus

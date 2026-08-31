@@ -7,6 +7,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_f
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use std::io::stdout;
 use tracing::info;
@@ -28,24 +29,26 @@ impl AzureDevOpsAgentPoolEntitlementListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         match (self.project, self.pool) {
             (None, None) => {
                 // Print the entitlements for all pools and projects by enumerating projects and pools
                 info!("Fetching projects...");
-                let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
+                let projects =
+                    fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
                 let mut entitlements = Vec::new();
                 let mut work =
                     ParallelFallibleWorkQueue::new("fetching agent pool entitlements", 8);
                 for project in projects {
                     let org_url = org_url.clone();
                     let project_id = project.id.clone();
-                    let auth_context = auth_context.clone();
+                    let azure_devops_auth_context = azure_devops_auth_context.clone();
                     work.enqueue(async move {
                         let project_entitlements =
                             fetch_azure_devops_agent_pool_entitlements_for_project(
                                 &org_url,
                                 project_id,
-                                &auth_context,
+                                &azure_devops_auth_context,
                             )
                             .await?;
                         Ok(project_entitlements)
@@ -62,7 +65,7 @@ impl AzureDevOpsAgentPoolEntitlementListArgs {
                 let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
                     &org_url,
                     project,
-                    auth_context,
+                    &azure_devops_auth_context,
                 )
                 .await?;
                 let entitlements: Vec<_> = entitlements
@@ -76,7 +79,7 @@ impl AzureDevOpsAgentPoolEntitlementListArgs {
                 let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
                     &org_url,
                     project,
-                    auth_context,
+                    &azure_devops_auth_context,
                 )
                 .await?;
                 to_writer_pretty(stdout(), &entitlements)?;
@@ -86,7 +89,7 @@ impl AzureDevOpsAgentPoolEntitlementListArgs {
                 let entitlements = fetch_azure_devops_agent_pool_entitlements_for_pool(
                     &org_url,
                     pool,
-                    auth_context,
+                    &azure_devops_auth_context,
                 )
                 .await?;
                 to_writer_pretty(stdout(), &entitlements)?;

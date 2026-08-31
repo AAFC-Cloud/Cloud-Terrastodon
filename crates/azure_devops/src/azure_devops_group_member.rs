@@ -6,6 +6,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use facet_json::RawJson;
 use reqwest::Method;
@@ -103,15 +104,18 @@ impl Deref for AzureDevOpsGroupMembersV2Response {
 pub struct AzureDevOpsGroupMembersV2Request<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub group_id: Cow<'a, AzureDevOpsDescriptor>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
 pub fn fetch_azure_devops_group_members_v2<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     group_id: &'a AzureDevOpsDescriptor,
+    auth_context: &'a AzureDevOpsAuthContext,
 ) -> AzureDevOpsGroupMembersV2Request<'a> {
     AzureDevOpsGroupMembersV2Request {
         org_url: Cow::Borrowed(org_url),
         group_id: Cow::Borrowed(group_id),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
@@ -120,6 +124,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsGroupMembersV2Request<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             group_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
+            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }
@@ -147,10 +152,13 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             organization = organization,
             subject_descriptor = subject_descriptor
         );
-        let response = RestRequest::new(Method::GET, url)?
-            .cache(self.cache_key())
-            .receive_raw()
-            .await?;
+        let request = RestRequest::new(Method::GET, url)?.cache(self.cache_key());
+        let response = crate::azure_devops_rest::authenticate_azure_devops_request(
+            request,
+            self.auth_context.as_ref(),
+        )?
+        .receive_raw()
+        .await?;
         Ok(AzureDevOpsGroupMembersV2Response(
             response.into_json_body()?,
         ))
@@ -185,6 +193,7 @@ mod test {
     use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
     use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use eyre::bail;
     use facet_json::RawJson;
     use std::collections::HashMap;
@@ -224,11 +233,16 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
         let auth_context = AuthContext::default();
-        let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+        let projects =
+            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
         for project in &projects {
-            let groups =
-                fetch_azure_devops_groups_for_project(&org_url, &project.name, &auth_context)
-                    .await?;
+            let groups = fetch_azure_devops_groups_for_project(
+                &org_url,
+                &project.name,
+                &azure_devops_auth_context,
+            )
+            .await?;
             for group in &groups {
                 let members = fetch_azure_devops_group_members(&org_url, &group.descriptor).await?;
                 if !members.is_empty() {
@@ -258,7 +272,10 @@ mod test {
 
         let org = AzureDevOpsOrganizationUrl::from_str("https://dev.azure.com/aafc/")?;
         let desc = AzureDevOpsDescriptor::AzureDevOpsGroup("vssgp.redacted".to_string());
-        let resp = fetch_azure_devops_group_members_v2(&org, &desc).await?;
+        let auth_context = AuthContext::default();
+        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+        let resp =
+            fetch_azure_devops_group_members_v2(&org, &desc, &azure_devops_auth_context).await?;
         let resp: MembershipsResponse = facet_json::from_str(resp.as_str())?;
         assert!(
             resp.value.is_some() || resp.count.is_some(),

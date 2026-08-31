@@ -66,11 +66,12 @@ mod test {
     use crate::fetch_all_subscriptions;
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::AzureLocationName;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(tenant_id).await?;
+        let subs = fetch_all_subscriptions(tenant_id, &AuthContext::default()).await?;
         let sub = subs.first().unwrap();
         let publishers =
             crate::fetch_compute_publishers(sub.id, AzureLocationName::CanadaCentral).await?;

@@ -19,10 +19,7 @@ pub enum AzureSubscriptionCommand {
 }
 
 impl AzureSubscriptionArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
             AzureSubscriptionCommand::List(args) => args.invoke(auth_context).await?,
         }

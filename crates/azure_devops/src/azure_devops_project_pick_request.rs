@@ -7,7 +7,7 @@ use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerEvent;
 use cloud_terrastodon_user_input::PickerTui;
@@ -23,21 +23,21 @@ use tracing::info;
 #[derive(Facet)]
 pub struct AzureDevOpsProjectPickRequest<'a> {
     pub org_url: AzureDevOpsOrganizationUrl,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectPickRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: AzureDevOpsOrganizationUrl::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }
 
 pub fn pick_azure_devops_project<'a>(
     org_url: AzureDevOpsOrganizationUrl,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureDevOpsAuthContext,
 ) -> AzureDevOpsProjectPickRequest<'a> {
     AzureDevOpsProjectPickRequest {
         org_url,
@@ -84,11 +84,9 @@ impl<'a> IntoFuture for AzureDevOpsProjectPickRequest<'a> {
                     async move {
                         if matches!(event.as_ref(), PickerEvent::InitialLoad) {
                             info!(organization = %org_url, "Fetching Azure DevOps projects");
-                            let projects = fetch_all_azure_devops_projects(
-                                &org_url,
-                                auth_context.as_ref(),
-                            )
-                            .await?;
+                            let projects =
+                                fetch_all_azure_devops_projects(&org_url, auth_context.as_ref())
+                                    .await?;
                             sink.push(projects.into_iter().map(project_choice))?;
                             info!(organization = %org_url, "Finished fetching Azure DevOps projects");
                 }

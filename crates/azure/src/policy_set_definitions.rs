@@ -81,21 +81,17 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_policy_set_definitions(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let result =
+            fetch_all_policy_set_definitions(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         assert!(!result.is_empty());
         Ok(())
     }
     #[tokio::test]
     async fn it_works_v2() -> Result<()> {
-        let result = fetch_all_policy_set_definitions(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let result =
+            fetch_all_policy_set_definitions(get_test_tenant_id().await?, &AuthContext::default())
+                .await?;
         assert!(!result.is_empty());
         Ok(())
     }
