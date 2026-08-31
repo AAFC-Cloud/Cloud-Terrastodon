@@ -9,6 +9,7 @@ use cloud_terrastodon_azure::fetch_current_user;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::Result;
@@ -32,7 +33,7 @@ pub struct TerraformApplyArgs {
 }
 
 impl TerraformApplyArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         // Generate the plan file
         let plan_file = "apply.tfplan";
@@ -92,7 +93,8 @@ impl TerraformApplyArgs {
         println!("This plan requires: {:#?}", required_roles);
 
         // Identify RBAC roles for the current principal
-        let entra_rbac = fetch_all_unified_role_definitions_and_assignments(tenant_id).await?;
+        let entra_rbac =
+            fetch_all_unified_role_definitions_and_assignments(tenant_id, auth_context).await?;
         let current_user = fetch_current_user().await?;
         let current_user_rbac = entra_rbac
             .iter_role_assignments()

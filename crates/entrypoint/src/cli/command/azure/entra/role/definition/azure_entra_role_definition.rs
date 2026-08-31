@@ -1,6 +1,7 @@
 use super::AzureEntraRoleDefinitionBrowseArgs;
 use super::AzureEntraRoleDefinitionFindArgs;
 use super::AzureEntraRoleDefinitionListArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Entra role definition operations.
@@ -16,11 +17,11 @@ pub enum AzureEntraRoleDefinitionCommand {
 }
 
 impl AzureEntraRoleDefinitionCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureEntraRoleDefinitionCommand::List(args) => args.invoke().await,
-            AzureEntraRoleDefinitionCommand::Browse(args) => args.invoke().await,
-            AzureEntraRoleDefinitionCommand::Find(args) => args.invoke().await,
+            AzureEntraRoleDefinitionCommand::List(args) => args.invoke(auth_context).await,
+            AzureEntraRoleDefinitionCommand::Browse(args) => args.invoke(auth_context).await,
+            AzureEntraRoleDefinitionCommand::Find(args) => args.invoke(auth_context).await,
         }
     }
 }

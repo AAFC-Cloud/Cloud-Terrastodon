@@ -2,6 +2,7 @@ use crate::cli::azure_devops::project::dump::AzureDevOpsProjectDumpArgs;
 use crate::cli::azure_devops::project::list::AzureDevOpsProjectListArgs;
 use crate::cli::azure_devops::project::member::AzureDevOpsProjectMemberArgs;
 use crate::cli::azure_devops::project::show::AzureDevOpsProjectShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps project-related commands.
@@ -25,12 +26,12 @@ pub enum AzureDevOpsProjectCommand {
 }
 
 impl AzureDevOpsProjectArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
-            AzureDevOpsProjectCommand::List(args) => args.invoke().await?,
-            AzureDevOpsProjectCommand::Show(args) => args.invoke().await?,
-            AzureDevOpsProjectCommand::Dump(args) => args.invoke().await?,
-            AzureDevOpsProjectCommand::Member(args) => args.invoke().await?,
+            AzureDevOpsProjectCommand::List(args) => args.invoke(auth_context).await?,
+            AzureDevOpsProjectCommand::Show(args) => args.invoke(auth_context).await?,
+            AzureDevOpsProjectCommand::Dump(args) => args.invoke(auth_context).await?,
+            AzureDevOpsProjectCommand::Member(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

@@ -3,6 +3,7 @@ use crate::noninteractive::write_imports_for_all_role_assignments;
 use crate::noninteractive::write_imports_for_all_security_groups;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Write Terraform import definitions for all supported resources.
@@ -14,11 +15,11 @@ pub struct WriteAllImportsArgs {
 }
 
 impl WriteAllImportsArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        write_imports_for_all_resource_groups(tenant_id).await?;
-        write_imports_for_all_security_groups(tenant_id).await?;
-        write_imports_for_all_role_assignments(tenant_id).await?;
+        write_imports_for_all_resource_groups(tenant_id, auth_context).await?;
+        write_imports_for_all_security_groups(tenant_id, auth_context).await?;
+        write_imports_for_all_role_assignments(tenant_id, auth_context).await?;
         Ok(())
     }
 }

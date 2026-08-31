@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -14,7 +15,10 @@ use std::collections::HashMap;
 use tokio::join;
 use tracing::info;
 
-pub async fn copy_azurerm_backend_menu(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn copy_azurerm_backend_menu(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
     info!("Picking storage account");
     let chosen_storage_account = PickerTui::<_>::new()
         .set_header("Picking the storage account for the state file")
@@ -22,8 +26,8 @@ pub async fn copy_azurerm_backend_menu(tenant_id: AzureTenantId) -> Result<()> {
             info!("Fetching storage accounts");
             info!("Fetching subscriptions");
             let (storage_accounts, subscriptions) = join!(
-                fetch_all_storage_accounts(tenant_id).with_invalidation(invalidate),
-                fetch_all_subscriptions(tenant_id).with_invalidation(invalidate)
+                fetch_all_storage_accounts(tenant_id, auth_context).with_invalidation(invalidate),
+                fetch_all_subscriptions(tenant_id, auth_context).with_invalidation(invalidate)
             );
             let storage_accounts = storage_accounts?;
             let subscriptions = subscriptions?

@@ -5,6 +5,7 @@ pub mod azure_entra_principal_show;
 pub use azure_entra_principal::AzureEntraPrincipalCommand;
 pub use azure_entra_principal_list::AzureEntraPrincipalListArgs;
 pub use azure_entra_principal_show::AzureEntraPrincipalShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Entra principal subcommands.
@@ -15,7 +16,7 @@ pub struct AzureEntraPrincipalArgs {
 }
 
 impl AzureEntraPrincipalArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

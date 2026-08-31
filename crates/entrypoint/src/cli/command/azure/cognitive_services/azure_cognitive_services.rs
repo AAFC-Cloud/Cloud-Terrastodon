@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use super::AzureCognitiveServicesAccountArgs;
 use eyre::Result;
 
@@ -10,9 +11,12 @@ pub enum AzureCognitiveServicesCommand {
 }
 
 impl AzureCognitiveServicesCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         match self {
-            AzureCognitiveServicesCommand::Account(args) => args.invoke().await,
+            AzureCognitiveServicesCommand::Account(args) => args.invoke(auth_context).await,
         }
     }
 }

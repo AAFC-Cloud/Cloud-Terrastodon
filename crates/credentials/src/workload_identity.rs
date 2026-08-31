@@ -164,6 +164,7 @@ pub(crate) fn normalize_workload_identity_inputs(
 #[derive(Debug, Facet)]
 #[facet(rename_all = "snake_case")]
 struct TokenResponse {
+    #[facet(sensitive)]
     access_token: Option<String>,
     token_type: Option<String>,
     expires_in: Option<u64>,

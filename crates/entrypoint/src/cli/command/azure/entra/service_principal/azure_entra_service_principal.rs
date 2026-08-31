@@ -1,6 +1,7 @@
 use super::AzureEntraSpBrowseArgs;
 use super::AzureEntraSpListArgs;
 use super::AzureEntraSpShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Service principal-related Entra (Azure AD) commands.
@@ -16,11 +17,11 @@ pub enum AzureEntraSpCommand {
 }
 
 impl AzureEntraSpCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureEntraSpCommand::List(args) => args.invoke().await,
-            AzureEntraSpCommand::Show(args) => args.invoke().await,
-            AzureEntraSpCommand::Browse(args) => args.invoke().await,
+            AzureEntraSpCommand::List(args) => args.invoke(auth_context).await,
+            AzureEntraSpCommand::Show(args) => args.invoke(auth_context).await,
+            AzureEntraSpCommand::Browse(args) => args.invoke(auth_context).await,
         }
     }
 }

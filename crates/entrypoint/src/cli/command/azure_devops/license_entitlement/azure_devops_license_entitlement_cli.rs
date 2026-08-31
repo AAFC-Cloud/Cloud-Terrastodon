@@ -5,6 +5,7 @@ use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntit
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserSummaryArgs;
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateArgs;
 use crate::cli::azure_devops::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateTuiArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps license entitlement-related commands.
@@ -60,15 +61,23 @@ pub enum AzureDevOpsLicenseEntitlementGroupCommand {
 }
 
 impl AzureDevOpsLicenseEntitlementArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
             AzureDevOpsLicenseEntitlementCommand::User(args) => match args.command {
-                AzureDevOpsLicenseEntitlementUserCommand::List(a) => a.invoke().await?,
-                AzureDevOpsLicenseEntitlementUserCommand::Summary(a) => a.invoke().await?,
-                AzureDevOpsLicenseEntitlementUserCommand::Update(a) => a.invoke().await?,
-                AzureDevOpsLicenseEntitlementUserCommand::UpdateTui(a) => a.invoke().await?,
-                AzureDevOpsLicenseEntitlementUserCommand::Show(a) => a.invoke().await?,
-                AzureDevOpsLicenseEntitlementUserCommand::Revoke(a) => a.invoke().await?,
+                AzureDevOpsLicenseEntitlementUserCommand::List(a) => a.invoke(auth_context).await?,
+                AzureDevOpsLicenseEntitlementUserCommand::Summary(a) => {
+                    a.invoke(auth_context).await?
+                }
+                AzureDevOpsLicenseEntitlementUserCommand::Update(a) => {
+                    a.invoke(auth_context).await?
+                }
+                AzureDevOpsLicenseEntitlementUserCommand::UpdateTui(a) => {
+                    a.invoke(auth_context).await?
+                }
+                AzureDevOpsLicenseEntitlementUserCommand::Show(a) => a.invoke(auth_context).await?,
+                AzureDevOpsLicenseEntitlementUserCommand::Revoke(a) => {
+                    a.invoke(auth_context).await?
+                }
             },
             AzureDevOpsLicenseEntitlementCommand::Group(args) => match args.command {
                 AzureDevOpsLicenseEntitlementGroupCommand::List(a) => a.invoke().await?,

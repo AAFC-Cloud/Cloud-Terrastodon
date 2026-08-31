@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_cognitive_services;
 pub mod azure_cognitive_services_account;
 pub mod azure_cognitive_services_account_argument;
@@ -25,7 +26,10 @@ pub struct AzureCognitiveServicesArgs {
 }
 
 impl AzureCognitiveServicesArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

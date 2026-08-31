@@ -7,7 +7,6 @@ use cloud_terrastodon_credentials::create_azure_devops_rest_client;
 use cloud_terrastodon_credentials::fetch_azure_bearer_access_token;
 use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
 use eyre::Result;
-use eyre::bail;
 use http::Method;
 use reqwest::Client;
 use reqwest::ClientBuilder;
@@ -52,10 +51,16 @@ pub async fn execute_rest_request(
 ) -> Result<Response> {
     match service {
         RestService::AzureDevOps => {
-            if tenant.is_some() {
-                bail!("--tenant is not supported for Azure DevOps REST URLs")
-            }
-            execute_azure_devops_request(auth_context, method, url, body, headers).await
+            execute_azure_devops_request(
+                auth_context,
+                method,
+                url,
+                body,
+                headers,
+                tenant,
+                bearer_token,
+            )
+            .await
         }
         RestService::MicrosoftGraph => {
             execute_azure_bearer_request(
@@ -92,6 +97,8 @@ pub async fn execute_azure_devops_request(
     url: Url,
     body: Option<String>,
     headers: Option<RequestHeaders>,
+    tenant: Option<AzureTenantId>,
+    bearer_token: Option<String>,
 ) -> Result<Response> {
     let source = auth_context.source();
 
@@ -106,9 +113,21 @@ pub async fn execute_azure_devops_request(
         return execute_authenticated_azure_devops_request(method, url, body, headers, &pat).await;
     }
 
+    if let Some(bearer_token) = bearer_token {
+        let bearer_token = cloud_terrastodon_credentials::AzureBearerToken::new(bearer_token);
+        return execute_authenticated_azure_devops_request(
+            method,
+            url,
+            body,
+            headers,
+            &bearer_token,
+        )
+        .await;
+    }
+
     let token = fetch_azure_bearer_access_token(
         auth_context,
-        None,
+        tenant,
         cloud_terrastodon_credentials::AzureRestResource::AzureDevOps,
     )
     .await?;

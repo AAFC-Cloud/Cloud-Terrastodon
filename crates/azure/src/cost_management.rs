@@ -2,6 +2,7 @@ use crate::fetch_root_management_group;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::CostManagementQueryDefinition;
 use cloud_terrastodon_azure_types::CostManagementQueryResult;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestResponseBody;
 use cloud_terrastodon_rest::SerializableRestResponse;
@@ -15,13 +16,15 @@ const COST_MANAGEMENT_MAX_THROTTLE_RETRIES: usize = 3;
 pub async fn fetch_cost_query_results(
     tenant_id: AzureTenantId,
     query: &CostManagementQueryDefinition,
+    auth_context: &AuthContext,
 ) -> eyre::Result<CostManagementQueryResult> {
-    let root = fetch_root_management_group(tenant_id).await?;
+    let root = fetch_root_management_group(tenant_id, auth_context).await?;
     let url = format!(
         "https://management.azure.com/providers/Microsoft.Management/managementGroups/{}/providers/Microsoft.CostManagement/query?api-version=2021-10-01",
         root.tenant_id
     );
     let request = RestRequest::new(http::Method::POST, url.as_str())?
+        .auth_context(auth_context)
         .tenant(tenant_id)
         .body(facet_json::to_string_pretty(query).map_err(|error| eyre::eyre!("{error:?}"))?);
     receive_cost_management_response(request).await

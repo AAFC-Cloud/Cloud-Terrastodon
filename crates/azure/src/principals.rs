@@ -7,25 +7,42 @@ use cloud_terrastodon_azure_types::PrincipalCollection;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use itertools::Itertools;
-use std::future::IntoFuture;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tokio::try_join;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct PrincipalListRequest {
+#[derive(facet::Facet)]
+pub struct PrincipalListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_principals(tenant_id: AzureTenantId) -> PrincipalListRequest {
-    PrincipalListRequest { tenant_id }
+impl<'a> arbitrary::Arbitrary<'a> for PrincipalListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_all_principals<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> PrincipalListRequest<'a> {
+    PrincipalListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for PrincipalListRequest {
+impl<'a> CacheableCommand for PrincipalListRequest<'a> {
     type Output = PrincipalCollection;
 
     fn cache_key(&self) -> CacheKey {
@@ -38,10 +55,11 @@ impl CacheableCommand for PrincipalListRequest {
 
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching principals (users, security groups, and service principals)");
+        let auth_context = self.auth_context;
         let (users, security_groups, service_principals) = try_join!(
-            fetch_all_entra_users(self.tenant_id).into_future(),
-            fetch_all_security_groups(self.tenant_id),
-            fetch_all_service_principals(self.tenant_id)
+            fetch_all_entra_users(self.tenant_id, auth_context.as_ref()),
+            fetch_all_security_groups(self.tenant_id, auth_context.as_ref()),
+            fetch_all_service_principals(self.tenant_id, auth_context.as_ref())
         )?;
         let principals: Vec<Principal> = users
             .into_iter()
@@ -54,22 +72,24 @@ impl CacheableCommand for PrincipalListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(PrincipalListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(PrincipalListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
     use crate::fetch_all_principals;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let found = fetch_all_principals(get_test_tenant_id().await?).await?;
+        let auth_context = AuthContext::default();
+        let found = fetch_all_principals(get_test_tenant_id().await?, &auth_context).await?;
         assert!(found.len() > 10);
         Ok(())
     }
 }
 
-cloud_terrastodon_registry::register_thing!(PrincipalListRequest);
-cloud_terrastodon_registry::register_arbitrary!(PrincipalListRequest);
+cloud_terrastodon_registry::register_thing!(PrincipalListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(PrincipalListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PrincipalCollection);
-cloud_terrastodon_registry::register_into_future!(PrincipalListRequest => PrincipalCollection);
+cloud_terrastodon_registry::register_into_future!(PrincipalListRequest<'static> => PrincipalCollection);

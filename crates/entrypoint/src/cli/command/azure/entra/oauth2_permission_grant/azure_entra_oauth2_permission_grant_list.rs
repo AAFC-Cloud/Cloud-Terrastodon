@@ -8,6 +8,7 @@ use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::ContextCompat;
 use eyre::Result;
 use std::io::Write;
@@ -41,20 +42,20 @@ pub struct AzureEntraOAuth2PermissionGrantListArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         let mut client_id = self.client_id;
         let mut resource_id = self.resource_id;
         if let Some(preset) = self.preset {
             let (preset_client_id, preset_resource_id) =
-                resolve_preset_service_principals(tenant_id, preset).await?;
+                resolve_preset_service_principals(tenant_id, preset, auth_context).await?;
             client_id.get_or_insert(preset_client_id);
             resource_id.get_or_insert(preset_resource_id);
         }
 
         let principal_id = match self.principal.as_ref() {
             Some(principal_argument) => {
-                let principals = fetch_all_principals(tenant_id).await?;
+                let principals = fetch_all_principals(tenant_id, auth_context).await?;
                 let principal = principal_argument.resolve(&principals).wrap_err_with(|| {
                     format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",

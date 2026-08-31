@@ -4,8 +4,13 @@ use crate::azure_devops_rest::receive_azure_devops_page;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AuthSource;
+use cloud_terrastodon_credentials::AzureRestResource;
+use cloud_terrastodon_credentials::fetch_azure_bearer_access_token;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use facet::Facet;
@@ -17,13 +22,18 @@ use tracing::debug;
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsProjectsListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    pub auth_context: Cow<'a, AuthContext>,
+    pub tenant: Option<AzureTenantId>,
 }
 
 pub fn fetch_all_azure_devops_projects<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
+    auth_context: &'a AuthContext,
 ) -> AzureDevOpsProjectsListRequest<'a> {
     AzureDevOpsProjectsListRequest {
         org_url: Cow::Borrowed(org_url),
+        auth_context: Cow::Borrowed(auth_context),
+        tenant: None,
     }
 }
 
@@ -31,6 +41,8 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectsListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            auth_context: Cow::Owned(AuthContext::default()),
+            tenant: None,
         })
     }
 }
@@ -107,7 +119,8 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_all_azure_devops_projects() -> Result<()> {
         let org_url = get_default_organization_url().await?;
-        let projects = fetch_all_azure_devops_projects(&org_url).await?;
+        let auth_context = AuthContext::default();
+        let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
         assert!(!projects.is_empty());
         assert!(projects.iter().all(|project| !project.name.is_empty()));
         Ok(())

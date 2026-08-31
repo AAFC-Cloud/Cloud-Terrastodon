@@ -3,6 +3,7 @@ use super::terraform_reflow::TerraformReflowArgs;
 use super::terraform_show::TerraformShowArgs;
 use super::terraform_source::TerraformSourceArgs;
 use crate::cli::terraform::terraform_apply::TerraformApplyArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Terraform-specific commands.
@@ -27,13 +28,13 @@ pub enum TerraformCommand {
 }
 
 impl TerraformCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
             TerraformCommand::Audit(args) => args.invoke().await,
-            TerraformCommand::Source(args) => args.invoke().await,
-            TerraformCommand::Reflow(args) => args.invoke().await,
-            TerraformCommand::Show(args) => args.invoke().await,
-            TerraformCommand::Apply(args) => args.invoke().await,
+            TerraformCommand::Source(args) => args.invoke(auth_context).await,
+            TerraformCommand::Reflow(args) => args.invoke(auth_context).await,
+            TerraformCommand::Show(args) => args.invoke(auth_context).await,
+            TerraformCommand::Apply(args) => args.invoke(auth_context).await,
         }
     }
 }

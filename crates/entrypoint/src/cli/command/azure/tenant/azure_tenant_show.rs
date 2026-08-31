@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_azure_tenant_details;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
 
@@ -13,9 +14,9 @@ pub struct AzureTenantShowArgs {
 }
 
 impl AzureTenantShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        let details = fetch_azure_tenant_details(tenant_id).await?;
+        let details = fetch_azure_tenant_details(tenant_id, auth_context).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

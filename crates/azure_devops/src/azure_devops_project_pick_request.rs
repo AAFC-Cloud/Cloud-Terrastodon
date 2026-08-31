@@ -7,40 +7,56 @@ use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerEvent;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 use std::future::Future;
 use std::future::IntoFuture;
 use std::pin::Pin;
 use tracing::info;
 
 #[must_use = "This is an interactive future request, you must .await it"]
-#[derive(Arbitrary, Facet)]
-pub struct AzureDevOpsProjectPickRequest {
+#[derive(Facet)]
+pub struct AzureDevOpsProjectPickRequest<'a> {
     pub org_url: AzureDevOpsOrganizationUrl,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn pick_azure_devops_project(
+impl<'a> Arbitrary<'a> for AzureDevOpsProjectPickRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            org_url: AzureDevOpsOrganizationUrl::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn pick_azure_devops_project<'a>(
     org_url: AzureDevOpsOrganizationUrl,
-) -> AzureDevOpsProjectPickRequest {
-    AzureDevOpsProjectPickRequest { org_url }
+    auth_context: &'a AuthContext,
+) -> AzureDevOpsProjectPickRequest<'a> {
+    AzureDevOpsProjectPickRequest {
+        org_url,
+        auth_context: Cow::Borrowed(auth_context),
+    }
 }
 
 #[async_trait]
-impl CacheInvalidatable for AzureDevOpsProjectPickRequest {
+impl<'a> CacheInvalidatable for AzureDevOpsProjectPickRequest<'a> {
     async fn invalidate(&self) -> Result<()> {
-        fetch_all_azure_devops_projects(&self.org_url)
+        fetch_all_azure_devops_projects(&self.org_url, self.auth_context.as_ref())
             .cache_key()
             .invalidate()
             .await
     }
 }
 
-impl CacheInvalidatableIntoFuture for AzureDevOpsProjectPickRequest {
-    type WithInvalidation = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsProjectPickRequest<'a> {
+    type WithInvalidation = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
 
     fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
         Box::pin(async move {
@@ -52,21 +68,27 @@ impl CacheInvalidatableIntoFuture for AzureDevOpsProjectPickRequest {
     }
 }
 
-impl IntoFuture for AzureDevOpsProjectPickRequest {
+impl<'a> IntoFuture for AzureDevOpsProjectPickRequest<'a> {
     type Output = Result<AzureDevOpsProjectArgument<'static>>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
             let org_url = self.org_url;
+            let auth_context = self.auth_context;
             let projects = PickerTui::<AzureDevOpsProject>::new()
                 .set_header("Azure DevOps Projects")
                 .add_event_handler(move |event, sink| {
                     let org_url = org_url.clone();
+                    let auth_context = auth_context.clone();
                     async move {
                         if matches!(event.as_ref(), PickerEvent::InitialLoad) {
                             info!(organization = %org_url, "Fetching Azure DevOps projects");
-                            let projects = fetch_all_azure_devops_projects(&org_url).await?;
+                            let projects = fetch_all_azure_devops_projects(
+                                &org_url,
+                                auth_context.as_ref(),
+                            )
+                            .await?;
                             sink.push(projects.into_iter().map(project_choice))?;
                             info!(organization = %org_url, "Finished fetching Azure DevOps projects");
                 }
@@ -88,10 +110,10 @@ fn project_choice(project: AzureDevOpsProject) -> Choice<AzureDevOpsProject> {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectPickRequest);
-cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectPickRequest);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectPickRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectPickRequest<'static>);
 cloud_terrastodon_registry::register_into_future!(
-    AzureDevOpsProjectPickRequest => AzureDevOpsProjectArgument<'static>,
+    AzureDevOpsProjectPickRequest<'static> => AzureDevOpsProjectArgument<'static>,
     effects = [Read]
 );
 
@@ -104,7 +126,7 @@ mod test {
     #[test]
     fn registry_discovers_default_organization_dependency() {
         assert!(shape_can_be_produced_from_defaults(
-            AzureDevOpsProjectPickRequest::SHAPE
+            AzureDevOpsProjectPickRequest::<'static>::SHAPE
         ));
     }
 }

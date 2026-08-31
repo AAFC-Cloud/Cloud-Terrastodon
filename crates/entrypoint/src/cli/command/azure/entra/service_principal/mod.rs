@@ -7,6 +7,7 @@ pub use azure_entra_service_principal::AzureEntraSpCommand;
 pub use azure_entra_service_principal_browse::AzureEntraSpBrowseArgs;
 pub use azure_entra_service_principal_list::AzureEntraSpListArgs;
 pub use azure_entra_service_principal_show::AzureEntraSpShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Entra service principal subcommands.
@@ -17,7 +18,7 @@ pub struct AzureEntraServicePrincipalArgs {
 }
 
 impl AzureEntraServicePrincipalArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

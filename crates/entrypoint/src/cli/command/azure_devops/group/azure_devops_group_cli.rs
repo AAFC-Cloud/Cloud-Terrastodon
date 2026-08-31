@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::group::list::AzureDevOpsGroupListArgs;
 use crate::cli::azure_devops::group::show::AzureDevOpsGroupShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps group-related commands.
@@ -19,10 +20,10 @@ pub enum AzureDevOpsGroupCommand {
 }
 
 impl AzureDevOpsGroupArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
-            AzureDevOpsGroupCommand::List(args) => args.invoke().await?,
-            AzureDevOpsGroupCommand::Show(args) => args.invoke().await?,
+            AzureDevOpsGroupCommand::List(args) => args.invoke(auth_context).await?,
+            AzureDevOpsGroupCommand::Show(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

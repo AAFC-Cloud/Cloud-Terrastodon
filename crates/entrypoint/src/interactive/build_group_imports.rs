@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::fetch_all_groups;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_pathing::AppDir;
@@ -9,9 +10,12 @@ use eyre::eyre;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn build_group_imports(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn build_group_imports(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
     info!("Fetching groups");
-    let groups = fetch_all_groups(tenant_id)
+    let groups = fetch_all_groups(tenant_id, auth_context)
         .await?
         .into_iter()
         .filter(|def| def.security_enabled)

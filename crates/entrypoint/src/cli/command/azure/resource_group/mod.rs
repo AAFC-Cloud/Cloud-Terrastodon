@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_resource_group;
 pub mod azure_resource_group_browse;
 pub mod azure_resource_group_list;
@@ -15,7 +16,10 @@ pub struct AzureResourceGroupArgs {
 }
 
 impl AzureResourceGroupArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

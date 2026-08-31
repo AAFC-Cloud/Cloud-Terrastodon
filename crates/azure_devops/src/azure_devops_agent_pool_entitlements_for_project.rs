@@ -5,6 +5,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use facet_json::RawJson;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -14,15 +15,18 @@ use tracing::debug;
 pub struct AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
 pub fn fetch_azure_devops_agent_pool_entitlements_for_project<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
+    auth_context: &'a AuthContext,
 ) -> AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
     AzureDevOpsAgentPoolEntitlementListForProjectRequest {
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
@@ -31,6 +35,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsAgentPoolEntitlementListForProjectRequest<
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
+            auth_context: Cow::Owned(AuthContext::default()),
         })
     }
 }
@@ -111,14 +116,18 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let projects = fetch_all_azure_devops_projects(&org_url).await?;
+        let auth_context = AuthContext::default();
+        let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
 
         // Iterate projects, and stop when we find the first project with entitlements.
         let mut found = false;
         for project in projects {
-            let entitlements =
-                fetch_azure_devops_agent_pool_entitlements_for_project(&org_url, &project.name)
-                    .await?;
+            let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
+                &org_url,
+                &project.name,
+                &auth_context,
+            )
+            .await?;
             if !entitlements.is_empty() {
                 assert!(
                     entitlements

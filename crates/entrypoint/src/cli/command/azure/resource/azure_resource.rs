@@ -1,6 +1,7 @@
 use super::AzureResourceBrowseArgs;
 use super::AzureResourceListArgs;
 use super::AzureResourceShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for managing Azure resources.
@@ -16,11 +17,11 @@ pub enum AzureResourceCommand {
 }
 
 impl AzureResourceCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureResourceCommand::List(args) => args.invoke().await,
-            AzureResourceCommand::Browse(args) => args.invoke().await,
-            AzureResourceCommand::Show(args) => args.invoke().await,
+            AzureResourceCommand::List(args) => args.invoke(auth_context).await,
+            AzureResourceCommand::Browse(args) => args.invoke(auth_context).await,
+            AzureResourceCommand::Show(args) => args.invoke(auth_context).await,
         }
     }
 }

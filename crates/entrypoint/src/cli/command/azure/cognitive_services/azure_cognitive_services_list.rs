@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_cognitive_services_accounts;
@@ -13,9 +14,9 @@ pub struct AzureCognitiveServicesListArgs {
 }
 
 impl AzureCognitiveServicesListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
-        let accounts = fetch_all_cognitive_services_accounts(tenant_id).await?;
+        let accounts = fetch_all_cognitive_services_accounts(tenant_id, auth_context).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

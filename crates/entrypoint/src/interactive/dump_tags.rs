@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::ResourceGraphHelper;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::PickerTui;
 use facet_json::RawJson;
 use std::path::PathBuf;
@@ -9,7 +10,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::info;
 use tracing::warn;
 
-pub async fn dump_tags(tenant_id: AzureTenantId) -> eyre::Result<()> {
+pub async fn dump_tags(tenant_id: AzureTenantId, auth_context: &AuthContext) -> eyre::Result<()> {
     let path = PathBuf::from("resource_tags.json");
     if try_exists(&path).await.unwrap_or(false) {
         let yes = "yes";
@@ -41,6 +42,7 @@ resources
     tags
 "#,
         None,
+        auth_context,
     )
     .collect_all::<RawJson<'static>>()
     .await?;

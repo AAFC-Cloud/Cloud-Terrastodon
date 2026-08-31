@@ -8,6 +8,7 @@ use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::create_oauth2_permission_grant;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::join_oauth2_permission_grant_scopes;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::ContextCompat;
 use eyre::Result;
 use std::io::Write;
@@ -41,14 +42,16 @@ pub struct AzureEntraOAuth2PermissionGrantCreateArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantCreateArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         if self.preset.is_some() && (self.client_id.is_some() || self.resource_id.is_some()) {
             eyre::bail!("--preset cannot be used with --client-id or --resource-id");
         }
 
         let tenant_id = self.tenant.resolve().await?;
         let (client_id, resource_id) = match self.preset {
-            Some(preset) => resolve_preset_service_principals(tenant_id, preset).await?,
+            Some(preset) => {
+                resolve_preset_service_principals(tenant_id, preset, auth_context).await?
+            }
             None => (
                 self.client_id
                     .wrap_err("--client-id is required unless --preset is used")?,
@@ -62,7 +65,7 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
             eyre::bail!("At least one --scope value is required");
         }
 
-        let principals = fetch_all_principals(tenant_id).await?;
+        let principals = fetch_all_principals(tenant_id, auth_context).await?;
         let principal = self.principal.resolve(&principals).wrap_err_with(|| {
             format!(
                 "Could not resolve principal '{}' in tenant {tenant_id}",

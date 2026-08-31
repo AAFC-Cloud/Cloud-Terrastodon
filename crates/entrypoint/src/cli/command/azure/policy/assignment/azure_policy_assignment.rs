@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use super::AzurePolicyAssignmentBrowseArgs;
 use super::AzurePolicyAssignmentListArgs;
 use super::AzurePolicyAssignmentShowArgs;
@@ -16,11 +17,14 @@ pub enum AzurePolicyAssignmentCommand {
 }
 
 impl AzurePolicyAssignmentCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         match self {
-            AzurePolicyAssignmentCommand::List(args) => args.invoke().await,
-            AzurePolicyAssignmentCommand::Browse(args) => args.invoke().await,
-            AzurePolicyAssignmentCommand::Show(args) => args.invoke().await,
+            AzurePolicyAssignmentCommand::List(args) => args.invoke(auth_context).await,
+            AzurePolicyAssignmentCommand::Browse(args) => args.invoke(auth_context).await,
+            AzurePolicyAssignmentCommand::Show(args) => args.invoke(auth_context).await,
         }
     }
 }

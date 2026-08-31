@@ -3,6 +3,7 @@ use crate::get_role_assignment_choices;
 use crate::get_security_group_choices;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -32,11 +33,12 @@ impl HclImportable {
     pub async fn try_into_import_blocks(
         &self,
         tenant_id: AzureTenantId,
+        auth_context: &AuthContext,
     ) -> eyre::Result<Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>>> {
         let rtn: Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>> = match self {
             HclImportable::ResourceGroup => {
                 info!("Fetching resource groups");
-                get_resource_group_choices(tenant_id)
+                get_resource_group_choices(tenant_id, auth_context)
                     .await?
                     .into_iter()
                     .map(|Choice { key, value: rg }| {
@@ -60,7 +62,7 @@ impl HclImportable {
                     })
                     .collect()
             }
-            HclImportable::SecurityGroup => get_security_group_choices(tenant_id)
+            HclImportable::SecurityGroup => get_security_group_choices(tenant_id, auth_context)
                 .await?
                 .into_iter()
                 .map(|choice| Choice {
@@ -68,7 +70,7 @@ impl HclImportable {
                     value: (choice.value.into(), None),
                 })
                 .collect(),
-            HclImportable::RoleAssignment => get_role_assignment_choices(tenant_id)
+            HclImportable::RoleAssignment => get_role_assignment_choices(tenant_id, auth_context)
                 .await?
                 .into_iter()
                 .map(|choice| Choice {
@@ -88,8 +90,12 @@ impl HclImportable {
             }))
             .await?)
     }
-    pub async fn pick_into_body(self, tenant_id: AzureTenantId) -> eyre::Result<Body> {
-        let import_blocks = self.try_into_import_blocks(tenant_id).await?;
+    pub async fn pick_into_body(
+        self,
+        tenant_id: AzureTenantId,
+        auth_context: &AuthContext,
+    ) -> eyre::Result<Body> {
+        let import_blocks = self.try_into_import_blocks(tenant_id, auth_context).await?;
         let import_blocks = PickerTui::<_>::new()
             .set_header("Pick the resources to import")
             .pick_many(import_blocks)

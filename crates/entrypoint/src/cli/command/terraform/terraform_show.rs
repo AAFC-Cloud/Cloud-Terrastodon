@@ -5,6 +5,7 @@ use cloud_terrastodon_azure::PrincipalId;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::ContextCompat;
@@ -31,7 +32,7 @@ pub struct TerraformShowArgs {
 }
 
 impl TerraformShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         // Determine whether the given file is JSON
         let is_json = self.plan_file.extension().and_then(|s| s.to_str()) == Some("json");
@@ -64,7 +65,7 @@ impl TerraformShowArgs {
                     }
 
                     // Slow path: fetch, store in cache, and return
-                    let fetched = fetch_all_principals(tenant_id).await?;
+                    let fetched = fetch_all_principals(tenant_id, auth_context).await?;
                     let arc = Arc::new(fetched);
                     *cache.borrow_mut() = Some(arc.clone());
                     eyre::Ok(arc)

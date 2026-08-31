@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_principals;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -14,10 +15,10 @@ pub struct AzureEntraPrincipalListArgs {
 }
 
 impl AzureEntraPrincipalListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(%tenant_id, "Fetching Entra principals");
-        let principals = fetch_all_principals(tenant_id).await?;
+        let principals = fetch_all_principals(tenant_id, auth_context).await?;
         let mut principals = principals.values().collect::<Vec<_>>();
         principals.sort_unstable_by_key(|principal| principal.id().to_string());
 

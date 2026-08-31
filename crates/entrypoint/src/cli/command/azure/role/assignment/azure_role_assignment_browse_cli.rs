@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -31,12 +32,12 @@ struct RoleAssignmentBrowseOutput<'a> {
 }
 
 impl AzureRoleAssignmentBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         info!("Fetching Azure role assignments and principals");
         let tenant_id = self.tenant.resolve().await?;
         let (rbac, principals) = try_join!(
-            fetch_all_role_definitions_and_assignments(tenant_id),
-            fetch_all_principals(tenant_id)
+            fetch_all_role_definitions_and_assignments(tenant_id, auth_context),
+            fetch_all_principals(tenant_id, auth_context)
         )?;
 
         info!(

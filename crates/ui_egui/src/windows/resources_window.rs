@@ -13,11 +13,16 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
     match &app.resources {
         Loadable::NotLoaded => {
             let tenant_id = app.tenant_id;
+            let auth_context = app.auth_context.clone();
             // Automatically enqueue a background fetch when the Resources pane is shown.
             let work = LoadableWorkBuilder::new()
                 .description("Fetch resources")
                 .setter(|app, l| app.resources = l)
-                .work(async move { Ok(Arc::new(fetch_all_resources(tenant_id).await?)) })
+                .work(async move {
+                    Ok(Arc::new(
+                        fetch_all_resources(tenant_id, &auth_context).await?,
+                    ))
+                })
                 .build()
                 .expect("building work");
             work.enqueue(app);

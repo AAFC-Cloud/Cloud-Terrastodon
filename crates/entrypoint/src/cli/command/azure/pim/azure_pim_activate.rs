@@ -3,6 +3,7 @@ use crate::interactive::pim_activate_azurerm;
 use crate::interactive::pim_activate_entra;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Arguments for activating Privileged Identity Management roles.
@@ -34,12 +35,14 @@ pub enum AzurePimActivateTarget {
 }
 
 impl AzurePimActivateArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         match self.target {
-            Some(AzurePimActivateTarget::AzureRm) => pim_activate_azurerm(tenant_id).await,
+            Some(AzurePimActivateTarget::AzureRm) => {
+                pim_activate_azurerm(tenant_id, auth_context).await
+            }
             Some(AzurePimActivateTarget::AzureAd) => pim_activate_entra(tenant_id).await,
-            None => pim_activate(tenant_id).await,
+            None => pim_activate(tenant_id, auth_context).await,
         }
     }
 }

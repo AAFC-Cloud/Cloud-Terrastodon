@@ -1,6 +1,7 @@
 use super::AzureRoleAssignmentBrowseArgs;
 use super::AzureRoleAssignmentListArgs;
 use super::azure_role_assignment_create_cli::AzureRoleAssignmentCreateArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Azure role assignment operations.
@@ -17,11 +18,11 @@ pub enum AzureRoleAssignmentCommand {
 }
 
 impl AzureRoleAssignmentCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureRoleAssignmentCommand::List(args) => args.invoke().await,
-            AzureRoleAssignmentCommand::Browse(args) => args.invoke().await,
-            AzureRoleAssignmentCommand::Create(args) => args.invoke().await,
+            AzureRoleAssignmentCommand::List(args) => args.invoke(auth_context).await,
+            AzureRoleAssignmentCommand::Browse(args) => args.invoke(auth_context).await,
+            AzureRoleAssignmentCommand::Create(args) => args.invoke(auth_context).await,
         }
     }
 }

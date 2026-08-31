@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::PrincipalId;
 use cloud_terrastodon_azure::fetch_all_groups;
 use cloud_terrastodon_azure::fetch_entra_groups_for_member;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -20,16 +21,16 @@ pub struct AzureEntraGroupListArgs {
 }
 
 impl AzureEntraGroupListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         let groups = match self.for_member {
             Some(principal_id) => {
                 info!(%tenant_id, %principal_id, "Fetching Entra groups for principal");
-                fetch_entra_groups_for_member(tenant_id, principal_id).await?
+                fetch_entra_groups_for_member(tenant_id, principal_id, auth_context).await?
             }
             None => {
                 info!(%tenant_id, "Fetching Entra groups");
-                fetch_all_groups(tenant_id).await?
+                fetch_all_groups(tenant_id, auth_context).await?
             }
         };
 

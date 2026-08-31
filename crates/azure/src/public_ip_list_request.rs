@@ -4,23 +4,41 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use indoc::indoc;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct PublicIpListRequest {
+#[derive(Debug, Clone, facet::Facet)]
+pub struct PublicIpListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_public_ips(tenant_id: AzureTenantId) -> PublicIpListRequest {
-    PublicIpListRequest { tenant_id }
+pub fn fetch_all_public_ips<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> PublicIpListRequest<'a> {
+    PublicIpListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for PublicIpListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for PublicIpListRequest {
+impl<'a> CacheableCommand for PublicIpListRequest<'a> {
     type Output = Vec<AzurePublicIpResource>;
 
     fn cache_key(&self) -> CacheKey {
@@ -48,15 +66,20 @@ impl CacheableCommand for PublicIpListRequest {
         "#}
         .to_owned();
 
-        let public_ips = ResourceGraphHelper::new(self.tenant_id, query, Some(self.cache_key()))
-            .collect_all::<AzurePublicIpResource>()
-            .await?;
+        let public_ips = ResourceGraphHelper::new(
+            self.tenant_id,
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .collect_all::<AzurePublicIpResource>()
+        .await?;
         info!(count = public_ips.len(), "Fetched public IP addresses");
         Ok(public_ips)
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(PublicIpListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(PublicIpListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -65,7 +88,8 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_public_ips(get_test_tenant_id().await?).await?;
+        let result =
+            fetch_all_public_ips(get_test_tenant_id().await?, &AuthContext::default()).await?;
         for public_ip in &result {
             assert!(!public_ip.name.is_empty());
         }
@@ -73,6 +97,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(PublicIpListRequest);
-cloud_terrastodon_registry::register_arbitrary!(PublicIpListRequest);
-cloud_terrastodon_registry::register_into_future!(PublicIpListRequest => Vec<AzurePublicIpResource>);
+cloud_terrastodon_registry::register_thing!(PublicIpListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(PublicIpListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(PublicIpListRequest<'static> => Vec<AzurePublicIpResource>);

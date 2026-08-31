@@ -7,6 +7,7 @@ pub mod terraform_source;
 pub mod terraform_source_add_imports;
 pub mod terraform_source_generate;
 
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 pub use terraform_command::TerraformCommand;
 
@@ -18,7 +19,7 @@ pub struct TerraformArgs {
 }
 
 impl TerraformArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

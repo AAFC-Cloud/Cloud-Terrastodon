@@ -3,6 +3,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_command::RetryBehaviour;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_command::bstr::ByteSlice;
 use std::path::PathBuf;
@@ -26,6 +27,9 @@ impl CacheableCommand for AzureDevOpsCliConfigRequest {
     async fn run(self) -> eyre::Result<Self::Output> {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
         cmd.args(["devops", "configure", "--list"]);
+        // Configuration is local metadata; it must never turn an unconfigured
+        // Azure CLI into an implicit interactive login.
+        cmd.use_retry_behaviour(RetryBehaviour::Fail);
         cmd.cache(self.cache_key());
         let rtn = cmd.run_raw().await?;
         let stdout = rtn.stdout.to_str()?.to_string();

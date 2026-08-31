@@ -3,6 +3,7 @@ use super::AzureEntraApplicationRegistrationListArgs;
 use super::AzureEntraApplicationRegistrationRoleArgs;
 use super::AzureEntraApplicationRegistrationSearchArgs;
 use super::AzureEntraApplicationRegistrationShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Application registration-related Entra (Azure AD) commands.
@@ -22,13 +23,17 @@ pub enum AzureEntraApplicationRegistrationCommand {
 }
 
 impl AzureEntraApplicationRegistrationCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureEntraApplicationRegistrationCommand::List(args) => args.invoke().await,
-            AzureEntraApplicationRegistrationCommand::Show(args) => args.invoke().await,
-            AzureEntraApplicationRegistrationCommand::Browse(args) => args.invoke().await,
+            AzureEntraApplicationRegistrationCommand::List(args) => args.invoke(auth_context).await,
+            AzureEntraApplicationRegistrationCommand::Show(args) => args.invoke(auth_context).await,
+            AzureEntraApplicationRegistrationCommand::Browse(args) => {
+                args.invoke(auth_context).await
+            }
             AzureEntraApplicationRegistrationCommand::Role(args) => args.invoke().await,
-            AzureEntraApplicationRegistrationCommand::Search(args) => args.invoke().await,
+            AzureEntraApplicationRegistrationCommand::Search(args) => {
+                args.invoke(auth_context).await
+            }
         }
     }
 }

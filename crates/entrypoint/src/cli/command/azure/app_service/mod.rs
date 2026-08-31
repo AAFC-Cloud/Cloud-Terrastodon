@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_app_service;
 pub mod azure_app_service_list;
 pub mod azure_app_service_show;
@@ -15,7 +16,10 @@ pub struct AzureAppServiceArgs {
 }
 
 impl AzureAppServiceArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

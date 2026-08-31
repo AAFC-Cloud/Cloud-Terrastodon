@@ -1,6 +1,7 @@
 use crate::interactive::browse_users;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Interactively browse Entra (Azure AD) users.
@@ -12,7 +13,7 @@ pub struct AzureEntraUserBrowseArgs {
 }
 
 impl AzureEntraUserBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
-        browse_users(self.tenant.resolve().await?).await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        browse_users(self.tenant.resolve().await?, auth_context).await
     }
 }

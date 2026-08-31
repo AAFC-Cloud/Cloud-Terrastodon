@@ -1,4 +1,5 @@
 use crate::cli::azure_devops::agent::pool::entitlement::list::AzureDevOpsAgentPoolEntitlementListArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps agent pool entitlement-related commands (grouping for entitlement subcommands).
@@ -16,9 +17,9 @@ pub enum AzureDevOpsAgentPoolEntitlementCommand {
 }
 
 impl AzureDevOpsAgentPoolEntitlementArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
-            AzureDevOpsAgentPoolEntitlementCommand::List(args) => args.invoke().await?,
+            AzureDevOpsAgentPoolEntitlementCommand::List(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

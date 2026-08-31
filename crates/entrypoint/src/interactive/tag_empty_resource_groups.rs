@@ -5,13 +5,17 @@ use cloud_terrastodon_azure::ResourceTagsId;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::replace_tags_for_resources;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
-pub async fn tag_empty_resource_group_menu(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn tag_empty_resource_group_menu(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
     info!("Fetching empty resource groups");
     let query = r#"
 ResourceContainers  
@@ -37,6 +41,7 @@ ResourceContainers
             path: PathBuf::from_iter(["az", "resource_graph", "empty-resource-groups"]),
             valid_for: Duration::ZERO,
         }),
+        auth_context,
     )
     .collect_all::<Row>()
     .await?;

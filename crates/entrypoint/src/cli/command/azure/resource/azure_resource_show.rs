@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -20,10 +21,10 @@ pub struct AzureResourceShowArgs {
 }
 
 impl AzureResourceShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.resource, "Fetching all Azure resources");
-        let resources = fetch_all_resources(tenant_id).await?;
+        let resources = fetch_all_resources(tenant_id, auth_context).await?;
         info!(count = resources.len(), "Fetched Azure resources");
 
         if let Some(resource) = resources

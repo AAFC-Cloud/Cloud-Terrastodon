@@ -184,6 +184,7 @@ mod test {
     use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+    use cloud_terrastodon_credentials::AuthContext;
     use eyre::bail;
     use facet_json::RawJson;
     use std::collections::HashMap;
@@ -222,9 +223,12 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let projects = fetch_all_azure_devops_projects(&org_url).await?;
+        let auth_context = AuthContext::default();
+        let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
         for project in &projects {
-            let groups = fetch_azure_devops_groups_for_project(&org_url, &project.name).await?;
+            let groups =
+                fetch_azure_devops_groups_for_project(&org_url, &project.name, &auth_context)
+                    .await?;
             for group in &groups {
                 let members = fetch_azure_devops_group_members(&org_url, &group.descriptor).await?;
                 if !members.is_empty() {

@@ -2,14 +2,18 @@ use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use tracing::info;
 
-pub async fn browse_resources_menu(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn browse_resources_menu(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
     info!("Fetching resources");
-    let choices = fetch_all_resources(tenant_id)
+    let choices = fetch_all_resources(tenant_id, auth_context)
         .await?
         .into_iter()
         .map(|x| Choice {

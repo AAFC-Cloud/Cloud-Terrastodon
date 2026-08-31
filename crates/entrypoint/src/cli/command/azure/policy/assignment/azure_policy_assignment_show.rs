@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
@@ -20,10 +21,10 @@ pub struct AzurePolicyAssignmentShowArgs {
 }
 
 impl AzurePolicyAssignmentShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.policy_assignment, %tenant_id, "Fetching Azure policy assignments");
-        let policy_assignments = fetch_all_policy_assignments(tenant_id).await?;
+        let policy_assignments = fetch_all_policy_assignments(tenant_id, auth_context).await?;
         info!(
             count = policy_assignments.len(),
             "Fetched Azure policy assignments"

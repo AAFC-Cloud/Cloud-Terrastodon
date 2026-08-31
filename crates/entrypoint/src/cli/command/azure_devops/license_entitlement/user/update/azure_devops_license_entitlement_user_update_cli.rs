@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use eyre::bail;
@@ -35,7 +36,7 @@ pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
 }
 
 impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
 
@@ -71,7 +72,9 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
         for (i, user) in self.user.into_iter().enumerate() {
             let was = if let Some(ref expected) = self.has_license {
                 if let Some(entitlement) = match fetch_azure_devops_user_license_entitlement(
-                    &org_url, &user,
+                    &org_url,
+                    &user,
+                    auth_context,
                 )
                 .with_invalidation(i == 0 && self.no_cache)
                 .await
@@ -158,10 +161,11 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
             };
 
             // Fetch to verify
-            let new_license = fetch_azure_devops_user_license_entitlement(&org_url, &user)
-                // underlying cache is shared for all users, so only invalidate on the first check
-                .with_invalidation(i == 0)
-                .await?;
+            let new_license =
+                fetch_azure_devops_user_license_entitlement(&org_url, &user, auth_context)
+                    // underlying cache is shared for all users, so only invalidate on the first check
+                    .with_invalidation(i == 0)
+                    .await?;
 
             if new_license.license != self.license {
                 error!(

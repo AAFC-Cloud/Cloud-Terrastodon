@@ -9,6 +9,7 @@ pub use azure_entra_user_cli::AzureEntraUserCommand;
 pub use azure_entra_user_list_cli::AzureEntraUserListArgs;
 pub use azure_entra_user_search_cli::AzureEntraUserSearchArgs;
 pub use azure_entra_user_show_cli::AzureEntraUserShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Entra user subcommands.
@@ -19,7 +20,7 @@ pub struct AzureEntraUserArgs {
 }
 
 impl AzureEntraUserArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

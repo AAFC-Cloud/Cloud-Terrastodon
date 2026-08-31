@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::repo::list::AzureDevOpsRepoListArgs;
 use crate::cli::azure_devops::repo::show::AzureDevOpsRepoShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps repository-related commands.
@@ -19,10 +20,10 @@ pub enum AzureDevOpsRepoCommand {
 }
 
 impl AzureDevOpsRepoArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
-            AzureDevOpsRepoCommand::List(args) => args.invoke().await?,
-            AzureDevOpsRepoCommand::Show(args) => args.invoke().await?,
+            AzureDevOpsRepoCommand::List(args) => args.invoke(auth_context).await?,
+            AzureDevOpsRepoCommand::Show(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

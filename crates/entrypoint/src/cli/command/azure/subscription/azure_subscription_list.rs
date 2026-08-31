@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
@@ -14,10 +15,10 @@ pub struct AzureSubscriptionListArgs {
 }
 
 impl AzureSubscriptionListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(%tenant_id, "Fetching all Azure subscriptions");
-        let subs = fetch_all_subscriptions(tenant_id).await?;
+        let subs = fetch_all_subscriptions(tenant_id, auth_context).await?;
         info!(count = subs.len(), "Fetched subscriptions");
 
         let stdout = std::io::stdout();

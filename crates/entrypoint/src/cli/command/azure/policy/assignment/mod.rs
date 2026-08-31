@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_policy_assignment;
 pub mod azure_policy_assignment_browse;
 pub mod azure_policy_assignment_list;
@@ -17,7 +18,10 @@ pub struct AzurePolicyAssignmentArgs {
 }
 
 impl AzurePolicyAssignmentArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

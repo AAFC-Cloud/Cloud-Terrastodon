@@ -2,6 +2,7 @@ use chrono::Local;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::HclImportable;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::GenerateConfigOutHelper;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
@@ -25,12 +26,14 @@ pub struct TerraformSourceGenerateArgs {
 }
 
 impl TerraformSourceGenerateArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         let work_dir = self.work_dir;
 
         let kind_to_import = HclImportable::pick().await?;
-        let imports = kind_to_import.pick_into_body(tenant_id).await?;
+        let imports = kind_to_import
+            .pick_into_body(tenant_id, auth_context)
+            .await?;
 
         work_dir.ensure_dir_exists().await?;
         let temp_dir = Builder::new()
@@ -54,7 +57,7 @@ impl TerraformSourceGenerateArgs {
 
         info!("Reflowing content");
         let hcl = discover_hcl(import_dir, DiscoveryDepth::Shallow).await?;
-        let hcl = reflow_hcl(tenant_id.into(), hcl, true, None, false).await?;
+        let hcl = reflow_hcl(tenant_id.into(), auth_context, hcl, true, None, false).await?;
         for (path, contents) in hcl {
             HclWriter::new(path)
                 .format_on_write()

@@ -1,5 +1,6 @@
 use crate::noninteractive::dump_azure_devops;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Dump Azure DevOps metadata to disk.
@@ -11,10 +12,10 @@ pub struct DumpAzureDevOpsArgs {
 }
 
 impl DumpAzureDevOpsArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        dump_azure_devops(org_url).await?;
+        dump_azure_devops(org_url, auth_context).await?;
         Ok(())
     }
 }

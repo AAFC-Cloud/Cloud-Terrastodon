@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::agent::pool::AzureDevOpsAgentPoolArgs;
 use crate::cli::azure_devops::agent_package::AzureDevOpsAgentPackageArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps agent-related commands (grouping for agent subcommands).
@@ -19,10 +20,10 @@ pub enum AzureDevOpsAgentCommand {
 }
 
 impl AzureDevOpsAgentArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
             AzureDevOpsAgentCommand::Package(args) => args.invoke().await?,
-            AzureDevOpsAgentCommand::Pool(args) => args.invoke().await?,
+            AzureDevOpsAgentCommand::Pool(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

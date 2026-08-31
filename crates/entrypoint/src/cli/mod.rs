@@ -43,9 +43,51 @@ impl Cli {
         match self.command {
             Some(cmd) => cmd.invoke(cancellation_token, auth_context).await,
             None => {
-                menu_loop().await?;
+                menu_loop(auth_context).await?;
                 Ok(())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::azure::azure_command::AzureCommand;
+    use crate::cli::azure::tenant::AzureTenantCommand;
+    use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;
+    use crate::cli::azure_devops::project::AzureDevOpsProjectCommand;
+
+    #[test]
+    fn parses_the_linux_project_list_vertical_slice() {
+        let cli: Cli = figue::from_slice(&["az", "devops", "project", "list"]).unwrap();
+        let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
+            panic!("expected the az command alias");
+        };
+        let AzureCommand::DevOps(devops) = azure.command else {
+            panic!("expected the devops command alias");
+        };
+        let AzureDevOpsCommand::Project(project) = devops.command else {
+            panic!("expected the project command");
+        };
+        assert!(matches!(
+            project.command,
+            AzureDevOpsProjectCommand::List(_)
+        ));
+    }
+
+    #[test]
+    fn parses_the_browser_tenant_login_vertical_slice() {
+        let cli: Cli = figue::from_slice(&["az", "tenant", "login", "agr"]).unwrap();
+        let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
+            panic!("expected the az command alias");
+        };
+        let AzureCommand::Tenant(tenant) = azure.command else {
+            panic!("expected the tenant command");
+        };
+        let AzureTenantCommand::Login(login) = tenant.command else {
+            panic!("expected the login command");
+        };
+        assert_eq!(login.tenant.to_string(), "agr");
     }
 }

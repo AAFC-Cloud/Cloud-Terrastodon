@@ -13,6 +13,7 @@ pub use azure_tenant_forget::AzureTenantForgetArgs;
 pub use azure_tenant_list::AzureTenantListArgs;
 pub use azure_tenant_login::AzureTenantLoginArgs;
 pub use azure_tenant_show::AzureTenantShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Tenant-related commands for tracked tenant configuration.
@@ -37,20 +38,20 @@ pub enum AzureTenantCommand {
     Show(AzureTenantShowArgs),
     /// Forget a tracked tenant.
     Forget(AzureTenantForgetArgs),
-    /// Log in to an Azure tenant via the Azure CLI.
+    /// Log in to an Azure tenant through browser PKCE or an explicitly selected compatibility source.
     Login(AzureTenantLoginArgs),
 }
 
 impl AzureTenantArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
+            AzureTenantCommand::Login(args) => args.invoke(auth_context).await?,
             AzureTenantCommand::List(args) => args.invoke().await?,
             AzureTenantCommand::Discover(args) => args.invoke().await?,
             AzureTenantCommand::Alias(args) => args.invoke().await?,
             AzureTenantCommand::Add(args) => args.invoke().await?,
-            AzureTenantCommand::Show(args) => args.invoke().await?,
+            AzureTenantCommand::Show(args) => args.invoke(auth_context).await?,
             AzureTenantCommand::Forget(args) => args.invoke().await?,
-            AzureTenantCommand::Login(args) => args.invoke().await?,
         }
 
         Ok(())

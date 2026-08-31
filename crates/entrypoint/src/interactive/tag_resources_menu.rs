@@ -7,14 +7,18 @@ use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::get_tags_for_resources;
 use cloud_terrastodon_azure::replace_tags_for_resources;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn tag_resources_menu(tenant_id: AzureTenantId) -> eyre::Result<()> {
-    let resource_groups = fetch_all_resource_groups(tenant_id).await?;
+pub async fn tag_resources_menu(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> eyre::Result<()> {
+    let resource_groups = fetch_all_resource_groups(tenant_id, auth_context).await?;
     let resource_group: ResourceGroup = PickerTui::<_>::new()
         .set_header("Choose a resource group")
         .pick_one(resource_groups.into_iter().map(|rg| Choice {
@@ -22,7 +26,7 @@ pub async fn tag_resources_menu(tenant_id: AzureTenantId) -> eyre::Result<()> {
             value: rg,
         }))
         .await?;
-    let resources = fetch_all_resources(tenant_id)
+    let resources = fetch_all_resources(tenant_id, auth_context)
         .await?
         .into_iter()
         .filter(|res| {

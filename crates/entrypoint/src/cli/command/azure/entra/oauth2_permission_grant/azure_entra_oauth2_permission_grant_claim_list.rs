@@ -5,6 +5,7 @@ use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
 use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
 use cloud_terrastodon_azure::fetch_service_principal;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -23,17 +24,19 @@ pub struct AzureEntraOAuth2PermissionGrantClaimListArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantClaimListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         let service_principal_id =
-            resolve_service_principal_id(tenant_id, self.service_principal.trim()).await?;
+            resolve_service_principal_id(tenant_id, self.service_principal.trim(), auth_context)
+                .await?;
 
         info!(
             %tenant_id,
             %service_principal_id,
             "Fetching delegated OAuth2 permission claims"
         );
-        let mut scopes = fetch_oauth2_permission_scopes(tenant_id, service_principal_id).await?;
+        let mut scopes =
+            fetch_oauth2_permission_scopes(tenant_id, service_principal_id, auth_context).await?;
         scopes.sort_by(|left, right| left.value.cmp(&right.value));
 
         let stdout = std::io::stdout();
@@ -47,9 +50,10 @@ impl AzureEntraOAuth2PermissionGrantClaimListArgs {
 async fn resolve_service_principal_id(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     needle: &str,
+    auth_context: &AuthContext,
 ) -> Result<EntraServicePrincipalObjectId> {
     if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalObjectId>() {
-        match fetch_service_principal(tenant_id, service_principal_id).await {
+        match fetch_service_principal(tenant_id, service_principal_id, auth_context).await {
             Ok(_) => return Ok(service_principal_id),
             Err(error) => {
                 info!(
@@ -60,7 +64,7 @@ async fn resolve_service_principal_id(
         }
     }
 
-    let service_principals = fetch_all_service_principals(tenant_id).await?;
+    let service_principals = fetch_all_service_principals(tenant_id, auth_context).await?;
     let mut matches = service_principals
         .iter()
         .filter(|service_principal| matches_service_principal(service_principal, needle))

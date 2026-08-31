@@ -11,6 +11,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::ContextCompat;
 use eyre::Result;
 use tracing::debug;
@@ -31,7 +32,7 @@ pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
 }
 
 impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         let user_predicate = self.user.as_predicate()?;
 
@@ -39,7 +40,8 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org.clone())
                 .await?;
 
-        let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
+        let entitlements =
+            fetch_azure_devops_user_license_entitlements(&org_url, auth_context).await?;
 
         let user_entitlement = entitlements
             .into_iter()
@@ -88,7 +90,8 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                     .group
                     .origin_id
                     .parse::<EntraGroupId>()?;
-                let group_entra_members = fetch_group_members(tenant_id, group_entra_id).await?;
+                let group_entra_members =
+                    fetch_group_members(tenant_id, group_entra_id, auth_context).await?;
                 let user_in_group = group_entra_members
                     .iter()
                     .filter_map(|p: &Principal| match p.as_user() {

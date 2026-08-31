@@ -1,4 +1,5 @@
 use super::AzureEntraOAuth2PermissionGrantClaimListArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// OAuth2 delegated permission claim operations.
@@ -16,15 +17,15 @@ pub enum AzureEntraOAuth2PermissionGrantClaimCommand {
 }
 
 impl AzureEntraOAuth2PermissionGrantClaimArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
 impl AzureEntraOAuth2PermissionGrantClaimCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            Self::List(args) => args.invoke().await,
+            Self::List(args) => args.invoke(auth_context).await,
         }
     }
 }

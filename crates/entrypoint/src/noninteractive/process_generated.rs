@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
@@ -14,7 +15,7 @@ use tracing::info;
 use tracing::instrument;
 
 #[instrument(level = "debug")]
-pub async fn process_generated(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn process_generated(tenant_id: AzureTenantId, auth_context: &AuthContext) -> Result<()> {
     // Determine output directory
     let out_dir: PathBuf = AppDir::Processed.into();
 
@@ -31,7 +32,7 @@ pub async fn process_generated(tenant_id: AzureTenantId) -> Result<()> {
 
     // Determine output files
     let hcl = discover_hcl(&workspace_path, DiscoveryDepth::Shallow).await?;
-    let hcl = reflow_hcl(tenant_id.into(), hcl, true, None, false).await?;
+    let hcl = reflow_hcl(tenant_id.into(), auth_context, hcl, true, None, false).await?;
 
     // Write files
     let mut error_count = 0;

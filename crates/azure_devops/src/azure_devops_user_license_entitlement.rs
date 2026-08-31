@@ -5,30 +5,35 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::bail;
+use std::borrow::Cow;
 use std::pin::Pin;
 
 pub struct AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     pub org_url: &'a AzureDevOpsOrganizationUrl,
     pub user: AzureDevOpsUserArgument<'a>,
     pub invalidate_cache: bool,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
 pub fn fetch_azure_devops_user_license_entitlement<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     user: impl Into<AzureDevOpsUserArgument<'a>>,
+    auth_context: &'a AuthContext,
 ) -> AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     AzureDevOpsUserLicenseEntitlementShowRequest {
         org_url,
         user: user.into(),
         invalidate_cache: false,
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
 #[async_trait]
 impl<'a> CacheInvalidatable for AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     async fn invalidate(&self) -> eyre::Result<()> {
-        fetch_azure_devops_user_license_entitlements(self.org_url)
+        fetch_azure_devops_user_license_entitlements(self.org_url, self.auth_context.as_ref())
             .invalidate()
             .await
     }
@@ -49,9 +54,12 @@ impl<'a> IntoFuture for AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let entitlements = fetch_azure_devops_user_license_entitlements(self.org_url)
-                .with_invalidation(self.invalidate_cache)
-                .await?;
+            let entitlements = fetch_azure_devops_user_license_entitlements(
+                self.org_url,
+                self.auth_context.as_ref(),
+            )
+            .with_invalidation(self.invalidate_cache)
+            .await?;
 
             match entitlements
                 .into_iter()

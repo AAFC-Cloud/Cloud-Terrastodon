@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::RolePermissionAction;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::collections::HashSet;
 use std::io::Write;
@@ -22,9 +23,11 @@ pub struct AzureRoleDefinitionFindArgs {
 }
 
 impl AzureRoleDefinitionFindArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         info!(action = %self.action, "Fetching Azure role definitions and role assignments");
-        let rbac = fetch_all_role_definitions_and_assignments(self.tenant.resolve().await?).await?;
+        let rbac =
+            fetch_all_role_definitions_and_assignments(self.tenant.resolve().await?, auth_context)
+                .await?;
 
         let fallback_chain = build_fallback_chain(&self.action);
         let literal_match_counts = fallback_chain

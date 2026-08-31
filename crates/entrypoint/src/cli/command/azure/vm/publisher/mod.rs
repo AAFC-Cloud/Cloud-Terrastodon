@@ -9,6 +9,7 @@ pub use azure_vm_publisher_list::AzureVmPublisherListArgs;
 pub use azure_vm_publisher_offer_list::AzureVmPublisherOfferListArgs;
 pub use azure_vm_publisher_offer_sku_list::AzureVmPublisherOfferSkuListArgs;
 pub use azure_vm_publisher_offer_sku_version_list::AzureVmPublisherOfferSkuVersionListArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 #[derive(facet::Facet, Debug, Clone)]
@@ -18,8 +19,8 @@ pub struct AzureVmPublisherArgs {
 }
 
 impl AzureVmPublisherArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
@@ -30,8 +31,8 @@ pub struct AzureVmPublisherOfferArgs {
 }
 
 impl AzureVmPublisherOfferArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
@@ -45,10 +46,10 @@ pub enum AzureVmPublisherOfferCommand {
 }
 
 impl AzureVmPublisherOfferCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureVmPublisherOfferCommand::List(args) => args.invoke().await,
-            AzureVmPublisherOfferCommand::Sku(args) => args.invoke().await,
+            AzureVmPublisherOfferCommand::List(args) => args.invoke(auth_context).await,
+            AzureVmPublisherOfferCommand::Sku(args) => args.invoke(auth_context).await,
         }
     }
 }
@@ -60,8 +61,8 @@ pub struct AzureVmPublisherOfferSkuArgs {
 }
 
 impl AzureVmPublisherOfferSkuArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
@@ -75,10 +76,10 @@ pub enum AzureVmPublisherOfferSkuCommand {
 }
 
 impl AzureVmPublisherOfferSkuCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureVmPublisherOfferSkuCommand::List(args) => args.invoke().await,
-            AzureVmPublisherOfferSkuCommand::Version(args) => args.invoke().await,
+            AzureVmPublisherOfferSkuCommand::List(args) => args.invoke(auth_context).await,
+            AzureVmPublisherOfferSkuCommand::Version(args) => args.invoke(auth_context).await,
         }
     }
 }
@@ -90,8 +91,8 @@ pub struct AzureVmPublisherOfferSkuVersionArgs {
 }
 
 impl AzureVmPublisherOfferSkuVersionArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
@@ -103,9 +104,9 @@ pub enum AzureVmPublisherOfferSkuVersionCommand {
 }
 
 impl AzureVmPublisherOfferSkuVersionCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureVmPublisherOfferSkuVersionCommand::List(args) => args.invoke().await,
+            AzureVmPublisherOfferSkuVersionCommand::List(args) => args.invoke(auth_context).await,
         }
     }
 }
@@ -123,11 +124,11 @@ pub enum AzureVmPublisherCommand {
 }
 
 impl AzureVmPublisherCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureVmPublisherCommand::List(args) => args.invoke().await,
-            AzureVmPublisherCommand::Browse(args) => args.invoke().await,
-            AzureVmPublisherCommand::Offer(args) => args.invoke().await,
+            AzureVmPublisherCommand::List(args) => args.invoke(auth_context).await,
+            AzureVmPublisherCommand::Browse(args) => args.invoke(auth_context).await,
+            AzureVmPublisherCommand::Offer(args) => args.invoke(auth_context).await,
         }
     }
 }

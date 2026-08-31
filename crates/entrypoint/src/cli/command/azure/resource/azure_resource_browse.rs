@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -18,10 +19,10 @@ pub struct AzureResourceBrowseArgs {
 }
 
 impl AzureResourceBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!("Fetching Azure resources...");
-        let resources = fetch_all_resources(tenant_id).await?;
+        let resources = fetch_all_resources(tenant_id, auth_context).await?;
         info!(count = resources.len(), "Fetched Azure resources");
 
         let choices = resources.into_iter().map(|resource| Choice {

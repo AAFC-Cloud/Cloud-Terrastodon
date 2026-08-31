@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 
@@ -9,23 +10,31 @@ enum NextLink {
     Some(String),
     StopIteration,
 }
-pub struct MicrosoftGraphHelper {
+pub struct MicrosoftGraphHelper<'a> {
     url: String,
     cache_key: Option<CacheKey>,
     tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
 }
-impl MicrosoftGraphHelper {
-    pub fn new(tenant_id: AzureTenantId, url: impl ToString, cache_key: Option<CacheKey>) -> Self {
+impl<'a> MicrosoftGraphHelper<'a> {
+    pub fn new(
+        tenant_id: AzureTenantId,
+        url: impl ToString,
+        cache_key: Option<CacheKey>,
+        auth_context: &'a AuthContext,
+    ) -> Self {
         MicrosoftGraphHelper {
             url: url.to_string(),
             cache_key,
             tenant_id,
+            auth_context,
         }
     }
 
     fn get_request(&self, url: &str) -> Result<RestRequest> {
         let mut request = RestRequest::new(http::Method::GET, url)?;
         request.tenant = Some(self.tenant_id);
+        request = request.auth_context(self.auth_context);
         request.cache_key = self.cache_key.clone();
         Ok(request)
     }

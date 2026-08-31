@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::SubnetId;
 use cloud_terrastodon_azure::VirtualNetworkId;
 use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::AsHclString;
 use cloud_terrastodon_hcl::DataBlockReference;
 use cloud_terrastodon_hcl::HclBlock;
@@ -37,10 +38,10 @@ pub struct TerraformSourceAddImportsArgs {
 }
 
 impl TerraformSourceAddImportsArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!("Fetching resources from Azure...");
-        let resources = fetch_all_resources(tenant_id)
+        let resources = fetch_all_resources(tenant_id, auth_context)
             .await?
             .into_iter()
             .into_group_map_by(|res| res.name.clone());

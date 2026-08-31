@@ -2,6 +2,7 @@ use crate::noninteractive::perform_import;
 use crate::noninteractive::process_generated;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Perform code-generation from existing import definitions.
@@ -13,10 +14,10 @@ pub struct PerformCodeGenerationFromImportsArgs {
 }
 
 impl PerformCodeGenerationFromImportsArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         perform_import().await?;
-        process_generated(tenant_id).await?;
+        process_generated(tenant_id, auth_context).await?;
         Ok(())
     }
 }

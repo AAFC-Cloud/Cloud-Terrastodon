@@ -4,7 +4,9 @@ use cloud_terrastodon_azure_types::RoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -12,17 +14,33 @@ use tracing::debug;
 ///
 /// Not to be confused with Entra role definitions.
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct RoleDefinitionListRequest {
+#[derive(facet::Facet)]
+pub struct RoleDefinitionListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_role_definitions(tenant_id: AzureTenantId) -> RoleDefinitionListRequest {
-    RoleDefinitionListRequest { tenant_id }
+impl<'a> arbitrary::Arbitrary<'a> for RoleDefinitionListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_all_role_definitions<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> RoleDefinitionListRequest<'a> {
+    RoleDefinitionListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for RoleDefinitionListRequest {
+impl<'a> CacheableCommand for RoleDefinitionListRequest<'a> {
     type Output = Vec<RoleDefinition>;
 
     fn cache_key(&self) -> CacheKey {
@@ -36,7 +54,7 @@ impl CacheableCommand for RoleDefinitionListRequest {
 
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching role definitions");
-        let role_definitions = ResourceGraphHelper::new(
+        let helper = ResourceGraphHelper::new(
             self.tenant_id,
             r#"authorizationresources
 | where type =~ "microsoft.authorization/roledefinitions"
@@ -49,15 +67,16 @@ impl CacheableCommand for RoleDefinitionListRequest {
     ['kind'] = properties.type
 | project-away properties"#,
             Some(self.cache_key()),
-        )
-        .collect_all()
-        .await?;
+            self.auth_context.as_ref(),
+        );
+        let mut helper = helper;
+        let role_definitions = helper.collect_all().await?;
         debug!("Found {} role definitions", role_definitions.len());
         Ok(role_definitions)
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(RoleDefinitionListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(RoleDefinitionListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -69,14 +88,18 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let results = fetch_all_role_definitions(get_test_tenant_id().await?).await?;
+        let auth_context = AuthContext::default();
+        let results =
+            fetch_all_role_definitions(get_test_tenant_id().await?, &auth_context).await?;
         assert!(!results.is_empty());
         Ok(())
     }
 
     #[tokio::test]
     async fn key_vaults() -> Result<()> {
-        let role_definitions = fetch_all_role_definitions(get_test_tenant_id().await?).await?;
+        let auth_context = AuthContext::default();
+        let role_definitions =
+            fetch_all_role_definitions(get_test_tenant_id().await?, &auth_context).await?;
         let key_vault_secrets_officer_id = "b86a8fe4-44ce-4948-aee5-eccb2c155cd7";
         let key_vault_secrets_officer = role_definitions
             .iter()
@@ -88,6 +111,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(RoleDefinitionListRequest);
-cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionListRequest);
-cloud_terrastodon_registry::register_into_future!(RoleDefinitionListRequest => Vec<RoleDefinition>);
+cloud_terrastodon_registry::register_thing!(RoleDefinitionListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(RoleDefinitionListRequest<'static> => Vec<RoleDefinition>);

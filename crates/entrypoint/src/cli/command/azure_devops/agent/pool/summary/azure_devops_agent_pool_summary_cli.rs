@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pools;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use std::collections::HashMap;
@@ -20,14 +21,14 @@ pub struct AzureDevOpsAgentPoolSummaryArgs {
 }
 
 impl AzureDevOpsAgentPoolSummaryArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         // Organization and caches
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
 
         // Fetch pools and projects once
         let pools = fetch_azure_devops_agent_pools(&org_url).await?;
-        let projects = fetch_all_azure_devops_projects(&org_url).await?;
+        let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
 
         // Map project id -> project name and record project ids
         let mut project_map: HashMap<_, String> = HashMap::with_capacity(projects.len());
@@ -49,10 +50,14 @@ impl AzureDevOpsAgentPoolSummaryArgs {
         for pid in project_ids.iter() {
             let pid = pid.clone();
             let org_clone = org_url.clone();
+            let auth_context = auth_context.clone();
             work.enqueue(async move {
-                let entitlements =
-                    fetch_azure_devops_agent_pool_entitlements_for_project(&org_clone, pid.clone())
-                        .await?;
+                let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
+                    &org_clone,
+                    pid.clone(),
+                    &auth_context,
+                )
+                .await?;
                 Ok((pid, entitlements))
             });
         }

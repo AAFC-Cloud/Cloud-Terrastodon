@@ -7,6 +7,7 @@ use cloud_terrastodon_azure::ComputePublisherVmImageOfferSkuName;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::fetch_compute_publisher_image_offer_sku_versions;
 use cloud_terrastodon_azure::get_active_subscription_id;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -42,7 +43,7 @@ pub struct AzureVmPublisherOfferSkuVersionListArgs {
 }
 
 impl AzureVmPublisherOfferSkuVersionListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         // Resolve the subscription argument (string) into a SubscriptionId.
         let subscription = match self.subscription {
@@ -51,7 +52,7 @@ impl AzureVmPublisherOfferSkuVersionListArgs {
                 match s.parse() {
                     Ok(id) => id,
                     Err(_) => {
-                        let subs = fetch_all_subscriptions(tenant_id).await?;
+                        let subs = fetch_all_subscriptions(tenant_id, auth_context).await?;
                         let target = s.to_lowercase();
                         if let Some(found) = subs
                             .into_iter()

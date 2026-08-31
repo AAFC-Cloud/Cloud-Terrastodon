@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_types::DistinctByScope;
 use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -14,9 +15,12 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
-pub async fn evaluate_policy_assignment_compliance(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn evaluate_policy_assignment_compliance(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
     info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments(tenant_id).await?;
+    let policy_assignments = fetch_all_policy_assignments(tenant_id, auth_context).await?;
 
     let policy_assignment: PolicyAssignment = PickerTui::<_>::new()
         .set_header("Choose policy to evaluate")
@@ -82,6 +86,7 @@ policyResources
             ]),
             valid_for: Duration::from_secs(15 * 60),
         }),
+        auth_context,
     )
     .collect_all::<ReferenceIdRow>()
     .await?;
@@ -150,6 +155,7 @@ policyResources
             ]),
             valid_for: Duration::from_secs(15 * 60),
         }),
+        auth_context,
     )
     .collect_all::<ResourceRow>()
     .await?;

@@ -1,13 +1,15 @@
 use crate::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ResourceGroup;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 
 /// Returns (Resource group, Subscription name)
 pub async fn get_resource_group_choices(
     tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
 ) -> eyre::Result<Vec<Choice<ResourceGroup>>> {
-    let resource_groups = fetch_all_resource_groups(tenant_id).await?;
+    let resource_groups = fetch_all_resource_groups(tenant_id, auth_context).await?;
 
     let mut choices = Vec::new();
     for rg in resource_groups {

@@ -13,6 +13,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
@@ -31,15 +32,18 @@ use tracing::info;
 pub struct AzureDevOpsProjectMemberListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
 pub fn fetch_azure_devops_project_members<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
+    auth_context: &'a AuthContext,
 ) -> AzureDevOpsProjectMemberListRequest<'a> {
     AzureDevOpsProjectMemberListRequest {
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
@@ -48,6 +52,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectMemberListRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
+            auth_context: Cow::Owned(AuthContext::default()),
         })
     }
 }
@@ -84,10 +89,15 @@ struct AzureDevOpsProjectMemberAccumulator {
 #[async_trait]
 impl<'a> CacheInvalidatable for AzureDevOpsProjectMemberListRequest<'a> {
     async fn invalidate(&self) -> Result<()> {
-        let projects = fetch_all_azure_devops_projects(self.org_url.as_ref()).cache_key();
-        let groups =
-            fetch_azure_devops_groups_for_project(self.org_url.as_ref(), self.project.clone())
+        let projects =
+            fetch_all_azure_devops_projects(self.org_url.as_ref(), self.auth_context.as_ref())
                 .cache_key();
+        let groups = fetch_azure_devops_groups_for_project(
+            self.org_url.as_ref(),
+            self.project.clone(),
+            self.auth_context.as_ref(),
+        )
+        .cache_key();
         let memberships = CacheKey::new(PathBuf::from_iter([
             "az",
             "devops",
@@ -126,7 +136,9 @@ impl<'a> IntoFuture for AzureDevOpsProjectMemberListRequest<'a> {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let projects = fetch_all_azure_devops_projects(self.org_url.as_ref()).await?;
+            let projects =
+                fetch_all_azure_devops_projects(self.org_url.as_ref(), self.auth_context.as_ref())
+                    .await?;
             let Some(project) = projects
                 .into_iter()
                 .find(|project| self.project.matches(project))
@@ -135,8 +147,12 @@ impl<'a> IntoFuture for AzureDevOpsProjectMemberListRequest<'a> {
             };
 
             info!(project = %project.name, "Fetching project permission objects");
-            let permission_objects =
-                fetch_azure_devops_groups_for_project(self.org_url.as_ref(), &project).await?;
+            let permission_objects = fetch_azure_devops_groups_for_project(
+                self.org_url.as_ref(),
+                &project,
+                self.auth_context.as_ref(),
+            )
+            .await?;
 
             let mut work = ParallelFallibleWorkQueue::new("fetching transitive project members", 4);
             for permission_object in permission_objects {

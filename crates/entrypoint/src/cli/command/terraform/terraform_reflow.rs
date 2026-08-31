@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
@@ -42,7 +43,7 @@ pub struct TerraformReflowArgs {
 }
 
 impl TerraformReflowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         self.validate()?;
         let hcl = discover_hcl(&self.source_dir, self.discovery_depth()).await?;
         let old_paths = hcl.keys().cloned().collect::<HashSet<_>>();
@@ -51,7 +52,15 @@ impl TerraformReflowArgs {
             .map(|single_file| self.resolve_single_file_path(single_file));
 
         info!(count = hcl.len(), "Discovered HCL files for reflowing");
-        let hcl = reflow_hcl(self.tenant, hcl, self.full, single_file_path, self.mixed).await?;
+        let hcl = reflow_hcl(
+            self.tenant,
+            auth_context,
+            hcl,
+            self.full,
+            single_file_path,
+            self.mixed,
+        )
+        .await?;
         let new_paths = hcl.keys().cloned().collect::<HashSet<_>>();
 
         info!(count = hcl.len(), "Reflowed HCL files");

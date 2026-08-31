@@ -4,23 +4,41 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use indoc::indoc;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct ApplicationGatewayListRequest {
+#[derive(Debug, Clone, facet::Facet)]
+pub struct ApplicationGatewayListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_application_gateways(tenant_id: AzureTenantId) -> ApplicationGatewayListRequest {
-    ApplicationGatewayListRequest { tenant_id }
+pub fn fetch_all_application_gateways<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> ApplicationGatewayListRequest<'a> {
+    ApplicationGatewayListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for ApplicationGatewayListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for ApplicationGatewayListRequest {
+impl<'a> CacheableCommand for ApplicationGatewayListRequest<'a> {
     type Output = Vec<AzureApplicationGatewayResource>;
 
     fn cache_key(&self) -> CacheKey {
@@ -49,7 +67,12 @@ impl CacheableCommand for ApplicationGatewayListRequest {
         .to_owned();
 
         let application_gateways =
-            ResourceGraphHelper::new(self.tenant_id, query, Some(self.cache_key()))
+            ResourceGraphHelper::new(
+                self.tenant_id,
+                query,
+                Some(self.cache_key()),
+                self.auth_context.as_ref(),
+            )
                 .collect_all::<AzureApplicationGatewayResource>()
                 .await?;
         debug!(
@@ -60,7 +83,7 @@ impl CacheableCommand for ApplicationGatewayListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ApplicationGatewayListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ApplicationGatewayListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -69,7 +92,11 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_application_gateways(get_test_tenant_id().await?).await?;
+        let result = fetch_all_application_gateways(
+            get_test_tenant_id().await?,
+            &AuthContext::default(),
+        )
+        .await?;
         for application_gateway in &result {
             assert!(!application_gateway.name.is_empty());
         }
@@ -77,6 +104,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(ApplicationGatewayListRequest);
-cloud_terrastodon_registry::register_arbitrary!(ApplicationGatewayListRequest);
-cloud_terrastodon_registry::register_into_future!(ApplicationGatewayListRequest => Vec<AzureApplicationGatewayResource>);
+cloud_terrastodon_registry::register_thing!(ApplicationGatewayListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(ApplicationGatewayListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(ApplicationGatewayListRequest<'static> => Vec<AzureApplicationGatewayResource>);

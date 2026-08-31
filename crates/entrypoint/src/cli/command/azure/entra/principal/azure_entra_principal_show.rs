@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_principal;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -21,12 +22,12 @@ pub struct AzureEntraPrincipalShowArgs {
 }
 
 impl AzureEntraPrincipalShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.principal, %tenant_id, "Fetching Entra principal");
 
         if let Some(principal_id) = self.principal.as_id() {
-            let principal = fetch_principal(tenant_id, *principal_id).await?;
+            let principal = fetch_principal(tenant_id, *principal_id, auth_context).await?;
             let stdout = std::io::stdout();
             let mut handle = stdout.lock();
             cloud_terrastodon_command::to_writer_pretty(&mut handle, &principal)?;
@@ -34,7 +35,7 @@ impl AzureEntraPrincipalShowArgs {
             return Ok(());
         }
 
-        let principals = fetch_all_principals(tenant_id).await?;
+        let principals = fetch_all_principals(tenant_id, auth_context).await?;
         let mut matches = principals
             .values()
             .filter(|principal| self.principal.matches(*principal))

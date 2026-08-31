@@ -14,6 +14,7 @@ use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::fetch_groups_by_id;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::to_writer_pretty;
+use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::OptionExt;
 use eyre::Result;
@@ -51,7 +52,7 @@ pub struct AzureEntraGroupShowArgs {
 }
 
 impl AzureEntraGroupShowArgs {
-    pub async fn invoke(mut self) -> Result<()> {
+    pub async fn invoke(mut self, auth_context: &AuthContext) -> Result<()> {
         let is_terminal = std::io::stdout().is_terminal();
         if matches!(self.output_format, OutputFormat::Auto) {
             self.output_format = if is_terminal {
@@ -89,7 +90,7 @@ impl AzureEntraGroupShowArgs {
 
         let tenant_id = self.tenant.resolve().await?;
         info!(count = ids.len(), %tenant_id, "Fetching Entra groups");
-        let groups = fetch_groups_by_id(tenant_id, ids.clone()).await?;
+        let groups = fetch_groups_by_id(tenant_id, ids.clone(), auth_context).await?;
 
         // Map by id for fast lookup
         let mut map: HashMap<EntraGroupId, EntraGroup> =
@@ -123,23 +124,27 @@ impl AzureEntraGroupShowArgs {
             ParallelFallibleWorkQueue::new("group members, owners, and role assignments", 8);
         for group in &chosen_groups {
             let group_id = group.id;
+            let members_auth_context = auth_context.clone();
             work.enqueue(async move {
-                let members = fetch_group_members(tenant_id, group_id).await?;
+                let members =
+                    fetch_group_members(tenant_id, group_id, &members_auth_context).await?;
                 eyre::Ok(Resp::Members {
                     group_id,
                     principals: members,
                 })
             });
+            let owners_auth_context = auth_context.clone();
             work.enqueue(async move {
-                let owners = fetch_group_owners(tenant_id, group_id).await?;
+                let owners = fetch_group_owners(tenant_id, group_id, &owners_auth_context).await?;
                 eyre::Ok(Resp::Owners {
                     group_id,
                     principals: owners,
                 })
             });
         }
+        let auth_context = auth_context.clone();
         work.enqueue(async move {
-            let rbac = fetch_all_role_definitions_and_assignments(tenant_id).await?;
+            let rbac = fetch_all_role_definitions_and_assignments(tenant_id, &auth_context).await?;
             eyre::Ok(Resp::Rbac(rbac))
         });
         let work_results = work.join().await?;

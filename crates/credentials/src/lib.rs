@@ -40,6 +40,7 @@ mod azure_devops_pat;
 mod azure_devops_rest_client;
 mod azure_rest_resource;
 mod azure_token_cache;
+mod browser_access_token;
 mod jwt;
 mod pim_client_id;
 mod pim_config;
@@ -61,6 +62,9 @@ pub use azure_devops_rest_client::*;
 pub use azure_rest_resource::*;
 #[expect(unused_imports)]
 pub use azure_token_cache::*;
+pub use browser_access_token::BrowserSession;
+pub use browser_access_token::BrowserTokenCache;
+pub use browser_access_token::login_browser_session;
 pub use jwt::*;
 pub use pim_client_id::*;
 pub use pim_config::*;

@@ -11,21 +11,39 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct ContainerRegistryListRequest {
+#[derive(Debug, Clone, facet::Facet)]
+pub struct ContainerRegistryListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_container_registries(tenant_id: AzureTenantId) -> ContainerRegistryListRequest {
-    ContainerRegistryListRequest { tenant_id }
+pub fn fetch_all_container_registries<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> ContainerRegistryListRequest<'a> {
+    ContainerRegistryListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for ContainerRegistryListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for ContainerRegistryListRequest {
+impl<'a> CacheableCommand for ContainerRegistryListRequest<'a> {
     type Output = Vec<ContainerRegistry>;
 
     fn cache_key(&self) -> CacheKey {
@@ -45,12 +63,13 @@ Resources
 | where type =~ "Microsoft.ContainerRegistry/registries"
         "#,
             Some(self.cache_key()),
+            self.auth_context.as_ref(),
         );
         query.collect_all().await
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ContainerRegistryListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ContainerRegistryListRequest<'a>, 'a);
 
 pub async fn fetch_container_registry_repository_names(
     registry_id: &ContainerRegistryId,
@@ -113,7 +132,11 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let found = fetch_all_container_registries(get_test_tenant_id().await?).await?;
+        let found = fetch_all_container_registries(
+            get_test_tenant_id().await?,
+            &AuthContext::default(),
+        )
+        .await?;
         assert!(!found.is_empty());
         for registry in found.into_iter() {
             registry.name.validate_slug()?;
@@ -126,7 +149,7 @@ mod test {
     pub async fn it_works2() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
         let mut pass = false;
-        let found = fetch_all_container_registries(tenant_id).await?;
+        let found = fetch_all_container_registries(tenant_id, &AuthContext::default()).await?;
         let found_count = found.len();
         for (i, container_registry) in found.into_iter().enumerate() {
             let repository_names =
@@ -157,6 +180,6 @@ mod test {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(ContainerRegistryListRequest);
-cloud_terrastodon_registry::register_arbitrary!(ContainerRegistryListRequest);
-cloud_terrastodon_registry::register_into_future!(ContainerRegistryListRequest => Vec<ContainerRegistry>);
+cloud_terrastodon_registry::register_thing!(ContainerRegistryListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(ContainerRegistryListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(ContainerRegistryListRequest<'static> => Vec<ContainerRegistry>);

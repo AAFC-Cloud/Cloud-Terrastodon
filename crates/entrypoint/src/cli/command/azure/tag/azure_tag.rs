@@ -1,4 +1,5 @@
 use super::AzureTagForCleanupArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Azure tag operations.
@@ -10,9 +11,9 @@ pub enum AzureTagCommand {
 }
 
 impl AzureTagCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureTagCommand::ForCleanup(args) => args.invoke().await,
+            AzureTagCommand::ForCleanup(args) => args.invoke(auth_context).await,
         }
     }
 }

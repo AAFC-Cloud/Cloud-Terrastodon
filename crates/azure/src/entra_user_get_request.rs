@@ -8,9 +8,11 @@ use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -54,23 +56,39 @@ impl From<AzurePrincipalArgument<'_>> for EntraUserLookup {
 }
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(Arbitrary, Facet)]
-pub struct EntraUserGetRequest {
+#[derive(Facet)]
+pub struct EntraUserGetRequest<'a> {
     pub tenant_id: AzureTenantId,
     pub lookup: EntraUserLookup,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_entra_user<T>(tenant_id: AzureTenantId, lookup: T) -> EntraUserGetRequest
+impl<'a> Arbitrary<'a> for EntraUserGetRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: Arbitrary::arbitrary(u)?,
+            lookup: Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_entra_user<'a, T>(
+    tenant_id: AzureTenantId,
+    lookup: T,
+    auth_context: &'a AuthContext,
+) -> EntraUserGetRequest<'a>
 where
     T: Into<EntraUserLookup>,
 {
     EntraUserGetRequest {
         tenant_id,
         lookup: lookup.into(),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
-impl EntraUserGetRequest {
+impl EntraUserGetRequest<'_> {
     fn url(&self) -> String {
         let lookup = match &self.lookup {
             EntraUserLookup::ObjectId(user_id) => user_id.to_string(),
@@ -84,7 +102,7 @@ impl EntraUserGetRequest {
 }
 
 #[async_trait]
-impl CacheableCommand for EntraUserGetRequest {
+impl CacheableCommand for EntraUserGetRequest<'_> {
     type Output = EntraUser;
 
     fn cache_key(&self) -> CacheKey {
@@ -142,16 +160,21 @@ impl CacheableCommand for EntraUserGetRequest {
             }
         }
 
-        MicrosoftGraphHelper::new(self.tenant_id, self.url(), Some(self.cache_key()))
-            .fetch_one()
-            .await
+        MicrosoftGraphHelper::new(
+            self.tenant_id,
+            self.url(),
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .fetch_one()
+        .await
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserGetRequest);
-cloud_terrastodon_registry::register_thing!(EntraUserGetRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraUserGetRequest);
-cloud_terrastodon_registry::register_into_future!(EntraUserGetRequest => EntraUser);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserGetRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(EntraUserGetRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(EntraUserGetRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(EntraUserGetRequest<'static> => EntraUser);
 
 #[cfg(test)]
 mod tests {
@@ -162,6 +185,7 @@ mod tests {
         let request = EntraUserGetRequest {
             tenant_id: AzureTenantId::new(cloud_terrastodon_azure_types::uuid::Uuid::nil()),
             lookup: EntraUserLookup::UserPrincipalName("O'Neil@example.com".to_owned()),
+            auth_context: Cow::Owned(AuthContext::default()),
         };
 
         assert!(

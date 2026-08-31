@@ -7,49 +7,80 @@ use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct EntraGroupGetRequest {
+#[derive(facet::Facet)]
+pub struct EntraGroupGetRequest<'a> {
     pub tenant_id: AzureTenantId,
     pub group_id: EntraGroupId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_group(tenant_id: AzureTenantId, group_id: EntraGroupId) -> EntraGroupGetRequest {
-    EntraGroupGetRequest {
-        tenant_id,
-        group_id,
+impl<'a> arbitrary::Arbitrary<'a> for EntraGroupGetRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            group_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
     }
 }
 
-impl EntraGroupGetRequest {
+pub fn fetch_group<'a>(
+    tenant_id: AzureTenantId,
+    group_id: EntraGroupId,
+    auth_context: &'a AuthContext,
+) -> EntraGroupGetRequest<'a> {
+    EntraGroupGetRequest {
+        tenant_id,
+        group_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl EntraGroupGetRequest<'_> {
     fn url(&self) -> String {
         format!("https://graph.microsoft.com/v1.0/groups/{}", self.group_id)
     }
 }
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct GroupByIdRequest {
+#[derive(facet::Facet)]
+pub struct GroupByIdRequest<'a> {
     pub tenant_id: AzureTenantId,
     pub group_ids: Vec<EntraGroupId>,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_groups_by_id(
+impl<'a> arbitrary::Arbitrary<'a> for GroupByIdRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            group_ids: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_groups_by_id<'a>(
     tenant_id: AzureTenantId,
     group_ids: impl IntoIterator<Item = EntraGroupId>,
-) -> GroupByIdRequest {
+    auth_context: &'a AuthContext,
+) -> GroupByIdRequest<'a> {
     GroupByIdRequest {
         tenant_id,
         group_ids: group_ids.into_iter().collect(),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
 #[async_trait]
-impl CacheableCommand for EntraGroupGetRequest {
+impl CacheableCommand for EntraGroupGetRequest<'_> {
     type Output = EntraGroup;
 
     fn cache_key(&self) -> CacheKey {
@@ -69,14 +100,19 @@ impl CacheableCommand for EntraGroupGetRequest {
             group_id = %self.group_id,
             "Fetching group by object id"
         );
-        MicrosoftGraphHelper::new(self.tenant_id, self.url(), Some(self.cache_key()))
-            .fetch_one()
-            .await
+        MicrosoftGraphHelper::new(
+            self.tenant_id,
+            self.url(),
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .fetch_one()
+        .await
     }
 }
 
 #[async_trait]
-impl CacheableCommand for GroupByIdRequest {
+impl CacheableCommand for GroupByIdRequest<'_> {
     type Output = Vec<EntraGroup>;
 
     fn cache_key(&self) -> CacheKey {
@@ -100,7 +136,10 @@ impl CacheableCommand for GroupByIdRequest {
         }
 
         let cache_key = self.cache_key();
-        let mut batch = MicrosoftGraphBatchRequest::<EntraGroup>::new(self.tenant_id);
+        let mut batch = MicrosoftGraphBatchRequest::<EntraGroup>::new(
+            self.tenant_id,
+            self.auth_context.as_ref(),
+        );
         batch.cache(cache_key);
         for (index, group_id) in self.group_ids.iter().enumerate() {
             batch.add(MicrosoftGraphBatchRequestEntry::new_get(
@@ -119,11 +158,11 @@ impl CacheableCommand for GroupByIdRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupGetRequest);
-cloud_terrastodon_command::impl_cacheable_into_future!(GroupByIdRequest);
-cloud_terrastodon_registry::register_thing!(EntraGroupGetRequest);
-cloud_terrastodon_registry::register_thing!(GroupByIdRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraGroupGetRequest);
-cloud_terrastodon_registry::register_arbitrary!(GroupByIdRequest);
-cloud_terrastodon_registry::register_into_future!(EntraGroupGetRequest => EntraGroup);
-cloud_terrastodon_registry::register_into_future!(GroupByIdRequest => Vec<EntraGroup>);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupGetRequest<'a>, 'a);
+cloud_terrastodon_command::impl_cacheable_into_future!(GroupByIdRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(EntraGroupGetRequest<'static>);
+cloud_terrastodon_registry::register_thing!(GroupByIdRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupGetRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(GroupByIdRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(EntraGroupGetRequest<'static> => EntraGroup);
+cloud_terrastodon_registry::register_into_future!(GroupByIdRequest<'static> => Vec<EntraGroup>);

@@ -4,21 +4,39 @@ use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct PolicyAssignmentListRequest {
+#[derive(Debug, Clone, facet::Facet)]
+pub struct PolicyAssignmentListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_policy_assignments(tenant_id: AzureTenantId) -> PolicyAssignmentListRequest {
-    PolicyAssignmentListRequest { tenant_id }
+pub fn fetch_all_policy_assignments<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> PolicyAssignmentListRequest<'a> {
+    PolicyAssignmentListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for PolicyAssignmentListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for PolicyAssignmentListRequest {
+impl<'a> CacheableCommand for PolicyAssignmentListRequest<'a> {
     type Output = Vec<PolicyAssignment>;
 
     fn cache_key(&self) -> CacheKey {
@@ -44,12 +62,13 @@ policyresources
  properties
     "#,
             Some(self.cache_key()),
+            self.auth_context.as_ref(),
         );
         qb.collect_all().await
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(PolicyAssignmentListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(PolicyAssignmentListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -58,12 +77,16 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_policy_assignments(get_test_tenant_id().await?).await?;
+        let result = fetch_all_policy_assignments(
+            get_test_tenant_id().await?,
+            &AuthContext::default(),
+        )
+        .await?;
         assert!(!result.is_empty());
         Ok(())
     }
 }
 
-cloud_terrastodon_registry::register_thing!(PolicyAssignmentListRequest);
-cloud_terrastodon_registry::register_arbitrary!(PolicyAssignmentListRequest);
-cloud_terrastodon_registry::register_into_future!(PolicyAssignmentListRequest => Vec<PolicyAssignment>);
+cloud_terrastodon_registry::register_thing!(PolicyAssignmentListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(PolicyAssignmentListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(PolicyAssignmentListRequest<'static> => Vec<PolicyAssignment>);

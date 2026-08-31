@@ -7,30 +7,45 @@ use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Context;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct EntraGroupMembersListBatchRequest {
+#[derive(facet::Facet)]
+pub struct EntraGroupMembersListBatchRequest<'a> {
     pub group_ids: Vec<EntraGroupId>,
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for EntraGroupMembersListBatchRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            group_ids: arbitrary::Arbitrary::arbitrary(u)?,
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 /// TODO! This does n't auto fetch nextLink stuff :(
 #[deprecated = "This function does not handle pagination yet."]
-pub fn fetch_group_members_batch(
+pub fn fetch_group_members_batch<'a>(
     tenant_id: AzureTenantId,
     group_ids: impl IntoIterator<Item = EntraGroupId>,
-) -> EntraGroupMembersListBatchRequest {
+    auth_context: &'a AuthContext,
+) -> EntraGroupMembersListBatchRequest<'a> {
     EntraGroupMembersListBatchRequest {
         group_ids: group_ids.into_iter().collect(),
         tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
 #[async_trait]
-impl CacheableCommand for EntraGroupMembersListBatchRequest {
+impl CacheableCommand for EntraGroupMembersListBatchRequest<'_> {
     type Output = HashMap<EntraGroupId, Vec<Principal>>;
 
     fn cache_key(&self) -> CacheKey {
@@ -56,10 +71,11 @@ impl CacheableCommand for EntraGroupMembersListBatchRequest {
         let EntraGroupMembersListBatchRequest {
             group_ids,
             tenant_id,
+            auth_context,
         } = self;
         // Construct the request
-        let mut batch_request: MicrosoftGraphBatchRequest<Vec<Principal>> =
-            MicrosoftGraphBatchRequest::new(tenant_id);
+        let mut batch_request: MicrosoftGraphBatchRequest<'_, Vec<Principal>> =
+            MicrosoftGraphBatchRequest::new(tenant_id, auth_context.as_ref());
 
         // Enable caching since it's a GET request
         batch_request.cache(cache_key);
@@ -69,6 +85,7 @@ impl CacheableCommand for EntraGroupMembersListBatchRequest {
             batch_request.add(EntraGroupMembersListRequest {
                 group_id: *group_id,
                 tenant_id,
+                auth_context: Cow::Borrowed(auth_context.as_ref()),
             });
         }
 
@@ -94,8 +111,8 @@ impl CacheableCommand for EntraGroupMembersListBatchRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListBatchRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListBatchRequest<'a>, 'a);
 
-cloud_terrastodon_registry::register_thing!(EntraGroupMembersListBatchRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraGroupMembersListBatchRequest);
-cloud_terrastodon_registry::register_into_future!(EntraGroupMembersListBatchRequest => HashMap<EntraGroupId, Vec<Principal>>);
+cloud_terrastodon_registry::register_thing!(EntraGroupMembersListBatchRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupMembersListBatchRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(EntraGroupMembersListBatchRequest<'static> => HashMap<EntraGroupId, Vec<Principal>>);

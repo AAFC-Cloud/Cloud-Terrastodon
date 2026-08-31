@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_network_interface;
 pub mod azure_network_interface_list;
 pub mod azure_network_interface_show;
@@ -15,7 +16,10 @@ pub struct AzureNetworkInterfaceArgs {
 }
 
 impl AzureNetworkInterfaceArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

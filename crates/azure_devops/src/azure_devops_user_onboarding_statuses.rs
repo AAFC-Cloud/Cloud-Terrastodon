@@ -1,5 +1,6 @@
 use crate::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_credentials::AuthContext;
 use std::collections::HashSet;
 
 pub enum UserOnboardingStatus {
@@ -10,8 +11,9 @@ pub enum UserOnboardingStatus {
 pub async fn get_azure_devops_user_onboarding_statuses<T: AsRef<str>>(
     org_url: &AzureDevOpsOrganizationUrl,
     user_emails: impl IntoIterator<Item = T>,
+    auth_context: &AuthContext,
 ) -> eyre::Result<Vec<(T, UserOnboardingStatus)>> {
-    let existing_users = fetch_azure_devops_user_license_entitlements(org_url)
+    let existing_users = fetch_azure_devops_user_license_entitlements(org_url, auth_context)
         .await?
         .into_iter()
         .map(|user| user.user.unique_name)

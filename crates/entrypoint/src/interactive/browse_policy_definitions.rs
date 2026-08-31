@@ -2,13 +2,17 @@ use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::PolicyDefinition;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn browse_policy_definitions(tenant_id: AzureTenantId) -> eyre::Result<()> {
-    let policy_definitions = fetch_all_policy_definitions(tenant_id)
+pub async fn browse_policy_definitions(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> eyre::Result<()> {
+    let policy_definitions = fetch_all_policy_definitions(tenant_id, auth_context)
         .await?
         .into_iter()
         .map(|def| Choice {

@@ -17,6 +17,7 @@ use cloud_terrastodon_azure::fetch_all_private_endpoints;
 use cloud_terrastodon_azure::fetch_all_public_ips;
 use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
+use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use eyre::ContextCompat;
@@ -54,13 +55,13 @@ pub struct OutageInvestigateArgs {
 }
 
 impl OutageInvestigateArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         let target_host = extract_target_host(&self.target)?;
         let dns = resolve_target(&target_host).await?;
 
         info!(%tenant_id, host = %target_host, "Fetching Azure public IP addresses for outage investigation");
-        let public_ips = fetch_all_public_ips(tenant_id).await?;
+        let public_ips = fetch_all_public_ips(tenant_id, auth_context).await?;
         info!(
             count = public_ips.len(),
             "Fetched Azure public IP addresses"
@@ -81,7 +82,9 @@ impl OutageInvestigateArgs {
             .collect::<Vec<_>>();
         let matches =
             enrich_matches_with_application_gateway_backend_health(tenant_id, matches).await?;
-        let matches = enrich_matches_with_backend_resource_discovery(tenant_id, matches).await?;
+        let matches =
+            enrich_matches_with_backend_resource_discovery(tenant_id, matches, auth_context)
+                .await?;
 
         let report = OutageInvestigationReport {
             input: self.target,
@@ -346,6 +349,7 @@ async fn enrich_matches_with_application_gateway_backend_health(
 async fn enrich_matches_with_backend_resource_discovery(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     mut matches: Vec<OutagePublicIpMatch>,
+    auth_context: &AuthContext,
 ) -> Result<Vec<OutagePublicIpMatch>> {
     let backend_candidates = matches
         .iter()
@@ -365,21 +369,21 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = backend_candidates.len(),
             "Fetching network interfaces for backend probe investigation"
         );
-        fetch_all_network_interfaces(tenant_id).await?
+        fetch_all_network_interfaces(tenant_id, auth_context).await?
     };
 
     let virtual_networks = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching virtual networks for backend probe investigation");
-        fetch_all_virtual_networks(tenant_id).await?
+        fetch_all_virtual_networks(tenant_id, auth_context).await?
     };
 
     let container_instances = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching container instances for backend probe investigation");
-        fetch_all_container_instances(tenant_id).await?
+        fetch_all_container_instances(tenant_id, auth_context).await?
     };
 
     let relevant_private_endpoint_ids = backend_candidates
@@ -398,7 +402,7 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = relevant_private_endpoint_ids.len(),
             "Fetching private endpoints for backend probe investigation"
         );
-        fetch_all_private_endpoints(tenant_id)
+        fetch_all_private_endpoints(tenant_id, auth_context)
             .await?
             .into_iter()
             .filter(|private_endpoint| {

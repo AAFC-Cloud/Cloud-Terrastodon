@@ -11,11 +11,13 @@ use crate::reflow::ReflowRemoveDefaultAttributes;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_entra_directory_objects_by_ids;
+use cloud_terrastodon_credentials::AuthContext;
 use std::path::PathBuf;
 use tracing::info;
 
 pub async fn reflow_hcl(
     tenant: AzureTenantArgument<'_>,
+    auth_context: &AuthContext,
     mut hcl: HclProject,
     include_principal_id_comments: bool,
     single_file_path: Option<PathBuf>,
@@ -37,7 +39,8 @@ pub async fn reflow_hcl(
     if include_principal_id_comments && !principal_ids.is_empty() {
         info!("Fetching principals");
         let tenant_id = tenant.resolve().await?;
-        let principals = fetch_entra_directory_objects_by_ids(tenant_id, principal_ids).await?;
+        let principals =
+            fetch_entra_directory_objects_by_ids(tenant_id, principal_ids, auth_context).await?;
         reflowers.insert(
             3,
             Box::new(ReflowPrincipalIdComments::from_directory_objects(

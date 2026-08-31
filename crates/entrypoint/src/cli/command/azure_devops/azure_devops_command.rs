@@ -9,6 +9,7 @@ use crate::cli::azure_devops::service_endpoint::AzureDevOpsServiceEndpointArgs;
 use crate::cli::azure_devops::team::AzureDevOpsTeamArgs;
 use crate::cli::azure_devops::test::AzureDevOpsTestArgs;
 use crate::cli::azure_devops::work_item_query::AzureDevOpsWorkItemQueryArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps-specific commands.
@@ -40,41 +41,19 @@ pub enum AzureDevOpsCommand {
 }
 
 impl AzureDevOpsCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureDevOpsCommand::Audit(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::Rest(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::Project(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::Group(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::Team(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::Repo(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::ServiceEndpoint(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::LicenseEntitlement(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::Agent(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::Query(args) => {
-                args.invoke().await?;
-            }
-            AzureDevOpsCommand::Test(args) => {
-                args.invoke().await?;
-            }
+            AzureDevOpsCommand::Project(args) => args.invoke(auth_context).await?,
+            AzureDevOpsCommand::Audit(args) => args.invoke(auth_context).await?,
+            AzureDevOpsCommand::Rest(args) => args.invoke().await?,
+            AzureDevOpsCommand::Group(args) => args.invoke(auth_context).await?,
+            AzureDevOpsCommand::Team(args) => args.invoke().await?,
+            AzureDevOpsCommand::Repo(args) => args.invoke(auth_context).await?,
+            AzureDevOpsCommand::ServiceEndpoint(args) => args.invoke().await?,
+            AzureDevOpsCommand::LicenseEntitlement(args) => args.invoke(auth_context).await?,
+            AzureDevOpsCommand::Agent(args) => args.invoke(auth_context).await?,
+            AzureDevOpsCommand::Query(args) => args.invoke(auth_context).await?,
+            AzureDevOpsCommand::Test(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

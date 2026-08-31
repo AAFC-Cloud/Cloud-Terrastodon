@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use super::AzureCognitiveServicesDeploymentArgs;
 use super::AzureCognitiveServicesListArgs;
 use super::AzureCognitiveServicesShowArgs;
@@ -11,8 +12,11 @@ pub struct AzureCognitiveServicesAccountArgs {
 }
 
 impl AzureCognitiveServicesAccountArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
@@ -28,11 +32,16 @@ pub enum AzureCognitiveServicesAccountCommand {
 }
 
 impl AzureCognitiveServicesAccountCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         match self {
-            AzureCognitiveServicesAccountCommand::List(args) => args.invoke().await,
-            AzureCognitiveServicesAccountCommand::Show(args) => args.invoke().await,
-            AzureCognitiveServicesAccountCommand::Deployment(args) => args.invoke().await,
+            AzureCognitiveServicesAccountCommand::List(args) => args.invoke(auth_context).await,
+            AzureCognitiveServicesAccountCommand::Show(args) => args.invoke(auth_context).await,
+            AzureCognitiveServicesAccountCommand::Deployment(args) => {
+                args.invoke(auth_context).await
+            }
         }
     }
 }

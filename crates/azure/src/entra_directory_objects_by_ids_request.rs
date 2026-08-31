@@ -8,9 +8,11 @@ use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use facet::Facet;
 use http::Method;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tracing::debug;
@@ -20,19 +22,32 @@ const DIRECTORY_OBJECTS_BY_IDS_URL: &str =
     "https://graph.microsoft.com/v1.0/directoryObjects/getByIds";
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(Debug, arbitrary::Arbitrary, Facet)]
-pub struct EntraDirectoryObjectsByIdsRequest {
+#[derive(Debug, Facet)]
+pub struct EntraDirectoryObjectsByIdsRequest<'a> {
     pub tenant_id: AzureTenantId,
     pub ids: Vec<Uuid>,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_entra_directory_objects_by_ids(
+impl<'a> arbitrary::Arbitrary<'a> for EntraDirectoryObjectsByIdsRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            ids: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_entra_directory_objects_by_ids<'a>(
     tenant_id: AzureTenantId,
     ids: impl IntoIterator<Item = Uuid>,
-) -> EntraDirectoryObjectsByIdsRequest {
+    auth_context: &'a AuthContext,
+) -> EntraDirectoryObjectsByIdsRequest<'a> {
     EntraDirectoryObjectsByIdsRequest {
         tenant_id,
         ids: ids.into_iter().collect(),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
@@ -42,7 +57,7 @@ struct EntraDirectoryObjectsByIdsRequestBody {
     types: Vec<String>,
 }
 
-impl EntraDirectoryObjectsByIdsRequest {
+impl EntraDirectoryObjectsByIdsRequest<'_> {
     fn normalized_ids(&self) -> Vec<Uuid> {
         let mut ids = self.ids.clone();
         ids.sort_unstable();
@@ -80,7 +95,7 @@ impl EntraDirectoryObjectsByIdsRequest {
 }
 
 #[async_trait]
-impl CacheableCommand for EntraDirectoryObjectsByIdsRequest {
+impl CacheableCommand for EntraDirectoryObjectsByIdsRequest<'_> {
     type Output = Vec<EntraDirectoryObject>;
 
     fn cache_key(&self) -> CacheKey {
@@ -97,6 +112,7 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest {
         let cache_key = self.cache_key();
         let mut batch = MicrosoftGraphBatchRequest::<EntraDirectoryObjectsByIdsRequestBody>::new(
             self.tenant_id,
+            self.auth_context.as_ref(),
         );
         batch.cache(cache_key);
 
@@ -133,10 +149,10 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraDirectoryObjectsByIdsRequest);
-cloud_terrastodon_registry::register_thing!(EntraDirectoryObjectsByIdsRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraDirectoryObjectsByIdsRequest);
-cloud_terrastodon_registry::register_into_future!(EntraDirectoryObjectsByIdsRequest => Vec<EntraDirectoryObject>);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraDirectoryObjectsByIdsRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(EntraDirectoryObjectsByIdsRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(EntraDirectoryObjectsByIdsRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(EntraDirectoryObjectsByIdsRequest<'static> => Vec<EntraDirectoryObject>);
 
 #[cfg(test)]
 mod tests {
@@ -144,15 +160,18 @@ mod tests {
 
     #[test]
     fn normalizes_ids_for_stable_lookup_and_cache_keys() {
+        let auth_context = AuthContext::default();
         let first_id = Uuid::from_u128(1);
         let second_id = Uuid::from_u128(2);
         let first = fetch_entra_directory_objects_by_ids(
             AzureTenantId::new(Uuid::nil()),
             [first_id, second_id, first_id],
+            &auth_context,
         );
         let second = fetch_entra_directory_objects_by_ids(
             AzureTenantId::new(Uuid::nil()),
             [second_id, first_id],
+            &auth_context,
         );
 
         assert_eq!(first.normalized_ids(), vec![first_id, second_id]);

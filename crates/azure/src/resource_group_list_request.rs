@@ -4,22 +4,40 @@ use cloud_terrastodon_azure_types::ResourceGroup;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use indoc::indoc;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct ResourceGroupListRequest {
+#[derive(Debug, Clone, facet::Facet)]
+pub struct ResourceGroupListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_resource_groups(tenant_id: AzureTenantId) -> ResourceGroupListRequest {
-    ResourceGroupListRequest { tenant_id }
+pub fn fetch_all_resource_groups<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> ResourceGroupListRequest<'a> {
+    ResourceGroupListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for ResourceGroupListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for ResourceGroupListRequest {
+impl<'a> CacheableCommand for ResourceGroupListRequest<'a> {
     type Output = Vec<ResourceGroup>;
 
     fn cache_key(&self) -> CacheKey {
@@ -52,13 +70,14 @@ impl CacheableCommand for ResourceGroupListRequest {
                     subscription_name
             "#},
             Some(self.cache_key()),
+            self.auth_context.as_ref(),
         )
         .collect_all::<ResourceGroup>()
         .await
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ResourceGroupListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ResourceGroupListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -70,7 +89,7 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let result = fetch_all_resource_groups(tenant_id).await?;
+        let result = fetch_all_resource_groups(tenant_id, &AuthContext::default()).await?;
         assert!(!result.is_empty());
         for rg in result {
             assert!(!rg.name.is_empty());
@@ -82,7 +101,7 @@ mod tests {
     #[ignore]
     async fn invalidation() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        fetch_all_resource_groups(tenant_id)
+        fetch_all_resource_groups(tenant_id, &AuthContext::default())
             .cache_key()
             .invalidate()
             .await?;
@@ -96,12 +115,12 @@ mod tests {
             .pick_many_reloadable(|invalidate| async move {
                 let tenant_id = get_test_tenant_id().await?;
                 if invalidate {
-                    fetch_all_resource_groups(tenant_id)
+                    fetch_all_resource_groups(tenant_id, &AuthContext::default())
                         .cache_key()
                         .invalidate()
                         .await?;
                 }
-                fetch_all_resource_groups(tenant_id).await
+                fetch_all_resource_groups(tenant_id, &AuthContext::default()).await
             })
             .await?;
         assert!(!chosen.is_empty());
@@ -109,6 +128,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(ResourceGroupListRequest);
-cloud_terrastodon_registry::register_arbitrary!(ResourceGroupListRequest);
-cloud_terrastodon_registry::register_into_future!(ResourceGroupListRequest => Vec<ResourceGroup>);
+cloud_terrastodon_registry::register_thing!(ResourceGroupListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(ResourceGroupListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(ResourceGroupListRequest<'static> => Vec<ResourceGroup>);

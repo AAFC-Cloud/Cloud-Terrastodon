@@ -4,21 +4,39 @@ use cloud_terrastodon_azure_types::VirtualNetwork;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use indoc::indoc;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::info;
 
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct VirtualNetworkListRequest {
+#[derive(Debug, Clone, facet::Facet)]
+pub struct VirtualNetworkListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_virtual_networks(tenant_id: AzureTenantId) -> VirtualNetworkListRequest {
-    VirtualNetworkListRequest { tenant_id }
+pub fn fetch_all_virtual_networks<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> VirtualNetworkListRequest<'a> {
+    VirtualNetworkListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for VirtualNetworkListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for VirtualNetworkListRequest {
+impl<'a> CacheableCommand for VirtualNetworkListRequest<'a> {
     type Output = Vec<VirtualNetwork>;
 
     fn cache_key(&self) -> CacheKey {
@@ -47,7 +65,12 @@ impl CacheableCommand for VirtualNetworkListRequest {
         .to_owned();
 
         let virtual_networks =
-            ResourceGraphHelper::new(self.tenant_id, query, Some(self.cache_key()))
+            ResourceGraphHelper::new(
+                self.tenant_id,
+                query,
+                Some(self.cache_key()),
+                self.auth_context.as_ref(),
+            )
                 .collect_all::<VirtualNetwork>()
                 .await?;
         info!("Found {} virtual networks", virtual_networks.len());
@@ -55,7 +78,7 @@ impl CacheableCommand for VirtualNetworkListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(VirtualNetworkListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(VirtualNetworkListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -64,7 +87,11 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_virtual_networks(get_test_tenant_id().await?).await?;
+        let result = fetch_all_virtual_networks(
+            get_test_tenant_id().await?,
+            &AuthContext::default(),
+        )
+        .await?;
         assert!(!result.is_empty());
         for vnet in result {
             assert!(!vnet.name.is_empty());
@@ -73,6 +100,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(VirtualNetworkListRequest);
-cloud_terrastodon_registry::register_arbitrary!(VirtualNetworkListRequest);
-cloud_terrastodon_registry::register_into_future!(VirtualNetworkListRequest => Vec<VirtualNetwork>);
+cloud_terrastodon_registry::register_thing!(VirtualNetworkListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(VirtualNetworkListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(VirtualNetworkListRequest<'static> => Vec<VirtualNetwork>);

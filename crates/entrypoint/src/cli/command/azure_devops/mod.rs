@@ -15,6 +15,7 @@ pub mod work_item_query;
 use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Arguments for Azure DevOps-specific operations.
@@ -34,7 +35,7 @@ pub async fn resolve_azure_devops_organization_url(
 }
 
 impl AzureDevOpsArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

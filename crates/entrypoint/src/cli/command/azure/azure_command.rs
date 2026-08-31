@@ -18,6 +18,7 @@ use super::tenant::AzureTenantArgs;
 use super::vm::AzureVmArgs;
 use crate::cli::azure::entra::AzureEntraArgs;
 use crate::cli::azure_devops::AzureDevOpsArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure-specific commands.
@@ -77,68 +78,28 @@ pub enum AzureCommand {
 }
 
 impl AzureCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureCommand::AppService(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Audit(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::ApplicationGateway(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::CognitiveServices(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::ContainerInstance(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Find(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::NetworkInterface(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::ResourceGroup(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Policy(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::PrivateEndpoint(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::PublicIp(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Tag(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Resource(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Role(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Pim(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Entra(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Vm(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Subscription(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::Tenant(args) => {
-                args.invoke().await?;
-            }
-            AzureCommand::DevOps(args) => {
-                args.invoke().await?;
-            }
+            AzureCommand::DevOps(args) => args.invoke(auth_context).await?,
+            AzureCommand::Tenant(args) => args.invoke(auth_context).await?,
+            AzureCommand::AppService(args) => args.invoke(auth_context).await?,
+            AzureCommand::Audit(args) => args.invoke(auth_context).await?,
+            AzureCommand::ApplicationGateway(args) => args.invoke(auth_context).await?,
+            AzureCommand::CognitiveServices(args) => args.invoke(auth_context).await?,
+            AzureCommand::ContainerInstance(args) => args.invoke(auth_context).await?,
+            AzureCommand::Find(args) => args.invoke(auth_context).await?,
+            AzureCommand::NetworkInterface(args) => args.invoke(auth_context).await?,
+            AzureCommand::ResourceGroup(args) => args.invoke(auth_context).await?,
+            AzureCommand::Policy(args) => args.invoke(auth_context).await?,
+            AzureCommand::PrivateEndpoint(args) => args.invoke(auth_context).await?,
+            AzureCommand::PublicIp(args) => args.invoke(auth_context).await?,
+            AzureCommand::Tag(args) => args.invoke(auth_context).await?,
+            AzureCommand::Resource(args) => args.invoke(auth_context).await?,
+            AzureCommand::Role(args) => args.invoke(auth_context).await?,
+            AzureCommand::Pim(args) => args.invoke(auth_context).await?,
+            AzureCommand::Entra(args) => args.invoke(auth_context).await?,
+            AzureCommand::Vm(args) => args.invoke(auth_context).await?,
+            AzureCommand::Subscription(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

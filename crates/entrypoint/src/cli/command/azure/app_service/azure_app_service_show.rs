@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureAppServiceResource;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -21,10 +22,10 @@ pub struct AzureAppServiceShowArgs {
 }
 
 impl AzureAppServiceShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.app_service, %tenant_id, "Fetching app services");
-        let app_services = fetch_all_app_services(tenant_id).await?;
+        let app_services = fetch_all_app_services(tenant_id, auth_context).await?;
         info!(count = app_services.len(), "Fetched app services");
 
         let needle = self.app_service.trim();

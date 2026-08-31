@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
@@ -16,13 +17,13 @@ pub struct AzureResourceGroupBrowseArgs {
 }
 
 impl AzureResourceGroupBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         let chosen = PickerTui::<_>::new()
             .pick_many_reloadable(|invalidate| async move {
                 info!(%tenant_id, "Fetching all Azure resource groups");
 
-                fetch_all_resource_groups(tenant_id)
+                fetch_all_resource_groups(tenant_id, auth_context)
                     .with_invalidation(invalidate)
                     .await
             })

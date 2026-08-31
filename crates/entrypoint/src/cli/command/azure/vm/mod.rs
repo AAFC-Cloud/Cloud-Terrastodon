@@ -3,6 +3,7 @@ pub mod publisher;
 
 use crate::cli::azure::vm::browse::AzureVmBrowseArgs;
 use crate::cli::command::azure::vm::publisher::AzureVmPublisherArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Virtual machine related subcommands.
@@ -23,10 +24,10 @@ pub struct AzureVmArgs {
 }
 
 impl AzureVmArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
-            AzureVmCommand::Publisher(args) => args.invoke().await,
-            AzureVmCommand::Browse(args) => args.invoke().await,
+            AzureVmCommand::Publisher(args) => args.invoke(auth_context).await,
+            AzureVmCommand::Browse(args) => args.invoke(auth_context).await,
         }
     }
 }

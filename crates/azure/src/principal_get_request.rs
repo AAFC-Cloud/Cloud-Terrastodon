@@ -12,26 +12,44 @@ use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use facet_json::RawJson;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct PrincipalRequest {
+#[derive(facet::Facet)]
+pub struct PrincipalRequest<'a> {
     pub tenant_id: AzureTenantId,
     pub principal_id: PrincipalId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_principal(tenant_id: AzureTenantId, principal_id: PrincipalId) -> PrincipalRequest {
+impl<'a> arbitrary::Arbitrary<'a> for PrincipalRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            principal_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_principal<'a>(
+    tenant_id: AzureTenantId,
+    principal_id: PrincipalId,
+    auth_context: &'a AuthContext,
+) -> PrincipalRequest<'a> {
     PrincipalRequest {
         tenant_id,
         principal_id,
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
 #[async_trait]
-impl CacheableCommand for PrincipalRequest {
+impl CacheableCommand for PrincipalRequest<'_> {
     type Output = Principal;
 
     fn cache_key(&self) -> CacheKey {
@@ -46,22 +64,34 @@ impl CacheableCommand for PrincipalRequest {
     }
 
     async fn run(self) -> Result<Self::Output> {
+        let cache_key = self.cache_key();
+        let auth_context = self.auth_context;
         match self.principal_id {
             PrincipalId::UserId(user_id) => {
-                Ok(fetch_entra_user(self.tenant_id, user_id).await?.into())
+                Ok(
+                    fetch_entra_user(self.tenant_id, user_id, auth_context.as_ref())
+                        .await?
+                        .into(),
+                )
             }
             PrincipalId::GroupId(group_id) => {
-                Ok(fetch_group(self.tenant_id, group_id).await?.into())
+                Ok(fetch_group(self.tenant_id, group_id, auth_context.as_ref())
+                    .await?
+                    .into())
             }
             PrincipalId::ServicePrincipalId(service_principal_id) => Ok(fetch_service_principal(
                 self.tenant_id,
                 service_principal_id,
+                auth_context.as_ref(),
             )
             .await?
             .into()),
             PrincipalId::Unknown(object_id) => {
-                let mut batch = MicrosoftGraphBatchRequest::<RawJson<'static>>::new(self.tenant_id);
-                batch.cache(self.cache_key());
+                let mut batch = MicrosoftGraphBatchRequest::<RawJson<'static>>::new(
+                    self.tenant_id,
+                    auth_context.as_ref(),
+                );
+                batch.cache(cache_key);
                 batch.add(crate::MicrosoftGraphBatchRequestEntry::new_get(
                     "user".to_string(),
                     format!("https://graph.microsoft.com/v1.0/users/{object_id}"),
@@ -112,7 +142,7 @@ impl CacheableCommand for PrincipalRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(PrincipalRequest);
-cloud_terrastodon_registry::register_thing!(PrincipalRequest);
-cloud_terrastodon_registry::register_arbitrary!(PrincipalRequest);
-cloud_terrastodon_registry::register_into_future!(PrincipalRequest => Principal);
+cloud_terrastodon_command::impl_cacheable_into_future!(PrincipalRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(PrincipalRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(PrincipalRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(PrincipalRequest<'static> => Principal);

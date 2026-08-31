@@ -4,25 +4,41 @@ use cloud_terrastodon_azure_types::UnifiedRoleAssignment;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
 /// Fetches Entra role assignments.
 ///
 /// Not to be confused with Azure RBAC role assignments.
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct UnifiedRoleAssignmentListRequest {
+#[derive(facet::Facet)]
+pub struct UnifiedRoleAssignmentListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_unified_role_assignments(
+impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleAssignmentListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_all_unified_role_assignments<'a>(
     tenant_id: AzureTenantId,
-) -> UnifiedRoleAssignmentListRequest {
-    UnifiedRoleAssignmentListRequest { tenant_id }
+    auth_context: &'a AuthContext,
+) -> UnifiedRoleAssignmentListRequest<'a> {
+    UnifiedRoleAssignmentListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for UnifiedRoleAssignmentListRequest {
+impl CacheableCommand for UnifiedRoleAssignmentListRequest<'_> {
     type Output = Vec<UnifiedRoleAssignment>;
 
     fn cache_key(&self) -> CacheKey {
@@ -38,28 +54,37 @@ impl CacheableCommand for UnifiedRoleAssignmentListRequest {
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!("Fetching all unified role assignments");
         let url = "https://graph.microsoft.com/beta/roleManagement/directory/roleAssignments";
-        let query = MicrosoftGraphHelper::new(self.tenant_id, url, Some(self.cache_key()));
+        let query = MicrosoftGraphHelper::new(
+            self.tenant_id,
+            url,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        );
         let rtn = query.fetch_all().await?;
         debug!("Fetched {} unified role assignments", rtn.len());
         Ok(rtn)
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleAssignmentListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleAssignmentListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let assignments =
-            super::fetch_all_unified_role_assignments(get_test_tenant_id().await?).await?;
+        let assignments = super::fetch_all_unified_role_assignments(
+            get_test_tenant_id().await?,
+            &AuthContext::default(),
+        )
+        .await?;
         assert!(!assignments.is_empty());
         Ok(())
     }
 }
 
-cloud_terrastodon_registry::register_thing!(UnifiedRoleAssignmentListRequest);
-cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleAssignmentListRequest);
-cloud_terrastodon_registry::register_into_future!(UnifiedRoleAssignmentListRequest => Vec<UnifiedRoleAssignment>);
+cloud_terrastodon_registry::register_thing!(UnifiedRoleAssignmentListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleAssignmentListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(UnifiedRoleAssignmentListRequest<'static> => Vec<UnifiedRoleAssignment>);

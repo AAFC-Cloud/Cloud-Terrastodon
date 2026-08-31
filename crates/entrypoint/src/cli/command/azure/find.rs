@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
@@ -24,10 +25,10 @@ pub struct AzureFindArgs {
 }
 
 impl AzureFindArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.text, "Fetching all Azure resources");
-        let resources = fetch_all_resources(tenant_id).await?;
+        let resources = fetch_all_resources(tenant_id, auth_context).await?;
         info!(count = resources.len(), "Fetched Azure resources");
 
         let serialized_resources = resources

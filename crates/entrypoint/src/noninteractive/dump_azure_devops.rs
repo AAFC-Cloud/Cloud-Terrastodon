@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_credentials::AuthContext;
 
 #[derive(facet::Facet)]
 struct AzureDevOpsDumpPayload {
@@ -26,17 +27,22 @@ struct AzureDevOpsDumpGroupMembers {
 }
 
 /// Write to stdout the json for a bunch of Azure DevOps info
-pub async fn dump_azure_devops(org_url: AzureDevOpsOrganizationUrl) -> eyre::Result<()> {
-    let projects = fetch_all_azure_devops_projects(&org_url).await?;
+pub async fn dump_azure_devops(
+    org_url: AzureDevOpsOrganizationUrl,
+    auth_context: &AuthContext,
+) -> eyre::Result<()> {
+    let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
 
-    let users = fetch_azure_devops_user_license_entitlements(&org_url).await?;
+    let users = fetch_azure_devops_user_license_entitlements(&org_url, auth_context).await?;
 
     let mut project_groups = ParallelFallibleWorkQueue::new("fetch_azure_devops_groups", 10);
     for project in projects.iter() {
         let org_url = org_url.clone();
         let project_id = project.id.clone();
+        let auth_context = auth_context.clone();
         project_groups.enqueue(async move {
-            let groups = fetch_azure_devops_groups_for_project(&org_url, &project_id).await?;
+            let groups =
+                fetch_azure_devops_groups_for_project(&org_url, &project_id, &auth_context).await?;
             eyre::Ok((project_id, groups))
         });
     }

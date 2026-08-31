@@ -117,24 +117,24 @@ impl CloudTerrastodonCommand {
     ) -> Result<()> {
         match self {
             CloudTerrastodonCommand::Ratatui(args) => args.invoke().await,
-            CloudTerrastodonCommand::Egui(args) => args.invoke().await,
+            CloudTerrastodonCommand::Egui(args) => args.invoke(auth_context).await,
             CloudTerrastodonCommand::Echo(args) => args.invoke().await,
             CloudTerrastodonCommand::Clean(args) => args.invoke().await,
-            CloudTerrastodonCommand::WriteAllImports(args) => args.invoke().await,
-            CloudTerrastodonCommand::PerformCodeGenerationFromImports(args) => args.invoke().await,
-            CloudTerrastodonCommand::DumpEverything(args) => args.invoke().await,
-            CloudTerrastodonCommand::DumpAzureDevOps(args) => args.invoke().await,
+            CloudTerrastodonCommand::WriteAllImports(args) => args.invoke(auth_context).await,
+            CloudTerrastodonCommand::PerformCodeGenerationFromImports(args) => {
+                args.invoke(auth_context).await
+            }
+            CloudTerrastodonCommand::DumpEverything(args) => args.invoke(auth_context).await,
+            CloudTerrastodonCommand::DumpAzureDevOps(args) => args.invoke(auth_context).await,
             CloudTerrastodonCommand::GetPath(args) => args.invoke().await,
             CloudTerrastodonCommand::Nslookup(args) => args.invoke().await,
-            CloudTerrastodonCommand::Outage(args) => args.invoke().await,
-            CloudTerrastodonCommand::Rest(args) => {
-                args.invoke_and_print_with_auth_context(auth_context).await
-            }
+            CloudTerrastodonCommand::Outage(args) => args.invoke(auth_context).await,
+            CloudTerrastodonCommand::Rest(args) => args.invoke_and_print(auth_context).await,
             CloudTerrastodonCommand::CopyResults(args) => args.invoke().await,
             CloudTerrastodonCommand::AddWorkDir(args) => args.invoke().await,
-            CloudTerrastodonCommand::Terraform(args) => args.invoke().await,
-            CloudTerrastodonCommand::AzureDevOps(args) => args.invoke().await,
-            CloudTerrastodonCommand::Azure(args) => args.invoke().await,
+            CloudTerrastodonCommand::Terraform(args) => args.invoke(auth_context).await,
+            CloudTerrastodonCommand::AzureDevOps(args) => args.invoke(auth_context).await,
+            CloudTerrastodonCommand::Azure(args) => args.invoke(auth_context).await,
             CloudTerrastodonCommand::Tea(args) => args.invoke().await,
             CloudTerrastodonCommand::Jwt(args) => args.invoke().await,
             CloudTerrastodonCommand::ExtractUuid(args) => args.invoke().await,

@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use super::AzureCognitiveServicesDeploymentListArgs;
 use super::AzureCognitiveServicesDeploymentShowArgs;
 use eyre::Result;
@@ -10,8 +11,11 @@ pub struct AzureCognitiveServicesDeploymentArgs {
 }
 
 impl AzureCognitiveServicesDeploymentArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
@@ -25,10 +29,13 @@ pub enum AzureCognitiveServicesDeploymentCommand {
 }
 
 impl AzureCognitiveServicesDeploymentCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         match self {
-            AzureCognitiveServicesDeploymentCommand::List(args) => args.invoke().await,
-            AzureCognitiveServicesDeploymentCommand::Show(args) => args.invoke().await,
+            AzureCognitiveServicesDeploymentCommand::List(args) => args.invoke(auth_context).await,
+            AzureCognitiveServicesDeploymentCommand::Show(args) => args.invoke(auth_context).await,
         }
     }
 }

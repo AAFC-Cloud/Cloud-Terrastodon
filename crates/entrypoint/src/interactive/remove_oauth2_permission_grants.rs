@@ -1,13 +1,17 @@
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::pick_oauth2_permission_grants;
 use cloud_terrastodon_azure::remove_oauth2_permission_grant;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::are_you_sure;
 use eyre::Result;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn remove_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result<()> {
-    let to_remove = pick_oauth2_permission_grants(tenant_id).await?;
+pub async fn remove_oauth2_permission_grants(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
+    let to_remove = pick_oauth2_permission_grants(tenant_id, auth_context).await?;
     info!(
         "You chose:\n{}",
         to_remove.iter().map(|x| x.to_string()).join("\n")

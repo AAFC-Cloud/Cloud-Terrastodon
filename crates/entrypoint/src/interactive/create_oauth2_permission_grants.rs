@@ -8,15 +8,19 @@ use cloud_terrastodon_azure::find_matching_oauth2_permission_grant;
 use cloud_terrastodon_azure::join_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::collections::HashSet;
 use tracing::info;
 
-pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn create_oauth2_permission_grants(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
     info!("Fetching all service principals");
-    let service_principals = fetch_all_service_principals(tenant_id).await?;
+    let service_principals = fetch_all_service_principals(tenant_id, auth_context).await?;
     let resource = PickerTui::<_>::new()
         .set_header("Pick the underlying resource being granted access to")
         .set_query("'Microsoft\\ Graph")
@@ -37,7 +41,7 @@ pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result
         .await?;
     info!("You chose: {} - {}", client.display_name, client.id);
 
-    let scopes = fetch_oauth2_permission_scopes(tenant_id, resource.id)
+    let scopes = fetch_oauth2_permission_scopes(tenant_id, resource.id, auth_context)
         .await?
         .into_iter()
         .collect::<HashSet<_>>();
@@ -50,7 +54,7 @@ pub async fn create_oauth2_permission_grants(tenant_id: AzureTenantId) -> Result
         }))
         .await?;
 
-    let users = fetch_all_entra_users(tenant_id).await?;
+    let users = fetch_all_entra_users(tenant_id, auth_context).await?;
     let users_to_add = PickerTui::<_>::new()
         .set_header(format!(
             "Select the users to add {} grants to",

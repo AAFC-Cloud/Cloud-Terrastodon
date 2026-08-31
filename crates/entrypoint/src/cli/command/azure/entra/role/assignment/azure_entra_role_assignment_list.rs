@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_unified_role_assignments;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -14,10 +15,11 @@ pub struct AzureEntraRoleAssignmentListArgs {
 }
 
 impl AzureEntraRoleAssignmentListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(%tenant_id, "Fetching Entra role assignments");
-        let mut role_assignments = fetch_all_unified_role_assignments(tenant_id).await?;
+        let mut role_assignments =
+            fetch_all_unified_role_assignments(tenant_id, auth_context).await?;
         role_assignments.sort_unstable_by_key(|assignment| assignment.id.to_string());
 
         let stdout = std::io::stdout();

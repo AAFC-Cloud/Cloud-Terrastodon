@@ -1,6 +1,7 @@
 use super::azure_entra_group_list_cli::AzureEntraGroupListArgs;
 use super::azure_entra_group_show_cli::AzureEntraGroupShowArgs;
 use super::member::AzureEntraGroupMemberArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Entra group top-level subcommands.
@@ -16,11 +17,11 @@ pub enum AzureEntraGroupCommand {
 }
 
 impl AzureEntraGroupCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureEntraGroupCommand::List(args) => args.invoke().await?,
-            AzureEntraGroupCommand::Show(args) => args.invoke().await?,
-            AzureEntraGroupCommand::Member(args) => args.invoke().await?,
+            AzureEntraGroupCommand::List(args) => args.invoke(auth_context).await?,
+            AzureEntraGroupCommand::Show(args) => args.invoke(auth_context).await?,
+            AzureEntraGroupCommand::Member(args) => args.invoke(auth_context).await?,
         }
         Ok(())
     }

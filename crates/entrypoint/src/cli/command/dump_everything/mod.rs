@@ -1,6 +1,7 @@
 use crate::noninteractive::dump_everything;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Dump all collected metadata to disk.
@@ -12,8 +13,8 @@ pub struct DumpEverythingArgs {
 }
 
 impl DumpEverythingArgs {
-    pub async fn invoke(self) -> Result<()> {
-        dump_everything(self.tenant.resolve().await?).await?;
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        dump_everything(self.tenant.resolve().await?, auth_context).await?;
         Ok(())
     }
 }

@@ -4,7 +4,9 @@ use cloud_terrastodon_azure_types::RoleAssignment;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
@@ -12,17 +14,33 @@ use tracing::debug;
 ///
 /// Not to be confused with Entra role assignments.
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct RoleAssignmentListRequest {
+#[derive(facet::Facet)]
+pub struct RoleAssignmentListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_role_assignments(tenant_id: AzureTenantId) -> RoleAssignmentListRequest {
-    RoleAssignmentListRequest { tenant_id }
+impl<'a> arbitrary::Arbitrary<'a> for RoleAssignmentListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_all_role_assignments<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> RoleAssignmentListRequest<'a> {
+    RoleAssignmentListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for RoleAssignmentListRequest {
+impl<'a> CacheableCommand for RoleAssignmentListRequest<'a> {
     type Output = Vec<RoleAssignment>;
 
     fn cache_key(&self) -> CacheKey {
@@ -36,7 +54,7 @@ impl CacheableCommand for RoleAssignmentListRequest {
 
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching role assignments");
-        let mut query = ResourceGraphHelper::new(
+        let query = ResourceGraphHelper::new(
             self.tenant_id,
             r#"
 authorizationresources
@@ -48,14 +66,16 @@ authorizationresources
     principal_id=properties.principalId
 "#,
             Some(self.cache_key()),
+            self.auth_context.as_ref(),
         );
+        let mut query = query;
         let role_assignments: Vec<RoleAssignment> = query.collect_all().await?;
         debug!("Found {} role assignments", role_assignments.len());
         Ok(role_assignments)
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(RoleAssignmentListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(RoleAssignmentListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -65,7 +85,8 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_role_assignments(get_test_tenant_id().await?).await?;
+        let auth_context = AuthContext::default();
+        let result = fetch_all_role_assignments(get_test_tenant_id().await?, &auth_context).await?;
         assert!(result.len() > 2);
         let _interesting_assignments = result
             .into_iter()
@@ -80,6 +101,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(RoleAssignmentListRequest);
-cloud_terrastodon_registry::register_arbitrary!(RoleAssignmentListRequest);
-cloud_terrastodon_registry::register_into_future!(RoleAssignmentListRequest => Vec<RoleAssignment>);
+cloud_terrastodon_registry::register_thing!(RoleAssignmentListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(RoleAssignmentListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(RoleAssignmentListRequest<'static> => Vec<RoleAssignment>);

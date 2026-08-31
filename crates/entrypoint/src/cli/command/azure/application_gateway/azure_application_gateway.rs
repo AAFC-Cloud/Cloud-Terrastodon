@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use super::AzureApplicationGatewayListArgs;
 use super::AzureApplicationGatewayShowArgs;
 use super::AzureApplicationGatewayShowBackendHealthArgs;
@@ -16,11 +17,16 @@ pub enum AzureApplicationGatewayCommand {
 }
 
 impl AzureApplicationGatewayCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         match self {
-            AzureApplicationGatewayCommand::List(args) => args.invoke().await,
-            AzureApplicationGatewayCommand::Show(args) => args.invoke().await,
-            AzureApplicationGatewayCommand::ShowBackendHealth(args) => args.invoke().await,
+            AzureApplicationGatewayCommand::List(args) => args.invoke(auth_context).await,
+            AzureApplicationGatewayCommand::Show(args) => args.invoke(auth_context).await,
+            AzureApplicationGatewayCommand::ShowBackendHealth(args) => {
+                args.invoke(auth_context).await
+            }
         }
     }
 }

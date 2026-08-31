@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::fetch_all_virtual_machines;
 use cloud_terrastodon_azure::fetch_virtual_machine_skus;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use strum::VariantArray;
@@ -19,7 +20,7 @@ pub struct AzureVmBrowseArgs {
 }
 
 impl AzureVmBrowseArgs {
-    pub async fn invoke(self) -> eyre::Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> eyre::Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         let chosen = PickerTui::<_>::new()
             .pick_one(AzureVmBrowseOption::VARIANTS)
@@ -29,7 +30,7 @@ impl AzureVmBrowseArgs {
                 let chosen_resources = PickerTui::<_>::new()
                     .pick_many_reloadable(|invalidate| async move {
                         info!("Fetching virtual machines");
-                        Ok(fetch_all_virtual_machines(tenant_id)
+                        Ok(fetch_all_virtual_machines(tenant_id, auth_context)
                             .with_invalidation(invalidate)
                             .await?
                             .into_iter()
@@ -52,7 +53,7 @@ impl AzureVmBrowseArgs {
                 let chosen_subscription = PickerTui::<_>::new()
                     .pick_one_reloadable(|invalidate| async move {
                         info!("Fetching subscriptions");
-                        let subscriptions = fetch_all_subscriptions(tenant_id)
+                        let subscriptions = fetch_all_subscriptions(tenant_id, auth_context)
                             .with_invalidation(invalidate)
                             .await?;
                         Ok(subscriptions)
@@ -79,7 +80,7 @@ impl AzureVmBrowseArgs {
                 AzureVmPublisherBrowseArgs {
                     tenant: self.tenant,
                 }
-                .invoke()
+                .invoke(auth_context)
                 .await?
             }
         }

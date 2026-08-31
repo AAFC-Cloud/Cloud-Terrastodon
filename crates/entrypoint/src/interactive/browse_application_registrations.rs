@@ -1,13 +1,17 @@
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::fetch_all_application_registrations;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use tracing::info;
 
-pub async fn browse_application_registrations(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn browse_application_registrations(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
     info!(%tenant_id, "Fetching application registrations");
-    let applications = fetch_all_application_registrations(tenant_id).await?;
+    let applications = fetch_all_application_registrations(tenant_id, auth_context).await?;
     let applications = PickerTui::<_>::new()
         .set_header("Application Registrations")
         .pick_many(applications.into_iter().map(|application| Choice {

@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use crate::cli::command::azure::cognitive_services::CognitiveServicesAccountArgument;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountDeployment;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountResource;
@@ -29,10 +30,10 @@ pub struct AzureCognitiveServicesDeploymentListArgs {
 }
 
 impl AzureCognitiveServicesDeploymentListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let Self { tenant, account } = self;
         let tenant_id = tenant.resolve().await?;
-        let accounts = fetch_all_cognitive_services_accounts(tenant_id).await?;
+        let accounts = fetch_all_cognitive_services_accounts(tenant_id, auth_context).await?;
 
         let deployments = if let Some(account_argument) = account {
             let mut matches = accounts

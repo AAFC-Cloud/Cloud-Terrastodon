@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
@@ -20,10 +21,10 @@ pub struct AzureNetworkInterfaceShowArgs {
 }
 
 impl AzureNetworkInterfaceShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.network_interface, %tenant_id, "Fetching Azure network interfaces");
-        let network_interfaces = fetch_all_network_interfaces(tenant_id).await?;
+        let network_interfaces = fetch_all_network_interfaces(tenant_id, auth_context).await?;
         info!(
             count = network_interfaces.len(),
             "Fetched Azure network interfaces"

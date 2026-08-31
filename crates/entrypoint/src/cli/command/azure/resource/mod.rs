@@ -7,6 +7,7 @@ pub use azure_resource::AzureResourceCommand;
 pub use azure_resource_browse::AzureResourceBrowseArgs;
 pub use azure_resource_list::AzureResourceListArgs;
 pub use azure_resource_show::AzureResourceShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Azure resources.
@@ -17,7 +18,7 @@ pub struct AzureResourceArgs {
 }
 
 impl AzureResourceArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

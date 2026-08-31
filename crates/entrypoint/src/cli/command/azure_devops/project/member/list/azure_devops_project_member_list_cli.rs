@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_project_members;
 use cloud_terrastodon_command::to_writer_pretty;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
 use std::io::stdout;
@@ -18,10 +19,11 @@ pub struct AzureDevOpsProjectMemberListArgs {
 }
 
 impl AzureDevOpsProjectMemberListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        let members = fetch_azure_devops_project_members(&org_url, self.project).await?;
+        let members =
+            fetch_azure_devops_project_members(&org_url, self.project, auth_context).await?;
 
         let mut out = stdout().lock();
         to_writer_pretty(&mut out, &members)?;

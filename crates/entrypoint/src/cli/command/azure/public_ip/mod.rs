@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_public_ip;
 pub mod azure_public_ip_list;
 pub mod azure_public_ip_show;
@@ -15,7 +16,10 @@ pub struct AzurePublicIpArgs {
 }
 
 impl AzurePublicIpArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

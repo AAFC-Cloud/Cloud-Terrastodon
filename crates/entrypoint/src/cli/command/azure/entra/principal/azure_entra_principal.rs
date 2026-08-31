@@ -1,5 +1,6 @@
 use super::AzureEntraPrincipalListArgs;
 use super::AzureEntraPrincipalShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Principal-related Entra (Azure AD) commands.
@@ -13,10 +14,10 @@ pub enum AzureEntraPrincipalCommand {
 }
 
 impl AzureEntraPrincipalCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureEntraPrincipalCommand::List(args) => args.invoke().await,
-            AzureEntraPrincipalCommand::Show(args) => args.invoke().await,
+            AzureEntraPrincipalCommand::List(args) => args.invoke(auth_context).await,
+            AzureEntraPrincipalCommand::Show(args) => args.invoke(auth_context).await,
         }
     }
 }

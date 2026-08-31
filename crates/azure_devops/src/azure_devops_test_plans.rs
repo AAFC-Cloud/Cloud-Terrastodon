@@ -7,6 +7,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsTestPlan;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
 use reqwest::Method;
@@ -18,15 +19,18 @@ use tracing::debug;
 pub struct AzureDevOpsTestPlanListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
 pub fn fetch_azure_devops_test_plans<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
+    auth_context: &'a AuthContext,
 ) -> AzureDevOpsTestPlanListRequest<'a> {
     AzureDevOpsTestPlanListRequest {
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
@@ -35,6 +39,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsTestPlanListRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
+            auth_context: Cow::Owned(AuthContext::default()),
         })
     }
 }
@@ -81,11 +86,11 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestPlanList
                 &format!("{}/_apis/testplan/plans", project),
                 &query,
             )?;
-            let request = RestRequest::new(Method::GET, url)?;
-            let (response, next_continuation) = receive_azure_devops_page::<Response>(
-                request.cache(page_cache_key(&cache_key, page_index)),
-            )
-            .await?;
+            let mut request =
+                RestRequest::new(Method::GET, url)?.cache(page_cache_key(&cache_key, page_index));
+            request = request.auth_context(self.auth_context.as_ref());
+            let (response, next_continuation) =
+                receive_azure_devops_page::<Response>(request).await?;
             count += response.count;
             plans.extend(response.value);
             continuation = next_continuation;
@@ -114,9 +119,11 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let projects = fetch_all_azure_devops_projects(&org_url).await?;
+        let auth_context = AuthContext::default();
+        let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
         for project in projects {
-            let test_plans = fetch_azure_devops_test_plans(&org_url, &project).await?;
+            let test_plans =
+                fetch_azure_devops_test_plans(&org_url, &project, &auth_context).await?;
             if test_plans.is_empty() {
                 continue;
             }

@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use super::AzureContainerInstanceListArgs;
 use super::AzureContainerInstanceShowArgs;
 use eyre::Result;
@@ -20,16 +21,22 @@ pub struct AzureContainerInstanceArgs {
 }
 
 impl AzureContainerInstanceArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
 impl AzureContainerInstanceCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         match self {
-            Self::List(args) => args.invoke().await,
-            Self::Show(args) => args.invoke().await,
+            Self::List(args) => args.invoke(auth_context).await,
+            Self::Show(args) => args.invoke(auth_context).await,
         }
     }
 }

@@ -85,6 +85,7 @@ mod test {
     use crate::fetch_work_items_for_query;
     use crate::get_default_organization_url;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
+    use cloud_terrastodon_credentials::AuthContext;
     use eyre::Context;
     use eyre::bail;
 
@@ -93,7 +94,8 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         // get all projects
         let org_url = get_default_organization_url().await?;
-        let mut projects = fetch_all_azure_devops_projects(&org_url).await?;
+        let auth_context = AuthContext::default();
+        let mut projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
         while let Some(project) = projects.pop() {
             // get queries for project
             let queries = fetch_queries_for_project(&org_url, &project.name).await?;

@@ -5,29 +5,44 @@ use cloud_terrastodon_azure_types::EntraApplicationRegistration;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, Facet)]
-pub struct ApplicationRegistrationGetRequest {
+#[derive(Facet)]
+pub struct ApplicationRegistrationGetRequest<'a> {
     pub tenant_id: AzureTenantId,
     pub application_id: EntraApplicationClientId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_application_registration(
-    tenant_id: AzureTenantId,
-    application_id: EntraApplicationClientId,
-) -> ApplicationRegistrationGetRequest {
-    ApplicationRegistrationGetRequest {
-        tenant_id,
-        application_id,
+impl<'a> arbitrary::Arbitrary<'a> for ApplicationRegistrationGetRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            application_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
     }
 }
 
-impl ApplicationRegistrationGetRequest {
+pub fn fetch_application_registration<'a>(
+    tenant_id: AzureTenantId,
+    application_id: EntraApplicationClientId,
+    auth_context: &'a AuthContext,
+) -> ApplicationRegistrationGetRequest<'a> {
+    ApplicationRegistrationGetRequest {
+        tenant_id,
+        application_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl ApplicationRegistrationGetRequest<'_> {
     fn url(&self) -> String {
         format!(
             "https://graph.microsoft.com/v1.0/applications/{}",
@@ -37,7 +52,7 @@ impl ApplicationRegistrationGetRequest {
 }
 
 #[async_trait]
-impl CacheableCommand for ApplicationRegistrationGetRequest {
+impl CacheableCommand for ApplicationRegistrationGetRequest<'_> {
     type Output = EntraApplicationRegistration;
 
     fn cache_key(&self) -> CacheKey {
@@ -57,13 +72,18 @@ impl CacheableCommand for ApplicationRegistrationGetRequest {
             application_registration_id = %self.application_id,
             "Fetching application registration by object id"
         );
-        MicrosoftGraphHelper::new(self.tenant_id, self.url(), Some(self.cache_key()))
-            .fetch_one()
-            .await
+        MicrosoftGraphHelper::new(
+            self.tenant_id,
+            self.url(),
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+        )
+        .fetch_one()
+        .await
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ApplicationRegistrationGetRequest);
-cloud_terrastodon_registry::register_thing!(ApplicationRegistrationGetRequest);
-cloud_terrastodon_registry::register_arbitrary!(ApplicationRegistrationGetRequest);
-cloud_terrastodon_registry::register_into_future!(ApplicationRegistrationGetRequest => EntraApplicationRegistration);
+cloud_terrastodon_command::impl_cacheable_into_future!(ApplicationRegistrationGetRequest<'a>, 'a);
+cloud_terrastodon_registry::register_thing!(ApplicationRegistrationGetRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(ApplicationRegistrationGetRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(ApplicationRegistrationGetRequest<'static> => EntraApplicationRegistration);

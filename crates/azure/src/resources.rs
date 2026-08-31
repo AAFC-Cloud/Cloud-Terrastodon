@@ -7,22 +7,40 @@ use cloud_terrastodon_azure_types::Resource;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct ResourceListRequest {
+#[derive(facet::Facet)]
+pub struct ResourceListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_resources(tenant_id: AzureTenantId) -> ResourceListRequest {
-    ResourceListRequest { tenant_id }
+impl<'a> arbitrary::Arbitrary<'a> for ResourceListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_all_resources<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> ResourceListRequest<'a> {
+    ResourceListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for ResourceListRequest {
+impl<'a> CacheableCommand for ResourceListRequest<'a> {
     type Output = Vec<Resource>;
 
     fn cache_key(&self) -> CacheKey {
@@ -36,7 +54,7 @@ impl CacheableCommand for ResourceListRequest {
 
     async fn run(self) -> Result<Self::Output> {
         debug!(fetching = "resources");
-        let resources = ResourceGraphHelper::new(
+        let helper = ResourceGraphHelper::new(
             self.tenant_id,
             r#"
 resources 
@@ -49,15 +67,16 @@ resources
     properties
 "#,
             Some(self.cache_key()),
-        )
-        .collect_all()
-        .await?;
+            self.auth_context.as_ref(),
+        );
+        let mut helper = helper;
+        let resources = helper.collect_all().await?;
         debug!(count = resources.len(), "Retrieved resources");
         Ok(resources)
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ResourceListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ResourceListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -71,14 +90,16 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let resources = fetch_all_resources(get_test_tenant_id().await?).await?;
+        let auth_context = AuthContext::default();
+        let resources = fetch_all_resources(get_test_tenant_id().await?, &auth_context).await?;
         assert!(resources.len() > 10);
         Ok(())
     }
 
     #[tokio::test]
     async fn resource_groups() -> Result<()> {
-        let resources = fetch_all_resources(get_test_tenant_id().await?)
+        let auth_context = AuthContext::default();
+        let resources = fetch_all_resources(get_test_tenant_id().await?, &auth_context)
             .await?
             .into_iter()
             .filter(|res| res.kind.is_resource_group())
@@ -89,7 +110,8 @@ mod tests {
 
     #[tokio::test]
     async fn count() -> Result<()> {
-        let resources = fetch_all_resources(get_test_tenant_id().await?).await?;
+        let auth_context = AuthContext::default();
+        let resources = fetch_all_resources(get_test_tenant_id().await?, &auth_context).await?;
         let ids: HashMap<ScopeImplKind, i32> =
             resources
                 .iter()
@@ -125,6 +147,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(ResourceListRequest);
-cloud_terrastodon_registry::register_arbitrary!(ResourceListRequest);
-cloud_terrastodon_registry::register_into_future!(ResourceListRequest => Vec<Resource>);
+cloud_terrastodon_registry::register_thing!(ResourceListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(ResourceListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(ResourceListRequest<'static> => Vec<Resource>);

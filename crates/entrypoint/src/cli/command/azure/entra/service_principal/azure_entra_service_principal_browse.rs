@@ -1,6 +1,7 @@
 use crate::interactive::browse_service_principals;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Interactively browse Entra (Azure AD) service principals.
@@ -12,7 +13,7 @@ pub struct AzureEntraSpBrowseArgs {
 }
 
 impl AzureEntraSpBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
-        browse_service_principals(self.tenant.resolve().await?).await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        browse_service_principals(self.tenant.resolve().await?, auth_context).await
     }
 }

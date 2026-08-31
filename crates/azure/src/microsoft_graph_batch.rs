@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::bail;
 use facet::Facet;
@@ -12,7 +13,7 @@ use std::ops::DerefMut;
 
 const MAX_BATCH_REQUESTS: usize = 20;
 
-pub struct MicrosoftGraphBatchRequest<REQ> {
+pub struct MicrosoftGraphBatchRequest<'a, REQ> {
     /// The requests to be made in the batch
     pub requests: Vec<MicrosoftGraphBatchRequestEntry<REQ>>,
     /// The IDs of the requests, in the order the requests were added
@@ -20,14 +21,16 @@ pub struct MicrosoftGraphBatchRequest<REQ> {
     /// The key to use for caching the batch request
     pub cache_key: Option<CacheKey>,
     pub tenant_id: AzureTenantId,
+    pub auth_context: &'a AuthContext,
 }
-impl<REQ> MicrosoftGraphBatchRequest<REQ> {
-    pub fn new(tenant_id: AzureTenantId) -> Self {
+impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
+    pub fn new(tenant_id: AzureTenantId, auth_context: &'a AuthContext) -> Self {
         MicrosoftGraphBatchRequest {
             requests: Vec::new(),
             ids: Vec::new(),
             cache_key: None,
             tenant_id,
+            auth_context,
         }
     }
     pub fn add(&mut self, entry: impl Into<MicrosoftGraphBatchRequestEntry<REQ>>) {
@@ -62,6 +65,7 @@ impl<REQ> MicrosoftGraphBatchRequest<REQ> {
             ids,
             cache_key,
             tenant_id,
+            auth_context,
         } = self;
         if requests.is_empty() {
             return Ok(MicrosoftGraphBatchResponse {
@@ -113,6 +117,7 @@ impl<REQ> MicrosoftGraphBatchRequest<REQ> {
             let mut request =
                 RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
                     .tenant(tenant_id)
+                    .auth_context(auth_context)
                     .body(
                         facet_json::to_string_pretty(&body)
                             .map_err(|error| eyre::eyre!("{error:?}"))?,

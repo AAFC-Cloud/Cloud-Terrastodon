@@ -17,6 +17,7 @@ use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraServicePrincipal;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::ContextCompat;
 use eyre::Result;
 
@@ -31,8 +32,8 @@ pub struct AzureEntraOAuth2PermissionGrantArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
@@ -54,10 +55,11 @@ pub fn split_scope_csv(scopes: &[String]) -> Vec<&str> {
 pub async fn resolve_preset_service_principals(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     preset: OAuth2PermissionGrantPreset,
+    auth_context: &AuthContext,
 ) -> Result<(EntraServicePrincipalObjectId, EntraServicePrincipalObjectId)> {
     match preset {
         OAuth2PermissionGrantPreset::GraphExplorer => {
-            let service_principals = fetch_all_service_principals(tenant_id).await?;
+            let service_principals = fetch_all_service_principals(tenant_id, auth_context).await?;
             let client =
                 resolve_service_principal_by_app_id(&service_principals, GRAPH_EXPLORER_APP_ID)?;
             let resource =

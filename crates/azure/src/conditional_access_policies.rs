@@ -4,23 +4,39 @@ use cloud_terrastodon_azure_types::ConditionalAccessPolicy;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct ConditionalAccessPolicyListRequest {
+#[derive(facet::Facet)]
+pub struct ConditionalAccessPolicyListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_conditional_access_policies(
+impl<'a> arbitrary::Arbitrary<'a> for ConditionalAccessPolicyListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_all_conditional_access_policies<'a>(
     tenant_id: AzureTenantId,
-) -> ConditionalAccessPolicyListRequest {
-    ConditionalAccessPolicyListRequest { tenant_id }
+    auth_context: &'a AuthContext,
+) -> ConditionalAccessPolicyListRequest<'a> {
+    ConditionalAccessPolicyListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for ConditionalAccessPolicyListRequest {
+impl CacheableCommand for ConditionalAccessPolicyListRequest<'_> {
     type Output = Vec<ConditionalAccessPolicy>;
 
     fn cache_key(&self) -> CacheKey {
@@ -38,6 +54,7 @@ impl CacheableCommand for ConditionalAccessPolicyListRequest {
             self.tenant_id,
             "https://graph.microsoft.com/beta/identity/conditionalAccess/policies",
             Some(self.cache_key()),
+            self.auth_context.as_ref(),
         );
 
         let policies = query.fetch_all().await?;
@@ -45,7 +62,7 @@ impl CacheableCommand for ConditionalAccessPolicyListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ConditionalAccessPolicyListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(ConditionalAccessPolicyListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod test {
@@ -56,13 +73,18 @@ mod test {
     use cloud_terrastodon_azure_types::ConditionalAccessPolicyGrantControlBuiltInControl;
     use cloud_terrastodon_azure_types::ConditionalAccessPolicyState;
     use cloud_terrastodon_azure_types::ipnetwork::Ipv4Network;
+    use cloud_terrastodon_credentials::AuthContext;
     use std::net::Ipv4Addr;
     use tokio::try_join;
     use tracing::warn;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let found = fetch_all_conditional_access_policies(get_test_tenant_id().await?).await?;
+        let found = fetch_all_conditional_access_policies(
+            get_test_tenant_id().await?,
+            &AuthContext::default(),
+        )
+        .await?;
         assert!(!found.is_empty());
         Ok(())
     }
@@ -70,9 +92,10 @@ mod test {
     #[tokio::test]
     pub async fn disallowed_ips() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
+        let auth_context = AuthContext::default();
         let (locations, policies) = try_join!(
-            fetch_all_conditional_access_named_locations(tenant_id),
-            fetch_all_conditional_access_policies(tenant_id),
+            fetch_all_conditional_access_named_locations(tenant_id, &auth_context),
+            fetch_all_conditional_access_policies(tenant_id, &auth_context),
         )?;
         assert!(!locations.is_empty());
         assert!(!policies.is_empty());
@@ -164,6 +187,6 @@ mod test {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(ConditionalAccessPolicyListRequest);
-cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessPolicyListRequest);
-cloud_terrastodon_registry::register_into_future!(ConditionalAccessPolicyListRequest => Vec<ConditionalAccessPolicy>);
+cloud_terrastodon_registry::register_thing!(ConditionalAccessPolicyListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessPolicyListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(ConditionalAccessPolicyListRequest<'static> => Vec<ConditionalAccessPolicy>);

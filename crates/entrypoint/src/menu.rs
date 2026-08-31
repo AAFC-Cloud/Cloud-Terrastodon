@@ -1,6 +1,7 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
 use cloud_terrastodon_azure::get_default_tenant_id;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
@@ -9,7 +10,7 @@ use eyre::Result;
 use strum::VariantArray;
 use tracing::info;
 
-pub async fn menu() -> Result<MenuActionResult> {
+pub async fn menu(auth_context: &AuthContext) -> Result<MenuActionResult> {
     // Create a container for the choices we are about to gather
     let mut choices = Vec::new();
 
@@ -56,7 +57,7 @@ pub async fn menu() -> Result<MenuActionResult> {
     for action in &chosen {
         info!("Invoking action \"{action}\"");
         let result = action
-            .invoke(default_tenant_id)
+            .invoke(default_tenant_id, auth_context)
             .await
             .context(format!("invoking action \"{action}\""));
         match result {
@@ -81,9 +82,9 @@ pub async fn press_enter_to_continue() -> Result<()> {
     Ok(())
 }
 
-pub async fn menu_loop() -> Result<()> {
+pub async fn menu_loop(auth_context: &AuthContext) -> Result<()> {
     loop {
-        if menu().await? == MenuActionResult::QuitApplication {
+        if menu(auth_context).await? == MenuActionResult::QuitApplication {
             info!("Goodbye!");
             return Ok(());
         }

@@ -8,8 +8,10 @@ use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 #[derive(Eq, PartialEq, Debug, Default)]
@@ -23,6 +25,7 @@ pub enum FetchChildrenBehaviour {
 pub async fn fetch_eligible_child_resources(
     scope: &impl Scope,
     behaviour: FetchChildrenBehaviour,
+    auth_context: &AuthContext,
 ) -> Result<Vec<EligibleChildResource>> {
     let scope = scope.expanded_form();
     let scope = scope.strip_prefix('/').unwrap_or(&scope);
@@ -44,6 +47,7 @@ pub async fn fetch_eligible_child_resources(
     }
 
     let resp = RestRequest::new(http::Method::GET, &url)?
+        .auth_context(auth_context)
         .cache(CacheKey::new(cache_chunks))
         .receive::<Response>()
         .await?;
@@ -51,19 +55,33 @@ pub async fn fetch_eligible_child_resources(
 }
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct EligibleChildResourceListRequest {
-    tenant_id: AzureTenantId,
+#[derive(Debug, Clone, facet::Facet)]
+pub struct EligibleChildResourceListRequest<'a> {
+    pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_eligible_resource_containers(
+pub fn fetch_all_eligible_resource_containers<'a>(
     tenant_id: AzureTenantId,
-) -> EligibleChildResourceListRequest {
-    EligibleChildResourceListRequest { tenant_id }
+    auth_context: &'a AuthContext,
+) -> EligibleChildResourceListRequest<'a> {
+    EligibleChildResourceListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for EligibleChildResourceListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for EligibleChildResourceListRequest {
+impl<'a> CacheableCommand for EligibleChildResourceListRequest<'a> {
     type Output = Vec<EligibleChildResource>;
 
     fn cache_key(&self) -> CacheKey {
@@ -75,13 +93,19 @@ impl CacheableCommand for EligibleChildResourceListRequest {
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let root_mg = fetch_root_management_group(self.tenant_id).await?;
+        let root_mg =
+            fetch_root_management_group(self.tenant_id, self.auth_context.as_ref()).await?;
         let scope = root_mg.as_scope();
         let mut resource_containers =
-            fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await?;
+            fetch_eligible_child_resources(
+                scope,
+                FetchChildrenBehaviour::GetAllChildren,
+                self.auth_context.as_ref(),
+            )
+            .await?;
         // this contains management groups and subscriptions
 
-        let rgs = fetch_all_resource_groups(self.tenant_id)
+        let rgs = fetch_all_resource_groups(self.tenant_id, self.auth_context.as_ref())
             .await?
             .into_iter()
             .map(|x| EligibleChildResource {
@@ -96,7 +120,7 @@ impl CacheableCommand for EligibleChildResourceListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EligibleChildResourceListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EligibleChildResourceListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -109,13 +133,20 @@ mod tests {
     use cloud_terrastodon_azure_types::Scope;
     use cloud_terrastodon_user_input::Choice;
     use cloud_terrastodon_user_input::PickerTui;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
-        let mg = fetch_root_management_group(get_test_tenant_id().await?).await?;
+        let auth_context = AuthContext::default();
+        let mg = fetch_root_management_group(get_test_tenant_id().await?, &auth_context).await?;
         let scope = mg.as_scope();
         let Some(found) = expect_aad_premium_p2_license(
-            fetch_eligible_child_resources(scope, FetchChildrenBehaviour::GetAllChildren).await,
+            fetch_eligible_child_resources(
+                scope,
+                FetchChildrenBehaviour::GetAllChildren,
+                &auth_context,
+            )
+            .await,
         )
         .await?
         else {
@@ -128,7 +159,11 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works2() -> Result<()> {
         let Some(found) = expect_aad_premium_p2_license(
-            fetch_all_eligible_resource_containers(get_test_tenant_id().await?).await,
+            fetch_all_eligible_resource_containers(
+                get_test_tenant_id().await?,
+                &AuthContext::default(),
+            )
+            .await,
         )
         .await?
         else {
@@ -141,14 +176,19 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works3() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let rg = fetch_all_resource_groups(tenant_id)
+        let auth_context = AuthContext::default();
+        let rg = fetch_all_resource_groups(tenant_id, &auth_context)
             .await?
             .into_iter()
             .next()
             .unwrap();
         let result = expect_aad_premium_p2_license(
-            fetch_eligible_child_resources(rg.as_scope(), FetchChildrenBehaviour::GetAllChildren)
-                .await,
+            fetch_eligible_child_resources(
+                rg.as_scope(),
+                FetchChildrenBehaviour::GetAllChildren,
+                &auth_context,
+            )
+            .await,
         )
         .await;
         match result {
@@ -162,11 +202,16 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works4() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(tenant_id).await?;
+        let auth_context = AuthContext::default();
+        let subs = fetch_all_subscriptions(tenant_id, &auth_context).await?;
         let sub = subs.first().unwrap();
         let result = expect_aad_premium_p2_license(
-            fetch_eligible_child_resources(sub.as_scope(), FetchChildrenBehaviour::GetAllChildren)
-                .await,
+            fetch_eligible_child_resources(
+                sub.as_scope(),
+                FetchChildrenBehaviour::GetAllChildren,
+                &auth_context,
+            )
+            .await,
         )
         .await;
         match result {
@@ -180,11 +225,17 @@ mod tests {
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works_interactive() -> Result<()> {
-        let mg = fetch_root_management_group(get_test_tenant_id().await?).await?;
+        let auth_context = AuthContext::default();
+        let mg = fetch_root_management_group(get_test_tenant_id().await?, &auth_context).await?;
         let mut scope = mg.as_scope().as_scope_impl().to_owned();
         loop {
             let Some(resources) = expect_aad_premium_p2_license(
-                fetch_eligible_child_resources(&scope, FetchChildrenBehaviour::default()).await,
+                fetch_eligible_child_resources(
+                    &scope,
+                    FetchChildrenBehaviour::default(),
+                    &auth_context,
+                )
+                .await,
             )
             .await?
             else {
@@ -204,7 +255,11 @@ mod tests {
     #[ignore]
     async fn it_works_interactive2() -> Result<()> {
         let Some(resources) = expect_aad_premium_p2_license(
-            fetch_all_eligible_resource_containers(get_test_tenant_id().await?).await,
+            fetch_all_eligible_resource_containers(
+                get_test_tenant_id().await?,
+                &AuthContext::default(),
+            )
+            .await,
         )
         .await?
         else {
@@ -221,6 +276,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(EligibleChildResourceListRequest);
-cloud_terrastodon_registry::register_arbitrary!(EligibleChildResourceListRequest);
-cloud_terrastodon_registry::register_into_future!(EligibleChildResourceListRequest => Vec<EligibleChildResource>);
+cloud_terrastodon_registry::register_thing!(EligibleChildResourceListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(EligibleChildResourceListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(EligibleChildResourceListRequest<'static> => Vec<EligibleChildResource>);

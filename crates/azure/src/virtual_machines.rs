@@ -4,22 +4,40 @@ use cloud_terrastodon_azure_types::VirtualMachine;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use indoc::indoc;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct VirtualMachineListRequest {
+#[derive(Debug, Clone, facet::Facet)]
+pub struct VirtualMachineListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_virtual_machines(tenant_id: AzureTenantId) -> VirtualMachineListRequest {
-    VirtualMachineListRequest { tenant_id }
+pub fn fetch_all_virtual_machines<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> VirtualMachineListRequest<'a> {
+    VirtualMachineListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for VirtualMachineListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for VirtualMachineListRequest {
+impl<'a> CacheableCommand for VirtualMachineListRequest<'a> {
     type Output = Vec<VirtualMachine>;
 
     fn cache_key(&self) -> CacheKey {
@@ -48,7 +66,12 @@ impl CacheableCommand for VirtualMachineListRequest {
         .to_owned();
 
         let virtual_machines =
-            ResourceGraphHelper::new(self.tenant_id, query, Some(self.cache_key()))
+            ResourceGraphHelper::new(
+                self.tenant_id,
+                query,
+                Some(self.cache_key()),
+                self.auth_context.as_ref(),
+            )
                 .collect_all::<VirtualMachine>()
                 .await?;
         info!(count = virtual_machines.len(), "Found virtual machines");
@@ -56,7 +79,7 @@ impl CacheableCommand for VirtualMachineListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(VirtualMachineListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(VirtualMachineListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -65,13 +88,17 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_virtual_machines(get_test_tenant_id().await?).await?;
+        let result = fetch_all_virtual_machines(
+            get_test_tenant_id().await?,
+            &AuthContext::default(),
+        )
+        .await?;
         assert!(!result.is_empty());
         assert!(result.iter().all(|vm| !vm.name.is_empty()));
         Ok(())
     }
 }
 
-cloud_terrastodon_registry::register_thing!(VirtualMachineListRequest);
-cloud_terrastodon_registry::register_arbitrary!(VirtualMachineListRequest);
-cloud_terrastodon_registry::register_into_future!(VirtualMachineListRequest => Vec<VirtualMachine>);
+cloud_terrastodon_registry::register_thing!(VirtualMachineListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(VirtualMachineListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(VirtualMachineListRequest<'static> => Vec<VirtualMachine>);

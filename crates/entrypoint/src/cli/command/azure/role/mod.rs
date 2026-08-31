@@ -5,6 +5,7 @@ pub mod operation;
 
 pub use assignment::AzureRoleAssignmentArgs;
 pub use azure_role::AzureRoleCommand;
+use cloud_terrastodon_credentials::AuthContext;
 pub use definition::AzureRoleDefinitionArgs;
 use eyre::Result;
 pub use operation::AzureRoleOperationArgs;
@@ -17,7 +18,7 @@ pub struct AzureRoleArgs {
 }
 
 impl AzureRoleArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

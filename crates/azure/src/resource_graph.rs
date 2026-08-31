@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_types::ResourceGraphEntryDeserializeError;
 use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestResponseBody;
@@ -46,10 +47,11 @@ impl ResourceGraphRateLimitState {
     }
 }
 
-pub struct ResourceGraphHelper {
+pub struct ResourceGraphHelper<'a> {
     query: String,
     cache_behaviour: Option<CacheKey>,
     tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
     skip: Option<(u64, String)>,
     index: usize,
     #[cfg(debug_assertions)]
@@ -88,16 +90,18 @@ pub struct ResourceGraphQueryRestBody {
     options: ResourceGraphQueryRestOptions,
 }
 
-impl ResourceGraphHelper {
+impl<'a> ResourceGraphHelper<'a> {
     pub fn new(
         tenant_id: AzureTenantId,
         query: impl Into<String>,
         cache_behaviour: Option<CacheKey>,
+        auth_context: &'a AuthContext,
     ) -> Self {
         Self {
             query: query.into(),
             cache_behaviour,
             tenant_id,
+            auth_context,
             skip: None,
             index: 0,
             #[cfg(debug_assertions)]
@@ -112,6 +116,7 @@ impl ResourceGraphHelper {
         )?
         .tenant(self.tenant_id)
         .body(body);
+        request = request.auth_context(self.auth_context);
         request.cache_key = self.cache_behaviour.clone().or_else(|| {
             Some(CacheKey::new(PathBuf::from_iter([
                 "az",

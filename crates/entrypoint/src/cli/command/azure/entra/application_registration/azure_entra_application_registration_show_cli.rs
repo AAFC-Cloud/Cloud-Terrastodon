@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraApplicationRegistration;
 use cloud_terrastodon_azure::fetch_all_application_registrations;
 use cloud_terrastodon_azure::fetch_application_registration;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -22,13 +23,13 @@ pub struct AzureEntraApplicationRegistrationShowArgs {
 }
 
 impl AzureEntraApplicationRegistrationShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.application_registration, %tenant_id, "Fetching application registrations");
         let needle = self.application_registration.trim();
 
         if let Ok(app_id) = needle.parse::<EntraApplicationClientId>() {
-            match fetch_application_registration(tenant_id, app_id).await {
+            match fetch_application_registration(tenant_id, app_id, auth_context).await {
                 Ok(application) => {
                     let stdout = std::io::stdout();
                     let mut handle = stdout.lock();
@@ -45,7 +46,7 @@ impl AzureEntraApplicationRegistrationShowArgs {
             }
         }
 
-        let applications = fetch_all_application_registrations(tenant_id).await?;
+        let applications = fetch_all_application_registrations(tenant_id, auth_context).await?;
         info!(
             count = applications.len(),
             "Fetched application registrations"

@@ -2,14 +2,15 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_queries_for_project;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn dump_work_items() -> eyre::Result<()> {
+pub async fn dump_work_items(auth_context: &AuthContext) -> eyre::Result<()> {
     let org_url = get_default_organization_url().await?;
-    let projects = fetch_all_azure_devops_projects(&org_url).await?;
+    let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
     let projects = PickerTui::<_>::new()
         .set_header("Pick the projects to export from")
         .pick_many(projects.into_iter().map(|p| Choice {

@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -30,15 +31,18 @@ impl std::fmt::Display for SubRGPair<'_> {
     }
 }
 
-pub async fn build_resource_group_imports(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn build_resource_group_imports(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
     info!("Fetching resource groups");
-    let subscriptions = fetch_all_subscriptions(tenant_id)
+    let subscriptions = fetch_all_subscriptions(tenant_id, auth_context)
         .await?
         .into_iter()
         .map(|sub| (sub.id, sub))
         .collect::<HashMap<SubscriptionId, Subscription>>();
 
-    let resource_groups = fetch_all_resource_groups(tenant_id).await?;
+    let resource_groups = fetch_all_resource_groups(tenant_id, auth_context).await?;
 
     info!("Prompting for which to import");
     let mut choices: Vec<Choice<SubRGPair>> = Vec::with_capacity(resource_groups.len());

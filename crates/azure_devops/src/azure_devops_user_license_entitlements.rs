@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
 use reqwest::Method;
@@ -16,13 +17,16 @@ use tracing::debug;
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsUserLicenseEntitlementListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
 pub fn fetch_azure_devops_user_license_entitlements<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
+    auth_context: &'a AuthContext,
 ) -> AzureDevOpsUserLicenseEntitlementListRequest<'a> {
     AzureDevOpsUserLicenseEntitlementListRequest {
         org_url: Cow::Borrowed(org_url),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
@@ -30,6 +34,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsUserLicenseEntitlementListRequest<'static>
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            auth_context: Cow::Owned(AuthContext::default()),
         })
     }
 }
@@ -76,11 +81,11 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
                 "_apis/userentitlements",
                 &query,
             )?;
-            let request = RestRequest::new(Method::GET, url)?;
-            let (response, next_continuation) = receive_azure_devops_page::<InvokeResponse>(
-                request.cache(page_cache_key(&cache_key, page_index)),
-            )
-            .await?;
+            let mut request =
+                RestRequest::new(Method::GET, url)?.cache(page_cache_key(&cache_key, page_index));
+            request = request.auth_context(self.auth_context.as_ref());
+            let (response, next_continuation) =
+                receive_azure_devops_page::<InvokeResponse>(request).await?;
             count += response.count;
             entitlements.extend(response.value);
             continuation = next_continuation;
@@ -110,7 +115,9 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
+        let auth_context = AuthContext::default();
+        let entitlements =
+            fetch_azure_devops_user_license_entitlements(&org_url, &auth_context).await?;
         assert!(
             !entitlements.is_empty(),
             "Expected at least one Azure DevOps user entitlement"

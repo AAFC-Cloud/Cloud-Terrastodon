@@ -1,6 +1,7 @@
 use super::assignment::AzureRoleAssignmentArgs;
 use super::definition::AzureRoleDefinitionArgs;
 use super::operation::AzureRoleOperationArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Azure RBAC operations.
@@ -17,10 +18,10 @@ pub enum AzureRoleCommand {
 }
 
 impl AzureRoleCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureRoleCommand::Definition(args) => args.invoke().await,
-            AzureRoleCommand::Assignment(args) => args.invoke().await,
+            AzureRoleCommand::Definition(args) => args.invoke(auth_context).await,
+            AzureRoleCommand::Assignment(args) => args.invoke(auth_context).await,
             AzureRoleCommand::Operation(args) => args.invoke().await,
         }
     }

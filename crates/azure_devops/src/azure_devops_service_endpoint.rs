@@ -83,11 +83,13 @@ mod test {
     use crate::get_default_project_name;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsServiceEndpoint;
     use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+    use cloud_terrastodon_credentials::AuthContext;
     use itertools::Itertools;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
+        let auth_context = AuthContext::default();
         const JUST_ONE_PROJ: bool = true;
         if JUST_ONE_PROJ {
             let proj = get_default_project_name().await?;
@@ -99,7 +101,7 @@ mod test {
                     .all(|endpoint| !endpoint.name.to_string().is_empty())
             );
         } else {
-            let projects = fetch_all_azure_devops_projects(&org_url).await?;
+            let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
             let azure_devops_service_endpoints = {
                 let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
                     ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);

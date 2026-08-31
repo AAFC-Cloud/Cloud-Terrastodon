@@ -99,11 +99,13 @@ mod test {
     use crate::fetch_azure_devops_team_members;
     use crate::fetch_azure_devops_teams_for_project;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let project = fetch_all_azure_devops_projects(&org_url)
+        let auth_context = AuthContext::default();
+        let project = fetch_all_azure_devops_projects(&org_url, &auth_context)
             .await?
             .into_iter()
             .next()

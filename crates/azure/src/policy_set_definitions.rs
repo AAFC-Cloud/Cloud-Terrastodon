@@ -4,23 +4,39 @@ use cloud_terrastodon_azure_types::PolicySetDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct PolicySetDefinitionListRequest {
+#[derive(Debug, Clone, facet::Facet)]
+pub struct PolicySetDefinitionListRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_all_policy_set_definitions(
+pub fn fetch_all_policy_set_definitions<'a>(
     tenant_id: AzureTenantId,
-) -> PolicySetDefinitionListRequest {
-    PolicySetDefinitionListRequest { tenant_id }
+    auth_context: &'a AuthContext,
+) -> PolicySetDefinitionListRequest<'a> {
+    PolicySetDefinitionListRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for PolicySetDefinitionListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
 }
 
 #[async_trait]
-impl CacheableCommand for PolicySetDefinitionListRequest {
+impl<'a> CacheableCommand for PolicySetDefinitionListRequest<'a> {
     type Output = Vec<PolicySetDefinition>;
 
     fn cache_key(&self) -> CacheKey {
@@ -50,12 +66,13 @@ policyresources
     version=properties.version
     "#,
             Some(self.cache_key()),
+            self.auth_context.as_ref(),
         );
         query.collect_all().await
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(PolicySetDefinitionListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(PolicySetDefinitionListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -64,18 +81,26 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_policy_set_definitions(get_test_tenant_id().await?).await?;
+        let result = fetch_all_policy_set_definitions(
+            get_test_tenant_id().await?,
+            &AuthContext::default(),
+        )
+        .await?;
         assert!(!result.is_empty());
         Ok(())
     }
     #[tokio::test]
     async fn it_works_v2() -> Result<()> {
-        let result = fetch_all_policy_set_definitions(get_test_tenant_id().await?).await?;
+        let result = fetch_all_policy_set_definitions(
+            get_test_tenant_id().await?,
+            &AuthContext::default(),
+        )
+        .await?;
         assert!(!result.is_empty());
         Ok(())
     }
 }
 
-cloud_terrastodon_registry::register_thing!(PolicySetDefinitionListRequest);
-cloud_terrastodon_registry::register_arbitrary!(PolicySetDefinitionListRequest);
-cloud_terrastodon_registry::register_into_future!(PolicySetDefinitionListRequest => Vec<PolicySetDefinition>);
+cloud_terrastodon_registry::register_thing!(PolicySetDefinitionListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(PolicySetDefinitionListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(PolicySetDefinitionListRequest<'static> => Vec<PolicySetDefinition>);

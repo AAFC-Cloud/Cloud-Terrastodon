@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
 use cloud_terrastodon_hcl::HclWriter;
@@ -16,13 +17,16 @@ use std::collections::HashSet;
 use tokio::try_join;
 use tracing::info;
 
-pub async fn build_policy_imports(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn build_policy_imports(
+    tenant_id: AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
     info!("Fetching information");
     let (policy_definitions, policy_set_definitions, policy_assignments, subscriptions) = try_join!(
-        fetch_all_policy_definitions(tenant_id),
-        fetch_all_policy_set_definitions(tenant_id),
-        fetch_all_policy_assignments(tenant_id),
-        fetch_all_subscriptions(tenant_id),
+        fetch_all_policy_definitions(tenant_id, auth_context),
+        fetch_all_policy_set_definitions(tenant_id, auth_context),
+        fetch_all_policy_assignments(tenant_id, auth_context),
+        fetch_all_subscriptions(tenant_id, auth_context),
     )?;
 
     let subscriptions = subscriptions

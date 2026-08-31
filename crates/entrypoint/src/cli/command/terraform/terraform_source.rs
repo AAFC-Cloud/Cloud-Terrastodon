@@ -1,5 +1,6 @@
 use super::terraform_source_add_imports::TerraformSourceAddImportsArgs;
 use super::terraform_source_generate::TerraformSourceGenerateArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Terraform source files.
@@ -10,8 +11,8 @@ pub struct TerraformSourceArgs {
 }
 
 impl TerraformSourceArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
@@ -27,10 +28,10 @@ pub enum TerraformSourceCommand {
 }
 
 impl TerraformSourceCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            TerraformSourceCommand::Generate(args) => args.invoke().await,
-            TerraformSourceCommand::AddImports(args) => args.invoke().await,
+            TerraformSourceCommand::Generate(args) => args.invoke(auth_context).await,
+            TerraformSourceCommand::AddImports(args) => args.invoke(auth_context).await,
         }
     }
 }

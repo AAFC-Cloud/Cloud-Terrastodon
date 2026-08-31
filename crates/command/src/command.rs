@@ -928,7 +928,7 @@ fn allow_interactive_reauthentication() -> bool {
         "idToken",
     ]
     .into_iter()
-    .any(|name| std::env::var_os(name).is_some());
+    .any(|name| std::env::var_os(name).is_some_and(|value| !value.is_empty()));
     let headless = std::env::var("CI")
         .or_else(|_| std::env::var("TF_BUILD"))
         .or_else(|_| std::env::var("BUILD_BUILDID"))

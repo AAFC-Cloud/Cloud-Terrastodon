@@ -44,7 +44,7 @@ pub enum RestOutputFormat {
     Json,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RestRequest {
     /// Authentication is request-scoped. The optional value keeps the
     /// low-level builder source-compatible for non-CLI callers while callers
@@ -61,6 +61,28 @@ pub struct RestRequest {
     pub cache_key: Option<CacheKey>,
     pub output_format: RestOutputFormat,
     pub failure_extra_files: Option<ResponseFailureExtraFiles>,
+}
+
+impl std::fmt::Debug for RestRequest {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("RestRequest")
+            .field("auth_context", &self.auth_context)
+            .field("service", &self.service)
+            .field("method", &self.method)
+            .field("url", &self.url)
+            .field("body", &self.body)
+            .field("headers", &self.headers)
+            .field("tenant", &self.tenant)
+            .field(
+                "bearer_token",
+                &self.bearer_token.as_ref().map(|_| "***redacted***"),
+            )
+            .field("cache_key", &self.cache_key)
+            .field("output_format", &self.output_format)
+            .field("failure_extra_files", &self.failure_extra_files.is_some())
+            .finish()
+    }
 }
 
 impl RestRequest {

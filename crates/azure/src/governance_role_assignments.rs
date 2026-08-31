@@ -3,12 +3,14 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_credentials::AuthContext;
 use std::path::PathBuf;
 
 /// See also: https://github.com/Azure/azure-cli/issues/28854
 pub async fn fetch_governance_role_assignments_for_principal(
     tenant_id: AzureTenantId,
     principal_id: impl Into<PrincipalId>,
+    auth_context: &AuthContext,
 ) -> eyre::Result<Vec<GovernanceRoleAssignment>> {
     let principal_id: PrincipalId = principal_id.into();
     let url = format!(
@@ -26,6 +28,7 @@ pub async fn fetch_governance_role_assignments_for_principal(
             tenant_id.to_string(),
             principal_id.to_string(),
         ]))),
+        auth_context,
     )
     .fetch_all()
     .await
@@ -37,13 +40,19 @@ mod test {
     use crate::fetch_governance_role_assignments_for_principal;
     use crate::get_test_tenant_id;
     use crate::test_helpers::expect_aad_premium_p2_license;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
         let me = fetch_current_user().await?.id;
         let Some(governance_role_assignments) = expect_aad_premium_p2_license(
-            fetch_governance_role_assignments_for_principal(tenant_id, &me).await,
+            fetch_governance_role_assignments_for_principal(
+                tenant_id,
+                &me,
+                &AuthContext::default(),
+            )
+            .await,
         )
         .await?
         else {

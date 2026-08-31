@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
@@ -21,10 +22,10 @@ pub struct AzureApplicationGatewayShowBackendHealthArgs {
 }
 
 impl AzureApplicationGatewayShowBackendHealthArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.application_gateway, %tenant_id, "Resolving Azure application gateway for backend health");
-        let application_gateways = fetch_all_application_gateways(tenant_id).await?;
+        let application_gateways = fetch_all_application_gateways(tenant_id, auth_context).await?;
 
         let needle = self.application_gateway.trim();
         let mut matches = application_gateways

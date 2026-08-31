@@ -7,6 +7,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
 use reqwest::Method;
@@ -18,15 +19,18 @@ use tracing::debug;
 pub struct AzureDevOpsGroupsListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
 pub fn fetch_azure_devops_groups_for_project<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
+    auth_context: &'a AuthContext,
 ) -> AzureDevOpsGroupsListRequest<'a> {
     AzureDevOpsGroupsListRequest {
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
@@ -35,6 +39,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsGroupsListRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
+            auth_context: Cow::Owned(AuthContext::default()),
         })
     }
 }
@@ -85,11 +90,11 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsListRe
                 "_apis/graph/groups",
                 &query,
             )?;
-            let request = RestRequest::new(Method::GET, url)?;
-            let (response, next_continuation) = receive_azure_devops_page::<Response>(
-                request.cache(page_cache_key(&cache_key, page_index)),
-            )
-            .await?;
+            let mut request =
+                RestRequest::new(Method::GET, url)?.cache(page_cache_key(&cache_key, page_index));
+            request = request.auth_context(self.auth_context.as_ref());
+            let (response, next_continuation) =
+                receive_azure_devops_page::<Response>(request).await?;
             groups.extend(response.graph_groups.or(response.value).unwrap_or_default());
             continuation = next_continuation;
             page_index += 1;
@@ -121,16 +126,19 @@ mod test {
     use crate::fetch_all_azure_devops_projects;
     use crate::fetch_azure_devops_groups_for_project;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let project = fetch_all_azure_devops_projects(&org_url)
+        let auth_context = AuthContext::default();
+        let project = fetch_all_azure_devops_projects(&org_url, &auth_context)
             .await?
             .into_iter()
             .next()
             .expect("No Azure DevOps projects found");
-        let groups = fetch_azure_devops_groups_for_project(&org_url, &project.name).await?;
+        let groups =
+            fetch_azure_devops_groups_for_project(&org_url, &project.name, &auth_context).await?;
         assert!(
             !groups.is_empty(),
             "Expected at least one Azure DevOps group"

@@ -7,6 +7,7 @@ pub use azure_entra_role_definition::AzureEntraRoleDefinitionCommand;
 pub use azure_entra_role_definition_browse::AzureEntraRoleDefinitionBrowseArgs;
 pub use azure_entra_role_definition_find::AzureEntraRoleDefinitionFindArgs;
 pub use azure_entra_role_definition_list::AzureEntraRoleDefinitionListArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Entra role definitions.
@@ -17,7 +18,7 @@ pub struct AzureEntraRoleDefinitionArgs {
 }
 
 impl AzureEntraRoleDefinitionArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

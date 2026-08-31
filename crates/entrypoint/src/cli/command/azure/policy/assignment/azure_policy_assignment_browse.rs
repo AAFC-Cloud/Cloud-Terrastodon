@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use crate::interactive::browse_policy_assignments;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -12,7 +13,7 @@ pub struct AzurePolicyAssignmentBrowseArgs {
 }
 
 impl AzurePolicyAssignmentBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
-        browse_policy_assignments(self.tenant.resolve().await?).await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        browse_policy_assignments(self.tenant.resolve().await?, auth_context).await
     }
 }

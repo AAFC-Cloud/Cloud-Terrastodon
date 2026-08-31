@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzurePrincipalArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_entra_user;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -19,11 +20,11 @@ pub struct AzureEntraUserShowArgs {
 }
 
 impl AzureEntraUserShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!(needle = %self.user, %tenant_id, "Fetching user");
 
-        let user = fetch_entra_user(tenant_id, self.user).await?;
+        let user = fetch_entra_user(tenant_id, self.user, auth_context).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

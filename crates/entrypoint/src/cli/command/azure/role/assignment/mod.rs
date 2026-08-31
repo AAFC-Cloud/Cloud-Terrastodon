@@ -7,6 +7,7 @@ pub use azure_role_assignment_browse_cli::AzureRoleAssignmentBrowseArgs;
 pub use azure_role_assignment_cli::AzureRoleAssignmentCommand;
 pub use azure_role_assignment_create_cli::AzureRoleAssignmentCreateArgs;
 pub use azure_role_assignment_list_cli::AzureRoleAssignmentListArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Azure role assignments.
@@ -17,7 +18,7 @@ pub struct AzureRoleAssignmentArgs {
 }
 
 impl AzureRoleAssignmentArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

@@ -9,6 +9,7 @@ use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::remove_oauth2_permission_grant;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::ContextCompat;
 use eyre::Result;
 use std::io::Write;
@@ -42,7 +43,7 @@ pub struct AzureEntraOAuth2PermissionGrantUpdateArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantUpdateArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         if self.id.is_some() && (self.preset.is_some() || self.principal.is_some()) {
             eyre::bail!("--id cannot be used with --preset or --principal");
         }
@@ -67,7 +68,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 let principal = self
                     .principal
                     .wrap_err("--principal is required when using --preset")?;
-                let principals = fetch_all_principals(tenant_id).await?;
+                let principals = fetch_all_principals(tenant_id, auth_context).await?;
                 let principal = principal.resolve(&principals).wrap_err_with(|| {
                     format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",
@@ -83,7 +84,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                         )
                     })?;
                 let (client_id, resource_id) =
-                    resolve_preset_service_principals(tenant_id, preset).await?;
+                    resolve_preset_service_principals(tenant_id, preset, auth_context).await?;
                 grants
                     .into_iter()
                     .find(|grant| {

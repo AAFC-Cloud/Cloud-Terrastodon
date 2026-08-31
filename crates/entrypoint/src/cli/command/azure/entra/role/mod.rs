@@ -4,6 +4,7 @@ pub mod definition;
 
 pub use assignment::AzureEntraRoleAssignmentArgs;
 pub use azure_entra_role::AzureEntraRoleCommand;
+use cloud_terrastodon_credentials::AuthContext;
 pub use definition::AzureEntraRoleDefinitionArgs;
 use eyre::Result;
 
@@ -15,7 +16,7 @@ pub struct AzureEntraRoleArgs {
 }
 
 impl AzureEntraRoleArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

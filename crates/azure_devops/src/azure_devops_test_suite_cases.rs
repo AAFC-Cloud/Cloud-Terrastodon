@@ -97,21 +97,28 @@ mod test {
     use super::*;
     use crate::fetch_all_azure_devops_projects;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_credentials::AuthContext;
     use eyre::bail;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let projects = fetch_all_azure_devops_projects(&org_url).await?;
+        let auth_context = AuthContext::default();
+        let projects = fetch_all_azure_devops_projects(&org_url, &auth_context).await?;
         for project in projects {
-            let plans = crate::fetch_azure_devops_test_plans(&org_url, &project).await?;
+            let plans =
+                crate::fetch_azure_devops_test_plans(&org_url, &project, &auth_context).await?;
             if plans.is_empty() {
                 continue;
             }
             for plan in plans.iter().take(3) {
-                let suites =
-                    crate::fetch_azure_devops_test_suites(&org_url, &project, plan.id.to_string())
-                        .await?;
+                let suites = crate::fetch_azure_devops_test_suites(
+                    &org_url,
+                    &project,
+                    plan.id.to_string(),
+                    &auth_context,
+                )
+                .await?;
                 for suite in suites.iter().take(3) {
                     let _cases = fetch_azure_devops_test_suite_cases(
                         &org_url,

@@ -1,6 +1,7 @@
 use crate::cli::azure_devops::test::plan::list::AzureDevOpsTestPlanListArgs;
 use crate::cli::azure_devops::test::plan::show::AzureDevOpsTestPlanShowArgs;
 use crate::cli::azure_devops::test::plan::suite::AzureDevOpsTestSuiteArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps test plan-related commands.
@@ -24,11 +25,11 @@ pub enum AzureDevOpsTestPlanCommand {
 }
 
 impl AzureDevOpsTestPlanArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self.command {
-            AzureDevOpsTestPlanCommand::List(args) => args.invoke().await?,
-            AzureDevOpsTestPlanCommand::Show(args) => args.invoke().await?,
-            AzureDevOpsTestPlanCommand::Suite(args) => args.invoke().await?,
+            AzureDevOpsTestPlanCommand::List(args) => args.invoke(auth_context).await?,
+            AzureDevOpsTestPlanCommand::Show(args) => args.invoke(auth_context).await?,
+            AzureDevOpsTestPlanCommand::Suite(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

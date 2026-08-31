@@ -8,11 +8,13 @@ use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerEvent;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 use std::future::Future;
 use std::future::IntoFuture;
 use std::path::PathBuf;
@@ -21,19 +23,35 @@ use tokio::try_join;
 use tracing::info;
 
 #[must_use = "This is an interactive future request, you must .await it"]
-#[derive(Arbitrary, Facet)]
-pub struct EntraUserPickRequest {
+#[derive(Facet)]
+pub struct EntraUserPickRequest<'a> {
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn pick_entra_users(tenant_id: AzureTenantId) -> EntraUserPickRequest {
-    EntraUserPickRequest { tenant_id }
+impl<'a> Arbitrary<'a> for EntraUserPickRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            tenant_id: AzureTenantId::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn pick_entra_users<'a>(
+    tenant_id: AzureTenantId,
+    auth_context: &'a AuthContext,
+) -> EntraUserPickRequest<'a> {
+    EntraUserPickRequest {
+        tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
+    }
 }
 
 #[async_trait]
-impl CacheInvalidatable for EntraUserPickRequest {
+impl<'a> CacheInvalidatable for EntraUserPickRequest<'a> {
     async fn invalidate(&self) -> Result<()> {
-        let users = fetch_all_entra_users(self.tenant_id).cache_key();
+        let users = fetch_all_entra_users(self.tenant_id, self.auth_context.as_ref()).cache_key();
         let searches = CacheKey::new(PathBuf::from_iter([
             "ms",
             "graph",
@@ -48,8 +66,8 @@ impl CacheInvalidatable for EntraUserPickRequest {
     }
 }
 
-impl CacheInvalidatableIntoFuture for EntraUserPickRequest {
-    type WithInvalidation = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+impl<'a> CacheInvalidatableIntoFuture for EntraUserPickRequest<'a> {
+    type WithInvalidation = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
 
     fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
         Box::pin(async move {
@@ -61,38 +79,54 @@ impl CacheInvalidatableIntoFuture for EntraUserPickRequest {
     }
 }
 
-impl IntoFuture for EntraUserPickRequest {
+impl<'a> IntoFuture for EntraUserPickRequest<'a> {
     type Output = Result<Vec<EntraUser>>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
 
     fn into_future(self) -> Self::IntoFuture {
         let tenant_id = self.tenant_id;
+        let auth_context = self.auth_context;
         Box::pin(async move {
+            let list_auth_context = auth_context.clone();
             PickerTui::<EntraUser>::new()
                 .set_header("Users")
                 .add_event_handler({
-                    move |event, sink| async move {
-                        if matches!(event.as_ref(), PickerEvent::InitialLoad) {
-                            info!("Fetching all Entra users");
-                            let users = fetch_all_entra_users(tenant_id).await?;
-                            sink.push(users.into_iter().map(user_choice))?;
-                            info!("Finished fetching all Entra users");
+                    move |event, sink| {
+                        let auth_context = list_auth_context.clone();
+                        async move {
+                            if matches!(event.as_ref(), PickerEvent::InitialLoad) {
+                                info!("Fetching all Entra users");
+                                let users =
+                                    fetch_all_entra_users(tenant_id, auth_context.as_ref()).await?;
+                                sink.push(users.into_iter().map(user_choice))?;
+                                info!("Finished fetching all Entra users");
+                            }
+                            Ok(())
                         }
-                        Ok(())
                     }
                 })
                 .add_event_handler({
-                    move |event, sink| async move {
-                        let query = match event.as_ref() {
-                            PickerEvent::QueryChanged(query)
-                            | PickerEvent::ReloadRequested(query) => query,
-                            PickerEvent::InitialLoad | PickerEvent::QueryCleared => return Ok(()),
-                        };
-                        info!(query = %query, "Searching Entra users");
-                        let users = search_entra_users(tenant_id, query.as_ref()).await?;
-                        sink.push(users.into_iter().map(user_choice))?;
-                        info!(query = %query, "Finished searching Entra users");
-                        Ok(())
+                    move |event, sink| {
+                        let auth_context = auth_context.clone();
+                        async move {
+                            let query = match event.as_ref() {
+                                PickerEvent::QueryChanged(query)
+                                | PickerEvent::ReloadRequested(query) => query,
+                                PickerEvent::InitialLoad | PickerEvent::QueryCleared => {
+                                    return Ok(());
+                                }
+                            };
+                            info!(query = %query, "Searching Entra users");
+                            let users = search_entra_users(
+                                tenant_id,
+                                query.as_ref(),
+                                auth_context.as_ref(),
+                            )
+                            .await?;
+                            sink.push(users.into_iter().map(user_choice))?;
+                            info!(query = %query, "Finished searching Entra users");
+                            Ok(())
+                        }
                     }
                 })
                 .pick_many_events()
@@ -112,6 +146,6 @@ fn user_choice(user: EntraUser) -> Choice<EntraUser> {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(EntraUserPickRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraUserPickRequest);
-cloud_terrastodon_registry::register_into_future!(EntraUserPickRequest => Vec<EntraUser>);
+cloud_terrastodon_registry::register_thing!(EntraUserPickRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(EntraUserPickRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(EntraUserPickRequest<'static> => Vec<EntraUser>);

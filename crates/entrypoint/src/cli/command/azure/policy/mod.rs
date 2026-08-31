@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 pub mod assignment;
 pub mod definition;
 pub mod set_definition;
@@ -37,17 +38,23 @@ pub enum AzurePolicyCommand {
 }
 
 impl AzurePolicyArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
 impl AzurePolicyCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         match self {
-            AzurePolicyCommand::Assignment(args) => args.invoke().await,
-            AzurePolicyCommand::Definition(args) => args.invoke().await,
-            AzurePolicyCommand::SetDefinition(args) => args.invoke().await,
+            AzurePolicyCommand::Assignment(args) => args.invoke(auth_context).await,
+            AzurePolicyCommand::Definition(args) => args.invoke(auth_context).await,
+            AzurePolicyCommand::SetDefinition(args) => args.invoke(auth_context).await,
         }
     }
 }

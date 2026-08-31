@@ -1,5 +1,6 @@
 use super::AzureEntraRoleAssignmentBrowseArgs;
 use super::AzureEntraRoleAssignmentListArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Entra role assignment operations.
@@ -13,10 +14,10 @@ pub enum AzureEntraRoleAssignmentCommand {
 }
 
 impl AzureEntraRoleAssignmentCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureEntraRoleAssignmentCommand::List(args) => args.invoke().await,
-            AzureEntraRoleAssignmentCommand::Browse(args) => args.invoke().await,
+            AzureEntraRoleAssignmentCommand::List(args) => args.invoke(auth_context).await,
+            AzureEntraRoleAssignmentCommand::Browse(args) => args.invoke(auth_context).await,
         }
     }
 }

@@ -10,6 +10,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
+use cloud_terrastodon_credentials::AuthContext;
 // use cloud_terrastodon_tracing::event_collector; // TODO(EGUI-TRACING)
 use eframe::App;
 use eframe::egui::Align2;
@@ -27,6 +28,7 @@ use tracing::info;
 
 pub struct MyApp {
     pub tenant_id: AzureTenantId,
+    pub auth_context: AuthContext,
     pub toggle_intents: HashSet<Id>,
     pub checkboxes: HashMap<Id, bool>,
     pub subscriptions: Loadable<Rc<Vec<Subscription>>, eyre::ErrReport>,
@@ -60,12 +62,14 @@ impl MyApp {
     pub async fn new(
         _cc: &eframe::CreationContext<'_>,
         tenant_id: AzureTenantId,
+        auth_context: AuthContext,
         work_tracker: Rc<WorkTracker>,
         app_info: String,
     ) -> eyre::Result<Self> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
         Ok(Self {
             tenant_id,
+            auth_context,
             toggle_intents: Default::default(),
             checkboxes: Default::default(),
             subscriptions: Default::default(),

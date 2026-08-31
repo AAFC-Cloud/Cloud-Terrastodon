@@ -14,6 +14,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_credentials::AuthContext;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -25,6 +26,7 @@ pub async fn audit_azure_devops(
     tenant_id: AzureTenantId,
     test_license_inactivity_threshold: Duration,
     paid_license_inactivity_threshold: Duration,
+    auth_context: &AuthContext,
 ) -> eyre::Result<()> {
     let test_license_inactivity_threshold =
         chrono::Duration::from_std(test_license_inactivity_threshold)?;
@@ -38,8 +40,8 @@ pub async fn audit_azure_devops(
     let mut total_cost_waste_cad = 0.00;
     let mut message_counts: HashMap<String, usize> = HashMap::new();
 
-    let entitlements = fetch_azure_devops_user_license_entitlements(&org_url).await?;
-    let users_by_principal_name = fetch_all_entra_users(tenant_id)
+    let entitlements = fetch_azure_devops_user_license_entitlements(&org_url, auth_context).await?;
+    let users_by_principal_name = fetch_all_entra_users(tenant_id, auth_context)
         .await?
         .into_iter()
         .map(|user| (user.user_principal_name.to_lowercase(), user))
@@ -135,14 +137,18 @@ pub async fn audit_azure_devops(
         "Analyzing test plan license usage",
     );
 
-    let projects = fetch_all_azure_devops_projects(&org_url).await?;
+    let mut projects_request = fetch_all_azure_devops_projects(&org_url, auth_context);
+    projects_request.tenant = Some(tenant_id);
+    let projects = projects_request.await?;
     let project_test_plans = projects
         .iter()
         .map(|project| {
             let org_url = org_url.clone();
             let project_id = project.id.clone();
+            let auth_context = auth_context.clone();
             async move {
-                let plans = fetch_azure_devops_test_plans(&org_url, &project_id).await?;
+                let plans =
+                    fetch_azure_devops_test_plans(&org_url, &project_id, &auth_context).await?;
                 Ok((project_id, plans))
             }
         })
@@ -164,10 +170,15 @@ pub async fn audit_azure_devops(
         .map(|(project_id, test_plan)| {
             let org_url = org_url.clone();
             let plan_id = test_plan.id;
+            let auth_context = auth_context.clone();
             async move {
-                let suites =
-                    fetch_azure_devops_test_suites(&org_url, &project_id, plan_id.to_string())
-                        .await?;
+                let suites = fetch_azure_devops_test_suites(
+                    &org_url,
+                    &project_id,
+                    plan_id.to_string(),
+                    &auth_context,
+                )
+                .await?;
                 Ok((project_id, plan_id, suites))
             }
         })
@@ -192,8 +203,11 @@ pub async fn audit_azure_devops(
         .map(|entitlement| {
             let member_id = entitlement.user.descriptor.clone();
             let org_url = org_url.clone();
+            let auth_context = auth_context.clone();
             async move {
-                let groups = fetch_azure_devops_groups_for_member(&org_url, &member_id).await?;
+                let groups =
+                    fetch_azure_devops_groups_for_member(&org_url, &member_id, &auth_context)
+                        .await?;
                 Ok((member_id, groups))
             }
         })
@@ -214,8 +228,11 @@ pub async fn audit_azure_devops(
         .map(|project| {
             let org_url = org_url.clone();
             let project_id = project.id.clone();
+            let auth_context = auth_context.clone();
             async move {
-                let groups = fetch_azure_devops_groups_for_project(&org_url, &project_id).await?;
+                let groups =
+                    fetch_azure_devops_groups_for_project(&org_url, &project_id, &auth_context)
+                        .await?;
                 Ok((project_id, groups))
             }
         })

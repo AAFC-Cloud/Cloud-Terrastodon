@@ -51,6 +51,7 @@ use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::evaluate_policy_assignment_compliance;
 use cloud_terrastodon_azure::remediate_policy_assignment;
 use cloud_terrastodon_command::USE_TOFU_FLAG_KEY;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use itertools::Itertools;
@@ -187,46 +188,58 @@ impl MenuAction {
             }
         }
     }
-    pub async fn invoke(&self, tenant_id: AzureTenantId) -> Result<MenuActionResult> {
+    pub async fn invoke(
+        &self,
+        tenant_id: AzureTenantId,
+        auth_context: &AuthContext,
+    ) -> Result<MenuActionResult> {
         match self {
             MenuAction::ResourceGroupImportWizard => {
-                resource_group_import_wizard_menu(tenant_id).await?
+                resource_group_import_wizard_menu(tenant_id, auth_context).await?
             }
-            MenuAction::CopyAzureRMBackend => copy_azurerm_backend_menu(tenant_id).await?,
+            MenuAction::CopyAzureRMBackend => {
+                copy_azurerm_backend_menu(tenant_id, auth_context).await?
+            }
             MenuAction::BrowseResourceGroups => {
                 AzureResourceGroupBrowseArgs {
                     tenant: tenant_id.into(),
                 }
-                .invoke()
+                .invoke(auth_context)
                 .await?
             }
-            MenuAction::BrowseRoleAssignments => browse_role_assignments(tenant_id).await?,
-            MenuAction::BuildAllImports => {
-                write_imports_for_all_resource_groups(tenant_id).await?;
-                write_imports_for_all_security_groups(tenant_id).await?;
-                write_imports_for_all_role_assignments(tenant_id).await?;
+            MenuAction::BrowseRoleAssignments => {
+                browse_role_assignments(tenant_id, auth_context).await?
             }
-            MenuAction::BrowseUsers => browse_users(tenant_id).await?,
-            MenuAction::BrowseSecurityGroups => browse_security_groups(tenant_id).await?,
-            MenuAction::BuildPolicyImports => build_policy_imports(tenant_id).await?,
-            MenuAction::BuildGroupImports => build_group_imports(tenant_id).await?,
+            MenuAction::BuildAllImports => {
+                write_imports_for_all_resource_groups(tenant_id, auth_context).await?;
+                write_imports_for_all_security_groups(tenant_id, auth_context).await?;
+                write_imports_for_all_role_assignments(tenant_id, auth_context).await?;
+            }
+            MenuAction::BrowseUsers => browse_users(tenant_id, auth_context).await?,
+            MenuAction::BrowseSecurityGroups => {
+                browse_security_groups(tenant_id, auth_context).await?
+            }
+            MenuAction::BuildPolicyImports => build_policy_imports(tenant_id, auth_context).await?,
+            MenuAction::BuildGroupImports => build_group_imports(tenant_id, auth_context).await?,
             MenuAction::BuildResourceGroupImports => {
-                build_resource_group_imports(tenant_id).await?
+                build_resource_group_imports(tenant_id, auth_context).await?
             }
             MenuAction::BuildRoleAssignmentImports => {
-                build_role_assignment_imports(tenant_id).await?
+                build_role_assignment_imports(tenant_id, auth_context).await?
             }
             MenuAction::BuildImportsFromExisting => build_imports_from_existing().await?,
             MenuAction::PerformImport => perform_import().await?,
-            MenuAction::ProcessGenerated => process_generated(tenant_id).await?,
+            MenuAction::ProcessGenerated => process_generated(tenant_id, auth_context).await?,
             MenuAction::Clean => clean_all_menu().await?,
-            MenuAction::CreateRoleAssignment => create_role_assignment_menu(tenant_id).await?,
+            MenuAction::CreateRoleAssignment => {
+                create_role_assignment_menu(tenant_id, auth_context).await?
+            }
             MenuAction::CleanImports => clean_imports().await?,
             MenuAction::CleanProcessed => clean_processed().await?,
             MenuAction::InitProcessed => init_processed().await?,
             MenuAction::ApplyProcessed => apply_processed().await?,
             MenuAction::PlanProcessed => plan_processed().await?,
-            MenuAction::PimActivate => pim_activate(tenant_id).await?,
+            MenuAction::PimActivate => pim_activate(tenant_id, auth_context).await?,
             MenuAction::JumpToBlock => {
                 jump_to_block(AppDir::Processed.into()).await?;
                 return Ok(MenuActionResult::Continue);
@@ -235,47 +248,65 @@ impl MenuAction {
                 list_imports().await?;
                 return Ok(MenuActionResult::Continue);
             }
-            MenuAction::RemediatePolicyAssignment => remediate_policy_assignment(tenant_id).await?,
+            MenuAction::RemediatePolicyAssignment => {
+                remediate_policy_assignment(tenant_id, auth_context).await?
+            }
             MenuAction::EvaluatePolicyAssignmentCompliance => {
-                evaluate_policy_assignment_compliance(tenant_id).await?
+                evaluate_policy_assignment_compliance(tenant_id, auth_context).await?
             }
             MenuAction::UseTofu => unsafe { env::set_var(USE_TOFU_FLAG_KEY, "1") },
             MenuAction::UseTerraform => unsafe { env::remove_var(USE_TOFU_FLAG_KEY) },
-            MenuAction::PopulateCache => populate_cache(tenant_id).await?,
+            MenuAction::PopulateCache => populate_cache(tenant_id, auth_context).await?,
             MenuAction::OpenDir => open_dir().await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
-            MenuAction::TagEmptyResourceGroups => tag_empty_resource_group_menu(tenant_id).await?,
-            MenuAction::TagResources => tag_resources_menu(tenant_id).await?,
-            MenuAction::BrowseResources => browse_resources_menu(tenant_id).await?,
-            MenuAction::DumpTags => dump_tags(tenant_id).await?,
-            MenuAction::ResourceGraphQuery => run_query_menu(tenant_id).await?,
-            MenuAction::FindResourceOwners => find_resource_owners_menu(tenant_id).await?,
+            MenuAction::TagEmptyResourceGroups => {
+                tag_empty_resource_group_menu(tenant_id, auth_context).await?
+            }
+            MenuAction::TagResources => tag_resources_menu(tenant_id, auth_context).await?,
+            MenuAction::BrowseResources => browse_resources_menu(tenant_id, auth_context).await?,
+            MenuAction::DumpTags => dump_tags(tenant_id, auth_context).await?,
+            MenuAction::ResourceGraphQuery => run_query_menu(tenant_id, auth_context).await?,
+            MenuAction::FindResourceOwners => {
+                find_resource_owners_menu(tenant_id, auth_context).await?
+            }
             MenuAction::CreateNewActionVariant => create_new_action_variant().await?,
-            MenuAction::BrowsePolicyAssignments => browse_policy_assignments(tenant_id).await?,
-            MenuAction::DumpSecurityGroups => dump_security_groups_as_json(tenant_id).await?,
-            MenuAction::BrowsePolicyDefinitions => browse_policy_definitions(tenant_id).await?,
-            MenuAction::BulkUserIdLookup => bulk_user_id_lookup(tenant_id).await?,
-            MenuAction::DumpWorkItems => dump_work_items().await?,
+            MenuAction::BrowsePolicyAssignments => {
+                browse_policy_assignments(tenant_id, auth_context).await?
+            }
+            MenuAction::DumpSecurityGroups => {
+                dump_security_groups_as_json(tenant_id, auth_context).await?
+            }
+            MenuAction::BrowsePolicyDefinitions => {
+                browse_policy_definitions(tenant_id, auth_context).await?
+            }
+            MenuAction::BulkUserIdLookup => bulk_user_id_lookup(tenant_id, auth_context).await?,
+            MenuAction::DumpWorkItems => dump_work_items(auth_context).await?,
             MenuAction::BrowseOAuth2PermissionGrants => {
-                browse_oauth2_permission_grants(tenant_id).await?
+                browse_oauth2_permission_grants(tenant_id, auth_context).await?
             }
             MenuAction::RemoveOAuth2PermissionGrants => {
-                remove_oauth2_permission_grants(tenant_id).await?
+                remove_oauth2_permission_grants(tenant_id, auth_context).await?
             }
             MenuAction::CreateOAuth2PermissionGrants => {
-                create_oauth2_permission_grants(tenant_id).await?
+                create_oauth2_permission_grants(tenant_id, auth_context).await?
             }
             MenuAction::AzureDevOpsProjectImportWizard => {
-                azure_devops_project_import_wizard_menu().await?
+                azure_devops_project_import_wizard_menu(auth_context).await?
             }
-            MenuAction::BrowseAzureDevOpsProjects => browse_azure_devops_projects().await?,
+            MenuAction::BrowseAzureDevOpsProjects => {
+                browse_azure_devops_projects(auth_context).await?
+            }
             MenuAction::BrowseAzureDevOpsProjectTeams => {
-                browse_azure_devops_project_teams().await?
+                browse_azure_devops_project_teams(auth_context).await?
             }
-            MenuAction::BrowseServicePrincipals => browse_service_principals(tenant_id).await?,
-            MenuAction::BrowseStorageAccounts => browse_storage_accounts(tenant_id).await?,
+            MenuAction::BrowseServicePrincipals => {
+                browse_service_principals(tenant_id, auth_context).await?
+            }
+            MenuAction::BrowseStorageAccounts => {
+                browse_storage_accounts(tenant_id, auth_context).await?
+            }
             MenuAction::CreateImportBlockForRoleAssignment => {
-                create_import_block_for_role_assignment(tenant_id).await?
+                create_import_block_for_role_assignment(tenant_id, auth_context).await?
             }
         }
         Ok(MenuActionResult::PauseAndContinue)

@@ -3,6 +3,7 @@ pub mod azure_pim_setup;
 
 pub use azure_pim_activate::AzurePimActivateArgs;
 pub use azure_pim_setup::AzurePimSetupArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Arguments for Azure Privileged Identity Management operations.
@@ -23,16 +24,16 @@ pub enum AzurePimCommand {
 }
 
 impl AzurePimArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }
 
 impl AzurePimCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzurePimCommand::Activate(args) => args.invoke().await,
-            AzurePimCommand::Setup(args) => args.invoke().await,
+            AzurePimCommand::Activate(args) => args.invoke(auth_context).await,
+            AzurePimCommand::Setup(args) => args.invoke(auth_context).await,
         }
     }
 }

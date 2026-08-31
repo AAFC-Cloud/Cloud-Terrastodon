@@ -6,15 +6,18 @@ use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct EntraGroupMembersListRequest {
+#[derive(facet::Facet)]
+pub struct EntraGroupMembersListRequest<'a> {
     pub group_id: EntraGroupId,
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
-impl EntraGroupMembersListRequest {
+impl EntraGroupMembersListRequest<'_> {
     pub fn url(&self) -> String {
         format!(
             "https://graph.microsoft.com/v1.0/groups/{}/members",
@@ -22,8 +25,8 @@ impl EntraGroupMembersListRequest {
         )
     }
 }
-impl From<EntraGroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<Principal>> {
-    fn from(request: EntraGroupMembersListRequest) -> Self {
+impl From<EntraGroupMembersListRequest<'_>> for MicrosoftGraphBatchRequestEntry<Vec<Principal>> {
+    fn from(request: EntraGroupMembersListRequest<'_>) -> Self {
         MicrosoftGraphBatchRequestEntry::new_get(
             format!("group-members-for-{}", request.group_id),
             request.url(),
@@ -31,18 +34,30 @@ impl From<EntraGroupMembersListRequest> for MicrosoftGraphBatchRequestEntry<Vec<
     }
 }
 
-pub fn fetch_group_members(
+impl<'a> arbitrary::Arbitrary<'a> for EntraGroupMembersListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            group_id: arbitrary::Arbitrary::arbitrary(u)?,
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_group_members<'a>(
     tenant_id: AzureTenantId,
     group_id: EntraGroupId,
-) -> EntraGroupMembersListRequest {
+    auth_context: &'a AuthContext,
+) -> EntraGroupMembersListRequest<'a> {
     EntraGroupMembersListRequest {
         group_id,
         tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
 #[async_trait]
-impl CacheableCommand for EntraGroupMembersListRequest {
+impl CacheableCommand for EntraGroupMembersListRequest<'_> {
     type Output = Vec<Principal>;
 
     fn cache_key(&self) -> CacheKey {
@@ -65,6 +80,7 @@ impl CacheableCommand for EntraGroupMembersListRequest {
                 self.group_id
             ),
             Some(self.cache_key()),
+            self.auth_context.as_ref(),
         );
         let members = query.fetch_all::<Principal>().await?;
         debug!(
@@ -76,7 +92,7 @@ impl CacheableCommand for EntraGroupMembersListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -88,13 +104,14 @@ mod tests {
     #[tokio::test]
     async fn list_group_members() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let groups = fetch_all_groups(tenant_id).await?;
+        let auth_context = AuthContext::default();
+        let groups = fetch_all_groups(tenant_id, &auth_context).await?;
         assert!(!groups.is_empty());
         // there's a chance that some groups just don't have members lol
         // lets hope that we aren't unlucky many times in a row
         let tries = 10.min(groups.len());
         for group in groups.iter().take(tries) {
-            let members = fetch_group_members(tenant_id, group.id).await?;
+            let members = fetch_group_members(tenant_id, group.id, &auth_context).await?;
             if !members.is_empty() {
                 return Ok(());
             }
@@ -103,6 +120,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(EntraGroupMembersListRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraGroupMembersListRequest);
-cloud_terrastodon_registry::register_into_future!(EntraGroupMembersListRequest => Vec<Principal>);
+cloud_terrastodon_registry::register_thing!(EntraGroupMembersListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupMembersListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(EntraGroupMembersListRequest<'static> => Vec<Principal>);

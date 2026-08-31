@@ -2,6 +2,7 @@ use super::AzureEntraUserBrowseArgs;
 use super::AzureEntraUserListArgs;
 use super::AzureEntraUserSearchArgs;
 use super::AzureEntraUserShowArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// User-related Entra (Azure AD) commands.
@@ -19,12 +20,12 @@ pub enum AzureEntraUserCommand {
 }
 
 impl AzureEntraUserCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         match self {
-            AzureEntraUserCommand::List(args) => args.invoke().await,
-            AzureEntraUserCommand::Show(args) => args.invoke().await,
-            AzureEntraUserCommand::Search(args) => args.invoke().await,
-            AzureEntraUserCommand::Browse(args) => args.invoke().await,
+            AzureEntraUserCommand::List(args) => args.invoke(auth_context).await,
+            AzureEntraUserCommand::Show(args) => args.invoke(auth_context).await,
+            AzureEntraUserCommand::Search(args) => args.invoke(auth_context).await,
+            AzureEntraUserCommand::Browse(args) => args.invoke(auth_context).await,
         }
     }
 }

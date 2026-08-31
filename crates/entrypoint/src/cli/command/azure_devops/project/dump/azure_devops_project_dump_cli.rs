@@ -10,6 +10,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::to_writer_pretty;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -38,7 +39,7 @@ struct AzureDevOpsProjectDumpPayload {
 
 impl AzureDevOpsProjectDumpArgs {
     /// Stubbed invoke implementation for the `dump` command.
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let span = info_span!("azure_devops_project_dump", project=%self.project);
         let _guard = span.clone().entered();
 
@@ -47,7 +48,7 @@ impl AzureDevOpsProjectDumpArgs {
             .into_future()
             .instrument(span.clone())
             .await?;
-        let projects = fetch_all_azure_devops_projects(&org_url)
+        let projects = fetch_all_azure_devops_projects(&org_url, auth_context)
             .into_future()
             .instrument(span.clone())
             .await?;
@@ -61,7 +62,7 @@ impl AzureDevOpsProjectDumpArgs {
             .instrument(span.clone())
             .await?;
 
-        let groups = fetch_azure_devops_groups_for_project(&org_url, &project)
+        let groups = fetch_azure_devops_groups_for_project(&org_url, &project, auth_context)
             .into_future()
             .instrument(span.clone())
             .await?;

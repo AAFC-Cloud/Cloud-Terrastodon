@@ -5,27 +5,42 @@ use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_credentials::AuthContext;
+use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
-#[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct EntraGroupOwnersListRequest {
+#[derive(facet::Facet)]
+pub struct EntraGroupOwnersListRequest<'a> {
     pub group_id: EntraGroupId,
     pub tenant_id: AzureTenantId,
+    pub auth_context: Cow<'a, AuthContext>,
 }
 
-pub fn fetch_group_owners(
+impl<'a> arbitrary::Arbitrary<'a> for EntraGroupOwnersListRequest<'static> {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            group_id: arbitrary::Arbitrary::arbitrary(u)?,
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_context: Cow::Owned(AuthContext::default()),
+        })
+    }
+}
+
+pub fn fetch_group_owners<'a>(
     tenant_id: AzureTenantId,
     group_id: EntraGroupId,
-) -> EntraGroupOwnersListRequest {
+    auth_context: &'a AuthContext,
+) -> EntraGroupOwnersListRequest<'a> {
     EntraGroupOwnersListRequest {
         group_id,
         tenant_id,
+        auth_context: Cow::Borrowed(auth_context),
     }
 }
 
 #[async_trait]
-impl CacheableCommand for EntraGroupOwnersListRequest {
+impl CacheableCommand for EntraGroupOwnersListRequest<'_> {
     type Output = Vec<Principal>;
 
     fn cache_key(&self) -> CacheKey {
@@ -48,6 +63,7 @@ impl CacheableCommand for EntraGroupOwnersListRequest {
                 self.group_id
             ),
             Some(self.cache_key()),
+            self.auth_context.as_ref(),
         );
         let owners = query.fetch_all::<Principal>().await?;
         debug!("Found {} owners for group {}", owners.len(), self.group_id);
@@ -55,7 +71,7 @@ impl CacheableCommand for EntraGroupOwnersListRequest {
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupOwnersListRequest);
+cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupOwnersListRequest<'a>, 'a);
 
 #[cfg(test)]
 mod tests {
@@ -67,13 +83,14 @@ mod tests {
     #[tokio::test]
     async fn list_group_owners() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let groups = fetch_all_groups(tenant_id).await?;
+        let auth_context = AuthContext::default();
+        let groups = fetch_all_groups(tenant_id, &auth_context).await?;
         assert!(!groups.is_empty());
         // there's a chance that some groups just don't have members lol
         // lets hope that we aren't unlucky many times in a row
         let tries = 10.min(groups.len());
         for group in groups.iter().take(tries) {
-            let owners = fetch_group_owners(tenant_id, group.id).await?;
+            let owners = fetch_group_owners(tenant_id, group.id, &auth_context).await?;
             if !owners.is_empty() {
                 return Ok(());
             }
@@ -82,6 +99,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(EntraGroupOwnersListRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraGroupOwnersListRequest);
-cloud_terrastodon_registry::register_into_future!(EntraGroupOwnersListRequest => Vec<Principal>);
+cloud_terrastodon_registry::register_thing!(EntraGroupOwnersListRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupOwnersListRequest<'static>);
+cloud_terrastodon_registry::register_into_future!(EntraGroupOwnersListRequest<'static> => Vec<Principal>);

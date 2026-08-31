@@ -12,6 +12,7 @@ use cloud_terrastodon_azure::fetch_compute_publisher_image_offer_sku_versions;
 use cloud_terrastodon_azure::fetch_compute_publisher_image_offer_skus;
 use cloud_terrastodon_azure::fetch_compute_publisher_image_offers;
 use cloud_terrastodon_azure::fetch_compute_publishers;
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -27,7 +28,7 @@ pub struct AzureVmPublisherBrowseArgs {
 }
 
 impl AzureVmPublisherBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         enum Decision {
             Print,
@@ -36,7 +37,7 @@ impl AzureVmPublisherBrowseArgs {
         // 1) Pick subscriptions
         info!("Fetching subscriptions");
         let tenant_id = self.tenant.resolve().await?;
-        let subs = fetch_all_subscriptions(tenant_id).await?;
+        let subs = fetch_all_subscriptions(tenant_id, auth_context).await?;
         let chosen_subs = PickerTui::<_>::new()
             .set_header("Select one or more subscriptions (Tab to mark multiple)")
             .pick_many(subs)

@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use super::CognitiveServicesAccountArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -25,14 +26,14 @@ pub struct AzureCognitiveServicesDeploymentShowArgs {
 }
 
 impl AzureCognitiveServicesDeploymentShowArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let Self {
             tenant,
             account,
             deployment,
         } = self;
         let tenant_id = tenant.resolve().await?;
-        let accounts = fetch_all_cognitive_services_accounts(tenant_id).await?;
+        let accounts = fetch_all_cognitive_services_accounts(tenant_id, auth_context).await?;
         let mut account_matches = accounts
             .into_iter()
             .filter(|item| account.matches(item))

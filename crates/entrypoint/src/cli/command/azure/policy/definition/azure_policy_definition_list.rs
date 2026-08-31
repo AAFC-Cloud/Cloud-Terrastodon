@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
@@ -27,10 +28,10 @@ pub struct AzurePolicyDefinitionListArgs {
 }
 
 impl AzurePolicyDefinitionListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         info!("Fetching Azure policy definitions...");
-        let mut policy_definitions = fetch_all_policy_definitions(tenant_id).await?;
+        let mut policy_definitions = fetch_all_policy_definitions(tenant_id, auth_context).await?;
         info!(
             count = policy_definitions.len(),
             "Fetched Azure policy definitions",

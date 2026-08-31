@@ -5,6 +5,7 @@ pub mod azure_entra_role_assignment_list;
 pub use azure_entra_role_assignment::AzureEntraRoleAssignmentCommand;
 pub use azure_entra_role_assignment_browse::AzureEntraRoleAssignmentBrowseArgs;
 pub use azure_entra_role_assignment_list::AzureEntraRoleAssignmentListArgs;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Entra role assignments.
@@ -15,7 +16,7 @@ pub struct AzureEntraRoleAssignmentArgs {
 }
 
 impl AzureEntraRoleAssignmentArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        self.command.invoke(auth_context).await
     }
 }

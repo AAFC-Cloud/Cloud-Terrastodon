@@ -1,3 +1,4 @@
+use cloud_terrastodon_credentials::AuthContext;
 use super::AzurePolicySetDefinitionBrowseArgs;
 use super::AzurePolicySetDefinitionListArgs;
 use super::AzurePolicySetDefinitionShowArgs;
@@ -16,11 +17,14 @@ pub enum AzurePolicySetDefinitionCommand {
 }
 
 impl AzurePolicySetDefinitionCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+    ) -> Result<()> {
         match self {
-            AzurePolicySetDefinitionCommand::List(args) => args.invoke().await,
-            AzurePolicySetDefinitionCommand::Browse(args) => args.invoke().await,
-            AzurePolicySetDefinitionCommand::Show(args) => args.invoke().await,
+            AzurePolicySetDefinitionCommand::List(args) => args.invoke(auth_context).await,
+            AzurePolicySetDefinitionCommand::Browse(args) => args.invoke(auth_context).await,
+            AzurePolicySetDefinitionCommand::Show(args) => args.invoke(auth_context).await,
         }
     }
 }
