@@ -54,6 +54,7 @@ impl Cli {
 mod tests {
     use super::*;
     use crate::cli::azure::azure_command::AzureCommand;
+    use crate::cli::azure::pim::AzurePimCommand;
     use crate::cli::azure::tenant::AzureTenantCommand;
     use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;
     use crate::cli::azure_devops::project::AzureDevOpsProjectCommand;
@@ -89,5 +90,33 @@ mod tests {
             panic!("expected the login command");
         };
         assert_eq!(login.tenant.to_string(), "agr");
+    }
+
+    #[test]
+    fn parses_the_unauthenticated_pim_client_id_bootstrap() {
+        let cli: Cli = figue::from_slice(&[
+            "az",
+            "pim",
+            "setup",
+            "--tenant",
+            "agr",
+            "--client-id",
+            "11111111-1111-1111-1111-111111111111",
+        ])
+        .unwrap();
+        let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
+            panic!("expected the az command alias");
+        };
+        let AzureCommand::Pim(pim) = azure.command else {
+            panic!("expected the pim command");
+        };
+        let AzurePimCommand::Setup(setup) = pim.command else {
+            panic!("expected the setup command");
+        };
+        assert_eq!(setup.tenant.to_string(), "agr");
+        assert_eq!(
+            setup.client_id.map(|client_id| client_id.to_string()),
+            Some("11111111-1111-1111-1111-111111111111".to_string())
+        );
     }
 }

@@ -83,6 +83,18 @@ VS Code can forward that port to the host browser when automatic port
 forwarding is enabled; if it does not, the command prints the authorization URL
 and the forwarded port can be opened manually.
 
+The browser flow needs the public client's app registration ID before its first
+login. Bootstrap a known registration without Azure CLI or Graph authentication:
+
+```text
+ct az pim setup --tenant <tenant-or-alias> --client-id <application-client-id>
+ct --auth-source browser az tenant login <tenant-or-alias>
+```
+
+Supplying `--client-id` only persists the tenant-to-client-ID mapping; it does
+not verify the registration or its delegated permissions. Omitting it preserves
+the authenticated discovery and permission-validation setup path.
+
 ## Azure CLI and PAT compatibility
 
 Azure CLI and PAT-backed paths remain for local compatibility and follow-on

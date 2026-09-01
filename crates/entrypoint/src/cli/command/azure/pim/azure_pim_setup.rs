@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraApplicationRegistration;
 use cloud_terrastodon_azure::fetch_all_service_principals;
@@ -22,16 +23,37 @@ use uuid::Uuid;
 const MICROSOFT_GRAPH_APP_ID: &str = "00000003-0000-0000-c000-000000000000";
 const MICROSOFT_GRAPH_SCOPE_PREFIX: &str = "https://graph.microsoft.com/";
 
-/// Discover and configure the Cloud Terrastodon PIM app registration.
+/// Configure the Cloud Terrastodon PIM app registration by client ID or discovery.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzurePimSetupArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
+
+    /// App registration client ID to persist without authenticated discovery.
+    #[facet(figue::named)]
+    pub client_id: Option<EntraApplicationClientId>,
 }
 
 impl AzurePimSetupArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        if let Some(client_id) = self.client_id {
+            let tenant_id = self.tenant.resolve().await?;
+            persist_client_id(&tenant_id, client_id).await?;
+
+            let output = PimClientIdSetupOutput {
+                tenant_id,
+                application_id: client_id,
+                client_id_persisted: true,
+                permissions_verified: false,
+            };
+            let stdout = std::io::stdout();
+            let mut handle = stdout.lock();
+            cloud_terrastodon_command::to_writer_pretty(&mut handle, &output)?;
+            handle.write_all(b"\n")?;
+            return Ok(());
+        }
+
         let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         let tenant_id = tenant_auth_context.tenant_id;
         info!(%tenant_id, "Searching for the Cloud Terrastodon PIM app registration");
@@ -97,9 +119,7 @@ impl AzurePimSetupArgs {
             );
         }
 
-        let mut config = PimConfig::load().await?;
-        config.set_client_id(&tenant_id, application.app_id);
-        config.save().await?;
+        persist_client_id(&tenant_id, application.app_id).await?;
         let output = PimSetupOutput {
             application_id: application.app_id,
             application_display_name: application.display_name,
@@ -121,6 +141,24 @@ impl AzurePimSetupArgs {
         handle.write_all(b"\n")?;
         Ok(())
     }
+}
+
+async fn persist_client_id(
+    tenant_id: &AzureTenantId,
+    client_id: EntraApplicationClientId,
+) -> Result<()> {
+    let mut config = PimConfig::load().await?;
+    config.set_client_id(tenant_id, client_id);
+    config.save().await
+}
+
+#[derive(Debug, facet::Facet)]
+#[facet(rename_all = "camelCase")]
+struct PimClientIdSetupOutput {
+    tenant_id: AzureTenantId,
+    application_id: EntraApplicationClientId,
+    client_id_persisted: bool,
+    permissions_verified: bool,
 }
 
 #[derive(Debug, facet::Facet)]

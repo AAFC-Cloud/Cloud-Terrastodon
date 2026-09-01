@@ -19,7 +19,7 @@ pub struct AzurePimArgs {
 pub enum AzurePimCommand {
     /// Activate Azure or Entra PIM assignments.
     Activate(AzurePimActivateArgs),
-    /// Discover and configure the Cloud Terrastodon PIM app registration.
+    /// Configure the Cloud Terrastodon PIM app registration by client ID or discovery.
     Setup(AzurePimSetupArgs),
 }
 

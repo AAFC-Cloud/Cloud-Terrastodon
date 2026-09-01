@@ -21,6 +21,6 @@ pub async fn pim_client_id(tenant_id: &AzureTenantId) -> Result<EntraApplication
     }
 
     bail!(
-        "{PIM_CLIENT_ID_ENV} is not set and no tenant-specific PIM app is configured; run `cloud_terrastodon az pim setup`"
+        "{PIM_CLIENT_ID_ENV} is not set and no tenant-specific PIM app is configured; run `ct az pim setup --tenant <tenant-or-alias> --client-id <application-client-id>`"
     )
 }

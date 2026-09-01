@@ -756,8 +756,11 @@ fn token_exchange_scopes(resource: AzureRestResource, scopes: &str) -> String {
                     AzureRestResource::MicrosoftGraph => {
                         // Graph permissions are accepted both as fully
                         // qualified resource scopes and as short permission
-                        // names (for example `Directory.Read.All`).
-                        scope.starts_with("https://graph.microsoft.com/") || !scope.contains("://")
+                        // names (for example `Directory.Read.All`). Azure
+                        // DevOps uses a GUID-based resource scope without a
+                        // URI scheme, so a short Graph name must also contain
+                        // no resource-path separator.
+                        scope.starts_with("https://graph.microsoft.com/") || !scope.contains('/')
                     }
                     AzureRestResource::AzureResourceManager => {
                         scope.starts_with("https://management.azure.com/")
@@ -842,9 +845,26 @@ mod tests {
 
     #[test]
     fn graph_redemption_keeps_short_permission_names() {
-        let scopes = "User.Read Directory.Read.All https://management.azure.com/user_impersonation offline_access";
+        let scopes = "User.Read Directory.Read.All https://management.azure.com/user_impersonation 499b84ac-1321-427f-aa17-267ca6975798/user_impersonation offline_access";
         let graph_scopes = token_exchange_scopes(AzureRestResource::MicrosoftGraph, scopes);
         assert_eq!(graph_scopes, "User.Read Directory.Read.All offline_access");
+    }
+
+    #[test]
+    fn every_authorization_code_redemption_uses_one_resource() {
+        let scopes = delegated_login_scopes();
+        assert_eq!(
+            token_exchange_scopes(AzureRestResource::MicrosoftGraph, &scopes),
+            "https://graph.microsoft.com/User.Read offline_access"
+        );
+        assert_eq!(
+            token_exchange_scopes(AzureRestResource::AzureResourceManager, &scopes),
+            "https://management.azure.com/user_impersonation offline_access"
+        );
+        assert_eq!(
+            token_exchange_scopes(AzureRestResource::AzureDevOps, &scopes),
+            "499b84ac-1321-427f-aa17-267ca6975798/user_impersonation offline_access"
+        );
     }
 
     #[test]
